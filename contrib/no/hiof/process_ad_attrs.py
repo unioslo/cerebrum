@@ -42,12 +42,11 @@ def process_requests(dryrun, db):
     """
     start_time = time.time()
     max_requests = 999999
-    ac = Factory.get('Account')(db)
     const = Factory.get('Constants')(db)
     br = HiofBofhdRequests(db, const)
     op = const.bofh_ad_attrs_remove
     for r in br.get_requests(operation=op, only_runnable=True):
-        if not is_valid_request(db, const, r['request_id']):
+        if not is_valid_request(br, r['request_id']):
             continue
         if not keep_running(max_requests, start_time):
             break
@@ -59,7 +58,7 @@ def process_requests(dryrun, db):
             spread = const.Spread(r['state_data'])
         else:
             spread = None
-        if delete_ad_attrs(ac, r['entity_id'], spread):
+        if delete_ad_attrs(r['entity_id'], spread):
             br.delete_request(request_id=r['request_id'])
 
     if dryrun:
@@ -70,10 +69,10 @@ def process_requests(dryrun, db):
         db.commit()
 
 
-def delete_ad_attrs(ac, entity_id, spread):
+def delete_ad_attrs(entity_id, spread):
     # Find account and delete ad attrs
     ret = False
-    ac.clear()
+    ac = Factory.get('Account')(db)
     try:
         ac.find(entity_id)
         ac.delete_ad_attrs(spread)
@@ -85,9 +84,8 @@ def delete_ad_attrs(ac, entity_id, spread):
     return ret
 
 
-def is_valid_request(db, const, req_id):
+def is_valid_request(br, req_id):
     # The request may have been canceled very recently
-    br = HiofBofhdRequests(db, const)
     for r in br.get_requests(request_id=req_id):
         return True
     return False
@@ -112,11 +110,14 @@ def set_operator(db, entity_id=None):
 
 def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument("--dryrun",
+                        help="Dryrun mode",
+                        action='store_true',
+                        default=False)
     parser.add_argument("--delete",
                         help="Find bofhd requests and delete ad attrs",
                         action='store_true',
                         default=False)
-    add_commit_args(parser)
     Cerebrum.logutils.options.install_subparser(parser)
     args = parser.parse_args()
     Cerebrum.logutils.autoconf('cronjob', args)
@@ -125,14 +126,6 @@ def main():
 
     if args.delete:
         process_requests(args.dryrun, db)
-
-
-def usage(exitcode=0):
-    print """Usage: process_ad_attrs.py
-    --dryrun: dryrun mode
-    --delete: find bofhd requests and delete ad attrs
-    """
-    sys.exit(exitcode)
 
 
 if __name__ == '__main__':
