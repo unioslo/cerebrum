@@ -58,12 +58,14 @@ import sys
 import getopt
 import re
 
-import mx.DateTime as dt
+import datetime
 
 import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.context import entity, entitise
+from Cerebrum.utils.date import now
+from Cerebrum.utils.date_compat import get_datetime_tz
 from Cerebrum.modules.bofhd_requests.request import BofhdRequests
 
 logger = Factory.get_logger("cronjob")
@@ -74,7 +76,7 @@ constants = Factory.get("Constants")(database)
 # need only look at accounts
 account = Factory.get("Account")(database)
 person = Factory.get("Person")(database)
-today = dt.today()
+
 
 account.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
 operator_id = account.entity_id
@@ -106,15 +108,16 @@ def fetch_all_relevant_accounts(qua_type, since, ignore_affs,
     :returns: The `entity_id` for all the accounts that match the criterias.
 
     """
-    max_date = dt.now() - since
+    max_date = now() - datetime.timedelta(days = since)
     logger.debug("Search quarantines older than %s days, i.e. before %s",
                  since, max_date.strftime('%Y-%m-%d'))
     targets = set(row['entity_id'] for row in
                   account.list_entity_quarantines(
                       entity_types=constants.entity_account,
                       quarantine_types=qua_type, only_active=True)
-                  if row['start_date'] <= max_date)
+                  if get_datetime_tz(row['start_date']) <= max_date)
     logger.debug("Found %d quarantine targets", len(targets))
+
     if len(targets) == 0:
         return targets
 
