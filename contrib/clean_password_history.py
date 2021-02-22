@@ -90,14 +90,15 @@ def main():
     logger.info(
         'Deleting all entries in password_history before: %s' % exp_date)
 
-    ph = PasswordHistory(Factory.get('Database')())
+    db = Factory.get('Database')()
+    ph = PasswordHistory(db)
     ph.del_exp_history(exp_date)
     if args.commit:
         logger.info('Committing changes')
         ph.commit()
     else:
         logger.info('Rolling back changes')
-        ph.rollback()
+        db.rollback()
     logger.info('Done')
 
 
