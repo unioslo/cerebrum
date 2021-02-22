@@ -59,7 +59,7 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.QuarantineHandler import QuarantineHandler
 from Cerebrum.utils.date import now
-from Cerebrum.utils.date_compat import get_datetime_tz
+from Cerebrum.utils.date_compat import get_date
 from Cerebrum.utils.email import sendmail
 
 logger = Factory.get_logger('cronjob')
@@ -259,7 +259,7 @@ def find_candidates(exclude_aff=[], grace=0, quarantine=None):
         - `quarantined`: A set with account-IDs for all quarantined accounts.
 
     """
-    datelimit = now() + datetime.timedelta(days=int(grace))
+    datelimit = datetime.datetime.today() + datetime.timedelta(days=int(grace))
     logger.debug2("Including affiliations deleted after: %s", datelimit)
 
     def is_aff_considered(row):
@@ -318,7 +318,7 @@ def set_quarantine(pids, quar, offset, quarantined):
     success = set()
     failed_notify = 0
     no_processed = 0
-    date = now() + datetime.timedelta(days=int(offset))
+    date = datetime.date.today() + datetime.timedelta(days=int(offset))
 
     # Cache what entities has the target quarantine:
     with_target_quar = set(
@@ -327,8 +327,8 @@ def set_quarantine(pids, quar, offset, quarantined):
                                    only_active=False,
                                    entity_types=co.entity_account)
         if (
-                get_datetime_tz(r['start_date']) and
-                get_datetime_tz(r['start_date']) <= date))
+                get_date(r['start_date']) and
+                get_date(r['start_date']) <= date))
     logger.debug2('Accounts with target quarantine: %d', len(with_target_quar))
     # Cache the owner to account relationship:
     pid2acs = {}
@@ -363,7 +363,7 @@ def set_quarantine(pids, quar, offset, quarantined):
 
             if notified:
                 ac.delete_entity_quarantine(quar)
-                ac.add_entity_quarantine(quar, creator, start=date)
+                ac.add_entity_quarantine(quar, creator, start=str(date))
                 # Commiting here to avoid that users get multiple emails if the
                 # script is stopped before it's done.
                 ac.commit()
