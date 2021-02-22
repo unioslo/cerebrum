@@ -37,7 +37,7 @@ no_ssn  -- 11-digit Norwegian social security number (personnummer)
 uname   -- account name
 """
 
-import datetime
+from datetime import datetime
 import getopt
 import sys
 import string
@@ -139,7 +139,9 @@ def process_person(fnr, lname, fname, bewid, set_names):
     if fodselsnr.er_kvinne(fnr):
         gender = constants.gender_female
     year, mon, day = fodselsnr.fodt_dato(fnr)
-    person.populate(db.Date(year, mon, day), gender)
+    person.populate(
+        datetime.strptime("%i/%i/%i" %(day, mon, year), "%d/%m/%Y").date(),
+        gender)
     if bewid:
         person.affect_external_id(constants.system_migrate,
                                   constants.externalid_fodselsnr,
@@ -246,7 +248,7 @@ def reserve_user(owner_id, uname, maxlen):
 
     uname = check_uname(uname, maxlen, strict=False)
     if uname and populate_user(uname, owner_type, default_group_id, np_type,
-                               expire_date=datetime.datetime.today()):
+                               expire_date=datetime.today()):
         logger.info("User %s reserved", uname)
         person.clear()
         person.find(owner_id)
