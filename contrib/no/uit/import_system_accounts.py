@@ -100,6 +100,7 @@ If no expire_date is set at all, it will default to today
 from __future__ import unicode_literals
 
 import argparse
+import datetime
 import logging
 import sys
 import xml.sax
@@ -112,7 +113,7 @@ from Cerebrum.modules import PosixUser
 from Cerebrum.modules.no.uit import POSIX_GROUP_NAME
 from Cerebrum.utils import transliterate
 from Cerebrum.utils.argutils import add_commit_args
-from mx import DateTime
+from Cerebrum.utils.date import parse_date
 
 default_source_file = ('%s/var/source/system_accounts/system_accounts.xml' %
                        sys.prefix)
@@ -228,15 +229,15 @@ def process_account(db, account_data, logger, default_owner_id,
 
         # Max time an account will stay valid after account stops coming from
         # the file
-        base_date = DateTime.now() + DateTime.oneWeek * default_stay_alive_time
+        base_date = (datetime.date.today()
+                     + datetime.timedelta(weeks=default_stay_alive_time))
         if account_data['expire_date'] == 'Never':
             expire_date = base_date
-        elif DateTime.Parser.DateFromString(
-                account_data['expire_date']) > base_date:
+        elif parse_date(account_data["expire_date"]) > base_date:
             expire_date = base_date
         else:
-            expire_date = DateTime.Parser.DateFromString(
-                account_data['expire_date'])
+            expire_date = parse_date(account_data["expire_date"])
+
     except Exception as msg:
         logger.error("Invalid account data, account not processed. %s", msg)
         return
