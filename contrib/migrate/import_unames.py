@@ -246,7 +246,7 @@ def reserve_user(owner_id, uname, maxlen):
 
     uname = check_uname(uname, maxlen, strict=False)
     if uname and populate_user(uname, owner_type, default_group_id, np_type,
-                               expire_date=datetime.date.today()):
+                               expire_date=datetime.datetime.today()):
         logger.info("User %s reserved", uname)
         person.clear()
         person.find(owner_id)
