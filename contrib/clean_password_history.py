@@ -27,8 +27,7 @@ Multiple arguments may be used at the same time, to get the wanted timedelta.
 """
 
 import argparse
-from mx import DateTime
-
+from datetime import datetime, timedelta
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.pwcheck.history import PasswordHistory
 
@@ -36,25 +35,24 @@ from Cerebrum.modules.pwcheck.history import PasswordHistory
 logger = Factory.get_logger('cronjob')
 
 
-def get_relative_date(years=None, months=None, days=None):
+def get_relative_date(years=0, months=0, days=0):
     """
     Calculates relative past date from current time based on input params.
-    :param years: Number of years from current time
-    :type: str
-    :param months: Number of months from current time
-    :type: str
+    If no params given, returns todays date.
+    :param years: Number of years from current time (365 days)
+    :type: int
+    :param months: Number of months from current time (30 days)
+    :type: int
     :param days: Number of days from current time
-    :type: str
-    :return: mx.DateTime.DateTime object
+    :type: int
+    :return: datetime.datetime object
     """
-    exp_date = DateTime.now()
-    if years is not None:
-        exp_date = exp_date - DateTime.RelativeDate(years=int(years))
-    if months is not None:
-        exp_date = exp_date - DateTime.RelativeDate(months=int(months))
-    if days is not None:
-        exp_date = exp_date - DateTime.RelativeDate(days=int(days))
-    return exp_date
+
+    days = days + months * 30 + years * 365
+    delta = timedelta(days=days)
+    now  = datetime.today()
+
+    return now - delta
 
 
 def main():
@@ -63,14 +61,20 @@ def main():
     parser.add_argument(
         '-y', '--years',
         dest='years',
+        default=0,
+        type=int,
         help='Number of years to add to the timedelta')
     parser.add_argument(
         '-m', '--months',
         dest='months',
+        default=0,
+        type=int,
         help='Number of months to add to the timedelta')
     parser.add_argument(
         '-d', '--days',
         dest='days',
+        default=0,
+        type=int,
         help='Number of days to add to the timedelta')
     parser.add_argument(
         '--commit',
