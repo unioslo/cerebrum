@@ -38,10 +38,10 @@ other instances too.
 
 import cereconf
 
+import datetime
 import sys
 import os
 import getopt
-from mx.DateTime import now
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
@@ -103,16 +103,18 @@ def process(check_trait, set_trait, days, phone_types, message, only_aff):
     else:
         logger.info("In dryrun, will not send SMS")
 
-    limit_date = now() - days
+    limit_date = datetime.date.today() - datetime.timedelta(days=days)
     logger.debug('Matching only traits newer than: %s', limit_date)
 
     ac = Factory.get('Account')(db)
     pe = Factory.get('Person')(db)
 
+    #Filter out old traits and traits from the last 24 hours
     target_traits = set(t['entity_id'] for t in ac.list_traits(code=check_trait)
-                        if (t['date'] >= limit_date and # Filter out old traits.
-                            t['date'] < (now() - 1)))   # Filter out traits from
-                                                        # the last 24 hours.
+                        if (t['date'] >= limit_date and
+                            t['date'] < (datetime.date.today()
+                                         - datetime.timedelta(days=days))))
+
     logger.debug('Found %d traits of type %s from last %d days to check',
                  len(target_traits), check_trait, days)
     set_traits = set(t['entity_id'] for t in ac.list_traits(code=set_trait)
@@ -163,7 +165,7 @@ def process(check_trait, set_trait, days, phone_types, message, only_aff):
 
         # Everything ready, should send the SMS
         if send_sms(ac, pe, phone_types, message=message):
-            ac.populate_trait(code=set_trait, date=now())
+            ac.populate_trait(code=set_trait, date=datetime.datetime.today())
             ac.write_db()
             if commit:
                 db.commit()
@@ -194,7 +196,8 @@ def have_changed_password(ac):
         # If the latest password change is older than a year ago, and the user
         # has not changed it, we considered as not changed.
         # TODO: is this correct?
-        if event['tstamp'] < now() - 365:
+        if (event['tstamp'] < datetime.datetime.today()
+                - datetime.timedelta(days=365)):
             return False
 
         # TODO: other things to check?
