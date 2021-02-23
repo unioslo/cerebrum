@@ -27,15 +27,15 @@ import json
 from collections import OrderedDict
 
 from six import text_type, integer_types
-from mx import DateTime
 
 import cereconf
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory, read_password
 from Cerebrum.utils.date import parse_date
-from Cerebrum.utils.date_compat import get_datetime_tz
+from Cerebrum.utils.date_compat import get_date, get_datetime_tz
 from Cerebrum.utils.email import mail_template
+from Cerebrum.utils.sorting import make_priority_lookup, unique
 from Cerebrum.utils.stringmatch import name_diff
 from Cerebrum.modules.event.mapping import CallbackMap
 from Cerebrum.modules.automatic_group.structure import (get_automatic_group,
@@ -390,6 +390,7 @@ def parse_roles(database, data):
                    (precedence', None))]
     :return: A list of tuples representing them roles."""
     role2aff = _sap_roles_to_affiliation_map()
+    aff2pri = make_priority_lookup(tuple(unique(role2aff.values())))
     r = []
     for role in data.get('roles', {}).get('results', []):
         ou = _get_ou(database, placecode=role.get('locationId'))
@@ -407,8 +408,7 @@ def parse_roles(database, data):
                       'precedence': None})
     logger.info('parsed %i roles', len(r))
     return sorted(r,
-                  key=(lambda x: role2aff.values().index(x.get('status')) if
-                  x.get('status') in role2aff.values() else len(r)),
+                  key=(lambda x: aff2pri(x.get('status'))),
                   reverse=True)
 
 
@@ -419,8 +419,7 @@ def _parse_hr_person(database, source_system, data):
     return {
         'id': data.get('personId'),
         'names': parse_names(data),
-        'birth_date': DateTime.DateFrom(
-            data.get('dateOfBirth')),
+        'birth_date': parse_date(data['dateOfBirth']),
         'gender': {'Kvinne': co.gender_female,
                    'Mann': co.gender_male}.get(
             data.get('gender'),
@@ -671,17 +670,16 @@ def _stringify_for_log(data):
 
 def update_person(database, source_system, hr_person, cerebrum_person):
     """Update person with birth date and gender."""
-    if not (cerebrum_person.gender and
-            cerebrum_person.birth_date and
-            cerebrum_person.gender == hr_person.get('gender') and
-            cerebrum_person.birth_date == hr_person.get('birth_date')):
-        cerebrum_person.populate(
-            hr_person.get('birth_date'),
-            hr_person.get('gender'))
+    birth_date = get_date(cerebrum_person.birth_date)
+    if not (cerebrum_person.gender
+            and cerebrum_person.gender == hr_person['gender']
+            and birth_date
+            and birth_date == hr_person['birth_date']):
+        cerebrum_person.populate(hr_person['birth_date'], hr_person['gender'])
         cerebrum_person.write_db()
         logger.info('Added birth date %r and gender %r for %i',
-                    hr_person.get('birth_date'),
-                    hr_person.get('gender'),
+                    hr_person['birth_date'],
+                    hr_person['gender'],
                     cerebrum_person.entity_id)
 
 
@@ -1079,8 +1077,9 @@ def _mail_possible_duplicate(hr_person, new_person, database,
     co = Factory.get('Constants')(database)
     pe = Factory.get('Person')(database)
     new_name = ' '.join(name for _, name in hr_person.get('names'))
+    birth_date = get_date(new_person.birth_date)
     possible_people = pe.search(
-        birth_date=str(new_person.birth_date),
+        birth_date=str(birth_date),
         name_variants=[co.name_full])
     for person in possible_people:
         if person['person_id'] == new_person.entity_id:
