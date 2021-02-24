@@ -30,7 +30,7 @@ import argparse
 import logging
 import sys
 from collections import defaultdict
-from datetime import timedelta
+from datetime import date, timedelta
 
 from jinja2 import Environment
 from six import text_type
@@ -40,7 +40,7 @@ import Cerebrum.logutils.options
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.argutils import codec_type
 from Cerebrum.utils.date import now
-from Cerebrum.utils.date_compat import get_datetime_tz
+from Cerebrum.utils.date_compat import get_date
 
 logger = logging.getLogger(__name__)
 
@@ -171,7 +171,7 @@ def get_matching_accs(db):
             'q_type': text_type(co.Quarantine(row['quarantine_type'])),
             'q_desc': _u(row['description']),
             'q_date': text_type(
-                get_datetime_tz(row['start_date']).strftime('%Y-%m-%d')),
+                get_date(row['start_date']).strftime('%Y-%m-%d')),
         }
 
     logger.debug('caching personal accounts ...')
@@ -210,7 +210,7 @@ def get_matching_accs(db):
             continue
 
         for quar in acc2quar[acc['account_id']]:
-            if (quar['start_date'] + timedelta(365)) < now():
+            if (get_date(quar['start_date']) + timedelta(365)) < date.today():
                 break
         else:
             # loop terminated wihtout finding a 'quar' -- i.e. no active
@@ -223,7 +223,8 @@ def get_matching_accs(db):
             'disk_path': _u(acc2disk.get(acc['account_id'])) or u'(not set)',
             'q_type': text_type(co.Quarantine(quar['quarantine_type'])),
             'q_desc': _u(quar['description']),
-            'q_date': text_type(quar['start_date'].strftime('%Y-%m-%d')),
+            'q_date': text_type(
+                get_date(quar['start_date']).strftime('%Y-%m-%d')),
         }
 
 
