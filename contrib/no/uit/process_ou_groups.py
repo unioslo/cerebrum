@@ -328,7 +328,6 @@ class OuGroupProcessor(object):
                     obsolete_group_name = gr.get_name(self._co.group_namespace)
                     logger.info("Expiring empty container group %s (%s)",
                                 obsolete_group, obsolete_group_name)
-                    # gr.expire_date = mx.DateTime.now()
                     gr.expire_date = datetime.now()
                     logger.info(
                         "Removing spread for empty container group %s (%s)",
@@ -357,7 +356,6 @@ class OuGroupProcessor(object):
             gr.find(group_id)
             logger.info(
                 "Expiring unused OU group %s (%s)", group_id, gr.description)
-            # gr.expire_date = mx.DateTime.now()
             gr.expire_date = datetime.now()
             logger.info("Removing spread for unused OU group %s (%s)",
                         group_id, gr.description)
