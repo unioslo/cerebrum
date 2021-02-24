@@ -52,9 +52,9 @@ This script creates and syncs OU PosixGroups for all OUs existing in Cerebrum
 
 import argparse
 import logging
+from datetime import datetime
 
 import cereconf
-import mx.DateTime
 from Cerebrum import logutils
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import PosixGroup
@@ -328,7 +328,8 @@ class OuGroupProcessor(object):
                     obsolete_group_name = gr.get_name(self._co.group_namespace)
                     logger.info("Expiring empty container group %s (%s)",
                                 obsolete_group, obsolete_group_name)
-                    gr.expire_date = mx.DateTime.now()
+                    # gr.expire_date = mx.DateTime.now()
+                    gr.expire_date = datetime.now()
                     logger.info(
                         "Removing spread for empty container group %s (%s)",
                         obsolete_group, obsolete_group_name)
@@ -356,7 +357,8 @@ class OuGroupProcessor(object):
             gr.find(group_id)
             logger.info(
                 "Expiring unused OU group %s (%s)", group_id, gr.description)
-            gr.expire_date = mx.DateTime.now()
+            # gr.expire_date = mx.DateTime.now()
+            gr.expire_date = datetime.now()
             logger.info("Removing spread for unused OU group %s (%s)",
                         group_id, gr.description)
             # SPREAD DISABLED UNTIL AD IS READY. RMI000 - 20080207
