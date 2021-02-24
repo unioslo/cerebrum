@@ -27,12 +27,12 @@ to the users it-organization.
 import argparse
 import functools
 import logging
+from datetime import datetime
 
 import six
 
 from smtplib import SMTPException
 
-import mx.DateTime
 from six import text_type
 
 import Cerebrum.logutils
@@ -205,7 +205,7 @@ class AccountCreationNotifier(object):
             ac.find(row['entity_id'])
 
             if (self.too_old and
-                    (row['date'] < (mx.DateTime.now() - self.too_old))):
+                    (row['date'] < (datetime.now() - self.too_old))):
                 # Trait is to old, remove it
                 logger.warn('Too old trait %s for entity_id=%s, giving up',
                             text_type(self.manager.trait), row['entity_id'])
