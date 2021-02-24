@@ -43,6 +43,7 @@ import time
 import os
 import mx
 import string
+from datetime import datetime
 
 import cereconf
 from Cerebrum import Errors
@@ -62,7 +63,7 @@ start_time = None
 
 def process_delete_requests():
     br = BofhdRequests(db, const)
-    now = mx.DateTime.now()
+    now = datetime.now() 
     del_file = []
     group = Factory.get('Group')(db)
     account = Factory.get('Account')(db)
