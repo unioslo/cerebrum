@@ -1993,10 +1993,6 @@ class BofhdExtension(BofhdCommonMethods):
         else:
             raise CerebrumError('Missing expire date')
 
-        # TODO: Allow superuser to clear expire_date from certain
-        #       group types? Probably better to make a superuser
-        #       `group clear_expire`
-
         grp.write_db()
         return (
             u'OK, set expire date for group %(group_name)s '
@@ -2005,6 +2001,36 @@ class BofhdExtension(BofhdCommonMethods):
                 'group_name': grp.group_name,
                 'expire_date': date_compat.get_date(grp.expire_date),
             })
+
+    #
+    # group clear_expire
+    #
+    all_commands['group_clear_expire'] = Command(
+        ("group", "clear_expire"),
+        GroupName(),
+        perm_filter='is_superuser',
+        fs=FormatSuggestion(
+            "OK, cleared expire date for group %s", ('group_name',),
+        ),
+    )
+
+    def group_clear_expire(self, operator, group):
+        grp = self._get_group(group)
+
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("Only superuser can clear expire_date")
+
+        if not grp.expire_date:
+            raise CerebrumError("Group '%s' has no expire date" %
+                                (grp.group_name,))
+        grp.expire_date = None
+        grp.write_db()
+
+        return {
+            'group_id': grp.entity_id,
+            'group_name': grp.group_name,
+            'expire_date': date_compat.get_date(grp.expire_date),
+        }
 
     #
     # group set_visibility
