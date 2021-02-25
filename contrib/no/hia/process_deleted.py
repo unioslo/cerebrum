@@ -41,9 +41,8 @@ TODO: this script must be more robust and pretty (but first we make it work)
 import argparse
 import time
 import os
-import mx
 import string
-from datetime import datetime
+from datetime import datetime, date
 
 import cereconf
 from Cerebrum import Errors
@@ -63,7 +62,8 @@ start_time = None
 
 def process_delete_requests():
     br = BofhdRequests(db, const)
-    now = datetime.now() 
+    now = datetime.now()
+    today = date.today()
     del_file = []
     group = Factory.get('Group')(db)
     account = Factory.get('Account')(db)
@@ -104,9 +104,9 @@ def process_delete_requests():
             continue
         set_operator(r['requestee_id'])
         # Set expire_date (do not export data about this account)
-        account.expire_date = br.now
+        account.expire_date = today
         logger.debug("expire_date for %s registered as %s",
-                     account.account_name, br.now)
+                     account.account_name, today)
         account.write_db()
         # check for posix attrs
         posix_user = Factory.get('PosixUser')(db)
