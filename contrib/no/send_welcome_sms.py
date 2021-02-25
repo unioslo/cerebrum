@@ -135,13 +135,13 @@ def process(manager, message, phone_types, affiliations, too_old,
 
         # Only send reminders if in the last week of july or december
         if reminder and not (
-                (datetime.datetime(datetime.date.today().year,7,25)
+                (datetime.datetime(datetime.date.today().year, 7, 25)
                  <= datetime.datetime.today()
-                 <= datetime.datetime(datetime.date.today().year,7,31))
+                 <= datetime.datetime(datetime.date.today().year, 7, 31))
                 or
-                (datetime.datetime(datetime.date.today().year,12,25)
+                (datetime.datetime(datetime.date.today().year, 12, 25)
                  <= datetime.datetime.today()
-                 <= datetime.datetime(datetime.date.today().year,12,31))):
+                 <= datetime.datetime(datetime.date.today().year, 12, 31))):
             logger.debug('Not last week of july or december, breaking.')
             break
 
