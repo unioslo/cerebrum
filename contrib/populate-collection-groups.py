@@ -23,24 +23,25 @@
 
 from __future__ import unicode_literals
 
-import getopt
 import sys
 
 import six
+import logging
+import argparse
 
 import cereconf
 
+import Cerebrum.logutils
+import Cerebrum.logutils.options
 from Cerebrum.Utils import Factory
+from Cerebrum.utils.argutils import add_commit_args
 from Cerebrum import Errors
 
 
-logger = Factory.get_logger("cronjob")
-
-db = Factory.get("Database")()
-db.cl_init(change_program=sys.argv[0].split('/')[-1])
+logger = logging.getLogger(__name__)
 
 
-def populate_group_memberships(gname, affiliations):
+def populate_group_memberships(db, gname, affiliations):
     """Add and remove accounts from the group."""
     co = Factory.get('Constants')(db)
     pe = Factory.get('Person')(db)
@@ -117,21 +118,17 @@ def populate_group_memberships(gname, affiliations):
     logger.info('Finished populating %s', gname)
 
 
-def usage(exitcode):
-    """Help text for the commandline options."""
-    print("%s [OPTIONS]" % sys.argv[0].split('/')[-1])
-    print(u"Populate memberships in «employee»-ish groups depending on "
-          "affiliation.")
-    print("    -h --help    Show this help")
-    print("       --commit  Run in commit-mode (i.e. all changes will be "
-          "commited to the database")
-    print("")
-    print("See cereconf.COLLECTION_GROUPS in default_config for "
-          "configuration guidelines and more info.")
-    print("")
-    print("The following is copy-pasta from default_config. Might be out of "
-          "date, so check default_config!")
-    print("""
+description ="""
+Populate memberships in «employee»-ish groups depending on affiliation.
+"""
+
+epilog = """
+See cereconf.COLLECTION_GROUPS in default_config for configuration
+guidelines and more info.
+
+The following is copy-pasta from default_config. Might be out of date,
+so check default_config!
+
 Groups who has memberships populated by contrib/populate-collection-groups.py
 E.g. [('uio-tilk', ['system_sap:affiliation_tilknyttet',
                     'system_fs:affiliation_student',
@@ -141,31 +138,32 @@ have TILKNYTTET affiliations from SAP, STUDENT-affiliations from FS and
 TILKNYTTET/bilag from all source systems.
 
 The groups you specify in this configuration, must be created BEFORE
-populate-collection-groups.py is run!!!""")
-    sys.exit(exitcode)
+populate-collection-groups.py is run!!!
+"""
 
-
-def main():
+def main(inargs=None):
     """Arg parsing and handling."""
-    options, junk = getopt.getopt(sys.argv[1:],
-                                  "h",
-                                  ("commit",
-                                   "help"))
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.RawTextHelpFormatter,
+        description=description,
+        epilog=epilog)
 
-    commit = False
+    add_commit_args(parser)
+    Cerebrum.logutils.options.install_subparser(parser)
+    args = parser.parse_args(inargs)
 
-    for option, value in options:
-        if option in ("--commit"):
-            commit = True
-        elif option in ("-h", "--help"):
-            usage(1)
+    """Setting up logger and db."""
+    Cerebrum.logutils.autoconf('cronjob', args)
+
+    db = Factory.get("Database")()
+    db.cl_init(change_program=sys.argv[0].split('/')[-1])
 
     logger.info('Starting to populate collection groups')
 
     for gname, affs in cereconf.COLLECTION_GROUPS:
-        populate_group_memberships(gname, affs)
+        populate_group_memberships(db, gname, affs)
 
-    if commit:
+    if args.commit:
         db.commit()
         logger.info("Committed all changes")
     else:
