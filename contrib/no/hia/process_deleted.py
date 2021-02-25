@@ -48,6 +48,7 @@ import cereconf
 from Cerebrum import Errors
 from Cerebrum.modules import Email
 from Cerebrum.Utils import Factory
+from Cerebrum.utils import date, date_compat
 from Cerebrum.modules.bofhd_requests.request import BofhdRequests
 
 
@@ -58,6 +59,14 @@ cl_const = Factory.get('CLConstants')(db)
 const = Factory.get('Constants')(db)
 max_requests = None
 start_time = None
+
+
+def compare_dates(database_date, now):
+    if datebase_date is None:
+        return false
+    else:
+        database_date = date_compat.get_datetime_naive(database_date)
+        return database_date > now
 
 
 def process_delete_requests():
@@ -81,7 +90,7 @@ def process_delete_requests():
             continue
         if not keep_running():
             break
-        if r['run_at'] > now:
+        if compare_dates(r['run_at'], now):
             continue
         try:
             account.clear()
