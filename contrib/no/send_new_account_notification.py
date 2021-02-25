@@ -39,12 +39,18 @@ import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.utils import argutils
+from Cerebrum.utils import argutils, date_compat
 from Cerebrum.utils.email import mail_template
 
 
 logger = logging.getLogger(__name__)
 
+def compare_dates(database_date, now):
+    if datebase_date is None:
+        return false
+    else:
+        database_date = date_compat.get_datetime_naive(database_date)
+        return database_date > now
 
 class AccountsWithTraitManager(object):
 
@@ -205,7 +211,8 @@ class AccountCreationNotifier(object):
             ac.find(row['entity_id'])
 
             if (self.too_old and
-                    (row['date'] < (datetime.now() - self.too_old))):
+                compare_dates(row['date'], (datetime.now() - self.too_old))):
+
                 # Trait is to old, remove it
                 logger.warn('Too old trait %s for entity_id=%s, giving up',
                             text_type(self.manager.trait), row['entity_id'])
