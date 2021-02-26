@@ -57,12 +57,11 @@ The script tags people in the following order:
 
 from __future__ import unicode_literals
 
-import datetime
 import sys
 import getopt
 
 from Cerebrum.Utils import Factory
-
+from Cerebrum.utils.date import now
 
 reservations = None
 
@@ -194,7 +193,7 @@ def set_reservation(person_id, value=True):
     pe.clear()
     pe.find(person_id)
     pe.populate_trait(code=co.trait_public_reservation,
-                      date=datetime.datetime.today(), numval=int(bool(value)))
+                      date=now(), numval=int(bool(value)))
     pe.write_db()
     global count_resrv_true, count_resrv_false
     if value:
