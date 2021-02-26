@@ -107,7 +107,7 @@ def fetch_all_relevant_accounts(qua_type, since, ignore_affs,
     :returns: The `entity_id` for all the accounts that match the criterias.
 
     """
-    max_date = datetime.date.today() - datetime.timedelta(days = since)
+    max_date = datetime.date.today() - datetime.timedelta(days=since)
     logger.debug("Search quarantines older than %s days, i.e. before %s",
                  since, max_date.strftime('%Y-%m-%d'))
     targets = set(row['entity_id'] for row in
