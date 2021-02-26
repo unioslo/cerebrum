@@ -144,7 +144,7 @@ populate-collection-groups.py is run!!!
 def main(inargs=None):
     """Arg parsing and handling."""
     parser = argparse.ArgumentParser(
-        formatter_class=argparse.RawTextHelpFormatter,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
         description=description,
         epilog=epilog)
 
@@ -152,7 +152,7 @@ def main(inargs=None):
     Cerebrum.logutils.options.install_subparser(parser)
     args = parser.parse_args(inargs)
 
-    """Setting up logger and db."""
+
     Cerebrum.logutils.autoconf('cronjob', args)
 
     db = Factory.get("Database")()
