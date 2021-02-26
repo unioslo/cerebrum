@@ -45,6 +45,7 @@ import getopt
 
 from Cerebrum import Errors
 from Cerebrum.utils import date_compat
+from Cerebrum.utils.date import now
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.sms import SMSSender
 from Cerebrum.QuarantineHandler import QuarantineHandler
@@ -104,7 +105,7 @@ def process(check_trait, set_trait, days, phone_types, message, only_aff):
     else:
         logger.info("In dryrun, will not send SMS")
 
-    limit_date = datetime.datetime.today() - datetime.timedelta(days=days)
+    limit_date = now() - datetime.timedelta(days=days)
     logger.debug('Matching only traits newer than: %s', limit_date)
 
     ac = Factory.get('Account')(db)
@@ -113,12 +114,11 @@ def process(check_trait, set_trait, days, phone_types, message, only_aff):
     #Filter out old traits and traits from the last 24 hours
     target_traits = set(t['entity_id'] for t in ac.list_traits(code=check_trait)
                         if (t['date']
-                            and date_compat.get_datetime_naive(t['date'])
+                            and date_compat.get_datetime_tz(t['date'])
                                 >= limit_date
                             and
-                                date_compat.get_datetime_naive(t['date'])
-                                < (datetime.datetime.today()
-                                    - datetime.timedelta(days=1))))
+                                date_compat.get_datetime_tz(t['date'])
+                                < (now() - datetime.timedelta(days=1))))
 
     logger.debug('Found %d traits of type %s from last %d days to check',
                  len(target_traits), check_trait, days)
@@ -201,8 +201,8 @@ def have_changed_password(ac):
         # If the latest password change is older than a year ago, and the user
         # has not changed it, we considered as not changed.
         # TODO: is this correct?
-        if (event['tstamp'] and date_compat.get_datetime_naive(event['tstamp'])
-                < datetime.datetime.today() - datetime.timedelta(days=365)):
+        if (event['tstamp'] and date_compat.get_datetime_tz(event['tstamp'])
+                < now() - datetime.timedelta(days=365)):
             return False
 
         # TODO: other things to check?
