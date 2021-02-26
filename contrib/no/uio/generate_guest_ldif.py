@@ -24,6 +24,7 @@ The LDIF file created by this script will not contain any metadata or tree
 structure. It will only contain each account object in LDAP format.
 """
 import argparse
+import logging
 
 import guestconfig  # Need guest config for this
 
@@ -36,7 +37,7 @@ from Cerebrum.modules.LDIFutils import LDIFWriter
 from Cerebrum.modules.LDIFutils import ldapconf
 
 
-logger = Factory.get_logger('cronjob')
+logger = logging.getLogger(__name__)
 
 
 def get_spread(co, value):
