@@ -194,7 +194,7 @@ def set_reservation(person_id, value=True):
     pe.clear()
     pe.find(person_id)
     pe.populate_trait(code=co.trait_public_reservation,
-                      date=datetime.date.today(), numval=int(bool(value)))
+                      date=datetime.datetime.today(), numval=int(bool(value)))
     pe.write_db()
     global count_resrv_true, count_resrv_false
     if value:
