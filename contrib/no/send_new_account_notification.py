@@ -45,12 +45,6 @@ from Cerebrum.utils.email import mail_template
 
 logger = logging.getLogger(__name__)
 
-def compare_dates(database_date, now):
-    if datebase_date is None:
-        return false
-    else:
-        database_date = date_compat.get_datetime_naive(database_date)
-        return database_date > now
 
 class AccountsWithTraitManager(object):
 
