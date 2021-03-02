@@ -34,6 +34,7 @@ from six import text_type
 
 import cereconf
 from Cerebrum import Errors
+from Cerebrum.utils import date_compat
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
 from Cerebrum.modules import PosixGroup
@@ -250,9 +251,13 @@ def sync_filegroup(fgname, group, course, act):
     else:
         posix_group.find(fgroup.entity_id)
         # make sure the group is alive
-        if posix_group.expire_date and posix_group.expire_date < refreshdate:
-            logger.info("Extending life of %s from %s to %s", fgname,
-                        posix_group.expire_date, refreshdate)
+        if posix_group.expire_date and date_compat.get_datetime_naive(
+            posix_group.expire_date
+        ) < refreshdate:
+            logger.info("Extending life of %s from %s to %s",
+                        fgname,
+                        date_compat.get_datetime_naive(posix_group.expire_date),
+                        refreshdate)
             posix_group.expire_date = expdate
             posix_group.write_db()
     uptodate = False
