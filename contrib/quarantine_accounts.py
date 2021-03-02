@@ -58,7 +58,6 @@ import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.QuarantineHandler import QuarantineHandler
-from Cerebrum.utils.date import now
 from Cerebrum.utils.date_compat import get_date
 from Cerebrum.utils.email import sendmail
 
@@ -214,7 +213,7 @@ def notify_user(ac, quar_start_in_days):
     body = body.replace('${DAYS_TO_START}', str(quar_start_in_days))
     body = body.replace(
         '${QUARANTINE_DATE}',
-        (now() + quar_start_in_days).strftime("%F"))
+        str(datetime.date.today() + quar_start_in_days))
 
     try:
         first_name = (pe.search_person_names(
