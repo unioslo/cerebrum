@@ -34,7 +34,7 @@ from Cerebrum.modules.no.hiof.bofhd_hiof_cmds import HiofBofhdRequests
 logger = logging.getLogger(__name__)
 
 
-def process_requests(dryrun, db):
+def process_requests(commit, db):
     """
     Process all bofhd requests of type bofh_ad_attrs_remove. Try to
     remove ad attributes given by user and spread. If ad attrs are
@@ -58,10 +58,10 @@ def process_requests(dryrun, db):
             spread = const.Spread(r['state_data'])
         else:
             spread = None
-        if delete_ad_attrs(r['entity_id'], spread):
+        if delete_ad_attrs(db, r['entity_id'], spread):
             br.delete_request(request_id=r['request_id'])
 
-    if dryrun:
+    if not commit:
         logger.info("Rolling back all changes")
         db.rollback()
     else:
@@ -69,7 +69,7 @@ def process_requests(dryrun, db):
         db.commit()
 
 
-def delete_ad_attrs(entity_id, spread):
+def delete_ad_attrs(db, entity_id, spread):
     # Find account and delete ad attrs
     ret = False
     ac = Factory.get('Account')(db)
@@ -110,14 +110,11 @@ def set_operator(db, entity_id=None):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dryrun",
-                        help="Dryrun mode",
-                        action='store_true',
-                        default=False)
     parser.add_argument("--delete",
                         help="Find bofhd requests and delete ad attrs",
                         action='store_true',
                         default=False)
+    add_commit_args(parser, default=True)
     Cerebrum.logutils.options.install_subparser(parser)
     args = parser.parse_args()
     Cerebrum.logutils.autoconf('cronjob', args)
@@ -125,7 +122,7 @@ def main():
     db = Factory.get('Database')()
 
     if args.delete:
-        process_requests(args.dryrun, db)
+        process_requests(args.commit, db)
 
 
 if __name__ == '__main__':
