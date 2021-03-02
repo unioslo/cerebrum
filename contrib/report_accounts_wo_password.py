@@ -61,7 +61,6 @@ import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.argutils import codec_type
-from Cerebrum.utils.date_compat import get_datetime_tz
 
 logger = logging.getLogger(__name__)
 
