@@ -170,7 +170,7 @@ def process(check_trait, set_trait, days, phone_types, message, only_aff):
 
         # Everything ready, should send the SMS
         if send_sms(ac, pe, phone_types, message=message):
-            ac.populate_trait(code=set_trait, date=datetime.datetime.today())
+            ac.populate_trait(code=set_trait, date=now())
             ac.write_db()
             if commit:
                 db.commit()
@@ -248,7 +248,7 @@ if __name__ == '__main__':
                            'check-trait=',
                            'phone-types=',
                            'set-trait='])
-    except getopt.GetoptError, e:
+    except getopt.GetoptError as e:
         print e
         usage(1)
 
