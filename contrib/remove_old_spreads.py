@@ -105,7 +105,7 @@ def main(args=None):
     args = parser.parse_args(args)
     Cerebrum.logutils.autoconf('cronjob', args)
 
-    db = Factory.get('Database')
+    db = Factory.get('Database')()
     const = Factory.get('Constants')(db)
 
     if not (args.accounts or args.groups or args.persons):
