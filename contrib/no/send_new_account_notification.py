@@ -27,7 +27,7 @@ to the users it-organization.
 import argparse
 import functools
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import six
 
@@ -211,7 +211,11 @@ class AccountCreationNotifier(object):
             ac.find(row['entity_id'])
 
             if (self.too_old and
-                compare_dates(row['date'], (datetime.now() - self.too_old))):
+                row['date'] and
+                date_compat.get_datetime_naive(
+                    row['date']
+                ) < (datetime.now() - timedelta(days=self.too_old))):
+
 
                 # Trait is to old, remove it
                 logger.warn('Too old trait %s for entity_id=%s, giving up',
