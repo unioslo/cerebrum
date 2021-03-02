@@ -45,6 +45,7 @@ import Cerebrum.logutils.options
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.sms import SMSSender
+from Cerebrum.utils.date import now
 from Cerebrum.utils import argutils
 
 
@@ -69,8 +70,8 @@ class ReminderManager(SMSManager):
         Skips all users with traits newer than 7 days.
         """
         for row in self.ac.list_traits(code=self.trait, numval=None):
-            if (row['date'] > datetime.datetime.today()
-                    - datetime.timedelta(days=7)):
+            if (row['date'] and
+                    row['date'] > now() - datetime.timedelta(days=7)):
                 continue
             self.row = row
             yield row
@@ -112,8 +113,7 @@ class WelcomeManager(SMSManager):
 
     def populate_trait(self, ac):
         """In welcome mode we populate the new trait"""
-        ac.populate_trait(code=self.co.trait_sms_welcome,
-                          date=datetime.datetime.today())
+        ac.populate_trait(code=self.co.trait_sms_welcome, date=now())
 
 
 def process(manager, message, phone_types, affiliations, too_old,
