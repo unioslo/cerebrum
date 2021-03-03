@@ -377,46 +377,59 @@ class HRDataImport(object):
         """Update person in Cerebrum with the latest affiliations"""
         logger.debug('update_affiliations(%r, %r), affs=%r',
                      db_person.entity_id, hr_person, hr_person.affiliations)
-        hr_affiliations = set(
-            models.HRAffiliation(
-                ou_id=self._get_ou_id(aff.ou_id),
-                affiliation=self.co.PersonAffiliation(aff.affiliation),
-                status=self.co.PersonAffStatus(aff.affiliation, aff.status),
-                precedence=aff.precedence)
-            for aff in hr_person.affiliations
-        )
-        db_affiliations = set(
-            models.HRAffiliation(
-                    aff['ou_id'],
-                    self.co.PersonAffiliation(aff['affiliation']),
-                    self.co.PersonAffStatus(aff['status']),
-                    precedence=aff['precedence'])
-            for aff in db_person.list_affiliations(
+        # Create hr_affiliations dict
+        hr_affiliations = {}
+        for aff in hr_person.affiliations:
+            ou_id = self._get_ou_id(aff.ou_id)
+            affiliation = self.co.PersonAffiliation(aff.affiliation)
+            status = self.co.PersonAffStatus(aff.affiliation, aff.status)
+            aff_data = (ou_id, affiliation, status)
+            if aff_data not in hr_affiliations:
+                hr_affiliations[aff_data] = models.HRAffiliation(
+                    ou_id=ou_id, affiliation=affiliation,
+                    status=status, precedence=aff.precedence
+                )
+        # Create corresponding dict of info already in db
+        db_affiliations = {}
+        for aff in db_person.list_affiliations(
                 person_id=db_person.entity_id,
-                source_system=self.source_system)
-        )
-        for aff in db_affiliations - hr_affiliations:
-            db_person.delete_affiliation(
-                ou_id=aff.ou_id,
-                affiliation=aff.affiliation,
-                source=self.source_system)
-            logger.info(
-                'affiliations: clearing id=%r, aff=%r, ou_id=%r, '
-                'precedence=%r',
-                db_person.entity_id, six.text_type(aff.status), aff.ou_id,
-                aff.precedence)
-
-        for aff in hr_affiliations:
-            db_person.add_affiliation(
-                source=self.source_system,
-                ou_id=aff.ou_id,
-                affiliation=aff.affiliation,
-                status=aff.status,
-                precedence=aff.precedence
-            )
-            logger.info(
-                'affiliations: setting id=%r, aff=%r, ou_id=%r '
-                'precedence=%r',
-                db_person.entity_id, six.text_type(aff.status), aff.ou_id,
-                aff.precedence)
+                source_system=self.source_system
+        ):
+            ou_id = aff['ou_id']
+            affiliation = self.co.PersonAffiliation(aff['affiliation'])
+            status = self.co.PersonAffStatus(aff['status'])
+            aff_data = (ou_id, affiliation, status)
+            if aff_data not in db_affiliations:
+                db_affiliations[aff_data] = models.HRAffiliation(
+                    ou_id=ou_id, affiliation=affiliation,
+                    status = status,
+                    precedence=aff['precedence']
+                )
+        # aff in db, but not in hr: Remove!
+        for aff_desc, aff_data in db_affiliations.items():
+            if aff_desc not in hr_affiliations:
+                db_person.delete_affiliation(
+                    ou_id=aff_data.ou_id,
+                    affiliation=aff_data.affiliation,
+                    source=self.source_system)
+                logger.info(
+                    'affiliations: clearing id=%r, aff=%r, ou_id=%r, '
+                    'precedence=%r',
+                    db_person.entity_id, six.text_type(aff_data.status),
+                    aff_data.ou_id, aff_data.precedence)
+        # aff not in db, but in hr: Add!
+        for aff_desc, aff_data in hr_affiliations.items():
+            if aff_desc not in db_affiliations:
+                db_person.add_affiliation(
+                    source=self.source_system,
+                    ou_id=aff_data.ou_id,
+                    affiliation=aff_data.affiliation,
+                    status=aff_data.status,
+                    precedence=aff_data.precedence
+                )
+                logger.info(
+                    'affiliations: setting id=%r, aff=%r, ou_id=%r '
+                    'precedence=%r',
+                    db_person.entity_id, six.text_type(aff.status),
+                    aff.ou_id, aff.precedence)
         db_person.write_db()
