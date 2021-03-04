@@ -36,7 +36,6 @@ colons in names?
 
 import sys
 import getopt
-from mx.DateTime import now, DateTimeDeltaFromSeconds
 
 import cereconf
 from Cerebrum import Errors
