@@ -20,9 +20,14 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """Delete old data from users."""
 
+import argparse
 import collections
 import functools
+import logging
 
+import Cerebrum.logutils
+
+logger = logging.getLogger(__name__)
 
 def clean_names(logger, person, constants, source_system):
     """Remove first, last and full name from person."""
@@ -244,10 +249,6 @@ def clean_it(prog, commit, logger, systems, system_to_cleaner, selectors,
 
 def parse_it():
     """Argument parsing."""
-    import argparse
-    from Cerebrum.Utils import Factory
-    logger = Factory.get_logger('cronjob')
-
     parser = argparse.ArgumentParser(
         description='Delete person data on grounds of originating source'
                     ' systems')
@@ -269,7 +270,9 @@ def parse_it():
                         metavar='N',
                         help='Don\'t clean persons who has lost their'
                              ' affiliation in the last N days')
+    Cerebrum.logutils.options.install_subparser(parser)
     args = parser.parse_args()
+    Cerebrum.logutils.autoconf('cronjob', args)
 
     system_to_cleaner = {'FS': update_person,
                          'SAP': update_person_with_titles,
