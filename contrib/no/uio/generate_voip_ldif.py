@@ -23,8 +23,11 @@
 from __future__ import unicode_literals
 
 import argparse
+import logging
 from six import text_type
 
+import Cerebrum.logutils
+import Cerebrum.logutils.options
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.LDIFutils import (ldapconf,
                                         entry_string,
@@ -34,11 +37,10 @@ from Cerebrum.modules.no.uio.voip.voipClient import VoipClient
 from Cerebrum.modules.no.uio.voip.voipAddress import VoipAddress
 
 
-logger = Factory.get_logger("cronjob")
-db = Factory.get("Database")()
+logger = logging.getLogger(__name__)
 
 
-def generate_voip_clients(sink, addr_id2dn, *args):
+def generate_voip_clients(sink, db, addr_id2dn, *args):
     vc = VoipClient(db)
     const = Factory.get("Constants")()
     sink.write(container_entry_string('VOIP_CLIENT'))
@@ -55,10 +57,12 @@ def generate_voip_clients(sink, addr_id2dn, *args):
         entry['objectClass'] = ['top', 'sipClient']
         entry['sipVoipAddressDN'] = addr_id2dn[voip_address_id]
 
-        if entry["sipClientType"] == text_type(const.voip_client_type_softphone):
+        if entry["sipClientType"] == text_type(
+                const.voip_client_type_softphone):
             attr = "uid"
             assert attr in entry
-        elif entry["sipClientType"] == text_type(const.voip_client_type_hardphone):
+        elif entry["sipClientType"] == text_type(
+                const.voip_client_type_hardphone):
             attr = "sipMacAddress"
             assert "uid" not in entry
         else:
@@ -71,7 +75,7 @@ def generate_voip_clients(sink, addr_id2dn, *args):
         sink.write(entry_string(dn, entry))
 
 
-def generate_voip_addresses(sink, *args):
+def generate_voip_addresses(sink, db, *args):
     va = VoipAddress(db)
     sink.write(container_entry_string('VOIP_ADDRESS'))
     addr_id2dn = dict()
@@ -87,7 +91,7 @@ def generate_voip_addresses(sink, *args):
     return addr_id2dn
 
 
-def get_voip_persons_and_primary_accounts():
+def get_voip_persons_and_primary_accounts(db):
     va = VoipAddress(db)
     ac = Factory.get("Account")(db)
     const = Factory.get("Constants")()
@@ -106,24 +110,31 @@ def get_voip_persons_and_primary_accounts():
     return voippersons, primary2pid, sysadm_aid
 
 
-def main():
+def main(inargs=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         '-o', '--output',
         type=text_type,
         dest='output',
         help='output file')
-    args = parser.parse_args()
+
+    Cerebrum.logutils.options.install_subparser(parser)
+    args = parser.parse_args(inargs)
+
+    Cerebrum.logutils.autoconf('cronjob', args)
+
+    db = Factory.get("Database")()
 
     f = ldif_outfile('VOIP', args.output)
     logger.info('Starting VoIP LDIF export to %s', f.name)
     f.write(container_entry_string('VOIP'))
     logger.info('Fetching persons and primary accounts')
-    persons, primary2pid, sysadm_aid = get_voip_persons_and_primary_accounts()
+    persons, primary2pid, sysadm_aid = get_voip_persons_and_primary_accounts(db)
     logger.info('Fetching VoIP addresses')
-    addr_id2dn = generate_voip_addresses(f, persons, primary2pid, sysadm_aid)
+    addr_id2dn = generate_voip_addresses(f, db, persons, primary2pid,
+                                         sysadm_aid)
     logger.info('Fetching VoIP clients')
-    generate_voip_clients(f, addr_id2dn, persons, primary2pid, sysadm_aid)
+    generate_voip_clients(f, db, addr_id2dn, persons, primary2pid, sysadm_aid)
     f.close()
     logger.info('Done')
 
