@@ -30,8 +30,9 @@ should be in a module called 'dbcl_conf' in the Python path.
 
 from __future__ import unicode_literals
 
-import time
 import datetime
+import logging
+import time
 
 from six import text_type
 
@@ -39,11 +40,14 @@ try:
     import dbcl_conf
 except ImportError:
     dbcl_conf = None
-from Cerebrum.Utils import Factory
-from Cerebrum.modules import default_dbcl_conf
-from Cerebrum.utils import json
 
-logger = Factory.get_logger("big_shortlived")
+import Cerebrum.logutils
+from Cerebrum.modules import default_dbcl_conf
+from Cerebrum.Utils import Factory
+from Cerebrum.utils import json
+from Cerebrum.utils.argutils import add_commit_args
+
+logger = logging.getLogger(__name__)
 
 
 def get_db():
@@ -302,11 +306,6 @@ def main(args=None):
     """Main script runtime. Parses arguments. Starts tasks."""
     import argparse
     parser = argparse.ArgumentParser(description=__doc__)
-
-    parser.add_argument('--commit',
-                        default=False,
-                        action='store_true',
-                        help='Commit changes')
     parser.add_argument('--plaintext-passwords',
                         default=False,
                         action='store_true',
@@ -324,7 +323,10 @@ def main(args=None):
                         dest='clean_changelog',
                         help='Clean changelog entries')
 
+    add_commit_args(parser)
+    Cerebrum.logutils.options.install_subparser(parser)
     args = parser.parse_args(args)
+    Cerebrum.logutils.autoconf("big_shortlived", args)
 
     logger.info("Starting %s with args: %s", parser.prog, args.__dict__)
 
