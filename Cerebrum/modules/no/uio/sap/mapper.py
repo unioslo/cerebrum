@@ -230,7 +230,7 @@ class EmployeeMapper(_base.AbstractMapper):
                     HRAffiliation(**{
                         'placecode': placecode,
                         # TODO: None of these role2aff mappings would work?
-                        'affiliation': role2aff[role_name].affiliation,
+                        'affiliation': role2aff[role_name],
                         'status': role2aff.get[role_name],
                         'precedence': None})
                 )
