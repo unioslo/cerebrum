@@ -57,8 +57,6 @@ import functools
 import logging
 import sys
 
-import mx.DateTime
-
 import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum.Utils import Factory
@@ -69,7 +67,7 @@ logger = logging.getLogger(__name__)
 
 def read_account_names(filename):
     with open(filename, 'r') as f:
-        for lineno, raw_line in enumerate(f, 1):
+        for raw_line in f:
             account_name = raw_line.strip()
             if not account_name or account_name.startswith('#'):
                 continue
@@ -86,22 +84,27 @@ def find_recent_accounts(db, days):
     has_password = set(
         r['subject_entity']
         for r in db.get_log_events(types=cl.account_password,
-                                   sdate=mx.DateTime.DateFrom(start_date)))
+                                   sdate=start_date))
 
-    for r in db.get_log_events(types=cl.account_create,
-                               sdate=mx.DateTime.DateFrom(start_date)):
+    for r in db.get_log_events(types=cl.account_create, sdate=start_date):
         if r['subject_entity'] in has_password:
             continue
         yield int(r['subject_entity'])
 
 
 def get_account_by_id(db, account_id):
+    """
+    Procure account by account_id.
+    """
     ac = Factory.get('Account')(db)
     ac.find(account_id)
     return ac
 
 
 def get_account_by_name(db, account_name):
+    """
+    Procure account by account_name.
+    """
     ac = Factory.get('Account')(db)
     ac.find_by_name(account_name)
     return ac
