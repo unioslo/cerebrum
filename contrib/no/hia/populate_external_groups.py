@@ -22,18 +22,18 @@
 
 from __future__ import generators, unicode_literals
 
-import sys
-import os
-import locale
-import getopt
 import datetime
+import getopt
+import locale
+import os
+import sys
 
-import mx.DateTime
 import six
 
 import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
+from Cerebrum.utils.date import parse_date
 from Cerebrum.modules import Email
 from Cerebrum.modules.no import access_FS
 from Cerebrum.modules.fs.fs_group import (FsGroupCategorizer,
@@ -908,8 +908,7 @@ def main():
                 attrs.get("status_nettbasert_und") == 'J'):
 
             if (immediate_evu_expire and
-                    mx.DateTime.strptime(attrs.get("dato_til"), "%Y-%m-%d") <
-                    mx.DateTime.now()):
+                    parse_date(attrs.get("dato_til")) < datetime.date.today()):
                 logger.debug("Kurs %s-%s ekspirerte",
                              attrs["etterutdkurskode"],
                              attrs["kurstidsangivelsekode"])
