@@ -25,13 +25,13 @@ requests of the given types for processing.
 
 """
 
-import mx
+import argparse
+import datetime
+import logging
 import pickle
 import re
 import socket
 import ssl
-import logging
-import argparse
 
 import cereconf
 
@@ -455,7 +455,7 @@ def proc_delete_user(r):
                        operator, mail_server):
         return False
 
-    account.expire_date = mx.DateTime.now()
+    account.expire_date = datetime.datetime.today()
     account.write_db()
     try:
         home = account.get_home(spread)
