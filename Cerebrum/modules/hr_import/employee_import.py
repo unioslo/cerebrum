@@ -402,7 +402,7 @@ class HRDataImport(object):
             if aff_data not in db_affiliations:
                 db_affiliations[aff_data] = models.HRAffiliation(
                     ou_id=ou_id, affiliation=affiliation,
-                    status = status,
+                    status=status,
                     precedence=aff['precedence']
                 )
         # aff in db, but not in hr: Remove!
