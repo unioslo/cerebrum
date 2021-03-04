@@ -39,7 +39,7 @@ import sys
 import io
 import getopt
 import re
-from mx.DateTime import now
+from datetime import datetime
 
 import cereconf
 from Cerebrum import Errors
@@ -73,7 +73,7 @@ def populate_fagmiljo(person_id, fagmiljo):
     logger.debug("Populating fagmiljo for person_id=%s", person_id)
     pe.clear()
     pe.find(person_id)
-    pe.populate_trait(code=co.trait_fagmiljo, date=now(), strval=fagmiljo)
+    pe.populate_trait(code=co.trait_fagmiljo, date=datetime.now(), strval=fagmiljo)
     pe.write_db()
 
 def process_utvalg(filename, use_fok):
