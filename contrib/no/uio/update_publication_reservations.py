@@ -59,10 +59,9 @@ from __future__ import unicode_literals
 
 import sys
 import getopt
-from mx.DateTime import now
 
 from Cerebrum.Utils import Factory
-
+from Cerebrum.utils.date import now
 
 reservations = None
 
@@ -193,8 +192,8 @@ def set_reservation(person_id, value=True):
                                                                   person_id))
     pe.clear()
     pe.find(person_id)
-    pe.populate_trait(code=co.trait_public_reservation, date=now(),
-                      numval=int(bool(value)))
+    pe.populate_trait(code=co.trait_public_reservation,
+                      date=now(), numval=int(bool(value)))
     pe.write_db()
     global count_resrv_true, count_resrv_false
     if value:
