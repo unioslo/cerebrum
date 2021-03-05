@@ -51,14 +51,15 @@ import getopt
 import smtplib
 import email
 import io
-from mx import DateTime
+import datetime
 
 import cereconf
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.utils.email import sendmail
 from Cerebrum.QuarantineHandler import QuarantineHandler
+from Cerebrum.utils.date_compat import get_date
+from Cerebrum.utils.email import sendmail
 
 logger = Factory.get_logger('cronjob')
 
@@ -212,7 +213,7 @@ def notify_user(ac, quar_start_in_days):
     body = body.replace('${DAYS_TO_START}', str(quar_start_in_days))
     body = body.replace(
         '${QUARANTINE_DATE}',
-        (DateTime.now() + quar_start_in_days).Format("%F"))
+        str(datetime.date.today() + quar_start_in_days))
 
     try:
         first_name = (pe.search_person_names(
@@ -257,7 +258,7 @@ def find_candidates(exclude_aff=[], grace=0, quarantine=None):
         - `quarantined`: A set with account-IDs for all quarantined accounts.
 
     """
-    datelimit = DateTime.now() - int(grace)
+    datelimit = datetime.datetime.today() + datetime.timedelta(days=int(grace))
     logger.debug2("Including affiliations deleted after: %s", datelimit)
 
     def is_aff_considered(row):
@@ -316,7 +317,7 @@ def set_quarantine(pids, quar, offset, quarantined):
     success = set()
     failed_notify = 0
     no_processed = 0
-    date = DateTime.today() + offset
+    date = datetime.date.today() + datetime.timedelta(days=int(offset))
 
     # Cache what entities has the target quarantine:
     with_target_quar = set(
@@ -324,7 +325,9 @@ def set_quarantine(pids, quar, offset, quarantined):
         ac.list_entity_quarantines(quarantine_types=quar,
                                    only_active=False,
                                    entity_types=co.entity_account)
-        if r['start_date'] <= date)
+        if (
+                get_date(r['start_date']) and
+                get_date(r['start_date']) <= date))
     logger.debug2('Accounts with target quarantine: %d', len(with_target_quar))
     # Cache the owner to account relationship:
     pid2acs = {}
@@ -359,7 +362,7 @@ def set_quarantine(pids, quar, offset, quarantined):
 
             if notified:
                 ac.delete_entity_quarantine(quar)
-                ac.add_entity_quarantine(quar, creator, start=date)
+                ac.add_entity_quarantine(quar, creator, start=str(date))
                 # Commiting here to avoid that users get multiple emails if the
                 # script is stopped before it's done.
                 ac.commit()
