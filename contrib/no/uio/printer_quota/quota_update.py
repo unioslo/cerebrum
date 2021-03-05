@@ -33,7 +33,7 @@ Noen definisjoner:
 import functools
 import getopt
 import sys
-from datetime import datetime
+from datetime import date
 
 import cereconf
 from Cerebrum import Account
@@ -155,11 +155,11 @@ def get_students():
     tmp_gyldige = {}
     tmp_slettede = {}
 
-    now = datetime.now()
+    now = date.today()
     # Alle personer med student affiliation
     for row in pe.list_affiliations(include_deleted=True, fetchall=False):
         aff = (int(row['affiliation']), int(row['status']))
-        slettet = row['deleted_date'] and date_compat.get_datetime_naive(
+        slettet = row['deleted_date'] and date_compat.get_date(
             row['deleted_date']
         ) < now
 
