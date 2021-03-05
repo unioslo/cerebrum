@@ -251,15 +251,17 @@ def sync_filegroup(fgname, group, course, act):
     else:
         posix_group.find(fgroup.entity_id)
         # make sure the group is alive
-        if posix_group.expire_date and date_compat.get_datetime_naive(
-            posix_group.expire_date
-        ) < refreshdate:
-            logger.info("Extending life of %s from %s to %s",
-                        fgname,
-                        date_compat.get_datetime_naive(posix_group.expire_date),
-                        refreshdate)
+        expire_date = date_compat.get_date(posix_group.expire_date)
+        if expire_date and posix_group.expire_date < refreshdate:
+            logger.info(
+                "Extending life of %s from %s to %s",
+                fgname,
+                expire_date,
+                refreshdate
+            )
             posix_group.expire_date = expdate
             posix_group.write_db()
+
     uptodate = False
     for row in posix_group.search_members(group_id=posix_group.entity_id,
                                           member_filter_expired=False):
