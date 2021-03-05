@@ -44,6 +44,7 @@ import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
+from Cerebrum.utils import date_compat
 from Cerebrum.utils.sms import SMSSender
 from Cerebrum.utils.date import now
 from Cerebrum.utils import argutils
@@ -71,7 +72,8 @@ class ReminderManager(SMSManager):
         """
         for row in self.ac.list_traits(code=self.trait, numval=None):
             if (row['date'] and
-                    row['date'] > now() - datetime.timedelta(days=7)):
+                    date_compat.get_datetime_tz(row['date'])
+                    > now() - datetime.timedelta(days=7)):
                 continue
             self.row = row
             yield row
@@ -135,13 +137,13 @@ def process(manager, message, phone_types, affiliations, too_old,
 
         # Only send reminders if in the last week of july or december
         if reminder and not (
-                (datetime.datetime(datetime.date.today().year, 7, 25)
-                 <= datetime.datetime.today()
-                 <= datetime.datetime(datetime.date.today().year, 7, 31))
+                (datetime.date(datetime.date.today().year, 7, 25)
+                 <= datetime.date.today()
+                 <= datetime.date(datetime.date.today().year, 7, 31))
                 or
-                (datetime.datetime(datetime.date.today().year, 12, 25)
-                 <= datetime.datetime.today()
-                 <= datetime.datetime(datetime.date.today().year, 12, 31))):
+                (datetime.date(datetime.date.today().year, 12, 25)
+                 <= datetime.date.today()
+                 <= datetime.date(datetime.date.today().year, 12, 31))):
             logger.debug('Not last week of july or december, breaking.')
             break
 
@@ -153,7 +155,7 @@ def process(manager, message, phone_types, affiliations, too_old,
         if min_attempts:
             attempt = inc_attempt(manager.db, ac, row, commit)
 
-        is_too_old = (row['date'] < datetime.datetime.today()
+        is_too_old = (date_compat.get_datetime_tz(row['date']) < now()
                       - datetime.timedelta(days=too_old))
 
         # remove trait if older than too_old days and min_attempts is not set
@@ -231,8 +233,8 @@ def process(manager, message, phone_types, affiliations, too_old,
             # Check if user already has been texted. If so, the trait is
             # removed.
             tr = ac.get_trait(manager.co.trait_sms_welcome)
-            if tr and tr['date'] > (datetime.datetime.today()
-                                    - datetime.timedelta(days=300)):
+            if tr and (date_compat.get_datetime_tz(tr['date']) > now()
+                       - datetime.timedelta(days=300)):
                 logger.debug(
                     'User %r already texted last %d days, removing trait',
                     ac.account_name, 300)
