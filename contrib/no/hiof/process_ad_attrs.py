@@ -61,12 +61,13 @@ def process_requests(commit, db):
         if delete_ad_attrs(db, r['entity_id'], spread):
             br.delete_request(request_id=r['request_id'])
 
-    if not commit:
-        logger.info("Rolling back all changes")
-        db.rollback()
-    else:
+    if commit:
         logger.info("Committing all changes")
         db.commit()
+
+    else:
+        logger.info("Rolling back all changes")
+        db.rollback()
 
 
 def delete_ad_attrs(db, entity_id, spread):
