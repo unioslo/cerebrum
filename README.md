@@ -62,3 +62,5 @@ This is a brief summary of the currently existing documentation for Cerebrum:
 * design/entity_usage.txt - describes how to modify data in the database
 
 The documentation for the core api can be read using pydoc.
+
+EOF
