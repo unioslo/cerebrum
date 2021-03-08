@@ -39,10 +39,9 @@ try:
     import dbcl_conf
 except ImportError:
     dbcl_conf = None
-from Cerebrum.modules import default_dbcl_conf
 from Cerebrum.Utils import Factory
+from Cerebrum.modules import default_dbcl_conf
 from Cerebrum.utils import json
-from Cerebrum.utils.argutils import add_commit_args
 
 logger = Factory.get_logger("big_shortlived")
 
@@ -304,6 +303,10 @@ def main(args=None):
     import argparse
     parser = argparse.ArgumentParser(description=__doc__)
 
+    parser.add_argument('--commit',
+                        default=False,
+                        action='store_true',
+                        help='Commit changes')
     parser.add_argument('--plaintext-passwords',
                         default=False,
                         action='store_true',
@@ -321,7 +324,6 @@ def main(args=None):
                         dest='clean_changelog',
                         help='Clean changelog entries')
 
-    add_commit_args(parser)
     args = parser.parse_args(args)
 
     logger.info("Starting %s with args: %s", parser.prog, args.__dict__)
