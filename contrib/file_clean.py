@@ -81,16 +81,19 @@ Postfix on archive files are '-%Y-%m-%d.tar.gz'
 ##    til we no longer support version < 2.4.
 ##
 
-import getopt
-import sys
+import logging
 import os
-import time
 import re
-import tempfile
 import shutil
-from Cerebrum.Utils import Factory
+import sys
+import tempfile
+import time
 
-logger = Factory.get_logger("cronjob")
+import Cerebrum.logutils
+from Cerebrum.utils.argutils import add_commit_args
+
+logger = logging.getLogger(__name__)
+
 postfix_re = '-\d+-\d+-\d+.*\.tar\.gz'
 
 
@@ -183,7 +186,7 @@ def archive_files(name_pattern='', dirname='', archive_name='',
     @param archivename: name of archive file as a path
     @type  archivename: string
     @param file_type: file_type must be file or directory.
-    @type  file_type: string 
+    @type  file_type: string
     @param archive_age: Files to archive must be older than archive_age.
     @type  archive_age: int
     @param min_age: If no_delete is False delete archives older than min_age.
@@ -201,7 +204,7 @@ def archive_files(name_pattern='', dirname='', archive_name='',
     if not (name_pattern or archive_name):
         logger.warning("name_pattern and archive_name must be given")
         return
-    
+
     # Check if old archives should be deleted
     if min_age > 0:
         archive_pattern = os.path.basename(archive_name) + postfix_re
@@ -273,57 +276,82 @@ def usage(exitcode=0):
     sys.exit(exitcode)
 
 
-def main():
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], '', [
-            'help', 'archive', 'delete', 'read-config', 'dryrun',
-            'name-pattern=', 'dirname=', 'filetype=', 'archive-name=',
-            'archive-age=', 'min-age=', 'no-delete', 'no-delete-tar'])
-    except getopt.GetoptError:
-        usage(1)
-    if not opts:
-        usage(1)
+def main(args=None):
+    """Main script runtime. Parses arguments. Starts tasks."""
+    import argparse
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--archive',
+                        default=False,
+                        action='store_true',
+                        dest='archive_mode',
+                        help='archive mode')
+    parser.add_argument('--delete',
+                        default=False,
+                        action='store_true',
+                        dest='delete_mode',
+                        help='delete mode')
+    parser.add_argument('--read-config',
+                        default=False,
+                        action='store_true',
+                        dest='read_config',
+                        help='read options from config file')
+    parser.add_argument('--name-pattern',
+                        default=None,
+                        dest='name_pattern',
+                        help='pattern of file (Python regex)')
+    parser.add_argument('--dirname',
+                        default=None,
+                        help="""the directory in which to look for files
+                            matching name-pattern.""")
+    parser.add_argument('--filetype',
+                        default='file',
+                        dest='file_type',
+                        help="file type (must be 'file' or 'dir')")
+    parser.add_argument('--archive-name',
+                        default=None,
+                        dest='archive_name',
+                        help='name of archive file')
+    parser.add_argument('--archive-age',
+                        type=int,
+                        default=0,
+                        dest='archive_age',
+                        help="""archive all files older than the given number of
+                            days. If not given, archive all files that match
+                            name-pattern.""")
+    parser.add_argument('--min-age',
+                        type=int,
+                        default=0,
+                        dest='min_age',
+                        help='delete files older than the given number of days')
+    parser.add_argument('--no-delete',
+                        default=False,
+                        action='store_true',
+                        dest="no_delete",
+                        help="don't delete files that are archived")
+    parser.add_argument('--no-delete-tar',
+                        default=False,
+                        action='store_true',
+                        dest="no_del_tar",
+                        help="""don't delete the original files right after
+                            'tar' compression""")
 
-    archive_mode = False
-    delete_mode = False
-    read_config = False
-    no_delete = False
-    no_del_tar= False
-    dryrun = False
-    name_pattern = None
-    archive_name = None
-    dirname = None
-    file_type = 'file'
-    archive_age = 0
-    min_age = 0
-    
-    for opt, val in opts:
-        if opt in ('--help',):
-            usage()
-        elif opt in ('--archive',):
-            archive_mode = True
-        elif opt in ('--delete',):
-            delete_mode = True
-        elif opt in ('--read-config',):
-            read_config = True
-        elif opt in ('--dryrun',):
-            dryrun = True
-        elif opt in ('--name-pattern',):
-            name_pattern = val
-        elif opt in ('--dirname',):
-            dirname = val
-        elif opt in ('--filetype',):
-            file_type = val
-        elif opt in ('--archive-name',):
-            archive_name = val
-        elif opt in ('--archive-age',):
-            archive_age = int(val)
-        elif opt in ('--min-age',):
-            min_age = int(val)
-        elif opt in ('--no-delete',):
-            no_delete = True
-        elif opt in ('--no-delete-tar',):
-            no_del_tar = True
+    add_commit_args(parser)
+    Cerebrum.logutils.options.install_subparser(parser)
+    args = parser.parse_args(args)
+    Cerebrum.logutils.autoconf("cronjob", args)
+
+    archive_mode = args.archive_mode
+    delete_mode = args.delete_mode
+    read_config = args.read_config
+    no_delete = args.no_delete
+    no_del_tar = args.no_del_tar
+    name_pattern = args.name_pattern
+    archive_name = args.archive_name
+    dirname = args.dirname
+    file_type = args.file_type
+    archive_age = args.archive_age
+    min_age = args.min_age
+    dryrun = not args.commit
 
     # read options from config file or cmd line?
     if read_config:
@@ -366,6 +394,6 @@ def main():
             a['dryrun'] = dryrun
             archive_files(**a)
 
-        
+
 if __name__ == '__main__':
     main()
