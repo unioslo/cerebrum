@@ -104,9 +104,6 @@ class LeaderGroupUpdater(object):
         return leader_groups
 
     def sync(self, person_id, hr_ou_ids):
-        logger.debug("GHFEGHFDGHFHD")
-        logger.debug(hr_ou_ids)
-        logger.debug("END")
         require_memberships = self.get_leader_group_ids(hr_ou_ids)
         current_memberships = set(self._get_current_groups(person_id))
 
