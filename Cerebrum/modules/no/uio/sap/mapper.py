@@ -287,7 +287,7 @@ class EmployeeMapper(_base.AbstractMapper):
         logger.info('found %d titles: %r', len(results), results)
         return results
 
-    def parse_leader_groups(self, assignment_data):
+    def parse_leader_groups(self, assignment_data, db):
         """
         Parse leader groups from SAP assignment data
 
@@ -303,14 +303,14 @@ class EmployeeMapper(_base.AbstractMapper):
         group_names = set()
         for assignment in assignment_data:
             if assignment.get('managerFlag'):
-                group = get_leader_group(self.db,
-                                         assignment.get('locationCode'))
+                group = get_leader_group(
+                    db, assignment.get('locationCode'))
                 group_ids.add(group.entity_id)
                 group_names.add(group.group_name)
         logger.info('found %d manager groups: %r', len(group_ids), group_names)
         return group_ids
 
-    def translate(self, reference, obj):
+    def translate(self, reference, obj, db):
         """
         Populate a HRPerson object with data fetched from SAP
 
@@ -331,12 +331,14 @@ class EmployeeMapper(_base.AbstractMapper):
                 person_data.get('gender')
             ),
             reserved=not person_data.get('allowedPublicDirectoryFlag'))
-        hr_person.leader_groups = self.parse_leader_groups(assignment_data)
+        hr_person.leader_groups = self.parse_leader_groups(
+            assignment_data, db)
         hr_person.external_ids = self.parse_external_ids(person_data)
         hr_person.contact_infos = self.parse_contacts(person_data)
         hr_person.titles = self.parse_titles(person_data, assignment_data)
         hr_person.affiliations = self.parse_affiliations(assignment_data,
                                                          role_data)
+
         return hr_person
 
     def is_active(self, hr_object):
