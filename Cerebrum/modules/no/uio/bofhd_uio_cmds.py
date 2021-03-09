@@ -984,7 +984,6 @@ class BofhdExtension(BofhdCommonMethods):
             raise PermissionDenied('No access to group')
         dl_group = self._get_group(groupname, idtype='name',
                                    grtype="DistributionGroup")
-        self._raise_PermissionDenied_if_not_manual_group(dl_group)
         try:
             dl_group.delete_spread(
                 self.const.Spread(cereconf.EXCHANGE_GROUP_SPREAD))
@@ -1013,7 +1012,6 @@ class BofhdExtension(BofhdCommonMethods):
             raise PermissionDenied('No access to group')
         dl_group = self._get_group(groupname, idtype='name',
                                    grtype="DistributionGroup")
-        self._raise_PermissionDenied_if_not_manual_group(dl_group)
         visible = self._get_boolean(visible)
         dl_group.set_hidden(hidden='F' if visible else 'T')
         if self._is_perishable_manual_group(dl_group):
