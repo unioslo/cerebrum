@@ -51,9 +51,10 @@ logger = logging.getLogger(__name__)
 def main():
 
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('-d', '--dryrun', dest='dryrun', action='store_true',
+    group = parser.add_mutually_exclusive_group(required=False)
+    group.add_argument('-d', '--dryrun', dest='dryrun', action='store_true',
         default=True, help="Do not commit the changes to db")
-    parser.add_argument('--commit', dest='dryrun', action='store_false',
+    group.add_argument('--commit', dest='dryrun', action='store_false',
         help='Commit the changes to db')
     parser.add_argument('--list-handlers', action='store_true',
         help="List defined change handlers from the db and quit")
