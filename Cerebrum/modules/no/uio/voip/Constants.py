@@ -230,6 +230,11 @@ class VoipConstants(Constants.Constants):
         "Polycom VVX600"
         )
 
+    voip_client_vvx601 = VoipClientInfoCode(
+        "001011",
+        "Polycom VVX601"
+        )
+
     voip_client_spa508g = VoipClientInfoCode(
         "002002",
         "Cisco SPA-508G"
@@ -283,6 +288,11 @@ class VoipConstants(Constants.Constants):
     voip_client_tkis2 = VoipClientInfoCode(
         "003005",
         "Zenitel TKIS-2"
+    )
+
+    voip_client_tciv6plus = VoipClientInfoCode(
+        "003006",
+        "Zenitel TCIV-6+"
     )
 
     voip_client_sx20 = VoipClientInfoCode(
