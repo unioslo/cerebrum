@@ -53,6 +53,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('-d', '--dryrun', dest='dryrun', action='store_true',
         default=True, help="Do not commit the changes to db")
+    parser.add_argument('--commit', dest='dryrun', action='store_false',
+        help='Commit the changes to db')
     parser.add_argument('--list-handlers', action='store_true',
         help="List defined change handlers from the db and quit")
     parser.add_argument('--print-handlers', action='store_true',
