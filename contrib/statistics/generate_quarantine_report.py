@@ -26,7 +26,8 @@ import sys
 from collections import defaultdict
 
 from jinja2 import Environment
-from mx.DateTime import now, ISO, RelativeDateTime
+from datetime import datetime, date, timedelta
+from Cerebrum.utils.date import parse_date
 from six import text_type
 
 import Cerebrum.logutils
@@ -323,7 +324,7 @@ def write_html_report(stream, codec, quarantines, start_date):
             'start_date': start_date.strftime('%Y-%m-%d'),
             'num_quarantines': num_quarantines,
             'quarantines': quarantines,
-            'when': now().strftime('%Y-%m-%d %H:%M:%S'),
+            'when': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
         })
     )
     output.write('\n')
@@ -355,13 +356,13 @@ def main(inargs=None):
         '-s', '--start_date',
         metavar='DATE',
         dest='start_date',
-        type=ISO.ParseDate,
+        type=parse_date
         help='Report quarantines set by date (YYYY-MM-DD)')
     age_arg.add_argument(
         '-a', '--age',
         metavar='DAYS',
         dest='start_date',
-        type=lambda x: now() + RelativeDateTime(days=-abs(int(x))),
+        type=lambda x: date.today() + timedelta(days=-abs(int(x))),
         help='Report quarantines set by age (in days)')
 
     Cerebrum.logutils.options.install_subparser(parser)
