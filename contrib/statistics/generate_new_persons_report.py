@@ -33,7 +33,8 @@ import sys
 from jinja2 import Environment
 from six import text_type
 
-from mx.DateTime import now, ISO, RelativeDateTime
+from datetime import datetime, date, timedelta
+from Cerebrum.utils.date import parse_date
 
 import Cerebrum.logutils
 import Cerebrum.logutils.options
@@ -244,7 +245,7 @@ def write_html_report(stream, codec, new_persons_by_ou, from_date, to_date):
             'data': new_persons_by_ou,
             'from_date': from_date.strftime('%Y-%m-%d'),
             'to_date': to_date.strftime('%Y-%m-%d'),
-            'when': now().strftime('%Y-%m-%d %H:%M:%S'),
+            'when': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
         })
     )
     output.write('\n')
@@ -271,15 +272,15 @@ def main(inargs=None):
     parser.add_argument(
         '--from',
         dest='start_date',
-        type=ISO.ParseDate,
-        default=now() + RelativeDateTime(days=-7),
+        type=parse_date,
+        default=date.today() - timedelta(days=7),
         help='date to start searching for new persons from, defaults to'
              ' 7 days ago')
     parser.add_argument(
         '--to',
         dest='end_date',
-        type=ISO.ParseDate,
-        default=now(),
+        type=parse_date,
+        default=date.today(),
         help='date to start searching for new persons until, defaults to now')
 
     source_arg = parser.add_argument(
