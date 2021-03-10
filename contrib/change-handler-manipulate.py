@@ -31,24 +31,28 @@ Future requests:
 - Add possibility for unchecking a given change_id, to rerun it in a sync
 
 """
-
 import sys
+import logging
+
+from six import text_type
 
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
 from Cerebrum.modules import CLHandler
+import Cerebrum.logutils
+import Cerebrum.logutils.options
 try:
     import argparse
 except ImportError:
     from Cerebrum.extlib import argparse
 
-logger = Factory.get_logger('cronjob')
+logger = logging.getLogger(__name__)
 
 def main():
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('-d', '--dryrun', dest='dryrun', action='store_true',
-        default=False, help="Do not commit the changes to db")
+        default=True, help="Do not commit the changes to db")
     parser.add_argument('--list-handlers', action='store_true',
         help="List defined change handlers from the db and quit")
     parser.add_argument('--print-handlers', action='store_true',
@@ -60,7 +64,10 @@ def main():
         specified. If the change handler key doesn't exist, it gets created.
         Note: This forces the last_id and removes all gaps in the range before
         this, setting every change to "completed". Use with care!""")
+
+    Cerebrum.logutils.options.install_subparser(parser)
     args = parser.parse_args()
+    Cerebrum.logutils.autoconf('cronjob', args)
 
     db = Factory.get('Database')(client_encoding='UTF-8')
     db.cl_init(change_program="change-handler-manipulator")
@@ -76,7 +83,7 @@ def main():
     if args.list_handlers:
         handlers = {}
         for row in clh.list_handler_data():
-            handlers.setdefault(row['evthdlr_key'], []).append(row)
+            handlers.setdefault(text_type(row['evthdlr_key']), []).append(row)
 
         for key in sorted(handlers):
             first = None
@@ -89,18 +96,18 @@ def main():
                 if last is None or i['last_id'] > last:
                     last = i['last_id']
 
-            print "'%s' (%d handlers):" % (key, len(handlers[key]))
-            print "  First first_id: %20d" % first
-            print "  Last last_id:   %20d" % last
+            print ("'%s' (%d handlers):" % (key, len(handlers[key])))
+            print ("  First first_id: %20d" % first)
+            print ("  Last last_id:   %20d" % last)
             print
     elif args.print_handlers:
         handlers = {}
         for row in clh.list_handler_data():
-            handlers.setdefault(row['evthdlr_key'], []).append(row)
-        print "%20s %10s %10s" % ('Key', 'first_id', 'last_id')
+            handlers.setdefault(text_type(row['evthdlr_key']), []).append(row)
+        print ("%20s %10s %10s") % ('Key', 'first_id', 'last_id')
         for key in sorted(handlers):
             for r in handlers[key]:
-                print "%20s %10d %10d" % (key, r['first_id'], r['last_id'])
+                print ("%20s %10d %10d") % (key, r['first_id'], r['last_id'])
     elif args.force_last_id > 0:
         if not args.key:
             raise Exception("Missing --key argument")
@@ -108,7 +115,7 @@ def main():
                     args.force_last_id)
         clh._update_ranges(args.key, [[-1, args.force_last_id],])
     else:
-        print "No action given. Quits"
+        print ("No action given. Quits")
 
     if args.dryrun:
         logger.info("Rolled back changes")
@@ -119,4 +126,5 @@ def main():
     logger.info("change_handler_manipulate.py finished")
 
 if __name__ == '__main__':
+    logger.setLevel(20) #INFO
     main()
