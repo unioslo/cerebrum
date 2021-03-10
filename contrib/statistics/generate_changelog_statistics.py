@@ -44,7 +44,8 @@ import argparse
 import io
 import logging
 
-import mx.DateTime
+from datetime import date, timedelta
+from Cerebrum.utils.date import parse_date
 
 import Cerebrum.logutils
 import Cerebrum.logutils.options
@@ -73,9 +74,7 @@ default_header_file = getattr(cereconf, 'STATISTICS_EXPLANATION_TEMPLATE')
 
 def relative_date(days):
     """ Get a date relative to monday. """
-    weekday = (mx.DateTime.Monday, 0)
-    return mx.DateTime.now() + mx.DateTime.RelativeDateTime(days=days,
-                                                            weekday=weekday)
+    return date.today() + timedelta(days=days - date.today().weekday())
 
 
 def get_header(filename, encoding='utf-8'):
@@ -123,7 +122,7 @@ def main(inargs=None):
     parser.add_argument(
         '--from',
         dest='from_date',
-        type=mx.DateTime.ISO.ParseDate,
+        type=parse_date,
         default=relative_date(-7),
         help=('Start date for events to be processed. '
               'Default value is Monday of last week.'),
@@ -131,7 +130,7 @@ def main(inargs=None):
     parser.add_argument(
         '--to',
         dest='to_date',
-        type=mx.DateTime.ISO.ParseDate,
+        type=parse_date,
         default=relative_date(0),
         help=('End-date for events to be processed. '
               'Default value is Sunday of last week.'),
@@ -183,11 +182,11 @@ def main(inargs=None):
 
     logger.info("Statistics for Cerebrum activities - processing started")
     logger.debug("Time period: from: '%s'; up to: '%s'",
-                 str(args.from_date.date), str(args.to_date.date))
+                 args.from_date, args.to_date)
 
     print("")
     print("Statistics covering the period from %s up to %s" %
-          (args.from_date.date, args.to_date.date))
+          (args.from_date, args.to_date))
     print(get_header(args.header))
 
     # Iterate over all event types, retrieve info and generate output
