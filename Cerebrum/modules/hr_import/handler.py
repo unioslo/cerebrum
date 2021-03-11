@@ -20,10 +20,10 @@
 """
 HR import handlers (for use with :mod:`Cerebrum.modules.amqp.consumer`
 """
-import contextlib
 import json
 import logging
 
+from Cerebrum.database.ctx import db_context
 from Cerebrum.modules.amqp.handlers import AbstractConsumerHandler
 from Cerebrum.modules.amqp.publisher import Publisher
 
@@ -36,27 +36,6 @@ logger = logging.getLogger(__name__)
 class DatabaseConflict(RuntimeError):
     """ Unable to import data due to conflict. """
     pass
-
-
-@contextlib.contextmanager
-def db_context(init_db, dryrun):
-    """ A database context manager. """
-    db = init_db()
-    try:
-        logger.debug('db_context: enter dryrun=%r, db=%r, conn=%r',
-                     dryrun, db, db._db)
-        yield db
-    except Exception as e:
-        logger.warning('db_context: rollback (unhandled exception=%r)', e)
-        db.rollback()
-        raise
-
-    if dryrun:
-        logger.info('db_context: rollback (dryrun)')
-        db.rollback()
-    else:
-        logger.info('db_context: commit')
-        db.commit()
 
 
 class EmployeeHandler(AbstractConsumerHandler):
@@ -101,7 +80,7 @@ class EmployeeHandler(AbstractConsumerHandler):
         for call in self.task_mapper.message_to_callable(event):
             logger.debug('handle: applying %r', call)
             event_handled = True
-            with db_context(self.db_init, self.dryrun) as db:
+            with db_context(self.db_init(), dryrun=self.dryrun) as db:
                 importer = call(db, self.importer_config)
                 reschedule_dates = importer.handle_event(event)
 
