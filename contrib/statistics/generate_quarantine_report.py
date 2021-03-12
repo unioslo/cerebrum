@@ -28,6 +28,7 @@ from collections import defaultdict
 from jinja2 import Environment
 from datetime import datetime, date, timedelta
 from Cerebrum.utils.date import parse_date
+from Cerebrum.utils.date_compat import get_date
 from six import text_type
 
 import Cerebrum.logutils
@@ -243,7 +244,9 @@ def get_quarantine_data(db, start_date):
         if i and i % 50000 == 0:
             logger.debug('... %d processed, %d found', i, stats['include'])
 
-        if row_qua['start_date'] > start_date:
+        quarantine_date = get_date(row_qua['start_date'], allow_none=False)
+
+        if quarantine_date > start_date:
             stats['skip_too_recent'] += 1
             continue  # quarantine is not old enough, skip
 
@@ -273,7 +276,7 @@ def get_quarantine_data(db, start_date):
             'person_name': _u(name),
             'account_name': _u(account_name),
             'q_type': text_type(co.Quarantine(row_qua['quarantine_type'])),
-            'q_date': text_type(row_qua['start_date'].strftime('%Y-%m-%d')),
+            'q_date': text_type(quarantine_date.strftime('%Y-%m-%d')),
             'status': None,
             'ou': 'Uregistrert',
             'faculty': 'Uregistrert',
@@ -356,7 +359,7 @@ def main(inargs=None):
         '-s', '--start_date',
         metavar='DATE',
         dest='start_date',
-        type=parse_date
+        type=parse_date,
         help='Report quarantines set by date (YYYY-MM-DD)')
     age_arg.add_argument(
         '-a', '--age',
