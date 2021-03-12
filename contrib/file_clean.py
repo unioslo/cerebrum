@@ -280,6 +280,10 @@ def main(args=None):
     """Main script runtime. Parses arguments. Starts tasks."""
     import argparse
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--dryrun',
+                        default=False,
+                        action='store_true',
+                        help='dryrun mode')
     parser.add_argument('--archive',
                         default=False,
                         action='store_true',
@@ -306,36 +310,37 @@ def main(args=None):
     parser.add_argument('--filetype',
                         default='file',
                         dest='file_type',
-                        help="file type (must be 'file' or 'dir')")
-    parser.add_argument('--archive-name',
-                        default=None,
-                        dest='archive_name',
-                        help='name of archive file')
-    parser.add_argument('--archive-age',
-                        type=int,
-                        default=0,
-                        dest='archive_age',
-                        help="""archive all files older than the given number of
-                            days. If not given, archive all files that match
-                            name-pattern.""")
+                        choices=('file', 'dir'),
+                        help="file type")
     parser.add_argument('--min-age',
                         type=int,
                         default=0,
                         dest='min_age',
                         help='delete files older than the given number of days')
-    parser.add_argument('--no-delete',
-                        default=False,
-                        action='store_true',
-                        dest="no_delete",
-                        help="don't delete files that are archived")
-    parser.add_argument('--no-delete-tar',
-                        default=False,
-                        action='store_true',
-                        dest="no_del_tar",
-                        help="""don't delete the original files right after
-                            'tar' compression""")
+    archive_group = parser.add_argument_group('archive mode arguments')
+    archive_group.add_argument('--archive-name',
+                               default=None,
+                               dest='archive_name',
+                               help='name of archive file')
+    archive_group.add_argument('--archive-age',
+                               type=int,
+                               default=0,
+                               dest='archive_age',
+                               help="""archive all files older than the given
+                                   number of days. If not given, archive all
+                                   files that match name-pattern.""")
+    archive_group.add_argument('--no-delete',
+                               default=False,
+                               action='store_true',
+                               dest="no_delete",
+                               help="don't delete files that are archived")
+    archive_group.add_argument('--no-delete-tar',
+                               default=False,
+                               action='store_true',
+                               dest="no_del_tar",
+                               help="""don't delete the original files right
+                                   after 'tar' compression""")
 
-    add_commit_args(parser)
     Cerebrum.logutils.options.install_subparser(parser)
     args = parser.parse_args(args)
     Cerebrum.logutils.autoconf("cronjob", args)
@@ -351,7 +356,7 @@ def main(args=None):
     file_type = args.file_type
     archive_age = args.archive_age
     min_age = args.min_age
-    dryrun = not args.commit
+    dryrun = args.dryrun
 
     # read options from config file or cmd line?
     if read_config:
