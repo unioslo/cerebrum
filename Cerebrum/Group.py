@@ -54,7 +54,7 @@ class BaseGroup(EntityQuarantine, EntityExternalId,
 
     def clear(self):
         super(BaseGroup, self).clear()
-        self.clear_class(Group)
+        self.clear_class(BaseGroup)
         self.__updated = []
 
     def populate(self, creator_id=None, visibility=None, name=None,
