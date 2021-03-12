@@ -20,6 +20,31 @@
 """ Utilities related to sorting or ordering sequences.  """
 
 
+def unique(seq):
+    """
+    Strip duplicates from a sequence.
+
+    :type seq: iterable
+    :param seq: a sequence of hashable items
+
+    :rtype: generator
+    :return:
+        a sequence of unique items
+
+        The generator yields items in the same order as the input sequence, but
+        only yields the first encounter of each item.
+
+    >>> a = ['foo', 1, 'bar', 'foo', 2, 1]
+    >>> list(unique(a))
+    ['foo', 1, 'bar', 2]
+    """
+    seen = set()
+    for item in seq:
+        if item not in seen:
+            yield item
+            seen.add(item)
+
+
 def make_priority_lookup(lookup_order, invert=False):
     """
     Make a priority lookup function.
