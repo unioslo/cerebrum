@@ -31,7 +31,7 @@ import os
 import sys
 import xml.etree.ElementTree
 
-import mx.DateTime
+import datetime
 
 import cereconf
 
@@ -43,7 +43,7 @@ from Cerebrum.modules import PosixUser
 from Cerebrum.modules.no.uit.Account import UsernamePolicy
 from Cerebrum.modules.no.uit import POSIX_GROUP_NAME
 from Cerebrum.utils.argutils import add_commit_args
-
+from Cerebrum.utils.date_compat import get_datetime_naive
 
 logger = logging.getLogger(__name__)
 
@@ -696,17 +696,17 @@ def get_expire_date():
     Take into consideration that we do not want an expiredate in the general
     holiday time in Norway.
     """
-    today = mx.DateTime.today()
-    ff_start = mx.DateTime.DateTime(today.year, 6, 15)
-    ff_slutt = mx.DateTime.DateTime(today.year, 8, 15)
-    nextmonth = today + mx.DateTime.DateTimeDelta(30)
+    today = datetime.datetime.today()
+    ff_start = datetime.datetime(today.year, 6, 15)
+    ff_slutt = datetime.datetime(today.year, 8, 15)
+    nextmonth = today + datetime.timedelta(30)
 
     # ikke sett default expire til en dato i fellesferien
     if nextmonth > ff_start and nextmonth < ff_slutt:
         # fellesferien. Bruk 1 sept istedet.
-        return mx.DateTime.DateTime(today.year, 9, 1)
+        return get_datetime_naive(datetime.datetime(today.year, 9, 1))
     else:
-        return nextmonth
+        return get_datetime_naive(nextmonth)
 
 
 def _handle_changes(db, account_id, changes):
