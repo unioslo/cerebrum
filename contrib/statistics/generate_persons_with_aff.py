@@ -94,6 +94,7 @@ def persons_with_aff_status(db, status):
     logger.debug('finding persons with aff=%s...', text_type(status))
     unique = set()
     affiliations = 0
+    persons = []
     for row in pe.list_affiliations(status=status):
         person_id = row['person_id']
         ou_id = row['ou_id']
@@ -114,16 +115,22 @@ def persons_with_aff_status(db, status):
 
         unique.add(primary)
         affiliations += 1
-        yield {
-            'account_name': _u(account_name),
-            'person_name': _u(full_name),
-            'birth': text_type(birth),
-            'sap_id': _u(sap_id),
-            'dfo_id': _u(dfo_id),
-            'affiliation': text_type(status),
-            'ou_sko': text_type(sko),
-            'ou_name': _u(ou_name),
-        }
+        # if statement removes duplicates when the same affiliation exists in
+        # both sap and dfo-sap
+        if [_u(account_name), _u(ou_name), text_type(status)] not in persons:
+            persons.append([_u(account_name), _u(ou_name), text_type(status)])
+            yield {
+                'account_name': _u(account_name),
+                'person_name': _u(full_name),
+                'birth': text_type(birth),
+                'sap_id': _u(sap_id),
+                'dfo_id': _u(dfo_id),
+                'affiliation': text_type(status),
+                'ou_sko': text_type(sko),
+                'ou_name': _u(ou_name),
+            }
+        else:
+            continue
 
     logger.info('Found %d affiliations', affiliations)
     logger.info('Found %d unique persons', len(unique))
