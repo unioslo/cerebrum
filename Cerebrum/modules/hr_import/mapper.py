@@ -80,7 +80,7 @@ class AbstractMapper(object):
             for x in config.end_dates_ignore]
 
     @abc.abstractmethod
-    def translate(self, reference, obj):
+    def translate(self, reference, obj, db_object):
         """
         Translate datasource into a remote object.
 

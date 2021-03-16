@@ -68,7 +68,8 @@ class LeaderGroupUpdater(object):
         """Find id of ou in cerebrum from ou_id given by the hr system"""
         # TODO: can probably be made easier with orgreg
         ou = Factory.get('OU')(self.db)
-        ou.clear()
+        if isinstance(hr_ou_id, int):
+            hr_ou_id = str(hr_ou_id)
         if self.source_system == self.const.system_sap:
             ou.find_stedkode(
                 hr_ou_id[0:2],

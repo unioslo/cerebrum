@@ -115,7 +115,7 @@ class AbstractImport(object):
         Fetches object data from the datasource and calls handle_object.
         """
         raw_data = self.datasource.get_object(reference)
-        hr_object = self.mapper.translate(reference, raw_data)
+        hr_object = self.mapper.translate(reference, raw_data, self.db)
 
         try:
             db_object = self.find_entity(hr_object)
