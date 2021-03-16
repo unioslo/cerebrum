@@ -29,12 +29,12 @@ from __future__ import unicode_literals
 import sys
 import getopt
 import re
-import time
+import datetime
 from six import text_type
 
-from mx import DateTime
 import cereconf
 from Cerebrum import Errors
+from Cerebrum.utils import date_compat
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
 from Cerebrum.modules import PosixGroup
@@ -233,8 +233,8 @@ def sync_filegroup(fgname, group, course, act):
     # Make the group last a year or so.  To avoid changing the database
     # every night, we only change expire date if it has less than three
     # month to live.
-    expdate = DateTime.TimestampFromTicks(int(time.time() + 12*31*24*3600))
-    refreshdate = DateTime.TimestampFromTicks(int(time.time() + 3*31*24*3600))
+    expdate = datetime.date.today() + datetime.timedelta(days=365)
+    refreshdate = expdate - datetime.timedelta(days=31*3)
     try:
         fgroup = get_group(fgname)
     except Errors.NotFoundError:
@@ -251,11 +251,17 @@ def sync_filegroup(fgname, group, course, act):
     else:
         posix_group.find(fgroup.entity_id)
         # make sure the group is alive
-        if posix_group.expire_date and posix_group.expire_date < refreshdate:
-            logger.info("Extending life of %s from %s to %s", fgname,
-                        posix_group.expire_date, refreshdate)
+        expire_date = date_compat.get_date(posix_group.expire_date)
+        if expire_date and expire_date < refreshdate:
+            logger.info(
+                "Extending life of %s from %s to %s",
+                fgname,
+                expire_date,
+                refreshdate
+            )
             posix_group.expire_date = expdate
             posix_group.write_db()
+
     uptodate = False
     for row in posix_group.search_members(group_id=posix_group.entity_id,
                                           member_filter_expired=False):
