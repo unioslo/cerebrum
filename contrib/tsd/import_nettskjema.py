@@ -54,7 +54,6 @@ Tags that are important to us:
 from __future__ import unicode_literals
 
 import argparse
-import contextlib
 import datetime
 import functools
 import logging
@@ -70,6 +69,7 @@ import cereconf
 import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum import Errors
+from Cerebrum.database.ctx import db_context
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.date import now
 from Cerebrum.utils.username import suggest_usernames
@@ -145,29 +145,12 @@ class InvalidFileError(Exception):
     pass
 
 
-@contextlib.contextmanager
-def db_context(db, dryrun):
-    """ simple commit/rollback handler. """
-    try:
-        yield db
-        if dryrun:
-            logger.info('rolling back changes (dryrun)')
-            db.rollback()
-        else:
-            logger.info('commiting changes')
-            db.commit()
-    except Exception as e:
-        logger.info('rolling back changes (unhandled %s)', type(e))
-        db.rollback()
-        raise
-
-
 def process_files(files, dryrun, archive):
     """ Process a sequence of files.  """
     for afile in sorted(files):
         try:
             # TODO: Let db_context create a new db-transaction
-            with db_context(db, dryrun):
+            with db_context(db, dryrun=dryrun):
                 process_file(afile, dryrun)
                 logger.info('Successfully processed %s', afile)
                 archive(afile)

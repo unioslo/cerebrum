@@ -32,8 +32,8 @@ import functools
 import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum.config.loader import read_config as read_config_file
+from Cerebrum.database.ctx import db_context
 from Cerebrum.modules.hr_import.config import SingleEmployeeImportConfig
-from Cerebrum.modules.hr_import.handler import db_context
 from Cerebrum.utils.module import resolve
 from Cerebrum.utils.argutils import add_commit_args
 from Cerebrum.Utils import Factory
@@ -96,7 +96,7 @@ def main(inargs=None):
     import_init = get_importer(config)
     logger.info('employee importer: %r', import_init)
 
-    with db_context(get_db, not args.commit) as db:
+    with db_context(get_db(), not args.commit) as db:
         importer = import_init(db)
 
         logger.info('handle reference=%r', args.reference)
