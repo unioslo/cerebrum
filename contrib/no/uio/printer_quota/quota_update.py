@@ -33,12 +33,12 @@ Noen definisjoner:
 import functools
 import getopt
 import sys
-
-import mx.DateTime
+from datetime import date
 
 import cereconf
 from Cerebrum import Account
 from Cerebrum import Group
+from Cerebrum.utils import date_compat
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.uio import AutoStud
@@ -155,11 +155,14 @@ def get_students():
     tmp_gyldige = {}
     tmp_slettede = {}
 
-    now = mx.DateTime.now()
+    now = date.today()
     # Alle personer med student affiliation
     for row in pe.list_affiliations(include_deleted=True, fetchall=False):
         aff = (int(row['affiliation']), int(row['status']))
-        slettet = row['deleted_date'] and row['deleted_date'] < now
+        slettet = row['deleted_date'] and date_compat.get_date(
+            row['deleted_date']
+        ) < now
+
         if slettet:
             tmp_slettede.setdefault(int(row['person_id']), []).append(aff)
         else:
