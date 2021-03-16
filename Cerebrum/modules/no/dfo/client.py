@@ -221,7 +221,7 @@ class SapClient(object):
     # def get_orgenhet(self, org_id: str) -> [None, dict]:
     def get_orgenhet(self, org_id):
         url = self.urls.get_orgenhet(org_id)
-        headers = merge_dicts(self.headers, self.api_headers['orgenhet'])
+        headers = merge_dicts(self.headers, self.api_headers['organisasjonId'])
         response = self.get(url, headers=headers)
         if response.status_code == 404:
             return None

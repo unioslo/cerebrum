@@ -52,7 +52,7 @@ def parse_leader_ous(person_data, main_assignment):
     #  DFØ-SAP will probably fix naming of
     #  organisasjonsId/organisasjonId/orgenhet, so that they are equal at
     #  some point.
-    return set([main_assignment['orgenhet']])
+    return set([main_assignment['organisasjonId']])
 
 
 class EmployeeMapper(_base.EmployeeMapper):
