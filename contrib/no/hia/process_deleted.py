@@ -41,13 +41,14 @@ TODO: this script must be more robust and pretty (but first we make it work)
 import argparse
 import time
 import os
-import mx
 import string
+from datetime import datetime, date
 
 import cereconf
 from Cerebrum import Errors
 from Cerebrum.modules import Email
 from Cerebrum.Utils import Factory
+from Cerebrum.utils import date_compat
 from Cerebrum.modules.bofhd_requests.request import BofhdRequests
 
 
@@ -62,7 +63,8 @@ start_time = None
 
 def process_delete_requests():
     br = BofhdRequests(db, const)
-    now = mx.DateTime.now()
+    now = datetime.now()
+    today = date.today()
     del_file = []
     group = Factory.get('Group')(db)
     account = Factory.get('Account')(db)
@@ -80,7 +82,7 @@ def process_delete_requests():
             continue
         if not keep_running():
             break
-        if r['run_at'] > now:
+        if r['run_at'] and date_compat.get_datetime_naive(r['run_at']) > now:
             continue
         try:
             account.clear()
@@ -103,9 +105,9 @@ def process_delete_requests():
             continue
         set_operator(r['requestee_id'])
         # Set expire_date (do not export data about this account)
-        account.expire_date = br.now
+        account.expire_date = today
         logger.debug("expire_date for %s registered as %s",
-                     account.account_name, br.now)
+                     account.account_name, today)
         account.write_db()
         # check for posix attrs
         posix_user = Factory.get('PosixUser')(db)
