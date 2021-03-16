@@ -117,8 +117,8 @@ def persons_with_aff_status(db, status):
         affiliations += 1
         # if statement removes duplicates when the same affiliation exists in
         # both sap and dfo-sap
-        if [_u(account_name), _u(ou_name), text_type(status)] not in persons:
-            persons.append([_u(account_name), _u(ou_name), text_type(status)])
+        if {_u(account_name), _u(ou_name), text_type(status)} not in persons:
+            persons.append({_u(account_name), _u(ou_name), text_type(status)})
             yield {
                 'account_name': _u(account_name),
                 'person_name': _u(full_name),
@@ -129,8 +129,6 @@ def persons_with_aff_status(db, status):
                 'ou_sko': text_type(sko),
                 'ou_name': _u(ou_name),
             }
-        else:
-            continue
 
     logger.info('Found %d affiliations', affiliations)
     logger.info('Found %d unique persons', len(unique))
