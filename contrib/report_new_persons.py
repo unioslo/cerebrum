@@ -22,7 +22,8 @@
 import argparse
 import logging
 
-from mx.DateTime import now, ISO, RelativeDateTime
+from datetime import date, timedelta
+from Cerebrum.utils.date import parse_date
 from six import text_type
 
 import Cerebrum.logutils
@@ -111,8 +112,8 @@ def main(inargs=None):
     parser.add_argument(
         '-s', '--start-date',
         dest='start_date',
-        type=ISO.ParseDate,
-        default=now() + RelativeDateTime(days=-1),
+        type=parse_date,
+        default=date.today() - timedelta(days=1),
         help='Start date (YYYY-MM-DD) for events,'
              ' defaults to %(default)s (1 day ago)')
 
@@ -164,9 +165,9 @@ def main(inargs=None):
 
     if args.change_program:
         subject = u'New persons from %s since %s' % (args.change_program,
-                                                     args.start_date.date)
+                                                     args.start_date)
     else:
-        subject = u'New persons since %s' % (args.start_date.date, )
+        subject = u'New persons since %s' % (args.start_date, )
     message = u'\n'.join(report_new_persons(new_persons))
 
     if new_persons:
