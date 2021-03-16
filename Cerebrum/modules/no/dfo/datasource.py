@@ -98,8 +98,9 @@ class EmployeeDatasource(_base.AbstractDatasource):
     def needs_delay(self, body):
         # TODO:
         #  Is gyldigEtter a date equivalent to nbf?
-        date_str = str(body.get('gyldigEtter'))
-        if date_str:
+        date = body.get('gyldigEtter')
+        if date:
+            date_str = str(date)
             not_before_date = parse_date(date_str, '%Y%m%d')
             if datetime.date.today() < not_before_date:
                 return time.mktime(not_before_date.timetuple())
