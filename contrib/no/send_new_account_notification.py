@@ -27,19 +27,19 @@ to the users it-organization.
 import argparse
 import functools
 import logging
+from datetime import datetime, timedelta
 
 import six
 
 from smtplib import SMTPException
 
-import mx.DateTime
 from six import text_type
 
 import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.utils import argutils
+from Cerebrum.utils import argutils, date_compat
 from Cerebrum.utils.email import mail_template
 
 
@@ -205,7 +205,12 @@ class AccountCreationNotifier(object):
             ac.find(row['entity_id'])
 
             if (self.too_old and
-                    (row['date'] < (mx.DateTime.now() - self.too_old))):
+                row['date'] and
+                date_compat.get_datetime_naive(
+                    row['date']
+                ) < (datetime.now() - timedelta(days=self.too_old))):
+
+
                 # Trait is to old, remove it
                 logger.warn('Too old trait %s for entity_id=%s, giving up',
                             text_type(self.manager.trait), row['entity_id'])
