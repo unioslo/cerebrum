@@ -22,6 +22,7 @@ Mapper for DFØ-SAP.
 """
 from __future__ import unicode_literals
 
+import re
 import collections
 import logging
 
@@ -36,6 +37,9 @@ from Cerebrum.modules.hr_import.models import (HRPerson,
 from Cerebrum.modules.no.dfo.utils import assert_list, parse_date
 
 logger = logging.getLogger(__name__)
+
+IGNORE_FNR_REGEX = re.compile(r'(.+00[12]00$|00000000000)')
+REQUIRED_ID_TYPE = ('NO_BIRTHNO', 'PASSNR')
 
 
 def translate_keys(d, mapping):
@@ -248,10 +252,14 @@ class EmployeeMapper(_base.AbstractMapper):
         #  Also handle "eksternIdent", "brukerident" and "dfoBrukerident"?
         fnr = person_data.get('fnr')
         if fnr:
-            external_ids.add(
-                HRExternalID(id_type='NO_BIRTHNO',
-                             external_id=fnr)
-            )
+            fnr_str = str(fnr)
+            if re.search(IGNORE_FNR_REGEX, fnr_str):
+                logger.info('Invalid FNR: %s, ignoring..', fnr_str)
+            else:
+                external_ids.add(
+                    HRExternalID(id_type='NO_BIRTHNO',
+                                 external_id=fnr_str)
+                )
 
         dfo_2_cerebrum = {
             '02': (
@@ -317,6 +325,10 @@ class EmployeeMapper(_base.AbstractMapper):
         main_assignment = get_main_assignment(person_data, assignment_data)
         hr_person.external_ids = self.parse_external_ids(hr_person.hr_id,
                                                          person_data)
+        if not any(id_ in REQUIRED_ID_TYPE for id_ in hr_person.external_ids):
+            raise Exception('None of required id types %s present: %s' % (
+                REQUIRED_ID_TYPE,
+                hr_person.external_ids))
         hr_person.contact_infos = self.parse_contacts(person_data)
         hr_person.titles = self.parse_titles(main_assignment)
         hr_person.affiliations = self.parse_affiliations(person_data,
