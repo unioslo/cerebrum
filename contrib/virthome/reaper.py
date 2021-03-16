@@ -1,6 +1,23 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
-
+#
+# Copyright 2010-2021 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """Undo certain operations in Cerebrum.
 
 This script scans the database for some entries and changes, and removes said
@@ -11,25 +28,27 @@ Cerebrum that have not been confirmed within a specified period of time.
 
 The code should be generic enough to be used on any installation.
 """
+import argparse
+import datetime
+import logging
 
-import getopt
-import sys
-
-from mx.DateTime import now
-from mx.DateTime import DateTimeDelta
+import six
 
 import cereconf
 
+import Cerebrum.logutils
 from Cerebrum.Utils import Factory
 from Cerebrum.utils import json
-from Cerebrum import Errors, Entity
+from Cerebrum import Entity
+from Cerebrum import Errors
 from Cerebrum.modules.EntityTrait import EntityTrait
 from Cerebrum.modules.bofhd.auth import BofhdAuthRole
 from Cerebrum.modules.bofhd.auth import BofhdAuthOpTarget
-from Cerebrum.Entity import EntitySpread
+from Cerebrum.utils import date_compat
+from Cerebrum.utils.date import now
 
 
-logger = Factory.get_logger("cronjob")
+logger = logging.getLogger(__name__)
 
 
 def fetch_name(entity_id, db):
@@ -49,8 +68,8 @@ def get_account(ident, database):
     """
     account = Factory.get("Account")(database)
     try:
-        if (isinstance(ident, (int, long))
-                or isinstance(ident, str) and ident.isdigit()):
+        if (isinstance(ident, six.integer_types)
+                or isinstance(ident, six.string_types) and ident.isdigit()):
             account.find(int(ident))
         else:
             account.find_by_name(ident)
@@ -61,7 +80,7 @@ def get_account(ident, database):
                     ident)
         return None
 
-    assert False, "NOTREACHED"
+    raise RuntimeError('NOTREACHED')
 
 
 def get_group(ident, database):
@@ -71,8 +90,8 @@ def get_group(ident, database):
     """
     group = Factory.get("Group")(database)
     try:
-        if (isinstance(ident, (int, long))
-                or isinstance(ident, str) and ident.isdigit()):
+        if (isinstance(ident, six.integer_types)
+                or isinstance(ident, six.string_types) and ident.isdigit()):
             group.find(int(ident))
         else:
             group.find_by_name(ident)
@@ -83,7 +102,7 @@ def get_group(ident, database):
                     ident)
         return None
 
-    assert False, "NOTREACHED"
+    raise RuntimeError('NOTREACHED')
 
 
 def remove_target_permissions(entity_id, db):
@@ -142,7 +161,7 @@ def delete_common(entity_id, db):
     logger.debug("Deleting common parts for entity %s (id=%s)",
                  fetch_name(entity_id, db), entity_id)
 
-    es = EntitySpread(db)
+    es = Entity.EntitySpread(db)
     es.find(entity_id)
     logger.debug("Deleting spreads: %s",
                  ", ".join(str(const.Spread(x["spread"]))
@@ -208,7 +227,7 @@ def disable_account(account_id, db):
 
     delete_common(account.entity_id, db)
 
-    account.expire_date = now() - DateTimeDelta(1)
+    account.expire_date = datetime.date.today() - datetime.timedelta(days=1)
     account.write_db()
     logger.debug("Disabled account %s (id=%s)",
                  account.account_name, account.entity_id)
@@ -220,14 +239,15 @@ def delete_account(account, db):
     # Kill the account
     a_id, a_name = account.entity_id, account.account_name
     account.delete()
-    # This may be a rollback -- that behaviour is controlled by the command line.
+    # This may be a rollback -- that behaviour is controlled by the command
+    # line.
     db.commit()
     logger.debug("Deleted account %s (id=%s)", a_name, a_id)
 
 
 def disable_expired_accounts(db):
     """Delete (nuke) all accounts that have expire_date in the past. """
-    logger.debug("Disabling expired accounts")
+    logger.info("Disabling expired accounts")
     const = Factory.get("Constants")(db)
     account = Factory.get("Account")(db)
     for row in account.list(filter_expired=False):
@@ -236,7 +256,8 @@ def disable_expired_accounts(db):
                                   const.fedaccount_type):
             continue
 
-        if row["expire_date"] >= now():
+        expire_date = date_compat.get_date(row["expire_date"])
+        if not expire_date or expire_date >= datetime.date.today():
             continue
 
         # Ok, it's an expired VH. Kill it
@@ -254,12 +275,17 @@ def delete_unconfirmed_accounts(account_np_type, db):
     FIXME: What about partial failures? I.e. do we want to commit after each
     deletion?
     """
-    logger.debug("Deleting unconfirmed accounts")
+    logger.info("Deleting unconfirmed accounts of type '%s'",
+                six.text_type(account_np_type))
+    grace_period = date_compat.get_timedelta(cereconf.GRACE_PERIOD,
+                                             allow_none=False)
+    logger.debug('grace period: %r', grace_period)
+
     clconst = Factory.get("CLConstants")(db)
     account = Factory.get("Account")(db)
     for row in db.get_log_events(types=clconst.va_pending_create):
-        tstamp = row["tstamp"]
-        if now() - tstamp <= cereconf.GRACE_PERIOD:
+        tstamp = date_compat.get_datetime_tz(row["tstamp"])
+        if now() - tstamp <= grace_period:
             continue
 
         account_id = int(row["subject_entity"])
@@ -273,7 +299,7 @@ def delete_unconfirmed_accounts(account_np_type, db):
                         "that no longer exists (cl event will be deleted)",
                         row["change_id"],
                         str(clconst.ChangeType(row["change_type_id"])),
-                        tstamp.strftime("%F %T"),
+                        tstamp.strftime('%F %T'),
                         fetch_name(row["subject_entity"], db),
                         row["subject_entity"])
             db.remove_log_event(row["change_id"])
@@ -302,6 +328,11 @@ def delete_unconfirmed_accounts(account_np_type, db):
     logger.debug("All unconfirmed accounts deleted")
 
 
+def delete_unconfirmed_virtaccounts(db):
+    const = Factory.get('Constants')(db)
+    return delete_unconfirmed_accounts(const.virtaccount_type, db)
+
+
 def delete_stale_events(cl_events, db):
     """Remove all events of type cl_events older than GRACE_PERIOD.
 
@@ -310,30 +341,36 @@ def delete_stale_events(cl_events, db):
     than their own deletion). It is the caller's responsibility to check that
     this is so.
     """
-
     if not isinstance(cl_events, (list, tuple, set)):
         cl_events = [cl_events, ]
 
     clconst = Factory.get("CLConstants")()
     typeset_request = ", ".join(str(clconst.ChangeType(x))
                                 for x in cl_events)
-    logger.debug("Deleting stale requests: %s", typeset_request)
+    logger.info("Deleting stale requests: %s", typeset_request)
+    max_invite_period = date_compat.get_timedelta(cereconf.MAX_INVITE_PERIOD,
+                                                  allow_none=False)
+    logger.debug('max age: %r', max_invite_period)
+    grace_period = date_compat.get_timedelta(cereconf.GRACE_PERIOD,
+                                             allow_none=False)
+    logger.debug('grace period: %r', grace_period)
+
     for event in db.get_log_events(types=cl_events):
-        tstamp = event["tstamp"]
-        timeout = cereconf.GRACE_PERIOD
+        tstamp = date_compat.get_datetime_tz(event["tstamp"])
+        timeout = grace_period
         try:
             params = json.loads(event["change_params"])
             if params['timeout'] is not None:
-                timeout = DateTimeDelta(params['timeout'])
+                timeout = datetime.timedelta(days=int(params['timeout']))
                 logger.debug('Timeout set to %s for %s',
                              (now() + timeout).strftime('%Y-%m-%d'),
                              event['change_id'])
 
-                if timeout > cereconf.MAX_INVITE_PERIOD:
+                if timeout > max_invite_period:
                     logger.warning('Too long timeout (%s) for for %s',
                                    timeout.strftime('%Y-%m-%d'),
                                    event['change_id'])
-                    timeout = cereconf.MAX_INVITE_PERIOD
+                    timeout = max_invite_period
         except KeyError:
             pass
         if now() - tstamp <= timeout:
@@ -341,7 +378,7 @@ def delete_stale_events(cl_events, db):
 
         logger.debug("Deleting stale event %s (@%s) for entity %s (id=%s)",
                      str(clconst.ChangeType(event["change_type_id"])),
-                     event["tstamp"].strftime("%Y-%m-%d"),
+                     tstamp.strftime("%Y-%m-%d"),
                      fetch_name(event["subject_entity"], db),
                      event["subject_entity"])
 
@@ -349,34 +386,6 @@ def delete_stale_events(cl_events, db):
         db.commit()
 
     logger.debug("Deleted all stale requests: %s", typeset_request)
-
-
-def enforce_user_constraints(db):
-    """ Check a number of business rules for our users. """
-    account = Factory.get("Account")(db)
-    const = Factory.get("Constants")()
-    for row in account.list(filter_expired=False):
-        # We check FA/VA only
-        if row["np_type"] not in (const.fedaccount_type,
-                                  const.virtaccount_type):
-            continue
-
-        account.clear()
-        account.find(row["entity_id"])
-        # Expiration is not set -> force it to default
-        if row["expire_date"] is None:
-            logger.warn("Account %s (id=%s) is missing expiration date.",
-                        account.account_name,
-                        account.entity_id)
-            account.expire_date = now() + account.DEFAULT_ACCOUNT_LIFETIME
-            account.write_db()
-
-        # Expiration is too far in the future -> force it to default
-        if row["expire_date"] - now() > account.DEFAULT_ACCOUNT_LIFETIME:
-            logger.warn("Account %s (id=%s) has expire date too far in the"
-                        " future.", account.account_name, account.entity_id)
-            account.expire_date = now() + account.DEFAULT_ACCOUNT_LIFETIME
-            account.write_db()
 
 
 def find_and_disable_account(uname, database):
@@ -422,86 +431,153 @@ def find_and_delete_group(gname, database):
     delete_common(group.entity_id, database)
 
     group.delete()
-    logger.debug("Deleting group %s (id=%s)", gname, gid)
+    logger.debug("Deleted group %s (id=%s)", gname, gid)
 
 
-def main(argv):
-    # This script performs actions that are too dangerous to be left to
-    # single-letter arguments. Thus, long options only.
-    options, junk = getopt.getopt(argv, "",
-                                  ("remove-unconfirmed-virtaccounts",
-                                   "remove-stale-email-requests",
-                                   "remove-group-invitations",
-                                   "disable-expired-accounts",
-                                   "remove-stale-group-modifications",
-                                   "remove-stale-password-recover",
-                                   "disable-account=",
-                                   "delete-account=",
-                                   "delete-group=",
-                                   "with-commit",))
+def delete_stale_event_action(*event_types):
+    """
+    Create a callback that deletes all stale events of the given type(s).
+    """
+    if not event_types:
+        raise TypeError('expects at least one argument (got %d)' %
+                        len(event_types))
+
+    def do_delete_event(db):
+        clconst = Factory.get('CLConstants')(db)
+        events = []
+
+        # validate and map event_types
+        for event_attr in event_types:
+            events.append(getattr(clconst, event_attr))
+
+        return delete_stale_events(events, db)
+    return do_delete_event
+
+
+def main(inargs=None):
+    parser = argparse.ArgumentParser(
+        description='Delete stale events, accounts, or groups',
+    )
+
+    db_args = parser.add_argument_group('Database')
+    commit_mutex = db_args.add_mutually_exclusive_group()
+    commit_mutex.add_argument(
+        '--with-commit', '--commit',
+        dest='commit',
+        action='store_true',
+        default=False,
+    )
+    commit_mutex.add_argument(
+        '--dryrun',
+        dest='commit',
+        action='store_false',
+        default=False,
+    )
+
+    maintenance = parser.add_argument_group('Maintenance tasks')
+    maintenance.add_argument(
+        '--remove-unconfirmed-virtaccounts',
+        dest='actions',
+        action='append_const',
+        const=delete_unconfirmed_virtaccounts,
+    )
+    maintenance.add_argument(
+        '--disable-expired-accounts',
+        dest='actions',
+        action='append_const',
+        const=disable_expired_accounts,
+    )
+    maintenance.add_argument(
+        '--remove-stale-email-requests',
+        dest='actions',
+        action='append_const',
+        const=delete_stale_event_action('va_email_change'),
+    )
+    maintenance.add_argument(
+        '--remove-group-invitations',
+        dest='actions',
+        action='append_const',
+        const=delete_stale_event_action('va_group_invitation'),
+    )
+    maintenance.add_argument(
+        '--remove-stale-group-modifications',
+        dest='actions',
+        action='append_const',
+        const=delete_stale_event_action('va_group_admin_swap',
+                                        'va_group_moderator_add'),
+    )
+    maintenance.add_argument(
+        '--remove-stale-password-recover',
+        dest='actions',
+        action='append_const',
+        const=delete_stale_event_action('va_password_recover'),
+    )
+
+    manual = parser.add_argument_group('Manual tasks')
+    manual.add_argument(
+        "--disable-account",
+        dest='disable_accounts',
+        action='append',
+        metavar='<account_name>',
+    )
+    manual.add_argument(
+        "--delete-account",
+        dest='delete_accounts',
+        action='append',
+        metavar='<account_name>',
+    )
+    manual.add_argument(
+        "--delete-group",
+        dest='delete_groups',
+        action='append',
+        metavar='<group_name>',
+    )
+
+    Cerebrum.logutils.options.install_subparser(parser)
+
+    args = parser.parse_args(inargs)
+    Cerebrum.logutils.autoconf('cronjob', args)
+
+    logger.info('Start: %s', parser.prog)
 
     db = Factory.get("Database")()
     db.cl_init(change_program="Grim reaper")
+
     # This script does a lot of dangerous things. Let's be a tad more
     # prudent.
-    try_commit = db.rollback
-
-    const = Factory.get("Constants")()
-    clconst = Factory.get("CLConstants")()
-    actions = list()
-    #
-    # NB! We can safely ignore processing va_reset_expire_date -- if the user
-    # does not do anything, it'll be disabled (including removal of the
-    # va_reset_expire_date) within cereconf.EXPIRE_WARN_WINDOW days.
-    for option, value in options:
-        if option in ("--remove-unconfirmed-virtaccounts",):
-            # Handles va_pending_create
-            actions.append(lambda db:
-                           delete_unconfirmed_accounts(const.virtaccount_type,
-                                                       db))
-        elif option in ("--remove-stale-email-requests",):
-            actions.append(lambda db:
-                           delete_stale_events(clconst.va_email_change, db))
-        elif option in ("--remove-group-invitations",):
-            actions.append(lambda db:
-                           delete_stale_events(clconst.va_group_invitation,
-                                               db))
-        elif option in ("--disable-expired-accounts",):
-            actions.append(disable_expired_accounts)
-        elif option in ("--remove-stale-group-modifications",):
-            actions.append(lambda db:
-                           delete_stale_events(
-                               (clconst.va_group_owner_swap,
-                                clconst.va_group_moderator_add,),
-                               db))
-        elif option in ("--remove-stale-password-recover",):
-            actions.append(lambda db:
-                           delete_stale_events(clconst.va_password_recover,
-                                               db))
-        elif option in ("--with-commit",):
-            try_commit = db.commit
-
-        #
-        # These options are for manual runs. It makes no sense to use these
-        # in an automatic job scheduler (cron, bofhd, etc)
-        elif option in ("--disable-account",):
-            uname = value
-            actions.append(lambda db: find_and_disable_account(uname, db))
-        elif option in ("--delete-account",):
-            uname = value
-            actions.append(lambda db: find_and_delete_account(uname, db))
-        elif option in ("--delete-group",):
-            gname = value
-            actions.append(lambda db: find_and_delete_group(gname, db))
+    if args.commit:
+        try_commit = db.commit
+    else:
+        try_commit = db.rollback
 
     db.commit = try_commit
 
-    for action in actions:
+    for action in (args.actions or ()):
         action(db)
 
-    # commit/rollback changes to the database.
-    try_commit()
+    for uname in (args.disable_accounts or ()):
+        logger.info('disable user: %s', uname)
+        find_and_disable_account(uname, db)
+
+    for uname in (args.delete_accounts or ()):
+        logger.info('delete user: %s', uname)
+        find_and_delete_account(uname, db)
+
+    for gname in (args.delete_groups or ()):
+        logger.info('delete group: %s', gname)
+        find_and_delete_group(gname, db)
+
+    # Note: some changes may already be commited/rolled back depending on how
+    # each action handles db transactions
+    if args.commit:
+        db.commit()
+        logger.info("changes commited")
+    else:
+        db.rollback()
+        logger.info("changes rolled back (dryrun)")
+
+    logger.info('Done: %s', parser.prog)
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    main()

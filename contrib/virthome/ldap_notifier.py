@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
-# Copyright 2013-2018 University of Oslo, Norway
+#
+# Copyright 2013-2021 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,30 +18,75 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+""" Process users that are exported to or retained from LDAP.
 
-""" This is a generic script that can operate on users that are created
-(exported) or removed (retained) in LDAP exports.
+This script can run an assortment of functions on users as they are 'created'
+or 'deleted' in the associated WebID LDAP tree.  We calculate if users *should*
+exist in LDAP, look up if they *actually do* exist in LDAP, and if we've
+notified users about a change in this state before
+(Constants.trait_user_notified).
+
+If this state changes for the first time, we run a series of callbacks for that
+user account.  Currently, only one type of callback is implemented;  We notify
+users if they are member of a group with a Constants.trait_group_forward trait,
+with an email that explains that their account is now active, and ready to be
+used with the associated webapp.
 
 NOTE: This script requires special commit handling! The notifier will commit
 changes to the retained-trait after running `update_retained_trait()'.
 
 When running `run_callbacks()', we pass Account-objects to the callback
-functions, re-using the same Database-object. The callback function must take
-care of and commit/rollback any changes it writes.
+functions, re-using a single Database-transaction. The callback function must
+commit/rollback any changes according to the `dryrun` flag.
+
+cereconf
+--------
+``LDAP_URL``
+    The LDAP user lookup connects to the ldap server given in ``LDAP_URL``.
+
+``LDAP_USER``
+    The LDAP user lookup does a subtree search in the base-dn given by
+    ``LDAP_USER['dn']``.
+
+``USER_NOTIFIED_LIMIT``
+    Notification limits for this script - a dict with two values, *num* and
+    *days*.  A given user account can only be notified up to *num* times in
+    *days* days.
+
+``EXPORT_MESSAGE``
+    Message template for notifications - a dict with values *sender*,
+    *subject*, *body*, and *item_fmt*.
+
+    *sender* and *subject* are the *From* and *Subject* fields of a
+    notification email.
+
+    *body* is a template which gets rendered with old-style string formatting,
+    while *item_tpl* is a template for individual group memberships/webapps to
+    notify the user about:
+
+    ::
+
+        EXPORT_MESSAGE['body'] % {
+            'account_name': 'example@realm',
+            'items': "\n".join(
+                EXPORT_MESSAGE['item_fmt'] % {'name': name, 'url': url}
+                for name, url in ...
+            ),
+        }
 """
 import argparse
+import datetime
 import ldap
 import logging
 import smtplib
 import textwrap
 from time import time
 
-from mx.DateTime import now
-
 import cereconf
 import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum.Utils import Factory
+from Cerebrum.utils import date_compat
 from Cerebrum.utils.email import sendmail
 from Cerebrum.modules.virthome.LDIFHelper import LDIFHelper
 
@@ -62,18 +108,18 @@ def get_config(name):
 def get_trait(entity, trait_const, val=None):
     """ Get trait or a given trait attribute
 
-    @type entity: Cerebrum.Entity
-    @param entity: The entity we're looking up trait for
+    :type entity: Cerebrum.Entity
+    :param entity: The entity we're looking up trait for
 
-    @type trait_const: EntityTraitCode
-    @param trait_const: The type of trait
+    :type trait_const: EntityTraitCode
+    :param trait_const: The type of trait
 
-    @type val: str, NoneType
-    @param val: The trait attribute to get, or None to get the trait dict
+    :type val: str, NoneType
+    :param val: The trait attribute to get, or None to get the trait dict
 
-    @rtype: mixed
-    @return: The trait or given trait value L{val}, if it exists. Otherwise
-             None
+    :rtype: mixed
+    :return:
+        The trait or given trait value L{val}, if it exists. Otherwise None
     """
     assert hasattr(entity, 'entity_id') and hasattr(entity, 'get_trait')
     try:
@@ -86,7 +132,7 @@ def get_trait(entity, trait_const, val=None):
     return None
 
 
-class Notifier:
+class Notifier(object):
     """ Notifier, runs a dummy LDAP export to see which users are eligible for
     export to LDAP. We compare this set with all users in the database, and all
     users previously marked as retained/'not exported'.
@@ -252,7 +298,7 @@ class Notifier:
         try:
             result = webid.search_s(user_dn, ldap.SCOPE_SUBTREE,
                                     filterstr=filter)
-        except ldap.LDAPError, e:
+        except ldap.LDAPError as e:
             self.logger.info("Could not check if %r in ldap: %s", uid, str(e))
             return None
 
@@ -280,7 +326,7 @@ class Notifier:
                 callback(ac, dryrun)
 
 
-class AccountEmailer:
+class AccountEmailer(object):
     """ A simple emailer that can send emails to an address associated with an
     account, and prevent spamming if anything should fail.
 
@@ -289,7 +335,7 @@ class AccountEmailer:
     """
     # TODO: Build in spam prevention
 
-    def __init__(self, ac, logger, sender, dryrun=True):
+    def __init__(self, ac, logger, sender, dryrun=True, today=None):
         """ If account L{ac} is a member of at least one group with trait
         'forward_url', send an email notification to the email address
         associated with the account.
@@ -301,8 +347,20 @@ class AccountEmailer:
         self.co = Factory.get('Constants')(ac._db)
         self.sender = sender
         self.address = None
-        self.max_num = get_config('USER_NOTIFIED_LIMIT')['num']
-        self.days_reset = get_config('USER_NOTIFIED_LIMIT')['days']
+        self.max_num = int(get_config('USER_NOTIFIED_LIMIT')['num'])
+        self.days_reset = datetime.timedelta(
+            days=int(get_config('USER_NOTIFIED_LIMIT')['days']),
+        )
+        self.today = today or datetime.date.today()
+
+    def _needs_reset(self, last_reset):
+        """Check if a trait needs to be reset, according to its date value."""
+        # Note: traits contains TIMESTAMP values, but we really only care about
+        # the date component
+        last_reset = date_compat.get_date(last_reset)
+        if not last_reset:
+            return True
+        return self.today - last_reset > self.days_reset
 
     def get_address(self):
         """ Lazy fetching of account email address """
@@ -321,13 +379,13 @@ class AccountEmailer:
             logger.debug("No trait '%s' for '%s'",
                          self.co.trait_user_notified, self.ac.account_name)
             return True
-        else:
-            logger.debug("Trait '%s' for '%s': numval(%d) date(%s)",
-                         self.co.trait_user_notified, self.ac.account_name,
-                         trait.get('numval', 0), trait.get('date'))
-        if (now() - self.days_reset) > trait.get('date'):
+
+        logger.debug("Trait '%s' for '%s': numval=%r, date=%r",
+                     self.co.trait_user_notified, self.ac.account_name,
+                     trait['numval'], trait['date'])
+        if self._needs_reset(trait['date']):
             return True
-        if self.max_num >= trait.get('numval'):
+        if self.max_num >= (trait['numval'] or 0):
             return True
         return False
 
@@ -339,15 +397,15 @@ class AccountEmailer:
           3. Incrementing the numval attribute.
         """
         # Initial values for new trait
-        last_reset = now()
-        num_sent = 0
         trait = self.ac.get_trait(self.co.trait_user_notified)
 
-        # Trait date exists, and is not older than days_reset old.
-        if trait and (last_reset - self.days_reset) < trait.get('date'):
-            last_reset = trait.get('date')
-            num_sent = trait.get('numval') or 0
-        # Else, reset trait
+        if (trait and not self._needs_reset(trait['date'])):
+            # Trait date exists, and is not older than days_reset old
+            last_reset = date_compat.get_date(trait['date'])
+            num_sent = trait['numval'] or 0
+        else:
+            last_reset = self.today
+            num_sent = 0
 
         # Increment and write the updated trait values
         num_sent += 1
@@ -376,7 +434,7 @@ class AccountEmailer:
             try:
                 sendmail(to_addr, self.sender, subject, message)
                 self.logger.debug("Sent message to %r", to_addr)
-            except smtplib.SMTPRecipientsRefused, e:
+            except smtplib.SMTPRecipientsRefused as e:
                 error = e.recipients.get(to_addr)
                 self.logger.warn("Failed to send message to %s (SMTP %d: %s)",
                                  to_addr, error[0], error[1])
@@ -389,7 +447,7 @@ class AccountEmailer:
 
 
 def callback_test(ac, dryrun=False):
-    logger.debug("Callback for acocunt '%s'" % ac.account_name)
+    logger.debug("Callback for account '%s'", ac.account_name)
 
 
 def callback_notify_forward(ac, dryrun=False):
@@ -431,6 +489,17 @@ def callback_notify_forward(ac, dryrun=False):
             'account_name': ac.account_name,
             'items': items}
         mailer.send_email(subject, message)
+
+
+dryrun_callback_error_msg = """
+Running callbacks without commiting would cause users to be
+notified multiple times about the same change.
+
+Commiting without running callbacks would cause users NOT to get
+notified about changes.
+
+If debugging, or running first time, use -f to force this action.
+""".lstrip()
 
 
 def main(inargs=None):
@@ -475,29 +544,18 @@ def main(inargs=None):
         '-f', '--force',
         action='store_true',
         default=False,
-        help='Cannot normally run callbacks (-r) without commiting (-c),'
-             ' as that would cause callbacks to be runned multiple times'
-             ' for a given user.  The -f flag makes this possible.'
+        help='Force run callbacks (-r) in dryrun'
     )
 
     Cerebrum.logutils.options.install_subparser(parser)
     args = parser.parse_args(inargs)
     Cerebrum.logutils.autoconf(DEFAULT_LOGGER, args)
 
-    logger.info('Start of script %s', parser.prog)
+    logger.info('Start %s', parser.prog)
     logger.debug("args: %r", args)
 
     if args.run_callbacks and not (args.commit or args.force):
-        raise RuntimeError(
-            """
-            Running callbacks without commiting would cause users to be
-            notified multiple times about the same change.
-
-            Commiting without running callbacks would cause users NOT to get
-            notified about changes.
-
-            If debugging, or running first time, use -f to force this action.
-            """)
+        raise RuntimeError(dryrun_callback_error_msg)
 
     noti = Notifier(logger, dryrun=not args.commit)
 
@@ -509,7 +567,7 @@ def main(inargs=None):
     if args.run_callbacks:
         noti.run_callbacks(not args.commit)
 
-    logger.info('Done with script %s', parser.prog)
+    logger.info('Done %s', parser.prog)
 
 
 if __name__ == "__main__":
