@@ -322,7 +322,7 @@ class EmployeeMapper(_base.AbstractMapper):
         hr_person.affiliations = self.parse_affiliations(person_data,
                                                          assignment_data)
 
-    def translate(self, reference, obj):
+    def translate(self, reference, obj, db_object):
         """
         Populate a HRPerson object with data fetched from SAP
 
