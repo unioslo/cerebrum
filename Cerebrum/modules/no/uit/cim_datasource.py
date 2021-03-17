@@ -365,5 +365,6 @@ class CIMDataSourceUit(CIMDataSource):
             ice_num = self.get_ice_number(person_id)
             if ice_num:
                 person['private_mobile'] = ice_num
-
+            # RT Case 4303196
+            person['person_type'] = 'user'
         return person
