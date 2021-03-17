@@ -104,7 +104,7 @@ def main(inargs=None):
     db = Factory.get('Database')()
     queue = TaskQueue(db)
 
-    added = queue.push(task, only_newer=(not args.force))
+    added = queue.push(task, ignore_nbf_after=(not args.force))
     if added:
         print('Added/updated task:')
         print(pretty_format(added))
