@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2020 University of Oslo, Norway
+# Copyright 2021 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -33,10 +33,8 @@ def db_context(db, dryrun):
     ``dryrun=False`` and the context exits successfully.
 
     :type db: Cerebrum.database.Database
-
-    :type dryrun: bool
-    :param dryrun:
-        if the context should cause a rollback on normal exit
+    :param bool dryrun:
+        if true, context will always rollback on exit
     """
     try:
         logger.debug('db_context: enter (dryrun=%r, db=%r, conn=%r)',
@@ -71,10 +69,8 @@ def savepoint(db, dryrun):
         created by this context.
 
     :type db: Cerebrum.database.Database
-
-    :type commit: bool
-    :param commit:
-        if the context should cause a commit on exit
+    :param bool dryrun:
+        if true, the context will always rollback on exit
     """
     name = 'sp_' + str(uuid.uuid4()).replace('-', '')
     db.execute('SAVEPOINT {};'.format(name))
