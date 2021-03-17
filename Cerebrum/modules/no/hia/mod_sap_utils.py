@@ -37,6 +37,17 @@ from mx.DateTime import strptime
 from mx.DateTime import now
 
 
+def make_passnr_iterator(source, logger=None):
+    """Iterator for passnr SSØ-SAP person data.
+
+    @param source:
+      Any iterable yielding successive lines with person data.
+    """
+    for line in source:
+        tpl = _sap_row_to_tuple(line)
+        yield _SAPPersonDataTuplePassnr(tpl, logger)
+
+
 #
 # Public interface for this module
 #
@@ -307,6 +318,24 @@ class _SAPTupleBase(object):
     # TBD: __setitem__ ?
     # def __setitem__(self, key, value):
     #    pass
+
+
+class _SAPPersonDataTuplePassnr(_SAPTupleBase):
+
+    """Adaptor class for MD2_Persondata_status.csv.
+
+    The field split looks like this:
+
+
+      Field  Description
+       5   SAP person ID
+      49   Passport number
+    """
+    _field_count = 77
+    _field_rules = {
+        'sap_ansattnr': 5,
+        'sap_passnr': _with_strip(49),
+    }
 
 
 class _SAPPersonDataTuple(_SAPTupleBase):
