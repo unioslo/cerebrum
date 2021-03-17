@@ -376,6 +376,7 @@ def check_schema_versions(db, strict=False):
         'consent': 'Cerebrum.modules.consent.Consent',
         'employment': 'Cerebrum.modules.no.PersonEmployment',
         'gpg': 'Cerebrum.modules.gpg',
+        'task_queue': 'Cerebrum.modules.tasks',
     }
     meta = Metainfo.Metainfo(db)
     for name, value in meta.list():
