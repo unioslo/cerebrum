@@ -428,7 +428,6 @@ def main():
     args = parser.parse_args()
     Cerebrum.logutils.autoconf('cronjob', args)
 
-    source = 'system_sap'
     rules = [
         ('fagperson', ('_arbeide', '_hjemsted', '_besok_adr')),
         ('aktiv', ('_semadr', '_hjemsted', None)),
