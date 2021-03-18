@@ -56,9 +56,7 @@ class BofhdExtension(base.BofhdExtension):
 
         if tmpl_type == 'letter':
             address_lookups = (
-                (self.const.system_sap, self.const.address_post),
                 (self.const.system_fs, self.const.address_post),
-                (self.const.system_sap, self.const.address_post_private),
                 (self.const.system_fs, self.const.address_post_private)
             )
 
