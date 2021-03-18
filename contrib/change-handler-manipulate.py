@@ -39,6 +39,7 @@ from six import text_type
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
 from Cerebrum.modules import CLHandler
+from Cerebrum.utils import argutils
 import Cerebrum.logutils
 import Cerebrum.logutils.options
 try:
@@ -51,11 +52,7 @@ logger = logging.getLogger(__name__)
 def main():
 
     parser = argparse.ArgumentParser(description=__doc__)
-    group = parser.add_mutually_exclusive_group(required=False)
-    group.add_argument('-d', '--dryrun', dest='dryrun', action='store_true',
-        default=True, help="Do not commit the changes to db")
-    group.add_argument('--commit', dest='dryrun', action='store_false',
-        help='Commit the changes to db')
+    argutils.add_commit_args(parser, default=False)
     parser.add_argument('--list-handlers', action='store_true',
         help="List defined change handlers from the db and quit")
     parser.add_argument('--print-handlers', action='store_true',
@@ -79,7 +76,7 @@ def main():
 
     logger.info("change_handler_manipulate.py started")
 
-    if args.dryrun:
+    if not args.commit:
         # Force rollback to be sure, since CLHandler forces commits itself
         db.commit = db.rollback
 
@@ -107,10 +104,10 @@ def main():
         handlers = {}
         for row in clh.list_handler_data():
             handlers.setdefault(text_type(row['evthdlr_key']), []).append(row)
-        print ("%20s %10s %10s") % ('Key', 'first_id', 'last_id')
+        print ("%20s %10s %10s" % ('Key', 'first_id', 'last_id'))
         for key in sorted(handlers):
             for r in handlers[key]:
-                print ("%20s %10d %10d") % (key, r['first_id'], r['last_id'])
+                print ("%20s %10d %10d" % (key, r['first_id'], r['last_id']))
     elif args.force_last_id > 0:
         if not args.key:
             raise Exception("Missing --key argument")
@@ -120,7 +117,7 @@ def main():
     else:
         print ("No action given. Quits")
 
-    if args.dryrun:
+    if not args.commit:
         logger.info("Rolled back changes")
         db.rollback()
     else:
@@ -129,5 +126,4 @@ def main():
     logger.info("change_handler_manipulate.py finished")
 
 if __name__ == '__main__':
-    logger.setLevel(20) #INFO
     main()
