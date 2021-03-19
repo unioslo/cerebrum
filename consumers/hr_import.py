@@ -34,7 +34,11 @@ import Cerebrum.logutils.options
 from Cerebrum.config.loader import read_config as read_config_file
 from Cerebrum.modules.amqp.config import get_connection_params
 from Cerebrum.modules.amqp.mapper import MessageToTaskMapper
-from Cerebrum.modules.amqp.consumer import ChannelSetup, Manager
+from Cerebrum.modules.amqp.consumer import (
+    ChannelSetup,
+    ChannelListeners,
+    Manager,
+)
 from Cerebrum.modules.hr_import.config import HrImportConfig
 from Cerebrum.modules.hr_import.handler import EmployeeHandler
 from Cerebrum.utils.argutils import add_commit_args
@@ -72,9 +76,12 @@ def get_consumer(consumer_config, callback):
         queues=consumer_config.queues,
         bindings=consumer_config.bindings,
         flags=ChannelSetup.Flags.ALL,
+    )
+    process = ChannelListeners(
+        listeners={q.name: callback for q in consumer_config.queues},
         consumer_tag_prefix=consumer_config.consumer_tag,
     )
-    return Manager(connection_params, callback, setup)
+    return Manager(connection_params, setup, process)
 
 
 def get_db():

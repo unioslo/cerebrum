@@ -35,7 +35,7 @@ from Cerebrum.config.loader import read_config as read_config_file
 from Cerebrum.utils.module import resolve
 
 from .config import ConsumerConfig, get_connection_params
-from .consumer import ChannelSetup, Manager
+from .consumer import ChannelSetup, ChannelListener, Manager
 
 
 logger = logging.getLogger(__name__)
@@ -110,18 +110,21 @@ def main(inargs=None):
         queues=config.queues,
         bindings=config.bindings,
         flags=ChannelSetup.Flags.ALL,
+    )
+    consume = ChannelListener(
+        listeners={q.name: callback for q in config.queues},
         consumer_tag_prefix=config.consumer_tag,
     )
-    consumer = Manager(connection_params, callback, setup)
+    mgr = Manager(connection_params, setup, consume)
 
     try:
-        consumer.run()
+        mgr.run()
     except KeyboardInterrupt:
         logger.info('Stopping (KeyboardInterrupt)')
-        consumer.stop()
+        mgr.stop()
     except Exception:
         logger.error('Stopping (unhandled exception)', exc_info=True)
-        consumer.stop()
+        mgr.stop()
 
 
 if __name__ == '__main__':
