@@ -105,6 +105,9 @@ SMS_NUMBER_SELECTOR = []
 # Extra numbers to use in special circumstances.
 # Follows same setup and is used INSTEAD of SMS_NUMBER_SELECTOR if set.
 SMS_NUMBER_SELECTOR_PRIVATE = []
+
+# System type and phone type to be used in welcome sms
+SMS_WELCOME_TYPE_NUMBER_SELECTOR = ("system_dfo_sap", "MOBILE")
 # Look for things like person name by evaluating source systems in in
 # this order
 SYSTEM_LOOKUP_ORDER = ("system_manual",)
