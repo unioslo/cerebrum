@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2020 University of Oslo, Norway
+# Copyright 2021 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -357,7 +357,7 @@ def _needs_update(old_row, values):
 
 def sql_push(db, queue, key, attempts=NotSet, iat=NotSet, nbf=NotSet,
              reason=NotSet, payload=NotSet,
-             only_newer=True):
+             ignore_nbf_after=False):
     """
     Insert or update a task.
 
@@ -380,9 +380,12 @@ def sql_push(db, queue, key, attempts=NotSet, iat=NotSet, nbf=NotSet,
     :param str reason: human readable description of this item.
     :param dict payload: extra data to include in this item
 
-    :param bool only_newer:
-        if true, this item will not be pushed if an item already exists with a
-        newer nbf
+    :param bool ignore_nbf_after:
+        if true, we ignore this push when the new item would replace an
+        existing item but with a later nbf value.
+
+        This field should be used when we want to keep the item in queue with a
+        closer nbf time.
     """
 
     try:
@@ -390,7 +393,9 @@ def sql_push(db, queue, key, attempts=NotSet, iat=NotSet, nbf=NotSet,
     except Cerebrum.Errors.NotFoundError:
         prev = dict()
 
-    if only_newer and prev and nbf and nbf > prev['nbf']:
+    if ignore_nbf_after and prev and nbf and prev['nbf'] < nbf:
+        # This is an update, and we want to ignore updates that overwrites an
+        # existing item if the new nbf date would add a delay.
         logger.debug('ignoring task %s/%s: already exists with nbf %s < %s',
                      queue, key, prev['nbf'], nbf)
         return None
@@ -467,8 +472,8 @@ class TaskQueue(DatabaseAccessor):
         for row in sql_search(self._db, **fields):
             yield db_row_to_task(row)
 
-    def push(self, task, only_newer=False):
+    def push(self, task, ignore_nbf_after=False):
         kwargs = task.to_dict()
-        kwargs['only_newer'] = only_newer
+        kwargs['ignore_nbf_after'] = ignore_nbf_after
         row = sql_push(self._db, **kwargs)
         return db_row_to_task(row, allow_empty=True)
