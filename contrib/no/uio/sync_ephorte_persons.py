@@ -56,7 +56,7 @@ co = Factory.get('Constants')(db)
 clconst = Factory.get('CLConstants')(db)
 ou = Factory.get('OU')(db)
 ephorte_role = EphorteRole(db)
-source_systen_object = None
+source_system_object = None
 
 # Caches
 _person_to_user_id = {}
@@ -927,7 +927,7 @@ def main():
     cmdgrp.add_argument('--permission-report',
                         help="Generate permission report",
                         action="store", type=argparse.FileType(mode="w"))
-    parser.add_argument('--source_system',
+    parser.add_argument('--source-system',
                         type=str,
                         default='SAP',
                         help='Source system to use, defaults to constant SAP')
