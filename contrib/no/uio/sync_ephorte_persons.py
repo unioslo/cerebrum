@@ -66,7 +66,7 @@ _valid_ephorte_ous = None
 
 
 def get_source_system():
-    return source_systen_object
+    return source_system_object
 
 
 def get_email_address(pe):
@@ -890,7 +890,7 @@ def show_org_units(client):
 
 
 def main():
-    global source_systen_object
+    global source_system_object
     """User-interface and configuration."""
     # Parse args
     parser = argparse.ArgumentParser(
@@ -930,6 +930,7 @@ def main():
     parser.add_argument('--source-system',
                         type=str,
                         default='SAP',
+                        choices=['SAP', 'DFO_SAP'],
                         help='Source system to use, defaults to constant SAP')
     parser.add_argument('--commit',
                         help='Run in commit mode',
@@ -964,7 +965,7 @@ def main():
         _source_system = co.human2constant(args.source_system)
         if _source_system is None:
             raise AttributeError
-        source_systen_object = args.source_system
+        source_system_object = args.source_system
     except AttributeError as e:
         logger.error('human2constant returned None on source system', e)
         sys.exit(1)
