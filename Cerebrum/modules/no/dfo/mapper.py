@@ -127,6 +127,10 @@ class EmployeeMapper(_base.AbstractMapper):
         # TODO:
         #  Rewrite this once orgreg is ready.
         for assignment_id, assignment in assignment_data.items():
+            if assignment_id == 99999999:
+                logger.info('ignoring assignment=%s, same as no assignment',
+                            assignment_id)
+                continue
             affiliation = 'ANSATT'
             stillingskats = assert_list(assignment.get('stillingskat', []))
             if len(stillingskats) == 0:
