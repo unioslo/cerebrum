@@ -51,8 +51,6 @@ import argparse
 import datetime
 import logging
 
-import mx.DateTime
-
 import cereconf
 import Cerebrum.logutils
 import Cerebrum.logutils.options
@@ -61,6 +59,7 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.utils.argutils import add_commit_args
+from Cerebrum.utils.date_compat import get_datetime_naive
 from Cerebrum.utils.funcwrap import memoize
 
 logger = logging.getLogger(__name__)
@@ -483,7 +482,7 @@ class PersonProcessor(object):
         if not person.get('etternavn', '').strip():
             raise SkipPerson("Missing last name")
 
-        new_person.populate(mx.DateTime.DateFrom(birthdate), gender)
+        new_person.populate(get_datetime_naive(birthdate), gender)
 
         new_person.affect_names(const.system_paga,
                                 const.name_first,
