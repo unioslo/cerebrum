@@ -31,8 +31,6 @@ import logging
 import os
 import xml.etree.ElementTree
 
-import mx.DateTime
-
 import cereconf
 
 import Cerebrum.logutils
@@ -43,6 +41,7 @@ from Cerebrum.modules.entity_expire.entity_expire import EntityExpiredError
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.utils.argutils import add_commit_args
 from Cerebrum.modules.no.uit import OU
+from Cerebrum.utils.date_compat import get_datetime_naive
 
 logger = logging.getLogger(__name__)
 
@@ -467,8 +466,7 @@ def import_person(db, person, update_affs=None):
     #
     # Populate the person object
     #
-
-    new_person.populate(mx.DateTime.DateFrom(birthdate), gender)
+    new_person.populate(get_datetime_naive(birthdate), gender)
     new_person.affect_names(const.system_sito, const.name_first,
                             const.name_last, const.name_work_title)
     new_person.affect_external_id(const.system_sito,
