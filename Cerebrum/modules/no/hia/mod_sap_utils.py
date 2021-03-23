@@ -330,11 +330,13 @@ class _SAPPersonDataTuplePassnr(_SAPTupleBase):
       Field  Description
        5   SAP person ID
       49   Passport number
+      50   Passport country code
     """
     _field_count = 77
     _field_rules = {
         'sap_ansattnr': 5,
         'sap_passnr': _with_strip(49),
+        'sap_passcountry': _with_strip(50),
     }
 
 
