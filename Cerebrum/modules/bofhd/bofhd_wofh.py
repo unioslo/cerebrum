@@ -100,9 +100,7 @@ class BofhdWofhCommands(BofhdCommonMethods):
         # Get all OUs where the operator is employed.
         ou_ids = []
         for aff in person.get_affiliations():
-            if (self.const.AuthoritativeSystem(aff['source_system']) ==
-                    self.const.system_sap and
-                    self.const.PersonAffiliation(aff['affiliation']) ==
+            if (self.const.PersonAffiliation(aff['affiliation']) ==
                     self.const.affiliation_ansatt):
                 ou_ids.append(aff['ou_id'])
 
@@ -148,5 +146,6 @@ class BofhdWofhCommands(BofhdCommonMethods):
                     guest['name'] = names[0]['name']
                 else:
                     guest['name'] = affs['person_id']
-                guests.append(guest)
+                if guest not in guests:
+                    guests.append(guest)
         return guests
