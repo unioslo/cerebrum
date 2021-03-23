@@ -601,10 +601,10 @@ def create_passnr_mapping(passnr_file):
     """
     passnr_map = {}
     with io.open(passnr_file, 'r', encoding='utf-8') as f:
-        for p in make_passnr_iterator(
-                f, logger):
-            if p.sap_passnr:
-                passnr_map[p.sap_ansattnr] = p.sap_passnr
+        for p in make_passnr_iterator(f, logger):
+            if p.sap_passnr and p.sap_passcountry:
+                pass_id = p.sap_passcountry + '-' + p.sap_passnr
+                passnr_map[p.sap_ansattnr] = pass_id
     return passnr_map
 
 
