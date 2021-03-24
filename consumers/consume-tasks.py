@@ -100,7 +100,7 @@ class TaskHandler(AbstractConsumerHandler):
 
         with db_context(self.get_db(), self.dryrun) as db:
             queue = TaskQueue(db)
-            for task in (self.get_tasks(db, event) or ()):
+            for task in (self.get_tasks(event) or ()):
                 logger.debug('adding task %s', repr(task))
                 queue.push(task, ignore_nbf_after=True)
 

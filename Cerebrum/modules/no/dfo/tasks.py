@@ -1,0 +1,153 @@
+# -*- coding: utf-8 -*-
+#
+# Copyright 2021 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+""" Tasks related to the DFØ hr-import.  """
+import logging
+
+from Cerebrum.modules.hr_import.importer import get_next_retry
+from Cerebrum.modules.tasks import process
+from Cerebrum.modules.tasks import task_models
+from Cerebrum.utils.date import now
+from .datasource import parse_message
+
+
+logger = logging.getLogger(__name__)
+
+
+class EmployeeTasks(process.QueueHandler):
+
+    queue = 'dfo-employee'
+    manual_queue = 'dfo-employee-manual'
+    nbf_queue = 'dfo-employee-nbf'
+    max_attempts = 20
+
+    def __init__(self, get_import):
+        self.get_import = get_import
+
+    def handle_task(self, db, dryrun, task):
+        do_import = self.get_import(db).handle_reference
+        next_retry = get_next_retry(do_import(task.payload.data['id']))
+
+        if next_retry:
+            # import discovered a start date or end date to be processed
+            # later
+            return task_models.Task(
+                queue=self.delay_queue or self.queue,
+                key=task.key,
+                nbf=next_retry,
+                reason='next-change: on={when}'.format(next_retry),
+                payload=task.payload)
+        else:
+            return None
+
+    @classmethod
+    def create_manual_task(cls, reference):
+        """ Create a manual task. """
+        payload = task_models.Payload(
+            fmt='dfo-event',
+            version=1,
+            data={'id': reference, 'uri': 'dfo:ansatte'})
+        return task_models.Task(
+            queue=cls.manual_queue,
+            key=reference,
+            reason='manual: on={when}'.format(when=now()),
+            payload=payload,
+        )
+
+
+class AssignmentTasks(process.QueueHandler):
+
+    queue = 'dfo-assignment'
+    manual_queue = 'dfo-assignment-manual'
+    nbf_queue = 'dfo-assignment-nbf'
+
+    def handle_task(self, db, dryrun, task):
+        # TODO: for each employee in task, create and queue an EmployeeTasks
+        # task
+        raise NotImplementedError()
+
+    @classmethod
+    def create_manual_task(cls, reference):
+        """ Create a manual task. """
+        payload = task_models.Payload(
+            fmt='dfo-event',
+            version=1,
+            data={'id': reference, 'uri': 'dfo:stillinger'})
+        return task_models.Task(
+            queue=cls.manual_queue,
+            key=reference,
+            reason='manual: on={when}'.format(when=now()),
+            payload=payload,
+        )
+
+
+def get_tasks(event):
+    """
+    Get tasks from a consumer event.
+
+    :type db: Cerebrum.database.Database
+    :type event: Cerebrum.modules.amqp.handler.Event
+
+    :rtype: generator
+    :returns:
+        zero or more :py:class:`Cerebrum.modules.task.task_models.Task`
+        objects to push
+    """
+    try:
+        fields = parse_message(event.body)
+    except Exception:
+        logger.error('Invalid event: %s', repr(event), exc_info=True)
+        return
+
+    is_delayed = fields['nbf'] and fields['nbf'] > now()
+
+    if fields['uri'] == 'dfo:ansatte':
+        if is_delayed:
+            queue = EmployeeTasks.nbf_queue
+        else:
+            queue = EmployeeTasks.queue
+
+    elif fields['uri'] == 'dfo:stillinger':
+        if is_delayed:
+            queue = AssignmentTasks.nbf_queue
+        else:
+            queue = AssignmentTasks.queue
+
+    else:
+        logger.debug('ignoring event for uri=%s', repr(fields['uri']))
+        return
+
+    yield task_models.Task(
+        queue=queue,
+        key=fields['id'],
+        nbf=fields['nbf'],
+        reason='event: ex={ex} rk={rk} tag={ct} on={when}'.format(
+            ex=event.method.exchange,
+            rk=event.method.routing_key,
+            ct=event.method.consumer_tag,
+            when=str(now()),
+        ),
+        # NOTE: Rememeber to bump the version if *any* changes are made to this
+        # data structure!
+        payload=task_models.Payload(
+            fmt='dfo-event',
+            version=1,
+            data={'id': fields['id'], 'uri': fields['uri']},
+        ),
+    )
