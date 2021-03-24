@@ -94,12 +94,11 @@ class AbstractImport(object):
         :param event:
             A Cerebrum.modules.amqp event
         """
-        message_body = load_message(event)
-        reference = self.datasource.get_reference(message_body)
+        reference = self.datasource.get_reference(event)
         logger.info('handle_event: valid event=%r, reference=%r',
                     event, reference)
 
-        event_not_before = self.datasource.needs_delay(message_body)
+        event_not_before = self.datasource.needs_delay(event)
         if event_not_before:
             # Check if the event itself has a not before date.
             # If it does, we return here and push the message to the reschedule
@@ -155,6 +154,7 @@ class AbstractImport(object):
 
         if retry_dates:
             logger.debug('handle_object: needs delay, retry=%r', retry_dates)
+        # TODO: return get_retries(retry_dates)
         return retry_dates
 
     @abc.abstractmethod

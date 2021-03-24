@@ -75,12 +75,12 @@ class AbstractDatasource(object):
     """
 
     @abc.abstractmethod
-    def get_reference(self, body):
+    def get_reference(self, event):
         """
         Extracts a reference or identifier from a message.
 
-        :type body: dict
-        :param body: The message body of an incoming message
+        :type event: Cerebrum.modules.amqp.handler.Event
+        :param event: An incoming message event
 
         :rtype: six.text_type
         :returns:
@@ -120,14 +120,15 @@ class AbstractDatasource(object):
         pass
 
     @abc.abstractmethod
-    def needs_delay(self, body):
+    def needs_delay(self, event):
         """
-        Examine message body and decide if processing must be delayed.
+        Examine message and decide if processing must be delayed.
 
         Examine if it is ok to process this message now, or if processing has
         to be delayed until a later time.
 
-        :type body: dict
+        :type event: Cerebrum.modules.amqp.handler.Event
+        :param event: An incoming message event
 
         :returns:
             unix time for future processing
