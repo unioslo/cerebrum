@@ -231,7 +231,7 @@ class EmployeeMapper(_base.AbstractMapper):
                         'placecode': placecode,
                         # TODO: None of these role2aff mappings would work?
                         'affiliation': role2aff[role_name],
-                        'status': role2aff.get[role_name],
+                        'status': role2aff[role_name],
                         'precedence': None})
                 )
             else:
