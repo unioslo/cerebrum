@@ -24,8 +24,11 @@ The importers binds together the datasources and mappers, and are responsible
 for performing the actual database updates.
 """
 import abc
+import datetime
 import logging
 import json
+
+from Cerebrum.utils.date import apply_timezone
 
 from .matcher import match_entity
 from .mapper import NoMappedObjects
@@ -168,3 +171,30 @@ class AbstractImport(object):
     def remove(self, hr_object, db_object):
         """ Remove source data from an existing Cerebrum object. """
         pass
+
+
+def get_retries(retry_dates):
+    """ Convert retry_dates to datetime objcets.
+
+    :param retry_dates: iterable of local timestamps
+
+    :return: sorted list of tz-aware datetime objects
+    """
+    # `retries` is currently a set of unix timestamp strings - we should
+    # probably change this to a sorted tuple of datetime.date[time] objects.
+    return sorted(
+        # the timestamps are in our local timezone
+        apply_timezone(datetime.datetime.fromtimestamp(float(t)))
+        for t in (retry_dates or ()))
+
+
+def get_next_retry(retry_dates):
+    """ Find the next retry from a set of timestamp strings.
+
+    :param retry_dates: iterable of local timestamps
+
+    :rtype: datetime.datetime, NoneType
+    :return: the next retry time, or None if ``retry_dates`` is empty.
+    """
+    for retry in get_retries(retry_dates):
+        return retry
