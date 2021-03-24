@@ -5308,7 +5308,6 @@ class BofhdExtension(BofhdCommonMethods):
             ou_id = None
         valid_aff = person.list_affiliations(
             person_id=person.entity_id,
-            source_system=self.const.system_sap,
             status=valid_status,
             ou_id=ou_id)
         status_blob = ', '.join(map(text_type, valid_status))
@@ -6843,7 +6842,6 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
         if (account.owner_type == self.const.entity_person and
                 person.list_affiliations(
                     person_id=account.owner_id,
-                    source_system=self.const.system_sap,
                     affiliation=self.const.affiliation_ansatt)):
             try:
                 self._get_email_domain_from_str(address.split('@')[-1])
