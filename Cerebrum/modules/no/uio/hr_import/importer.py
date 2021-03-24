@@ -36,7 +36,7 @@ def _get_affiliations(db_object, account_types):
             source_system=account_types.restrict_source))
 
 
-class EmployeeImport(EmployeeImportBase):
+class UioEmployeeImportMixin(EmployeeImportBase):
     """
     An employee import for SAP and DFØ @ UiO.
     """
@@ -57,7 +57,7 @@ class EmployeeImport(EmployeeImportBase):
                                removed=affs_before - affs_after)
 
     def update(self, hr_object, db_object):
-        parent_method = super(EmployeeImport, self).update
+        parent_method = super(UioEmployeeImportMixin, self).update
         self._update_account_types(hr_object, db_object, parent_method)
 
         reservation_group = ReservationGroupUpdater(self.db)
@@ -67,7 +67,7 @@ class EmployeeImport(EmployeeImportBase):
         leader_groups.sync(db_object.entity_id, hr_object.leader_groups)
 
     def remove(self, hr_object, db_object):
-        parent_method = super(EmployeeImport, self).remove
+        parent_method = super(UioEmployeeImportMixin, self).remove
         self._update_account_types(hr_object, db_object, parent_method)
 
         reservation_group = ReservationGroupUpdater(self.db)
