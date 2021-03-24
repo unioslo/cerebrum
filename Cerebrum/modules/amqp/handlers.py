@@ -131,9 +131,6 @@ class AbstractConsumerHandler(collections.Callable):
     def __init__(self, *args, **kwargs):
         pass
 
-    def _make_event(self, channel, method, header, body):
-        return Event(channel, method, header, body)
-
     def __call__(self, channel, method, header, body):
         event = Event(channel, method, header, body)
 

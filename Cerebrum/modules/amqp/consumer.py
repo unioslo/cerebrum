@@ -27,18 +27,18 @@ A minimal example to connect to a RabbitMQ server running default config:
 ::
 
     conf = config.ConsumerConfig()
-    consume = Manager(
-        config.get_connection_params(conf.connection),
-        demo_callback,
-        ChannelSetup(
-            exchanges=conf.exchanges,
-            queues=conf.queues,
-            bindings=conf.bindings,
-            flags=ChannelSetup.Flags.ALL,
-            consumer_tag_prefix=conf.consumer_tag,
-        ),
-    )
-    consume.run()
+    connect = config.get_connection_params(conf.connection)
+    setup = ChannelSetup(
+        exchanges=conf.exchanges,
+        queues=conf.queues,
+        bindings=conf.bindings,
+        flags=ChannelSetup.Flags.ALL)
+    listen = ChannelListeners(
+        {q: demo_callback for q in conf.queues},
+        conf.consumer_tag)
+
+    mgr = Manager(connect, setup, listen)
+    mgr.run()
 
 """
 import functools
@@ -47,6 +47,9 @@ import time
 import uuid
 
 import pika
+
+from Cerebrum.utils import backoff
+from Cerebrum.utils.date import to_seconds
 
 logger = logging.getLogger(__name__)
 
@@ -149,15 +152,15 @@ class ChannelSetup(object):
             """Format flags to human readable format"""
             return ' | '.join(
                 attr
-                for attr in ('EXCHANGE', 'QUEUE', 'BIND', 'CONSUME')
+                for attr in ('EXCHANGE', 'QUEUE', 'BIND')
                 if flags & getattr(cls, attr))
 
     def __init__(self,
                  exchanges=None,
                  queues=None,
                  bindings=None,
-                 flags=Flags.ALL,
-                 consumer_tag_prefix=None):
+                 handlers=None,
+                 flags=Flags.ALL):
         """
         :type exchanges: list, set
         :param exchanges:
@@ -180,15 +183,12 @@ class ChannelSetup(object):
         :type flags: int
         :param flags:
             Which steps to perform during setup.
-
-        :param consumer_tag_prefix:
-            A prefix to use for consumer tags.
         """
         self.exchanges = exchanges or ()
         self.queues = queues or ()
         self.bindings = bindings or ()
+        self.handlers = handlers or {}
         self.flags = flags
-        self.consumer_tag_prefix = consumer_tag_prefix
 
     @property
     def flags(self):
@@ -203,23 +203,8 @@ class ChannelSetup(object):
                               format(value, '04b')))
         self._flags = value
 
-    def make_consumer_tag(self):
-        """ Make a new consumer tag. """
-        if self.consumer_tag_prefix is not None:
-            return '{}-{:08x}'.format(
-                self.consumer_tag_prefix,
-                int(uuid.uuid4()) % (2 ** 32))
-        else:
-            return str(uuid.uuid4())
-
-    def __call__(self, channel, on_message):
-        """
-        Run channel setup.
-
-        :param channel:
-        :param on_message:
-            Message callback function to set up for the CONSUME step.
-        """
+    def __call__(self, channel):
+        """ Run channel setup.  """
         flags = self.flags
         logger.debug('setup: %s on channel %d',
                      self.Flags.to_string(flags), channel)
@@ -244,17 +229,79 @@ class ChannelSetup(object):
             # TODO: Should we add a step to set up qos/prefetch?
             # channel.basic_qos(prefetch_count=1)
 
-        if flags & self.Flags.CONSUME:
-            logger.debug('setup: CONSUME')
 
-            for queue in set(x.queue for x in self.bindings):
-                return_tag = channel.basic_consume(
-                    queue=queue,
-                    on_message_callback=on_message,
-                    auto_ack=False,
-                    consumer_tag=self.make_consumer_tag())
-                logger.info('consuming queue=%r with consumer_tag=%r',
-                            queue, return_tag)
+def _on_message_wrapper(callback):
+
+    def on_message(channel, method, properties, body):
+        """
+        :type channel: pika.channel.Channel
+        :type method: pika.Spec.Basic.Deliver
+        :param properties: pika.Spec.BasicProperties
+        :type body: str|unicode
+        """
+        logger.info('Received message on channel=%d delivery_tag=%d (from %r)',
+                    channel, method.delivery_tag, properties.app_id)
+
+        try:
+            callback(channel, method, properties, body)
+        except Exception:
+            logger.error("Consume on channel=%d delivery_tag=%d failed",
+                         channel, method.delivery_tag, exc_info=True)
+
+    return on_message
+
+
+class ChannelListeners(object):
+    """ A channel processor that binds callbacks to channel consume.  """
+
+    def __init__(self, listeners=None, consumer_tag_prefix=None):
+        """
+        :param listeners:
+            A mapping of queue name to message callbacks.
+
+            Signature ``on_message(channel, method, properties, body)``
+
+        :param consumer_tag_prefix:
+            A prefix to use for consumer tags.
+        """
+        self._listeners = {}
+        self.consumer_tag_prefix = consumer_tag_prefix
+        for k in (listeners or {}):
+            self.set_listener(k, _on_message_wrapper(listeners[k]))
+
+    def set_listener(self, queue, on_message):
+        if not callable(on_message):
+            raise ValueError("on_message must be a callable object")
+        self._listeners[queue] = on_message
+
+    def _make_consumer_tag(self, queue):
+        """ Make a new consumer tag. """
+        random_id = int(uuid.uuid4())
+        if self.consumer_tag_prefix is None:
+            return '{}-{:08x}'.format(queue, random_id % (2 ** 32))
+        else:
+            return '{}-{}-{:04x}'.format(self.consumer_tag_prefix,
+                                         queue, random_id % (2 ** 16))
+
+    def __call__(self, channel):
+        """ Process channel.  """
+        for queue, on_message in self._listeners.items():
+            return_tag = channel.basic_consume(
+                queue=queue,
+                on_message_callback=on_message,
+                auto_ack=False,
+                consumer_tag=self._make_consumer_tag(queue))
+            logger.info('consuming queue=%r with consumer_tag=%r',
+                        queue, return_tag)
+
+
+# Reconnect timeout, in seconds
+# 5, 10, 20, 40, ...
+connection_backoff = backoff.Backoff(
+    backoff.Exponential(2),
+    backoff.Factor(5),
+    backoff.Truncate(to_seconds(minutes=10)),
+)
 
 
 class Manager(object):
@@ -262,32 +309,30 @@ class Manager(object):
     Pika consumer/async manager.
     """
 
-    reconnect_timeout = 5
-
     # TODO: Replace exchanges/queue/bindings with a single setup callable
-    def __init__(self, connection_params, handler, setup):
+    def __init__(self, connection_params, setup, process):
         """
         :type connection_params: pika.ConnectionParameters
         :param connection_params:
             Broker connection settings.
 
-        :type handler: callable
-        :param handler:
-            Callback to run when a message is received.
-
-            Signature ``handle(channel, method, properties, body)``.
-
         :type setup: callable
         :param setup:
             Callback to perform on channel open.
 
-            Signature ``setup(channel, on_message)``
+            Signature ``setup(channel)``
+
+        :type process: callable
+        :param process:
+            Callback to process an open channel.
+
+            Signature ``process(channel)``
         """
 
         self.connection_params = connection_params
 
-        self.consume = handler
         self._setup = setup
+        self._process = process
 
         self.stopped = False
 
@@ -297,6 +342,16 @@ class Manager(object):
     #
     # connection management
     #
+
+    def get_timeout(self):
+        if not hasattr(self, '_conn_retry_count'):
+            self.reset_timeout()
+        self._conn_retry_count += 1
+        timeout = connection_backoff(self._conn_retry_count)
+        return timeout
+
+    def reset_timeout(self):
+        self._conn_retry_count = 0
 
     def connect(self):
         """connect to rabbitmq and configure."""
@@ -330,6 +385,8 @@ class Manager(object):
         :type connection: pika.SelectConnection
         """
         logger.info('connection opened')
+        self.reset_timeout()
+
         logger.debug('add on_close_callback')
         connection.add_on_close_callback(self.on_connection_closed)
         self.open_channel(connection)
@@ -339,11 +396,11 @@ class Manager(object):
 
         :type connection: pika.SelectConnection
         """
-        logger.error('unable to connect', exc_info=exception)
+        logger.error('unable to connect: %s', exception)
 
-        wait_secs = self.reconnect_timeout
-        logger.info('reconnecting in %d s', wait_secs)
-        time.sleep(wait_secs)
+        timeout = self.get_timeout()
+        logger.info('reconnecting in %d s', timeout)
+        time.sleep(timeout)
 
         self.reconnect()
 
@@ -357,17 +414,18 @@ class Manager(object):
         if self.stopped:
             connection.ioloop.stop()
         else:
+            timeout = self.get_timeout()
             logger.warning(
-                'Connection closed, reopening in 5 seconds: %s',
-                exception)
-            connection.ioloop.call_later(5, self.reconnect)
+                'Connection closed (%s), reopening in %d seconds',
+                exception, timeout)
+            connection.ioloop.call_later(timeout, self.reconnect)
 
     def open_channel(self, connection):
         """ open a new channel.
 
         :type connection: pika.connection.Connection
         """
-        logger.info('open_channel on connection=%r')
+        logger.info('open_channel on connection=%r', connection)
         connection.channel(on_open_callback=self.on_channel_open)
 
     def close_channel(self):
@@ -389,7 +447,8 @@ class Manager(object):
         logger.debug('adding on_close_callback, on_cancel_callback')
         channel.add_on_close_callback(self.on_channel_closed)
         channel.add_on_cancel_callback(self.on_consumer_cancelled)
-        self._setup(channel, self.on_message)
+        self._setup(channel)
+        self._process(channel)
 
     def on_channel_closed(self, channel, exception):
         """ close connection if channel gets closed.
@@ -397,8 +456,7 @@ class Manager(object):
         :type channel: pika.channel.Channel
         :param Exception exception: An exception representing any errors
         """
-        logger.warning('channel %i closed: %s',
-                       channel, exception)
+        logger.warning('channel %i closed: %s', channel, exception)
         channel.connection.close()
 
     #
