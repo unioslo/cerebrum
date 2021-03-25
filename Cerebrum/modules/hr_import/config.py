@@ -130,6 +130,19 @@ class EmployeeImportConfig(Configuration):
     )
 
 
+class TaskImportConfig(EmployeeImportConfig):
+
+    import_class = ConfigDescriptor(
+        String,
+        doc='Class to perform import (Cerebrum.modules.hr_import.importer)',
+    )
+
+    task_class = ConfigDescriptor(
+        String,
+        doc='Class for handling tasks',
+    )
+
+
 class HrImportBaseConfig(Configuration):
 
     importer = ConfigDescriptor(
