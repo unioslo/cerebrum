@@ -124,10 +124,11 @@ class EmployeeMapper(_base.AbstractMapper):
             # TODO:
             #  It says that "medarbeiderundergruppe" is supposed to be int in
             #  the API-doc.
-            ('9', '90'): 'assosiert_person',
-            ('9', '93'): 'emeritus',
-            ('9', '94'): 'ekst_partner',
-            ('9', '95'): 'gjesteforsker',
+            ('9', 90): 'ekst_partner',
+            ('9', 91): 'ekst_partner',
+            ('9', 93): 'emeritus',
+            ('9', 94): 'ekst_partner',
+            ('9', 95): 'gjesteforsker',
         }
 
         # TODO:
