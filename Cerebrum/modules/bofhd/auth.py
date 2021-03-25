@@ -2518,7 +2518,8 @@ class BofhdAuth(DatabaseAccessor):
 
         ext_id_const = int(self.const.EntityExternalId(extid_type))
         for id_ in cereconf.BOFHD_VISIBLE_EXTERNAL_IDS:
-            if ext_id_const == getattr(self.const, id_):
+            if (ext_id_const ==
+                    self.const.human2constant(id_, self.const.EntityExternalId)):
                 return True
 
         operation_attr = str("{}:{}".format(
