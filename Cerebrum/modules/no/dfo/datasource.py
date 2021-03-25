@@ -22,49 +22,94 @@ DFØ-SAP datasource for HR imports.
 """
 from __future__ import unicode_literals
 
-import time
-import datetime
+import json
 import logging
 
-from Cerebrum.modules.hr_import import datasource as _base
-from Cerebrum.modules.no.dfo.utils import assert_list, parse_date
+from Cerebrum.modules.hr_import.datasource import (
+    AbstractDatasource,
+    DatasourceInvalid,
+    RemoteObject,
+)
+from Cerebrum.modules.no.dfo.utils import assert_list
+from Cerebrum.utils.date import parse_date, now
+from Cerebrum.utils.date_compat import get_datetime_tz
 
 
 logger = logging.getLogger(__name__)
 
 
-def in_date_range(value, start=None, end=None):
-    """ Check if a date is in a given range. """
-    if start and value < start:
-        return False
-    if end and value > end:
-        return False
-    return True
+def _get_id(d):
+    """ parse 'id' field from message dict. """
+    if 'id' not in d:
+        raise DatasourceInvalid("missing 'id' field")
+    return d['id']
 
 
-class Employee(_base.RemoteObject):
+def _get_uri(d):
+    """ parse 'uri' field from message dict. """
+    if 'uri' not in d:
+        raise DatasourceInvalid("missing 'uri' field")
+    return d['uri']
+
+
+def _get_nbf(d):
+    """ parse 'gyldigEtter' (nbf) field from message dict. """
+    obj_nbf = d.get('gyldigEtter')
+    if not obj_nbf:
+        return None
+    try:
+        return get_datetime_tz(parse_date(obj_nbf))
+    except Exception as e:
+        raise DatasourceInvalid("invalid 'gyldigEtter' field: %s (%r)"
+                                % (e, obj_nbf))
+
+
+def parse_message(msg_text):
+    """ Parse DFØ-SAP message.
+
+    :param str msg_text: json encoded message
+
+    :rtype: dict
+    :return:
+        Returns a dict with message fields:
+
+        - id (str): object id
+        - uri (str): object type
+        - nbf (datetime): not before (or None if not given)
+    """
+    try:
+        msg_data = json.loads(msg_text)
+    except Exception as e:
+        raise DatasourceInvalid('invalid message format: %s (%r)' %
+                                (e, msg_text))
+
+    return {
+        'id': _get_id(msg_data),
+        'uri': _get_uri(msg_data),
+        'nbf': _get_nbf(msg_data),
+    }
+
+
+class Employee(RemoteObject):
     pass
 
 
-class Assignment(_base.RemoteObject):
+class Assignment(RemoteObject):
     pass
 
 
-class Person(_base.RemoteObject):
+class Person(RemoteObject):
     pass
 
 
-class EmployeeDatasource(_base.AbstractDatasource):
+class EmployeeDatasource(AbstractDatasource):
 
     def __init__(self, client):
         self.client = client
 
-    def get_reference(self, body):
+    def get_reference(self, event):
         """ Extract reference from message body """
-        try:
-            return str(body['id'])
-        except KeyError:
-            raise _base.DatasourceInvalid('No "id" in body: %r', body)
+        return parse_message(event.body)['id']
 
     def get_object(self, reference):
         """ Fetch data from sap (employee data, assignments, roles). """
@@ -90,18 +135,14 @@ class EmployeeDatasource(_base.AbstractDatasource):
                         Assignment('dfo-sap', assignment_id, assignment)
                     )
                 else:
-                    raise _base.DatasourceInvalid('No assignment found: %r' %
-                                                  assignment_id)
+                    raise DatasourceInvalid('No assignment found: %r' %
+                                            assignment_id)
 
         return Employee('dfo-sap', reference, employee)
 
-    def needs_delay(self, body):
-        # TODO:
-        #  Is gyldigEtter a date equivalent to nbf?
-        date = body.get('gyldigEtter')
-        if date:
-            date_str = str(date)
-            not_before_date = parse_date(date_str, '%Y%m%d')
-            if datetime.date.today() < not_before_date:
-                return time.mktime(not_before_date.timetuple())
-        return False
+    def needs_delay(self, event):
+        nbf = parse_message(event.body)['nbf']
+        # TODO: return as-is rather than as a timestamp
+        if nbf and nbf > now():
+            return float(nbf.strftime("%s"))
+        return None

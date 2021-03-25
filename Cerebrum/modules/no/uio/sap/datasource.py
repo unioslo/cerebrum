@@ -20,55 +20,102 @@
 """
 SAPUiO datasource for HR imports.
 """
-import time
+import datetime
 import re
 import json
 import logging
 
 import six
 
-from Cerebrum.modules.hr_import import datasource as _base
+from Cerebrum.modules.hr_import.datasource import (
+    AbstractDatasource,
+    DatasourceInvalid,
+    RemoteObject,
+)
+from Cerebrum.utils.date import apply_timezone, now
 
 logger = logging.getLogger(__name__)
 
 
-SUB_2_HR_ID = re.compile(r'employees\((\d+)\)')
+RE_SUBJECT = re.compile(r'employees\((\d+)\)')
 
 
-def extract_reference(text):
-    """ Extract employee reference from a json encoded message body. """
-    message = json.loads(text)
-    subject = message['sub']
-    match = SUB_2_HR_ID.search(subject)
+def _get_sub(d):
+    """ parse 'sub' field from message dict. """
+    if 'sub' not in d:
+        raise DatasourceInvalid("missing 'sub' field")
+    match = RE_SUBJECT.search(d['sub'])
     if not match:
-        raise ValueError('Invalid employee reference in sub')
+        raise DatasourceInvalid("invalid 'sub' field (%r)" % (d['sub'],))
     return match.group(1)
 
 
-class Employee(_base.RemoteObject):
+def _get_jti(d):
+    """ parse 'jti' field from message dict. """
+    if 'jti' not in d:
+        raise DatasourceInvalid("missing 'jti' field")
+    return str(d['jti'])
+
+
+def _get_nbf(d):
+    """ parse 'nbf' field from message dict """
+    nbf_timestamp = d.get('nbf')
+    if not nbf_timestamp:
+        return None
+
+    try:
+        return apply_timezone(
+            datetime.datetime.fromtimestamp(float(nbf_timestamp)))
+    except Exception as e:
+        raise DatasourceInvalid("invalid 'nbf' field (%r): %s" %
+                                (nbf_timestamp, e))
+
+
+def parse_message(msg_text):
+    """ Parse SAPUiO message.
+
+    :param str msg_text: json encoded message
+
+    :rtype: dict
+    :return:
+        Returns a dict with message fields:
+
+        - id (str): object id
+        - nbf (datetime): not before (or None if not given)
+    """
+    try:
+        msg_data = json.loads(msg_text)
+    except Exception as e:
+        raise DatasourceInvalid('invalid message format: %s (%r)' %
+                                (e, msg_text))
+
+    return {
+        'id': _get_sub(msg_data),
+        'nbf': _get_nbf(msg_data),
+        'jti': _get_jti(msg_data),
+    }
+
+
+class Employee(RemoteObject):
     pass
 
 
-class Assignment(_base.RemoteObject):
+class Assignment(RemoteObject):
     pass
 
 
-class Role(_base.RemoteObject):
+class Role(RemoteObject):
     pass
 
 
-class EmployeeDatasource(_base.AbstractDatasource):
+class EmployeeDatasource(AbstractDatasource):
 
     def __init__(self, client):
         self.client = client
 
-    def get_reference(self, body):
+    def get_reference(self, event):
         """ Extract employee reference from a json encoded message body. """
-        subject = body['sub']
-        match = SUB_2_HR_ID.search(subject)
-        if not match:
-            raise ValueError('Invalid employee reference in sub')
-        return match.group(1)
+        return parse_message(event.body)['id']
 
     def get_object(self, reference):
         """ Fetch data from sap (employee data, assignments, roles). """
@@ -95,12 +142,9 @@ class EmployeeDatasource(_base.AbstractDatasource):
                 for d in self.client.get_roles(employee_id)]
         return employee
 
-    def needs_delay(self, body):
-        not_before_time = body.get('nbf')  # Example "nbf":1593561600
-        if not_before_time:
-            if time.time() < not_before_time:
-                # TODO:
-                #  This is a bit hairy. We may not need to reschedule this if
-                #  tiny_scheduler is already listening to the same queue?
-                return not_before_time
+    def needs_delay(self, event):
+        nbf = parse_message(event.body)['nbf']
+        # TODO: return as-is rather than as a timestamp
+        if nbf and nbf > now():
+            return float(nbf.strftime("%s"))
         return None
