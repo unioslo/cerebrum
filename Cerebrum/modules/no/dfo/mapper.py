@@ -133,7 +133,7 @@ class EmployeeMapper(_base.AbstractMapper):
         # TODO:
         #  Rewrite this once orgreg is ready.
         for assignment_id, assignment in assignment_data.items():
-            if assignment_id == ASSIGNMENT_RESIGNED_ID:
+            if assignment_id == cls.ASSIGNMENT_RESIGNED_ID:
                 logger.info('ignoring assignment=%s, resigned',
                             assignment_id)
                 continue
