@@ -451,13 +451,14 @@ class Manager(object):
         self._process(channel)
 
     def on_channel_closed(self, channel, exception):
-        """ close connection if channel gets closed.
+        """ Make sure connection is closed if channel gets closed.
 
         :type channel: pika.channel.Channel
         :param Exception exception: An exception representing any errors
         """
         logger.warning('channel %i closed: %s', channel, exception)
-        channel.connection.close()
+        if not channel.connection.is_closing and not channel.connection.is_closed:
+            channel.connection.close()
 
     #
     # message handling
