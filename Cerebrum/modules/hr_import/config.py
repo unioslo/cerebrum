@@ -142,6 +142,12 @@ class TaskImportConfig(EmployeeImportConfig):
         doc='Class for handling tasks',
     )
 
+    @classmethod
+    def from_file(cls, filename):
+        config = cls()
+        config.load_dict(read_config_file(filename))
+        return config
+
 
 class HrImportBaseConfig(Configuration):
 
