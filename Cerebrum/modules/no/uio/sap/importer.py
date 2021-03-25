@@ -25,12 +25,12 @@ from Cerebrum.modules.no.uio.sap.client import get_client
 from Cerebrum.modules.no.uio.sap.datasource import EmployeeDatasource
 from Cerebrum.modules.no.uio.sap.mapper import EmployeeMapper
 from Cerebrum.modules.no.uio.hr_import.importer import (
-    EmployeeImport as UioEmployeeImport
+    UioEmployeeImportMixin,
 )
 from Cerebrum.Utils import Factory
 
 
-class EmployeeImport(UioEmployeeImport):
+class EmployeeImport(UioEmployeeImportMixin):
     """
     An UiO-SAP employee import
     """
