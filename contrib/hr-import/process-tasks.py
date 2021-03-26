@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2020 University of Oslo, Norway
+# Copyright 2021 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,9 +18,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""
-Process tasks on the hr import queues.
-"""
+""" Process tasks on the hr-import queues.  """
 import argparse
 import logging
 import functools
@@ -83,20 +81,13 @@ def main(inargs=None):
         help='Limit number of tasks to %(metavar)s (required in dryrun)',
         metavar='<n>',
     )
-    # parser.add_argument(
-    #     '-m', '--max-retries',
-    #     type=int,
-    #     default=DEFAULT_MAX_RETRIES,
-    #     help='Do not process tasks more than %(metavar)s times (%(default)s)',
-    #     metavar='<n>',
-    # )
 
-    # TODO: we may want to separate between commit/rollback of tasks,
-    # and commit/rollback of task processing.
+    # TODO: we may want to separate between commit/rollback of task push/pop
+    # and commit/rollback of task implementation.
     #
-    # Commiting task result, but rollback changes from task processing would
-    # be simple - the inverse (commit changes, rollback task) would require
-    # some more refactoring.
+    # Commiting changes to the task queue, but rollback changes from task
+    # implementation would be simple - the inverse would require some more
+    # refactoring.
     add_commit_args(parser)
 
     Cerebrum.logutils.options.install_subparser(parser)
@@ -115,7 +106,7 @@ def main(inargs=None):
     handle = get_task_handler(config)
 
     if limit:
-        counter = range(limit)
+        counter = range(1, limit + 1)
     elif args.commit:
         counter = itertools.count()
     else:
@@ -129,7 +120,8 @@ def main(inargs=None):
 
     nbf_cutoff = now()
 
-    for n in counter:
+    count = 0
+    for count in counter:
         with db_context(get_db(), dryrun) as db:
             try:
                 task = TaskQueue(db).pop_next(queues=handle.all_queues,
@@ -143,10 +135,14 @@ def main(inargs=None):
             # and *handle*
             handle(db, dryrun, task)
 
+    logger.info('processed %d tasks', count)
+
     # log info on events that we've given up on
     with db_context(get_db(), dryrun) as db:
-        for row in sql_get_queue_counts(db, queues=handle.all_queues,
-                                        min_attempts=handle.max_attempts):
+        for row in sql_get_queue_counts(
+                db,
+                queues=handle.all_queues,
+                min_attempts=handle.max_attempts):
             if row['num']:
                 logger.warning('queue: %s, given up on %d failed items',
                                row['queue'], row['num'])

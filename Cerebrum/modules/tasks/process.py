@@ -1,3 +1,23 @@
+# -*- coding: utf-8 -*-
+#
+# Copyright 2021 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+""" Queue processing utils.  """
 import datetime
 import logging
 
@@ -47,13 +67,14 @@ class QueueHandler(object):
 
     @property
     def all_queues(self):
+        """ queues with tasks for this handler. """
         return tuple(
             q for q in (self.queue, self.nbf_queue, self.retry_queue,
                         self.delay_queue, self.manual_queue)
             if q)
 
     def get_retry_task(self, task, error):
-        """ Create a retry task if task fails. """
+        """ Create a retry task from a failed task. """
         retry = copy_task(task)
         retry.queue = self.retry_queue or self.queue
         retry.attempts = task.attempts + 1
@@ -62,9 +83,23 @@ class QueueHandler(object):
         return retry
 
     def handle_task(self, db, dryrun, task):
+        """ Task implementation. """
         raise NotImplementedError('abstract method')
 
     def __call__(self, db, dryrun, task):
+        """
+        Task processing entry point.
+
+        :type db: Cerebrum.database.Database
+
+        :type dryrun: bool
+        :param dryrun:
+            rollback changes done by the task implementation
+
+        :type task: task_models.Task
+        :param task:
+            a task to process
+        """
         logger.debug('processing task: %r', task.to_dict())
         new_task = None
         try:
