@@ -56,12 +56,17 @@ co = Factory.get('Constants')(db)
 clconst = Factory.get('CLConstants')(db)
 ou = Factory.get('OU')(db)
 ephorte_role = EphorteRole(db)
+source_system_object = None
 
 # Caches
 _person_to_user_id = {}
 _ephorte_ous = None
 _perm_codes = None
 _valid_ephorte_ous = None
+
+
+def get_source_system():
+    return source_system_object
 
 
 def get_email_address(pe):
@@ -164,7 +169,7 @@ def ephorte_has_ou(client, sko):
 @memoize
 def ou_address(pe, co, ou_id):
     for row in pe.list_entity_addresses(entity_type=co.entity_ou,
-                                        source_system=co.system_sap,
+                                        source_system=get_source_system(),
                                         address_type=co.address_street,
                                         entity_id=ou_id):
         return dict(row)
@@ -173,7 +178,7 @@ def ou_address(pe, co, ou_id):
 
 def get_person_address(pe, co):
     for row in pe.list_affiliations(person_id=pe.entity_id,
-                                    source_system=co.system_sap,
+                                    source_system=get_source_system(),
                                     fetchall=False):
         address = ou_address(pe, co, row['ou_id'])
         # If no address is found on OU of primary affiliation, we search for
@@ -220,7 +225,7 @@ def update_person_info(pe, client):
         email_address = None
 
     # Webservice accepts max 20 characters for this field
-    telephone = pe.get_contact_info(source=co.system_sap,
+    telephone = pe.get_contact_info(source=get_source_system(),
                                     type=co.contact_phone)
     telephone = telephone[0]['contact_value'][:20] if len(telephone) else None
 
@@ -885,6 +890,7 @@ def show_org_units(client):
 
 
 def main():
+    global source_system_object
     """User-interface and configuration."""
     # Parse args
     parser = argparse.ArgumentParser(
@@ -921,6 +927,11 @@ def main():
     cmdgrp.add_argument('--permission-report',
                         help="Generate permission report",
                         action="store", type=argparse.FileType(mode="w"))
+    parser.add_argument('--source-system',
+                        type=str,
+                        default='SAP',
+                        choices=['SAP', 'DFO_SAP'],
+                        help='Source system to use, defaults to constant SAP')
     parser.add_argument('--commit',
                         help='Run in commit mode',
                         action='store_true')
@@ -949,6 +960,15 @@ def main():
     from Cerebrum.modules.no.uio.EphorteWS import make_ephorte_client
 
     client, config = make_ephorte_client(args.config, mock=not args.commit)
+
+    try:
+        _source_system = co.human2constant(args.source_system)
+        if _source_system is None:
+            raise AttributeError
+        source_system_object = args.source_system
+    except AttributeError as e:
+        logger.error('human2constant returned None on source system', e)
+        sys.exit(1)
 
     try:
         selection_spread = co.Spread(config.selection_spread)
