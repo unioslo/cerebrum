@@ -418,12 +418,16 @@ def main():
         '-d', '--include-delete',
         dest='include_delete',
         action='store_true')
+    parser.add_argument(
+        '--source',
+        dest='source',
+        choices=['system_sap', 'system_dfo_sap'],
+        default='system_sap')
 
     Cerebrum.logutils.options.install_subparser(parser)
     args = parser.parse_args()
     Cerebrum.logutils.autoconf('cronjob', args)
 
-    source = 'system_sap'
     rules = [
         ('fagperson', ('_arbeide', '_hjemsted', '_besok_adr')),
         ('aktiv', ('_semadr', '_hjemsted', None)),
@@ -453,7 +457,7 @@ def main():
         }
     fs_importer = FsImporterUio(args.gen_groups,
                                 args.include_delete, args.commit,
-                                args.studieprogramfile, source, rules, adr_map,
+                                args.studieprogramfile, args.source, rules, adr_map,
                                 args.emnefile, rule_map)
     StudentInfo.StudentInfoParser(args.personfile,
                                   fs_importer.process_person_callback,
