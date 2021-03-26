@@ -81,12 +81,20 @@ def persons_with_aff_status(db, status):
                                         id_type=co.externalid_sap_ansattnr,
                                         fetchall=False))
 
+    logger.debug('caching dfo ids ...')
+    pe2dfoid = dict(
+        (r['entity_id'], r['external_id'])
+        for r in pe.search_external_ids(source_system=co.system_dfo_sap,
+                                        id_type=co.externalid_dfo_pid,
+                                        fetchall=False))
+
     logger.debug('caching non-expired accounts ...')
     ac2name = dict((r['account_id'], r['name']) for r in ac.search())
 
     logger.debug('finding persons with aff=%s...', text_type(status))
     unique = set()
     affiliations = 0
+    persons = set()
     for row in pe.list_affiliations(status=status):
         person_id = row['person_id']
         ou_id = row['ou_id']
@@ -98,6 +106,7 @@ def persons_with_aff_status(db, status):
             continue
 
         sap_id = pe2sapid.get(person_id)
+        dfo_id = pe2dfoid.get(person_id)
         account_name = ac2name[primary]
         full_name = pe.get_name(source_system=co.system_cached,
                                 variant=co.name_full)
@@ -106,15 +115,21 @@ def persons_with_aff_status(db, status):
 
         unique.add(primary)
         affiliations += 1
-        yield {
-            'account_name': _u(account_name),
-            'person_name': _u(full_name),
-            'birth': text_type(birth),
-            'sap_id': _u(sap_id),
-            'affiliation': text_type(status),
-            'ou_sko': text_type(sko),
-            'ou_name': _u(ou_name),
-        }
+        # if statement removes duplicates when the same affiliation exists in
+        # both sap and dfo-sap
+        key = (_u(account_name), _u(ou_name), text_type(status))
+        if key not in persons:
+            persons.add(key)
+            yield {
+                'account_name': _u(account_name),
+                'person_name': _u(full_name),
+                'birth': text_type(birth),
+                'sap_id': _u(sap_id),
+                'dfo_id': _u(dfo_id),
+                'affiliation': text_type(status),
+                'ou_sko': text_type(sko),
+                'ou_name': _u(ou_name),
+            }
 
     logger.info('Found %d affiliations', affiliations)
     logger.info('Found %d unique persons', len(unique))
@@ -140,6 +155,7 @@ def write_html_report(stream, codec, person_data, aff_status):
                 ('person_name', 'Name'),
                 ('birth', 'Birth date'),
                 ('sap_id', "SAP Id"),
+                ('dfo_id', "DFO Id"),
                 # ('affiliation', 'Affiliation'),
                 ('ou_sko', 'OU'),
                 ('ou_name', 'OU acronym')),
