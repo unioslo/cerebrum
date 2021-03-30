@@ -140,13 +140,12 @@ class EmployeeMapper(_base.AbstractMapper):
                 continue
             affiliation = 'ANSATT'
             stillingskats = assert_list(assignment.get('stillingskat', []))
-            if len(stillingskats) == 0:
-                logger.warning('ignoring assignment=%s, no stillingskat',
-                               assignment_id)
-                continue
+            try:
+                stillingskat_id = stillingskats[0].get('stillingskatId')
+                status = category_2_status.get(stillingskat_id)
+            except IndexError:
+                stillingskat_id = status = None
 
-            stillingskat_id = stillingskats[0].get('stillingskatId')
-            status = category_2_status.get(stillingskat_id)
             is_main_assignment = assignment_id == person_data.get('stillingId')
 
             if is_main_assignment:
