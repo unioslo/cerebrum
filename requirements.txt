@@ -11,7 +11,7 @@ Jinja2
 jsonschema
 lxml
 nose
-passlib
+passlib==1.7.4  # note: 1.8 will remove py2 support
 phonenumbers
 pid
 pika==1.1.0

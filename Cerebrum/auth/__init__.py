@@ -28,7 +28,6 @@ New implemtations should follow the same pattern as below.
 import base64
 import crypt
 import hashlib
-import passlib
 import string
 from collections import Mapping
 
@@ -126,6 +125,23 @@ all_auth_methods = AuthMap()
 
 @all_auth_methods('SSHA')
 class AuthTypeSSHA(AuthBaseClass):
+    """
+    Salted SHA1 for LDAP
+
+    See `<https://www.openldap.org/faq/data/cache/347.html>`_ for details.
+
+    .. note::
+        This implementation doesn't includes the {SSHA} prefix in the result
+        from :py:method:`.encrypt`, and does not accept a {SSHA} prefixed
+        cryptstring in :py:method:`.verify`.
+
+        This also means that any LDAP auth config for SSHA *must* set the
+        correct prefix.
+
+    .. todo::
+        Should we replace this with passlib.hash.ldap_salted_sha1 and include
+        the actual {SSHA} prefix in auth_data?
+    """
 
     def encrypt(self, plaintext, salt=None, binary=False):
         if not isinstance(plaintext, six.text_type) and not binary:
@@ -136,8 +152,10 @@ class AuthTypeSSHA(AuthBaseClass):
 
         if salt is None:
             saltchars = string.ascii_letters + string.digits + "./"
-            salt = bytes("$6$" + Utils.random_string(16, saltchars))
+            # PY3: py3 incompatible (bytes() without encoding)
+            salt = bytes(Utils.random_string(16, saltchars))
         elif isinstance(salt, six.text_type):
+            # PY3: py3 incompatible (bytes() without encoding)
             salt = bytes(salt)
 
         return base64.b64encode(
@@ -150,48 +168,54 @@ class AuthTypeSSHA(AuthBaseClass):
 
 @all_auth_methods('SHA-256-crypt')
 class AuthTypeSHA256(AuthBaseClass):
+    """
+    Salted SHA-256 cryptstring for use with e.g. ``crypt(3)``.
 
-    def encrypt(self, plaintext, salt=None, binary=False):
+    .. note::
+        This auth method needs to be prefixed by {CRYPT} for use with OpenLDAP.
+    """
+    _implementation = passlib.hash.sha256_crypt
+
+    @classmethod
+    def encrypt(cls, plaintext, salt=None, binary=False):
         if not isinstance(plaintext, six.text_type) and not binary:
             raise ValueError("plaintext cannot be bytestring and not binary")
 
         if isinstance(plaintext, six.text_type):
             plaintext = plaintext.encode('utf-8')
 
-        if salt is None:
-            saltchars = string.ascii_letters + string.digits + "./"
-            salt = bytes("$5$" + Utils.random_string(16, saltchars))
-        elif isinstance(salt, six.text_type):
-            salt = bytes(salt)
+        settings = {}
+        if salt:
+            try:
+                parts = cls._implementation.parsehash(salt)
+                # *salt* was a valid cryptstring - use the salt and number of
+                # rounds embedded within it
+                settings.update({
+                    'salt': parts['salt'],
+                    'rounds': parts['rounds'],
+                })
+            except ValueError:
+                # *salt* was not a valid cryptstring - assume it is an actual
+                # byte sequence, and use the default number of rounds
+                settings.update({
+                    'salt': salt,
+                })
 
-        return crypt.crypt(plaintext, salt).decode()
+        return cls._implementation.using(**settings).hash(plaintext)
 
-    def verify(self, plaintext, cryptstring):
-        salt = cryptstring
-        return (self.encrypt(plaintext, salt=salt) == cryptstring)
+    @classmethod
+    def verify(cls, plaintext, cryptstring):
+        return cls._implementation.verify(plaintext, cryptstring)
 
 
 @all_auth_methods('SHA-512-crypt')
-class AuthTypeSHA512(AuthBaseClass):
+class AuthTypeSHA512(AuthTypeSHA256):
+    """
+    Salted SHA-512 cryptstring for use with e.g. ``crypt(3)``.
 
-    def encrypt(self, plaintext, salt=None, binary=False):
-        if not isinstance(plaintext, six.text_type) and not binary:
-            raise ValueError("plaintext cannot be bytestring and not binary")
-
-        if isinstance(plaintext, six.text_type):
-            plaintext = plaintext.encode('utf-8')
-
-        if salt is None:
-            saltchars = string.ascii_letters + string.digits + "./"
-            salt = bytes("$6$" + Utils.random_string(16, saltchars))
-        elif isinstance(salt, six.text_type):
-            salt = bytes(salt)
-
-        return crypt.crypt(plaintext, salt).decode()
-
-    def verify(self, plaintext, cryptstring):
-        salt = cryptstring
-        return (self.encrypt(plaintext, salt=salt) == cryptstring)
+    Behaves just like :py:class:`AuthTypeSHA256`.
+    """
+    _implementation = passlib.hash.sha512_crypt
 
 
 @all_auth_methods('MD5-crypt')
