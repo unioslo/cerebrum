@@ -19,9 +19,10 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ This module contains tools for the password_issues bofh command """
 
-from mx import DateTime
+import datetime
 from six import text_type
 from Cerebrum import Utils, Errors
+from Cerebrum.utils.date_compat import get_datetime_tz
 from Cerebrum.modules.bofhd.bofhd_core import (BofhdCommonMethods,
                                                BofhdCommandBase)
 from Cerebrum.modules.bofhd.errors import (CerebrumError,
@@ -66,7 +67,7 @@ def _filter_trouble_traits(co, traits):
     traits are hard coded into cerebrum_api_v1.py.
     """
     return set(traits.keys()) & {co.trait_sysadm_account,
-                                 co.trait_reservation_sms_password,
+                                 co.trait_reserve_passw,
                                  co.trait_important_account}
 
 
@@ -95,18 +96,10 @@ def investigate_traits(ac, co):
 
 
 def account_is_fresh(ac, co):
+    """ Determine if an account is fresh (newly created *or* revived)"""
     traits = ac.get_traits()
-    relevant_traits = [traits[trait_code] for trait_code in
-                       (co.trait_student_new, co.trait_sms_welcome)
-                       if trait_code in traits]
-    cutoff = DateTime.now() - DateTime.DateTimeDelta(FRESH_DAYS)
-
-    for trait in relevant_traits:
-        date = trait['date']
-        if not date:
-            continue
-        if date > cutoff:
-            return True
+    if co.trait_student_new in traits or co.trait_account_new in traits:
+        return True
     return False
 
 
@@ -129,10 +122,10 @@ def illegal_quarantines(ac, co):
 
 def filter_valid_affiliations(affiliations):
     """Filter out valid affiliations"""
-    now = DateTime.now()
+    today = datetime.date.today()
     for aff in affiliations:
         del_date = aff['deleted_date']
-        if not del_date or del_date > now:
+        if not del_date or del_date > today:
             yield {'ssys': aff['source_system'],
                    'status': aff['status']}
 
@@ -151,9 +144,9 @@ def filter_mobilephones(co, contact_rows):
                    'date': row['last_modified']}
 
 
-def merge_affs_and_phones(valid_affiliations, phones):
+def merge_affs_and_phones(co, valid_affiliations, phones):
     """
-    Merges affiliations and phones, ensuring that noe bogus
+    Merges affiliations and phones, ensuring that
     duplicates are kept.
 
     Affs. contains: ssys, status
@@ -188,7 +181,12 @@ def merge_affs_and_phones(valid_affiliations, phones):
                 return entry
         return {'ssys': aff['ssys'], 'status': aff['status'],
                 'number': None, 'date': None}
-
+    # Evil filter reflecting broken policy: If a valid aff to SAP exists,
+    # then all other valid affs are deemed irrelevant.
+    if co.human2constant('SAP') in valid_affiliations:
+        for aff in valid_affiliations :
+            if aff['source_system'] != co.human2constant('SAP'):
+                affs.remove(aff)
     for aff in valid_affiliations:
         entries.append(valid_phone(aff))
     for phone in phones:
@@ -198,27 +196,39 @@ def merge_affs_and_phones(valid_affiliations, phones):
     return entries
 
 
-def any_valid_phones(phone_table, fresh_account):
-    """Return True if a phone table contains any entry with a
-    status (phone number comes from a valid affiliation) and
-    a non-recent date (one week or more)
+def welcome_sms_received_date(ac, co):
+    traits = ac.get_traits()
+    if co.trait_sms_welcome in traits:
+        # The 'date' value of traits are naive datetime objects, *not* dates!
+        return get_datetime_tz(traits[co.trait_sms_welcome])['date']
+    return None
+
+
+def any_valid_phones(ac, co, phone_table, fresh_account):
+    """Return True if a phone table contains at least one phone
+    which either:
+    * has not been updated in the last week,
+    * unless the account is fresh,
+    * or a welcome SMS has been sent after the phone was updated.
     """
-    now = DateTime.now()
-    last_week = now - DateTime.TimeDelta(24*7)
+    last_week = datetime.date.today() - datetime.timedelta(days=7)
     for phone in phone_table:
         if phone['status'] and phone['number']:
             if fresh_account:
                 return True
-
             date = phone['date']
-            if not date or date < last_week:
-                return True
+            if date:
+                if date < last_week:
+                    return True
+                welcome_sms = welcome_sms_received_date(ac, co)
+                if welcome_sms:
+                    return welcome_sms < date
     return False
 
 
 def format_phone_table(co, phone_table):
-    now = DateTime.now()
-    lastweek = now - DateTime.TimeDelta(24*7)
+    today = datetime.date.today()
+    last_week = today - datetime.timedelta(days=7)
     table = []
     for i, entry in enumerate(sorted(phone_table)):
         ssys = entry['ssys']
@@ -233,9 +243,9 @@ def format_phone_table(co, phone_table):
         if number:
             num_s = '{0: >18}'.format(text_type(number))
             mod_date = entry['date']
-            if mod_date and mod_date > lastweek:
-                date_s = '  (changed {} days ago)'.format(int(
-                    (now - mod_date).days))
+            if mod_date and mod_date > last_week:
+                days_ago = (today - mod_date).days
+                date_s = '  (changed {} days ago)'.format(int(days_ago))
             else:
                 date_s = '   date is OK'
         else:
@@ -307,9 +317,9 @@ class PassWordIssues(BofhdCommonMethods):
         if not valid_affiliations:
             issues.append('No valid affiliatons')
         phones = [ent for ent in filter_mobilephones(self.co, contact_rows)]
-        phone_table = merge_affs_and_phones(valid_affiliations, phones)
+        phone_table = merge_affs_and_phones(self.co, valid_affiliations, phones)
         if phone_table:
-            if not any_valid_phones(phone_table, fresh_account):
+            if not any_valid_phones(self.ac, self.co, phone_table, fresh_account):
                 issues.append('No valid phones')
             for entry in format_phone_table(self.co, phone_table):
                 self.data.append(entry)
