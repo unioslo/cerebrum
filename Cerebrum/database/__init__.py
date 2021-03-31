@@ -40,9 +40,9 @@ import sys
 
 from Cerebrum import Cache
 from Cerebrum import Errors
-from Cerebrum import Utils
-from Cerebrum.Utils import NotSet, read_password
+from Cerebrum.Utils import Factory, NotSet, read_password
 from Cerebrum.extlib import db_row
+from Cerebrum.utils.module import this_module
 
 from . import errors
 from .errors import (  # noqa: F401
@@ -432,7 +432,7 @@ def kickstart(module):
 
         # Make the API exceptions available
         for name in errors.API_EXCEPTION_NAMES:
-            base = getattr(Utils.this_module(), name)
+            base = getattr(this_module(), name)
             setattr(cls, name, base)
 
         # The type constructors provided by the driver module should
@@ -790,7 +790,7 @@ def connect(*args, **kws):
                     'Unable to load DB_driver: {db_driver}'.format(
                         db_driver=db_driver))
     else:
-        cls = Utils.Factory.get('DBDriver')
+        cls = Factory.get('DBDriver')
     return cls(*args, **kws)
 
 

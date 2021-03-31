@@ -5,9 +5,10 @@
 
 import re
 import sys
-import nose.tools
+
+import pytest
+
 import Cerebrum.Utils as Utils
-from Cerebrum.extlib.db_row import MetaRow
 
 # Data
 messages_en_word = 'ynzwdpzm'
@@ -33,13 +34,11 @@ def raise1():
 
 
 # Utils.format_exception_context
-
-def test_format_exception_context_wrong_args():
+@pytest.mark.parametrize('args', ((), (None,), (None, None)))
+def test_format_exception_context_wrong_args(args):
     """ Utils.format_exception_context with invalid arguments. """
-    for count in range(3):
-        nose.tools.assert_raises(TypeError,
-                                 Utils.format_exception_context,
-                                 *(None,)*count)
+    with pytest.raises(TypeError):
+        Utils.format_exception_context(*args)
 
 
 def test_format_exception_context_no_exc():
@@ -54,8 +53,8 @@ def test_format_exception_context1():
         raise ValueError("ioshivfq")
     except ValueError:
         message = Utils.format_exception_context(*sys.exc_info())
-        assert re.search("Exception <type 'exceptions.ValueError'> occured " +
-                         "\(in context.*:", message)
+        assert re.search(r"Exception <type 'exceptions.ValueError'> occured "
+                         r"\(in context.*:", message)
         assert "ioshivfq" in message
 
 
@@ -67,12 +66,11 @@ def test_exception_wrapper_returns_callable():
     Utils.exception_wrapper(noop)()
 
 
-def test_exception_wrapper_arg_count():
+@pytest.mark.parametrize('args', ((), (None,) * 5))
+def test_exception_wrapper_arg_count(args):
     """ Utils.exception_wrapper with invalid arguments. """
-    for count in 0, 5:
-        nose.tools.assert_raises(TypeError,
-                                 Utils.exception_wrapper,
-                                 *(None,)*count)
+    with pytest.raises(TypeError):
+        Utils.exception_wrapper(*args)
 
 
 def test_exception_wrapper_behaviour():
@@ -89,8 +87,8 @@ def test_exception_wrapper_behaviour():
     assert Utils.exception_wrapper(raise1, set((ValueError,)))() is None
 
     # Exception not matching the spec are not caught
-    nose.tools.assert_raises(ValueError,
-                             Utils.exception_wrapper(raise1, AttributeError))
+    with pytest.raises(ValueError):
+        Utils.exception_wrapper(raise1, AttributeError)()
 
     # Return value with no exceptions is not altered
     assert Utils.exception_wrapper(noop, None, '')() is None
@@ -123,15 +121,6 @@ def dyn_import_test():
 
     x = "Cerebrum.modules.no"
     assert Utils.dyn_import(x) is sys.modules[x]
-
-
-# Utils.this_module
-
-def this_module_test():
-    """ Utils.this_module reports correct module. """
-    me = sys.modules[this_module_test.__module__]
-    assert Utils.this_module() is me
-    assert Utils.this_module() == me
 
 
 def is_str_test():
@@ -181,17 +170,20 @@ def test_messages_fetch_exists():
                           lang='no', fallback='en')['foo'] == 'bar_en'
 
 
-@nose.tools.raises(KeyError)
 def test_messages_missing_key():
     """ Utils.Messages fetch non-exising key. """
-    Utils.Messages(text={}, lang='no', fallback='en')['foo']
+    with pytest.raises(KeyError):
+        Utils.Messages(text={}, lang='no', fallback='en')['foo']
 
 
-@nose.tools.raises(KeyError)
 def test_messages_missing_lang():
     """ Utils.Messages fetch non-exising lang. """
-    Utils.Messages(
-        text={'foo': {'se': 'bar_se'}}, lang='en', fallback='no')['foo']
+    with pytest.raises(KeyError):
+        Utils.Messages(
+            text={'foo': {'se': 'bar_se'}},
+            lang='en',
+            fallback='no',
+        )['foo']
 
 
 def test_messages_set_key():
@@ -201,11 +193,11 @@ def test_messages_set_key():
     assert m['foo'] == 'bar_no'
 
 
-@nose.tools.raises(NotImplementedError)
 def test_messages_set_invalid():
     """ Utils.Messages set key to invalid value. """
-    m = Utils.Messages(text={}, lang='foo', fallback='bar')
-    m['key'] = 'value'
+    with pytest.raises(NotImplementedError):
+        m = Utils.Messages(text={}, lang='foo', fallback='bar')
+        m['key'] = 'value'
 
 
 def test_argument_to_sql_droptables():
@@ -214,8 +206,9 @@ def test_argument_to_sql_droptables():
     name = "Robert'; DROP TABLE Students;--"
     sql = Utils.argument_to_sql(name, 'name', binds)
     assert sql == '(name = :name)'
-    assert binds == {'name': name}  # This function should not sanitize. That's
-                                    # for the transform to do.
+    # This function should not sanitize. That's
+    # for the transform to do:
+    assert binds == {'name': name}
 
 
 def test_argument_to_sql_transform():
@@ -234,7 +227,3 @@ def test_argument_to_sql_sequence():
         sql = Utils.argument_to_sql(seq_type(sequence), 'foo', binds)
         assert sql == '(foo IN (:foo0, :foo1, :foo2))'
         assert binds == {'foo0': 1, 'foo1': 2, 'foo2': 3}
-
-
-# TODO: How to test:
-# - read_password?
