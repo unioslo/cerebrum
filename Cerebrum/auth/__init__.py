@@ -23,7 +23,8 @@ Auth module containers.
 This module handles all auth implmentations by wrapping them in a dict-like
 object, which you can derive different implementations from.
 
-New implemtations should follow the same pattern as below.
+New implemtations should follow the same pattern as below:
+
 """
 import base64
 import crypt
@@ -48,14 +49,31 @@ class AuthBaseClass(object):
     def encrypt(self, plaintext, salt=None, binary=False):
         """ Returns the hashed plaintext of a specific method
 
-        :type plaintext: String (unicode)
-        :param plaintext: The plaintext to hash
+        :type plaintext: string
+        :param plaintext: a secret to hash or encrypt for the database
 
-        :type salt: String (unicode)
-        :param salt: Salt for hashing
+        :type salt: string
+        :param salt:
+            salt for hashing, or a partial cryptstring with salt (and other
+            parameters) for re-producing a previous cryptstring.
 
         :type binary: bool
-        :param binary: Treat plaintext as binary data
+        :param binary:
+            allow bytestring plaintext value
+
+            - False: plaintext *must* be a unicode object, which gets encoded
+              as a utf-8 bytestring
+            - True: if plaintext is a bytestring object, it is hashed as-is
+
+        :rtype: six.text_type
+        :return:
+            Returns the hashed or encrypted text value.
+
+            Note that Cerebrum only supports digests and cryptstrings that can
+            be represented as text (i.e. no raw binary digests).
+
+        :raise NotImplementedError:
+            If this auth type is unsupported
         """
         raise NotImplementedError
 
@@ -64,14 +82,22 @@ class AuthBaseClass(object):
 
         :type cryptstring: String (unicode)
         :param cryptstring: The plaintext to hash
+
+        :raise NotImplementedError:
+            If this auth type cannot be returned to plaintext
         """
         raise NotImplementedError("This auth method does not support decrypt")
 
     def verify(self, plaintext, cryptstring):
-        """Returns True if the plaintext matches the cryptstring
+        """ Compare a plaintext and a cryptstring.
 
-        False if it doesn't.  If the method doesn't support
-        verification, NotImplemented is returned.
+        :rtype: bool
+        :return:
+            - *True* if the plaintext matches the cryptstring
+            - *False* if the plaintext *doesn't* match the cryptstring
+
+        :raise NotImplementedError:
+            If this auth type cannot be used for verification
         """
         raise NotImplementedError
 
@@ -131,7 +157,7 @@ class AuthTypeSSHA(AuthBaseClass):
     See `<https://www.openldap.org/faq/data/cache/347.html>`_ for details.
 
     .. note::
-        This implementation doesn't includes the {SSHA} prefix in the result
+        This implementation doesn't include a {SSHA} prefix in the result
         from :py:method:`.encrypt`, and does not accept a {SSHA} prefixed
         cryptstring in :py:method:`.verify`.
 
@@ -220,6 +246,12 @@ class AuthTypeSHA512(AuthTypeSHA256):
 
 @all_auth_methods('MD5-crypt')
 class AuthTypeMD5(AuthBaseClass):
+    """
+    Salted MD5 cryptstring for use with e.g. ``crypt(3)``.
+
+    .. note::
+        This auth method needs to be prefixed by {CRYPT} for use with OpenLDAP.
+    """
 
     def encrypt(self, plaintext, salt=None, binary=False):
         if not isinstance(plaintext, six.text_type) and not binary:
@@ -243,6 +275,9 @@ class AuthTypeMD5(AuthBaseClass):
 
 @all_auth_methods('MD4-NT')
 class AuthTypeMD4NT(AuthBaseClass):
+    """
+    MD4 (NT-HASH) hex digest.
+    """
 
     def encrypt(self, plaintext, salt=None, binary=False):
         if not isinstance(plaintext, six.text_type) and not binary:
@@ -263,6 +298,9 @@ class AuthTypeMD4NT(AuthBaseClass):
 
 @all_auth_methods('plaintext')
 class AuthTypePlaintext(AuthBaseClass):
+    """
+    Mock auth method for plaintext secrets.
+    """
 
     def encrypt(self, plaintext, salt=None, binary=False):
         if not isinstance(plaintext, six.text_type) and not binary:
@@ -285,6 +323,9 @@ class AuthTypePlaintext(AuthBaseClass):
 
 @all_auth_methods('md5-unsalted')
 class AuthTypeMD5Unsalt(AuthBaseClass):
+    """
+    Unsalted MD5 hex digest.
+    """
 
     def encrypt(self, plaintext, salt=None, binary=False):
         if not isinstance(plaintext, six.text_type) and not binary:
