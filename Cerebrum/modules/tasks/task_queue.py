@@ -126,7 +126,7 @@ def _select(queues=None, keys=None, iat_before=None, iat_after=None,
     return clauses, binds
 
 
-def sql_search(db, fetchall=True, **selects):
+def sql_search(db, fetchall=True, limit=None, **selects):
     """
     Search for tasks in queues.
 
@@ -141,8 +141,15 @@ def sql_search(db, fetchall=True, **selects):
       FROM [:table schema=cerebrum name=task_queue]
       {where}
       ORDER BY {order}
+      {limit}
     """
     clauses, binds = _select(**selects)
+
+    if limit is None:
+        limit_clause = ''
+    else:
+        limit_clause = 'LIMIT :limit'
+        binds['limit'] = int(limit)
 
     if clauses:
         where = ' WHERE ' + ' AND '.join(clauses)
@@ -154,12 +161,13 @@ def sql_search(db, fetchall=True, **selects):
             fields=', '.join(DEFAULT_FIELDS),
             where=where,
             order=', '.join(DEFAULT_ORDER),
+            limit=limit_clause,
         ),
         binds,
         fetchall=fetchall)
 
 
-def sql_delete(db, **kwargs):
+def sql_delete(db, limit=None, **selects):
     """
     Delete tasks from the queue.
 
@@ -180,12 +188,13 @@ def sql_delete(db, **kwargs):
       )
       RETURNING {fields}
     """
-    if kwargs.get('limit') is not None:
-        limit = 'LIMIT {}'.format(int(kwargs.pop('limit')))
-    else:
-        limit = ''
+    clauses, binds = _select(**selects)
 
-    clauses, binds = _select(**kwargs)
+    if limit is None:
+        limit_clause = ''
+    else:
+        limit_clause = 'LIMIT :limit'
+        binds['limit'] = int(limit)
 
     if clauses:
         where = ' WHERE ' + ' AND '.join(clauses)
@@ -197,7 +206,7 @@ def sql_delete(db, **kwargs):
             where=where,
             order=', '.join(DEFAULT_ORDER),
             fields=', '.join(DEFAULT_FIELDS),
-            limit=limit,
+            limit=limit_clause,
         ),
         binds,
         fetchall=True)

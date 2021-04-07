@@ -51,7 +51,7 @@ class EmployeeTasks(process.QueueHandler):
                 queue=self.delay_queue or self.queue,
                 key=task.key,
                 nbf=next_retry,
-                reason='next-change: on={when}'.format(next_retry),
+                reason='next-change: on={when}'.format(when=next_retry),
                 payload=task.payload)
         else:
             return None

@@ -22,7 +22,6 @@
 from __future__ import print_function
 
 import argparse
-import datetime
 import logging
 from functools import partial
 
@@ -32,58 +31,9 @@ from Cerebrum.Utils import Factory
 from Cerebrum.utils.date import parse_date, parse_datetime
 from Cerebrum.utils.date_compat import get_datetime_tz
 from Cerebrum.modules.tasks.task_queue import sql_search
+from Cerebrum.modules.tasks.formatting import TaskFormatter
 
 logger = logging.getLogger(__name__)
-
-
-def to_str(value):
-    if value is None:
-        return ''
-    if isinstance(value, datetime.date):
-        return value.strftime('%Y-%m-%d %H:%M:%S')
-    if isinstance(value, dict):
-        return repr(value)
-    return str(value)
-
-
-def limit_str(s, max_length):
-    return s if len(s) <= max_length else s[:max_length-3] + '...'
-
-
-class Formatter(object):
-
-    default_field_size = 20
-
-    field_size = {
-        'queue': 15,
-        'key': 10,
-        'attempts': 8,
-    }
-
-    field_sep = '  '
-
-    def __init__(self, fields):
-        self.fields = tuple(fields)
-
-    def get_size(self, field):
-        return self.field_size.get(field, self.default_field_size)
-
-    def format_cell(self, field, value):
-        size = self.get_size(field)
-        return format(limit_str(to_str(value), size),
-                      '<' + str(self.get_size(field)))
-
-    def format_header(self):
-        return self.field_sep.join(self.format_cell(f, f)
-                                   for f in self.fields)
-
-    def format_sep(self):
-        return self.field_sep.join(self.format_cell(f, '-' * self.get_size(f))
-                                   for f in self.fields)
-
-    def format_row(self, data):
-        return self.field_sep.join(self.format_cell(f, data[f])
-                                   for f in self.fields)
 
 
 def dt_type(value):
@@ -118,21 +68,21 @@ search_args.add_argument(
     help='only include items with key %(metavar)s',
     metavar='<key>',
 )
-iat_before_arg = search_args.add_argument(
+search_args.add_argument(
     '--issued-before',
     dest='iat_before',
     type=dt_type,
     help='only include items with iat < %(metavar)s',
     metavar='<when>',
 )
-iat_after_arg = search_args.add_argument(
+search_args.add_argument(
     '--issued-after',
     dest='iat_after',
     type=dt_type,
     help='only include items with iat > %(metavar)s',
     metavar='<when>',
 )
-nbf_before_arg = search_args.add_argument(
+search_args.add_argument(
     '--nbf',
     dest='nbf_before',
     type=dt_type,
@@ -153,11 +103,33 @@ search_args.add_argument(
     help='only include items attempts > %(metavar)s',
     metavar='<n>',
 )
+search_args.add_argument(
+    '--limit',
+    dest='limit',
+    type=int,
+    help='only show the first %(metavar)s matching tasks',
+    metavar='<n>',
+)
 
 display_args = parser.add_argument_group(
     'Display',
     'Show non-default task information',
 )
+header_arg = display_args.add_mutually_exclusive_group()
+header_arg.add_argument(
+    '--header',
+    dest='header',
+    action='store_true',
+    help='include table header (default)',
+)
+header_arg.add_argument(
+    '--no-header',
+    dest='header',
+    action='store_false',
+    help='omit table header',
+)
+header_arg.set_defaults(header=True)
+
 display_args.add_argument(
     '-i', '--show-iat',
     action='store_true',
@@ -191,21 +163,16 @@ def main(inargs=None):
 
     search = partial(sql_search, db)
 
-    params = {}
-    if args.queues:
-        params['queues'] = args.queues
-    if args.queues:
-        params['keys'] = args.keys
-    if args.iat_before:
-        params['iat_before'] = args.iat_before
-    if args.iat_after:
-        params['iat_after'] = args.iat_after
-    if args.nbf_before:
-        params['nbf_before'] = args.nbf_before
-    if args.min_attempts is not None:
-        params['min_attempts'] = args.min_attempts
-    if args.max_attempts is not None:
-        params['max_attempts'] = args.max_attempts
+    params = {
+        'queues': args.queues,
+        'keys': args.keys,
+        'iat_before': args.iat_before,
+        'iat_after': args.iat_after,
+        'nbf_before': args.nbf_before,
+        'min_attempts': args.min_attempts,
+        'max_attempts': args.max_attempts,
+        'limit': args.limit,
+    }
 
     fields = ['queue', 'key', 'nbf', 'attempts']
     if args.show_iat:
@@ -215,13 +182,12 @@ def main(inargs=None):
     if args.show_payload:
         fields.append('payload')
 
-    formatter = Formatter(fields)
+    format_table = TaskFormatter(fields)
 
-    print(formatter.format_header())
-    print(formatter.format_sep())
+    results = search(**params)
 
-    for row in search(**params):
-        print(formatter.format_row(row))
+    for row in format_table(results, header=args.header):
+        print(row)
 
     logger.info('Done %s', parser.prog)
 
