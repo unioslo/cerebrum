@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 """ Unit tests for module utlities. """
 from __future__ import print_function, unicode_literals
+import sys
 
 import pytest
 
@@ -13,8 +14,15 @@ def noop():
     pass
 
 
-def test_this_module():
+def test_this_module_name():
     assert this_module().__name__ == __name__
+
+
+def test_this_module():
+    """ Utils.this_module reports correct module. """
+    self = sys.modules[test_this_module.__module__]
+    assert this_module() is self
+    assert this_module() == self
 
 
 def test_import_item():

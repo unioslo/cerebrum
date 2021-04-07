@@ -24,7 +24,6 @@ This module contains a number of core utilities used everywhere in the tree.
 from __future__ import unicode_literals
 
 import collections
-import inspect
 import io
 import os
 import random
@@ -78,23 +77,6 @@ def dyn_import(name):
         return mod
     except AttributeError as e:
         raise ImportError("{0} (module={1})".format(e, name))
-
-
-def this_module():
-    """Return module object of the caller."""
-    caller_frame = inspect.currentframe().f_back
-    global_vars = caller_frame.f_globals
-    #
-    # If anyone knows a better way (e.g. one that isn't based on
-    # iteration over sys.modules) to get at the module object
-    # corresponding to a frame/code object, please do tell!
-    correct_mod = None
-    for mod in filter(None, sys.modules.values()):
-        if global_vars is mod.__dict__:
-            assert correct_mod is None
-            correct_mod = mod
-    assert correct_mod is not None
-    return correct_mod
 
 
 # TODO: Deprecate when switching over to Python 3.x
