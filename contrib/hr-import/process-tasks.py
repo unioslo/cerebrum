@@ -72,7 +72,7 @@ def main(inargs=None):
     parser.add_argument(
         '-c', '--config',
         required=True,
-        help='config to use (see Cerebrum.modules.consumer.config)',
+        help='config to use (see Cerebrum.modules.hr_import.config)',
     )
     parser.add_argument(
         '-l', '--limit',
@@ -82,70 +82,92 @@ def main(inargs=None):
         metavar='<n>',
     )
 
-    # TODO: we may want to separate between commit/rollback of task push/pop
-    # and commit/rollback of task implementation.
-    #
-    # Commiting changes to the task queue, but rollback changes from task
-    # implementation would be simple - the inverse would require some more
-    # refactoring.
-    add_commit_args(parser)
+    db_args = parser.add_argument_group('Database')
+    db_args.add_argument(
+        '--dryrun-import',
+        dest='task_dryrun',
+        action='store_true',
+        help='rollback all hr-import changes (only when --commit)',
+    )
+    add_commit_args(db_args)
 
     Cerebrum.logutils.options.install_subparser(parser)
     args = parser.parse_args(inargs)
 
     Cerebrum.logutils.autoconf('cronjob', args)
 
-    logger.info("Starting %s", parser.prog)
+    logger.info("start %s", parser.prog)
     logger.debug("args: %r", args)
 
     config = get_config(args.config)
-    dryrun = not args.commit
 
+    handle_task = get_task_handler(config)
+    nbf_cutoff = now()
+    queues = handle_task.all_queues
+    max_attempts = handle_task.max_attempts
     limit = args.limit
 
-    handle = get_task_handler(config)
-
-    if limit:
-        counter = range(1, limit + 1)
-    elif args.commit:
-        counter = itertools.count()
-    else:
-        # We need a limit when running in dry-run, as we'll end up
-        # re-processing the same task again and again.
-        #
-        # *one* possible improvement for dryrun=True would be to wrap the
-        # entire process in a db_context, and then replace the per-pop
-        # db_context with a savepoint(db, dryrun=False)
-        raise RuntimeError('Cannot run in --dryrun without --limit')
-
-    nbf_cutoff = now()
+    # Actually process tasks
+    # The transaction management is somewhat complicated, but:
+    #
+    # When args.commit
+    # - Pop one and one task from the queue in its own transaction
+    # - handle the task using a savepoint that is committed/rolled back
+    #   according to args.task_dryrun
+    #
+    # When args.dryrun
+    # - Search and process all tasks in a single transaction
+    logger.info('processing tasks (nbf=%s, limit=%r, max-attempts=%r)',
+                nbf_cutoff, limit, max_attempts)
 
     count = 0
-    for count in counter:
-        with db_context(get_db(), dryrun) as db:
-            try:
-                task = TaskQueue(db).pop_next(queues=handle.all_queues,
-                                              nbf=nbf_cutoff,
-                                              max_attempts=handle.max_attempts)
-            except Cerebrum.Errors.NotFoundError:
-                # No more tasks to process
-                break
+    if args.commit:
+        if limit:
+            counter = range(1, limit + 1)
+        else:
+            counter = itertools.count()
 
-            # TODO: we may want separate dryrun/commit args for *db_context*
-            # and *handle*
-            handle(db, dryrun, task)
+        for count in counter:
+            with db_context(get_db(), dryrun=False) as db:
+                try:
+                    task = TaskQueue(db).pop_next(
+                        queues=queues,
+                        nbf=nbf_cutoff,
+                        max_attempts=max_attempts)
+                except Cerebrum.Errors.NotFoundError:
+                    # No more tasks to process
+                    break
+
+                # Note: args.task_dryrun here
+                logger.info('processing task %r', task)
+                handle_task(db, dryrun=args.task_dryrun, task=task)
+
+    else:
+        with db_context(get_db(), dryrun=True) as db:
+            for count, task in enumerate(TaskQueue(db).search(
+                    queues=queues,
+                    nbf_before=nbf_cutoff,
+                    max_attempts=max_attempts,
+                    limit=limit)):
+                # Note: we ignore args.task_dryrun here
+                logger.info('processing task %r', task)
+                handle_task(db, dryrun=True, task=task)
 
     logger.info('processed %d tasks', count)
 
-    # log info on events that we've given up on
-    with db_context(get_db(), dryrun) as db:
+    # Check for tasks that we've given up on (i.e. over the
+    # max_attempts threshold)
+    logger.info('checking for abandoned tasks...')
+    with db_context(get_db(), dryrun=True) as db:
         for row in sql_get_queue_counts(
                 db,
-                queues=handle.all_queues,
-                min_attempts=handle.max_attempts):
+                queues=handle_task.all_queues,
+                min_attempts=handle_task.max_attempts):
             if row['num']:
                 logger.warning('queue: %s, given up on %d failed items',
                                row['queue'], row['num'])
+
+    logger.info('done %s', parser.prog)
 
 
 if __name__ == '__main__':
