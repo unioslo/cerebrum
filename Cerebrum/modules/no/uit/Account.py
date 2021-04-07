@@ -57,7 +57,12 @@ logger = logging.getLogger(__name__)
 class AuthTypeMD5Crypt2(AuthBaseClass):
     def encrypt(self, plaintext, salt=None, binary=False):
         """
-        Unsalted md5 hex-digest for UiT.
+        Unsalted MD5 hex digest.
+
+        .. todo::
+            This is identical to 'md5-unsalted' from
+            :py:module:`Cerebrum.auth`.  Both of these methods should be
+            removed.
 
         Added by kennethj, 2005-08-03
         """
@@ -82,7 +87,17 @@ class AuthTypeMD5Crypt2(AuthBaseClass):
 class AuthTypeMD5Base64(AuthBaseClass):
     def encrypt(self, plaintext, salt=None, binary=False):
         """
-        Unsalted md5 b64-digest for UiT.
+        Unsalted MD5 for LDAP
+
+        See `<https://www.openldap.org/faq/data/cache/418.html>`_ for details.
+
+        .. note::
+            This implementation doesn't include a {MD5} prefix in the result
+            from :py:method:`.encrypt` and does not accept a {MD5} prefixed
+            cryptstring in :py:method:`.verify`.
+
+            This also means that any LDAP auth config for MD5-crypt_base64
+            *must* set the correct prefix.
 
         Added by kennethj, 2005-08-03
         """
@@ -108,7 +123,7 @@ class AuthTypeMD5Base64(AuthBaseClass):
 class AuthTypeCrypt3DES(AuthBaseClass):
     def encrypt(self, plaintext, salt=None, binary=False):
         """
-        Salted triple-DES.
+        Salted triple-DES cryptstring for use with e.g. ``crypt(3)``.
 
         Added by fhl, 2019-05-15, copied from an older UiT copy of
         Cerebrum.Account, as triple-DES was removed from UiO code.
