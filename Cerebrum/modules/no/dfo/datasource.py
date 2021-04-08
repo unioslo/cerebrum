@@ -122,7 +122,6 @@ class EmployeeDatasource(AbstractDatasource):
         }
 
         if employee_data:
-            employee_data = employee_data[0]
             employee['employee'] = Person('dfo-sap', reference, employee_data)
             assignment_ids = [employee_data['stillingId']]
             for secondary_assignment in assert_list(
