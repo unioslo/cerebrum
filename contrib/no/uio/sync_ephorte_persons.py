@@ -965,7 +965,7 @@ def main():
         _source_system = co.human2constant(args.source_system)
         if _source_system is None:
             raise AttributeError
-        source_system_object = args.source_system
+        source_system_object = _source_system
     except AttributeError as e:
         logger.error('human2constant returned None on source system', e)
         sys.exit(1)
