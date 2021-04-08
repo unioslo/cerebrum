@@ -239,13 +239,6 @@ class PopulateEphorte(object):
         try:
             pe.clear()
             pe.find(person_id)
-            tmp_id = pe.get_external_id(source_system=co.system_sap,
-                                        id_type=co.externalid_sap_ansattnr)
-            ret['sap_ansattnr'] = tmp_id[0]['external_id']
-            ret['first_name'] = pe.get_name(source_system=co.system_sap,
-                                            variant=co.name_first)
-            ret['last_name'] = pe.get_name(source_system=co.system_sap,
-                                           variant=co.name_last)
         except Errors.NotFoundError:
             logger.warn("Couldn't find person with id %s" % person_id)
 
@@ -263,7 +256,7 @@ class PopulateEphorte(object):
         return ret
 
     @memoize
-    def map_person_to_ou(self):
+    def map_person_to_ou(self, source_system):
         logger.info("Mapping person affiliations to ePhorte OU")
         # person -> {ou_id:1, ...}
         person_to_ou = {}
@@ -274,10 +267,10 @@ class PopulateEphorte(object):
         # ePhorte OU as specified in ephorte-sync-spec.rst
         for row in itertools.chain(
                 pe.list_affiliations(
-                    source_system=co.system_sap,
+                    source_system=source_system,
                     affiliation=co.affiliation_ansatt),
                 pe.list_affiliations(
-                    source_system=co.system_sap,
+                    source_system=source_system,
                     affiliation=co.affiliation_tilknyttet,
                     status=[co.affiliation_tilknyttet_ekst_partner,
                             co.affiliation_tilknyttet_innkjoper])):
@@ -358,10 +351,10 @@ class PopulateEphorte(object):
                            auto_role=(row['auto_role'] == 'T')))
         return person_to_roles
 
-    def populate_roles(self):
+    def populate_roles(self, source_system):
         """Automatically add roles and spreads for employees. """
         logger.info("Start populating roles")
-        person_to_ou = self.map_person_to_ou()
+        person_to_ou = self.map_person_to_ou(source_system)
         person_to_roles = self.map_person_to_roles()
         has_ephorte_spread = set([int(row["entity_id"]) for row in
                                   pe.list_all_with_spread(
@@ -444,10 +437,10 @@ class PopulateEphorte(object):
                         break
         logger.info("Done populating roles")
 
-    def depopulate(self):
+    def depopulate(self, source_system):
         """Remove spreads, roles and permissions for non-employees."""
         logger.info("Start depopulating")
-        should_have_spread = set(self.map_person_to_ou().keys())
+        should_have_spread = set(self.map_person_to_ou(source_system).keys())
         logger.info("Fetching existing spreads")
         has_spread = set([int(row["entity_id"]) for row in
                           pe.list_all_with_spread(co.spread_ephorte_person)])
@@ -535,6 +528,11 @@ def _make_parser():
         "--config",
         default='sync_ephorte.cfg',
         help=u"Config file for ephorte communications (see sync_ephorte.py)")
+    parser.add_argument(
+        "--source_system",
+        default='SAP',
+        choices=['SAP', 'DFO-SAP'],
+        help="TODO")
     return parser
 
 
@@ -542,11 +540,13 @@ def main(args=None):
     args = _make_parser().parse_args(args)
     ephorte_ws_client, ecfg = make_ephorte_client(args.config)
     pop = PopulateEphorte(ephorte_ws_client)
+    source_system = co.human2constant(args.source_system,
+                                      co.AuthoritativeSystem)
 
     if args.populate_roles:
-        pop.populate_roles()
+        pop.populate_roles(source_system)
     if args.depopulate:
-        pop.depopulate()
+        pop.depopulate(source_system)
     if args.mail_warnings_to:
         mail_warnings(args.mail_warnings_to, debug=not args.commit)
 
