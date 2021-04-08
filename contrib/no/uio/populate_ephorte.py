@@ -532,7 +532,7 @@ def _make_parser():
         "--source_system",
         default='SAP',
         choices=['SAP', 'DFO-SAP'],
-        help="TODO")
+        help="Set source system")
     return parser
 
 
