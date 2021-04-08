@@ -529,7 +529,8 @@ def _make_parser():
         default='sync_ephorte.cfg',
         help=u"Config file for ephorte communications (see sync_ephorte.py)")
     parser.add_argument(
-        "--source_system",
+        "--source-system",
+        dest="source_system",
         default='SAP',
         choices=['SAP', 'DFO-SAP'],
         help="Set source system")
