@@ -47,7 +47,7 @@ class FPECriteriaConfig(Configuration):
 
     source_system = ConfigDescriptor(
         String,
-        default='system_sap',
+        default='system_dfo_sap',
         doc=u"The source system used for lookup of affiliations.")
 
 
