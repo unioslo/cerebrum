@@ -28,7 +28,6 @@ import Cerebrum.logutils
 import Cerebrum.logutils.options
 import Cerebrum.Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.config.loader import read_config as read_config_file
 from Cerebrum.database.ctx import db_context
 from Cerebrum.modules.hr_import.config import TaskImportConfig
 from Cerebrum.modules.tasks.task_queue import TaskQueue
@@ -39,13 +38,6 @@ from Cerebrum.utils.module import resolve
 
 
 logger = logging.getLogger(__name__)
-
-
-def get_config(config_file):
-    """ Load config. """
-    config = TaskImportConfig()
-    config.load_dict(read_config_file(config_file))
-    return config
 
 
 def get_task_handler(config):
@@ -99,7 +91,7 @@ def main(inargs=None):
     logger.info("start %s", parser.prog)
     logger.debug("args: %r", args)
 
-    config = get_config(args.config)
+    config = TaskImportConfig.from_file(args.config)
 
     handle_task = get_task_handler(config)
     nbf_cutoff = now()
