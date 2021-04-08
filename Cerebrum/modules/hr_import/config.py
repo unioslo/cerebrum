@@ -62,8 +62,6 @@ from Cerebrum.config.configuration import (
     Namespace,
 )
 from Cerebrum.config.settings import String
-from Cerebrum.modules.amqp.config import ConsumerConfig, PublisherConfig
-from Cerebrum.modules.amqp.mapper_config import MapperConfig
 from Cerebrum.utils.module import resolve
 from Cerebrum.config.loader import read_config as read_config_file
 
@@ -149,43 +147,5 @@ class TaskImportConfig(EmployeeImportConfig):
         return config
 
 
-class HrImportBaseConfig(Configuration):
-
-    importer = ConfigDescriptor(
-        Namespace,
-        config=EmployeeImportConfig,
-        doc='Importer config to use',
-    )
-
-
-class SingleEmployeeImportConfig(HrImportBaseConfig):
-
-    importer_class = ConfigDescriptor(
-        String,
-        doc='Importer class to use'
-    )
-
-
-class HrImportConfig(HrImportBaseConfig):
-
-    consumer = ConfigDescriptor(
-        Namespace,
-        config=ConsumerConfig,
-        doc='Message broker configuration',
-    )
-
-    publisher = ConfigDescriptor(
-        Namespace,
-        config=PublisherConfig,
-        doc='Message republish configuration',
-    )
-
-    task_mapper = ConfigDescriptor(
-        Namespace,
-        config=MapperConfig,
-        doc='Configuration for the task mapper',
-    )
-
-
 if __name__ == '__main__':
-    print(HrImportConfig.documentation())
+    print(TaskImportConfig.documentation())
