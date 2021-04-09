@@ -84,31 +84,6 @@ class AbstractImport(object):
                             self.source_system,
                             self.db)
 
-    def handle_event(self, event):
-        """
-        Initiate hr import from event.
-
-        This is the entrypoint for use with a Cerebrum.modules.amqp handler.
-        Fetches external reference from event and calls handle_reference.
-
-        :param event:
-            A Cerebrum.modules.amqp event
-        """
-        reference = self.datasource.get_reference(event)
-        logger.info('handle_event: valid event=%r, reference=%r',
-                    event, reference)
-
-        event_not_before = self.datasource.needs_delay(event)
-        if event_not_before:
-            # Check if the event itself has a not before date.
-            # If it does, we return here and push the message to the reschedule
-            # queue
-            logger.info('handle_event: ignoring event with nbf=%r, event=%r',
-                        event_not_before, event)
-            return set([event_not_before])
-
-        return self.handle_reference(reference)
-
     def handle_reference(self, reference):
         """
         Initiate hr import from reference.

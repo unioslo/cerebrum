@@ -32,7 +32,7 @@ from Cerebrum.modules.hr_import.datasource import (
     DatasourceInvalid,
     RemoteObject,
 )
-from Cerebrum.utils.date import apply_timezone, now
+from Cerebrum.utils.date import apply_timezone
 
 logger = logging.getLogger(__name__)
 
@@ -141,10 +141,3 @@ class EmployeeDatasource(AbstractDatasource):
                 Role('sapuio', d['roleId'], d)
                 for d in self.client.get_roles(employee_id)]
         return employee
-
-    def needs_delay(self, event):
-        nbf = parse_message(event.body)['nbf']
-        # TODO: return as-is rather than as a timestamp
-        if nbf and nbf > now():
-            return float(nbf.strftime("%s"))
-        return None
