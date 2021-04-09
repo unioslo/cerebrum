@@ -22,27 +22,13 @@ an HR system.
 """
 
 import datetime
+from Cerebrum.utils.reprutils import ReprFieldMixin
 
 
-class ReprMixin(object):
+class ReprMixin(ReprFieldMixin):
 
-    repr_fields = ()
-
-    def __iter_repr_fields(self):
-        for attr in self.repr_fields:
-            value = getattr(self, attr, None)
-            if value:
-                yield attr, value
-
-    def __repr__(self):
-        # Note: no infinite recursion protection
-        fields = ', '.join(
-            '{k}={v}'.format(k=k, v=repr(v))
-            for k, v in self.__iter_repr_fields())
-        return '<{cls.__name__}{fields}>'.format(
-            cls=type(self),
-            fields=(' ' + fields) if fields else '',
-        )
+    repr_module = False
+    repr_id = False
 
 
 class HRPerson(ReprMixin):
