@@ -101,7 +101,7 @@ def format_permission(perm):
 class PopulateEphorte(object):
     """ Ephorte sync client. """
 
-    def __init__(self, ewsclient):
+    def __init__(self, ewsclient, source_system):
         "Pre-fetch information about OUs in ePhorte and Cerebrum."
 
         # Special sko, ignore:
@@ -112,6 +112,7 @@ class PopulateEphorte(object):
         self.ouid_2roleinfo = {}
         # ouid -> stedkode:
         self.ouid2sko = {}
+        self.source_system = source_system
 
         logger.info("Fetching OU info from Cerebrum")
         for row in ou.get_stedkoder():
@@ -256,7 +257,7 @@ class PopulateEphorte(object):
         return ret
 
     @memoize
-    def map_person_to_ou(self, source_system):
+    def map_person_to_ou(self):
         logger.info("Mapping person affiliations to ePhorte OU")
         # person -> {ou_id:1, ...}
         person_to_ou = {}
@@ -267,10 +268,10 @@ class PopulateEphorte(object):
         # ePhorte OU as specified in ephorte-sync-spec.rst
         for row in itertools.chain(
                 pe.list_affiliations(
-                    source_system=source_system,
+                    source_system=self.source_system,
                     affiliation=co.affiliation_ansatt),
                 pe.list_affiliations(
-                    source_system=source_system,
+                    source_system=self.source_system,
                     affiliation=co.affiliation_tilknyttet,
                     status=[co.affiliation_tilknyttet_ekst_partner,
                             co.affiliation_tilknyttet_innkjoper])):
@@ -351,10 +352,10 @@ class PopulateEphorte(object):
                            auto_role=(row['auto_role'] == 'T')))
         return person_to_roles
 
-    def populate_roles(self, source_system):
+    def populate_roles(self):
         """Automatically add roles and spreads for employees. """
         logger.info("Start populating roles")
-        person_to_ou = self.map_person_to_ou(source_system)
+        person_to_ou = self.map_person_to_ou()
         person_to_roles = self.map_person_to_roles()
         has_ephorte_spread = set([int(row["entity_id"]) for row in
                                   pe.list_all_with_spread(
@@ -437,10 +438,10 @@ class PopulateEphorte(object):
                         break
         logger.info("Done populating roles")
 
-    def depopulate(self, source_system):
+    def depopulate(self):
         """Remove spreads, roles and permissions for non-employees."""
         logger.info("Start depopulating")
-        should_have_spread = set(self.map_person_to_ou(source_system).keys())
+        should_have_spread = set(self.map_person_to_ou().keys())
         logger.info("Fetching existing spreads")
         has_spread = set([int(row["entity_id"]) for row in
                           pe.list_all_with_spread(co.spread_ephorte_person)])
@@ -540,14 +541,14 @@ def _make_parser():
 def main(args=None):
     args = _make_parser().parse_args(args)
     ephorte_ws_client, ecfg = make_ephorte_client(args.config)
-    pop = PopulateEphorte(ephorte_ws_client)
     source_system = co.human2constant(args.source_system,
                                       co.AuthoritativeSystem)
+    pop = PopulateEphorte(ephorte_ws_client, source_system)
 
     if args.populate_roles:
-        pop.populate_roles(source_system)
+        pop.populate_roles()
     if args.depopulate:
-        pop.depopulate(source_system)
+        pop.depopulate()
     if args.mail_warnings_to:
         mail_warnings(args.mail_warnings_to, debug=not args.commit)
 
