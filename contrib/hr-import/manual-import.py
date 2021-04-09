@@ -19,11 +19,11 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
-HR import person.
+Import person from hr-system directly, without using tasks.
 
-Runs an HR sync for a single object to update a Cerebrum object.
-
-See :mod:`Cerebrum.modules.hr_import.config` for configuration instructions.
+See :py:class:`Cerebrum.modules.hr_import.config.TaskImportConfig` for
+configuration instructions.  Note that this script won't actually need or
+require a valid *task_class*.
 """
 import argparse
 import logging
@@ -31,9 +31,8 @@ import functools
 
 import Cerebrum.logutils
 import Cerebrum.logutils.options
-from Cerebrum.config.loader import read_config as read_config_file
 from Cerebrum.database.ctx import db_context
-from Cerebrum.modules.hr_import.config import SingleEmployeeImportConfig
+from Cerebrum.modules.hr_import.config import TaskImportConfig
 from Cerebrum.utils.module import resolve
 from Cerebrum.utils.argutils import add_commit_args
 from Cerebrum.Utils import Factory
@@ -42,39 +41,38 @@ from Cerebrum.Utils import Factory
 logger = logging.getLogger(__name__)
 
 
-def get_config(config_file):
-    """ Load config.
-
-    :param str config_file:
-        Read configuration from this file.
-
-    :return ConsumerConfig:
-        Returns a configuration object.
-    """
-    config = SingleEmployeeImportConfig()
-    config.load_dict(read_config_file(config_file))
-    return config
-
-
-def get_importer(importer_config):
-    init = resolve(importer_config.importer_class)
-    return functools.partial(init, config=importer_config.importer)
-
-
 def get_db():
+    """ Get an initialized db connection. """
     db = Factory.get('Database')()
-    db.cl_init(change_program='hr-import-person')
+    db.cl_init(change_program='manual-hr-import')
     return db
+
+
+def get_import_factory(config):
+    """ Get import handler from config.
+
+    :rtype: callable
+    :returns:
+        a factory function that takes a database argument and returns an
+        EmployeeImport object.
+    """
+    import_cls = resolve(config.import_class)
+    return functools.partial(import_cls, config=config)
 
 
 def main(inargs=None):
     parser = argparse.ArgumentParser(
-        description='Run import for a single hr-system object',
+        description='Update a single employee by reference',
+        epilog="""
+            This script fetches and updates a single employee directly
+            from the hr-system, without any use of tasks or
+            notifications
+        """.strip()
     )
     parser.add_argument(
         '-c', '--config',
-        required=False,
-        help='config to use (see Cerebrum.modules.consumer.config)',
+        required=True,
+        help='hr-import config to use (see Cerebrum.modules.hr_import.config)',
     )
     parser.add_argument(
         'reference',
@@ -82,25 +80,26 @@ def main(inargs=None):
     )
 
     add_commit_args(parser)
-
     Cerebrum.logutils.options.install_subparser(parser)
-    args = parser.parse_args(inargs)
 
+    args = parser.parse_args(inargs)
     Cerebrum.logutils.autoconf('tee', args)
 
-    logger.info("Starting %s", parser.prog)
+    logger.info("start %s", parser.prog)
     logger.debug("args: %r", args)
 
-    config = get_config(args.config)
-
-    import_init = get_importer(config)
-    logger.info('employee importer: %r', import_init)
+    # we don't really need the full TaskImportConfig here, but it's easier to
+    # re-use the existing config.
+    config = TaskImportConfig.from_file(args.config)
+    get_import = get_import_factory(config)
 
     with db_context(get_db(), not args.commit) as db:
-        importer = import_init(db)
+        employee_import = get_import(db)
 
         logger.info('handle reference=%r', args.reference)
-        importer.handle_reference(args.reference)
+        employee_import.handle_reference(args.reference)
+
+    logger.info("done %s", parser.prog)
 
 
 if __name__ == '__main__':
