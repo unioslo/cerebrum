@@ -322,6 +322,7 @@ class EmployeeMapper(_base.AbstractMapper):
             last_name=person_data.get('etternavn'),
             birth_date=parse_date(person_data.get('fdato'), allow_empty=True),
             gender=person_data.get('kjonn'),
+            enable=person_data.get('eksternbruker', True),
         )
 
     def update_hr_person(self, hr_person, obj):
@@ -331,7 +332,8 @@ class EmployeeMapper(_base.AbstractMapper):
         main_assignment = get_main_assignment(person_data, assignment_data)
         hr_person.external_ids = self.parse_external_ids(hr_person.hr_id,
                                                          person_data)
-        if not any(id_.id_type in REQUIRED_ID_TYPE for id_ in hr_person.external_ids):
+        if not any(id_.id_type in REQUIRED_ID_TYPE
+                   for id_ in hr_person.external_ids):
             raise Exception('None of required id types %s present: %s' % (
                 REQUIRED_ID_TYPE,
                 hr_person.external_ids))
@@ -353,5 +355,8 @@ class EmployeeMapper(_base.AbstractMapper):
         return hr_person
 
     def is_active(self, hr_object, is_active=None):
+        if not hr_object.enable:
+            logger.info('hr object disabled')
+            return False
         return hr_object.has_active_affiliations(start_grace=self.start_grace,
                                                  end_grace=self.end_grace)

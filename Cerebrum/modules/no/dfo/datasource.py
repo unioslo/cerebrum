@@ -115,6 +115,10 @@ class EmployeeDatasource(AbstractDatasource):
         """ Fetch data from sap (employee data, assignments, roles). """
         employee_id = reference
         employee_data = self.client.get_employee(employee_id)
+
+        if isinstance(employee_data, list) and len(employee_data) == 1:
+            employee_data = employee_data[0]
+
         employee = {
             'id': int(reference),
             'employee': {},
