@@ -22,7 +22,6 @@
 import argparse
 import logging
 import functools
-import itertools
 
 import Cerebrum.logutils
 import Cerebrum.logutils.options
@@ -69,7 +68,7 @@ def main(inargs=None):
     parser.add_argument(
         '-l', '--limit',
         type=int,
-        default=0,
+        default=None,
         help='Limit number of tasks to %(metavar)s (required in dryrun)',
         metavar='<n>',
     )
@@ -77,7 +76,7 @@ def main(inargs=None):
     db_args = parser.add_argument_group('Database')
     db_args.add_argument(
         '--dryrun-import',
-        dest='task_dryrun',
+        dest='dryrun_import',
         action='store_true',
         help='rollback all hr-import changes (only when --commit)',
     )
@@ -97,67 +96,74 @@ def main(inargs=None):
     nbf_cutoff = now()
     queues = handle_task.all_queues
     max_attempts = handle_task.max_attempts
-    limit = args.limit
+    dryrun = not args.commit
+    dryrun_import = args.dryrun_import or dryrun
 
     # Actually process tasks
-    # The transaction management is somewhat complicated, but:
-    #
-    # When args.commit
-    # - Pop one and one task from the queue in its own transaction
-    # - handle the task using a savepoint that is committed/rolled back
-    #   according to args.task_dryrun
-    #
-    # When args.dryrun
-    # - Search and process all tasks in a single transaction
-    logger.info('processing tasks (nbf=%s, limit=%r, max-attempts=%r)',
-                nbf_cutoff, limit, max_attempts)
+    logger.info('Collecting tasks (nbf=%s, limit=%r, max-attempts=%r)',
+                nbf_cutoff, args.limit, max_attempts)
 
-    count = 0
-    if args.commit:
-        if limit:
-            counter = range(1, limit + 1)
-        else:
-            counter = itertools.count()
+    database = get_db()
 
-        for count in counter:
-            with db_context(get_db(), dryrun=False) as db:
-                try:
-                    task = TaskQueue(db).pop_next(
-                        queues=queues,
-                        nbf=nbf_cutoff,
-                        max_attempts=max_attempts)
-                except Cerebrum.Errors.NotFoundError:
-                    # No more tasks to process
-                    break
+    tasks = list(
+        TaskQueue(database).search(
+            queues=queues,
+            nbf_before=nbf_cutoff,
+            max_attempts=max_attempts,
+            limit=args.limit))
 
-                # Note: args.task_dryrun here
-                logger.info('processing task %r', task)
-                handle_task(db, dryrun=args.task_dryrun, task=task)
+    logger.info('Considering %d tasks', len(tasks))
 
-    else:
-        with db_context(get_db(), dryrun=True) as db:
-            for count, task in enumerate(TaskQueue(db).search(
-                    queues=queues,
-                    nbf_before=nbf_cutoff,
-                    max_attempts=max_attempts,
-                    limit=limit)):
-                # Note: we ignore args.task_dryrun here
-                logger.info('processing task %r', task)
-                handle_task(db, dryrun=True, task=task)
+    for task in tasks:
+        # Remove the current task
+        with db_context(database, dryrun=dryrun) as db:
+            try:
+                TaskQueue(db).pop(task.queue, task.key)
+            except Cerebrum.Errors.NotFoundError:
+                logger.debug('task %s/%s gone, already processed?',
+                             task.queue, task.key)
+                # we collect and process tasks in different transactions,
+                # so there is a slight chance that some tasks no longer exists
+                continue
 
-    logger.info('processed %d tasks', count)
+        logger.info('processing task %s/%s (dryrun=%r)',
+                    task.queue, task.key, dryrun_import)
+
+        # Process the current taask
+        try:
+            with db_context(database, dryrun=dryrun_import) as db:
+                handle_task(db, dryrun=dryrun_import, task=task)
+            task_failed = None
+        except Exception as e:
+            logger.warning('failed task %s/%s',
+                           task.queue, task.key, exc_info=True)
+            task_failed = e
+
+        # Re-insert the current task on error
+        #
+        # There is a chance that _this_ part fails, and we're unable to
+        # re-insert a failed task.  Ideally, the entire task processing should
+        # happen in a single transaction, while `handle_task` should use
+        # savepoints to roll back if the import fails.  However, this would
+        # require a rewrite of all our ChangeLog implementations...
+        if task_failed:
+            with db_context(database, dryrun=dryrun) as db:
+                retry_task = handle_task.get_retry_task(task, e)
+                if TaskQueue(db).push(retry_task, ignore_nbf_after=True):
+                    logger.info('queued retry-task %s/%s at %s',
+                                retry_task.queue, retry_task.key,
+                                retry_task.nbf)
 
     # Check for tasks that we've given up on (i.e. over the
     # max_attempts threshold)
     logger.info('checking for abandoned tasks...')
-    with db_context(get_db(), dryrun=True) as db:
-        for row in sql_get_queue_counts(
-                db,
-                queues=handle_task.all_queues,
-                min_attempts=handle_task.max_attempts):
-            if row['num']:
-                logger.warning('queue: %s, given up on %d failed items',
-                               row['queue'], row['num'])
+    for row in sql_get_queue_counts(
+            database,
+            queues=handle_task.all_queues,
+            min_attempts=handle_task.max_attempts):
+        if row['num']:
+            logger.warning('queue: %s, given up on %d failed items',
+                           row['queue'], row['num'])
 
     logger.info('done %s', parser.prog)
 
