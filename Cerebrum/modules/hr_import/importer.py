@@ -28,7 +28,7 @@ import datetime
 import logging
 import json
 
-from Cerebrum.utils.date import apply_timezone
+from Cerebrum.utils.date import apply_timezone, now
 
 from .matcher import match_entity
 from .mapper import NoMappedObjects
@@ -163,13 +163,23 @@ def get_retries(retry_dates):
         for t in (retry_dates or ()))
 
 
-def get_next_retry(retry_dates):
+def get_next_retry(retry_dates, cutoff=None):
     """ Find the next retry from a set of timestamp strings.
 
-    :param retry_dates: iterable of local timestamps
+    :param retry_dates:
+        iterable of local timestamps
+
+    :param cutoff:
+        only consider retry_dates after this datetime (defaults to now)
 
     :rtype: datetime.datetime, NoneType
-    :return: the next retry time, or None if ``retry_dates`` is empty.
+    :return:
+        the next retry time, or None if ``retry_dates`` does not contain a
+        valid retry time
     """
+    if not cutoff:
+        cutoff = now()
+
     for retry in get_retries(retry_dates):
-        return retry
+        if retry > cutoff:
+            return retry
