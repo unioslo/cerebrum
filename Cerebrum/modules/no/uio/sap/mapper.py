@@ -123,14 +123,14 @@ class EmployeeMapper(_base.AbstractMapper):
                 continue
             main = x.get('primaryAssignmentFlag')
             affiliations.add(
-                HRAffiliation(**{
-                    'ou_id': placecode,
-                    'affiliation': 'ANSATT',
-                    'status': status,
-                    'precedence': ((50, 50) if main else None),
-                    'start_date': start,
-                    'end_date': end
-                })
+                HRAffiliation(
+                    ou_id=placecode,
+                    affiliation='ANSATT',
+                    status=status,
+                    precedence=((50, 50) if main else None),
+                    start_date=start,
+                    end_date=end,
+                )
             )
         logger.info('mapped %d assignments to %d affiliations: %r',
                     len(assignment_data), len(affiliations), affiliations)
@@ -202,41 +202,57 @@ class EmployeeMapper(_base.AbstractMapper):
 
         :rtype: set(HRAffiliation)
         """
-        role2aff = collections.OrderedDict(
-            [('INNKJØPER', 'innkjoper'),
-             ('EF-FORSKER', 'ekst_forsker'),
-             ('EMERITUS', 'emeritus'),
-             ('BILAGSLØNN', 'bilag'),
-             ('GJ-FORSKER', 'gjesteforsker'),
-             ('ASSOSIERT', 'assosiert_person'),
-             ('EF-STIP', 'ekst_stip'),
-             ('GRP-LÆRER', 'grlaerer'),
-             ('EKST-KONS', 'ekst_partner'),
-             ('PCVAKT', 'pcvakt'),
-             ('EKST-PART', 'ekst_partner'),
-             ('KOMITEMEDLEM', 'komitemedlem'),
-             ('STEDOPPLYS', None),
-             ('POLS-ANSAT', None)])
+        role2aff = collections.OrderedDict([
+            ('INNKJØPER', ('TILKNYTTET', 'innkjoper')),
+            ('EF-FORSKER', ('TILKNYTTET', 'ekst_forsker')),
+            ('EMERITUS', ('TILKNYTTET', 'emeritus')),
+            ('BILAGSLØNN', ('TILKNYTTET', 'bilag')),
+            ('GJ-FORSKER', ('TILKNYTTET', 'gjesteforsker')),
+            ('ASSOSIERT', ('TILKNYTTET', 'assosiert_person')),
+            ('EF-STIP', ('TILKNYTTET', 'ekst_stip')),
+            ('GRP-LÆRER', ('TILKNYTTET', 'grlaerer')),
+            ('EKST-KONS', ('TILKNYTTET', 'ekst_partner')),
+            ('PCVAKT', ('TILKNYTTET', 'pcvakt')),
+            ('EKST-PART', ('TILKNYTTET', 'ekst_partner')),
+            ('KOMITEMEDLEM', ('TILKNYTTET', 'komitemedlem')),
+            ('STEDOPPLYS', (None, None)),
+            ('POLS-ANSAT', (None, None)),
+        ])
         roles = set()
         for role in role_data:
             role_id = role.get('roleId')
             role_name = role.get('roleName')
             placecode = role.get('locationCode')
+
             if placecode is None:
                 logger.warning('ignoring role=%s, empty locationCode', role_id)
                 continue
-            if role2aff.get(role_name):
-                roles.add(
-                    HRAffiliation(**{
-                        'placecode': placecode,
-                        # TODO: None of these role2aff mappings would work?
-                        'affiliation': role2aff[role_name],
-                        'status': role2aff[role_name],
-                        'precedence': None})
-                )
-            else:
+
+            if role_name not in role2aff:
                 logger.warning('ignoring role=%s, unknown roleName=%r',
                                role_id, role_name)
+                continue
+
+            if not all(role2aff[role_name]):
+                logger.info('ignoring role=%s, unmapped roleName=%r',
+                            role_id, role_name)
+                continue
+
+            affiliation, status = role2aff[role_name]
+            start = parse_date(role.get('effectiveStartDate'),
+                               allow_empty=True)
+            end = parse_date(role.get('effectiveEndDate'), allow_empty=True)
+
+            roles.add(
+                HRAffiliation(
+                    ou_id=placecode,
+                    affiliation=affiliation,
+                    status=status,
+                    precedence=None,
+                    start_date=start,
+                    end_date=end,
+                )
+            )
         logger.info('mapped %d roles to %d affiliations: %r',
                     len(role_data), len(roles), roles)
         return roles
