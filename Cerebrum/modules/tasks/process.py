@@ -21,7 +21,6 @@
 import datetime
 import logging
 
-from Cerebrum.database.ctx import savepoint
 from Cerebrum.utils import backoff
 from Cerebrum.utils.date import now
 from Cerebrum.modules.tasks import task_models
@@ -100,15 +99,8 @@ class QueueHandler(object):
         :param task:
             a task to process
         """
-        logger.debug('processing task: %r', task.to_dict())
-        new_task = None
-        try:
-            with savepoint(db, dryrun):
-                new_task = self.handle_task(db, dryrun, task)
-            logger.info('processed task: %r', task)
-        except Exception as e:
-            logger.warning('failed task: %r', task, exc_info=True)
-            new_task = self.get_retry_task(task, e)
-
-        if new_task and task_queue.TaskQueue(db).push(new_task):
-            logger.info('queued task: %r', new_task)
+        next_task = self.handle_task(db, dryrun, task)
+        if next_task and task_queue.TaskQueue(db).push(next_task,
+                                                       ignore_nbf_after=True):
+            logger.info('queued next-task %s/%s at %s',
+                        next_task.queue, next_task.key, next_task.nbf)
