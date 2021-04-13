@@ -70,14 +70,22 @@ class LeaderGroupUpdater(object):
         ou = Factory.get('OU')(self.db)
         if isinstance(hr_ou_id, int):
             hr_ou_id = str(hr_ou_id)
+
+        # if the source is SAP - the hr_ou_id should be a 'stedkode'
         if self.source_system == self.const.system_sap:
-            ou.find_stedkode(
-                hr_ou_id[0:2],
-                hr_ou_id[2:4],
-                hr_ou_id[4:6],
-                cereconf.DEFAULT_INSTITUSJONSNR
-            )
-            return ou.entity_id
+
+            try:
+                ou.find_stedkode(
+                    hr_ou_id[0:2],
+                    hr_ou_id[2:4],
+                    hr_ou_id[4:6],
+                    cereconf.DEFAULT_INSTITUSJONSNR
+                )
+                return ou.entity_id
+            except Errors.NotFoundError:
+                raise LookupError("invalid location code hr_ou_id=%r" %
+                                  (hr_ou_id,))
+
         source_systems = (self.const.system_dfo_sap, self.const.system_manual)
         for source in source_systems:
             try:
@@ -90,15 +98,16 @@ class LeaderGroupUpdater(object):
                 ou.clear()
             else:
                 return ou.entity_id
-        raise Errors.NotFoundError('Could not find OU by id %r' % hr_ou_id)
+
+        raise LookupError('invalid external ou_id hr_ou_id=%r' % (hr_ou_id,))
 
     def get_leader_group_ids(self, hr_ou_ids):
         leader_groups = set()
         for hr_ou_id in hr_ou_ids:
             try:
                 ou_id = self._get_ou_id(hr_ou_id)
-            except Errors.NotFoundError as e:
-                logger.error(e)
+            except LookupError as e:
+                logger.error('No such ou: %s', e)
             else:
                 leader_groups.add(ou_id)
         return leader_groups
