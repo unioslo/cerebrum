@@ -118,19 +118,3 @@ class AbstractDatasource(object):
         #       Note also that the is_active() and needs_delay() checks would
         #       have to be updated to look at an object from `.models`.
         pass
-
-    @abc.abstractmethod
-    def needs_delay(self, event):
-        """
-        Examine message and decide if processing must be delayed.
-
-        Examine if it is ok to process this message now, or if processing has
-        to be delayed until a later time.
-
-        :type event: Cerebrum.modules.amqp.handler.Event
-        :param event: An incoming message event
-
-        :returns:
-            unix time for future processing
-        """
-        pass

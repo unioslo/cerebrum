@@ -139,10 +139,3 @@ class EmployeeDatasource(AbstractDatasource):
                                             assignment_id)
 
         return Employee('dfo-sap', reference, employee)
-
-    def needs_delay(self, event):
-        nbf = parse_message(event.body)['nbf']
-        # TODO: return as-is rather than as a timestamp
-        if nbf and nbf > now():
-            return float(nbf.strftime("%s"))
-        return None
