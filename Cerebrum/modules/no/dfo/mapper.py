@@ -124,10 +124,11 @@ class EmployeeMapper(_base.AbstractMapper):
             # TODO:
             #  It says that "medarbeiderundergruppe" is supposed to be int in
             #  the API-doc.
-            ('9', '90'): 'assosiert_person',
-            ('9', '93'): 'emeritus',
-            ('9', '94'): 'ekst_partner',
-            ('9', '95'): 'gjesteforsker',
+            ('9', 90): 'ekst_partner',
+            ('9', 91): 'ekst_partner',
+            ('9', 93): 'emeritus',
+            ('9', 94): 'ekst_partner',
+            ('9', 95): 'gjesteforsker',
         }
 
         # TODO:
@@ -139,13 +140,12 @@ class EmployeeMapper(_base.AbstractMapper):
                 continue
             affiliation = 'ANSATT'
             stillingskats = assert_list(assignment.get('stillingskat', []))
-            if len(stillingskats) == 0:
-                logger.warning('ignoring assignment=%s, no stillingskat',
-                               assignment_id)
-                continue
+            try:
+                stillingskat_id = stillingskats[0].get('stillingskatId')
+                status = category_2_status.get(stillingskat_id)
+            except IndexError:
+                stillingskat_id = status = None
 
-            stillingskat_id = stillingskats[0].get('stillingskatId')
-            status = category_2_status.get(stillingskat_id)
             is_main_assignment = assignment_id == person_data.get('stillingId')
 
             if is_main_assignment:
