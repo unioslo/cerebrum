@@ -44,7 +44,9 @@ class HRPerson(ReprMixin):
                  first_name,
                  last_name,
                  birth_date,
-                 gender):
+                 gender,
+                 enable=True,
+                 ):
         """
         :param str hr_id: The person's ID in the source system
         :param str first_name: First name of the person
@@ -57,6 +59,7 @@ class HRPerson(ReprMixin):
         self.last_name = last_name
         self.birth_date = birth_date
         self.gender = gender
+        self.enable = enable
 
         self.external_ids = set()  # set of HRExternalID
         self.contact_infos = set()  # set of HRContactInfo
