@@ -118,11 +118,11 @@ class UioAuth(ContactAuthMixin, BofhdAuth):
                        query_run_any=False):
         """If operator is allowed to remove a person's name from a given source
         system."""
+        if query_run_any:
+            return True
         if self.is_superuser(operator, query_run_any):
             return True
         if self.is_postmaster(operator, query_run_any):
-            return True
-        if query_run_any:
             return True
         if source_system == self.const.system_override:
             # Operator can only clear their own override names.
