@@ -14,6 +14,7 @@ import cereconf
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
+from Cerebrum.utils.argutils import get_constant
 from Cerebrum.utils.email import mail_template as mail_template_util
 from Cerebrum.utils.funcwrap import memoize
 from Cerebrum.modules.no.uio.Ephorte import EphorteRole
@@ -533,7 +534,7 @@ def _make_parser():
         "--source-system",
         dest="source_system",
         default='SAP',
-        choices=['SAP', 'DFO-SAP'],
+        choices=['SAP', 'DFO_SAP'],
         help="Set source system")
     return parser
 
@@ -541,8 +542,8 @@ def _make_parser():
 def main(args=None):
     args = _make_parser().parse_args(args)
     ephorte_ws_client, ecfg = make_ephorte_client(args.config)
-    source_system = co.human2constant(args.source_system,
-                                      co.AuthoritativeSystem)
+    source_system = get_constant(db, _make_parser(), co.AuthoritativeSystem,
+                                 args.source_system)
     pop = PopulateEphorte(ephorte_ws_client, source_system)
 
     if args.populate_roles:
