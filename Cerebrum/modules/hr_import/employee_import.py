@@ -430,6 +430,8 @@ class HRDataImport(object):
                 logger.info(
                     'affiliations: setting id=%r, aff=%r, ou_id=%r '
                     'precedence=%r',
-                    db_person.entity_id, six.text_type(aff.status),
-                    aff.ou_id, aff.precedence)
+                    db_person.entity_id,
+                    six.text_type(aff_data.affiliation),
+                    aff_data.ou_id,
+                    aff_data.precedence)
         db_person.write_db()
