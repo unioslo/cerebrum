@@ -215,10 +215,7 @@ class SapClient(object):
             return None
         if response.status_code == 200:
             data = response.json()
-            try:
-                return data.get('ansatt')[0]
-            except (KeyError, IndexError):
-                return None
+            return data.get('ansatt', None)
         response.raise_for_status()
 
     # def get_orgenhet(self, org_id: str) -> [None, dict]:
