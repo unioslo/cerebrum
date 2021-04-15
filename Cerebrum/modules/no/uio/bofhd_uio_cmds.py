@@ -7135,6 +7135,10 @@ class PasswordIssuesCommands(bofhd_pw_issues.BofhdExtension):
     authz = bofhd_auth.PasswordIssuesAuth
 
 
+class SapImportCommands(bofhd_dfosap_import.BofhdExtension):
+    authz = bofhd_auth.SapImportAuth
+
+
 class CreateUnpersonalCommands(bofhd_user_create_unpersonal.BofhdExtension):
     authz = bofhd_auth.CreateUnpersonalAuth
 

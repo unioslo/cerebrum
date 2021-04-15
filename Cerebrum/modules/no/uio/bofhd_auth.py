@@ -403,6 +403,10 @@ class PasswordIssuesAuth(UioAuth):
     pass
 
 
+class SapImportAuth(UioAuth):
+    pass
+
+
 class CreateUnpersonalAuth(UioAuth,
                            bofhd_user_create_unpersonal.BofhdUnpersonalAuth):
     pass
