@@ -118,12 +118,19 @@ class UioAuth(ContactAuthMixin, BofhdAuth):
                        query_run_any=False):
         """If operator is allowed to remove a person's name from a given source
         system."""
+        if query_run_any:
+            return True
         if self.is_superuser(operator, query_run_any):
             return True
         if self.is_postmaster(operator, query_run_any):
             return True
-        if query_run_any:
-            return False
+        if source_system == self.const.system_override:
+            # Operator can only clear their own override names.
+            account = Factory.get('Account')(self._db)
+            account.find(operator)
+            if person.entity_id != account.owner_id:
+                raise PermissionDenied('Cannot clear override for other persons')
+            return True
         raise PermissionDenied('Not allowed to clear name')
 
     def can_set_trait(self, operator, trait=None, ety=None, target=None,
