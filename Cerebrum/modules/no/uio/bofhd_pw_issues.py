@@ -179,10 +179,16 @@ def merge_affs_and_phones(co, valid_affiliations, phones):
                 'number': None, 'date': None}
     # Evil filter reflecting broken policy: If a valid aff to SAP exists,
     # then all other valid affs are deemed irrelevant.
-    if co.system_sap in valid_affiliations:
-        for aff in valid_affiliations :
-            if aff['source_system'] != co.human2constant('SAP'):
+    if co.system_dfo_sap in valid_affiliations:
+        for aff in valid_affiliations:
+            if aff['source_system'] != co.system_dfo_sap:
                 affs.remove(aff)
+    # Remove from here...
+    if co.system_sap in valid_affiliations:
+        for aff in valid_affiliations:
+            if aff['source_system'] != co.system_sap:
+                affs.remove(aff)
+    # ... to here when transition to DFO is complete!
     for aff in valid_affiliations:
         entries.append(valid_phone(aff))
     for phone in phones:
