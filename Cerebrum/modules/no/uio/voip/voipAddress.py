@@ -429,7 +429,8 @@ class VoipAddress(EntityAuthentication, EntityTrait):
         owner2mobiles = dict()
         for row in eci.list_contact_info(
                 source_system=tuple((self.const.human2constant(x)
-                                     for x in cereconf.VOIP_MOBILE_MAPPING)),
+                                     for x in cereconf.VOIP_MOBILE_MAPPING
+                                     if self.const.human2constant(x))),
                 contact_type=self.const.contact_mobile_phone,
                 entity_type=self.const.entity_person):
             owner2mobiles.setdefault(row["entity_id"], list()).append(
@@ -538,7 +539,8 @@ class VoipAddress(EntityAuthentication, EntityTrait):
         for row in p.list_affiliations(
                 person_id=voippersons,
                 source_system=tuple((self.const.human2constant(x)
-                                     for x in cereconf.VOIP_LOCATION_CODE))):
+                                     for x in cereconf.VOIP_LOCATION_CODE
+                                     if self.const.human2constant(x)))):
             owner_data[row["person_id"]]["voipSKO"].add(ou2sko[row["ou_id"]])
 
         for row in account.search(owner_type=self.const.entity_person,
