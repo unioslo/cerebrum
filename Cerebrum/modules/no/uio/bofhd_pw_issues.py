@@ -61,13 +61,9 @@ def get_pe_from_ac(ac, db):
 def _filter_trouble_traits(co, traits):
     """Check if a traits-dict contains traits that are problematic
     for the SMS-service.
-
-    Pofh checks for such traits twice: 'sysadm_account' and
-    'important_acc' in one test, 'reserve_passw' in another. These
-    traits are hard coded into cerebrum_api_v1.py.
     """
     return set(traits.keys()) & {co.trait_sysadm_account,
-                                 co.trait_reserve_passw,
+                                 co.trait__reservation_sms_password,
                                  co.trait_important_account}
 
 
@@ -183,7 +179,7 @@ def merge_affs_and_phones(co, valid_affiliations, phones):
                 'number': None, 'date': None}
     # Evil filter reflecting broken policy: If a valid aff to SAP exists,
     # then all other valid affs are deemed irrelevant.
-    if co.human2constant('SAP') in valid_affiliations:
+    if co.system_sap in valid_affiliations:
         for aff in valid_affiliations :
             if aff['source_system'] != co.human2constant('SAP'):
                 affs.remove(aff)
@@ -217,12 +213,11 @@ def any_valid_phones(ac, co, phone_table, fresh_account):
             if fresh_account:
                 return True
             date = phone['date']
-            if date:
-                if date < last_week:
-                    return True
-                welcome_sms = welcome_sms_received_date(ac, co)
-                if welcome_sms:
-                    return welcome_sms < date
+            if not date or date < last_week:
+                return True
+            welcome_sms = welcome_sms_received_date(ac, co)
+            if welcome_sms:
+                return welcome_sms >= date
     return False
 
 
