@@ -63,7 +63,7 @@ def _filter_trouble_traits(co, traits):
     for the SMS-service.
     """
     return set(traits.keys()) & {co.trait_sysadm_account,
-                                 co.trait__reservation_sms_password,
+                                 co.trait_reservation_sms_password,
                                  co.trait_important_account}
 
 
