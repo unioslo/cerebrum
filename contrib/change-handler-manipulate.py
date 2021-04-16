@@ -94,7 +94,7 @@ def main():
                 if last is None or i['last_id'] > last:
                     last = i['last_id']
 
-            orint("'%s' (%d handlers):" % (key, len(handlers[key])))
+            print("'%s' (%d handlers):" % (key, len(handlers[key])))
             print("  First first_id: %20d" % first)
             print("  Last last_id:   %20d" % last)
             print()
