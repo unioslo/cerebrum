@@ -34,8 +34,6 @@ Future requests:
 import sys
 import logging
 
-from six import text_type
-
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
 from Cerebrum.modules import CLHandler
@@ -83,7 +81,7 @@ def main():
     if args.list_handlers:
         handlers = {}
         for row in clh.list_handler_data():
-            handlers.setdefault(text_type(row['evthdlr_key']), []).append(row)
+            handlers.setdefault(row['evthdlr_key'], []).append(row)
 
         for key in sorted(handlers):
             first = None
@@ -96,14 +94,14 @@ def main():
                 if last is None or i['last_id'] > last:
                     last = i['last_id']
 
-            print("'%s' (%d handlers):" % (key, len(handlers[key])))
+            orint("'%s' (%d handlers):" % (key, len(handlers[key])))
             print("  First first_id: %20d" % first)
             print("  Last last_id:   %20d" % last)
             print()
     elif args.print_handlers:
         handlers = {}
         for row in clh.list_handler_data():
-            handlers.setdefault(text_type(row['evthdlr_key']), []).append(row)
+            handlers.setdefault(row['evthdlr_key'], []).append(row)
         print("%20s %10s %10s" % ('Key', 'first_id', 'last_id'))
         for key in sorted(handlers):
             for r in handlers[key]:
