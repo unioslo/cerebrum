@@ -96,18 +96,18 @@ def main():
                 if last is None or i['last_id'] > last:
                     last = i['last_id']
 
-            print ("'%s' (%d handlers):" % (key, len(handlers[key])))
-            print ("  First first_id: %20d" % first)
-            print ("  Last last_id:   %20d" % last)
-            print
+            print("'%s' (%d handlers):" % (key, len(handlers[key])))
+            print("  First first_id: %20d" % first)
+            print("  Last last_id:   %20d" % last)
+            print()
     elif args.print_handlers:
         handlers = {}
         for row in clh.list_handler_data():
             handlers.setdefault(text_type(row['evthdlr_key']), []).append(row)
-        print ("%20s %10s %10s" % ('Key', 'first_id', 'last_id'))
+        print("%20s %10s %10s" % ('Key', 'first_id', 'last_id'))
         for key in sorted(handlers):
             for r in handlers[key]:
-                print ("%20s %10d %10d" % (key, r['first_id'], r['last_id']))
+                print("%20s %10d %10d" % (key, r['first_id'], r['last_id']))
     elif args.force_last_id > 0:
         if not args.key:
             raise Exception("Missing --key argument")
@@ -115,7 +115,7 @@ def main():
                     args.force_last_id)
         clh._update_ranges(args.key, [[-1, args.force_last_id],])
     else:
-        print ("No action given. Quits")
+        print("No action given. Quits")
 
     if not args.commit:
         logger.info("Rolled back changes")
