@@ -138,11 +138,11 @@ class HR2FSSyncer(object):
                  db,
                  fs,
                  co,
+                 ansattnr_code_str,
                  use_cache=True,
                  fagperson_export_fields=None,
                  email_cache=False,
-                 commit=False,
-                 ansattnr_code_str=None):
+                 commit=False):
 
         self.person_affiliations = person_affiliations
         self.fagperson_affiliations = fagperson_affiliations
@@ -952,10 +952,10 @@ def main():
         fagperson_fields = None
 
     syncer = HR2FSSyncer(person_affs, fagperson_affs, authoritative_system,
-                         ou_perspective, db, fs, co,
+                         ou_perspective, db, fs, co, ansattnr_code_str,
                          fagperson_export_fields=fagperson_fields,
                          use_cache=True, email_cache=args.email_cache,
-                         commit=args.commit, ansattnr_code_str=ansattnr_code_str)
+                         commit=args.commit)
 
     syncer.sync_to_fs()
 
