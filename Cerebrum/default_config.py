@@ -444,6 +444,7 @@ BOFHD_REQUEST_LOCK_DIR = pj(LOCKFILE_DIR, 'bofhreq', 'lock-%d')
 # Quarantines that do not lead to denial of access to bofhd
 BOFHD_NONLOCK_QUARANTINES = ()
 BOFHD_QUARANTINE_DISABLE_LIMIT = None  # days a quarantine can be disabled
+BOFHD_VISIBLE_EXTERNAL_IDS = ("NO_STUDNO", "NO_SAPNO")
 
 # If set, new unpersonal accounts gets this quarantine by default
 BOFHD_CREATE_UNPERSONAL_QUARANTINE = None

@@ -2517,10 +2517,10 @@ class BofhdAuth(DatabaseAccessor):
             return True
 
         ext_id_const = int(self.const.EntityExternalId(extid_type))
-        if ext_id_const == self.const.externalid_studentnr:
-            return True
-        if ext_id_const == self.const.externalid_sap_ansattnr:
-            return True
+        for id_ in cereconf.BOFHD_VISIBLE_EXTERNAL_IDS:
+            if (ext_id_const ==
+                    self.const.human2constant(id_, self.const.EntityExternalId)):
+                return True
 
         operation_attr = str("{}:{}".format(
             str(self.const.AuthoritativeSystem(source_sys)),
