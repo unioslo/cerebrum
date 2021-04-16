@@ -192,12 +192,12 @@ class BofhdExtension(BofhdCommonMethods):
             raise CerebrumError("User is not a personal account")
         # Look up the mobile number
         if not mobile:
-            phone_types = [(self.const.system_sap,
-                            self.const.contact_private_mobile),
-                           (self.const.system_sap,
-                            self.const.contact_mobile_phone),
-                           (self.const.system_fs,
-                            self.const.contact_mobile_phone)]
+            phone_types = list()
+            for s,t in cereconf.SMS_WELCOME_TYPE_NUMBER_SELECTOR:
+                s_const = self.const.human2constant(s)
+                t_const = self.const.human2constant(t)
+                if s_const and t_const:
+                    phone_types.append((s,t))
             mobile = self._get_phone_number(account.owner_id, phone_types)
             if not mobile:
                 raise CerebrumError("No mobile phone number for %r" % username)
