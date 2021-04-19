@@ -121,9 +121,6 @@ class EmployeeMapper(_base.AbstractMapper):
             50001599: 'vitenskapelig'
         }
         role_mapping = {
-            # TODO:
-            #  It says that "medarbeiderundergruppe" is supposed to be int in
-            #  the API-doc.
             ('9', 90): 'ekst_partner',
             ('9', 91): 'ekst_partner',
             ('9', 93): 'emeritus',
