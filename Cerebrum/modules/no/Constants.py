@@ -228,6 +228,10 @@ class ConstantsHigherEdu(Constants.Constants):
     # OU-structure perspectives
     perspective_fs = _OUPerspectiveCode('FS', 'FS')
     perspective_sap = _OUPerspectiveCode('SAP', 'SAP')
+    perspective_orgreg = _OUPerspectiveCode(
+        'OrgReg-tree',
+        'Organization tree from OrgReg'
+    )
 
     # Affiliations for students
     affiliation_student = _PersonAffiliationCode('STUDENT', 'Student')
