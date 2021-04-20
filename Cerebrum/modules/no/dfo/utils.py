@@ -35,8 +35,9 @@ def assert_list(value):
     # are unwrapped, and empty lists are simply not present.
     if not value:
         return []
+
     if not isinstance(value, list):
-        return [value]
+        value = [value]
     return [x for x in value if x is not None]
 
 
