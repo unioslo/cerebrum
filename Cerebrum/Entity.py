@@ -1457,6 +1457,8 @@ class EntityExternalId(Entity):
                             type,
                             val,
                             update=True)
+            delattr(self, '_extid_source')
+            delattr(self, '_extid_types')
 
     def affect_external_id(self, source, *types):
         self._extid_source = source
