@@ -1422,6 +1422,9 @@ class EntityExternalId(Entity):
 
     def clear(self):
         self.__super.clear()
+        self.__reset()
+
+    def __reset(self):
         self._external_id = {}
         self.clear_class(EntityExternalId)
         self.__updated = []
@@ -1457,8 +1460,7 @@ class EntityExternalId(Entity):
                             type,
                             val,
                             update=True)
-            delattr(self, '_extid_source')
-            delattr(self, '_extid_types')
+        self.__reset()
 
     def affect_external_id(self, source, *types):
         self._extid_source = source
