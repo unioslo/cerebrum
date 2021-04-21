@@ -445,15 +445,24 @@ class EntityName(Entity):
                              'domain': int(domain)})
 
     def add_entity_name(self, domain, name):
-        self._db.log_change(self.entity_id, self.clconst.entity_name_add, None,
-                            change_params={'domain': int(domain),
-                                           'name': name})
-        return self.execute("""
-        INSERT INTO [:table schema=cerebrum name=entity_name]
-          (entity_id, value_domain, entity_name)
-        VALUES (:e_id, :domain, :name)""", {'e_id': self.entity_id,
-                                            'domain': int(domain),
-                                            'name': name})
+        self.execute(
+            """
+              INSERT INTO [:table schema=cerebrum name=entity_name]
+                (entity_id, value_domain, entity_name)
+              VALUES
+                (:e_id, :domain, :name)
+            """,
+            {
+                'e_id': int(self.entity_id),
+                'domain': int(domain),
+                'name': name},
+        )
+        self._db.log_change(
+            self.entity_id, self.clconst.entity_name_add, None,
+            change_params={
+                'domain': int(domain),
+                'name': name,
+            })
 
     def delete_entity_name(self, domain):
         binds = {'entity_id': self.entity_id,
