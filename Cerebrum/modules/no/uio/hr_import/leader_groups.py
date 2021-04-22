@@ -64,8 +64,8 @@ class LeaderGroupUpdater(object):
                           filter_expired=True,
                           fetchall=False))
 
-    def _get_ou_id(self, hr_ou_id):
-        """Find id of ou in cerebrum from ou_id given by the hr system"""
+    def _ou_id2stedkode(self, hr_ou_id):
+        """Get stedkode from ou_id given by the hr system"""
         # TODO: can probably be made easier with orgreg
         ou = Factory.get('OU')(self.db)
         if isinstance(hr_ou_id, int):
@@ -81,7 +81,7 @@ class LeaderGroupUpdater(object):
                     hr_ou_id[4:6],
                     cereconf.DEFAULT_INSTITUSJONSNR
                 )
-                return ou.entity_id
+                return ou.get_stedkode()
             except Errors.NotFoundError:
                 raise LookupError("invalid location code hr_ou_id=%r" %
                                   (hr_ou_id,))
@@ -97,20 +97,22 @@ class LeaderGroupUpdater(object):
             except Errors.NotFoundError:
                 ou.clear()
             else:
-                return ou.entity_id
+                return ou.get_stedkode()
 
         raise LookupError('invalid external ou_id hr_ou_id=%r' % (hr_ou_id,))
 
     def get_leader_group_ids(self, hr_ou_ids):
-        leader_groups = set()
+        """Convert a set of OU ids into a set of leader group ids"""
+        leader_group_ids = set()
         for hr_ou_id in hr_ou_ids:
             try:
-                ou_id = self._get_ou_id(hr_ou_id)
+                stedkode = self._ou_id2stedkode(hr_ou_id)
             except LookupError as e:
                 logger.error('No such ou: %s', e)
             else:
-                leader_groups.add(ou_id)
-        return leader_groups
+                leader_group_id = get_leader_group(self.db, stedkode).entity_id
+                leader_group_ids.add(leader_group_id)
+        return leader_group_ids
 
     def sync(self, person_id, hr_ou_ids):
         require_memberships = self.get_leader_group_ids(hr_ou_ids)

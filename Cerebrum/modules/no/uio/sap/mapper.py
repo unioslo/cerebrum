@@ -34,7 +34,6 @@ from Cerebrum.modules.hr_import.models import (HRTitle,
                                                HRAffiliation,
                                                HRExternalID,
                                                HRContactInfo)
-from Cerebrum.modules.no.uio.hr_import.leader_groups import get_leader_group
 from Cerebrum.modules.no.uio.sap.utils import parse_date
 
 logger = logging.getLogger(__name__)
@@ -303,7 +302,7 @@ class EmployeeMapper(_base.AbstractMapper):
         logger.info('found %d titles: %r', len(results), results)
         return results
 
-    def parse_leader_groups(self, assignment_data, db):
+    def parse_leader_ous(self, assignment_data):
         """
         Parse leader groups from SAP assignment data
 
@@ -315,16 +314,12 @@ class EmployeeMapper(_base.AbstractMapper):
         :return: leader group ids where the person should be a member
         """
         # This method is not Cerebrum independent ...
-        group_ids = set()
-        group_names = set()
+        ou_ids = set()
         for assignment in assignment_data:
             if assignment.get('managerFlag'):
-                group = get_leader_group(
-                    db, assignment.get('locationCode'))
-                group_ids.add(group.entity_id)
-                group_names.add(group.group_name)
-        logger.info('found %d manager groups: %r', len(group_ids), group_names)
-        return group_ids
+                ou_ids.add(assignment.get('locationCode'))
+        logger.info('Person is manager at stedkode: %r', ou_ids)
+        return ou_ids
 
     def translate(self, reference, obj, db):
         """
@@ -347,8 +342,7 @@ class EmployeeMapper(_base.AbstractMapper):
                 person_data.get('gender')
             ),
             reserved=not person_data.get('allowedPublicDirectoryFlag'))
-        hr_person.leader_groups = self.parse_leader_groups(
-            assignment_data, db)
+        hr_person.leader_ous = self.parse_leader_ous(assignment_data)
         hr_person.external_ids = self.parse_external_ids(person_data)
         hr_person.contact_infos = self.parse_contacts(person_data)
         hr_person.titles = self.parse_titles(person_data, assignment_data)
