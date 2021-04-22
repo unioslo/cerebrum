@@ -24,6 +24,7 @@ import six
 from Cerebrum.Errors import NotFoundError
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.event_publisher.event import EntityRef
+from Cerebrum.Entity import EntityName
 
 try:
     from cereconf import ENTITY_TYPE_NAMESPACE
@@ -39,26 +40,27 @@ def get_entity_ref(db, entity_id):
     # TODO: Include entity names in change_params, so that we don't have to
     #       look them up.
     constants = Factory.get("Constants")(db)
-    entity = Factory.get("Entity")(db)
+    entity = EntityName(db)
     entity_ident = entity_type = None
 
     # Lookup type
     try:
-        ent = entity.get_subclassed_object(id=entity_id)
-        entity_type = six.text_type(constants.EntityType(ent.entity_type))
-        try:
-            namespace = constants.ValueDomain(
-                ENTITY_TYPE_NAMESPACE.get(entity_type, None))
-            entity_ident = ent.get_name(namespace)
-        except (AttributeError, TypeError, NotFoundError):
-            pass
-    # Handling ValueError here is a hack for handling entities that can't
-    # be accessed trough entity.get_subclassed_object()
-    except (NotFoundError, ValueError):
+        entity.find(entity_id)
+        entity_type = six.text_type(constants.EntityType(entity.entity_type))
+    except NotFoundError:
         pass
 
-    # We *have* entity_id, might have entity_type, and if so, may also have
-    # an entity_ident.
+    # lookup name
+    if entity_type in ENTITY_TYPE_NAMESPACE:
+        try:
+            entity_ident = entity.get_name(
+                constants.ValueDomain(
+                    ENTITY_TYPE_NAMESPACE[entity_type]))
+        except (AttributeError, TypeError, NotFoundError):
+            pass
+
+    # We *have* entity_id, *should have* entity_type,
+    # and *may* have an entity_ident.
     return EntityRef(
         entity_id,
         entity_type,
