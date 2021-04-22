@@ -28,9 +28,11 @@ can be formatted and published.
 from __future__ import absolute_import, print_function
 
 import datetime
+import logging
 import re
-import six
 from collections import OrderedDict
+
+import six
 
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.event_publisher.utils import get_entity_ref
@@ -38,46 +40,44 @@ from Cerebrum.utils.date import parse_datetime
 from Cerebrum.utils.date_compat import get_datetime_tz
 from . import event
 
+logger = logging.getLogger(__name__)
 
-"""
-General fixes:
-categories:
-    ac_type -> ?
-    ad_attr -> ad_attribute
-    disk -> ?
-    disk_quota -> ?
-    dlgroup -> distribution_group
-    e_account -> account
-    e_group -> group
-    email_address -> email
-    email_forward -> email
-    email_primary_address -> email
-    email_quota -> email
-    email_scan -> email
-    email_sfilter -> email
-    email_tfilter -> email
-    email_vacation -> email
-    entity_addr -> address
-    entity_cinfo -> contact_info
-    entity_name -> ident?
-    entity_note -> note
-    guest -> wlan_account
-    homedir -> ?
-    ou -> orgunit
-    posix -> account, group
-    quarantine -> ?
-    spread -> ?
-    trait -> ?
 
-    tidy change types:
-        use verbs
-        * add
-        * remove
-        * set
-        * unset
-        * update
-
-"""
+# Missing event categories
+# categories:
+#     ac_type -> ?
+#     ad_attr -> ad_attribute
+#     disk -> ?
+#     disk_quota -> ?
+#     dlgroup -> distribution_group
+#     e_account -> account
+#     e_group -> group
+#     email_address -> email
+#     email_forward -> email
+#     email_quota -> email
+#     email_scan -> email
+#     email_sfilter -> email
+#     email_tfilter -> email
+#     email_vacation -> email
+#     entity_addr -> address
+#     entity_cinfo -> contact_info
+#     entity_name -> ident?
+#     entity_note -> note
+#     guest -> wlan_account
+#     homedir -> ?
+#     ou -> orgunit
+#     posix -> account, group
+#     quarantine -> ?
+#     spread -> ?
+#     trait -> ?
+#
+#     tidy change types:
+#         use verbs
+#         * add
+#         * remove
+#         * set
+#         * unset
+#         * update
 
 
 class EventFilter(object):
@@ -515,6 +515,57 @@ def group_destroy(msg, **kwargs):
     common['subject'].ident = msg.get('data', {}).get('name', None)
     common['subject'].entity_type = 'group'
     return event.Event(event.DELETE,
+                       **common)
+
+
+#
+# Cerebrum.modules.Email
+#
+# We may want to move email stuff into its own module, as they will have their
+# own implementation pattern (e.g. map subject from email target to
+# entity_target_type, entity_target_id)
+#
+def _fix_email_target_subject(db, common_args):
+    """ set subject to *email_target_entity_id* for email target events.
+
+    We generally want events on email targets to apply to their target id, so
+    that e.g. an email address change for an account results in an email modify
+    event on the account object.
+    """
+    new_args = dict(common_args)
+    target_ref = new_args.pop('subject')
+
+    # TODO: or empty out objects? error if objects are present?
+    new_args['objects'] = list(common_args.get('objects') or ())
+
+    new_args['objects'].append(target_ref)
+
+    from Cerebrum.modules.Email import EmailTarget
+    et = EmailTarget(db)
+    try:
+        et.find(target_ref.entity_id)
+    except Exception:
+        logger.debug('event email-target: unable to find target %s',
+                     repr(target_ref))
+    entity_id = getattr(et, 'email_target_entity_id', None)
+
+    if entity_id:
+        new_args['subject'] = get_entity_ref(db, et.email_target_entity_id)
+    else:
+        logger.debug('event email-target: no target entity for %s (entity=%s)',
+                     repr(target_ref), repr(entity_id))
+    return new_args
+
+
+@EventFilter.register('email_primary_address')
+def user_primary_addr_mod(msg, db=None, **kwargs):
+    common = _fix_email_target_subject(db, _make_common_args(msg))
+    if not common.get('subject'):
+        # ignore - no subject to bind this event to
+        return None
+
+    return event.Event(event.MODIFY,
+                       attributes=['email'],
                        **common)
 
 
