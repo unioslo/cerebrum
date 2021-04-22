@@ -35,6 +35,8 @@ from Cerebrum.modules.hr_import.models import (HRPerson,
                                                HRExternalID,
                                                HRContactInfo)
 from Cerebrum.modules.no.dfo.utils import assert_list, parse_date
+from Cerebrum.utils.phone import format as phone_number_format, \
+    parse as phone_number_parse, NumberParseException
 
 logger = logging.getLogger(__name__)
 
@@ -230,8 +232,26 @@ class EmployeeMapper(_base.AbstractMapper):
         numbers_to_add = sorted(
             [(k, v) for k, v in numbers_to_add.items()],
             key=lambda (k, v): key_map.values().index(k))
+
+        normalized_numbers_to_add = []
+        for key, value in numbers_to_add:
+            try:
+                numberojb = phone_number_parse(value)
+            except NumberParseException as e:
+                logger.info('Phone number %s is not on the E.164 format.'
+                            ' Trying again with +47', value)
+                try:
+                    numberojb = phone_number_parse(value, region='NO')
+                except NumberParseException as e:
+                    logger.info('Phone number not on the E.164 format.'
+                                ' Skipping phone number %s ',value)
+                    continue
+            logger.info('Found valid E.164 phone number: %s',
+                         phone_number_format(numberojb))
+            normalized_numbers_to_add.append((key, phone_number_format(numberojb)))
+
         numbers = set()
-        for pref, (key, value) in enumerate(numbers_to_add):
+        for pref, (key, value) in enumerate(normalized_numbers_to_add):
             numbers.add(HRContactInfo(contact_type=key,
                                       contact_pref=pref,
                                       contact_value=value))
