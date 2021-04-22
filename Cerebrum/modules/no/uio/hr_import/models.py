@@ -53,4 +53,4 @@ class HRPerson(_base.HRPerson):
         )
         self.reserved = reserved
 
-        self.leader_groups = set()  # set of str (ou_id or stedkode)
+        self.leader_ous = set()  # set of str (ou_id or stedkode)

@@ -40,6 +40,10 @@ class UioEmployeeImportMixin(EmployeeImportBase):
     """
     An employee import for SAP and DFØ @ UiO.
     """
+    def __init__(self, *args, **kwargs):
+        super(UioEmployeeImportMixin, self).__init__(*args, **kwargs)
+        self.leader_group_updater = LeaderGroupUpdater(self.db, self.source_system)
+        self.reservation_group = ReservationGroupUpdater(self.db)
 
     def _update_account_types(self, hr_object, db_object, parent_method):
         account_types = AccountTypeUpdater(
@@ -60,18 +64,14 @@ class UioEmployeeImportMixin(EmployeeImportBase):
         parent_method = super(UioEmployeeImportMixin, self).update
         self._update_account_types(hr_object, db_object, parent_method)
 
-        reservation_group = ReservationGroupUpdater(self.db)
-        reservation_group.set(db_object.entity_id, hr_object.reserved)
+        self.reservation_group.set(db_object.entity_id, hr_object.reserved)
 
-        leader_groups = LeaderGroupUpdater(self.db, self.source_system)
-        leader_groups.sync(db_object.entity_id, hr_object.leader_groups)
+        self.leader_group_updater.sync(db_object.entity_id, hr_object.leader_ous)
 
     def remove(self, hr_object, db_object):
         parent_method = super(UioEmployeeImportMixin, self).remove
         self._update_account_types(hr_object, db_object, parent_method)
 
-        reservation_group = ReservationGroupUpdater(self.db)
-        reservation_group.set(db_object.entity_id, False)
+        self.reservation_group.set(db_object.entity_id, False)
 
-        leader_groups = LeaderGroupUpdater(self.db, self.source_system)
-        leader_groups.sync(db_object.entity_id, set())
+        self.leader_group_updater.sync(db_object.entity_id, set())
