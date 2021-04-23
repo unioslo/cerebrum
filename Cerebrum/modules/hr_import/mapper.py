@@ -148,8 +148,9 @@ class AbstractMapper(object):
                 continue
             if (end not in self.end_dates_ignore and
                     in_date_range(end_cutoff, end=end)):
-                # Affiliation with end defined.
-                retry_date = end + self.end_grace
+                # We have to try again the day after the affiliations end date
+                # if we are actually going to remove it. Thus the + 1
+                retry_date = end + self.end_grace + 1
                 retry_dates.add(retry_date.strftime('%s'))
                 logger.info('End date of affiliation set. '
                             'Rescheduling for %s', retry_date)
