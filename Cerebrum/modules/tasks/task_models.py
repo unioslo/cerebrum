@@ -30,7 +30,7 @@ class Task(ReprFieldMixin):
 
     repr_fields = ('queue', 'key')
 
-    def __init__(self, queue, key, nbf=None, iat=None, attempts=0,
+    def __init__(self, queue, key, nbf=None, iat=None, attempts=None,
                  reason=None, payload=None):
         self.queue = queue
         self.key = key
@@ -49,7 +49,7 @@ class Task(ReprFieldMixin):
         d.update({
             k: getattr(self, k)
             for k in ('attempts', 'nbf', 'iat', 'reason')
-            if getattr(self, k)
+            if getattr(self, k) is not None
         })
         if self.payload:
             d['payload'] = self.payload.to_dict()
@@ -66,7 +66,7 @@ class Task(ReprFieldMixin):
         record = cls(
             queue=d['queue'],
             key=d['key'],
-            attempts=int(d.get('attempts') or 0),
+            attempts=d.get('attempts'),
             nbf=d.get('nbf'),
             iat=d.get('iat'),
             payload=payload,

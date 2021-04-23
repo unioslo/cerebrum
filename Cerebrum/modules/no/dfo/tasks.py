@@ -66,6 +66,7 @@ class EmployeeTasks(process.QueueHandler):
         return task_models.Task(
             queue=cls.manual_queue,
             key=reference,
+            attempts=0,
             reason='manual: on={when}'.format(when=now()),
             payload=payload,
         )
@@ -92,6 +93,7 @@ class AssignmentTasks(process.QueueHandler):
         return task_models.Task(
             queue=cls.manual_queue,
             key=reference,
+            attempts=0,
             reason='manual: on={when}'.format(when=now()),
             payload=payload,
         )
@@ -143,6 +145,7 @@ def get_tasks(event):
             ct=event.method.consumer_tag,
             when=str(now()),
         ),
+        attempts=0,
         # NOTE: Rememeber to bump the version if *any* changes are made to this
         # data structure!
         payload=task_models.Payload(

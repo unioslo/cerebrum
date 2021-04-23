@@ -95,6 +95,7 @@ def main(inargs=None):
         queue=args.queue,
         key=args.key,
         nbf=nbf,
+        attempts=0,
         reason=(
             'add-task: manually added task to queue=%r with key=%r' %
             (args.queue, args.key)),
