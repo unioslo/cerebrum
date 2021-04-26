@@ -109,12 +109,12 @@ def get_additional_assignment(person_data, assignment_id):
     :param person_data: Data from SAP
     :type assignment_id: int
     """
+    # TODO: Is this really correct? Could an assignment with a given
+    # 'stillingId' occur multiple times with different time periods?
     for assignment in assert_list(person_data.get('tilleggsstilling')):
         if assignment['stillingId'] == assignment_id:
             return assignment
     return None
-
-
 class MapperConfig(_base.MapperConfig):
     pass
 
@@ -153,9 +153,8 @@ class EmployeeMapper(_base.AbstractMapper):
                             assignment_id)
                 continue
             affiliation = 'ANSATT'
-            stillingskats = assert_list(assignment.get('stillingskat', []))
             try:
-                stillingskat_id = stillingskats[0].get('stillingskatId')
+                stillingskat_id = assignment['category'][0]
                 status = category_2_status.get(stillingskat_id)
             except IndexError:
                 stillingskat_id = status = None
@@ -164,9 +163,9 @@ class EmployeeMapper(_base.AbstractMapper):
 
             if is_main_assignment:
                 precedence = (50, 50)
-                start_date = parse_date(person_data.get('startdato'),
-                                        allow_empty=True)
-                end_date = parse_date(person_data['sluttdato'])
+                # TODO: should we look at the assignment['period']?
+                start_date = person_data['startdato']
+                end_date = person_data['sluttdato']
 
                 # If the person has one of the MG/MUG combinations present in
                 # role_mapping, then the main assignment should instead be
@@ -190,10 +189,8 @@ class EmployeeMapper(_base.AbstractMapper):
                     person_data,
                     assignment_id
                 )
-                start_date = parse_date(additional_assignment.get('startdato'),
-                                        allow_empty=True)
-                end_date = parse_date(additional_assignment.get('sluttdato'),
-                                      allow_empty=True)
+                start_date = additional_assignment['startdato']
+                end_date = additional_assignment['sluttdato']
 
             if not status:
                 logger.warning('ignoring assignment=%s, '

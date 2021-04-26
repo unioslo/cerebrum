@@ -30,8 +30,7 @@ from Cerebrum.modules.hr_import.datasource import (
     DatasourceInvalid,
     RemoteObject,
 )
-from Cerebrum.modules.no.dfo.utils import assert_list
-from Cerebrum.utils.date import parse_date, now
+from Cerebrum.modules.no.dfo.utils import assert_list, parse_date
 from Cerebrum.utils.date_compat import get_datetime_tz
 
 
@@ -41,14 +40,14 @@ logger = logging.getLogger(__name__)
 def _get_id(d):
     """ parse 'id' field from message dict. """
     if 'id' not in d:
-        raise DatasourceInvalid("missing 'id' field")
+        raise DatasourceInvalid("missing 'id' field: %r" % (d,))
     return d['id']
 
 
 def _get_uri(d):
     """ parse 'uri' field from message dict. """
     if 'uri' not in d:
-        raise DatasourceInvalid("missing 'uri' field")
+        raise DatasourceInvalid("missing 'uri' field: %r" % (d,))
     return d['uri']
 
 
@@ -60,8 +59,8 @@ def _get_nbf(d):
     try:
         return get_datetime_tz(parse_date(obj_nbf))
     except Exception as e:
-        raise DatasourceInvalid("invalid 'gyldigEtter' field: %s (%r)"
-                                % (e, obj_nbf))
+        raise DatasourceInvalid("invalid 'gyldigEtter' field: %s (%r, %r)"
+                                % (e, obj_nbf, d))
 
 
 def parse_message(msg_text):
@@ -102,6 +101,55 @@ class Person(RemoteObject):
     pass
 
 
+def parse_employee(employee_d):
+    """ Sanitize and normalize assignment data """
+    # TODO: Filter out unused fields, normalize the rest
+    result = dict(employee_d)
+    result.update({
+        'startdato': parse_date(employee_d['startdato'], allow_empty=True),
+        'sluttdato': parse_date(employee_d['sluttdato']),
+        'tilleggsstilling': [],
+    })
+    for assignment in assert_list(employee_d.get('tilleggsstilling')):
+        result['tilleggsstilling'].append({
+            'stillingId': assignment['stillingId'],
+            'startdato': parse_date(assignment['startdato'], allow_empty=True),
+            'sluttdato': parse_date(assignment['sluttdato'], allow_empty=True),
+        })
+    return result
+
+
+def parse_assignment(assignment_d):
+    """
+    Sanitize and normalize assignment data.
+    """
+    # TODO: remove unused fields
+    result = {
+        'id': assignment_d['id'],
+        'organisasjonId': assignment_d['organisasjonId'],
+        'stillingskode': assignment_d['stillingskode'],
+        'stillingsnavn': assignment_d['stillingsnavn'],
+        'stillingstittel': assignment_d['stillingstittel'],
+        'yrkeskode': assignment_d['yrkeskode'],
+        'yrkeskodetekst': assignment_d['yrkeskodetekst'],
+        'category': [],
+    }
+    for cat_d in assert_list(assignment_d.get('stillingskat')):
+        result['category'].append(cat_d['stillingskatId'])
+
+    employees = {}
+    for member_d in assert_list(assignment_d.get('innehaver')):
+        if member_d['innehaverAnsattnr'] not in employees:
+            employees[member_d['innehaverAnsattnr']] = []
+        employees[member_d['innehaverAnsattnr']].append((
+            parse_date(member_d['innehaverStartdato'], allow_empty=True),
+            parse_date(member_d['innehaverSluttdato'], allow_empty=True),
+        ))
+
+    result['employees'] = employees
+    return result
+
+
 class EmployeeDatasource(AbstractDatasource):
 
     def __init__(self, client):
@@ -111,13 +159,29 @@ class EmployeeDatasource(AbstractDatasource):
         """ Extract reference from message body """
         return parse_message(event.body)['id']
 
+    def _get_employee(self, employee_id):
+        raw = self.client.get_employee(employee_id)
+        if not raw:
+            logger.warning('no result for employee-id %r', employee_id)
+            return {}
+
+        if isinstance(raw, list) and len(raw) == 1:
+            result = parse_employee(raw[0])
+        else:
+            result = parse_employee(raw)
+        return result
+
+    def _get_assignment(self, employee_id, assignment_id):
+        raw = self.client.get_stilling(assignment_id)
+        if not raw:
+            logger.warning('no result for assignment-id %r', assignment_id)
+            return {}
+        return parse_assignment(raw)
+
     def get_object(self, reference):
         """ Fetch data from sap (employee data, assignments, roles). """
         employee_id = reference
-        employee_data = self.client.get_employee(employee_id)
-
-        if isinstance(employee_data, list) and len(employee_data) == 1:
-            employee_data = employee_data[0]
+        employee_data = self._get_employee(employee_id)
 
         employee = {
             'id': reference,
@@ -127,19 +191,43 @@ class EmployeeDatasource(AbstractDatasource):
 
         if employee_data:
             employee['employee'] = Person('dfo-sap', reference, employee_data)
-            assignment_ids = [employee_data['stillingId']]
-            for secondary_assignment in assert_list(
-                    employee.get('tilleggsstilling')):
-                assignment_ids.append(secondary_assignment['stillingId'])
+            assignment_ids = {employee_data['stillingId']}
+
+            for secondary_assignment in employee_data['tilleggsstilling']:
+                assignment_ids.add(secondary_assignment['stillingId'])
 
             for assignment_id in assignment_ids:
-                assignment = self.client.get_stilling(assignment_id)
+                assignment = self._get_assignment(employee_id, assignment_id)
+
                 if assignment:
                     employee['assignments'][assignment_id] = (
                         Assignment('dfo-sap', assignment_id, assignment)
                     )
                 else:
-                    raise DatasourceInvalid('No assignment found: %r' %
-                                            assignment_id)
+                    raise DatasourceInvalid('No assignment_id=%r found' %
+                                            (assignment_id,))
 
         return Employee('dfo-sap', reference, employee)
+
+
+class AssignmentDatasource(AbstractDatasource):
+
+    def __init__(self, client):
+        self.client = client
+
+    def get_reference(self, event):
+        """ Extract reference from message body """
+        return parse_message(event.body)['id']
+
+    def _get_assignment(self, assignment_id):
+        raw = self.client.get_stilling(assignment_id)
+        if not raw:
+            logger.warning('no result for assignment-id %r', assignment_id)
+            return {}
+        return parse_assignment(raw)
+
+    def get_object(self, reference):
+        """ Fetch data from sap (employee data, assignments, roles). """
+        assignment_id = reference
+        assignment = self._get_assignment(assignment_id)
+        return Assignment('dfo-sap', assignment_id, assignment)
