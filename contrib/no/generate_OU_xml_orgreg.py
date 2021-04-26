@@ -243,8 +243,9 @@ def parse_ou(ou_json, dfo_sap_id_type):
     )
     dfo_sap_id = get_dfo_org_id(ou_json["externalKeys"], dfo_sap_id_type)
     if not stedkode or not dfo_sap_id:
-        logger.error("Missing stedkode or dfo_sap_id, \
-                     not able to continue with this OU")
+        err = ("Missing stedkode or dfo_sap_id, "
+               "not able to continue with this OU: {}".format(ou_json["ouId"]))
+        logger.debug(err)
         return None
 
     parent = ou_json.get("parent", "")
@@ -368,11 +369,17 @@ def construct_xml(OUs):
 
 
 def get_data_from_api(OUs, dfo_sap_id):
+    errors = 0
+    imported = 0
     data = get_ou_data()
     for _ou in data:
         org_unit = parse_ou(_ou, dfo_sap_id)
         if org_unit is not None:
             OUs.append(org_unit)
+            imported += 1
+        else:
+            errors += 1
+    return (imported, errors)
 
 
 def write_xml(OUs, filepath):
@@ -422,10 +429,11 @@ def main(OUs, inargs=None):
     if args.test is True:
         dfo_sap_id = "dfo_sap-9902"
 
-    get_data_from_api(OUs, dfo_sap_id)
+    imported, errors = get_data_from_api(OUs, dfo_sap_id)
     write_xml(OUs, args.filepath)
-
-    print(args)
+    info = ("Imported {} OUs from OrgReg. We discarded: {} OUs "
+            "with missing data")
+    logger.info(info.format(imported, errors))
 
 
 if __name__ == '__main__':

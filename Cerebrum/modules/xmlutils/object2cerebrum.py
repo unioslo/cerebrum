@@ -467,16 +467,20 @@ class XML2Cerebrum:
         ou.clear()
         const = self.constants
 
-        dfo_org_id = xmlou.get_id(xmlou.NO_ORGREG)
-        ou.affect_external_id(
-            self.constants.system_orgreg,
-            self.constants.externalid_dfo_ou_id
-        )
-        ou.populate_external_id(
-            self.constants.system_orgreg,
-            self.constants.externalid_dfo_ou_id,
-            dfo_org_id
-        )
+        try:
+            dfo_org_id = xmlou.get_id(xmlou.NO_ORGREG)
+            ou.affect_external_id(
+                self.source_system,
+                self.constants.externalid_dfo_ou_id
+            )
+            ou.populate_external_id(
+                self.source_system,
+                self.constants.externalid_dfo_ou_id,
+                dfo_org_id
+            )
+        except AttributeError:
+            # Silently ignore DFO
+            pass
 
         # We need sko, acronym, short_name, display_name, sort_name and parent.
         sko = xmlou.get_id(xmlou.NO_SKO)
