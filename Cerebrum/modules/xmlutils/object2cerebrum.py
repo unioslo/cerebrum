@@ -451,7 +451,6 @@ class XML2Cerebrum:
 
     def store_ou(self, xmlou, old_ou_cache=None):
         """Store all information we can from xmlou.
-
         xmlou is a class inheriting from xml2object.DataOU.
 
         old_ou_cache is a cache of ou_ids that already exist in cerebrum (and
@@ -467,6 +466,17 @@ class XML2Cerebrum:
         ou = self.stedkode
         ou.clear()
         const = self.constants
+
+        dfo_org_id = xmlou.get_id(xmlou.NO_ORGREG)
+        ou.affect_external_id(
+            self.constants.system_orgreg,
+            self.constants.externalid_dfo_ou_id
+        )
+        ou.populate_external_id(
+            self.constants.system_orgreg,
+            self.constants.externalid_dfo_ou_id,
+            dfo_org_id
+        )
 
         # We need sko, acronym, short_name, display_name, sort_name and parent.
         sko = xmlou.get_id(xmlou.NO_SKO)
