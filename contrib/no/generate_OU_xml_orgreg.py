@@ -55,13 +55,15 @@ parent_to_stedkode = {}
 
 class Place(object):
     Overordnetstedkode = str()
+    DfoOrgId = str()
     Stedkode = str()
     Startdato = str()
     Sluttdato = str()
     OrgRegOuId = str()
 
-    def __init__(self, parent, stedkode, start_date, end_date, ou_id):
+    def __init__(self, parent, dfo_org_id, stedkode, start_date, end_date, ou_id):
         self.Overordnetstedkode = str(parent)
+        self.DfoOrgId = str(dfo_org_id)
         self.Stedkode = str(stedkode)
         self.Startdato = str(start_date)
         self.Sluttdato = str(end_date)
@@ -76,19 +78,6 @@ class Place(object):
         st = self.Stedkode
         org = self.OrgRegOuId
         return "Over:{} Sted:{} OrgReg:{}".format(ov, st, org)
-
-
-class ExternalKeys(object):
-    source_system = str()
-    _type = str()
-    value = str()
-
-    def __init__(self):
-        pass
-
-    def __iter__(self):
-        for attr, value in self.__dict__.iteritems():
-            yield attr, value
 
 
 class Communication(object):
@@ -166,28 +155,19 @@ class Name(object):
             yield attr, value
 
 
-class OU(object):
-    externalKeys = None
-    place = dict()
-    commmunication = dict()
-    use_area = dict()
-    adress = dict()
-    name = dict()
-
-    def __init__(self):
-        pass
-
-    def __iter__(self):
-        for attr, value in self.__dict__.iteritems():
-            yield attr, value
-
-
-def get_legacy_stedkode(externalKey, ouId, ou_json):
+def get_legacy_stedkode(externalKey, ouId):
     for x in externalKey:
         if x["sourceSystem"] == "sapuio" and x["type"] == "legacy_stedkode":
             # Keep track of ouId:stedkode mapping for later in
             # xml serialization since data from orgReg isn't ordered
             parent_to_stedkode[ouId] = x["value"]
+            return x
+    return False
+
+
+def get_dfo_org_id(externalKey, dfo_sap_id_type):
+    for x in externalKey:
+        if x["sourceSystem"] == dfo_sap_id_type and x["type"] == "dfo_org_id":
             return x
     return False
 
@@ -252,16 +232,20 @@ def transform_name(ou_json, _type):
     return name
 
 
-def parse_ou(ou_json):
+def parse_ou(ou_json, dfo_sap_id_type):
     sap2bas_sted = []
+    # logger.debug("Starting parse of OU: {}".format(ou_json["ouId"]))
 
     # Insert root parent to point to empty string
     parent_to_stedkode[0] = ""
     stedkode = get_legacy_stedkode(
-        ou_json["externalKeys"], ou_json["ouId"], ou_json
+        ou_json["externalKeys"], ou_json["ouId"]
     )
-    if not stedkode:
-        return
+    dfo_sap_id = get_dfo_org_id(ou_json["externalKeys"], dfo_sap_id_type)
+    if not stedkode or not dfo_sap_id:
+        logger.error("Missing stedkode or dfo_sap_id, \
+                     not able to continue with this OU")
+        return None
 
     parent = ou_json.get("parent", "")
     valid_to = ou_json.get("validTo", "9999-12-31")
@@ -269,6 +253,7 @@ def parse_ou(ou_json):
     # <Sted>
     _place = Place(
         parent,
+        dfo_sap_id["value"],
         stedkode["value"],
         ou_json["validFrom"],
         valid_to,
@@ -382,10 +367,10 @@ def construct_xml(OUs):
     return dom.toprettyxml(encoding="UTF-8")
 
 
-def get_data_from_api(OUs):
+def get_data_from_api(OUs, dfo_sap_id):
     data = get_ou_data()
     for _ou in data:
-        org_unit = parse_ou(_ou)
+        org_unit = parse_ou(_ou, dfo_sap_id)
         if org_unit is not None:
             OUs.append(org_unit)
 
@@ -415,6 +400,13 @@ def main(OUs, inargs=None):
     )
 
     parser.add_argument(
+        '-t',
+        '--test',
+        action='store_true',
+        help='for development, use dfo_sap-9902 instead of production dfo_sap',
+    )
+
+    parser.add_argument(
         'filepath',
         help='path to write the xml file',
     )
@@ -426,8 +418,14 @@ def main(OUs, inargs=None):
 
     logger.info("Starting %s", parser.prog)
 
-    get_data_from_api(OUs)
+    dfo_sap_id = "dfo_sap"
+    if args.test is True:
+        dfo_sap_id = "dfo_sap-9902"
+
+    get_data_from_api(OUs, dfo_sap_id)
     write_xml(OUs, args.filepath)
+
+    print(args)
 
 
 if __name__ == '__main__':
