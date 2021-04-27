@@ -74,13 +74,13 @@ def _select(queues=None, subs=None, keys=None, iat_before=None, iat_after=None,
     #
     # value selects
     #
-    if queues:
+    if queues is not None:
         clauses.append(
             argument_to_sql(queues, 'queue', binds, six.text_type))
-    if subs:
+    if subs is not None:
         clauses.append(
             argument_to_sql(subs, 'sub', binds, six.text_type))
-    if keys:
+    if keys is not None:
         clauses.append(
             argument_to_sql(keys, 'key', binds, six.text_type))
 
