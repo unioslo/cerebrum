@@ -30,7 +30,7 @@ from Cerebrum.Utils import Factory
 from Cerebrum.database.ctx import db_context
 from Cerebrum.modules.hr_import.config import TaskImportConfig
 from Cerebrum.modules.tasks.task_queue import TaskQueue
-from Cerebrum.modules.tasks.task_queue import sql_get_queue_counts
+from Cerebrum.modules.tasks.task_queue import sql_get_subqueue_counts
 from Cerebrum.utils.argutils import add_commit_args
 from Cerebrum.utils.date import now
 from Cerebrum.utils.module import resolve
@@ -94,7 +94,6 @@ def main(inargs=None):
 
     handle_task = get_task_handler(config)
     nbf_cutoff = now()
-    queues = handle_task.all_queues
     max_attempts = handle_task.max_attempts
     dryrun = not args.commit
     dryrun_import = args.dryrun_import or dryrun
@@ -107,7 +106,7 @@ def main(inargs=None):
 
     tasks = list(
         TaskQueue(database).search(
-            queues=queues,
+            queues=handle_task.queue,
             nbf_before=nbf_cutoff,
             max_attempts=max_attempts,
             limit=args.limit))
@@ -118,16 +117,16 @@ def main(inargs=None):
         # Remove the current task
         with db_context(database, dryrun=dryrun) as db:
             try:
-                TaskQueue(db).pop(task.queue, task.key)
+                TaskQueue(db).pop(task.queue, task.sub, task.key)
             except Cerebrum.Errors.NotFoundError:
-                logger.debug('task %s/%s gone, already processed?',
-                             task.queue, task.key)
+                logger.debug('task %s/%s/%s gone, already processed?',
+                             task.queue, task.sub, task.key)
                 # we collect and process tasks in different transactions,
                 # so there is a slight chance that some tasks no longer exists
                 continue
 
-        logger.info('processing task %s/%s (dryrun=%r)',
-                    task.queue, task.key, dryrun_import)
+        logger.info('processing task %s/%s/%s (dryrun=%r)',
+                    task.queue, task.sub, task.key, dryrun_import)
 
         # Process the current taask
         try:
@@ -135,8 +134,8 @@ def main(inargs=None):
                 handle_task(db, dryrun=dryrun_import, task=task)
             task_failed = None
         except Exception as e:
-            logger.warning('failed task %s/%s',
-                           task.queue, task.key, exc_info=True)
+            logger.warning('failed task %s/%s/%s',
+                           task.queue, task.sub, task.key, exc_info=True)
             task_failed = e
 
         # Re-insert the current task on error
@@ -149,21 +148,22 @@ def main(inargs=None):
         if task_failed:
             with db_context(database, dryrun=dryrun) as db:
                 retry_task = handle_task.get_retry_task(task, e)
+                logger.debug('re-queueing %r as %r', task, retry_task)
                 if TaskQueue(db).push(retry_task, ignore_nbf_after=True):
-                    logger.info('queued retry-task %s/%s at %s',
-                                retry_task.queue, retry_task.key,
-                                retry_task.nbf)
+                    logger.info('queued retry-task %s/%s/%s at %s',
+                                retry_task.queue, retry_task.sub,
+                                retry_task.key, retry_task.nbf)
 
     # Check for tasks that we've given up on (i.e. over the
     # max_attempts threshold)
     logger.info('checking for abandoned tasks...')
-    for row in sql_get_queue_counts(
+    for row in sql_get_subqueue_counts(
             database,
-            queues=handle_task.all_queues,
+            queues=handle_task.queue,
             min_attempts=handle_task.max_attempts):
         if row['num']:
-            logger.warning('queue: %s, given up on %d failed items',
-                           row['queue'], row['num'])
+            logger.warning('queue: %s/%s, given up on %d failed items',
+                           row['queue'], row['sub'], row['num'])
 
     logger.info('done %s', parser.prog)
 

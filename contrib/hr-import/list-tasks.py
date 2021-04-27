@@ -80,10 +80,10 @@ def main(inargs=None):
     config = TaskImportConfig.from_file(args.config)
     handle = get_task_handler(config)
 
-    format_table = TaskFormatter(('queue', 'key', 'nbf'))
+    format_table = TaskFormatter(('queue', 'sub', 'key', 'nbf', 'attempts'))
 
     with db_context(Factory.get('Database')(), dryrun=True) as db:
-        items = sql_search(db, queues=handle.all_queues, limit=args.limit)
+        items = sql_search(db, queues=handle.queue, limit=args.limit)
         for row in format_table(items, header=True):
             print(row)
 

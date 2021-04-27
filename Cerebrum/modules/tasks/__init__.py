@@ -24,14 +24,15 @@ This module provides a way to store future tasks in Cerebrum.  The general
 idea is to push tasks onto a given queue, and then something else will
 regularly pop known task types off the queue for processing.
 
-The queue itself is the *queue* value within the pushed item.
+The queue itself is the (*queue*, *sub*) value within the pushed item.  Each
+item must be uniquely identified within a queue by its *key* value.
 
-Each item must be uniquely identified within a queue by its *key* value.
-
-A task consists of:
 
 queue
     A queue name.
+
+sub
+    An optional sub queue - defaults to "".
 
 key
     A unique identifer/item name within the queue.

@@ -62,6 +62,13 @@ search_args.add_argument(
     metavar='<name>',
 )
 search_args.add_argument(
+    '--sub',
+    dest='subs',
+    action='append',
+    help='include items in sub-queue %(metavar)s',
+    metavar='<name>',
+)
+search_args.add_argument(
     '--key',
     dest='keys',
     action='append',
@@ -165,6 +172,7 @@ def main(inargs=None):
 
     params = {
         'queues': args.queues,
+        'subs': args.subs,
         'keys': args.keys,
         'iat_before': args.iat_before,
         'iat_after': args.iat_after,
@@ -174,7 +182,7 @@ def main(inargs=None):
         'limit': args.limit,
     }
 
-    fields = ['queue', 'key', 'nbf', 'attempts']
+    fields = ['queue', 'sub', 'key', 'nbf', 'attempts']
     if args.show_iat:
         fields.append('iat')
     if args.show_reason:

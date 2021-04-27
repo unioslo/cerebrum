@@ -28,11 +28,12 @@ from Cerebrum.utils.reprutils import ReprFieldMixin
 class Task(ReprFieldMixin):
     """ A single item on the queue.  """
 
-    repr_fields = ('queue', 'key')
+    repr_fields = ('queue', 'sub', 'key')
 
-    def __init__(self, queue, key, nbf=None, iat=None, attempts=None,
+    def __init__(self, queue, key, sub=None, nbf=None, iat=None, attempts=None,
                  reason=None, payload=None):
         self.queue = queue
+        self.sub = sub or ""
         self.key = key
         self.nbf = nbf
         self.iat = iat
@@ -44,6 +45,7 @@ class Task(ReprFieldMixin):
         """ Format object as a dict. """
         d = {
             'queue': self.queue,
+            'sub': self.sub,
             'key': self.key,
         }
         d.update({
@@ -65,6 +67,7 @@ class Task(ReprFieldMixin):
 
         record = cls(
             queue=d['queue'],
+            sub=d['sub'],
             key=d['key'],
             attempts=d.get('attempts'),
             nbf=d.get('nbf'),

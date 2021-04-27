@@ -31,9 +31,11 @@ logger = logging.getLogger(__name__)
 
 class EmployeeTasks(process.QueueHandler):
 
-    queue = 'sap-legacy-event'
-    manual_queue = 'sap-legacy-manual'
-    nbf_queue = 'sap-legacy-nbf'
+    queue = 'sap-legacy'
+
+    manual_sub = 'manual'
+    nbf_sub = 'nbf'
+
     max_attempts = 20
 
     def __init__(self, get_import):
@@ -47,7 +49,8 @@ class EmployeeTasks(process.QueueHandler):
             # import discovered a start date or end date to be processed
             # later
             return task_models.Task(
-                queue=self.delay_queue or self.queue,
+                queue=self.queue,
+                sub=self.delay_sub,
                 key=task.key,
                 nbf=next_retry,
                 reason='next-change: on={when}'.format(when=next_retry),
@@ -64,7 +67,8 @@ class EmployeeTasks(process.QueueHandler):
             data={'id': reference},
         )
         return task_models.Task(
-            queue=cls.manual_queue,
+            queue=cls.queue,
+            sub=cls.manual_sub,
             key=reference,
             attempts=0,
             reason='manual: on={when}'.format(when=now()),
@@ -90,14 +94,15 @@ def get_tasks(event):
         return
 
     is_delayed = fields['nbf'] and fields['nbf'] > now()
+    queue = EmployeeTasks.queue
+    sub = None
 
     if is_delayed:
-        queue = EmployeeTasks.nbf_queue
-    else:
-        queue = EmployeeTasks.queue
+        sub = EmployeeTasks.nbf_sub
 
     yield task_models.Task(
         queue=queue,
+        sub=sub,
         key=fields['id'],
         nbf=fields['nbf'],
         reason='event: ex={ex} rk={rk} jti={jti} on={when}'.format(
