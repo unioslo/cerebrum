@@ -210,20 +210,18 @@ def transform_name(ou_json, _type):
     short_name = ou_json.get("shortName", "")
     acronym = ou_json.get("acronym", "")
 
-    if long_name:
+    if long_name:  # This checks for key longName
         long_name = long_name.get(_type, "")
+    if not long_name:
+        long_name = name
 
-    if short_name:
+    if short_name:  # This checks for key shortName
         short_name = short_name.get(_type, "")
+    if not short_name:
+        short_name = name
 
     if acronym:
         acronym = acronym.get(_type, "")
-
-    if not long_name or not short_name:
-        if not short_name:
-            short_name = name
-        if not long_name:
-            long_name = name
 
     name = Name(
         language_mapper[_type],
