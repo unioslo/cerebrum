@@ -36,7 +36,11 @@ import requests
 
 import Cerebrum.logutils
 import Cerebrum.logutils.options
+import Cerebrum.utils.date
 from Cerebrum.Utils import read_password
+
+from aniso8601.exceptions import ISOFormatError
+
 logger = logging.getLogger(__name__)
 
 url = "https://gw-uio.intark.uh-it.no/orgreg/v3/ou"
@@ -250,7 +254,24 @@ def parse_ou(ou_json, dfo_sap_id_type):
         return None
 
     parent = ou_json.get("parent", "")
+
+    valid_from = ou_json["validFrom"]  # This is required
+    try:
+        Cerebrum.utils.date.parse_date(valid_from)
+    except ISOFormatError:
+        logger.exception("OrgRegId:{} has invalid _valid_from_ field: {}. "
+        "This is critical, skipping ...".format(ou_json["ouId"], valid_from))
+        return None
+
     valid_to = ou_json.get("validTo", "9999-12-31")
+    try:
+        Cerebrum.utils.date.parse_date(valid_to)
+    except ISOFormatError:
+        logger.error(
+            "OrgRegId:{} has invalid _valid_to_ field: {}".format(
+                ou_json["ouId"], valid_to)
+        )
+        valid_to = "9999-12-31"
 
     # <Sted>
     _place = Place(
