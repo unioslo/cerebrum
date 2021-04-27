@@ -1,6 +1,6 @@
 /* encoding: utf-8
  *
- * Copyright 2020 University of Oslo, Norway
+ * Copyright 2021 University of Oslo, Norway
  *
  * This file is part of Cerebrum.
  *
@@ -34,7 +34,7 @@ category:metainfo;
 name=task_queue;
 
 category:metainfo;
-version=1.0;
+version=1.1;
 
 
 /* TABLE task_queue
@@ -44,6 +44,10 @@ version=1.0;
  *
  * key
  *   a unique item identifier within a queue.
+ *
+ * sub
+ *   sub queue/subject. Usage is optional, and depends on queue.  By default,
+ *   this column is an empty string, and can be ignored.
  *
  * iat
  *   issued at timestamp -- when the item was added to the queue
@@ -76,6 +80,11 @@ CREATE TABLE IF NOT EXISTS task_queue
     CONSTRAINT task_queue_key_chk
       CHECK (key != ''),
 
+  sub
+    TEXT
+    NOT NULL
+    DEFAULT '',
+
   iat
     TIMESTAMP WITH TIME ZONE
     NOT NULL
@@ -99,8 +108,15 @@ CREATE TABLE IF NOT EXISTS task_queue
     JSONB
     NULL,
 
-  CONSTRAINT task_queue_pk PRIMARY KEY (queue, key)
+  CONSTRAINT task_queue_pk PRIMARY KEY (queue, sub, key)
 );
+
+category:main;
+CREATE INDEX IF NOT EXISTS task_queue_nbf_idx ON task_queue(nbf);
+
+category:main;
+CREATE INDEX IF NOT EXISTS task_queue_iat_idx ON task_queue(iat);
 
 category:drop;
 DROP TABLE IF EXISTS task_queue;
+

@@ -64,4 +64,4 @@ payload (optional)
 """
 
 # Database module version (see makedb.py)
-__version__ = '1.0'
+__version__ = '1.1'

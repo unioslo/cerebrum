@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2002-2018 University of Oslo, Norway
+# Copyright 2002-2021 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -65,6 +65,7 @@ targets = {
     'password_history': ('password_history_1_1',),
     'sap': ('sap_1_0', 'sap_1_1',),
     'spread_expire': ('spread_expire_1_1',),
+    'task_queue': ('task_queue_1_1',),
     'entity_trait': ('entity_trait_1_1',),
     'hostpolicy': ('hostpolicy_1_1',),
     'note': ('note_1_1',),
@@ -1892,6 +1893,15 @@ def migrate_to_spread_expire_1_1():
     meta.set_metainfo("sqlmodule_spread_expire", "1.1")
     db.commit()
     print("Migration to spread_expire 1.1 completed successfully")
+
+
+def migrate_to_task_queue_1_1():
+    assert_db_version("1.0", component="task_queue")
+    makedb("task_queue_1_1", "pre")
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo("sqlmodule_task_queue", "1.1")
+    db.commit()
+    print("Migration to task_queue 1.1 completed successfully")
 
 
 def init():
