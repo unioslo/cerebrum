@@ -790,8 +790,15 @@ class OrgLDIF(object):
     def init_person_addresses(self):
         # Set self.addr_info = dict {person_id: {address_type: (addr. data)}}.
         timer = make_timer(logger, "Fetching personal addresses...")
-        addr_src = getattr(self.const,
-                           self.config.org.parent.get('contact_source_system'))
+        try:
+            addr_src = getattr(self.const,
+                               self.config.org.parent.get(
+                                   'address_source_system'))
+        except:
+            addr_src = getattr(self.const,
+                               self.config.org.parent.get(
+                                   'contact_source_system'))
+
         addr_types = set(
             map_constants('_AddressCode',
                           self.config.person.get('address_types'),
