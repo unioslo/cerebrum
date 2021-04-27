@@ -586,6 +586,7 @@ arg_help = {
          - 'ou' (entity id)
          - 'studnr'
          - 'sapnr'
+         - 'dfo_pid'
          - 'passnr'"""],
     'posix_shell':
         ['shell', 'Enter shell',
