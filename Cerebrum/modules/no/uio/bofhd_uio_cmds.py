@@ -3908,6 +3908,7 @@ class BofhdExtension(BofhdCommonMethods):
             'passnr': 'externalid_pass_number',
             'studnr': 'externalid_studentnr',
             'sapnr':  'externalid_sap_ansattnr',
+            'dfonr':  'externalid_dfo_pid',
             # fnr is excluded on purpose, to avoid exploitations
         }
         if search_type == 'name':
