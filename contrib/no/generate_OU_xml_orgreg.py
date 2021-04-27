@@ -281,9 +281,9 @@ def parse_ou(ou_json, dfo_sap_id_type):
         # Names are not the same in orgreg as in sapuio
         use_area_mapper = {
             "arkivsted": {"type": "Arkivsted", "level": 1},
-            "tillattorganisasjon": {"type": "Tillatt Organisasjon", "level": 1},
-            "costcenter": {"type": "Tillatt koststed", "level": 1},
-            "directory": {"type": "Elektronisk katalog", "level": 1},
+            "tillatt_organisasjon": {"type": "Tillatt Organisasjon", "level": 1},
+            "tillatt_koststed": {"type": "Tillatt koststed", "level": 1},
+            "elektronisk_katalog": {"type": "Elektronisk katalog", "level": 1},
             # "reply": {}  # TODO ??
         }
         for _type in ou_json["tags"]:
