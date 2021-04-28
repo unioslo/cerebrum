@@ -120,7 +120,7 @@ class EmployeeDatasource(AbstractDatasource):
             employee_data = employee_data[0]
 
         employee = {
-            'id': int(reference),
+            'id': reference,
             'employee': {},
             'assignments': {},
         }
