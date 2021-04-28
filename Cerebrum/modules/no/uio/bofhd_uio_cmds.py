@@ -3908,6 +3908,7 @@ class BofhdExtension(BofhdCommonMethods):
             'passnr': 'externalid_pass_number',
             'studnr': 'externalid_studentnr',
             'sapnr':  'externalid_sap_ansattnr',
+            'dfonr':  'externalid_dfo_pid',
             # fnr is excluded on purpose, to avoid exploitations
         }
         if search_type == 'name':
@@ -5264,7 +5265,8 @@ class BofhdExtension(BofhdCommonMethods):
         valid_status = (
             self.const.affiliation_status_ansatt_tekadm,
             self.const.affiliation_status_ansatt_vitenskapelig,
-        )
+            self.const.affiliation_manuell_ekstern,
+            self.const.affiliation_tilknyttet_ekst_partner)
         domain = '@ulrik.uio.no'
 
         self.ba.can_create_sysadm(operator.get_entity_id())
