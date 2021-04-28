@@ -228,7 +228,7 @@ command_help = {
             'View student information for a person',
         'person_set_user_priority':
             'Change account priorities for a person',
-        'person_sap_import':
+        'person_dfosap_import':
             'Trigger manual import of person from DFO-SAP',
     },
     'quarantine': {
