@@ -30,17 +30,17 @@ from Cerebrum.utils import json
 from .task_models import db_row_to_task
 
 # Task ordering in query results
-DEFAULT_ORDER = ('queue', 'nbf', 'iat')
+DEFAULT_ORDER = ('nbf', 'queue', 'sub', 'iat')
 
 # Fields and field order in task query results
-DEFAULT_FIELDS = ('queue', 'key', 'iat', 'nbf', 'attempts',
+DEFAULT_FIELDS = ('queue', 'sub', 'key', 'iat', 'nbf', 'attempts',
                   'reason', 'payload')
 
 
 logger = logging.getLogger(__name__)
 
 
-def _select(queues=None, keys=None, iat_before=None, iat_after=None,
+def _select(queues=None, subs=None, keys=None, iat_before=None, iat_after=None,
             nbf_before=None, nbf_after=None, min_attempts=None,
             max_attempts=None):
     """
@@ -74,10 +74,13 @@ def _select(queues=None, keys=None, iat_before=None, iat_after=None,
     #
     # value selects
     #
-    if queues:
+    if queues is not None:
         clauses.append(
             argument_to_sql(queues, 'queue', binds, six.text_type))
-    if keys:
+    if subs is not None:
+        clauses.append(
+            argument_to_sql(subs, 'sub', binds, six.text_type))
+    if keys is not None:
         clauses.append(
             argument_to_sql(keys, 'key', binds, six.text_type))
 
@@ -179,8 +182,8 @@ def sql_delete(db, limit=None, **selects):
     """
     stmt = """
       DELETE FROM [:table schema=cerebrum name=task_queue]
-      WHERE (queue, key) in (
-          SELECT queue, key
+      WHERE (queue, sub, key) in (
+          SELECT queue, sub, key
           FROM [:table schema=cerebrum name=task_queue]
           {where}
           ORDER BY {order}
@@ -212,7 +215,7 @@ def sql_delete(db, limit=None, **selects):
         fetchall=True)
 
 
-def sql_pop(db, queue, key):
+def sql_pop(db, queue, sub, key):
     """
     Pop a given key from a given queue.
 
@@ -221,23 +224,24 @@ def sql_pop(db, queue, key):
     :raises NotFoundError: if no matching item exists.
     """
     rows = list(sql_delete(db, queues=six.text_type(queue),
+                           subs=six.text_type(sub),
                            keys=six.text_type(key)))
     if len(rows) < 1:
         raise Cerebrum.Errors.NotFoundError(
-            'task_queue pop: no items in queue %r with key %r' %
-            (queue, key))
+            'task_queue pop: no %s/%s/%s in queue' % (queue, sub, key))
 
     if len(rows) > 1:
         raise Cerebrum.Errors.TooManyRowsError(
-            'task_queue get: multiple items in queue %r with key %r!' %
-            (queue, key))
+            'task_queue pop: multiple %s/%s/%s in queue' % (queue, sub, key))
 
-    logger.debug('popped task %s/%s', rows[0]['queue'], rows[0]['key'])
+    item = rows[0]
+    logger.debug('popped task %s/%s/%s', item['queue'], item['sub'],
+                 item['key'])
 
-    return rows[0]
+    return item
 
 
-def sql_pop_next(db, queues=None, nbf=None, max_attempts=None):
+def sql_pop_next(db, queues=None, subs=None, nbf=None, max_attempts=None):
     """
     Pop next item from queue.
 
@@ -245,47 +249,50 @@ def sql_pop_next(db, queues=None, nbf=None, max_attempts=None):
 
     :raises NotFoundError: if no matching item exists.
     """
-    rows = list(sql_delete(db, queues=queues, nbf_before=nbf,
+    rows = list(sql_delete(db, queues=queues, subs=subs, nbf_before=nbf,
                            max_attempts=max_attempts, limit=1))
     if len(rows) < 1:
         raise Cerebrum.Errors.NotFoundError(
-            'task_queue pop: no items in %s (nbf: %s, max_attempts: %s)'
-            % (queues, nbf, max_attempts))
+            'task_queue pop: no items in %s, %s (nbf: %s, max_attempts: %s)'
+            % (queues, subs, nbf, max_attempts))
 
     if len(rows) > 1:
+        # Sanity check - this should never happen with limit=1
         raise Cerebrum.Errors.TooManyRowsError(
             'task_queue pop: removed multiple items!')
 
-    logger.debug('popped task %s/%s', rows[0]['queue'], rows[0]['key'])
-    return rows[0]
+    item = rows[0]
+    logger.debug('popped task %s/%s/%s', item['queue'], item['sub'],
+                 item['key'])
+    return item
 
 
-def sql_get(db, queue, key):
+def sql_get(db, queue, sub, key):
     """
     Get item from queue.
 
     :raises NotFoundError: if no matching item exists.
     """
     rows = list(sql_search(db, queues=six.text_type(queue),
+                           subs=six.text_type(sub),
                            keys=six.text_type(key), fetchall=True))
     if len(rows) < 1:
         raise Cerebrum.Errors.NotFoundError(
-            'task_queue get: no items in queue %r with key %r' %
-            (queue, key))
+            'task_queue get: no %s/%s/%s in queue' % (queue, sub, key))
 
     if len(rows) > 1:
         raise Cerebrum.Errors.TooManyRowsError(
-            'task_queue get: multiple items in queue %r with key %r!' %
-            (queue, key))
+            'task_queue get: multiple %s/%s/%s in queue' % (queue, sub, key))
 
     return rows[0]
 
 
-def _sql_insert(db, queue, key, iat=None, nbf=None, attempts=None, reason=None,
-                payload=None):
+def _sql_insert(db, queue, sub, key, iat=None, nbf=None, attempts=None,
+                reason=None, payload=None):
     """ Insert a new task into a queue.  """
     binds = {
         'queue': six.text_type(queue),
+        'sub': six.text_type(sub),
         'key': six.text_type(key),
     }
 
@@ -315,11 +322,12 @@ def _sql_insert(db, queue, key, iat=None, nbf=None, attempts=None, reason=None,
     return db.query_1(stmt, binds)
 
 
-def _sql_update(db, queue, key, iat=NotSet, nbf=NotSet, attempts=NotSet,
-                reason=NotSet, payload=NotSet):
+def _sql_update(db, queue, sub, key, iat=NotSet, nbf=NotSet,
+                attempts=NotSet, reason=NotSet, payload=NotSet):
     """ Update an existing task in a queue. """
     binds = {
         'queue': six.text_type(queue),
+        'sub': six.text_type(sub),
         'key': six.text_type(key),
     }
     update = {}
@@ -346,7 +354,7 @@ def _sql_update(db, queue, key, iat=NotSet, nbf=NotSet, attempts=NotSet,
       SET
         {changes}
       WHERE
-        queue = :queue AND key = :key
+        queue = :queue AND key = :key AND sub = :sub
       RETURNING {fields}
     """.format(
         changes=', '.join('{0} = :{0}'.format(k) for k in sorted(update)),
@@ -364,9 +372,8 @@ def _needs_update(old_row, values):
         yield k, values[k]
 
 
-def sql_push(db, queue, key, attempts=NotSet, iat=NotSet, nbf=NotSet,
-             reason=NotSet, payload=NotSet,
-             ignore_nbf_after=False):
+def sql_push(db, queue, sub, key, iat=NotSet, nbf=NotSet, attempts=NotSet,
+             reason=NotSet, payload=NotSet, ignore_nbf_after=False):
     """
     Insert or update a task.
 
@@ -398,15 +405,15 @@ def sql_push(db, queue, key, attempts=NotSet, iat=NotSet, nbf=NotSet,
     """
 
     try:
-        prev = sql_get(db, queue, key)
+        prev = sql_get(db, queue, sub, key)
     except Cerebrum.Errors.NotFoundError:
         prev = dict()
 
     if ignore_nbf_after and prev and nbf and prev['nbf'] < nbf:
         # This is an update, and we want to ignore updates that overwrites an
         # existing item if the new nbf date would add a delay.
-        logger.debug('ignoring task %s/%s: already exists with nbf %s < %s',
-                     queue, key, prev['nbf'], nbf)
+        logger.debug('ignoring task %s/%s/%s: already exists with nbf %s < %s',
+                     queue, sub, key, prev['nbf'], nbf)
         return None
 
     values = {
@@ -421,17 +428,17 @@ def sql_push(db, queue, key, attempts=NotSet, iat=NotSet, nbf=NotSet,
         to_update = dict(_needs_update(prev, values))
         if to_update:
             # update the given key/value pairs
-            logger.debug('updating task %s/%s at %s with %r',
-                         queue, key, nbf, to_update.keys())
-            return _sql_update(db, queue, key, **to_update)
+            logger.debug('updating task %s/%s/%s with %r',
+                         queue, sub, key, to_update.keys())
+            return _sql_update(db, queue, sub, key, **to_update)
         else:
             # no change
-            logger.debug('ignoring task %s/%s at %s: nothing to update',
-                         queue, key, nbf)
+            logger.debug('ignoring task %s/%s/%s: nothing to update',
+                         queue, sub, key)
             return None
     else:
-        logger.debug('inserting task %s/%s at %s', queue, key, nbf)
-        return _sql_insert(db, queue, key, **values)
+        logger.debug('inserting task %s/%s/%s', queue, sub, key)
+        return _sql_insert(db, queue, sub, key, **values)
 
 
 def sql_get_queue_counts(db, **kwargs):
@@ -459,20 +466,45 @@ def sql_get_queue_counts(db, **kwargs):
     return db.query(query.format(where=where), binds, fetchall=True)
 
 
+def sql_get_subqueue_counts(db, **kwargs):
+    """
+    Get number of queued tasks.
+
+    See py:func:`._select` for filtering params.
+
+    :returns: rows of (queue, count) tuples
+    """
+    query = """
+      SELECT queue, sub, count(*) as num
+      FROM [:table schema=cerebrum name=task_queue]
+      {where}
+      GROUP BY queue, sub
+      ORDER BY queue, sub
+    """
+    clauses, binds = _select(**kwargs)
+
+    if clauses:
+        where = ' WHERE ' + ' AND '.join(clauses)
+    else:
+        where = ''
+
+    return db.query(query.format(where=where), binds, fetchall=True)
+
+
 class TaskQueue(DatabaseAccessor):
     """ Access the task queue. """
 
-    def find(self, queue, key):
-        return db_row_to_task(sql_get(self._db, queue, key))
+    def find(self, queue, sub, key):
+        return db_row_to_task(sql_get(self._db, queue, sub, key))
 
-    def get(self, queue, key):
+    def get(self, queue, sub, key):
         try:
-            return self.find(queue, key)
+            return self.find(queue, sub, key)
         except Cerebrum.Errors.NotFoundError:
             return None
 
-    def pop(self, queue, key):
-        return db_row_to_task(sql_pop(self._db, queue, key))
+    def pop(self, queue, sub, key):
+        return db_row_to_task(sql_pop(self._db, queue, sub, key))
 
     def pop_next(self, *args, **kwargs):
         return db_row_to_task(sql_pop_next(self._db, *args, **kwargs))

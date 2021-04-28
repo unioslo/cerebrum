@@ -49,6 +49,7 @@ class TaskFormatter(object):
 
     field_size = {
         'queue': 15,
+        'sub': 15,
         'key': 10,
         'attempts': 8,
     }

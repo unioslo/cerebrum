@@ -48,34 +48,27 @@ class QueueHandler(object):
 
     # queue for adding tasks with a future nbf date
     # defaults to *queue*
-    nbf_queue = None
+    nbf_sub = None
 
     # queue for re-queueing failed tasks
     # defaults to the same queue as regular tasks
-    retry_queue = None
+    retry_sub = None
 
     # delay queue for tasks if we discover a future date during handling
     # defaults to the same queue as regular tasks
-    delay_queue = None
+    delay_sub = None
 
     # extra queue for tasks that were added manually
-    manual_queue = None
+    manual_sub = None
 
     # when to give up on a task
     max_attempts = 20
 
-    @property
-    def all_queues(self):
-        """ queues with tasks for this handler. """
-        return tuple(
-            q for q in (self.queue, self.nbf_queue, self.retry_queue,
-                        self.delay_queue, self.manual_queue)
-            if q)
-
     def get_retry_task(self, task, error):
         """ Create a retry task from a failed task. """
         retry = copy_task(task)
-        retry.queue = self.retry_queue or self.queue
+        retry.queue = self.queue
+        retry.sub = self.retry_sub or ""
         retry.attempts = task.attempts + 1
         retry.nbf = now() + delay_on_error(task.attempts + 1)
         retry.reason = 'retry: failed_at={} error={}'.format(now(), error)
@@ -102,5 +95,6 @@ class QueueHandler(object):
         next_task = self.handle_task(db, dryrun, task)
         if next_task and task_queue.TaskQueue(db).push(next_task,
                                                        ignore_nbf_after=True):
-            logger.info('queued next-task %s/%s at %s',
-                        next_task.queue, next_task.key, next_task.nbf)
+            logger.info('queued next-task %s/%s/%s at %s',
+                        next_task.queue, next_task.sub, next_task.key,
+                        next_task.nbf)

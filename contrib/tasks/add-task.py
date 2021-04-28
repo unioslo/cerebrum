@@ -65,6 +65,12 @@ parser.add_argument(
     help='set event key to %(metavar)s (default: generate)',
     metavar='<key>',
 )
+parser.add_argument(
+    '--sub',
+    default='',
+    help='set event key to %(metavar)s (default: %(default)s)',
+    metavar='<sub>',
+)
 
 add_commit_args(parser.add_argument_group('Database'))
 log_sub = Cerebrum.logutils.options.install_subparser(parser)
@@ -73,6 +79,7 @@ log_sub = Cerebrum.logutils.options.install_subparser(parser)
 def pretty_format(task):
     out = io.StringIO()
     out.write('  queue: {}\n'.format(task.queue))
+    out.write('  sub:   {}\n'.format(task.sub))
     out.write('  key:   {}\n'.format(task.key))
     out.write('  iat:   {}\n'.format(task.iat))
     out.write('  nbf:   {}\n'.format(task.nbf))
@@ -93,6 +100,7 @@ def main(inargs=None):
 
     task = Task(
         queue=args.queue,
+        sub=args.sub,
         key=args.key,
         nbf=nbf,
         attempts=0,
@@ -111,7 +119,7 @@ def main(inargs=None):
     else:
         print('Ignored task:')
         print(pretty_format(task))
-        existing = queue.get(task.queue, task.key)
+        existing = queue.get(task.queue, task.sub, task.key)
         print('Already exists as:')
         print(pretty_format(existing))
 
