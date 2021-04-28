@@ -421,16 +421,16 @@ def sql_push(db, queue, key, attempts=NotSet, iat=NotSet, nbf=NotSet,
         to_update = dict(_needs_update(prev, values))
         if to_update:
             # update the given key/value pairs
-            logger.debug('updating task %s/%s with %r',
-                         queue, key, to_update.keys())
+            logger.debug('updating task %s/%s at %s with %r',
+                         queue, key, nbf, to_update.keys())
             return _sql_update(db, queue, key, **to_update)
         else:
             # no change
-            logger.debug('ignoring task %s/%s: nothing to update',
-                         queue, key)
+            logger.debug('ignoring task %s/%s at %s: nothing to update',
+                         queue, key, nbf)
             return None
     else:
-        logger.debug('inserting task %s/%s', queue, key)
+        logger.debug('inserting task %s/%s at %s', queue, key, nbf)
         return _sql_insert(db, queue, key, **values)
 
 
