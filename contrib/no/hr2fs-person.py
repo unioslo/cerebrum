@@ -138,11 +138,11 @@ class HR2FSSyncer(object):
                  db,
                  fs,
                  co,
+                 ansattnr_code_str,
                  use_cache=True,
                  fagperson_export_fields=None,
                  email_cache=False,
-                 commit=False,
-                 ansattnr_code_str='NO_SAPNO'):
+                 commit=False):
 
         self.person_affiliations = person_affiliations
         self.fagperson_affiliations = fagperson_affiliations
@@ -536,7 +536,7 @@ class HR2FSSyncer(object):
                                 name_variant=self.co.work_title,
                                 name_language=self.co.language_nb)}
 
-    def _create_ansattnr_cache(self, ansattnr_code_str="NO_SAPNO"):
+    def _create_ansattnr_cache(self):
         """Create a personnr to ansattnr cache."""
         pe = Factory.get('Person')(self.db)
         self.ansattnr_cache = {}
@@ -849,6 +849,7 @@ def main():
         '-a', '--authoritative-system',
         dest='authoritative_system',
         required=True,
+        choices=['system_sap', 'system_dfo_sap'],
         help='TODO Authoritative system'
     )
     parser.add_argument(
@@ -925,11 +926,11 @@ def main():
     authoritative_system = get_constant(db, parser, co.AuthoritativeSystem,
                                         args.authoritative_system)
 
-    if ou_perspective is None:
-        logger.error('No valid OU perspective given')
-        return None
-
-    if authoritative_system is None:
+    if authoritative_system == co.system_sap:
+        ansattnr_code_str = "NO_SAPNO"
+    elif authoritative_system == co.system_dfo_sap:
+        ansattnr_code_str = "DFO_PID"
+    else:
         logger.error('No valid authoritative system given')
         return None
 
@@ -951,7 +952,7 @@ def main():
         fagperson_fields = None
 
     syncer = HR2FSSyncer(person_affs, fagperson_affs, authoritative_system,
-                         ou_perspective, db, fs, co,
+                         ou_perspective, db, fs, co, ansattnr_code_str,
                          fagperson_export_fields=fagperson_fields,
                          use_cache=True, email_cache=args.email_cache,
                          commit=args.commit)
