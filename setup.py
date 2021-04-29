@@ -215,7 +215,6 @@ sbin_files = [
     ('servers/cis/SoapPostmasterServer.py', 0755),
     ('consumers/consume-tasks.py', 0755),
     ('consumers/no/consumer_affiliations.py', 0755),
-    ('consumers/no/uio/tiny_scheduler.py', 0755),
     ('consumers/no/uio/consumer_sap.py', 0755),
     ('consumers/no/uio/consumer_enforce_forward_policy.py', 0755)
 ]
@@ -387,8 +386,6 @@ setup(
         'Cerebrum/modules/audit',
         'Cerebrum/modules/automatic_group',
         'Cerebrum/modules/statsd',
-        'Cerebrum/modules/celery_tasks',
-        'Cerebrum/modules/celery_tasks/apps',
         'Cerebrum/modules/consent',
         'Cerebrum/modules/cim',
         'Cerebrum/modules/disk_quota',
