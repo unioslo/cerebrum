@@ -142,14 +142,14 @@ def remove_expired_groups(db, days, pretend):
                         if gr.get_owned_accounts(filter_expired=False):
                             logger.warning(
                                 'Group %r owns expired accounts - skipping!',
-                                    gr.entity_id)
+                                gr.entity_id)
                         # Deleting account for any other case
                         else:
                             gr.delete()
                             amount_removed_groups += 1
                             logger.info(
                                 'Expired group (%s - %s) removed',
-                                    group['name'], group['description'])
+                                group['name'], group['description'])
                     if not pretend:
                         db.commit()
                     else:  # do not actually remove when running with -d
