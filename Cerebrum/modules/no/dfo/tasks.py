@@ -23,6 +23,7 @@ import logging
 from Cerebrum.modules.hr_import.importer import get_next_retry
 from Cerebrum.modules.tasks import process
 from Cerebrum.modules.tasks import task_models
+from Cerebrum.modules.tasks.task_queue import TaskQueue
 from Cerebrum.utils.date import now
 from .datasource import parse_message
 
@@ -60,7 +61,7 @@ class EmployeeTasks(process.QueueHandler):
             return None
 
     @classmethod
-    def create_manual_task(cls, reference):
+    def create_manual_task(cls, reference, sub=None, nbf=None):
         """ Create a manual task. """
         payload = task_models.Payload(
             fmt='dfo-event',
@@ -68,8 +69,9 @@ class EmployeeTasks(process.QueueHandler):
             data={'id': reference, 'uri': 'dfo:ansatte'})
         return task_models.Task(
             queue=cls.queue,
-            sub=cls.manual_sub,
+            sub=cls.manual_sub if sub is None else sub,
             key=reference,
+            nbf=nbf,
             attempts=0,
             reason='manual: on={when}'.format(when=now()),
             payload=payload,
@@ -77,15 +79,32 @@ class EmployeeTasks(process.QueueHandler):
 
 
 class AssignmentTasks(process.QueueHandler):
+    """
+    Assignment task handler.
+
+    Looks up assignment members, and creates EmployeeTasks for any future
+    start/end date for each of them.
+    """
 
     queue = 'dfo-assignment'
     manual_sub = 'manual'
     nbf_sub = 'nbf'
 
+    def __init__(self, get_import):
+        self.get_import = get_import
+
     def handle_task(self, db, dryrun, task):
-        # TODO: for each employee in task, create and queue an EmployeeTasks
-        # task
-        raise NotImplementedError()
+        do_import = self.get_import(db).handle_reference
+
+        push = TaskQueue(db).push
+
+        for employee_id, nbf in do_import(task.payload.data['id']):
+            task = EmployeeTasks.create_manual_task(
+                employee_id,
+                sub="",
+                nbf=nbf)
+            push(task, ignore_nbf_after=True)
+        return None
 
     @classmethod
     def create_manual_task(cls, reference):
@@ -95,7 +114,8 @@ class AssignmentTasks(process.QueueHandler):
             version=1,
             data={'id': reference, 'uri': 'dfo:stillinger'})
         return task_models.Task(
-            queue=cls.manual_queue,
+            queue=cls.queue,
+            sub=cls.manual_sub,
             key=reference,
             attempts=0,
             reason='manual: on={when}'.format(when=now()),
