@@ -359,7 +359,7 @@ class HRDataImport(object):
             )
             return ou.entity_id
 
-        source_systems = (self.co.system_dfo_sap, self.co.system_manual)
+        source_systems = (self.co.system_orgreg, self.co.system_manual)
         for source in source_systems:
             try:
                 ou.find_by_external_id(

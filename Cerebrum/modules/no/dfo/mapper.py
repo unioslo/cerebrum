@@ -41,7 +41,22 @@ from Cerebrum.utils.phone import format as phone_number_format, \
 logger = logging.getLogger(__name__)
 
 IGNORE_FNR_REGEX = re.compile(r'(.+00[12]00$|00000000000)')
+WORK_TITLE_NAME = re.compile(r'^\d+[-_ ](?P<name>.+)$')
 REQUIRED_ID_TYPE = ('NO_BIRTHNO', 'PASSNR')
+
+
+def parse_title_name(name):
+    """Parse name of title
+
+    Remove numbers from DFØ-SAP titles.
+    """
+    match = re.match(WORK_TITLE_NAME, name)
+
+    if not match:
+        logger.warning('Unexpected title format: %s', name)
+        return name
+
+    return match.group('name')
 
 
 def translate_keys(d, mapping):
@@ -320,10 +335,12 @@ class EmployeeMapper(_base.AbstractMapper):
         if not name:
             return titles
 
+        parsed_name = parse_title_name(name)
+
         titles.add(
             HRTitle(name_variant='WORKTITLE',
                     name_language='nb',
-                    name=name)
+                    name=parsed_name)
         )
         logger.info('found %d titles: %r', len(titles), titles)
         return titles
