@@ -14,6 +14,7 @@ import cereconf
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
+from Cerebrum.utils.argutils import get_constant
 from Cerebrum.utils.email import mail_template as mail_template_util
 from Cerebrum.utils.funcwrap import memoize
 from Cerebrum.modules.no.uio.Ephorte import EphorteRole
@@ -101,7 +102,7 @@ def format_permission(perm):
 class PopulateEphorte(object):
     """ Ephorte sync client. """
 
-    def __init__(self, ewsclient):
+    def __init__(self, ewsclient, source_system):
         "Pre-fetch information about OUs in ePhorte and Cerebrum."
 
         # Special sko, ignore:
@@ -112,6 +113,7 @@ class PopulateEphorte(object):
         self.ouid_2roleinfo = {}
         # ouid -> stedkode:
         self.ouid2sko = {}
+        self.source_system = source_system
 
         logger.info("Fetching OU info from Cerebrum")
         for row in ou.get_stedkoder():
@@ -239,13 +241,6 @@ class PopulateEphorte(object):
         try:
             pe.clear()
             pe.find(person_id)
-            tmp_id = pe.get_external_id(source_system=co.system_sap,
-                                        id_type=co.externalid_sap_ansattnr)
-            ret['sap_ansattnr'] = tmp_id[0]['external_id']
-            ret['first_name'] = pe.get_name(source_system=co.system_sap,
-                                            variant=co.name_first)
-            ret['last_name'] = pe.get_name(source_system=co.system_sap,
-                                           variant=co.name_last)
         except Errors.NotFoundError:
             logger.warn("Couldn't find person with id %s" % person_id)
 
@@ -274,10 +269,10 @@ class PopulateEphorte(object):
         # ePhorte OU as specified in ephorte-sync-spec.rst
         for row in itertools.chain(
                 pe.list_affiliations(
-                    source_system=co.system_sap,
+                    source_system=self.source_system,
                     affiliation=co.affiliation_ansatt),
                 pe.list_affiliations(
-                    source_system=co.system_sap,
+                    source_system=self.source_system,
                     affiliation=co.affiliation_tilknyttet,
                     status=[co.affiliation_tilknyttet_ekst_partner,
                             co.affiliation_tilknyttet_innkjoper])):
@@ -535,13 +530,21 @@ def _make_parser():
         "--config",
         default='sync_ephorte.cfg',
         help=u"Config file for ephorte communications (see sync_ephorte.py)")
+    parser.add_argument(
+        "--source-system",
+        dest="source_system",
+        default='SAP',
+        choices=['SAP', 'DFO_SAP'],
+        help="Set source system")
     return parser
 
 
 def main(args=None):
     args = _make_parser().parse_args(args)
     ephorte_ws_client, ecfg = make_ephorte_client(args.config)
-    pop = PopulateEphorte(ephorte_ws_client)
+    source_system = get_constant(db, _make_parser(), co.AuthoritativeSystem,
+                                 args.source_system)
+    pop = PopulateEphorte(ephorte_ws_client, source_system)
 
     if args.populate_roles:
         pop.populate_roles()
