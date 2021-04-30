@@ -117,6 +117,9 @@ def remove_expired_groups(db, days, pretend):
                     #         PosixGroup, then the group shall be left
                     #         untouched.
                     # 2     - Groups without any extensions are deleted
+                    # 2.1   - Groups with expired accounts is skipped
+                    #         This is to avoid integrity error
+                    # 2.2   - Delete group if group has no expired account
 
                     # NB: Points 1.1.1 and 1.1.2 are handled in a separate
                     # function `remove_posix_users`
@@ -135,12 +138,18 @@ def remove_expired_groups(db, days, pretend):
                                      exts, gr.entity_id)
                     # 2 No extensions, group is deleted
                     else:
-                        gr.delete()
-                        amount_removed_groups += 1
-                        logger.info(
-                            'Expired group (%s - %s) removed' % (
-                                group['name'],
-                                group['description']))
+                        # 2.1 Do not delete when containing expired accounts
+                        if gr.get_owned_accounts(filter_expired=False):
+                            logger.warning(
+                                'Group %r owns expired accounts - skipping!',
+                                gr.entity_id)
+                        # Deleting account for any other case
+                        else:
+                            gr.delete()
+                            amount_removed_groups += 1
+                            logger.info(
+                                'Expired group (%s - %s) removed',
+                                group['name'], group['description'])
                     if not pretend:
                         db.commit()
                     else:  # do not actually remove when running with -d
