@@ -93,6 +93,7 @@ class XMLOU2Object(XMLEntity2Object):
     tag2type = {
         "Stedkode": DataOU.NO_SKO,
         "Akronym": DataOU.NAME_ACRONYM,
+        "DfoOrgId": DataOU.NO_ORGREG,
         "Navn20": DataOU.NAME_SHORT,
         "Navn120": DataOU.NAME_LONG,
     }
@@ -201,6 +202,8 @@ class XMLOU2Object(XMLEntity2Object):
             value = None
             if sub.text:
                 value = ensure_unicode(sub.text.strip(), self.encoding)
+            if sub.tag == "DfoOrgId":
+                result.add_id(self.tag2type[sub.tag], value)
             if sub.tag == "Stedkode":
                 sko = make_sko(value)
                 if sko is not None:

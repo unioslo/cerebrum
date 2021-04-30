@@ -446,6 +446,7 @@ class DataOU(DataEntity):
 
     NO_SKO = "sko"
     NO_NSD = "nsdkode"
+    NO_ORGREG = "dfo_org_id"
 
     NAME_ACRONYM = "acronym"
     NAME_SHORT = "short"
@@ -473,7 +474,7 @@ class DataOU(DataEntity):
         return iter(self._usage_codes)
 
     def validate_id(self, kind, value):
-        assert kind in (self.NO_SKO, self.NO_NSD,)
+        assert kind in (self.NO_SKO, self.NO_NSD, self.NO_ORGREG)
 
     def validate_name(self, name):
         assert name.kind in (self.NAME_ACRONYM,
