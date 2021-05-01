@@ -232,9 +232,9 @@ class EmployeeMapper(_base.AbstractMapper):
         """
         # TODO: Do we have the correct mapping?
         key_map = collections.OrderedDict([
-            ('tjenestetelefon', 'PHONE'),
+            # ('tjenestetelefon', 'PHONE'),
             # ('privatTelefonnummer', ?),
-            # ('telefonnummer', 'PRIVMOBVISIBLE'),
+            ('telefonnummer', 'PHONE'),
             ('mobilnummer', 'MOBILE'),
             ('mobilPrivat', 'PRIVATEMOBILE'),
             # ('privatTlfUtland', ?),
