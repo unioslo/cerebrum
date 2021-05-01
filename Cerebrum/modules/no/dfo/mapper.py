@@ -133,9 +133,9 @@ class EmployeeMapper(_base.AbstractMapper):
         """
         affiliations = set()
         category_2_status = {
-            50001597: 'tekadm',
-            50001598: 'tekadm',
-            50001599: 'vitenskapelig'
+            50078118: 'tekadm', # Administrativt personale
+            50078119: 'tekadm', # Drifts- og teknisk pers./andre tilsatte
+            50078120: 'vitenskapelig', # Undervisnings- og forsknings personale
         }
         role_mapping = {
             ('9', 90): 'ekst_partner',
