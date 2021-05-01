@@ -22,6 +22,7 @@ Utilities for communicating with SAP @ DFØ.
 """
 from __future__ import unicode_literals
 import datetime
+import six
 
 
 def assert_list(value):
@@ -48,3 +49,8 @@ def parse_date(value, fmt='%Y-%m-%d', allow_empty=True):
         return None
     else:
         raise ValueError('No date: %r' % (value,))
+
+
+def parse_employee_id(dfo_employee_id):
+    """Get rid of potential leading zeros of the id"""
+    return six.text_type(int(dfo_employee_id))

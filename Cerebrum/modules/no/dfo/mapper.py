@@ -115,6 +115,8 @@ def get_additional_assignment(person_data, assignment_id):
         if assignment['stillingId'] == assignment_id:
             return assignment
     return None
+
+
 class MapperConfig(_base.MapperConfig):
     pass
 

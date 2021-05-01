@@ -133,7 +133,7 @@ class AccountTypeUpdater(object):
             if aff_info['source_system'] != int(self.restrict_source):
                 raise _UpdateError(
                     'account_id=%r has affiliation(s) from source(s) '
-                    'besides %r' % (account_id, self.restrict_sources))
+                    'besides %r' % (account_id, self.restrict_source))
 
         return account_types
 
