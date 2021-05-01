@@ -33,6 +33,7 @@ import six
 from Cerebrum.config.configuration import (
     Configuration,
     ConfigDescriptor,
+    Namespace,
 )
 from Cerebrum.config.settings import Integer, Iterable, String
 
@@ -78,6 +79,9 @@ class AbstractMapper(object):
         self.end_dates_ignore = [
             datetime.datetime.strptime(x, '%Y-%m-%d').date()
             for x in config.end_dates_ignore]
+        self.status_mapping = {
+            x['dfo_category_id']: x['cerebrum_status']
+            for x in config.status_mapping}
 
     @abc.abstractmethod
     def translate(self, reference, obj, db_object):
@@ -157,6 +161,17 @@ class AbstractMapper(object):
         return retry_dates
 
 
+class StatusMapping(Configuration):
+    dfo_category_id = ConfigDescriptor(
+        Integer,
+        doc='Position category id'
+    )
+    cerebrum_status = ConfigDescriptor(
+        String,
+        doc='Corresponding cerebrum status'
+    )
+
+
 class MapperConfig(Configuration):
     start_grace = ConfigDescriptor(
         Integer,
@@ -178,4 +193,11 @@ class MapperConfig(Configuration):
         default=[],
         doc='End dates representing contracts without an end date..'
             'E.g. 9999-12-31 is used by UiO-SAP.'
+    )
+
+    status_mapping = ConfigDescriptor(
+        Iterable,
+        template=Namespace(config=StatusMapping),
+        default=[],
+        doc='Mapping between category in SAP and status in Cerebrum.'
     )

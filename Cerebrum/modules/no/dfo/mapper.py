@@ -125,18 +125,13 @@ class EmployeeMapper(_base.AbstractMapper):
     ASSIGNMENT_RESIGNED_ID = 99999999
 
     @classmethod
-    def parse_affiliations(cls, person_data, assignment_data):
+    def parse_affiliations(cls, person_data, assignment_data, status_mapping):
         """
         Parse data from SAP and return affiliations
 
         :rtype: set(HRAffiliation)
         """
         affiliations = set()
-        category_2_status = {
-            50001597: 'tekadm',
-            50001598: 'tekadm',
-            50001599: 'vitenskapelig'
-        }
         role_mapping = {
             ('9', 90): 'ekst_partner',
             ('9', 91): 'ekst_partner',
@@ -155,7 +150,7 @@ class EmployeeMapper(_base.AbstractMapper):
             affiliation = 'ANSATT'
             try:
                 stillingskat_id = assignment['category'][0]
-                status = category_2_status.get(stillingskat_id)
+                status = status_mapping.get(stillingskat_id)
             except IndexError:
                 stillingskat_id = status = None
 
@@ -232,9 +227,9 @@ class EmployeeMapper(_base.AbstractMapper):
         """
         # TODO: Do we have the correct mapping?
         key_map = collections.OrderedDict([
-            ('tjenestetelefon', 'PHONE'),
+            # ('tjenestetelefon', 'PHONE'),
             # ('privatTelefonnummer', ?),
-            # ('telefonnummer', 'PRIVMOBVISIBLE'),
+            ('telefonnummer', 'PHONE'),
             ('mobilnummer', 'MOBILE'),
             ('mobilPrivat', 'PRIVATEMOBILE'),
             # ('privatTlfUtland', ?),
@@ -371,7 +366,8 @@ class EmployeeMapper(_base.AbstractMapper):
         hr_person.contact_infos = self.parse_contacts(person_data)
         hr_person.titles = self.parse_titles(main_assignment)
         hr_person.affiliations = self.parse_affiliations(person_data,
-                                                         assignment_data)
+                                                         assignment_data,
+                                                         self.status_mapping)
 
     def translate(self, reference, obj, db_object):
         """
