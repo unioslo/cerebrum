@@ -30,9 +30,12 @@ from Cerebrum.modules.hr_import.datasource import (
     DatasourceInvalid,
     RemoteObject,
 )
-from Cerebrum.modules.no.dfo.utils import assert_list, parse_date
+from Cerebrum.modules.no.dfo.utils import (
+    assert_list,
+    parse_date,
+    parse_employee_id
+)
 from Cerebrum.utils.date_compat import get_datetime_tz
-
 
 logger = logging.getLogger(__name__)
 
@@ -184,7 +187,7 @@ class EmployeeDatasource(AbstractDatasource):
         employee_data = self._get_employee(employee_id)
 
         employee = {
-            'id': reference,
+            'id': parse_employee_id(reference),
             'employee': {},
             'assignments': {},
         }
