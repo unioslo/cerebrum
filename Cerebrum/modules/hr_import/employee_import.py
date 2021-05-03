@@ -125,7 +125,8 @@ class HRDataImport(object):
         # Call every update method except self.update_basic()
         self.update_external_ids(db_person, empty_hr_person)
         self.update_names(db_person, empty_hr_person)
-        self.update_titles(db_person, empty_hr_person)
+        # TODO: temporary - disable work title update
+        # self.update_titles(db_person, empty_hr_person)
         self.update_contact_info(db_person, empty_hr_person)
         self.update_affiliations(db_person, empty_hr_person)
         logger.info('removed person id=%r', db_person.entity_id)
