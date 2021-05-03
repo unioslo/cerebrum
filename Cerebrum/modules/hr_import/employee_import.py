@@ -138,7 +138,8 @@ class HRDataImport(object):
         self.update_basic(db_person, hr_person)
         self.update_external_ids(db_person, hr_person)
         self.update_names(db_person, hr_person)
-        self.update_titles(db_person, hr_person)
+        # TODO: temporary - disable work title update
+        # self.update_titles(db_person, hr_person)
         self.update_contact_info(db_person, hr_person)
         self.update_affiliations(db_person, hr_person)
         logger.info('updated person id=%r', db_person.entity_id)
