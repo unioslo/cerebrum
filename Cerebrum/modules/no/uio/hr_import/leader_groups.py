@@ -86,7 +86,7 @@ class LeaderGroupUpdater(object):
                 raise LookupError("invalid location code hr_ou_id=%r" %
                                   (hr_ou_id,))
 
-        source_systems = (self.const.system_dfo_sap, self.const.system_manual)
+        source_systems = (self.const.system_orgreg, self.const.system_manual)
         for source in source_systems:
             try:
                 ou.find_by_external_id(
