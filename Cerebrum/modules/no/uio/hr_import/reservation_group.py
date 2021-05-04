@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2020 University of Oslo, Norway
+# Copyright 2021 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -25,6 +25,9 @@ employee publication opt-outs from the HR system.
 """
 import logging
 
+import cereconf
+
+from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 
 logger = logging.getLogger(__name__)
@@ -33,18 +36,41 @@ logger = logging.getLogger(__name__)
 class ReservationGroupUpdater(object):
     """ Update reservation groups.  """
 
-    group_name = 'SAP-elektroniske-reservasjoner'
+    group_name = 'DFO-elektroniske-reservasjoner'
 
     def __init__(self, database):
         self.db = database
+
+    def _get_reservation_group(self):
+        """ Get or create the group used to store reservations
+
+        @rtype:  Group
+        @return: The owner Group object that was found/created.
+        """
+        gr = Factory.get('Group')(self.db)
+        try:
+            gr.find_by_name(self.group_name)
+            return gr
+        except Errors.NotFoundError:
+            # Group does not exist, must create it
+            logger.info('Creating reservation group %r', self.group_name)
+        co = Factory.get('Constants')(self.db)
+        ac = Factory.get('Account')(self.db)
+        ac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
+        gr.populate(
+            creator_id=ac.entity_id,
+            visibility=co.group_visibility_all,
+            name=self.group_name,
+            description="Employees reserved from publication",
+            group_type=co.group_type_internal)
+        gr.write_db()
+        return gr
 
     @property
     def group(self):
         """ The Cerebrum.Group.Group reservation group object. """
         if not hasattr(self, '_group'):
-            group = Factory.get('Group')(self.db)
-            group.find_by_name(self.group_name)
-            self._group = group
+            self._group = self._get_reservation_group()
         return self._group
 
     def set(self, person_id, reserve):
