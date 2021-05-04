@@ -48,8 +48,6 @@ class ReservationGroupUpdater(object):
         @return: The owner Group object that was found/created.
         """
         gr = Factory.get('Group')(self.db)
-        co = Factory.get('Constants')(self.db)
-        ac = Factory.get('Account')(self.db)
         try:
             gr.find_by_name(self.group_name)
             return gr
@@ -57,7 +55,8 @@ class ReservationGroupUpdater(object):
             # Group does not exist, must create it
             pass
         logger.info('Creating reservation group %r', self.group_name)
-
+        co = Factory.get('Constants')(self.db)
+        ac = Factory.get('Account')(self.db)
         ac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
         gr.populate(
             creator_id=ac.entity_id,
