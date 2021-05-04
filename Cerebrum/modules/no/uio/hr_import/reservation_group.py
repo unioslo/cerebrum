@@ -53,8 +53,7 @@ class ReservationGroupUpdater(object):
             return gr
         except Errors.NotFoundError:
             # Group does not exist, must create it
-            pass
-        logger.info('Creating reservation group %r', self.group_name)
+            logger.info('Creating reservation group %r', self.group_name)
         co = Factory.get('Constants')(self.db)
         ac = Factory.get('Account')(self.db)
         ac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
