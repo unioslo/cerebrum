@@ -202,7 +202,7 @@ def welcome_sms_received_date(ac, co):
     traits = ac.get_traits()
     if co.trait_sms_welcome in traits:
         # The 'date' value of traits are naive datetime objects, *not* dates!
-        return get_datetime_tz(traits[co.trait_sms_welcome])['date']
+        return get_datetime_tz(traits[co.trait_sms_welcome]['date'])
     return None
 
 
