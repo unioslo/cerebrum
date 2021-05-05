@@ -24,7 +24,7 @@ A new person is a person object in Cerebrum that has been created within the
 time interval given in the arguments to this script.  Persons are grouped by
 OU.
 
-Created to give LITA overview of newly arrived persons from SAPUiO.
+Created to give LITA overview of newly arrived persons from SAP.
 """
 import argparse
 import logging
@@ -285,7 +285,7 @@ def main(inargs=None):
 
     source_arg = parser.add_argument(
         '--source_systems',
-        default='DFO_SAP',
+        default='DFO_SAP,FS',
         help="comma separated list of source systems to search through,"
              " defaults to %(default)s")
 
