@@ -135,6 +135,7 @@ class EmployeeMapper(_base.AbstractMapper):
         """
         affiliations = set()
         role_mapping = {
+            ('8', 50): 'bilag',
             ('9', 90): 'ekst_partner',
             ('9', 91): 'ekst_partner',
             ('9', 93): 'emeritus',
@@ -149,6 +150,15 @@ class EmployeeMapper(_base.AbstractMapper):
                 logger.info('ignoring assignment=%s, resigned',
                             assignment_id)
                 continue
+
+            group = person_data.get('medarbeidergruppe')
+            sub_group = person_data.get('medarbeiderundergruppe')
+            if int(group) == 8 and int(sub_group) == 50:
+                if not person_data.get('eksternbruker', False):
+                    logger.info('ignoring person with 8/50')
+                    break
+                logger.info('Found 8/50 with eksternbruker == True')
+
             affiliation = 'ANSATT'
             try:
                 stillingskat_id = assignment['category'][0]
@@ -167,8 +177,6 @@ class EmployeeMapper(_base.AbstractMapper):
                 # If the person has one of the MG/MUG combinations present in
                 # role_mapping, then the main assignment should instead be
                 # interpreted as a TILKNYTTET affiliation.
-                group = person_data.get('medarbeidergruppe')
-                sub_group = person_data.get('medarbeiderundergruppe')
                 role = role_mapping.get((group, sub_group))
                 if role:
                     status = role
