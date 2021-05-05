@@ -24,7 +24,7 @@ A new person is a person object in Cerebrum that has been created within the
 time interval given in the arguments to this script.  Persons are grouped by
 OU.
 
-Created to give LITA overview of newly arrived persons from SAPUiO.
+Created to give LITA overview of newly arrived persons from SAP.
 """
 import argparse
 import logging
@@ -101,7 +101,7 @@ template = u"""
           <th>Navn</th>
           <th>Tilknytning</th>
           <th>entity_id</th>
-          <th>Ansattnr</th>
+          <th>Ansattnr (DFØ)</th>
           <th>Fødselsdato</th>
           <th>Brukere</th>
         </tr>
@@ -111,7 +111,7 @@ template = u"""
         <td>{{ person['name'] }}</td>
         <td>{{ person['status'] }}</td>
         <td>{{ person['pid'] }}</td>
-        <td>{{ person['sapid'] }}</td>
+        <td>{{ person['dfoid'] }}</td>
         <td>{{ person['birth'] }}</td>
         <td>{{ person['accounts'] }}</td>
       </tr>
@@ -176,11 +176,11 @@ def get_new_persons(db, source_systems, start_date, end_date):
             name_variant=co.name_full)[0]['name']
 
         try:
-            sapid = pe.get_external_id(
-                source_system=co.system_sap,
-                id_type=co.externalid_sap_ansattnr)[0]['external_id']
+            dfoid = pe.get_external_id(
+                source_system=co.system_dfo_sap,
+                id_type=co.externalid_dfo_pid)[0]['external_id']
         except IndexError:
-            sapid = ''
+            dfoid = ''
 
         accounts = []
         for row in ac.search(owner_id=p_id):
@@ -208,7 +208,7 @@ def get_new_persons(db, source_systems, start_date, end_date):
                 'name': _u(name),
                 'status': text_type(co.PersonAffStatus(row['status'])),
                 'birth': text_type(pe.birth_date.strftime('%Y-%m-%d')),
-                'sapid': text_type(sapid),
+                'dfoid': text_type(dfoid),
                 'accounts': u', '.join((_u(a) for a in accounts)),
             }
 
@@ -285,7 +285,7 @@ def main(inargs=None):
 
     source_arg = parser.add_argument(
         '--source_systems',
-        default='SAP,FS',
+        default='DFO_SAP,FS',
         help="comma separated list of source systems to search through,"
              " defaults to %(default)s")
 
@@ -314,6 +314,7 @@ def main(inargs=None):
 
     args.output.flush()
     if args.output is not sys.stdout:
+        logger.info("We are in closing section")
         args.output.close()
 
     logger.info('Report written to %s', args.output.name)
