@@ -65,7 +65,7 @@ class AccountsWithTraitManager(object):
             yield row
 
 
-def get_ou_contact_emails(ou, co):
+def get_ou_contact_emails(ou, perspective):
     """Get the contact email(s) of an ou, if any.
 
     :param ou: A populated OU object
@@ -100,7 +100,7 @@ class AccountCreationNotifier(object):
             return False
         return True
 
-    def notify(self):
+    def notify(self, perspective):
         """Notify lkit on the creation of new accounts"""
         logger.info('send_new_account_notification_mail start')
 
@@ -114,7 +114,7 @@ class AccountCreationNotifier(object):
             if not self.find_ou(ou_id):
                 continue
 
-            contact_emails = get_ou_contact_emails(self.ou, self.co)
+            contact_emails = get_ou_contact_emails(self.ou, perspective)
             stedkode = self.ou.get_stedkode()
 
             logger.info('Found users %s with trait, on ou %s', users, stedkode)
@@ -296,6 +296,12 @@ def main(inargs=None):
         'Default: %(default)s days.')
 
     parser.add_argument(
+        '-p',
+        '--perspective',
+        default="OrgReg-tree",
+        help='Perspective to use, default is OrgReg-tree')
+
+    parser.add_argument(
         '--commit',
         action='store_true',
         default=False,
@@ -331,7 +337,10 @@ def main(inargs=None):
         commit=args.commit
     )
 
-    notifier.notify()
+    perspective = co.human2constant(args.perspective)
+    if perspective is not None:
+        notifier.notify(perspective)
+    logger.error("Perspective was not found")
 
 
 if __name__ == '__main__':
