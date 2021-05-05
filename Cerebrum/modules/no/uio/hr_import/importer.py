@@ -42,7 +42,8 @@ class UioEmployeeImportMixin(EmployeeImportBase):
     """
     def __init__(self, *args, **kwargs):
         super(UioEmployeeImportMixin, self).__init__(*args, **kwargs)
-        self.leader_group_updater = LeaderGroupUpdater(self.db, self.source_system)
+        self.leader_group_updater = LeaderGroupUpdater(self.db,
+                                                       self.source_system)
         self.reservation_group = ReservationGroupUpdater(self.db)
 
     def _update_account_types(self, hr_object, db_object, parent_method):
@@ -65,8 +66,12 @@ class UioEmployeeImportMixin(EmployeeImportBase):
         self._update_account_types(hr_object, db_object, parent_method)
 
         self.reservation_group.set(db_object.entity_id, hr_object.reserved)
+        # Convert ou_ids into Cerebrum OU-objects
+        leader_ous = (
+            self.updater.get_ou(ou_id) for ou_id in hr_object.leader_ous
+        )
 
-        self.leader_group_updater.sync(db_object.entity_id, hr_object.leader_ous)
+        self.leader_group_updater.sync(db_object.entity_id, leader_ous)
 
     def remove(self, hr_object, db_object):
         parent_method = super(UioEmployeeImportMixin, self).remove

@@ -29,6 +29,7 @@ import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.date_compat import get_date
+from Cerebrum.modules.hr_import.errors import NonExistentOuError
 
 from .importer import AbstractImport
 from . import models
@@ -37,6 +38,9 @@ logger = logging.getLogger(__name__)
 
 
 class EmployeeImportBase(AbstractImport):
+    def __init__(self, *args, **kwargs):
+        super(EmployeeImportBase, self).__init__(*args, **kwargs)
+        self.updater = HRDataImport(self.db, self.source_system)
 
     @property
     def const(self):
@@ -73,17 +77,21 @@ class EmployeeImportBase(AbstractImport):
             raise ValueError('update() called without hr data!')
         if person_obj is None or not person_obj.entity_id:
             raise ValueError('update() called without cerebrum person!')
-        updater = HRDataImport(self.db, self.source_system)
-        updater.update_person(person_obj, employee_data)
+        self.updater.update_person(person_obj, employee_data)
 
     def remove(self, hr_object, db_object):
         """ Clear HR data from a Person object. """
         if db_object is None or not db_object.entity_id:
             raise ValueError('remove() called without cerebrum person!')
-        updater = HRDataImport(self.db, self.source_system)
-        updater.remove_person(db_object, hr_object)
+        self.updater.remove_person(db_object, hr_object)
 
 
+# TODO:
+#  Would it not be simpler if the functionality of this class was part of
+#  ``EmployeeImportBase`` ?
+#  We want to move ``get_ou`` into separate subclasses, but it feels like
+#  unnecessary complexity to have separate subclasses of both
+#  ``EmployeeImportBase`` and ``HRDataImport`` ?
 class HRDataImport(object):
 
     def __init__(self, database, source_system):
@@ -348,18 +356,24 @@ class HRDataImport(object):
                                        value=hr_value, pref=hr_pref)
 
     # TODO: should probaly be moved into sap_uio/dfo_sap subclasses
-    def _get_ou_id(self, hr_ou_id):
-        """Find id of ou in cerebrum from ou_id given by the hr system"""
+    def get_ou(self, hr_ou_id):
+        """Find OU in cerebrum from ou_id given by the hr system"""
         ou = Factory.get('OU')(self.database)
-        ou.clear()
+        if isinstance(hr_ou_id, int):
+            hr_ou_id = str(hr_ou_id)
+
         if self.source_system == self.co.system_sap:
-            ou.find_stedkode(
-                hr_ou_id[0:2],
-                hr_ou_id[2:4],
-                hr_ou_id[4:6],
-                cereconf.DEFAULT_INSTITUSJONSNR
-            )
-            return ou.entity_id
+            try:
+                ou.find_stedkode(
+                    hr_ou_id[0:2],
+                    hr_ou_id[2:4],
+                    hr_ou_id[4:6],
+                    cereconf.DEFAULT_INSTITUSJONSNR
+                )
+            except Errors.NotFoundError:
+                raise NonExistentOuError("Invalid stedkode hr_ou_id=%r" %
+                                         hr_ou_id)
+            return ou
 
         source_systems = (self.co.system_orgreg, self.co.system_manual)
         for source in source_systems:
@@ -372,8 +386,9 @@ class HRDataImport(object):
             except Errors.NotFoundError:
                 ou.clear()
             else:
-                return ou.entity_id
-        raise Errors.NotFoundError('Could not find OU by id %r' % hr_ou_id)
+                return ou
+        raise NonExistentOuError('Could not find OU by dfo_ou_id %r' %
+                                 hr_ou_id)
 
     def update_affiliations(self, db_person, hr_person):
         """Update person in Cerebrum with the latest affiliations"""
@@ -382,7 +397,8 @@ class HRDataImport(object):
         # Create hr_affiliations dict
         hr_affiliations = {}
         for aff in hr_person.affiliations:
-            ou_id = self._get_ou_id(aff.ou_id)
+            ou = self.get_ou(aff.ou_id)
+            ou_id = ou.entity_id
             affiliation = self.co.PersonAffiliation(aff.affiliation)
             status = self.co.PersonAffStatus(aff.affiliation, aff.status)
             aff_data = (ou_id, affiliation, status)

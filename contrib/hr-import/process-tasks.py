@@ -34,6 +34,7 @@ from Cerebrum.modules.tasks.task_queue import sql_get_subqueue_counts
 from Cerebrum.utils.argutils import add_commit_args
 from Cerebrum.utils.date import now
 from Cerebrum.utils.module import resolve
+from Cerebrum.modules.hr_import.errors import NonExistentOuError
 
 
 logger = logging.getLogger(__name__)
@@ -133,6 +134,9 @@ def main(inargs=None):
             with db_context(database, dryrun=dryrun_import) as db:
                 handle_task(db, dryrun=dryrun_import, task=task)
             task_failed = None
+        except NonExistentOuError as e:
+            logger.error(e.message)
+            task_failed = e
         except Exception as e:
             logger.warning('failed task %s/%s/%s',
                            task.queue, task.sub, task.key, exc_info=True)
