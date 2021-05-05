@@ -29,10 +29,6 @@ from Cerebrum.modules.tasks import task_queue
 logger = logging.getLogger(__name__)
 
 
-def copy_task(task):
-    return task_models.Task.from_dict(task.to_dict())
-
-
 delay_on_error = backoff.Backoff(
     backoff.Exponential(2),
     backoff.Factor(datetime.timedelta(hours=1) / 16),
@@ -66,7 +62,7 @@ class QueueHandler(object):
 
     def get_retry_task(self, task, error):
         """ Create a retry task from a failed task. """
-        retry = copy_task(task)
+        retry = task_models.copy_task(task)
         retry.queue = self.queue
         retry.sub = self.retry_sub or ""
         retry.attempts = task.attempts + 1

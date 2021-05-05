@@ -119,3 +119,12 @@ def db_row_to_task(row, allow_empty=False):
     if allow_empty and not row:
         return None
     return Task.from_dict(dict(row))
+
+
+def copy_task(task_like):
+    """ Create a copy of a task or payload object.
+
+    :type task_like: Task, Payload
+    :returns: a copy of the object
+    """
+    return type(task_like).from_dict(task_like.to_dict())
