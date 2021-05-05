@@ -113,31 +113,20 @@ class AbstractMapper(object):
         pass
 
     def needs_delay(self, hr_object):
-        """
-        Examine object and decide additional future date triggers.
-
-        Some changes are *future* updates that needs additional processing at a
-        given date.  This method examines an object and returns a list of
-        date or datetime objects for this purpose.
-
-        These dates should be stored in a queue along with the original
-        message or object reference, and re-processed at a later time.
+        """ Find relevant start or end dates that requires future updates.
 
         :type hr_object: Cerebrum.modules.hr_import.models.HRPerson
 
-        :returns:
-            - A list of date or datetime objects for future processing.
-            - A bool stating whether the person has at least one active
-              affiliation.
+        :rtype: list
+        :returns: a list of date objects
         """
         t = datetime.date.today()
-        start_cutoff = t + self.start_grace
+        start_cutoff = t - self.start_grace
         end_cutoff = t + self.end_grace
         active_date_ranges = []
 
         for a in hr_object.affiliations:
             active_date_ranges.append((a.start_date, a.end_date))
-
 
         # TODO: Add roles?
         retry_dates = set()
@@ -145,9 +134,9 @@ class AbstractMapper(object):
             if not in_date_range(start_cutoff, start=start):
                 # Start of affiliation is in the future
                 retry_date = start - self.start_grace
-                retry_dates.add(retry_date.strftime('%s'))
-                logger.info('Start date of affiliation in the future. '
-                            'Rescheduling for %s', retry_date )
+                retry_dates.add(retry_date)
+                logger.info('affiliation start %s, should retry at %s',
+                            start, retry_date)
                 # No need to handle the the end date now.
                 continue
             if (end not in self.end_dates_ignore and
@@ -155,9 +144,9 @@ class AbstractMapper(object):
                 # We have to try again the day after the affiliations end date
                 # if we are actually going to remove it. Thus the + 1
                 retry_date = end + self.end_grace + datetime.timedelta(days=1)
-                retry_dates.add(retry_date.strftime('%s'))
-                logger.info('End date of affiliation set. '
-                            'Rescheduling for %s', retry_date)
+                retry_dates.add(retry_date)
+                logger.info('affiliation end %s, should retry at %s',
+                            end, retry_date)
         return retry_dates
 
 
