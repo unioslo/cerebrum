@@ -27,7 +27,6 @@ import logging
 
 import cereconf
 
-from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 
 from Cerebrum.modules.automatic_group.structure import (
@@ -64,58 +63,20 @@ class LeaderGroupUpdater(object):
                           filter_expired=True,
                           fetchall=False))
 
-    def _ou_id2stedkode(self, hr_ou_id):
-        """Get stedkode from ou_id given by the hr system"""
-        # TODO: can probably be made easier with orgreg
-        ou = Factory.get('OU')(self.db)
-        if isinstance(hr_ou_id, int):
-            hr_ou_id = str(hr_ou_id)
+    def get_leader_group_ids(self, hr_ous):
+        """Convert a set of OU's into a set of leader group ids
 
-        # if the source is SAP - the hr_ou_id should be a 'stedkode'
-        if self.source_system == self.const.system_sap:
-
-            try:
-                ou.find_stedkode(
-                    hr_ou_id[0:2],
-                    hr_ou_id[2:4],
-                    hr_ou_id[4:6],
-                    cereconf.DEFAULT_INSTITUSJONSNR
-                )
-                return ou.get_stedkode()
-            except Errors.NotFoundError:
-                raise LookupError("invalid location code hr_ou_id=%r" %
-                                  (hr_ou_id,))
-
-        source_systems = (self.const.system_orgreg, self.const.system_manual)
-        for source in source_systems:
-            try:
-                ou.find_by_external_id(
-                    id_type=self.const.externalid_dfo_ou_id,
-                    external_id=hr_ou_id,
-                    source_system=source
-                )
-            except Errors.NotFoundError:
-                ou.clear()
-            else:
-                return ou.get_stedkode()
-
-        raise LookupError('invalid external ou_id hr_ou_id=%r' % (hr_ou_id,))
-
-    def get_leader_group_ids(self, hr_ou_ids):
-        """Convert a set of OU ids into a set of leader group ids"""
+        :param hr_ous: Cerebrum OU-objects of OUs where the person is a leader
+        """
         leader_group_ids = set()
-        for hr_ou_id in hr_ou_ids:
-            try:
-                stedkode = self._ou_id2stedkode(hr_ou_id)
-            except LookupError as e:
-                logger.error('No such ou: %s', e)
-            else:
-                leader_group_id = get_leader_group(self.db, stedkode).entity_id
-                leader_group_ids.add(leader_group_id)
+        for hr_ou in hr_ous:
+            stedkode = hr_ou.get_stedkode()
+            leader_group_id = get_leader_group(self.db, stedkode).entity_id
+            leader_group_ids.add(leader_group_id)
         return leader_group_ids
 
-    def sync(self, person_id, hr_ou_ids):
-        require_memberships = self.get_leader_group_ids(hr_ou_ids)
+    def sync(self, person_id, hr_ous):
+        require_memberships = self.get_leader_group_ids(hr_ous)
         current_memberships = set(self._get_current_groups(person_id))
 
         if require_memberships == current_memberships:
