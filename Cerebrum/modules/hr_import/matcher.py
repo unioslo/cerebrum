@@ -35,18 +35,19 @@ from Cerebrum.Utils import Factory
 logger = logging.getLogger(__name__)
 
 
-def match_entity(external_ids, source_system, database):
+def match_entity(external_ids, database):
     """Find matching Cerebrum entity for the given external_ids
 
+    Match all ids against every source system.
+
     :type external_ids: set(HRExternalId)
-    :type source_system: AuthoritativeSystem
     :param database: Cerebrum database
     """
     db_object = Factory.get('Person')(database)
     const = Factory.get('Constants')(database)
 
     match_ids = tuple(
-        (const.EntityExternalId(i.id_type), i.external_id, source_system)
+        (const.EntityExternalId(i.id_type), i.external_id)
         for i in external_ids
     )
 

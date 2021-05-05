@@ -80,9 +80,7 @@ class AbstractImport(object):
 
     def find_entity(self, hr_object):
         """Find matching Cerebrum entity for the given HRPerson."""
-        return match_entity(hr_object.external_ids,
-                            self.source_system,
-                            self.db)
+        return match_entity(hr_object.external_ids, self.db)
 
     def handle_reference(self, reference):
         """
