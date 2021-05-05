@@ -47,8 +47,15 @@ def match_entity(external_ids, source_system, database):
 
     match_ids = tuple(
         (const.EntityExternalId(i.id_type), i.external_id, source_system)
-        for i in external_ids
+        for i in external_ids if i.id_type != 'NO_BIRTHNO'
     )
+
+    # Match FNR from any source systems
+    for external_id in external_ids:
+        if external_id.id_type == 'NO_BIRTHNO':
+            match_ids = match_ids + ((
+                const.EntityExternalId(external_id.id_type),
+                external_id.external_id),)
 
     try:
         db_object.find_by_external_ids(*match_ids)
