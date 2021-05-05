@@ -35,6 +35,7 @@ from Cerebrum.utils.argutils import add_commit_args
 from Cerebrum.utils.date import now
 from Cerebrum.utils.module import resolve
 from Cerebrum.modules.hr_import.errors import NonExistentOuError
+from Cerebrum.modules.hr_import.datasource import DatasourceInvalid
 
 
 logger = logging.getLogger(__name__)
@@ -134,7 +135,7 @@ def main(inargs=None):
             with db_context(database, dryrun=dryrun_import) as db:
                 handle_task(db, dryrun=dryrun_import, task=task)
             task_failed = None
-        except NonExistentOuError as e:
+        except (NonExistentOuError, DatasourceInvalid) as e:
             logger.error(e.message)
             task_failed = e
         except Exception as e:
