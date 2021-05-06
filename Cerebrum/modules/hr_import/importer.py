@@ -110,7 +110,7 @@ class AbstractImport(object):
         #  Rescheduling
         retry_dates = self.mapper.needs_delay(hr_object)
         if not hr_object:
-            raise ValueError('hr_object is empty')
+            raise DatasourceInvalid('hr_object is empty')
 
         if self.mapper.is_active(hr_object):
             if db_object:
