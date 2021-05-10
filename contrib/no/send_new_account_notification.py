@@ -28,6 +28,7 @@ import argparse
 import functools
 import logging
 from datetime import datetime, timedelta
+from sys import exit
 
 import six
 
@@ -65,20 +66,20 @@ class AccountsWithTraitManager(object):
             yield row
 
 
-def get_ou_contact_emails(ou, co):
+def get_ou_contact_emails(ou, perspective):
     """Get the contact email(s) of an ou, if any.
 
     :param ou: A populated OU object
-    :param co: Constants
+    :param perspective: Perspective to use:
     """
-    contact_emails = ou.local_it_contact(co.perspective_sap)
+    contact_emails = ou.local_it_contact(perspective)
     contact_emails = [a['contact_value'] for a in contact_emails]
     return contact_emails
 
 
 class AccountCreationNotifier(object):
 
-    def __init__(self, db, trait, too_old, affiliations=None, commit=False):
+    def __init__(self, db, trait, too_old, perspective, affiliations=None, commit=False):
         self.db = db
         self.co = Factory.get('Constants')(self.db)
         self.ou = Factory.get('OU')(self.db)
@@ -87,6 +88,7 @@ class AccountCreationNotifier(object):
         self.too_old = too_old
         self.affiliations = affiliations
         self.manager = AccountsWithTraitManager(self.db, trait)
+        self.perspective = perspective
 
     def find_ou(self, ou_id):
         """Attempt to do self.ou.find(ou_id)"""
@@ -114,7 +116,7 @@ class AccountCreationNotifier(object):
             if not self.find_ou(ou_id):
                 continue
 
-            contact_emails = get_ou_contact_emails(self.ou, self.co)
+            contact_emails = get_ou_contact_emails(self.ou, self.perspective)
             stedkode = self.ou.get_stedkode()
 
             logger.info('Found users %s with trait, on ou %s', users, stedkode)
@@ -296,6 +298,11 @@ def main(inargs=None):
         'Default: %(default)s days.')
 
     parser.add_argument(
+       "-p", "--perspective",
+        default="SAP",
+        help="Which ou-perspective to use")
+
+    parser.add_argument(
         '--commit',
         action='store_true',
         default=False,
@@ -308,6 +315,9 @@ def main(inargs=None):
     db = Factory.get('Database')()
     co = Factory.get('Constants')(db)
     check_constant = functools.partial(argutils.get_constant, db, parser)
+    perspective = argutils.get_constant(
+        db, parser, co.OUPerspective, args.perspective
+    )
 
     trait = check_constant(co.EntityTrait, args.trait, trait_arg)
 
@@ -321,12 +331,15 @@ def main(inargs=None):
     logger.info('Start of script %s', parser.prog)
     logger.debug("trait:        %r", trait)
     logger.debug("affiliations: %r", affiliations)
+    logger.debug("perspective:  %r", perspective)
     logger.debug("commit:       %r", args.commit)
+
 
     notifier = AccountCreationNotifier(
         db=db,
         trait=trait,
         too_old=args.too_old,
+        perspective=perspective,
         affiliations=affiliations,
         commit=args.commit
     )
