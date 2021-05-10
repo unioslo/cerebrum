@@ -319,10 +319,6 @@ def main(inargs=None):
         db, parser, co.OUPerspective, args.perspective
     )
 
-    if perspective is None:
-        logger.error("Perspective was not found")
-        exit(-1)
-
     trait = check_constant(co.EntityTrait, args.trait, trait_arg)
 
     affiliations = [
