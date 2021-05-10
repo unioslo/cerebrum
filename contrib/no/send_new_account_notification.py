@@ -28,6 +28,7 @@ import argparse
 import functools
 import logging
 from datetime import datetime, timedelta
+from sys import exit
 
 import six
 
@@ -65,11 +66,11 @@ class AccountsWithTraitManager(object):
             yield row
 
 
-def get_ou_contact_emails(ou, co, perspective):
+def get_ou_contact_emails(ou, perspective):
     """Get the contact email(s) of an ou, if any.
 
     :param ou: A populated OU object
-    :param co: Constants
+    :param perspective: Perspective to use:
     """
     contact_emails = ou.local_it_contact(perspective)
     contact_emails = [a['contact_value'] for a in contact_emails]
@@ -101,7 +102,7 @@ class AccountCreationNotifier(object):
             return False
         return True
 
-    def notify(self, perspective):
+    def notify(self):
         """Notify lkit on the creation of new accounts"""
         logger.info('send_new_account_notification_mail start')
 
@@ -115,8 +116,7 @@ class AccountCreationNotifier(object):
             if not self.find_ou(ou_id):
                 continue
 
-            contact_emails = get_ou_contact_emails(self.ou, self.co,
-                                                   self.perspective)
+            contact_emails = get_ou_contact_emails(self.ou, self.perspective)
             stedkode = self.ou.get_stedkode()
 
             logger.info('Found users %s with trait, on ou %s', users, stedkode)
@@ -315,8 +315,13 @@ def main(inargs=None):
     db = Factory.get('Database')()
     co = Factory.get('Constants')(db)
     check_constant = functools.partial(argutils.get_constant, db, parser)
-    perspective = argutils.get_constant(db, parser, co.OUPerspective,
-                                        args.perspective)
+    perspective = argutils.get_constant(
+        db, parser, co.OUPerspective, args.perspective
+    )
+
+    if perspective is None:
+        logger.error("Perspective was not found")
+        exit(-1)
 
     trait = check_constant(co.EntityTrait, args.trait, trait_arg)
 
@@ -333,6 +338,7 @@ def main(inargs=None):
     logger.debug("perspective:  %r", perspective)
     logger.debug("commit:       %r", args.commit)
 
+
     notifier = AccountCreationNotifier(
         db=db,
         trait=trait,
@@ -342,10 +348,7 @@ def main(inargs=None):
         commit=args.commit
     )
 
-    perspective = co.human2constant(args.perspective)
-    if perspective is not None:
-        notifier.notify(perspective)
-    logger.error("Perspective was not found")
+    notifier.notify()
 
 
 if __name__ == '__main__':
