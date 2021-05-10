@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2013-2018 University of Oslo, Norway
+# Copyright 2013-2021 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -39,7 +38,6 @@ group_help = {
     'group': "Group commands",
     'host': "Host related commands",
     'misc': 'Miscellaneous commands',
-    'ou': 'Organizational unit related commands',
     'perm': 'Control of Privileges in Cerebrum',
     'person': 'Person related commands',
     'pquota': 'Pquota related commands',
@@ -166,17 +164,6 @@ command_help = {
             'Check whether an account has a given password',
         'misc_password_issues':
             'Find out why a password cannot be changed',
-    },
-    'ou': {
-        'ou_search': 'Search for OUs by name or a partial stedkode',
-        'ou_info': 'View information about an OU',
-        'ou_tree': 'Show parents/children of an OU',
-        'ou_set_id':
-            'Add an external id for an OU (can only set IDs with source '
-            'Manual)',
-        'ou_clear_id':
-            'Remove an external id from an OU (can only clear IDs with source '
-            'Manual)'
     },
     'perm': {
         'perm_opset_list': 'List defined opsets',
@@ -527,21 +514,6 @@ arg_help = {
         ['ou', 'Enter OU',
          'Enter the 6-digit code of the organizational unit the person is '
          'affiliated to. Example: 150300'],
-    'ou_stedkode_or_id':
-        ['ou', 'Enter OU stedkode/id',
-         'Enter a 6-digit stedkode of an organizational unit, or id:? to '
-         'look up by entity ID.'],
-    'ou_perspective':
-        ['perspective', 'Enter a perspective (usually SAP or FS)',
-         'Enter a perspective used for getting the organizational structure.'],
-    'ou_search_pattern':
-        ['pattern', 'Enter search pattern',
-         'Enter a string (% works as a wildcard) or a partial stedkode to' +
-         'search for.'],
-    'ou_search_language':
-        ['language', 'Enter a language code (nb/en)',
-         'Enter a language code (nb/en) to be used for searching and ' +
-         'displaying OU names and acronyms.'],
     'person_id':
         ['person_id', 'Enter person id',
          u"""Enter person id as idtype:id. If idtype is fnr or account, the

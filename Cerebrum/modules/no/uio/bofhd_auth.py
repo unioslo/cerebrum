@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003-2019 University of Oslo, Norway
+# Copyright 2003-2021 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -31,6 +31,7 @@ from Cerebrum.modules.bofhd.bofhd_contact_info import BofhdContactAuth
 from Cerebrum.modules.bofhd_requests.bofhd_requests_auth import RequestsAuth
 from Cerebrum.modules.bofhd.bofhd_email import BofhdEmailAuth
 from Cerebrum.modules.bofhd import bofhd_access
+from Cerebrum.modules.bofhd import bofhd_ou_cmds
 from Cerebrum.modules.bofhd.errors import PermissionDenied
 from Cerebrum.modules.bofhd import bofhd_user_create_unpersonal
 from Cerebrum.modules.ou_disk_mapping import bofhd_cmds
@@ -129,7 +130,8 @@ class UioAuth(ContactAuthMixin, BofhdAuth):
             account = Factory.get('Account')(self._db)
             account.find(operator)
             if person.entity_id != account.owner_id:
-                raise PermissionDenied('Cannot clear override for other persons')
+                raise PermissionDenied(
+                    'Cannot clear override for other persons')
             return True
         raise PermissionDenied('Not allowed to clear name')
 
@@ -420,4 +422,8 @@ class OUDiskMappingAuth(UioAuth, bofhd_cmds.BofhdOUDiskMappingAuth):
 
 
 class HistoryAuth(UioAuth, bofhd_history_cmds.BofhdHistoryAuth):
+    pass
+
+
+class OuAuth(UioAuth, bofhd_ou_cmds.OuAuth):
     pass

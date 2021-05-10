@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2007-2018 University of Oslo, Norway
+# Copyright 2007-2021 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -29,6 +29,7 @@ from Cerebrum.modules.apikeys import bofhd_apikey_cmds
 from Cerebrum.modules.audit import bofhd_history_cmds
 from Cerebrum.modules.bofhd import bofhd_access
 from Cerebrum.modules.bofhd import bofhd_contact_info
+from Cerebrum.modules.bofhd import bofhd_ou_cmds
 from Cerebrum.modules.bofhd import cmd_param
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
@@ -84,9 +85,6 @@ class HiofAuth(BofhdAuth):
 uio_helpers = ['_viewable_external_ids']
 
 uio_commands = [
-    'ou_info',
-    'ou_search',
-    'ou_tree',
     'group_add_admin',
     'group_remove_admin',
     'group_add_moderator',
@@ -437,6 +435,14 @@ class _HistoryAuth(HiofAuth, bofhd_history_cmds.BofhdHistoryAuth):
 
 class HistoryCommands(bofhd_history_cmds.BofhdHistoryCmds):
     authz = _HistoryAuth
+
+
+class _OuAuth(HiofAuth, bofhd_ou_cmds.OuAuth):
+    pass
+
+
+class OuCommands(bofhd_ou_cmds.OuCommands):
+    authz = _OuAuth
 
 
 HELP_CMDS = {

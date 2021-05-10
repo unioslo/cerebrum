@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2013-2018 University of Oslo, Norway
+# Copyright 2013-2021 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -48,6 +48,7 @@ from Cerebrum.modules import EntityTrait
 from Cerebrum.modules import dns
 from Cerebrum.modules.audit import bofhd_history_cmds
 from Cerebrum.modules.bofhd import bofhd_access
+from Cerebrum.modules.bofhd import bofhd_ou_cmds
 from Cerebrum.modules.bofhd import cmd_param as cmd
 from Cerebrum.modules.bofhd import bofhd_contact_info
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
@@ -799,9 +800,6 @@ admin_copy_uio = [
     'misc_clear_passwords',
     'misc_list_passwords',
     'misc_verify_password',
-    'ou_info',
-    'ou_search',
-    'ou_tree',
     'person_accounts',
     'person_affiliation_add',
     'person_affiliation_remove',
@@ -2561,3 +2559,7 @@ class AccessCommands(bofhd_access.BofhdAccessCommands):
 
 class HistoryCommands(bofhd_history_cmds.BofhdHistoryCmds):
     authz = bofhd_auth.HistoryAuth
+
+
+class OuCommands(bofhd_ou_cmds.OuCommands):
+    authz = bofhd_auth.OuAuth
