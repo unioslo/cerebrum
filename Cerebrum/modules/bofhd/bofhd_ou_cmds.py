@@ -226,15 +226,9 @@ class OuCommands(BofhdCommandBase):
         else:
             candidates = self._ou_search_by_name(pattern, language)
 
-        seen = set()
         output = []
         ou = Factory.get('OU')(self.db)
-        for ou_id in candidates:
-            if ou_id in seen:
-                # ignore duplicate results
-                continue
-            seen.add(ou_id)
-
+        for ou_id in set(candidates):
             ou.clear()
             ou.find(ou_id)
             if self._ou_search_spread_match(ou, spread_filter):
@@ -252,7 +246,7 @@ class OuCommands(BofhdCommandBase):
                     (repr(pattern), repr(spread_filter)))
             raise CerebrumError('No matches for %s' % repr(pattern))
 
-        return output
+        return sorted(output, key=lambda r: (r['stedkode'], r['ou_id']))
 
     #
     # ou info <stedkode/entity_id>
