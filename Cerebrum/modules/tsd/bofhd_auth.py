@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2013-2018 University of Oslo, Norway
+# Copyright 2013-2021 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -33,6 +33,7 @@ from Cerebrum import Constants
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.audit import bofhd_history_cmds
 from Cerebrum.modules.bofhd import bofhd_contact_info
+from Cerebrum.modules.bofhd import bofhd_ou_cmds
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.bofhd_constants import _AuthRoleOpCode
@@ -459,4 +460,8 @@ class AccessAuth(TsdBofhdAuth, bofhd_access.BofhdAccessAuth):
 
 
 class HistoryAuth(TsdBofhdAuth, bofhd_history_cmds.BofhdHistoryAuth):
+    pass
+
+
+class OuAuth(TsdBofhdAuth, bofhd_ou_cmds.OuAuth):
     pass

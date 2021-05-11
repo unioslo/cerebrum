@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2002-2019 University of Oslo, Norway
+# Copyright 2002-2021 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -51,6 +51,7 @@ from Cerebrum import database
 from Cerebrum.modules import Email
 from Cerebrum.modules.apikeys import bofhd_apikey_cmds
 from Cerebrum.modules.audit import bofhd_history_cmds
+from Cerebrum.modules.bofhd import bofhd_ou_cmds
 from Cerebrum.modules.bofhd.cmd_param import (
     AccountName,
     Command,
@@ -1090,3 +1091,7 @@ class CreateUnpersonalCommands(bofhd_user_create_unpersonal.BofhdExtension):
 
 class HistoryCommands(bofhd_history_cmds.BofhdHistoryCmds):
     authz = bofhd_auth.HistoryAuth
+
+
+class OuCommands(bofhd_ou_cmds.OuCommands):
+    authz = bofhd_auth.OuAuth

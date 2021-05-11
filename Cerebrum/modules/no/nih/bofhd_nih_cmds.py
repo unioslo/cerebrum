@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2006-2018 University of Oslo, Norway
+# Copyright 2006-2021 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -30,6 +30,7 @@ from Cerebrum.modules.apikeys import bofhd_apikey_cmds
 from Cerebrum.modules.audit import bofhd_history_cmds
 from Cerebrum.modules.bofhd import bofhd_contact_info
 from Cerebrum.modules.bofhd import bofhd_email
+from Cerebrum.modules.bofhd import bofhd_ou_cmds
 from Cerebrum.modules.bofhd import cmd_param
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
@@ -118,9 +119,6 @@ uio_commands = [
     'misc_clear_passwords',
     'misc_list_passwords',
     'misc_verify_password',
-    'ou_info',
-    'ou_search',
-    'ou_tree',
     'person_accounts',
     'person_affiliation_add',
     'person_affiliation_remove',
@@ -420,6 +418,14 @@ class _HistoryAuth(NihAuth, bofhd_history_cmds.BofhdHistoryAuth):
 
 class HistoryCommands(bofhd_history_cmds.BofhdHistoryCmds):
     authz = _HistoryAuth
+
+
+class _OuAuth(NihAuth, bofhd_ou_cmds.OuAuth):
+    pass
+
+
+class OuCommands(bofhd_ou_cmds.OuCommands):
+    authz = _OuAuth
 
 
 HELP_CMDS = {

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003-2019 University of Oslo, Norway
+# Copyright 2003-2021 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -23,6 +23,7 @@ Site specific auth.py for UiA
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.apikeys import bofhd_apikey_cmds
 from Cerebrum.modules.audit import bofhd_history_cmds
+from Cerebrum.modules.bofhd import bofhd_ou_cmds
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.bofhd_contact_info import BofhdContactAuth
 from Cerebrum.modules.bofhd.bofhd_email import BofhdEmailAuth
@@ -205,4 +206,8 @@ class CreateUnpersonalAuth(UiaAuth,
 
 
 class HistoryAuth(UiaAuth, bofhd_history_cmds.BofhdHistoryAuth):
+    pass
+
+
+class OuAuth(UiaAuth, bofhd_ou_cmds.OuAuth):
     pass
