@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
 #
-# Copyright 2009-2018 University of Oslo, Norway
+# Copyright 2009-2021 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -300,18 +300,30 @@ class BofhdCommandBase(object):
                 raise CerebrumError("Non-numeric component for id=%r" % ident)
         return id_type, ident
 
-    def _format_ou_name(self, ou):
-        """ Format an OUs name.
-
-        The name is six digits followed by the short name. The digits consists
-        of fakultet, institutt and avdeling.
-        """
+    def _format_ou_name(self, ou, language=None):
+        """ Format ou shortname - '<stedkode> (<ou_name_short>)'. """
+        language = language or self.const.language_nb
         short_name = ou.get_name_with_language(
             name_variant=self.const.ou_name_short,
-            name_language=self.const.language_nb,
+            name_language=language,
             default="")
         return "%02i%02i%02i (%s)" % (ou.fakultet, ou.institutt, ou.avdeling,
                                       short_name)
+
+    def _format_ou_name_full(self, ou, language=None):
+        """ Format ou name - '(<ou_name_short>) <ou_name>'. """
+        language = language or self.const.language_nb
+        acronym = ou.get_name_with_language(
+             name_variant=self.const.ou_name_short,
+             name_language=language,
+             default="")
+        if len(acronym) > 0:
+            acronym = "(%s) " % acronym
+        name = ou.get_name_with_language(
+             name_variant=self.const.ou_name,
+             name_language=language,
+             default="")
+        return "%s%s" % (acronym, name)
 
     def _find_persons(self, arg):
         """ Find persons by a search criteria.
