@@ -39,6 +39,7 @@ _recursive_ou_query_fmt = """
     FROM [:table schema=cerebrum name=ou_structure] init
     WHERE
       init.{target} = :{bind_ou}
+      AND init.perspective = :{bind_perspective}
     UNION ALL
     SELECT
       cur.ou_id,
@@ -47,10 +48,10 @@ _recursive_ou_query_fmt = """
     FROM [:table schema=cerebrum name=ou_structure] cur
     JOIN {table_name}
     ON {ou_join_cond}
-      AND cur.perspective = :{bind_perspective}
       AND cur.parent_id IS NOT NULL
     WHERE
       distance < :{bind_limit}
+      AND perspective = :{bind_perspective}
   )
 """
 
@@ -168,8 +169,10 @@ def list_roots(db, perspective):
       SELECT ou_id
       FROM [:table schema=cerebrum name=ou_structure]
       WHERE parent_id IS NULL
+        AND perspective = :perspective
     """
-    return tuple(int(r['ou_id']) for r in db.query(stmt))
+    return tuple(int(r['ou_id'])
+                 for r in db.query(stmt, {'perspective': int(perspective)}))
 
 
 def get_ou_by_sko(db, sko):
