@@ -24,11 +24,11 @@ The importers binds together the datasources and mappers, and are responsible
 for performing the actual database updates.
 """
 import abc
-import datetime
 import logging
 import json
 
-from Cerebrum.utils.date import apply_timezone, now
+from Cerebrum.utils.date import now
+from Cerebrum.utils.date_compat import get_datetime_tz
 
 from .matcher import match_entity
 from .mapper import NoMappedObjects
@@ -106,8 +106,6 @@ class AbstractImport(object):
         This method inspects and compares the source data and cerebrum data,
         and calls the relevant create/update/remove method.
         """
-        # TODO:
-        #  Rescheduling
         retry_dates = self.mapper.needs_delay(hr_object)
         if not hr_object:
             raise DatasourceInvalid('hr_object is empty')
@@ -129,7 +127,6 @@ class AbstractImport(object):
 
         if retry_dates:
             logger.debug('handle_object: needs delay, retry=%r', retry_dates)
-        # TODO: return get_retries(retry_dates)
         return retry_dates
 
     @abc.abstractmethod
@@ -157,10 +154,7 @@ def get_retries(retry_dates):
     """
     # `retries` is currently a set of unix timestamp strings - we should
     # probably change this to a sorted tuple of datetime.date[time] objects.
-    return sorted(
-        # the timestamps are in our local timezone
-        apply_timezone(datetime.datetime.fromtimestamp(float(t)))
-        for t in (retry_dates or ()))
+    return sorted(get_datetime_tz(d) for d in (retry_dates or ()))
 
 
 def get_next_retry(retry_dates, cutoff=None):

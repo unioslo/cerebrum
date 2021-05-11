@@ -261,10 +261,10 @@ class EmployeeMapper(_base.AbstractMapper):
                     numberojb = phone_number_parse(value, region='NO')
                 except NumberParseException as e:
                     logger.info('Phone number not on the E.164 format.'
-                                ' Skipping phone number %s ',value)
+                                ' Skipping phone number %s ', value)
                     continue
             logger.info('Found valid E.164 phone number: %s',
-                         phone_number_format(numberojb))
+                        phone_number_format(numberojb))
             normalized_numbers_to_add.append((key, phone_number_format(numberojb)))
 
         numbers = set()
