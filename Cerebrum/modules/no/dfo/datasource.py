@@ -225,12 +225,14 @@ class AssignmentDatasource(AbstractDatasource):
     def _get_assignment(self, assignment_id):
         raw = self.client.get_stilling(assignment_id)
         if not raw:
-            logger.warning('no result for assignment-id %r', assignment_id)
+            logger.error('no result for assignment-id %r', assignment_id)
             return {}
         return parse_assignment(raw)
 
     def get_object(self, reference):
         """ Fetch data from sap (employee data, assignments, roles). """
-        assignment_id = reference
-        assignment = self._get_assignment(assignment_id)
-        return Assignment('dfo-sap', assignment_id, assignment)
+        assignment = self._get_assignment(reference)
+        if not assignment:
+            raise DatasourceInvalid('No assignment_id=%r found' %
+                                    (reference,))
+        return Assignment('dfo-sap', reference, assignment)
