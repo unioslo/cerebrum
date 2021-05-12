@@ -153,11 +153,6 @@ class EmployeeMapper(_base.AbstractMapper):
 
             group = person_data.get('medarbeidergruppe')
             sub_group = person_data.get('medarbeiderundergruppe')
-            if int(group) == 8 and int(sub_group) == 50:
-                if not person_data.get('eksternbruker', False):
-                    logger.info('ignoring person with 8/50')
-                    break
-                logger.info('Found 8/50 with eksternbruker == True')
 
             affiliation = 'ANSATT'
             try:
