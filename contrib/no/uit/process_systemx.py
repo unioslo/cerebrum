@@ -28,8 +28,7 @@ import htmlentitydefs
 import logging
 import os
 import re
-
-import mx.DateTime
+import datetime
 
 import cereconf
 import Cerebrum.logutils
@@ -37,6 +36,7 @@ import Cerebrum.logutils.options
 from Cerebrum import Errors
 from Cerebrum.Entity import EntityName
 from Cerebrum.Utils import Factory
+from Cerebrum.utils.date_compat import get_date
 from Cerebrum.modules.entity_expire.entity_expire import EntityExpiredError
 from Cerebrum.modules.no.uit import POSIX_GROUP_NAME
 from Cerebrum.modules.no.uit.Account import UsernamePolicy
@@ -292,7 +292,7 @@ def send_mail(db, tpl, person_info, account_id, dryrun=True):
         logger.debug("send_email(dryrun=True): msg=\n%s", ret)
 
     # set trait on user
-    r = ac.populate_trait(t_code, strval=recipient, date=mx.DateTime.today())
+    r = ac.populate_trait(t_code, strval=recipient, date=datetime.datetime.now())
     logger.debug("populate_trait() -> %s", r)
     ac.write_db()
 
@@ -330,7 +330,7 @@ def get_creator_id(db):
 
 
 def _handle_changes(db, a_id, changes):
-    today = mx.DateTime.today().strftime("%Y-%m-%d")
+    today = datetime.date.today()
     do_promote_posix = False
     ac = Factory.get('Account')(db)
     ac.find(a_id)
@@ -417,7 +417,7 @@ class Build(object):
             self._process_sysx(int(sysx_id), sysx_person)
 
     def _create_account(self, sysx_id):
-        today = mx.DateTime.today()
+        today = datetime.date.today()
         default_creator_id = self.bootstrap_id
         p_obj = Factory.get('Person')(self.db)
         logger.info("Creating account for sysx_id=%r", sysx_id)
@@ -526,9 +526,9 @@ class Build(object):
             changes.append(('promote_posix', True))
 
         # Update expire if needed
-        current_expire = acc_obj.get_expire_date()
-        new_expire = mx.DateTime.DateFrom(person_info['expire_date'])
-        today = mx.DateTime.today()
+        current_expire = get_date(acc_obj.get_expire_date())
+        new_expire = get_date(person_info['expire_date'])
+        today = datetime.date.today()
 
         # expire account if person is deceased
         new_deceased = False
@@ -687,8 +687,8 @@ class Build(object):
             self._send_mailq(mailq)
 
     def check_expired_sourcedata(self, expire_date):
-        expire = mx.DateTime.DateFrom(expire_date)
-        today = mx.DateTime.today()
+        expire = get_date(expire_date)
+        today = datetime.date.today()
         if expire < today:
             return True
         else:
