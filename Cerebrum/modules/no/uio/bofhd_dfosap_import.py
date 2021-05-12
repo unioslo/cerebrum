@@ -22,78 +22,123 @@
 import datetime
 from six import text_type
 from Cerebrum import Utils, Errors
+from Cerebrum.Utils import Factory
 from Cerebrum.utils.date_compat import get_datetime_tz
 from Cerebrum.modules.bofhd.bofhd_core import (BofhdCommonMethods,
                                                BofhdCommandBase)
 from Cerebrum.modules.bofhd.errors import (CerebrumError,
                                            PermissionDenied)
-from Cerebrum.modules.bofhd.cmd_param import (AccountName,
+from Cerebrum.modules.bofhd.cmd_param import (Id,
+                                              PersonId,
+                                              SimpleString,
+                                              AccountName,
                                               Command,
                                               FormatSuggestion)
 from Cerebrum.modules.no.dfo.tasks import (get_tasks,
                                            EmployeeTasks)
 from Cerebrum.modules.hr_import.config import TaskImportConfig
 from Cerebrum.utils.module import resolve
+from Cerebrum.modules.tasks.task_queue import TaskQueue
+
+from Cerebrum.modules.tasks import process
+
+from Cerebrum.database.ctx import db_context
+
+#from Cerebrum.modules.bofhd.auth import BofhdAuth
+
+from Cerebrum.modules.no.uio.bofhd_auth import UioAuth
 
 
-def get_task_class(config):
-    return resolve(config.task_class)
+#crb-config-uio/etc/cerebrum/config/hr-import-employees.yml #config
+
+#python /cerebrum/share/cerebrum/contrib/hr-import/create-task.py -c /cerebrum/etc/cerebrum/config/hr-import-employees.yml 6069138 --commit
+
+#task_class: "Cerebrum.modules.no.dfo.tasks:EmployeeTasks"
+
+#ref.for å liste opp tasks i kø:
+#contrib/hr-import/list-tasks.py
+
+#def get_task_class(config):
+#    return resolve(config.task_class)
 
 
 class SapImport(BofhdCommonMethods):
-    """This class exists to serve the bofh command <NAME>"""
+    """This class exists to serve the bofh command person dfosap_import"""
 
     def __init__(self, db, dfo_pid):
         self.dfo_pid = dfo_pid
         self.pe = Utils.Factory.get('Person')(db)
         self.co = Utils.Factory.get('Constants')(db)
         self.data = {}
-        self.queued_tasks = []
+        #self.queued_tasks = []
+        self.queued_tasks = None
 
     def find_by_pid(self):
-        """Verify that employee number is kosher"""
-        # externalid_sap_ansattnr jon austad = 10169561
-        # Remove comments and set to dfo_pid...   6072205
-        # self.pe.find_by_external_id(self.co.externalid_dfo_pid,
-        #                             self.dfo_pid)
+        """Verify employee number"""
+        #sim dfo pid 6065447
+        #sim sap ansattnr 10193177
         try:
-            # self.pe.find_by_external_id(self.co.externalid_sap_ansattnr,
-            #                             self.dfo_pid)
             self.pe.find_by_external_id(self.co.externalid_dfo_pid,
                                         self.dfo_pid)
-            print(self.pe.__dict__)
             self.pe.clear()
-            return True
         except Errors.NotFoundError:
-            return False
+            raise CerebrumError('Invalid DFØ PID')
 
-    def make_event(self):
-        """Make event"""
-        event = None
-        return event
+    def make_task(self):
+        """Make task containing dfo pid"""
+        task_cls = EmployeeTasks(process.QueueHandler)
+        task = task_cls.create_manual_task(self.dfo_pid)
+        return task
 
-    def push_to_queue(self, event):
-        """Push dfo_pid to queued and thereby force an import."""
-        tasks = get_tasks(event)
+    def push_to_queue(self, task):
+        """Push task to queue, thereby forcing an import."""
+        dryrun = True #while testing TODO: remove
+        with db_context(Factory.get('Database')(), dryrun) as db:
+            TaskQueue(db).push(task)
 
-    def extract_from_queue(self, event):
+    def extract_from_queue(self, task):
         """Check what stuff lies ahead in queue"""
-        # tasks = get_tasks(event)
-        return None
+        #TODO
+        # tasks = get_tasks(task)
+
+        """
+        def get_task_handler(config):
+        import_cls = resolve(config.import_class)
+        logger.info('import_cls: %s', config.import_class)
+
+        task_cls = resolve(config.task_class)
+        logger.info('task_cls: %s', config.task_class)
+
+        get_importer = functools.partial(import_cls, config=config)
+        return task_cls(get_importer)
+
+        config = TaskImportConfig.from_file(args.config)
+        handle = get_task_handler(config)
+
+        format_table = TaskFormatter(('queue', 'key', 'nbf'))
+
+        with db_context(Factory.get('Database')(), dryrun=True) as db:
+        items = sql_search(db, queues=handle.all_queues, limit=args.limit)
+        for row in format_table(items, header=True):
+             print(row)
+
+        """
+        return 10 #placeolder
+
 
     def __call__(self):
-        event = 0
-        if not self.find_by_pid():
-            print('faaaail')
-            return False
-        event = self.make_event()
-        self.push_to_queue(event)
-        self.queued_tasks = self.extract_from_queue(event)
+        self.find_by_pid()
+        task = self.make_task()
+        self.push_to_queue(task)
+        #self.queued_tasks = self.extract_from_queue(task)
 
 
-class BofhdExtension(BofhdCommandBase):
+#class BofhdExtension(BofhdCommandBase):
+class BofhdExtension(BofhdCommonMethods):
     all_commands = {}
+    authz = UioAuth
 
+    """
     @classmethod
     def get_help_strings(cls):
         group_help = {
@@ -113,21 +158,26 @@ class BofhdExtension(BofhdCommandBase):
         return (group_help,
                 command_help,
                 arg_help)
-
+    """
     #
     # person dfosap_import
     #
     all_commands['person_dfosap_import'] = Command(
         ("person", "dfosap_import"),
-        AccountName(help_ref="id:target:dfo_pid"),
+        SimpleString(),
         fs=FormatSuggestion([
-            ('\nQueued tasks for %i:\n', ('dfo_pid')),
-            ('%s', ('queued_tasks',)), ]),
-        perm_filter='can_set_password')
+            ('DFØ PID %s added to queue', ('dfo_pid',))
+        ]),
+        perm_filter=''
+    )
 
     def person_dfosap_import(self, operator, dfo_pid):
         """Add an emnployee number to the queue  in order to
         trigger import and return whatever lies in queue."""
+
+        #TODO: make something like this maybe self.ba.can_import_person(operator.get_entity_id, dfo_pid)
+
+        #self.ba.can_set_password(operator.get_entity_id())
 
         # Primary intended users are Houston.
         # A different check is appropriate
@@ -136,10 +186,14 @@ class BofhdExtension(BofhdCommandBase):
         #     raise PermissionDenied("Access denied")
         simp = SapImport(self.db, dfo_pid)
         simp()
-        return dfo_pid, simp.queued_tasks
+
+        return [{'dfo_pid': dfo_pid}]
+        #                "queued_tasks": simp.queued_tasks}
 
 
 if __name__ == '__main__':
     db = Utils.Factory.get('Database')()
     logger = Utils.Factory.get_logger('console')
-    dfosap_import = BofhdExtension(db, logger)
+    #dfosap_import = BofhdExtension(db, logger)
+    dfosap_import = SapImport(db, "6065447")
+    dfosap_import()
