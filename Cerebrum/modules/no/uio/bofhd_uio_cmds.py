@@ -3435,9 +3435,10 @@ class BofhdExtension(BofhdCommonMethods):
             'passnr': 'externalid_pass_number',
             'studnr': 'externalid_studentnr',
             'sapnr':  'externalid_sap_ansattnr',
-            'dfonr':  'externalid_dfo_pid',
+            'dfo_pid':  'externalid_dfo_pid',
             # fnr is excluded on purpose, to avoid exploitations
         }
+        search_type = str.lower(search_type)
         if search_type == 'name':
             if filter is not None:
                 raise CerebrumError("Can't filter by affiliation "
