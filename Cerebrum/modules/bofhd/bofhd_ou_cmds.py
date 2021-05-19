@@ -50,13 +50,13 @@ logger = logging.getLogger(__name__)
 
 
 class OuAuth(BofhdAuth):
-    """ Auth for entity contactinfo_* commands. """
+    """ Auth for entity ou_* commands. """
 
     def can_set_ou_id(self, operator,
                       entity=None,
                       id_type=None,
                       query_run_any=False):
-        """ Check if an operator is allowed to see contact info.
+        """ Check if an operator is allowed to set ExternalId on OU.
 
         :param int operator: entity_id of the authenticated user
         :param entity: A cerebrum entity object (i.e. an ou object)
@@ -72,7 +72,7 @@ class OuAuth(BofhdAuth):
                         entity=None,
                         id_type=None,
                         query_run_any=False):
-        """ Check if an operator is allowed to see contact info.
+        """ Check if an operator is allowed to clear ExternalId from OU.
 
         :param int operator: entity_id of the authenticated user
         :param entity: A cerebrum entity object (i.e. an ou object)
@@ -82,15 +82,31 @@ class OuAuth(BofhdAuth):
                                   id_type=id_type, query_run_any=query_run_any)
 
 
+def _format_ou_sko(ou):
+    """ format stedkode from ou object. """
+    if any(getattr(ou, attr, None) is None
+           for attr in ('fakultet', 'institutt', 'avdeling')):
+        # Missing stedkode attrs (i.e. no support, or no stedkode given)
+        return None
+    else:
+        return '%02d%02d%02d' % (ou.fakultet, ou.institutt, ou.avdeling)
+
+
 class OuCommands(BofhdCommandBase):
 
     all_commands = {}
     authz = OuAuth
 
+    # Get default ou-perspective from cereconf.DEFAULT_OU_PERSPECTIVE,
+    # with fallback to cereconf.LDAP_OU['perspective']
+    default_ou_perspective = getattr(
+        cereconf, 'DEFAULT_OU_PERSPECTIVE',
+        getattr(cereconf, 'LDAP_OU', {}).get('perspective'))
+
+    default_ou_language = 'nb'
+
     @property
     def util(self):
-        # TODO: Or should we inherit from BofhdCommonMethods?
-        #       We're not really interested in user_delete, etc...
         try:
             return self.__util
         except AttributeError:
@@ -105,6 +121,34 @@ class OuCommands(BofhdCommandBase):
             (CMD_GROUP, CMD_HELP, CMD_ARGS),
         )
 
+    def _get_perspective(self, perspective=None):
+        """ Fetch a given perspective code, or the default ou perspective. """
+        if not perspective:
+            perspective = self.default_ou_perspective
+        code = self.const.human2constant(perspective, self.const.OUPerspective)
+        try:
+            int(code)
+        except (TypeError, Errors.NotFoundError):
+            perspectives = (
+                six.text_type(x)
+                for x in self.const.fetch_constants(self.const.OUPerspective))
+            raise CerebrumError("Invalid perspective %s. Try one of: %s" %
+                                (repr(perspective), ", ".join(perspectives)))
+        return code
+
+    def _get_language(self, language=None):
+        """ Fetch a given language code, or the default ou language. """
+        if not language:
+            language = self.default_ou_language
+        code = self.const.human2constant(language, self.const.LanguageCode)
+        try:
+            int(code)
+        except (TypeError, Errors.NotFoundError):
+            suggest = ('nb', 'en')
+            raise CerebrumError("Invalid language %s. Try one of: %s" %
+                                (repr(language), ", ".join(suggest)))
+        return code
+
     #
     # ou search <pattern> <language> <spread_filter>
     #
@@ -114,133 +158,95 @@ class OuCommands(BofhdCommandBase):
         SimpleString(help_ref='ou_search_language', optional=True),
         Spread(help_ref='spread_filter', optional=True),
         fs=FormatSuggestion(
-            [(" %06s    %s", ('stedkode', 'name'))],
-            hdr="Stedkode   Organizational unit",
+            # 9 chars, as None is usually rendered as '<not set>'
+            [(" %-9s  %s", ('stedkode', 'name'))],
+            hdr=" %-9s  %s" % ("Stedkode", "Organizational unit"),
         ),
     )
 
-    def ou_search(self, operator, pattern, language='nb', spread_filter=None):
-        if len(pattern) == 0:
-            pattern = '%'  # No search pattern? Get everything!
-        if spread_filter is not None:
-            spread_filter = spread_filter.lower()
+    def _ou_search_by_sko(self, pattern):
+        """ ou search helper - search for ou by stedkode pattern. """
+        fak = [pattern[0:2], ]
+        inst = [pattern[2:4], ]
+        avd = [pattern[4:6], ]
 
-        try:
-            language = int(self.const.LanguageCode(language))
-        except Errors.NotFoundError:
-            raise CerebrumError('Unknown language "%s", try "nb" or "en"' %
-                                language)
+        if len(fak[0]) == 1:
+            fak = [int(fak[0]) * 10 + x for x in range(10)]
+        if len(inst[0]) == 1:
+            inst = [int(inst[0]) * 10 + x for x in range(10)]
+        if len(avd[0]) == 1:
+            avd = [int(avd[0]) * 10 + x for x in range(10)]
+
+        ou = Factory.get('OU')(self.db)
+        # the following loop may look scary, but we will never
+        # call get_stedkoder() more than 10 times.
+        for f in fak:
+            for i in inst:
+                i = i or None
+                for a in avd:
+                    a = a or None
+                    for r in ou.get_stedkoder(fakultet=f, institutt=i,
+                                              avdeling=a):
+                        yield int(r['ou_id'])
+
+    def _ou_search_by_name(self, pattern, language):
+        """ ou search helper - search for ou by name pattern. """
+        ou = Factory.get('OU')(self.db)
+        for r in ou.search_name_with_language(
+                entity_type=self.const.entity_ou,
+                name_language=language,
+                name=pattern,
+                exact_match=False):
+            yield int(r['entity_id'])
+
+    def _ou_search_spread_match(self, ou, spread_filter):
+        """ ou search helper - check if ou spreads matches spread_filter. """
+        if not spread_filter:
+            # no filtering
+            return True
+
+        spread_filter = spread_filter.lower()
+        for spread in (six.text_type(self.const.Spread(s[0]))
+                       for s in ou.get_spread()):
+            if spread.lower() == spread_filter:
+                return True
+        return False
+
+    def ou_search(self, operator, pattern,
+                  language=default_ou_language,
+                  spread_filter=None):
+        """ Search for a given ou by name. """
+        if not pattern:
+            pattern = '%'
+
+        language = self._get_language(language)
+
+        if re.match(r'[0-9]{1,6}$', pattern):
+            candidates = self._ou_search_by_sko(pattern)
+        else:
+            candidates = self._ou_search_by_name(pattern, language)
 
         output = []
         ou = Factory.get('OU')(self.db)
+        for ou_id in set(candidates):
+            ou.clear()
+            ou.find(ou_id)
+            if self._ou_search_spread_match(ou, spread_filter):
+                output.append({
+                    'ou_id': ou.entity_id,
+                    'stedkode': _format_ou_sko(ou),
+                    'name': self._format_ou_name_full(ou, language),
+                })
 
-        if re.match(r'[0-9]{1,6}$', pattern):
-            fak = [pattern[0:2], ]
-            inst = [pattern[2:4], ]
-            avd = [pattern[4:6], ]
-
-            if len(fak[0]) == 1:
-                fak = [int(fak[0]) * 10 + x for x in range(10)]
-            if len(inst[0]) == 1:
-                inst = [int(inst[0]) * 10 + x for x in range(10)]
-            if len(avd[0]) == 1:
-                avd = [int(avd[0]) * 10 + x for x in range(10)]
-
-            # the following loop may look scary, but we will never
-            # call get_stedkoder() more than 10 times.
-            for f in fak:
-                for i in inst:
-                    i = i or None
-                    for a in avd:
-                        a = a or None
-                        for r in ou.get_stedkoder(fakultet=f, institutt=i,
-                                                  avdeling=a):
-                            ou.clear()
-                            ou.find(r['ou_id'])
-
-                            if spread_filter:
-                                spread_filter_match = False
-                                for spread in (
-                                        six.text_type(self.const.Spread(s[0]))
-                                        for s in ou.get_spread()):
-                                    if spread.lower() == spread_filter:
-                                        spread_filter_match = True
-                                        break
-
-                            acronym = ou.get_name_with_language(
-                                 name_variant=self.const.ou_name_acronym,
-                                 name_language=language,
-                                 default="")
-                            name = ou.get_name_with_language(
-                                 name_variant=self.const.ou_name,
-                                 name_language=language,
-                                 default="")
-
-                            if len(acronym) > 0:
-                                acronym = "(%s) " % acronym
-
-                            if (not spread_filter or (spread_filter and
-                                                      spread_filter_match)):
-                                output.append({
-                                    'stedkode': '%02d%02d%02d' % (ou.fakultet,
-                                                                  ou.institutt,
-                                                                  ou.avdeling),
-                                    'name': "%s%s" % (acronym, name),
-                                })
-        else:
-            for r in ou.search_name_with_language(
-                    entity_type=self.const.entity_ou,
-                    name_language=language,
-                    name=pattern,
-                    exact_match=False):
-                ou.clear()
-                ou.find(r['entity_id'])
-
-                if spread_filter:
-                    spread_filter_match = False
-                    for spread in (self.const.Spread(s[0])
-                                   for s in ou.get_spread()):
-                        if six.text_type(spread).lower() == spread_filter:
-                            spread_filter_match = True
-                            break
-
-                acronym = ou.get_name_with_language(
-                    name_variant=self.const.ou_name_acronym,
-                    name_language=language,
-                    default="")
-                name = ou.get_name_with_language(
-                    name_variant=self.const.ou_name,
-                    name_language=language,
-                    default="")
-
-                if len(acronym) > 0:
-                    acronym = "(%s) " % acronym
-
-                if (not spread_filter or (spread_filter and
-                                          spread_filter_match)):
-                    output.append({
-                        'stedkode': '%02d%02d%02d' % (ou.fakultet,
-                                                      ou.institutt,
-                                                      ou.avdeling),
-                        'name': "%s%s" % (acronym, name),
-                    })
-
+        # handle no results
         if len(output) == 0:
             if spread_filter:
-                return ('No matches for "%s" with spread filter "%s"' %
-                        (pattern, spread_filter))
-            return 'No matches for "%s"' % pattern
+                raise CerebrumError(
+                    'No matches for %s with spread filter %s' %
+                    (repr(pattern), repr(spread_filter)))
+            raise CerebrumError('No matches for %s' % repr(pattern))
 
-        # removes duplicate results
-        seen = set()
-        output_nodupes = []
-        for r in output:
-            t = tuple(r.items())
-            if t not in seen:
-                seen.add(t)
-                output_nodupes.append(r)
-
-        return output_nodupes
+        return sorted(output, key=lambda r: (r['stedkode'], r['ou_id']))
 
     #
     # ou info <stedkode/entity_id>
@@ -276,28 +282,8 @@ class OuCommands(BofhdCommandBase):
                                   default_lookup='stedkode',
                                   restrict_to=['OU'])
 
-        acronym_nb = ou.get_name_with_language(
-            name_variant=self.const.ou_name_acronym,
-            name_language=self.const.language_nb,
-            default="")
-        fullname_nb = ou.get_name_with_language(
-            name_variant=self.const.ou_name,
-            name_language=self.const.language_nb,
-            default="")
-        acronym_en = ou.get_name_with_language(
-            name_variant=self.const.ou_name_acronym,
-            name_language=self.const.language_en,
-            default="")
-        fullname_en = ou.get_name_with_language(
-            name_variant=self.const.ou_name,
-            name_language=self.const.language_en,
-            default="")
-
-        if len(acronym_nb) > 0:
-            acronym_nb = "(%s) " % acronym_nb
-
-        if len(acronym_en) > 0:
-            acronym_en = "(%s) " % acronym_en
+        name_nb = self._format_ou_name_full(ou, self.const.language_nb)
+        name_en = self._format_ou_name_full(ou, self.const.language_en)
 
         quarantines = []
         for q in ou.get_entity_quarantine(only_active=True):
@@ -312,17 +298,11 @@ class OuCommands(BofhdCommandBase):
         if len(spreads) == 0:
             spreads = ['<none>']
 
-        # To support OU objects without the mixin for stedkode:
-        stedkode = '<Not set>'
-        if hasattr(ou, 'fakultet'):
-            stedkode = '%02d%02d%02d' % (ou.fakultet, ou.institutt,
-                                         ou.avdeling)
-
         output.append({
             'entity_id': ou.entity_id,
-            'stedkode': stedkode,
-            'name_nb': "%s%s" % (acronym_nb, fullname_nb),
-            'name_en': "%s%s" % (acronym_en, fullname_en),
+            'stedkode': _format_ou_sko(ou),
+            'name_nb': name_nb,
+            'name_en': name_en,
             'quarantines': ', '.join(quarantines),
             'spreads': ', '.join(spreads)
         })
@@ -337,9 +317,8 @@ class OuCommands(BofhdCommandBase):
                 'from_ou': ''
             })
 
-        ou_perspective = cereconf.LDAP_OU.get('perspective', None)
-        if ou_perspective:
-            ou_perspective = self.const.OUPerspective(ou_perspective)
+        if self.default_ou_perspective:
+            ou_perspective = self._get_perspective()
             from_ou_str = '(inherited from parent OU, entity_id:{})'
             for it_contact in ou.local_it_contact(ou_perspective):
                 if it_contact['from_ou_id'] == ou.entity_id:
@@ -400,22 +379,54 @@ class OuCommands(BofhdCommandBase):
                 ed.clear()
                 ed.find(r['domain_id'])
 
-                output.append({'email_affiliation': affname,
-                               'email_domain': ed.email_domain_name})
+                output.append({
+                    'email_affiliation': affname,
+                    'email_domain': ed.email_domain_name,
+                })
 
         # Add external ids
         for ext_id in ou.get_external_id():
-            output.append(
-                {
-                    'extid': six.text_type(self.const.EntityExternalId(
-                        ext_id['id_type'])),
-                    'value': six.text_type(ext_id['external_id']),
-                    'extid_src': six.text_type(self.const.AuthoritativeSystem(
-                        ext_id['source_system']))
-                }
-            )
+            output.append({
+                'extid': six.text_type(
+                    self.const.EntityExternalId(ext_id['id_type'])),
+                'value': six.text_type(ext_id['external_id']),
+                'extid_src': six.text_type(
+                    self.const.AuthoritativeSystem(ext_id['source_system']))
+            })
 
         return output
+
+    #
+    # ou names <stedkode/entity_id> [language]
+    #
+    all_commands['ou_names'] = Command(
+        ("ou", "names"),
+        OU(help_ref='ou_stedkode_or_id'),
+        fs=FormatSuggestion(
+            [("%-12s  %-6s  %s", ('type', 'lang', 'value'))],
+            hdr='%-12s  %-6s  %s' % ('Type', 'Lang', 'Value'),
+        ),
+    )
+
+    def ou_names(self, operator, target):
+        """ list names for a given ou. """
+        ou = self.util.get_target(target,
+                                  default_lookup='stedkode',
+                                  restrict_to=['OU'])
+        results = []
+        for row in ou.search_name_with_language(
+                entity_id=int(ou.entity_id),
+                entity_type=self.const.entity_ou):
+            results.append({
+                'type': six.text_type(
+                    self.const.EntityNameCode(row['name_variant'])),
+                'lang': six.text_type(
+                    self.const.LanguageCode(row['name_language'])),
+                'value': row['name'],
+            })
+        if not results:
+            raise CerebrumError('No names for ou_id=%s' % repr(ou.entity_id))
+        return sorted(results, key=lambda r: (r.get('type'), r.get('lang')))
 
     #
     # ou tree <stedkode/entity_id> <perspective> <language>
@@ -428,44 +439,26 @@ class OuCommands(BofhdCommandBase):
         fs=FormatSuggestion([("%s%s %s", ('indent', 'stedkode', 'name'))])
     )
 
-    def ou_tree(self, operator, target, ou_perspective=None, language='nb'):
+    def ou_tree(self, operator, target,
+                ou_perspective=default_ou_perspective,
+                language=default_ou_language):
         def _is_root(ou, perspective):
             if ou.get_parent(perspective) in (ou.entity_id, None):
                 return True
             return False
-        co = self.const
-        try:
-            language = int(co.LanguageCode(language))
-        except Errors.NotFoundError:
-            raise CerebrumError('Unknown language "%s", try "nb" or "en"' %
-                                language)
+
+        language = self._get_language(language)
+        perspective = self._get_perspective(ou_perspective)
 
         output = []
-
-        perspective = None
-        if ou_perspective:
-            perspective = co.human2constant(ou_perspective, co.OUPerspective)
-        if not ou_perspective and 'perspective' in cereconf.LDAP_OU:
-            perspective = co.human2constant(cereconf.LDAP_OU['perspective'],
-                                            co.OUPerspective)
-
-        if ou_perspective and not perspective:
-            raise CerebrumError(
-                "No match for perspective '%s'. Try one of: %s" %
-                (ou_perspective,
-                 ", ".join(six.text_type(x) for x in
-                           co.fetch_constants(co.OUPerspective))))
-        if not perspective:
-            raise CerebrumError(
-                "Unable to guess perspective. Please specify one of: %s" %
-                (", ".join(six.text_type(x) for x in
-                           co.fetch_constants(co.OUPerspective))))
 
         target_ou = self.util.get_target(target,
                                          default_lookup='stedkode',
                                          restrict_to=['OU'])
         ou = Factory.get('OU')(self.db)
 
+        # TODO: generalize and use Cerebrum.modules.no.orgera.ou_utils to find
+        # parents and children
         data = {
             'parents': [],
             'target': [target_ou.entity_id],
@@ -515,12 +508,8 @@ class OuCommands(BofhdCommandBase):
 
                 output.append({
                     'indent': indent,
-                    'stedkode': '%02d%02d%02d' % (ou.fakultet, ou.institutt,
-                                                  ou.avdeling),
-                    'name': ou.get_name_with_language(
-                        name_variant=co.ou_name,
-                        name_language=language,
-                        default="")
+                    'stedkode': _format_ou_sko(ou),
+                    'name': self._format_ou_name_full(ou, language),
                 })
 
         return output
@@ -591,20 +580,21 @@ class OuCommands(BofhdCommandBase):
 #
 
 CMD_GROUP = {
-    'ou': 'Organizational unit related commands',
+    'ou': 'Organizational Unit commands',
 }
 
 CMD_HELP = {
     'ou': {
-        'ou_search': 'Search for OUs by name or a partial stedkode',
+        'ou_clear_id':
+            'Remove an external id from an OU (can only clear IDs with source '
+            'Manual)',
         'ou_info': 'View information about an OU',
-        'ou_tree': 'Show parents/children of an OU',
+        'ou_names': 'Show all names for an OU',
+        'ou_search': 'Search for OUs by name or a partial stedkode',
         'ou_set_id':
             'Add an external id for an OU (can only set IDs with source '
             'Manual)',
-        'ou_clear_id':
-            'Remove an external id from an OU (can only clear IDs with source '
-            'Manual)'
+        'ou_tree': 'Show parents/children of an OU',
     },
 }
 
