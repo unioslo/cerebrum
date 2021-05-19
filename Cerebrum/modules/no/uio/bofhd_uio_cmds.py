@@ -3438,7 +3438,7 @@ class BofhdExtension(BofhdCommonMethods):
             'dfo_pid':  'externalid_dfo_pid',
             # fnr is excluded on purpose, to avoid exploitations
         }
-        search_type = str.lower(search_type)
+        search_type = search_type.lower()
         if search_type == 'name':
             if filter is not None:
                 raise CerebrumError("Can't filter by affiliation "
