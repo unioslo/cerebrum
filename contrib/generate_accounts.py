@@ -144,10 +144,15 @@ def update_account(db, pe, account_policy, creator, new_traits=None,
     account.
 
     """
+    affiliations = get_account_types(pe, ignore_affs)
+    # If we've come this far, the person has an affiliation we care about but
+    # the affiliation status is one we explicitly ignore, so we skip the person
+    if not affiliations:
+        return
+    logger.debug("Processing person_id=%d", pe.entity_id)
     ac = Factory.get('Account')(db)
     co = Factory.get('Constants')(db)
     di = Factory.get('Disk')(db)
-    affiliations = get_account_types(pe, ignore_affs)
     disks = (home,) if home else ()
     # Some logging
     logger.debug("Will add traits: %s to account",
@@ -281,7 +286,6 @@ def process(db, affiliations, new_traits=None, spreads=(), ignore_affs=(),
 
     account_policy = AccountPolicy(db)
     for p_id in persons:
-        logger.debug("Processing person_id=%d", p_id)
         pe.clear()
         pe.find(p_id)
         update_account(db, pe, account_policy, creator, new_traits, spreads,
@@ -343,8 +347,10 @@ def make_parser():
         action=ExtendAction,
         type=lambda arg: arg.split(','),
         metavar='AFFILIATIONS',
-        help='Affiliations to NOT copy from person to new account. '
-             'Can be comma separated. ')
+        help='Affiliations and/or statuses that will not generate accounts '
+             'on their own, and also will not be copied from person to new '
+             'account even if the person has other affiliations. Can be comma '
+             'separated. Example: "ANSATT/bilag,MANUELL"')
     parser.add_argument(
         '--remove-quarantines',
         dest='remove_quars',
@@ -446,7 +452,7 @@ def main(inargs=None):
 
     if args.commit:
         db.commit()
-        logger.info("changes commited")
+        logger.info("changes committed")
     else:
         db.rollback()
         logger.info("changes rolled back (dryrun)")
