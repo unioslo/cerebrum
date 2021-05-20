@@ -208,8 +208,6 @@ class UserSync(ADUserUtils):
 
         # fetch names
         self.fetch_names()
-        # fetch contact info: phonenumber and title
-        self.fetch_contact_info()
         # fetch email info
         self.fetch_email_info()
 
@@ -267,33 +265,7 @@ class UserSync(ADUserUtils):
                     self.logger.debug("Non-personal account %r, don't need "
                                       "full name", acc.uname)
 
-    def fetch_contact_info(self):
-        """
-        Get contact info: phonenumber and title. Personal title takes
-        precedence.
-        """
-        self.logger.debug("..fetch contact info..")
-        pid2data = {}
-        # Get phone number
-        for row in self.pe.list_contact_info(
-                source_system=self.co.system_sap,
-                entity_type=self.co.entity_person,
-                contact_type=self.co.contact_phone):
-            pid2data.setdefault(int(row["entity_id"]), {})[
-                int(row["contact_type"])] = row["contact_value"]
-        # Get title
-        for row in self.pe.search_name_with_language(
-                name_language=self.co.language_nb,
-                name_variant=[self.co.personal_title, self.co.work_title]):
-            pid2data.setdefault(int(row["entity_id"]), {})[
-                int(row["name_variant"])] = row["name"]
-        # set data
-        for acc in self.accounts.itervalues():
-            data = pid2data.get(acc.owner_id)
-            if data:
-                acc.contact_phone = data.get(int(self.co.contact_phone), "")
-                acc.title = (data.get(int(self.co.personal_title), "") or
-                             data.get(int(self.co.work_title), ""))
+
 
     def fetch_email_info(self):
         """Get email addresses from Cerebrum"""
