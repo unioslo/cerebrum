@@ -248,8 +248,17 @@ def parse_ou(ou_json, dfo_sap_id_type):
     )
     dfo_sap_id = get_dfo_org_id(ou_json["externalKeys"], dfo_sap_id_type)
     if not stedkode or not dfo_sap_id:
-        err = ("Missing stedkode or dfo_sap_id, "
-               "not able to continue with this OU: {}".format(ou_json["ouId"]))
+        ou_j = ou_json["ouId"]
+        if not stedkode and dfo_sap_id:
+            err = ("Missing stedkode. dfo_sap_id = {}. "
+                   "Not able to continue with this OU: {}".format(dfo_sap_id, ou_j))
+        elif not dfo_sap_id and stedkode:
+            err = ("Missing dfo_sap_id. Stedkode = {}. "
+                   "Not able to continue with this OU: {}".format(stedkode, ou_j))
+        else:
+            err = ("Missing both stedkode and dfo_sap_id. "
+                   "Not able to continue with this OU: {}".format(ou_j))
+
         logger.debug(err)
         return None
 
@@ -260,16 +269,20 @@ def parse_ou(ou_json, dfo_sap_id_type):
         Cerebrum.utils.date.parse_date(valid_from)
     except ISOFormatError:
         logger.exception("OrgRegId:{} has invalid _valid_from_ field: {}. "
-        "This is critical, skipping ...".format(ou_json["ouId"], valid_from))
+                         "This is critical, skipping ...".format(ou_json["ouId"], valid_from))
         return None
 
     valid_to = ou_json.get("validTo", "9999-12-31")
     try:
         Cerebrum.utils.date.parse_date(valid_to)
     except ISOFormatError:
+
         logger.error(
             "OrgRegId:{} has invalid _valid_to_ field: {}".format(
-                ou_json["ouId"], valid_to)
+            ou_json["ouId"], valid_to)
+        )
+        logger.debug(
+            "Continued from above error Stedkode: {} \n dfo_sap_id: {} ".format(stedkode, dfo_sap_id)
         )
         valid_to = "9999-12-31"
 
