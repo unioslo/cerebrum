@@ -170,12 +170,14 @@ class EmployeeMapper(_base.AbstractMapper):
                 end_date = person_data['sluttdato']
 
                 # If the person has one of the MG/MUG combinations present in
-                # role_mapping, then the main assignment should instead be
-                # interpreted as a TILKNYTTET affiliation.
+                # role_mapping, then the main assignment should be handled as
+                # a special affiliation.
                 role = role_mapping.get((group, sub_group))
                 if role:
                     status = role
-                    affiliation = 'TILKNYTTET'
+                    # 8/50 should be ANSATT/bilag regardless of stillingskat
+                    if (group, subgroup) != ('8', 50):
+                        affiliation = 'TILKNYTTET'
 
                 if not status:
                     # extra log message for main aff (to log mg/mug)
