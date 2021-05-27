@@ -135,12 +135,12 @@ class EmployeeMapper(_base.AbstractMapper):
         """
         affiliations = set()
         role_mapping = {
-            ('8', 50): 'bilag',
-            ('9', 90): 'ekst_partner',
-            ('9', 91): 'ekst_partner',
-            ('9', 93): 'emeritus',
-            ('9', 94): 'ekst_partner',
-            ('9', 95): 'gjesteforsker',
+            ('8', 50): ('ANSATT', 'bilag'),
+            ('9', 90): ('TILKNYTTET', 'ekst_partner'),
+            ('9', 91): ('TILKNYTTET', 'ekst_partner'),
+            ('9', 93): ('TILKNYTTET', 'emeritus'),
+            ('9', 94): ('TILKNYTTET', 'ekst_partner'),
+            ('9', 95): ('TILKNYTTET', 'gjesteforsker'),
         }
 
         # TODO:
@@ -154,9 +154,9 @@ class EmployeeMapper(_base.AbstractMapper):
             group = person_data.get('medarbeidergruppe')
             sub_group = person_data.get('medarbeiderundergruppe')
 
-            affiliation = 'ANSATT'
             try:
                 stillingskat_id = assignment['category'][0]
+                affiliation = 'ANSATT'
                 status = status_mapping.get(stillingskat_id)
             except IndexError:
                 stillingskat_id = status = None
@@ -174,10 +174,7 @@ class EmployeeMapper(_base.AbstractMapper):
                 # a special affiliation.
                 role = role_mapping.get((group, sub_group))
                 if role:
-                    status = role
-                    # 8/50 should be ANSATT/bilag regardless of stillingskat
-                    if (group, subgroup) != ('8', 50):
-                        affiliation = 'TILKNYTTET'
+                    affiliation, status = role
 
                 if not status:
                     # extra log message for main aff (to log mg/mug)
