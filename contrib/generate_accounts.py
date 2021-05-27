@@ -144,12 +144,14 @@ def update_account(db, pe, account_policy, creator, new_traits=None,
     account.
 
     """
-    affiliations = get_account_types(pe, ignore_affs)
-    # If we've come this far, the person has an affiliation we care about but
-    # the affiliation status is one we explicitly ignore, so we skip the person
-    if not affiliations:
-        return
     logger.debug("Processing person_id=%d", pe.entity_id)
+    affiliations = get_account_types(pe, ignore_affs)
+    if not affiliations:
+        # If there are no selected account types at this point, we know the
+        # person has a selected affiliation, but the affiliation status must
+        # be one we explicitly ignore, so we skip the person.
+        logger.debug("Found aff to process, but status is ignored; skipping")
+        return
     ac = Factory.get('Account')(db)
     co = Factory.get('Constants')(db)
     di = Factory.get('Disk')(db)
