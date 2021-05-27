@@ -94,7 +94,6 @@ from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.disk_quota import DiskQuota
 from Cerebrum.modules.no.uio.access_FS import FS
 from Cerebrum.modules.no.uio import bofhd_pw_issues
-from Cerebrum.modules.no.uio import bofhd_dfosap_import
 from Cerebrum.modules.bofhd import bofhd_user_create_unpersonal
 from Cerebrum.modules.no.uio import bofhd_auth
 from Cerebrum.modules.ou_disk_mapping import bofhd_cmds
@@ -7134,10 +7133,6 @@ class ApiKeyCommands(bofhd_apikey_cmds.BofhdApiKeyCommands):
 
 class PasswordIssuesCommands(bofhd_pw_issues.BofhdExtension):
     authz = bofhd_auth.PasswordIssuesAuth
-
-
-class DfoSapImportCommands(bofhd_dfosap_import.BofhdExtension):
-    authz = bofhd_auth.SapImportAuth
 
 
 class CreateUnpersonalCommands(bofhd_user_create_unpersonal.BofhdExtension):

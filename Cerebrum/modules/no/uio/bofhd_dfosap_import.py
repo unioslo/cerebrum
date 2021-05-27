@@ -36,16 +36,19 @@ from Cerebrum.modules.tasks.task_queue import TaskQueue
 from Cerebrum.modules.tasks import process
 from Cerebrum.Utils import Factory
 
-
 class SapImport(BofhdCommonMethods):
     """This class exists to serve the bofh command person dfosap_import"""
 
     def __init__(self, db, dfo_pid):
         self.dfo_pid = dfo_pid
+        self.db_ = db
         self.pe = Factory.get('Person')(db)
         self.co = Factory.get('Constants')(db)
-        self.data = {}
         self.queued_tasks = []
+
+        self.find_by_pid()
+        task = self.make_task()
+        self.push_to_queue(task)
 
     def find_by_pid(self):
         """Verify employee number"""
@@ -58,27 +61,18 @@ class SapImport(BofhdCommonMethods):
 
     def make_task(self):
         """Make task containing dfo pid"""
-        task_cls = EmployeeTasks(process.QueueHandler)
-        task = task_cls.create_manual_task(self.dfo_pid)
+        task = EmployeeTasks.create_manual_task(self.dfo_pid)
         return task
 
     def push_to_queue(self, task):
         """Push task to queue, thereby forcing an import"""
-        #dryrun = True #while testing TODO: remove
-        with db_context(Factory.get('Database')(), False) as db:
-            TaskQueue(db).push(task)
+        TaskQueue(self.db_).push(task)
 
     def extract_from_queue(self, task):
         """Check what stuff lies ahead in queue"""
         # TODO: fill list self.queued_tasks with list of tasks for self.dfo_pid
         # already in queue
         self.queued_tasks = []
-
-    def __call__(self):
-        self.find_by_pid()
-        task = self.make_task()
-        self.push_to_queue(task)
-        #self.queued_tasks = self.extract_from_queue(task)
 
 
 class BofhdExtension(BofhdCommonMethods):
@@ -105,7 +99,6 @@ class BofhdExtension(BofhdCommonMethods):
              raise PermissionDenied("Must be superuser to execute this command")
 
         simp = SapImport(self.db, dfo_pid)
-        simp()
 
         return [{'dfo_pid': dfo_pid}]
         #"queued_tasks": simp.queued_tasks}
