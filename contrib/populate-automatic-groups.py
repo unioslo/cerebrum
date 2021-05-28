@@ -1439,7 +1439,7 @@ def main():
                                     args.perspective)
 
     if not args.source_system:
-        args.source_system = ['SAP']
+        args.source_system = ['system_sap']
 
     source_systems = [get_constant(database,
                                    parser,
