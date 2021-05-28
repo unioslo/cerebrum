@@ -1499,11 +1499,11 @@ def main():
         database.rollback()
         logger.debug("Rolled back all changes")
 
-    for k,v in members_added.items():
+    for k,v in _members_added.items():
         logger.info('Added %d memberships of type %s',
                     v, const.human2constant(k))
 
-    for k,v in members_removed.items():
+    for k,v in _members_removed.items():
         logger.info('Removed %d memberships of type %s',
                     v, const.human2constant(k))
 
