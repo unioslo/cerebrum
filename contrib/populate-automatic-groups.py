@@ -77,6 +77,7 @@ FIXME: Profile this baby.
 """
 
 import collections
+import codecs
 import re
 import sys
 import argparse
@@ -96,6 +97,9 @@ constants = Factory.get("Constants")(database)
 INDENT_STEP = 2
 
 ignored_groups = []
+
+members_added = {}
+members_removed = {}
 
 
 class group_attributes(object):
@@ -621,8 +625,17 @@ def remove_members(group, member_sequence):
     :param member_sequence:
       A sequence with person_ids to remove from group.
     """
+    global members_removed
+    en = Factory.get("Entity")(database)
     for entity_id in member_sequence:
+        en.clear()
         group.remove_member(entity_id)
+        en.find(entity_id)
+        logger.info('Removing %s from group %s', en, group)
+        if en.entity_type in members_removed:
+            members_removed[en.entity_type] += 1
+        else:
+            members_removed[en.entity_type] = 1
 
     logger.debug("Removed %d members from group id=%s, name=%s",
                  len(member_sequence), group.entity_id, group.group_name)
@@ -641,8 +654,17 @@ def add_members(group, member_sequence):
     :param member_sequence:
       A sequence with person_ids who are to become members of L{group}.
     """
+    global members_added
+    en = Factory.get("Entity")(database)
     for entity_id in member_sequence:
+        en.clear()
         group.add_member(entity_id)
+        en.find(entity_id)
+        logger.info('Adding %s to group %s', en, group)
+        if en.entity_type in members_added:
+            members_added[en.entity_type] += 1
+        else:
+            members_added[en.entity_type] = 1
 
     logger.debug("Added %d members to group id=%s, name=%s",
                  len(member_sequence), group.entity_id, group.group_name)
@@ -881,7 +903,7 @@ def delete_defunct_groups(groups):
         logger.info("Deleted group id=%s, name=%s", group_id, group_name)
 
 
-def get_affiliation_rows(person, source_system, select_criteria,
+def get_affiliation_rows(person, source_systems, select_criteria,
                          ret_primary_acc=False):
     """Get the affiliation rows necessary for updating the groups"""
 
@@ -891,26 +913,28 @@ def get_affiliation_rows(person, source_system, select_criteria,
                             isinstance(x, constants.PersonAffStatus)}
     affiliation_rows = []
     for affiliation in affiliations:
-        affiliation_rows.extend(
-            person.list_affiliations(affiliation=affiliation,
-                                     source_system=source_system,
-                                     ret_primary_acc=ret_primary_acc)
-        )
+        for source_system in source_systems:
+            affiliation_rows.extend(
+                person.list_affiliations(affiliation=affiliation,
+                                         source_system=source_system,
+                                         ret_primary_acc=ret_primary_acc)
+            )
     for status in affiliation_statuses:
         affiliation, status = constants.get_affiliation(status)
         if affiliation not in affiliations:
             # If affiliation is not in affiliations, the previous loop did not
             # add the necessary rows to the list, so it is done now.
-            affiliation_rows.extend(
-                person.list_affiliations(affiliation=affiliation,
-                                         status=status,
-                                         source_system=source_system,
-                                         ret_primary_acc=ret_primary_acc)
-            )
+            for source_system in source_systems:
+                affiliation_rows.extend(
+                    person.list_affiliations(affiliation=affiliation,
+                                             status=status,
+                                             source_system=source_system,
+                                             ret_primary_acc=ret_primary_acc)
+                )
     return affiliation_rows
 
 
-def perform_sync(select_criteria, perspective, source_system, spreads,
+def perform_sync(select_criteria, perspective, source_systems, spreads,
                  omit_spread, populate_with_primary_acc=False):
     """Set up the environment for synchronisation and sync all groups.
 
@@ -924,9 +948,9 @@ def perform_sync(select_criteria, perspective, source_system, spreads,
       OU perspective, indicating which OU hierarchy should be searched in for
       parent-child OU relationships.
 
-    :type source_system: Cerebrum constants
-    :param source_system:
-      Source system for filtering some of the Cerebrum data.
+    :type source_systems: Cerebrum constants
+    :param source_systems:
+      Source systems for filtering some of the Cerebrum data.
 
     :type spreads: set of tuples
     :param spreads: Spreads to assign for our auto-groups.
@@ -956,16 +980,15 @@ def perform_sync(select_criteria, perspective, source_system, spreads,
     # inferred from the db-rows returned by the first callable.
     global_rules = [
         # Affiliation-based rule, e.g. rules that populate ansatt-<ou>
-        (lambda: get_affiliation_rows(person, source_system, select_criteria),
+        (lambda: get_affiliation_rows(person, source_systems, select_criteria),
          lambda row, current_groups: affiliation2groups(row,
                                                         current_groups,
                                                         select_criteria,
                                                         perspective),
          lambda: get_affiliation_rows(person,
-                                      source_system,
+                                      source_systems,
                                       select_criteria,
                                       ret_primary_acc=True)),
-
         # Trait-based rules: a person with a trait -> membership in a group
         # (lambda: person.list_traits(code=_locate_all_auto_traits()),
         #  lambda *rest: <something-that-reads traits>),
@@ -973,6 +996,7 @@ def perform_sync(select_criteria, perspective, source_system, spreads,
         # Student rules
         # ...
     ]
+
     for rule in global_rules:
         # How do we get all the people for registering in the groups?
         person_generator = rule[0]
@@ -1335,10 +1359,11 @@ def main():
     parser.add_argument(
         '-s', '--source-system',
         type=str,
+        action='append',
         help='Set the source system to fetch the personaffiliations from. \n'
              'Could be a single system or a list of systems. \n '
              'Defaults to \'system_sap\'.',
-        default='SAP',
+        default=[],
     )
     parser.add_argument(
         '--remove-all-auto-groups',
@@ -1414,10 +1439,13 @@ def main():
                                     constants.OUPerspective,
                                     args.perspective)
 
-    args.source_system = get_constant(database,
-                                      parser,
-                                      constants.AuthoritativeSystem,
-                                      args.source_system)
+    if not args.source_system:
+        args.source_system = ['SAP']
+
+    source_systems = [get_constant(database,
+                                   parser,
+                                   constants.AuthoritativeSystem,
+                                   x) for x in args.source_system]
 
     select_criteria = dict()
     for value in args.collect:
@@ -1427,6 +1455,9 @@ def main():
     spreads = NotSet
     omit_spreads = set()
     const = Factory.get("Constants")()
+
+    # Fixes UTF-8 problems with the output-tree command
+    sys.stdout = codecs.getwriter("utf-8")(sys.stdout)
 
     for value in args.spread:
         try:
@@ -1459,7 +1490,7 @@ def main():
         perform_delete()
     else:
         select_criteria = load_registration_criteria(select_criteria)
-        perform_sync(select_criteria, args.perspective, args.source_system,
+        perform_sync(select_criteria, args.perspective, source_systems,
                      spreads, omit_spreads, args.populate_with_primary_acc)
 
     if args.commit:
@@ -1469,6 +1500,13 @@ def main():
         database.rollback()
         logger.debug("Rolled back all changes")
 
+    for k,v in members_added.items():
+        logger.info('Added %d memberships of type %s',
+                    v, const.human2constant(k))
+
+    for k,v in members_removed.items():
+        logger.info('Removed %d memberships of type %s',
+                    v, const.human2constant(k))
 
 if __name__ == "__main__":
     main()
