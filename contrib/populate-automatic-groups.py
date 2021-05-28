@@ -98,8 +98,8 @@ INDENT_STEP = 2
 
 ignored_groups = []
 
-members_added = {}
-members_removed = {}
+_members_added = {}
+_members_removed = {}
 
 
 class group_attributes(object):
@@ -625,17 +625,17 @@ def remove_members(group, member_sequence):
     :param member_sequence:
       A sequence with person_ids to remove from group.
     """
-    global members_removed
+    global _members_removed
     en = Factory.get("Entity")(database)
     for entity_id in member_sequence:
         en.clear()
         group.remove_member(entity_id)
         en.find(entity_id)
         logger.info('Removing %s from group %s', en, group)
-        if en.entity_type in members_removed:
-            members_removed[en.entity_type] += 1
+        if en.entity_type in _members_removed:
+            _members_removed[en.entity_type] += 1
         else:
-            members_removed[en.entity_type] = 1
+            _members_removed[en.entity_type] = 1
 
     logger.debug("Removed %d members from group id=%s, name=%s",
                  len(member_sequence), group.entity_id, group.group_name)
@@ -654,17 +654,17 @@ def add_members(group, member_sequence):
     :param member_sequence:
       A sequence with person_ids who are to become members of L{group}.
     """
-    global members_added
+    global _members_added
     en = Factory.get("Entity")(database)
     for entity_id in member_sequence:
         en.clear()
         group.add_member(entity_id)
         en.find(entity_id)
         logger.info('Adding %s to group %s', en, group)
-        if en.entity_type in members_added:
-            members_added[en.entity_type] += 1
+        if en.entity_type in _members_added:
+            _members_added[en.entity_type] += 1
         else:
-            members_added[en.entity_type] = 1
+            _members_added[en.entity_type] = 1
 
     logger.debug("Added %d members to group id=%s, name=%s",
                  len(member_sequence), group.entity_id, group.group_name)
@@ -1361,8 +1361,7 @@ def main():
         type=str,
         action='append',
         help='Set the source system to fetch the personaffiliations from. \n'
-             'Could be a single system or a list of systems. \n '
-             'Defaults to \'system_sap\'.',
+             'Defaults to \'system_sap\' if none is given.',
         default=[],
     )
     parser.add_argument(
