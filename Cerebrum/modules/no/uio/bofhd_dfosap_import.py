@@ -32,8 +32,9 @@ from Cerebrum.modules.bofhd.errors import (CerebrumError,
                                            PermissionDenied)
 from Cerebrum.modules.no.dfo.tasks import EmployeeTasks
 from Cerebrum.modules.no.uio.bofhd_auth import UioAuth
-from Cerebrum.modules.tasks.task_queue import TaskQueue
-from Cerebrum.modules.tasks import process
+from Cerebrum.modules.tasks.formatting import TaskFormatter
+from Cerebrum.modules.tasks.task_queue import (TaskQueue,
+                                               sql_search)
 from Cerebrum.Utils import Factory
 
 class SapImport(BofhdCommonMethods):
@@ -44,11 +45,12 @@ class SapImport(BofhdCommonMethods):
         self.db_ = db
         self.pe = Factory.get('Person')(db)
         self.co = Factory.get('Constants')(db)
-        self.queued_tasks = []
+        self.queued_tasks = ""
 
         self.find_by_pid()
         task = self.make_task()
         self.push_to_queue(task)
+        self.extract_from_queue()
 
     def find_by_pid(self):
         """Verify employee number"""
@@ -68,11 +70,16 @@ class SapImport(BofhdCommonMethods):
         """Push task to queue, thereby forcing an import"""
         TaskQueue(self.db_).push(task)
 
-    def extract_from_queue(self, task):
-        """Check what stuff lies ahead in queue"""
-        # TODO: fill list self.queued_tasks with list of tasks for self.dfo_pid
-        # already in queue
-        self.queued_tasks = []
+    def extract_from_queue(self):
+        """Find the existing tasks in the queue for the person"""
+        format_table = TaskFormatter(('queue', 'key', 'iat', 'nbf', 'attempts'))
+        items=sql_search(self.db_)
+
+        for index,row in enumerate(format_table(items, header=True)):
+            if self.dfo_pid in row or index < 2:
+                self.queued_tasks += row + "\n"
+        #strip trailing line break from queued task string
+        self.queued_tasks = self.queued_tasks[:-2]
 
 
 class BofhdExtension(BofhdCommonMethods):
@@ -86,7 +93,8 @@ class BofhdExtension(BofhdCommonMethods):
         ("person", "dfosap_import"),
         SimpleString(),
         fs=FormatSuggestion([
-            (u'DFØ PID %s added to queue', ('dfo_pid',))
+            (u'DFØ PID %s added to queue \n', ('dfo_pid',)),
+            (u'Tasks in queue for this person: \n %s', ('queued_tasks',))
         ]),
         perm_filter='is_superuser'
     )
@@ -100,5 +108,5 @@ class BofhdExtension(BofhdCommonMethods):
 
         simp = SapImport(self.db, dfo_pid)
 
-        return [{'dfo_pid': dfo_pid}]
-        #"queued_tasks": simp.queued_tasks}
+        return [{'dfo_pid': dfo_pid,
+                 "queued_tasks": simp.queued_tasks}]
