@@ -2400,12 +2400,12 @@ class BofhdAuth(DatabaseAccessor):
         """
         if not hasattr(cereconf, self.GLOBAL_GROUP_ACCESS_ATTR):
             return False
-        gr = Group(self._db)
+        gr = Factory.get('Group')(self._db)
         global_access_group = getattr(
             cereconf, self.GLOBAL_GROUP_ACCESS_ATTR
         )
         try:
-            gr.find(global_access_group)
+            gr.find_by_name(global_access_group)
         except NotFoundError:
             return False
 
