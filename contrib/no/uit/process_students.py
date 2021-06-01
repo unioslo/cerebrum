@@ -282,7 +282,6 @@ class AccountUtil(object):
             account_obj.find(account_id)
             user.populate(uid, changes[0][1], None, shell,
                           parent=account_obj, expire_date=default_expire_date)
-            # WTF is the meaning of expire_date=default_expire_date ?
             user.write_db()
             accounts[account_id].append_group(changes[0][1])
             del (changes[0])
