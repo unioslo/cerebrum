@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright 2004-2018 University of Oslo, Norway
+#
+# Copyright 2004-2021 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,9 +18,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
 """Generate an LDIF file for the VOIP extension."""
-
 from __future__ import unicode_literals
 
 import argparse
@@ -29,10 +28,14 @@ from six import text_type
 import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.LDIFutils import (ldapconf,
-                                        entry_string,
-                                        ldif_outfile,
-                                        container_entry_string)
+from Cerebrum.modules.LDIFutils import (
+    attr_unique,
+    container_entry_string,
+    entry_string,
+    ldapconf,
+    ldif_outfile,
+    normalize_string,
+)
 from Cerebrum.modules.no.uio.voip.voipClient import VoipClient
 from Cerebrum.modules.no.uio.voip.voipAddress import VoipAddress
 
@@ -87,11 +90,14 @@ def generate_voip_addresses(sink, db, *args):
         addr_id2dn[entity_id] = dn
         if not entry.get("cn"):
             entry["cn"] = ()
+        if entry.get('mobile'):
+            entry['mobile'] = attr_unique(entry['mobile'],
+                                          normalize=normalize_string)
         sink.write(entry_string(dn, entry))
     return addr_id2dn
 
 
-def get_voip_persons_and_primary_accounts(db):
+def get_voip_persons_and_accounts(db):
     va = VoipAddress(db)
     ac = Factory.get("Account")(db)
     const = Factory.get("Constants")()
@@ -116,7 +122,8 @@ def main(inargs=None):
         '-o', '--output',
         type=text_type,
         dest='output',
-        help='output file')
+        help='output file',
+    )
 
     Cerebrum.logutils.options.install_subparser(parser)
     args = parser.parse_args(inargs)
@@ -129,7 +136,7 @@ def main(inargs=None):
     logger.info('Starting VoIP LDIF export to %s', f.name)
     f.write(container_entry_string('VOIP'))
     logger.info('Fetching persons and primary accounts')
-    persons, primary2pid, sysadm_aid = get_voip_persons_and_primary_accounts(db)
+    (persons, primary2pid, sysadm_aid) = get_voip_persons_and_accounts(db)
     logger.info('Fetching VoIP addresses')
     addr_id2dn = generate_voip_addresses(f, db, persons, primary2pid,
                                          sysadm_aid)
