@@ -271,9 +271,8 @@ class StudconfigParser(object):
     # TODO: All the checks for unexpected tags can be avoided if we
     # let some utility check the XML file against the DTD
 
-    profil_settings = ("stedkode", "gruppe", "spread", "disk", "mail",
-                       "printer_kvote", "disk_kvote", "brev", "build",
-                       "print_kopiavgift_fritak", "print_betaling_fritak",
+    profil_settings = ("stedkode", "gruppe", "spread", "disk",
+                       "mail", "disk_kvote", "brev", "build",
                        "priority", "quarantine")
 
     def __init__(self, config, cfg_file):
@@ -372,10 +371,6 @@ class StudconfigParser(object):
                                            attrs['system']))
                 elif ename == 'disk_kvote':
                     self._config.autostud.disk_tool.using_disk_kvote = True
-                elif ename == 'printer_kvote':
-                    for k, v in attrs.items():
-                        if k != 'id':
-                            attrs[k] = int(v)
                 in_profil.add_setting(ename, attrs)
             elif ename == 'select':
                 for ename2, txt2, attrs2, children2 in children:

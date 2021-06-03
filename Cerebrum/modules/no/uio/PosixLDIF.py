@@ -25,7 +25,6 @@ from Cerebrum.Errors import NotFoundError
 from Cerebrum.Utils import Factory, make_timer
 from Cerebrum.modules.LDIFutils import attr_unique
 from Cerebrum.modules.PosixLDIF import PosixLDIF
-from Cerebrum.modules.no.uio.pq_exemption import pq_exemption
 
 
 class PosixLDIF_UiOMixin(PosixLDIF):
@@ -43,27 +42,6 @@ class PosixLDIF_UiOMixin(PosixLDIF):
                 account_spread=self.spread_d["user"][0]):
             self.pid2primary_aid[row["person_id"]] = row["account_id"]
         timer('... done initing PosixLDIF_UiOMixin')
-        # handle exempt users
-        self.pq_exempt_user_ids = set()
-        if hasattr(cereconf, 'PQ_EXEMPT_GROUP'):
-            try:
-                self.grp.find_by_name(cereconf.PQ_EXEMPT_GROUP)
-                for member in self.grp.search_members(
-                        group_id=self.grp.entity_id,
-                        member_type=(self.const.entity_account,
-                                     self.const.entity_person),
-                        indirect_members=True):
-                    self.pq_exempt_user_ids.add(member['member_id'])
-                self.grp.clear()
-            except NotFoundError:
-                self.logger.error(
-                    'Could not find PQ_EXEMPT_GROUP "{group}"'.format(
-                        group=cereconf.PQ_EXEMPT_GROUP))
-            except Exception as e:
-                # should not happen unless nonexisting group-name is specified
-                self.logger.error(
-                    'PQ_EXEMPT_GROUP defined in cereconf, but extracting '
-                    'exempt users failed: {error}'.format(error=e))
 
     def init_user(self, *args, **kwargs):
         self.__super.init_user(*args, **kwargs)
@@ -82,10 +60,6 @@ class PosixLDIF_UiOMixin(PosixLDIF):
             else:
                 account_aff[account_id] = [val]
 
-        self.pq_people = frozenset(
-            int(row['person_id'])
-            for row in pq_exemption.PrinterQuotaExemption(self.db).list(
-                    only_without_exempt=True))
         timer('... done UiO init_user')
 
     def init_netgroup(self, *args, **kwargs):
@@ -127,15 +101,6 @@ class PosixLDIF_UiOMixin(PosixLDIF):
         # all persons with primary accounts
         if owner_id in self.pid2primary_aid:
             entry['uioPersonId'] = str(owner_id)
-            added = True
-
-        # Handle exempt users and people with printer quotas. #
-        if (
-                account_id not in self.pq_exempt_user_ids and
-                owner_id not in self.pq_exempt_user_ids and
-                owner_id in self.pq_people
-        ):
-            entry['uioHasPrinterQuota'] = "TRUE"
             added = True
 
         # Object class which allows the additional attributes
