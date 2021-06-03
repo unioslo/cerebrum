@@ -212,7 +212,7 @@ def get_employees(affs):
     statuses = affs[1] or None
     return set(row['person_id'] for row in
                pe.list_affiliations(affiliation=affiliations, status=statuses,
-                                    source_system=co.system_sap)
+                                    source_system=co.system_dfo_sap)
                if row['status'] not in affs[2])
 
 
