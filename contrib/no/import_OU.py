@@ -56,7 +56,6 @@ for system_name, perspective_name in (("system_lt", "perspective_lt"),
                                       ("system_fs", "perspective_fs"),
                                       ("system_orgreg", "perspective_orgreg")):
     if hasattr(co, system_name) and hasattr(co, perspective_name):
-        print(perspective_name)
         source2perspective[getattr(co, system_name)] = getattr(
             co, perspective_name)
 
