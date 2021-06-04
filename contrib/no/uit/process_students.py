@@ -28,13 +28,14 @@ To create new users:
 from __future__ import print_function, unicode_literals
 
 import argparse
-import datetime
 import os
 import pickle
 import pprint
 import sys
 import traceback
 from time import localtime, strftime, time
+
+import mx.DateTime
 
 import cereconf
 import Cerebrum.logutils
@@ -134,7 +135,7 @@ class AccountUtil(object):
         account.set_password(password)
         account.write_db()
         account.populate_trait(code=const.trait_student_new,
-                               date=datetime.datetime.now())
+                               date=mx.DateTime.now())
         account.write_db()
         all_passwords[int(account.entity_id)] = [password, profile.get_brev()]
 
@@ -194,7 +195,7 @@ class AccountUtil(object):
         account.set_password(password)
         account.write_db()
         account.populate_trait(code=const.trait_student_new,
-                               date=datetime.datetime.now())
+                               date=mx.DateTime.now())
         account.write_db()
         all_passwords[int(account.entity_id)] = [password, profile.get_brev()]
         as_posix = False
@@ -914,7 +915,7 @@ def get_default_expire_date():
         month = 2
     year = int(next_sem[0])
     day = 16
-    return datetime.datetime(year, month, day)
+    return mx.DateTime.DateTime(year, month, day)
 
 
 def get_existing_accounts():
