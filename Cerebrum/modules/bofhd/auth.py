@@ -220,7 +220,6 @@ from Cerebrum import Cache
 from Cerebrum import Constants
 from Cerebrum import Errors
 from Cerebrum import Person
-from Cerebrum import Group
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.Errors import NotFoundError
 from Cerebrum.group.GroupRoles import GroupRoles
@@ -1327,13 +1326,7 @@ class BofhdAuth(DatabaseAccessor):
         if self.is_superuser(operator):
             return True
         if query_run_any:
-            return (
-                    self._is_admin_or_moderator(operator) or
-                    self._has_operation_perm_somewhere(
-                        operator,
-                        self.const.auth_alter_group_membership
-                    )
-            )
+            return True
         if self._is_admin_or_moderator(operator, group.entity_id):
             return True
         # TODO: Decide if we want to keep special permissions for groups
