@@ -424,7 +424,7 @@ class StateChecker(object):
                                 tmp[u'PrimaryAddress'] = addr[5:]
                             addrs.append(addr[5:])
                         else:
-                            logger.debug('Ignoring none email address (x500 etc.)', addr)
+                            logger.debug('Ignoring non-email address (x500 etc.)', addr)
                     tmp[u'EmailAddresses'] = sorted(addrs)
                 elif key == 'displayName':
                     tmp[u'DisplayName'] = data[key][0]
