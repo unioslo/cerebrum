@@ -73,7 +73,7 @@ def load_config(filepath=None):
     if filepath:
         config_cls.load_dict(read_config(filepath))
     else:
-        read(config_cls, 'consumer_enforce_forward_policy')
+        read(config_cls, 'enforce_forward_policy')
     config_cls.validate()
     return config_cls
 
