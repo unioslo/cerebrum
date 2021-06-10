@@ -23,10 +23,13 @@ OTP multifactor authentication module.
 This module provides a way to store multifactor authentication (e.g.  TOTP)
 secrets in Cerebrum.
 
-The general idea is that any one given person has *one* TOTP secret, which
-can be encrypted and stored for multiple target systems (mfa_type).
 
-The secret can be updated - and when it is updated, *all* existing mfa
+Data model
+----------
+The general idea is that any one given person has *one* TOTP secret, which
+can be encrypted and stored for multiple target systems (otp_type).
+
+The secret can be updated - and when it is updated, *all* existing otp
 entries for that person is removed, and the new secrets are inserted.
 
 
@@ -42,6 +45,20 @@ otp_payload
 
 created_at
     insert/update time for this entry.
+
+
+Configuration
+-------------
+If the related ``mod_otp.sql`` database schema is present, the following
+Cerebrum modules must be included in ``cereconf`` in order to maintain
+constraints:
+
+cereconf.CLASS_CLCONSTANTS
+    Must include ``Cerebrum.modules.otp.constants/OtpChangeLogConstants``
+
+cereconf.CLASS_PERSON
+    Must include ``Cerebrum.modules.otp.mixins/OtpPersonMixin``
+
 """
 
 # Database module version (see makedb.py)
