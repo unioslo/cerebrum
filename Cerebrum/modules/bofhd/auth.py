@@ -221,6 +221,7 @@ from Cerebrum import Constants
 from Cerebrum import Errors
 from Cerebrum import Person
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
+from Cerebrum.Errors import NotFoundError
 from Cerebrum.group.GroupRoles import GroupRoles
 from Cerebrum.Utils import Factory, mark_update
 from Cerebrum.Utils import argument_to_sql
@@ -750,6 +751,9 @@ class BofhdAuth(DatabaseAccessor):
     `PermissionDenied`. Note that `query_run_any` should NOT be used a security
     measure, as you are still able to call the command if not in jbofh!
     """
+
+    # Global moderator group if defined in cereconf
+    GLOBAL_GROUP_ACCESS_ATTR = 'GLOBAL_GROUP_ACCESS'
 
     def __init__(self, database):
         super(BofhdAuth, self).__init__(database)
@@ -1322,13 +1326,7 @@ class BofhdAuth(DatabaseAccessor):
         if self.is_superuser(operator):
             return True
         if query_run_any:
-            return (
-                    self._is_admin_or_moderator(operator) or
-                    self._has_operation_perm_somewhere(
-                        operator,
-                        self.const.auth_alter_group_membership
-                    )
-            )
+            return True
         if self._is_admin_or_moderator(operator, group.entity_id):
             return True
         # TODO: Decide if we want to keep special permissions for groups
@@ -1337,6 +1335,9 @@ class BofhdAuth(DatabaseAccessor):
                                         self.const.auth_alter_group_membership,
                                         self.const.auth_target_type_group,
                                         group.entity_id, group.entity_id):
+            return True
+
+        if self._has_global_group_access(operator):
             return True
 
         raise PermissionDenied("%s has no access to group %s" %
@@ -2380,6 +2381,30 @@ class BofhdAuth(DatabaseAccessor):
                                                global_type, None,
                                                operation_attr=operation_attr):
             return True
+        return False
+
+    def _has_global_group_access(self, operator):
+        """
+        Check if operator is a member of the global moderator group hardcoded
+        in cereconf.
+
+        :param int operator: The operator's `entity_id`
+        :rtype: bool
+        """
+        if not hasattr(cereconf, self.GLOBAL_GROUP_ACCESS_ATTR):
+            return False
+        gr = Factory.get('Group')(self._db)
+        global_access_group = getattr(
+            cereconf, self.GLOBAL_GROUP_ACCESS_ATTR
+        )
+        try:
+            gr.find_by_name(global_access_group)
+        except NotFoundError:
+            return False
+
+        if gr.has_member(operator):
+            return True
+
         return False
 
     def _get_users_auth_entities(self, entity_id):
