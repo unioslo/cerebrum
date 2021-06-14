@@ -1751,7 +1751,8 @@ class BofhdExtension(BofhdCommonMethods):
         perm_filter='can_create_group')
 
     def group_promote_posix(self, operator, group, description=None):
-        self.ba.can_create_group(operator.get_entity_id())
+        self.ba.can_create_group(operator.get_entity_id(),
+                         groupname=self._get_group(group).group_name)
         is_posix = False
         try:
             self._get_group(group, grtype="PosixGroup")
