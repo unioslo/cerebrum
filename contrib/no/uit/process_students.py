@@ -33,15 +33,15 @@ import pickle
 import pprint
 import sys
 import traceback
+import datetime
 from time import localtime, strftime, time
-
-import mx.DateTime
 
 import cereconf
 import Cerebrum.logutils
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.argutils import ParserContext
+from Cerebrum.utils.date_compat import get_date
 from Cerebrum.modules.bofhd_requests.request import BofhdRequests
 from Cerebrum.modules.bofhd import errors
 from Cerebrum.modules.no import fodselsnr
@@ -135,7 +135,7 @@ class AccountUtil(object):
         account.set_password(password)
         account.write_db()
         account.populate_trait(code=const.trait_student_new,
-                               date=mx.DateTime.now())
+                               date=datetime.datetime.now())
         account.write_db()
         all_passwords[int(account.entity_id)] = [password, profile.get_brev()]
 
@@ -195,7 +195,7 @@ class AccountUtil(object):
         account.set_password(password)
         account.write_db()
         account.populate_trait(code=const.trait_student_new,
-                               date=mx.DateTime.now())
+                               date=datetime.datetime.now())
         account.write_db()
         all_passwords[int(account.entity_id)] = [password, profile.get_brev()]
         as_posix = False
@@ -432,10 +432,11 @@ class AccountUtil(object):
 
         # update expire if needed
         current_expire = ac.get_expire_date()
-        needs_expire_update = (
-            not current_expire or
-            current_expire.pydate() != default_expire_date.pydate())
-
+        needs_expire_update = False
+        if not current_expire:
+            needs_expire_update = True
+        elif get_date(current_expire) != get_date(default_expire_date):
+            needs_expire_update = True
         set_expire_date = None
         if fnr in deceased:
             logger.warn("Person deceased: %s" % fnr)
@@ -915,7 +916,7 @@ def get_default_expire_date():
         month = 2
     year = int(next_sem[0])
     day = 16
-    return mx.DateTime.DateTime(year, month, day)
+    return datetime.date(year=year, month=month, day=day)
 
 
 def get_existing_accounts():
