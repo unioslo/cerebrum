@@ -8,6 +8,7 @@ flask-restx~=0.2.0
 gunicorn==19.9.0
 Jinja2
 jsonschema
+jwcrypto==0.9.1
 lxml
 nose
 passlib==1.7.4  # note: 1.8 will remove py2 support
