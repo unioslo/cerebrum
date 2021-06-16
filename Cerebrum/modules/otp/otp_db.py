@@ -53,7 +53,7 @@ def _select(person_id=None, otp_type=None,
     :param created_before:
         only include results with a created_at before this value
     :param created_after:
-        only include results with a crated_at after this value
+        only include results with a created_at after this value
 
     :rtype: tuple(list, dict)
     :returns:

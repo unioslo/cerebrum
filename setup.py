@@ -424,6 +424,7 @@ setup(
         'Cerebrum/modules/no/nmh',
         'Cerebrum/modules/no/nih',
         'Cerebrum/modules/no/uit',
+        'Cerebrum/modules/otp',
         'Cerebrum/modules/ou_disk_mapping',
         'Cerebrum/modules/password_notifier',
         'Cerebrum/modules/password_generator',
