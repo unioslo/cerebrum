@@ -743,7 +743,7 @@ class OrgLDIF(object):
             self.account_mail = None
 
     def init_person_addresses_from_ou(self, addr_info, addr_types,
-                                      addr_source, aff_source):
+                                      addr_source):
         """Maps person_id to the address of the OU it is affiliated to
 
         If a person has multiple affiliations, the most prioritized one is
@@ -775,7 +775,7 @@ class OrgLDIF(object):
         #  not work for every possible combination of the configuration
         #  variables 'contact_source_system' and 'affiliation_source_system'.
         primary_affiliations = {}
-        for row in self.person.list_affiliations(source_system=aff_source,
+        for row in self.person.list_affiliations(source_system=addr_source,
                                                  fetchall=False):
             aff = primary_affiliations.get(row['person_id'], None)
             if aff is None or row['precedence'] < aff[1]:
@@ -790,17 +790,8 @@ class OrgLDIF(object):
     def init_person_addresses(self):
         # Set self.addr_info = dict {person_id: {address_type: (addr. data)}}.
         timer = make_timer(logger, "Fetching personal addresses...")
-        aff_source = [getattr(self.const, aff) for aff in
-                      self.config.person.get('affiliation_source_system')]
-        try:
-            addr_src = getattr(self.const,
-                               self.config.org.parent.get(
-                                   'address_source_system'))
-        except:
-            addr_src = getattr(self.const,
-                               self.config.org.parent.get(
-                                   'contact_source_system'))
-
+        addr_src = getattr(self.const,
+                           self.config.org.parent.get('contact_source_system'))
         addr_types = set(
             map_constants('_AddressCode',
                           self.config.person.get('address_types'),
@@ -814,8 +805,7 @@ class OrgLDIF(object):
         addr_types = addr_types - ou_addr_types
 
         addr_info = defaultdict(dict)
-        self.init_person_addresses_from_ou(addr_info, ou_addr_types, addr_src,
-                                           aff_source)
+        self.init_person_addresses_from_ou(addr_info, ou_addr_types, addr_src)
         if addr_types:
             for row in self.person.list_entity_addresses(
                     entity_type=self.const.entity_person,
