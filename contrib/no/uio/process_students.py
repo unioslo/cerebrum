@@ -31,13 +31,12 @@ import hotshot
 import hotshot.stats
 
 import argparse
+import datetime
 import sys
 import os
 import traceback
 from time import localtime, strftime, time
 import pprint
-
-from mx.DateTime import now
 
 import cereconf
 
@@ -247,7 +246,8 @@ class AccountUtil(object):
         account.expire_date = None
         logger.debug("refreshing password write_db=%s", account.account_name)
         account.write_db()
-        account.populate_trait(code=const.trait_student_new, date=now())
+        account.populate_trait(code=const.trait_student_new,
+                               date=datetime.datetime.now())
         account.write_db()
 
     @staticmethod
