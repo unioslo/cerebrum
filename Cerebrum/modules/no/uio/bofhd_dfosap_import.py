@@ -45,7 +45,7 @@ class SapImport(BofhdCommonMethods):
         self.db_ = db
         self.pe = Factory.get('Person')(db)
         self.co = Factory.get('Constants')(db)
-        self.queued_tasks = ""
+        self.queued_tasks = []
 
         self.find_by_pid()
         task = self.make_task()
@@ -77,9 +77,7 @@ class SapImport(BofhdCommonMethods):
 
         for index,row in enumerate(format_table(items, header=True)):
             if self.dfo_pid in row or index < 2:
-                self.queued_tasks += row + "\n"
-        #strip trailing line break from queued task string
-        self.queued_tasks = self.queued_tasks[:-2]
+                self.queued_tasks.append(row)
 
 
 class BofhdExtension(BofhdCommonMethods):
@@ -109,4 +107,4 @@ class BofhdExtension(BofhdCommonMethods):
         simp = SapImport(self.db, dfo_pid)
 
         return [{'dfo_pid': dfo_pid,
-                 "queued_tasks": simp.queued_tasks}]
+                 "queued_tasks": '\n'.join(simp.queued_tasks)}]
