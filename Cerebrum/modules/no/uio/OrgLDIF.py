@@ -297,7 +297,7 @@ class OrgLDIFUiOMixin(OrgLdifCourseMixin,
             (student, int(self.const.affiliation_status_student_aktiv)),
             (student, int(self.const.affiliation_status_student_drgrad)),
             (student, int(self.const.affiliation_status_student_emnestud)))
-        self.sap_res = self.init_person_group("SAP-elektroniske-reservasjoner")
+        self.sap_res = self.init_person_group("DFO-elektroniske-reservasjoner")
         self.fs_samtykke = self.init_person_group("FS-aktivt-samtykke")
 
     def is_person_visible(self, person_id):

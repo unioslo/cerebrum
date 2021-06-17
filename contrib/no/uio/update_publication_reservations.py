@@ -44,7 +44,7 @@ kinds of reservations and acceptance.
 The script tags people in the following order:
 
 1. If the person is an employee:
-   - Gets reserved if a member of SAP-elektroniske-reservasjoner.
+   - Gets reserved if a member of DFO-elektroniske-reservasjoner.
    - Otherwise reservation is removed.
 
 2. If the person is not an employee, but is a student:
@@ -86,7 +86,7 @@ def usage(exitcode=0):
 
     --employee AFFS Comma separated list of affiliations persons must have to be
                     considered employees. Employees are not reserved unless they
-                    are members of the group 'SAP-elektroniske-reservasjoner'.
+                    are members of the group 'DFO-elektroniske-reservasjoner'.
 
                     Example: ANSATT,TILKNYTTET/gjesteforsker
 
@@ -135,8 +135,8 @@ def process(emplaffs, studaffs, with_commit=False):
     students = get_students(studaffs)
     logger.debug('%d students found', len(students))
 
-    sapmembers = get_members('SAP-elektroniske-reservasjoner')
-    logger.debug('%d members from SAP reservations', len(sapmembers))
+    sapmembers = get_members('DFO-elektroniske-reservasjoner')
+    logger.debug('%d members from DFO-SAP reservations', len(sapmembers))
     fsmembers = get_members('FS-aktivt-samtykke')
     logger.debug('%d members from FS consent', len(fsmembers))
 
@@ -212,7 +212,7 @@ def get_employees(affs):
     statuses = affs[1] or None
     return set(row['person_id'] for row in
                pe.list_affiliations(affiliation=affiliations, status=statuses,
-                                    source_system=co.system_sap)
+                                    source_system=co.system_dfo_sap)
                if row['status'] not in affs[2])
 
 
