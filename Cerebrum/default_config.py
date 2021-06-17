@@ -677,6 +677,11 @@ LDAP = {
     # organization, plus postal and street addresses for people.
     #   'contact_source_system': 'system_foobar',
 
+    # Addresses can be collected from a different source_system than that given
+    # in 'contact_source_system' using 'address_source_system'. If this variable
+    # is not set, address will be collected from 'contact_source_system'.
+    #    'address_source_system': 'system_foobar'
+
     # Mapping used to rewrite domains in e-mail addresses:
     # {"domain returned from Cerebrum": "real domain", ...}.
     # This variable should be renamed.  Used in the Email module.
