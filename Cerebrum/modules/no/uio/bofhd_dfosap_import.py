@@ -94,15 +94,13 @@ class BofhdExtension(BofhdCommonMethods):
             (u'DFØ PID %s added to queue \n', ('dfo_pid',)),
             (u'Tasks in queue for this person: \n %s', ('queued_tasks',))
         ]),
-        perm_filter='is_superuser'
+        perm_filter='is_schoolit'
     )
 
     def person_dfosap_import(self, operator, dfo_pid):
         """Add an emnployee number to the queue  in order to
         trigger import and return whatever lies in queue."""
-
-        if not self.ba.is_superuser(operator.get_entity_id()):
-             raise PermissionDenied("Must be superuser to execute this command")
+        self.ba.is_schoolit(operator.get_entity_id())
 
         simp = SapImport(self.db, dfo_pid)
 
