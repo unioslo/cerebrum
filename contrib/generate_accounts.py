@@ -129,7 +129,7 @@ def get_gid(posix, posix_uio):
     return None
 
 
-def update_account(db, pe, account_policy, creator, new_traits=None,
+def update_account(db, pe, affs, account_policy, creator, new_traits=None,
                    spreads=(),
                    ignore_affs=(), remove_quars=(), posix=False, home=None,
                    home_auto=None, posix_uio=False):
@@ -145,7 +145,10 @@ def update_account(db, pe, account_policy, creator, new_traits=None,
 
     """
     logger.debug("Processing person_id=%d", pe.entity_id)
-    affiliations = get_account_types(pe, ignore_affs)
+
+    co = Factory.get('Constants')(db)
+    affiliations = [ele for ele in get_account_types(pe, ignore_affs)
+                    if co.PersonAffiliation(ele['affiliation']) in affs]
     if not affiliations:
         # If there are no selected account types at this point, we know the
         # person has a selected affiliation, but the affiliation status must
@@ -153,7 +156,6 @@ def update_account(db, pe, account_policy, creator, new_traits=None,
         logger.debug("Found aff to process, but status is ignored; skipping")
         return
     ac = Factory.get('Account')(db)
-    co = Factory.get('Constants')(db)
     di = Factory.get('Disk')(db)
     disks = (home,) if home else ()
     # Some logging
@@ -290,9 +292,9 @@ def process(db, affiliations, new_traits=None, spreads=(), ignore_affs=(),
     for p_id in persons:
         pe.clear()
         pe.find(p_id)
-        update_account(db, pe, account_policy, creator, new_traits, spreads,
-                       ignore_affs, remove_quars, posix, home, home_auto,
-                       posix_uio)
+        update_account(db, pe, affs, account_policy, creator, new_traits,
+                       spreads, ignore_affs, remove_quars, posix, home,
+                       home_auto, posix_uio)
 
 
 class ExtendAction(argparse.Action):
