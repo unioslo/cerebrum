@@ -150,10 +150,11 @@ class OuCommands(BofhdCommandBase):
         return code
 
     #
-    # ou search <pattern> <language> <spread_filter>
+    # ou search <type> <pattern> <language> <spread_filter>
     #
     all_commands['ou_search'] = Command(
         ("ou", "search"),
+        SimpleString(help_ref='ou_search_type'),
         SimpleString(help_ref='ou_search_pattern'),
         SimpleString(help_ref='ou_search_language', optional=True),
         Spread(help_ref='spread_filter', optional=True),
@@ -199,6 +200,15 @@ class OuCommands(BofhdCommandBase):
                 exact_match=False):
             yield int(r['entity_id'])
 
+    def _ou_search_by_orgreg_id(self, pattern):
+        """ ou seach helper - seach for ou by orgreg id. """
+        ou = Factory.get('OU')(self.db)
+        for r in ou.search_external_ids(id_type=self.const.externalid_dfo_ou_id,
+                                        external_id=pattern,
+                                        fetchall=False):
+            yield int(r["entity_id"])
+
+
     def _ou_search_spread_match(self, ou, spread_filter):
         """ ou search helper - check if ou spreads matches spread_filter. """
         if not spread_filter:
@@ -212,19 +222,24 @@ class OuCommands(BofhdCommandBase):
                 return True
         return False
 
-    def ou_search(self, operator, pattern,
-                  language=default_ou_language,
-                  spread_filter=None):
-        """ Search for a given ou by name. """
+    def ou_search(self, operator, search_type, pattern,
+                  language=default_ou_language, spread_filter=None):
+        """ Search for a given ou by name, stedkode or OrgReg-ID """
+
         if not pattern:
             pattern = '%'
 
         language = self._get_language(language)
 
-        if re.match(r'[0-9]{1,6}$', pattern):
-            candidates = self._ou_search_by_sko(pattern)
-        else:
+        search_type = search_type.lower()
+        if search_type == "name":
             candidates = self._ou_search_by_name(pattern, language)
+
+        elif search_type == "sko" or search_type == "stedkode":
+            candidates = self._ou_search_by_sko(pattern)
+
+        elif "orgreg" in search_type or search_type == "dfo_ou_id":
+            candidates = self._ou_search_by_orgreg_id(pattern)
 
         output = []
         ou = Factory.get('OU')(self.db)
@@ -247,6 +262,7 @@ class OuCommands(BofhdCommandBase):
             raise CerebrumError('No matches for %s' % repr(pattern))
 
         return sorted(output, key=lambda r: (r['stedkode'], r['ou_id']))
+
 
     #
     # ou info <stedkode/entity_id>
@@ -590,7 +606,7 @@ CMD_HELP = {
             'Manual)',
         'ou_info': 'View information about an OU',
         'ou_names': 'Show all names for an OU',
-        'ou_search': 'Search for OUs by name or a partial stedkode',
+        'ou_search': 'Search for OUs by name, partial stedkode, or OrgReg-ID',
         'ou_set_id':
             'Add an external id for an OU (can only set IDs with source '
             'Manual)',
@@ -603,6 +619,12 @@ CMD_ARGS = {
         'perspective',
         'Enter a perspective (usually SAP or FS)',
         'Enter a perspective used for getting the organizational structure.',
+    ],
+    'ou_search_type': [
+        'type',
+        'Enter OU search type (name/stedkode/OrgReg-ID)',
+        'Enter type of OU identifier (name/stedkode/OrgReg-ID)'
+        ' to be used in the search ',
     ],
     'ou_search_language': [
         'language',
