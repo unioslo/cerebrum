@@ -84,12 +84,28 @@ class BofhdExtension(BofhdCommonMethods):
     all_commands = {}
     authz = UioAuth
 
+    @classmethod
+    def get_help_strings(cls):
+        command_help = {
+            'person': {
+                'dfosap_import': 'Trigger person-import from DFO-SAP',
+            },
+        }
+        arg_help = {
+            'dfo_pid':
+            ['dfo_pid', 'Enter employee number',
+             'Enter the employee number (ansattnummer, dfo_pid) for a person'],
+        }
+        return ({},
+                command_help,
+                arg_help)
+
     #
     # person dfosap_import
     #
     all_commands['person_dfosap_import'] = Command(
         ("person", "dfosap_import"),
-        SimpleString(),
+        SimpleString(help_ref='dfo_pid'),
         fs=FormatSuggestion([
             (u'DFØ PID %s added to queue \n', ('dfo_pid',)),
             (u'Tasks in queue for this person: \n %s', ('queued_tasks',))
