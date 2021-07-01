@@ -201,7 +201,7 @@ class OuCommands(BofhdCommandBase):
             yield int(r['entity_id'])
 
     def _ou_search_by_orgreg_id(self, pattern):
-        """ ou seach helper - seach for ou by orgreg id. """
+        """ ou search helper - seach for ou by orgreg id. """
         ou = Factory.get('OU')(self.db)
         for r in ou.search_external_ids(id_type=self.const.externalid_dfo_ou_id,
                                         external_id=pattern,
@@ -232,12 +232,11 @@ class OuCommands(BofhdCommandBase):
         language = self._get_language(language)
 
         search_type = search_type.lower()
+        candidates = []
         if search_type == "name":
             candidates = self._ou_search_by_name(pattern, language)
-
         elif search_type == "sko" or search_type == "stedkode":
             candidates = self._ou_search_by_sko(pattern)
-
         elif "orgreg" in search_type or search_type == "dfo_ou_id":
             candidates = self._ou_search_by_orgreg_id(pattern)
 
