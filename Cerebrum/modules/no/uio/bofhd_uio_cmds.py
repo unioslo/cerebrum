@@ -96,6 +96,7 @@ from Cerebrum.modules.no.uio.access_FS import FS
 from Cerebrum.modules.no.uio import bofhd_pw_issues
 from Cerebrum.modules.bofhd import bofhd_user_create_unpersonal
 from Cerebrum.modules.no.uio import bofhd_auth
+from Cerebrum.modules.otp import bofhd_otp_cmds
 from Cerebrum.modules.ou_disk_mapping import bofhd_cmds
 from Cerebrum.modules.pwcheck.checker import (
     check_password,
@@ -6677,3 +6678,7 @@ class HistoryCommands(bofhd_history_cmds.BofhdHistoryCmds):
 
 class OuCommands(bofhd_ou_cmds.OuCommands):
     authz = bofhd_auth.OuAuth
+
+
+class OtpCommands(bofhd_otp_cmds.OtpCommands):
+    authz = bofhd_auth.OtpAuth

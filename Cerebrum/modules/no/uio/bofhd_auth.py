@@ -24,6 +24,7 @@ import cereconf
 
 from Cerebrum.Errors import NotFoundError
 from Cerebrum.Utils import Factory
+from Cerebrum.modules.EntityTrait import EntityTrait
 from Cerebrum.modules.apikeys import bofhd_apikey_cmds
 from Cerebrum.modules.audit import bofhd_history_cmds
 from Cerebrum.modules.bofhd.auth import BofhdAuth
@@ -34,6 +35,7 @@ from Cerebrum.modules.bofhd import bofhd_access
 from Cerebrum.modules.bofhd import bofhd_ou_cmds
 from Cerebrum.modules.bofhd.errors import PermissionDenied
 from Cerebrum.modules.bofhd import bofhd_user_create_unpersonal
+from Cerebrum.modules.otp import bofhd_otp_cmds
 from Cerebrum.modules.ou_disk_mapping import bofhd_cmds
 
 
@@ -427,3 +429,22 @@ class HistoryAuth(UioAuth, bofhd_history_cmds.BofhdHistoryAuth):
 
 class OuAuth(UioAuth, bofhd_ou_cmds.OuAuth):
     pass
+
+
+class OtpAuth(UioAuth, bofhd_otp_cmds.OtpAuth):
+
+    def _owns_important_account(self, person):
+        account = Factory.get('Account')(self._db)
+        et = EntityTrait(self._db)
+        trait = self.const.trait_important_account
+        for row in account.search(owner_id=int(person.entity_id)):
+            if et.list_traits(code=trait, entity_id=row['account_id'],
+                              fetchall=True):
+                return True
+        return False
+
+    def _is_otp_protected(self, person):
+        if self._owns_important_account(person):
+            return True
+        else:
+            return super(OtpAuth, self)._is_otp_protected(person)
