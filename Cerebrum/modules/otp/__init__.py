@@ -43,7 +43,7 @@ otp_type
 otp_payload
     the target payload
 
-created_at
+updated_at
     insert/update time for this entry.
 
 

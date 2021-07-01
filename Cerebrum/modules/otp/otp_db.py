@@ -34,26 +34,26 @@ from .constants import OtpChangeTypeConstants
 
 
 # default row order in query results
-DEFAULT_ORDER = ('person_id', 'otp_type', 'created_at')
+DEFAULT_ORDER = ('person_id', 'otp_type', 'updated_at')
 
 # default fields and field order in query results
-DEFAULT_FIELDS = ('person_id', 'otp_type', 'otp_payload', 'created_at')
+DEFAULT_FIELDS = ('person_id', 'otp_type', 'otp_payload', 'updated_at')
 
 
 logger = logging.getLogger(__name__)
 
 
 def _select(person_id=None, otp_type=None,
-            created_before=None, created_after=None):
+            updated_before=None, updated_after=None):
     """
     Generate clauses and binds for person_otp_secret queries.
 
     :param person_id: only include results for these persons
     :param otp_type: only include results for these otp types
-    :param created_before:
-        only include results with a created_at before this value
-    :param created_after:
-        only include results with a created_at after this value
+    :param updated_before:
+        only include results with a updated_at before this value
+    :param updated_after:
+        only include results with a updated_at after this value
 
     :rtype: tuple(list, dict)
     :returns:
@@ -73,19 +73,19 @@ def _select(person_id=None, otp_type=None,
 
     # range selects:
 
-    if created_before and created_after and created_before < created_after:
+    if updated_before and updated_after and updated_before < updated_after:
         # a date can never be *both* before <t> *and* after that same
         # <t>+<delta>
-        raise ValueError("created_after: cannot be after created_before"
-                         " (%s < created < %s)" %
-                         (created_after, created_before))
+        raise ValueError("updated_after: cannot be after updated_before"
+                         " (%s < updated < %s)" %
+                         (updated_after, updated_before))
 
-    if created_before is not None:
-        clauses.append("created_at < :created_b")
-        binds['created_b'] = created_before
-    if created_after is not None:
-        clauses.append("created_at > :created_a")
-        binds['created_a'] = created_after
+    if updated_before is not None:
+        clauses.append("updated_at < :updated_b")
+        binds['updated_b'] = updated_before
+    if updated_after is not None:
+        clauses.append("updated_at > :updated_a")
+        binds['updated_a'] = updated_after
 
     return clauses, binds
 
@@ -220,17 +220,13 @@ def sql_get(db, person_id, otp_type):
     return rows[0]
 
 
-def _sql_insert(db, person_id, otp_type, otp_payload, created_at=None):
+def _sql_insert(db, person_id, otp_type, otp_payload):
     """ Insert a new personal otp secret. """
     binds = {
         'person_id': int(person_id),
         'otp_type': six.text_type(otp_type),
         'otp_payload': six.text_type(otp_payload),
     }
-
-    if created_at is not None:
-        # we really shouldn't ever need to set this value
-        binds['created_at'] = created_at
 
     stmt = """
       INSERT INTO [:table schema=cerebrum name=person_otp_secret]
@@ -255,7 +251,7 @@ def _sql_insert(db, person_id, otp_type, otp_payload, created_at=None):
     return row
 
 
-def _sql_update(db, person_id, otp_type, otp_payload=None, created_at=None):
+def _sql_update(db, person_id, otp_type, otp_payload):
     """ Update an existing personal otp secret. """
     binds = {
         'person_id': int(person_id),
@@ -263,15 +259,11 @@ def _sql_update(db, person_id, otp_type, otp_payload=None, created_at=None):
     }
 
     update = {}
-
     if otp_payload is not None:
         update['otp_payload'] = six.text_type(otp_payload)
 
-    if created_at is not None:
-        update['created_at'] = created_at
-
     if not update:
-        raise TypeError('missing otp_payload or created_at value to update')
+        raise TypeError('nothing to update')
 
     binds.update(update)
 
@@ -298,7 +290,7 @@ def _sql_update(db, person_id, otp_type, otp_payload=None, created_at=None):
     return row
 
 
-def sql_set(db, person_id, otp_type, otp_payload, created_at=None):
+def sql_set(db, person_id, otp_type, otp_payload):
     """
     Add or update a personal otp secret.
 
@@ -306,7 +298,6 @@ def sql_set(db, person_id, otp_type, otp_payload, created_at=None):
     :param person_id: entity_id of an existing person
     :param otp_type: otp_type to set
     :param otp_payload: secret to set
-    :param created_at: create/update time for this item
     """
 
     try:
@@ -318,9 +309,6 @@ def sql_set(db, person_id, otp_type, otp_payload, created_at=None):
 
     if otp_payload != prev.get('otp_payload'):
         values['otp_payload'] = otp_payload
-
-    if created_at and created_at != prev.get('created_at'):
-        values['created_at'] = created_at
 
     if prev:
         if values:

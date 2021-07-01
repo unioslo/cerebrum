@@ -45,8 +45,8 @@ version=1.0;
  *   format and encryption type is identified by otp_type, and its companion
  *   module in Cerebrum.modules.otp
  *
- * created_at
- *   created at timestamp -- when the item was added/modified
+ * updated_at
+ *   last change timestamp -- when the item was added/modified
  */
 category:main;
 CREATE TABLE IF NOT EXISTS person_otp_secret
@@ -67,14 +67,38 @@ CREATE TABLE IF NOT EXISTS person_otp_secret
     NOT NULL
     DEFAULT '',
 
-  created_at
+  updated_at
     TIMESTAMP WITH TIME ZONE
     NOT NULL
-    DEFAULT now(),
+    DEFAULT [:now],
 
   CONSTRAINT person_otp_secret_pk
     PRIMARY KEY (person_id, otp_type)
 );
+
+/* trigger function to modify updated_at */
+category:main;
+CREATE OR REPLACE FUNCTION person_otp_set_updated_at()
+RETURNS TRIGGER AS '
+  BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+  END;
+' LANGUAGE plpgsql;
+
+/* Add trigger to automatically set person_otp_secret.updated_at */
+category:main;
+CREATE TRIGGER person_otp_update_trigger
+    BEFORE UPDATE ON person_otp_secret
+    FOR EACH ROW
+    EXECUTE PROCEDURE person_otp_set_updated_at();
+
+
+category:drop;
+DROP TRIGGER person_otp_update_trigger ON person_otp_secret;
+
+category:drop;
+DROP FUNCTION person_otp_set_updated_at();
 
 category:drop;
 DROP TABLE IF EXISTS person_otp_secret;
