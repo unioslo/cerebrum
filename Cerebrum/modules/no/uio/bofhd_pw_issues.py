@@ -351,7 +351,8 @@ class BofhdExtension(BofhdCommandBase):
 
         command_help = {
             'misc': {
-                'password_info': 'Show if SMS pw service is available for ac',
+                'password_issues': 'Show if SMS pw service '
+                'is available for ac',
             },
         }
         arg_help = {
