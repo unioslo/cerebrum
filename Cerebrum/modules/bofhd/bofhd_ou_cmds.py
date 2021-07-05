@@ -200,8 +200,8 @@ class OuCommands(BofhdCommandBase):
                 exact_match=False):
             yield int(r['entity_id'])
 
-    def _ou_search_by_orgreg_id(self, pattern):
-        """ ou search helper - seach for ou by orgreg id. """
+    def _ou_search_by_dfo_id(self, pattern):
+        """ ou search helper - seach for ou by DFØ id. """
         ou = Factory.get('OU')(self.db)
         for r in ou.search_external_ids(id_type=self.const.externalid_dfo_ou_id,
                                         external_id=pattern,
@@ -224,7 +224,7 @@ class OuCommands(BofhdCommandBase):
 
     def ou_search(self, operator, search_type, pattern,
                   language=default_ou_language, spread_filter=None):
-        """ Search for a given ou by name, stedkode or OrgReg-ID """
+        """ Search for a given ou by name, stedkode or DFØ-ID """
 
         if not pattern:
             pattern = '%'
@@ -237,8 +237,9 @@ class OuCommands(BofhdCommandBase):
             candidates = self._ou_search_by_name(pattern, language)
         elif search_type == "sko" or search_type == "stedkode":
             candidates = self._ou_search_by_sko(pattern)
-        elif "orgreg" in search_type or search_type == "dfo_ou_id":
-            candidates = self._ou_search_by_orgreg_id(pattern)
+        elif ("dfø" in search_type or "dfo" in search_type
+              or search_type == "dfo_ou_id"):
+            candidates = self._ou_search_by_dfo_id(pattern)
 
         output = []
         ou = Factory.get('OU')(self.db)
@@ -605,7 +606,7 @@ CMD_HELP = {
             'Manual)',
         'ou_info': 'View information about an OU',
         'ou_names': 'Show all names for an OU',
-        'ou_search': 'Search for OUs by name, partial stedkode, or OrgReg-ID',
+        'ou_search': 'Search for OUs by name, partial stedkode, or DFØ-ID',
         'ou_set_id':
             'Add an external id for an OU (can only set IDs with source '
             'Manual)',
@@ -621,8 +622,8 @@ CMD_ARGS = {
     ],
     'ou_search_type': [
         'type',
-        'Enter OU search type (name/stedkode/OrgReg-ID)',
-        'Enter type of OU identifier (name/stedkode/OrgReg-ID)'
+        'Enter OU search type (name/stedkode/DFØ-ID)',
+        'Enter type of OU identifier (name/stedkode/DFØ-ID)'
         ' to be used in the search ',
     ],
     'ou_search_language': [
