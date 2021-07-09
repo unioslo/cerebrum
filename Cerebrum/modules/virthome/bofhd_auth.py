@@ -334,10 +334,19 @@ class BofhdVirtHomeAuth(auth.BofhdAuth):
         Group owners are allowed to change owners.
         """
 
-        # can_delete_group() is available for owners only.
-        return self.can_force_delete_group(account_id, group_id)
-    # end can_change_moderators
-
+        try:
+            # can_delete_group() is available for owners only.
+            return self.can_force_delete_group(account_id, group_id)
+        except PermissionDenied:
+            account = self._get_account(account_id)
+            group = self._get_group(group_id)
+            raise PermissionDenied("Account %s (id=%s) not authorised to "
+                                   "change admin for group %s (id=%s)" %
+                                   (account and account.account_name or "N/A",
+                                    account_id,
+                                    group and group.group_name or "N/A",
+                                    group_id))
+    #end can_change_admins
 
 
     def can_change_description(self, account_id, group_id):
