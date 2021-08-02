@@ -346,7 +346,6 @@ class BofhdVirtHomeAuth(auth.BofhdAuth):
                                     account_id,
                                     group and group.group_name or "N/A",
                                     group_id))
-    #end can_change_admins
 
 
     def can_change_description(self, account_id, group_id):
