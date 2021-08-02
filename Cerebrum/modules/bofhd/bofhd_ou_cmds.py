@@ -237,8 +237,7 @@ class OuCommands(BofhdCommandBase):
             candidates = self._ou_search_by_name(pattern, language)
         elif search_type == "sko" or search_type == "stedkode":
             candidates = self._ou_search_by_sko(pattern)
-        elif ("dfø" in search_type or "dfo" in search_type
-              or search_type == "dfo_ou_id"):
+        elif "dfø" in search_type or "dfo" in search_type:
             candidates = self._ou_search_by_dfo_id(pattern)
 
         output = []
