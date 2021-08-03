@@ -3711,11 +3711,7 @@ class BofhdExtension(BofhdCommonMethods):
         if not source_system:
             ss = self.const.system_manual
         else:
-            self.logger.info("Setting the ss ourselves")
             ss = int(self.const.AuthoritativeSystem(source_system))
-        self.logger.info("######TESTING######")
-        self.logger.info(ss)
-        self.logger.info(idtype)
         person.affect_external_id(ss, idtype)
         person.populate_external_id(ss, idtype, id)
         person.write_db()

@@ -116,6 +116,8 @@ class BofhdExtension(bofhd_uio_cmds.BofhdExtension):
     def __init__(self, *args, **kwargs):
         super(BofhdExtension, self).__init__(*args, **kwargs)
         self.external_id_mappings['studnr'] = self.const.externalid_studentnr
+        self.external_id_mappings['fnr'] = self.const.externalid_fodselsnr
+        self.external_id_mappings['sitonr'] = self.const.externalid_sito_ansattnr
 
     @classmethod
     def get_help_strings(cls):
