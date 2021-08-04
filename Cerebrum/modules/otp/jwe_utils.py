@@ -28,8 +28,8 @@ To encrypt a JWE using a PEM-formatted key with the default *alg* and *enc*:
 
     secret_d = {'username': 'AzureDiamond', 'password': 'hunter2'}
     jwk = get_jwk('auth-file:pubkey.pem')
-    jwe = jwe_encrypt(secret_d, jwk)
-    print(jwe.serialize(compact=True))
+    token = jwe_encrypt(secret_d, jwk)
+    print(token)
 
 
 To decrypt a JWE:
@@ -37,8 +37,7 @@ To decrypt a JWE:
 .. code-block::
 
     jwk = get_jwk('auth-file:privkey.pem')
-    jwe = jwe_decrypt(jwe, jwk)
-    print(jwe.payload)
+    print(jwe_decrypt(token, jwk))
 
 """
 import json
@@ -90,16 +89,16 @@ def jwe_encrypt(secret_data,
     """
     Encrypt a data structure using JWE.
 
-    :param secret_data: A JSON-serializable data structure.
+    :param secret_data: A serializable data structure to encrypt.
     :type key: jwcrypto.jwk.JWK
     :param alg: JWE key agreement to use.
     :param enc: JWE content encryption method to use.
 
     See py:mod:`jwcrypto.jwe` for allowed alg and enc values.
 
-    :rtype: jwcrypto.jwe.JWE
+    :returns: A serialized JWE token.
     """
-    plaintext = json.dumps(secret_data)
+    payload = json.dumps(secret_data)
     header = {
         'alg': alg,
         'enc': enc,
@@ -107,23 +106,23 @@ def jwe_encrypt(secret_data,
         'kid': jwk.thumbprint(),
     }
     jwe = jwcrypto.jwe.JWE(
-        plaintext,
+        payload,
         recipient=jwk,
         protected=header,
     )
-    return jwe
+    return jwe.serialize(compact=True)
 
 
-def jwe_decrypt(data, jwk):
+def jwe_decrypt(token, jwk):
     """
     Decrypt a serialized JWE text.
 
-    :param data: A JWE text string
+    :param data: A serialized JWE token.
     :type key: jwcrypto.jwk.JWK
 
     :rtype: jwcrypto.jwe.JWE
     """
     jwe = jwcrypto.jwe.JWE()
-    jwe.deserialize(data)
+    jwe.deserialize(token)
     jwe.decrypt(jwk)
-    return jwe
+    return json.loads(jwe.payload)
