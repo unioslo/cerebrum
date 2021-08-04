@@ -37,6 +37,7 @@ def to_str(value):
 
 
 def limit_str(s, max_length):
+    # fix multiline values:
     return s if len(s) <= max_length else s[:max_length-3] + '...'
 
 
@@ -52,6 +53,7 @@ class TaskFormatter(object):
         'sub': 15,
         'key': 10,
         'attempts': 8,
+        'reason': 50,
     }
 
     field_sep = '  '
@@ -68,12 +70,15 @@ class TaskFormatter(object):
         for field, size in (field_size or {}).items():
             self.field_size[field] = size
 
+    def transform(self, value):
+        return to_str(value)
+
     def get_size(self, field):
         return self.field_size.get(field, self.default_field_size)
 
     def format_cell(self, field, value):
         size = self.get_size(field)
-        return format(limit_str(to_str(value), size), '<' + str(size))
+        return format(limit_str(value, size), '<' + str(size))
 
     def format_header(self):
         return self.field_sep.join(self.format_cell(f, f)
@@ -84,7 +89,7 @@ class TaskFormatter(object):
                                    for f in self.fields)
 
     def format_dict(self, data):
-        return self.field_sep.join(self.format_cell(f, data[f])
+        return self.field_sep.join(self.format_cell(f, self.transform(data[f]))
                                    for f in self.fields)
 
     def __call__(self, items, header=False):
