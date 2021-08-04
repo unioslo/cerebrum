@@ -26,15 +26,18 @@ a defined number of days past expiration-date
 from __future__ import unicode_literals
 
 import argparse
+import logging
+import Cerebrum.logutils
 from datetime import date, timedelta
 
 from six import text_type
 
 from Cerebrum.Utils import Factory
+from Cerebrum.utils.argutils import add_commit_args
 from Cerebrum.database import DatabaseError
 from Cerebrum.utils.date_compat import get_date
 
-logger = Factory.get_logger('cronjob')
+logger = logging.getLogger(__name__)
 
 
 def remove_posix_users(gr, posix_user2gid):
@@ -65,7 +68,7 @@ def remove_posix_users(gr, posix_user2gid):
                      gr.entity_id, repr(group_member_counts))
 
 
-def remove_expired_groups(db, days, pretend):
+def remove_expired_groups(db, days, commit):
     """
     Removes or empties groups that have reached a number of days past expiry.
 
@@ -84,7 +87,7 @@ def remove_expired_groups(db, days, pretend):
     for row in pu.list_posix_users():
         posix_user2gid[row['account_id']] = row['gid']
     try:
-        if pretend:
+        if not commit:
             logger.info('DRYRUN: Rolling back all changes')
         gr = Factory.get('Group')(db)
         expired_groups = gr.search(filter_expired=False, expired_only=True)
@@ -150,7 +153,7 @@ def remove_expired_groups(db, days, pretend):
                             logger.info(
                                 'Expired group (%s - %s) removed',
                                 group['name'], group['description'])
-                    if not pretend:
+                    if commit:
                         db.commit()
                     else:  # do not actually remove when running with -d
                         db.rollback()
@@ -199,19 +202,15 @@ def main(args=None):
         help='Amount of days to wait after expiration date before '
         'removing the group (default: 30'
     )
-    parser.add_argument(
-        '-p', '--pretend', '-d', '--dryrun',
-        action='store_true',
-        dest='pretend',
-        default=False,
-        help='Do not actually remove the groups '
-        '(default: All matching groups will be removed)'
-    )
+
+    add_commit_args(parser)
+    Cerebrum.logutils.options.install_subparser(parser)
     logger.info('START %s', parser.prog)
     args = parser.parse_args(args)
+    Cerebrum.logutils.autoconf("big_shortlived", args)
     db = Factory.get('Database')()
     db.cl_init(change_program='remove_expired_groups.py')
-    remove_expired_groups(db, args.days, args.pretend)
+    remove_expired_groups(db, args.days, args.commit)
     logger.info('DONE %s', parser.prog)
 
 
