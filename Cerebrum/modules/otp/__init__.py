@@ -32,7 +32,6 @@ can be encrypted and stored for multiple target systems (otp_type).
 The secret can be updated - and when it is updated, *all* existing otp
 entries for that person is removed, and the new secrets are inserted.
 
-
 person_id
     a person this secret applies to
 
@@ -50,15 +49,53 @@ updated_at
 Configuration
 -------------
 If the related ``mod_otp.sql`` database schema is present, the following
+configuration must be added to ``cereconf``:
+
+we must ensure that
+the appropriate class mixins mixins the following
 Cerebrum modules must be included in ``cereconf`` in order to maintain
 constraints:
 
 cereconf.CLASS_CLCONSTANTS
-    Must include ``Cerebrum.modules.otp.constants/OtpChangeLogConstants``
+    Must include ``Cerebrum.modules.otp.constants/OtpChangeLogConstants`` for
+    the auditlog, changelog, eventlog, and event publishing mechanism to
+    function properly.
 
 cereconf.CLASS_PERSON
-    Must include ``Cerebrum.modules.otp.mixins/OtpPersonMixin``
+    Must include ``Cerebrum.modules.otp.mixins/OtpPersonMixin`` in order to
+    maintain constraints.
 
+cereconf.OTP_POLICY
+    Must include a tuple of ``Cerebrum.modules.otp.otp_types/OtpType`` classes.
+    Each class defines a otp_type/otp_payload tuple to prepare when setting a
+    new otp secret.
+
+cereconf.CLASS_POSIXLDIF
+    Must include ``Cerebrum.modules.otp.otp_ldif_utils/RadiusOtpMixin`` to
+    include an attribute with the radius-otp payload in LDAP.
+
+cereconf.CLASS_ORGLDIF
+    Must include ``Cerebrum.modules.otp.otp_ldif_utils/NorEduOtpMixin`` for
+    the 'feide-ga' payload to be included in the Feide-attribute
+    ``norEduPersonAuthnMethod``.
+
+
+Future changes
+--------------
+We may want to make more of the OtpPolicy configurable - e.g. change the
+location/name of the pubkey used for encryption.
+
+In addition we may at some point end up the need for multiple secrets to exist
+in parallel.  In which case, we should add support for:
+
+- Multiple, named OtpPolicy objects.   We'll also need to omit or re-implement
+  the `clear_obsolete` call in py:module:`.otp_types`.
+
+- Labels to identify each distinct secret/policy.  This could be user defined,
+  or defined by OtpPolicy, but should probably be stored in a separate
+  ``label`` column in ``person_otp_secret``.  The label should be included in
+  a `otpauth://` url given to the user when the secret is generated.  It should
+  also be included in the label part of the Feide mfa auth attribute.
 """
 
 # Database module version (see makedb.py)
