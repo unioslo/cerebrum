@@ -83,7 +83,7 @@ def main():
     add_commit_args(parser)
     Cerebrum.logutils.options.install_subparser(parser)
     args = parser.parse_args()
-    Cerebrum.logutils.autoconf("big_shortlived", args)
+    Cerebrum.logutils.autoconf("cronjob", args)
     exp_date = get_relative_date(years=args.years,
                                  months=args.months,
                                  days=args.days)
