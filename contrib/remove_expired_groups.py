@@ -205,9 +205,10 @@ def main(args=None):
 
     add_commit_args(parser)
     Cerebrum.logutils.options.install_subparser(parser)
-    logger.info('START %s', parser.prog)
     args = parser.parse_args(args)
-    Cerebrum.logutils.autoconf("big_shortlived", args)
+    Cerebrum.logutils.autoconf("cronjob", args)
+
+    logger.info('START %s', parser.prog)
     db = Factory.get('Database')()
     db.cl_init(change_program='remove_expired_groups.py')
     remove_expired_groups(db, args.days, args.commit)
