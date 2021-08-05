@@ -203,11 +203,12 @@ def main(args=None):
         'removing the group (default: 30'
     )
 
-    add_commit_args(parser)
+    add_commit_args(parser, default=True)
     Cerebrum.logutils.options.install_subparser(parser)
-    logger.info('START %s', parser.prog)
     args = parser.parse_args(args)
-    Cerebrum.logutils.autoconf("big_shortlived", args)
+    Cerebrum.logutils.autoconf("cronjob", args)
+
+    logger.info('START %s', parser.prog)
     db = Factory.get('Database')()
     db.cl_init(change_program='remove_expired_groups.py')
     remove_expired_groups(db, args.days, args.commit)
