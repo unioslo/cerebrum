@@ -76,6 +76,11 @@ else:
     debug_log = False
 
 
+# mx.DateTime feature toggle.
+# If CEREBRUM_NOMX is set, we disable the mx.DateTime conversions.
+ENABLE_MXDB = not bool(int(os.environ.get('CEREBRUM_NOMX') or 0))
+
+
 # Tuple holding the names of the standard types defined by the DB-API.
 API_TYPE_NAMES = ("STRING", "BINARY", "NUMBER", "DATETIME")
 
