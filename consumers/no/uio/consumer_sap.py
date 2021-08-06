@@ -32,10 +32,11 @@ import cereconf
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory, read_password
+from Cerebrum.utils.aggregate import unique
 from Cerebrum.utils.date import parse_date
 from Cerebrum.utils.date_compat import get_date, get_datetime_tz
 from Cerebrum.utils.email import mail_template
-from Cerebrum.utils.sorting import make_priority_lookup, unique
+from Cerebrum.utils.sorting import make_priority_lookup
 from Cerebrum.utils.stringmatch import name_diff
 from Cerebrum.modules.event.mapping import CallbackMap
 from Cerebrum.modules.automatic_group.structure import (get_automatic_group,

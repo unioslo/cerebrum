@@ -48,6 +48,7 @@ import Cerebrum.utils.email
 from Cerebrum.Entity import EntitySpread
 from Cerebrum.Utils import Factory
 from Cerebrum.utils import argutils
+from Cerebrum.utils.aggregate import unique
 
 logger = logging.getLogger(__name__)
 
@@ -148,13 +149,6 @@ def get_quarantined(db, start, end, q_types):
             iter_account_quarantines(db, q_types=q_types)):
         account_name = get_account_name(account_id)
         yield account_name
-
-
-def unique(seq):
-    """ Strip duplicates from sequence. """
-    seen = set()
-    seen_add = seen.add
-    return [x for x in seq if not (x in seen or seen_add(x))]
 
 
 def get_template(filename, encoding='utf-8'):
@@ -292,8 +286,8 @@ def main(inargs=None):
     message = get_template(args.template) if args.template else None
 
     logger.debug("fetching quarantined accounts...")
-    accounts = unique(get_quarantined(db, args.after, args.before,
-                                      q_types=quarantines))
+    accounts = list(unique(get_quarantined(db, args.after, args.before,
+                                           q_types=quarantines)))
     logger.info("found %d quarantined accounts to report", len(accounts))
 
     # For legacy reasons -- this script has always written the account names to
