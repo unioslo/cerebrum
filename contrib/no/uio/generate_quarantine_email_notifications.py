@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2015 University of Oslo, Norway
+# Copyright 2015-2021 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,35 +18,60 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""
+This script scans the changelog for quarantine events, and sends a notification
+email to an interested party.
+
+Note that each quarantine event generates a separate email.
+
+
+Commit
+------
+This script automatically commits if the --sendmail flag is present.
+
+Commit happens after processing each quarantine preset in
+``cereconf.QUARANTINE_NOTIFY_DATA``.  If processing of a quarantine preset
+fails, we may end up in a situation where the notification email is sent, but
+the changehandler is not updated (i.e.  database rollback).
+
+
+Configuration
+-------------
+The cereconf setting ``QUARANTINE_NOTIFY_DATA`` controls which changelog-events
+this script acts on.  The overall structure of this setting is:
+::
+
+    {
+        '<quarantine-name>': {
+            'triggers': [
+                '<change-type-name>',
+                ...
+            ]
+            'cl_key': '<change-handler-key>',
+            'mail_to': '<recipient-email>',
+            'mail_from': '<sender-email>',
+        },
+        ...
+    }
 
 """
-This script scans the changelog for changes related to the quarantines defined
-in cereconf.QUARANTINE_NOTIFY_DATA. This dict also contains which actions
-should trigger an email notification for specific quarantines, as well as
-the email sender/recipient and a quarantine-specific CLHandler-key.
-If sendmail is enabled, events will be confirmed in CLHandler, and emails
-will be sent instead of outputted to the logger instance.
-"""
-
 import argparse
+import logging
 
 import cereconf
 
+import Cerebrum.logutils
+import Cerebrum.logutils.options
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.email import sendmail as sendmail_util
 from Cerebrum.utils import json
 from Cerebrum.modules import CLHandler
 
-logger = Factory.get_logger('cronjob')
-db = Factory.get('Database')()
-co = Factory.get('Constants')(db)
-clconst = Factory.get('CLConstants')(db)
-ac = Factory.get('Account')(db)
-cl = CLHandler.CLHandler(db)
+logger = logging.getLogger(__name__)
 
 
-def check_changelog_for_quarantine_triggers(logger, sendmail):
+def check_changelog_for_quarantine_triggers(db, sendmail):
     """
     Scans the changelog for changes related to the quarantines defined in
     cereconf.QUARANTINE_NOTIFY_DATA. This dict also contains which actions
@@ -59,6 +84,9 @@ def check_changelog_for_quarantine_triggers(logger, sendmail):
     :param sendmail: Turns on event confirming to CLHandler and email sending
     :type: bool
     """
+    co = Factory.get('Constants')(db)
+    clconst = Factory.get('CLConstants')(db)
+    cl = CLHandler.CLHandler(db)
     for quarantine in cereconf.QUARANTINE_NOTIFY_DATA:
         logger.info('Checking changelog for triggers for quarantine %s'
                     % quarantine)
@@ -73,7 +101,7 @@ def check_changelog_for_quarantine_triggers(logger, sendmail):
             if change_params['q_type'] == int(co.Quarantine(quarantine)):
                 # Generate dicts with relevant info for email
                 quar_info = generate_quarantine_info(quarantine, quar_data)
-                event_info = generate_event_info(event)
+                event_info = generate_event_info(db, event)
 
                 logger.info('Found trigger for quarantine %s in change_ID %d'
                             % (quarantine, event_info['change_id']))
@@ -111,7 +139,9 @@ def generate_quarantine_info(quarantine, metadata):
     return quarantine_info
 
 
-def generate_event_info(event):
+def generate_event_info(db, event):
+    ac = Factory.get('Account')(db)
+    clconst = Factory.get('CLConstants')(db)
     event_info = dict()
     event_info['change_id'] = event['change_id']
     change_type = str(clconst.ChangeType(event['change_type_id']))
@@ -157,13 +187,27 @@ def generate_mail_notification(quar_info, event_info, debug=False):
                          debug=debug)
 
 
-def main():
+def main(inargs=None):
+    parser = argparse.ArgumentParser(
+        description="Send email warnings on quarantine changes",
+    )
+    parser.add_argument(
+        '--sendmail',
+        action='store_true',
+        help='Commit and actually send generated e-mails',
+    )
+    Cerebrum.logutils.options.install_subparser(parser)
 
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--sendmail', action='store_true',
-                        help='Actually send generated e-mails')
-    args = parser.parse_args()
-    check_changelog_for_quarantine_triggers(logger, args.sendmail)
+    args = parser.parse_args(inargs)
+    Cerebrum.logutils.autoconf('cronjob', args)
+
+    logger.info('start %s', parser.prog)
+    logger.debug('args: %s', repr(args))
+
+    db = Factory.get('Database')()
+    check_changelog_for_quarantine_triggers(db, args.sendmail)
+
+    logger.info('done %s', parser.prog)
 
 
 if __name__ == '__main__':
