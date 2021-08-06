@@ -73,62 +73,63 @@ logger = logging.getLogger(__name__)
 
 def check_changelog_for_quarantine_triggers(db, sendmail):
     """
-    Scans the changelog for changes related to the quarantines defined in
-    cereconf.QUARANTINE_NOTIFY_DATA. This dict also contains which actions
-    should trigger an email notification for specific quarantines, as well as
-    the email sender/recipient and a quarantine-specific CLHandler-key.
-    If sendmail is enabled, events will be confirmed in CLHandler, and emails
-    will be sent instead of outputted to the logger instance.
-
-    :param logger: Factory-generated logger-instance
-    :param sendmail: Turns on event confirming to CLHandler and email sending
-    :type: bool
+    :param db: database connection
+    :param bool sendmail: confirm events and send email
     """
     co = Factory.get('Constants')(db)
     clconst = Factory.get('CLConstants')(db)
     cl = CLHandler.CLHandler(db)
+
     for quarantine in cereconf.QUARANTINE_NOTIFY_DATA:
-        logger.info('Checking changelog for triggers for quarantine %s'
-                    % quarantine)
-        quar_data = cereconf.QUARANTINE_NOTIFY_DATA[quarantine]
+        logger.info('processing quarantine %s', quarantine)
+        q_type = int(co.Quarantine(quarantine))
+        q_data = cereconf.QUARANTINE_NOTIFY_DATA[quarantine]
+        q_stats = {'confirm': 0, 'ignore': 0}
         triggers = tuple(
-            getattr(clconst, trigger) for trigger in quar_data['triggers'])
-        for event in cl.get_events(quar_data['cl_key'],
+            getattr(clconst, trigger) for trigger in q_data['triggers'])
+        for event in cl.get_events(q_data['cl_key'],
                                    triggers):
             change_params = {}
             if event['change_params']:
                 change_params = json.loads(event['change_params'])
-            if change_params['q_type'] == int(co.Quarantine(quarantine)):
+            if change_params['q_type'] == q_type:
                 # Generate dicts with relevant info for email
-                quar_info = generate_quarantine_info(quarantine, quar_data)
+                quar_info = generate_quarantine_info(quarantine, q_data)
                 event_info = generate_event_info(db, event)
 
-                logger.info('Found trigger for quarantine %s in change_ID %d'
-                            % (quarantine, event_info['change_id']))
+                logger.info('found trigger for quarantine %s in change-id %d',
+                            quarantine, event_info['change_id'])
                 try:
                     if sendmail:
                         generate_mail_notification(quar_info, event_info)
                         logger.info(
-                            'Email for change-ID: %d generated and sent.' %
+                            'email for change-id: %d generated and sent',
                             event_info['change_id'])
                         cl.confirm_event(event)
-                        logger.info('change-ID %d confirmed in CLHandler.'
-                                    % event_info['change_id'])
+                        logger.info('change-id %d confirmed in CLHandler',
+                                    event_info['change_id'])
                     else:
-                        logger.debug('Mail output for change-ID %d:'
-                                     % event_info['change_id'])
+                        logger.debug('mail output for change-id %d:',
+                                     event_info['change_id'])
                         logger.debug(generate_mail_notification(quar_info,
                                                                 event_info,
                                                                 debug=True))
                 except Exception, e:
                     logger.exception(e)
                     raise
+                q_stats['confirm'] += 1
             else:
-                # Irrelevant quarantines should simply be confirmed
+                # irrelevant quarantines should simply be confirmed
                 if sendmail:
                     cl.confirm_event(event)
+                q_stats['ignore'] += 1
+
         if sendmail:
+            logger.info('confirming changehandler, key %s', q_data['cl_key'])
             cl.commit_confirmations()
+
+        logger.info('changelog events for %s: %s', quarantine, repr(q_stats))
+        logger.info('done processing quarantine %s', quarantine)
 
 
 def generate_quarantine_info(quarantine, metadata):
