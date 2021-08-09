@@ -32,6 +32,7 @@ following additional properties are defined:
 """
 
 from Cerebrum.OU import OU
+from Cerebrum.Utils import Factory
 import cereconf
 import six
 
@@ -181,6 +182,19 @@ class Stedkode(OU):
           avdeling = :avdeling""", locals())
         self.find(ou_id)
 
+    def find_sko(self, stedkode, institusjon=cereconf.DEFAULT_INSTITUSJONSNR,
+                 landkode=0):
+        """ find ou by full stedkode """
+
+        if len(stedkode) != 6 or not stedkode.isdigit():
+            raise ValueError("Expected a six-digit stedkode.")
+
+        fakultet = stedkode[0:2]
+        institutt = stedkode[2:4]
+        avdeling = stedkode[4:6]
+
+        self.find_stedkode(fakultet, institutt, avdeling, institusjon, landkode)
+
     def get_stedkoder(self, landkode=0,
                       institusjon=cereconf.DEFAULT_INSTITUSJONSNR,
                       fakultet=None, institutt=None, avdeling=None):
@@ -200,3 +214,37 @@ class Stedkode(OU):
 
     def get_stedkode(self):
         return "%02d%02d%02d" % (self.fakultet, self.institutt, self.avdeling)
+
+
+class SkoCache(object):
+    """ Make a mapping from ou_id to stedkode and OU name for all OUs"""
+
+    def __init__(self, db):
+        co = Factory.get('Constants')(db)
+        ou = Factory.get('OU')(db)
+
+        self._ou2sko = dict(
+            (row['ou_id'], ("%02d%02d%02d" % (row['fakultet'],
+                                              row['institutt'],
+                                              row['avdeling'])))
+            for row in ou.get_stedkoder())
+
+        self._ou2name = dict(
+            (row['entity_id'], row['name'])
+            for row in ou.search_name_with_language(
+                name_variant=co.ou_name_display,
+                name_language=co.language_nb))
+
+    def get_sko(self, ou_id):
+        ou_id = int(ou_id)
+        try:
+            return self._ou2sko[ou_id]
+        except:
+            raise CerebrumError("Could not find stedkode for ou_id %s" %ou_id)
+
+    def get_name(self, ou_id):
+        ou_id = int(ou_id)
+        try:
+            return self._ou2name[ou_id]
+        except:
+            raise CerebrumError("Could not find OU name for ou_id %s" %ou_id)
