@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2013-2018 University of Oslo, Norway
+# Copyright 2013-2021 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -172,7 +171,6 @@ class CerebrumUtils(object):
         self.ef.find_by_target_entity(account_id)
         r = []
         for fwd in self.ef.get_forward():
-            # Need to do keys() for now, db_row is stupid.
             if 'enable' in fwd.keys() and fwd['enable'] == 'T':
                 r.append(fwd['forward_to'])
         self.db.rollback()
@@ -622,8 +620,8 @@ class CerebrumUtils(object):
         :type subj_id: int
         :param subj_id: The DistributionGroups entity-id.
 
-        @rtype: Cerebrum.extlib.db_row.row
-        @return: Rows as returned by Entity.search_name_with_language()."""
+        :return: see ``EntityNameWithLanguage.search_name_with_language``.
+        """
         self.dg.clear()
         self.dg.find(subj_id)
         ret = self.dg.search_name_with_language(

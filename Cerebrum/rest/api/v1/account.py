@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2016-2018 University of Oslo, Norway
+# Copyright 2016-2021 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -283,7 +283,7 @@ def _in_range(date, start=None, end=None):
 
 
 def _format_quarantine(q):
-    """ Format a quarantine db_row for models.EntityQuarantine. """
+    """ Format an entity_quarantine row for models.EntityQuarantine. """
 
     _tz_aware = date_compat.get_datetime_tz
 

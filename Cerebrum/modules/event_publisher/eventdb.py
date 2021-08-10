@@ -1,6 +1,6 @@
 # encoding: utf-8
 #
-# Copyright 2017 University of Oslo, Norway
+# Copyright 2017-2021 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,7 +18,6 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ mod_events database accessor. """
-
 from __future__ import absolute_import
 
 import json
@@ -100,8 +99,8 @@ class EventsAccessor(DatabaseAccessor):
 
         :param int event_id: The event to lock.
 
-        :rtype: Cerebrum.extlib.db_row.row
-        :return: A database row with the event_id
+        :rtype: int
+        :return: the locked event id
         """
         return self.query_1(
             """
@@ -122,7 +121,7 @@ class EventsAccessor(DatabaseAccessor):
             The event id to release
 
         :rtype: int
-        :return: The event id
+        :return: the released event id
         """
         self.query_1(
             """

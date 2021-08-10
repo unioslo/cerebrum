@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2013-2015 University of Oslo, Norway
+# Copyright 2013-2021 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -199,11 +198,15 @@ class DistributionGroup(Group_class):
     def list_distribution_groups(self):
         """Return entity-IDs of all DistributionGroups.
 
-        :rtype list(db_row.row)
-        :return [(group_id,)]"""
-        return self.query("""
-        SELECT group_id
-        FROM [:table schema=cerebrum name=distribution_group]""")
+        :return list:
+            A list of distribution group_id rows (e.g. ``[(group_id,)]``).
+        """
+        return self.query(
+            """
+            SELECT group_id
+            FROM [:table schema=cerebrum name=distribution_group]
+            """,
+        )
 
     def set_roomlist_status(self, roomlist='F'):
         """Set roomlist status for a distribution group.
@@ -268,7 +271,7 @@ class DistributionGroup(Group_class):
 
     def ret_standard_attr_values(self, room=False):
         return {'roomlist': 'T' if room else 'F',
-                'hidden': 'F' if room else  'T'}
+                'hidden': 'F' if room else 'T'}
 
     def ret_standard_language(self):
         return 'nb'

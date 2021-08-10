@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2013-2016 University of Oslo, Norway
+# Copyright 2013-2021 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -43,6 +42,7 @@ from Cerebrum.utils.funcwrap import memoize
 from Cerebrum.modules.event.mapping import EventMap
 from Cerebrum.modules.event import evhandlers
 
+from . import ExchangeClient
 from . import group_flattener
 
 
@@ -142,11 +142,9 @@ class ExchangeGroupEventHandler(evhandlers.EventLogConsumer):
         """
         if self.mock:
             self.logger.info('Running in mock-mode')
-            from Cerebrum.modules.no.uio.exchange.ExchangeClient import (
-                ClientMock as excclass, )
+            excclass = ExchangeClient.ClientMock
         else:
-            from Cerebrum.modules.no.uio.exchange.ExchangeClient import (
-                ExchangeClient as excclass, )
+            excclass = ExchangeClient.ExchangeClient
 
         def j(*l):
             return '\\'.join(l)
@@ -218,11 +216,11 @@ class ExchangeGroupEventHandler(evhandlers.EventLogConsumer):
     def add_group_members(self, event):
         """Addition of member to group.
 
-        :type event: Cerebrum.extlib.db_row.row
-        :param event: The event returned from Change- or EventLog.
+        :param event: an event_log row to handle
 
         :raise UnrelatedEvent: If this event is unrelated to this handler.
-        :raise EventExecutionException: If the event fails to execute."""
+        :raise EventExecutionException: If the event fails to execute.
+        """
         group_id = group_flattener.get_entity(self.db, event['subject_entity'])
         member = group_flattener.get_entity(self.db, event['dest_entity'])
         if not member:
@@ -262,10 +260,10 @@ class ExchangeGroupEventHandler(evhandlers.EventLogConsumer):
     def remove_group_member(self, event):
         """Removal of member from group.
 
-        :type event: Cerebrum.extlib.db_row.row
-        :param event: The event returned from Change- or EventLog.
+        :param event: an event_log row to handle
 
-        :raise UnrelatedEvent: Raised if the event is not to be handled."""
+        :raise UnrelatedEvent: Raised if the event is not to be handled.
+        """
         group_id = group_flattener.get_entity(self.db, event['subject_entity'])
         member = group_flattener.get_entity(self.db, event['dest_entity'])
         if not member:

@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2013-2016 University of Oslo, Norway
+# Copyright 2013-2021 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,6 +17,11 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""
+Simple changelog event broker to queue changes for targeted systems.
+
+This module implements the DBAL for mod_eventlog.
+"""
 
 import Cerebrum.ChangeLog
 from Cerebrum.modules.ChangeLog import _params_to_db
@@ -138,8 +142,7 @@ class EventLog(Cerebrum.ChangeLog.ChangeLog):
         :param TargetSystemCode target_system:
             The target system to perform select on
 
-        :rtype: Cerebrum.extlib.db_row.row
-        :return: One row representing the event
+        :return: A matching row from event_log.
         """
         params = {'event_id': int(event_id)}
         if target_system:
@@ -153,10 +156,8 @@ class EventLog(Cerebrum.ChangeLog.ChangeLog):
     def lock_event(self, event_id):
         """Lock an event for processing.
 
-        :param int event_id: The event to lock.
-
-        :rtype: Cerebrum.extlib.db_row.row
-        :return: A database row with the event_id
+        :param int event_id: the event to lock
+        :return int: the successfully locked event_id
         """
         return self.query_1(
             """UPDATE event_log
@@ -188,8 +189,7 @@ class EventLog(Cerebrum.ChangeLog.ChangeLog):
         :param bool fetchall:
             If True, fetch all results. Else, return iterator.
 
-        :rtype: list(Cerebrum.extlib.db_row.row)
-        :return: A list of unprocessed database rows
+        :return list: A list of unprocessed event_log rows
         """
         where = 'target_system = :target_system'
         args = {'target_system': int(target_system)}

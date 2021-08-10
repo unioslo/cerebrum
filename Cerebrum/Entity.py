@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2002-2020 University of Oslo, Norway
+# Copyright 2002-2021 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -1034,11 +1034,15 @@ class EntityContactInfo(Entity):
             If a source_system and contact_type combination is not matched by
             the specification, it will be filtered out from the sorted results.
 
-        :param spec: A list of tuples defining the specification contacts
-            should be sorted according to. The tuple members type must be
-            subclassed from CerebrumCode or NoneType.
-        :param contacts: A list of db_row objects representing contacts.
-        :return: A list of db_row objects sorted according to spec.
+        :param spec:
+            A list of tuples defining the specification contacts should be
+            sorted according to. The tuple members type must be subclassed from
+            CerebrumCode or NoneType.
+
+        :param contacts:
+            A list of contact_info rows (or compatible mappings).
+
+        :return list: A sorted and filtered copy of `contacts`.
         """
         from functools import total_ordering
 
