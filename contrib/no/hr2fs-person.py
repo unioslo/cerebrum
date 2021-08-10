@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
-
-# Copyright 2008-2019 University of Oslo, Norway
+#
+# Copyright 2008-2021 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,7 +18,6 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
 r"""
 Backports data to FS from a HR system (SAP, LT or something else).
 
@@ -600,14 +599,21 @@ class HR2FSSyncer(object):
         The affiliations are specified by L{selection_criteria}. Only the rows
         with these affiliations/statuses are returned.
 
-        :param selection_criteria: Affiliation selection
-        :param row_generator: Something which generates db_rows we can filter.
-        This is typically a method in the Person or Account class.
-        :param kw_args: Additional arguments to pass to row_generator. We allow
-        'person_id' and 'source_system' only as keys. The meaning of these
-        parameters depends on the row_generator.
-        :return: Generator yielding db-rows matching the specified filters in
-        Cerebrum.
+        :param selection_criteria:
+            Affiliation selection.
+
+        :param row_generator:
+            Something which generates database rows we can filter.  This is
+            typically a method in the Person or Account class.
+
+        :param kw_args:
+            Additional arguments to pass to row_generator. We allow 'person_id'
+            and 'source_system' only as keys. The meaning of these parameters
+            depends on the row_generator.
+
+        :return:
+            Generator yielding db-rows matching the specified filters in
+            Cerebrum.
         """
         just_affiliations = self.criteria2affiliations(selection_criteria)
         affiliation2status = self._selection_to_aff_dict(selection_criteria)

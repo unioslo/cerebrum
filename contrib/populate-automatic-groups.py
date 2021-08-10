@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-# Copyright 2007, 2008, 2014 University of Oslo, Norway
+#
+# Copyright 2007-2021 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,7 +18,6 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
 r"""Populate and update several automatically maintained groups in Cerebrum.
 
 The complete specification of this script is in
@@ -450,9 +449,8 @@ def affiliation2groups(row, current_groups, select_criteria, perspective):
     could trigger additional memberships (check the documentation for
     meta-ansatt-<sko>).
 
-    :type row: A db_row instance
     :param row:
-      A db_row representing one affiliation for one person.
+      An affiliation database row.
 
     :type current_groups: dict
     :param current_groups:
@@ -556,48 +554,40 @@ def populate_groups_from_rule(generator, row2groups, current_groups,
     finished processing the rules, we can synchronize the in-memory data
     structure with the database.
 
-    :type person_generator:
-      Generator (or a function returning a sequence) of db_rows (person_ids).
-     :type primary_generator:
-      Generator (or a function returning a sequence) of db_rows (account_ids
-      posing as person_ids).
-    :param person_generator:
-      Next db-row 'source' to process. Calling this yields something we can
-      iterate across. The items in the sequence should be db_rows (or
-      something which emulates them, like a dict)
-    :param primary_generator:
-      Next db-row 'source' to process. Calling this yields something we can
-      iterate across. The items in the sequence should be db_rows (or
-      something which emulates them, like a dict)
+    :type generator: callable
+    :param generator:
+        Function that returns an iterable of items (persons) to look up and
+        process.  Each item in the iterable must be compatible with
+        L{row2groups}.
 
     :type row2groups: callable
     :param row2groups:
-      Function that converts a row returned by L{person_generator} to a list
-      of memberships. Calling row2groups on any row D returned by
-      L{person_generator} returns a list of tuples (x, y) (cf.
-      L{affiliation2groups} for the precise description of their meanings).
+        Function that converts an item in the iterable returned by L{generator}
+        to a list of memberships. Calling row2groups(D, current_groups) on any
+        row D returned by L{generator} must return a list of (member_id,
+        group_id) tuples.
 
     :type current_groups: dict
     :param current_groups:
-      Cf. L{find_all_auto_groups}.
+        A list of known groups, cf. L{find_auto_groups}.
 
     :type new_groups: dict
     :param new_groups:
-      A dictionary mapping group_ids to membership info. Each membership info
-      is a dictionary, mapping entity types to member ids. All group_ids
-      referenced refer to groups existing in Cerebrum (i.e. we are guaranteed
-      (at least at some isolation level) that all group_ids in this dict exist
-      in Cerebrum.
+        A dictionary mapping group_ids to membership info. Each membership info
+        is a dictionary, mapping entity types to member ids. All group_ids
+        referenced refer to groups existing in Cerebrum (i.e. we are guaranteed
+        (at least at some isolation level) that all group_ids in this dict
+        exist in Cerebrum.
 
-      An example of this dictionary would be::
+        An example of this dictionary would be::
 
           {1: {<entity person>: set([10, 11, 12, 13]),
                <entity group>: set([20, 21, 22])}}
 
-      ... meaning that group with id=1 has two types of members: people (with
-    ids 10-13) and other groups (ids 20, 21, 22). Note that it is unlikely
-    that a group would have *both* people and groups as members. It is either
-    one or the other, but not both.
+        ... meaning that group with id=1 has two types of members: people (with
+        ids 10-13) and other groups (ids 20, 21, 22). Note that it is unlikely
+        that a group would have *both* people and groups as members. It is
+        either one or the other, but not both.
     """
     count = 0
     for person in generator():
@@ -1499,13 +1489,14 @@ def main():
         database.rollback()
         logger.debug("Rolled back all changes")
 
-    for k,v in _members_added.items():
+    for k, v in _members_added.items():
         logger.info('Added %d memberships of type %s',
                     v, const.human2constant(k))
 
-    for k,v in _members_removed.items():
+    for k, v in _members_removed.items():
         logger.info('Removed %d memberships of type %s',
                     v, const.human2constant(k))
+
 
 if __name__ == "__main__":
     main()

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2010-2018 University of Oslo, Norway
+# Copyright 2010-2021 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -274,7 +274,7 @@ def _cache_person_contact_info(cache, source_system):
         priority = row["contact_pref"]
         if chunk.get(contact_type, {}).get("contact", priority + 1) < priority:
             continue
-        chunk[contact_type] = row.dict()
+        chunk[contact_type] = dict(row)
     logger.debug("Caching person contact info complete")
     return cache
 
@@ -378,7 +378,7 @@ def _cache_person_info(perspective, source_system):
 
         if person_id not in cache:
             cache[person_id] = {"employments": list()}
-        cache[person_id]["employments"].append(row.dict())
+        cache[person_id]["employments"].append(dict(row))
     # ... and the "rest" -- ph.d students and the like.
     # IVR 2011-02-17 FIXME: Should this be affiliation-based?
     # TODO: Should probably be configurable what affiliations we choose.
@@ -395,7 +395,7 @@ def _cache_person_info(perspective, source_system):
             cache[person_id] = {"affiliations": list()}
         if "affiliations" not in cache[person_id]:
             cache[person_id]["affiliations"] = list()
-        cache[person_id]["affiliations"].append(row.dict())
+        cache[person_id]["affiliations"].append(dict(row))
 
     cache = _cache_person_names(cache, source_system)
     cache = _cache_person_contact_info(cache, source_system)

@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright 2015 University of Oslo, Norway
+#
+# Copyright 2015-2021 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -89,9 +90,9 @@ def write_report(stream, quarantines):
 
     Objects of type mx.DateTime.DateTimeType are serialized by calling str().
 
-    :param list(<Cerebrum.extlib.db_row.row>) quarantines: List of quarantines.
-    :param basestring outfile: File to write."""
-
+    :param list quarantines: quarantine database rows to report.
+    :param file outfile: file-like object to write to
+    """
     json.dump(list(quarantines), stream,
               cls=JsonEncoder, indent=4, sort_keys=True)
     stream.write("\n")

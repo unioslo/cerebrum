@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-# Copyright 2003-2016 University of Oslo, Norway
+#
+# Copyright 2003-2021 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -22,9 +22,7 @@
 
 This script reads from the bofhd_request table in the database and picks the
 requests of the given types for processing.
-
 """
-
 import argparse
 import datetime
 import logging
@@ -265,9 +263,8 @@ def archive_cyrus_data(uname, mail_server, generation):
 def proc_sympa_create(request):
     """Execute the request for creating a sympa mailing list.
 
-    :type request: db_row
     :param request:
-      A dict-like object describing the sympa list creation request.
+        a dict-like object describing the sympa list creation request
     """
 
     try:
@@ -315,10 +312,8 @@ def proc_sympa_create(request):
 def proc_sympa_remove(request):
     """Execute the request for removing a sympa mailing list.
 
-    :type request: db_row
     :param request:
-      A dict-like object containing all the parameters for sympa list
-      removal.
+        a dict-like object containing all the parameters for sympa list removal
     """
 
     try:

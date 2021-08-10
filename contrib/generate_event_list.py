@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2015-2018 University of Oslo, Norway
+# Copyright 2015-2021 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -164,8 +164,9 @@ def dump_json(filename, events):
 
     Objects of type mx.DateTime.DateTimeType are serialized by calling str().
 
-    :param list(<Cerebrum.extlib.db_row.row>) events: List of events.
-    :param basestring filename: File to write to. Prints to stdout if None."""
+    :param list events: database rows (events) to dump
+    :param str filename: file to write to, or empty to print to stdout.
+    """
     if filename:
         with open(filename, 'w') as f:
             json.dump(events, f, indent=4, sort_keys=True)
