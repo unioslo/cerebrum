@@ -62,9 +62,8 @@ from .jwe_utils import get_jwk, jwe_encrypt
 
 # Default secret size requirement, in bytes
 #
-# OTP secrets are usually represented as base32-strings.  Common sizes are:
-# - 10 bytes (16 base32 chars)
-# - 10 bytes (16 base32 chars)
+# OTP secrets can be of any length, but Feide requires secrets to be 10 bytes
+# (16 base32 chars).
 DEFAULT_SECRET_SIZE = 10
 
 
@@ -125,7 +124,7 @@ class OtpTypeRadiusJwe(OtpType):
     def __call__(self, otp_secret):
         payload = {'secret': otp_secret}
         return jwe_encrypt(payload, self.jwk, alg=self.key_alg,
-                           enc=self.claims_enc).serialize(compact=True)
+                           enc=self.claims_enc)
 
     @classmethod
     def new(cls, pubkey=None):
@@ -154,7 +153,7 @@ class OtpTypeFeideJwe(OtpType):
     def __call__(self, otp_secret):
         payload = {'secret': otp_secret}
         return jwe_encrypt(payload, self.jwk, alg=self.key_alg,
-                           enc=self.claims_enc).serialize(compact=True)
+                           enc=self.claims_enc)
 
     @classmethod
     def new(cls, pubkey=None):

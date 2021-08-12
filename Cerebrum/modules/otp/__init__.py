@@ -51,11 +51,6 @@ Configuration
 If the related ``mod_otp.sql`` database schema is present, the following
 configuration must be added to ``cereconf``:
 
-we must ensure that
-the appropriate class mixins mixins the following
-Cerebrum modules must be included in ``cereconf`` in order to maintain
-constraints:
-
 cereconf.CLASS_CLCONSTANTS
     Must include ``Cerebrum.modules.otp.constants/OtpChangeLogConstants`` for
     the auditlog, changelog, eventlog, and event publishing mechanism to
@@ -64,6 +59,9 @@ cereconf.CLASS_CLCONSTANTS
 cereconf.CLASS_PERSON
     Must include ``Cerebrum.modules.otp.mixins/OtpPersonMixin`` in order to
     maintain constraints.
+
+In addition, the following ``cereconf`` settings controls if/how the OTP module
+is used:
 
 cereconf.OTP_POLICY
     Must include a tuple of ``Cerebrum.modules.otp.otp_types/OtpType`` classes.
