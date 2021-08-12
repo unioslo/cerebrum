@@ -23,7 +23,6 @@ This script converts the Paga XML file to a CSV file.
 from __future__ import print_function, unicode_literals
 
 import argparse
-import csv
 import datetime
 import logging
 import os
@@ -35,6 +34,7 @@ import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum.extlib import xmlprinter
 from Cerebrum.utils.atomicfile import SimilarSizeWriter
+from Cerebrum.utils.csvutils import read_csv_dicts
 
 logger = logging.getLogger(__name__)
 
@@ -97,12 +97,7 @@ def parse_date(date_str):
 def read_csv_file(filename,
                   encoding=default_encoding,
                   charsep=default_charsep):
-    logger.info("reading csv file=%r (encoding=%r, charsep=%r)",
-                filename, encoding, charsep)
-    with open(filename, mode='r') as f:
-        for data in csv.DictReader(f, delimiter=charsep.encode(encoding)):
-            yield {k.decode(encoding): v.decode(encoding)
-                   for k, v in data.items()}
+    return read_csv_dicts(filename, encoding, charsep)
 
 
 def parse_paga_csv(pagafile):

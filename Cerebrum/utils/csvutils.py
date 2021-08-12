@@ -148,6 +148,15 @@ def read_csv_dicts(filename, encoding, delimiter):
         A generator that yields a dict for each entry in the CSV file.
     """
     def transform(record):
+        # restkey=None and restval=None by default, which stores extra fields
+        # as a list with key `None`.
+        # Too many fields are usually caused by incorrect escaping, in which
+        # case we can't trust the record fields at all.
+        overflow = len(record.pop(None, []))
+        if overflow:
+            raise ValueError('Too many fields: %d (expected %d)'
+                             % (len(record) + overflow, len(record)))
+
         return dict(
             (k.decode(encoding),
              v.decode(encoding) if v is not None else None)
