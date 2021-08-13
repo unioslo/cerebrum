@@ -28,8 +28,6 @@ import collections
 import datetime
 import logging
 
-import mx.DateTime
-
 import cereconf
 import Cerebrum.logutils
 import Cerebrum.logutils.options
@@ -112,7 +110,7 @@ def check_expired_sourcedata(expire_date):
     return expire_date < datetime.date.today()
 
 
-def create_sysx_person(db, sxp, update_affs, stats):
+def create_sysx_person(db, sxp, update_affs, stats, _today=None):
     """
     Create or update person with sysx data.
 
@@ -121,6 +119,7 @@ def create_sysx_person(db, sxp, update_affs, stats):
     :param update_affs: A set of current SYSX aff keys
     :param stats: A defaultdict with counts
     """
+    _today = _today or datetime.date.today()
 
     co = Factory.get('Constants')(db)
     add_sysx_id = fnr_found = False
@@ -155,6 +154,22 @@ def create_sysx_person(db, sxp, update_affs, stats):
     except Errors.NotFoundError:
         add_sysx_id = True
 
+    # gender
+    if sxp['gender'] == 'M':
+        gender = co.gender_male
+    elif sxp['gender'] == 'F':
+        gender = co.gender_female
+    else:
+        gender = co.gender_unknown
+        logger.warning("invalid gender (%r) for sysx_id=%r (%s)",
+                       sxp['gender'], sysx_id, fullt_navn)
+
+    # birth date
+    birth_date = sxp['birth_date']
+    if not birth_date:
+        logger.warning("invalid birth date (%r) for sysx_id=%r (%s)",
+                       sxp['birth_date'], sysx_id, fullt_navn)
+
     if fnr:
         try:
             fnr = fodselsnr.personnr_ok(fnr)
@@ -163,12 +178,19 @@ def create_sysx_person(db, sxp, update_affs, stats):
                          sysx_id, fullt_navn)
             stats['skipped'] += 1
             return
-        birth_date = datetime.date(*fodselsnr.fodt_dato(fnr))
 
-        if fodselsnr.er_kvinne(fnr):
-            gender = co.gender_female
-        else:
-            gender = co.gender_male
+        if not birth_date:
+            logger.info('extracting birth date from fnr for sysx_id=%r (%s)',
+                        sysx_id, fullt_navn)
+            birth_date = datetime.date(*fodselsnr.fodt_dato(fnr))
+
+        if gender == co.gender_unknown:
+            logger.info('extracting gender from fnr for sysx_id=%r (%s)',
+                        sysx_id, fullt_navn)
+            if fodselsnr.er_kvinne(fnr):
+                gender = co.gender_female
+            else:
+                gender = co.gender_male
 
         try:
             pers_fnr.find_by_external_id(co.externalid_fodselsnr, fnr)
@@ -194,32 +216,26 @@ def create_sysx_person(db, sxp, update_affs, stats):
                 return
             fnr_found = True
 
-    else:
-        # foreigner without norwegian ssn,
-        birth_date = sxp['birth_date']
-        if not birth_date:
-            logger.error("sysx_id=%r (%s) is missing birth date",
-                         sysx_id, fullt_navn)
-
-        if sxp['gender'] == 'M':
-            gender = co.gender_male
-        elif sxp['gender'] == 'F':
-            gender = co.gender_female
-        else:
-            logger.error("Skipping sysx_id=%r (%s), invalid gender %r",
-                         sysx_id, fullt_navn, sxp['gender'])
-            stats['skipped'] += 1
-            return
-
     logger.info("Processing sysx_id=%r (%s)", sysx_id, fullt_navn)
     if fnr_found:
         person = pers_fnr
     else:
         person = pers_sysx
 
+    if not birth_date:
+        logger.error("Skipping sysx_id=%r (%s), no birth date found",
+                     sysx_id, fullt_navn)
+        stats['skipped'] += 1
+        return
+    elif birth_date > _today:
+        logger.error("Skipping sysx_id=%r (%s), future birth date (%r)",
+                     sysx_id, fullt_navn, birth_date)
+        stats['skipped'] += 1
+        return
+
     # person object located, populate...
     try:
-        person.populate(mx.DateTime.DateFrom(birth_date), gender)
+        person.populate(birth_date, gender)
     except Errors.CerebrumError:
         logger.error("Skipping sysx_id=%r (%s), populate() failed",
                      sysx_id, fullt_navn, exc_info=True)
