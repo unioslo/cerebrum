@@ -27,20 +27,22 @@ Informatics.
 from __future__ import unicode_literals
 
 import sys
-import getopt
+import argparse
 import re
 import datetime
+import logging
 from six import text_type
 
 import cereconf
+import Cerebrum.logutils
 from Cerebrum import Errors
 from Cerebrum.utils import date_compat
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
 from Cerebrum.modules import PosixGroup
 
-
-db = co = logger = group_creator = dryrun = None
+logger = logging.getLogger(__name__)
+db = co = group_creator = dryrun = None
 
 
 def get_email_target_and_address(address):
@@ -412,46 +414,35 @@ def get_account(name):
 
 
 def main():
-    global db, co, logger, group_creator, dryrun
+    global db, co, group_creator, dryrun
 
     db = Factory.get('Database')()
     db.cl_init(change_program='ifi_auto')
     co = Factory.get('Constants')(db)
-    logger = Factory.get_logger("cronjob")
-    dryrun = False
 
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], '?',
-                                   ['dryrun', 'help'])
-    except getopt.GetoptError:
-        usage()
-    for opt, val in opts:
-        if opt == '--dryrun':
-            dryrun = True
-        if opt in ('-?', '--help'):
-            usage(0)
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.RawTextHelpFormatter,
+        description="""Usage: ifi_auto.py [options]
+        Update e-mail addresses and filegroups associated with courses
+        taught at Deptartment of Informatics.""")
+    parser.add_argument('-d', '--dryrun',
+                        help="Don't commit changes to database",
+                        action='store_true',
+                        dest='dryrun',
+                        default=False)
 
+    Cerebrum.logutils.options.install_subparser(parser)
+    args = parser.parse_args()
+    Cerebrum.logutils.autoconf('cronjob', args)
     supergroup = "internal:uio.no:fs:{autogroup}"
     fg_supergroup = "internal:uio.no:fs:{ifi_auto_fg}"
     group_creator = get_account(cereconf.INITIAL_ACCOUNTNAME).entity_id
     process_groups(supergroup, fg_supergroup)
-    if not dryrun:
+    if not args.dryrun:
         logger.debug("commit...")
         db.commit()
     logger.info("All done")
 
-
-def usage(exitcode=64):
-    print """Usage: ifi_auto.py [options]
-    Update e-mail addresses and filegroups associated with courses
-    taught at Deptartment of Informatics.
-
-    Options:
-        --dryrun: don't commit changes to database
-        --logger-name={console|cronjob}
-        --logger-level={debug|info|warning|error}
-    """
-    sys.exit(exitcode)
 
 if __name__ == '__main__':
     main()
