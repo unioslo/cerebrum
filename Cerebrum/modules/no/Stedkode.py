@@ -31,6 +31,7 @@ following additional properties are defined:
   - institusjon
 """
 
+from Cerebrum.Errors import CerebrumError
 from Cerebrum.OU import OU
 from Cerebrum.Utils import Factory
 import cereconf
@@ -217,7 +218,7 @@ class Stedkode(OU):
 
 
 class SkoCache(object):
-    """ Make a mapping from ou_id to stedkode and OU name for all OUs"""
+    """ Make a mapping from ou_id to stedkode for all OUs"""
 
     def __init__(self, db):
         co = Factory.get('Constants')(db)
@@ -229,22 +230,30 @@ class SkoCache(object):
                                               row['avdeling'])))
             for row in ou.get_stedkoder())
 
+    def get_sko(self, ou_id):
+        ou_id = int(ou_id)
+        try:
+            return self._ou2sko[ou_id]
+        except KeyError:
+            raise CerebrumError("Could not find stedkode for ou_id %s" %ou_id)
+
+
+class OUNameCache(object):
+    """ Make a mapping from ou_id to OU name for all OUs"""
+
+    def __init__(self, db):
+        co = Factory.get('Constants')(db)
+        ou = Factory.get('OU')(db)
+
         self._ou2name = dict(
             (row['entity_id'], row['name'])
             for row in ou.search_name_with_language(
                 name_variant=co.ou_name_display,
                 name_language=co.language_nb))
 
-    def get_sko(self, ou_id):
-        ou_id = int(ou_id)
-        try:
-            return self._ou2sko[ou_id]
-        except:
-            raise CerebrumError("Could not find stedkode for ou_id %s" %ou_id)
-
     def get_name(self, ou_id):
         ou_id = int(ou_id)
         try:
             return self._ou2name[ou_id]
-        except:
+        except KeyError:
             raise CerebrumError("Could not find OU name for ou_id %s" %ou_id)
