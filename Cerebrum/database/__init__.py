@@ -41,7 +41,6 @@ import sys
 from Cerebrum import Cache
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory, NotSet, read_password
-from Cerebrum.extlib import db_row
 from Cerebrum.utils.module import this_module
 
 from . import errors
@@ -60,6 +59,7 @@ from .errors import (  # noqa: F401
 )
 from . import macros
 from . import paramstyles
+from . import row_factory
 from . import translate
 
 import cereconf
@@ -144,23 +144,6 @@ class OraPgLock(Lock):
         return Lock(cursor=self, table=table, mode=mode)
 
 
-class RowIterator(object):
-    def __init__(self, cursor):
-        self._csr = cursor
-        self._queue = []
-
-    def __iter__(self):
-        return self
-
-    def next(self):
-        if not self._queue:
-            self._queue.extend(self._csr.fetchmany())
-        if not self._queue:
-            raise StopIteration
-        row = self._queue.pop(0)
-        return self._csr.wrap_row(row)
-
-
 def _pretty_sql(sql, maxlen=None):
     pretty_sql = ' '.join(l.strip() for l in sql.split('\n')).strip()
     if maxlen:
@@ -184,7 +167,7 @@ class Cursor(object):
         self._sql_cache = Cache.Cache(mixins=[Cache.cache_mru,
                                               Cache.cache_slots],
                                       size=100)
-        self._row_class = None
+        self._row_fields = None
         # Copy the Database-specific type constructors; these have
         # already been converted into static methods by
         # Database._register_driver_types().
@@ -260,13 +243,10 @@ class Cursor(object):
             finally:
                 if self.description:
                     # Retrieve the column names involved in the query.
-                    fields = [d[0].lower() for d in self.description]
-                    # Make a db_row class that corresponds to this set of
-                    # column names.
-                    self._row_class = db_row.make_row_class(fields)
+                    self._row_fields = [d[0].lower() for d in self.description]
                 else:
-                    # Not a row-returning query; clear self._row_class.
-                    self._row_class = None
+                    # Not a row-returning query; clear column names.
+                    self._row_fields = None
 
     def executemany(self, operation, seq_of_parameters):
         """Do DB-API 2.0 executemany."""
@@ -313,18 +293,15 @@ class Cursor(object):
 
     def __iter__(self):
         """Return iterator over the current query's results."""
-        return RowIterator(self)
-
-    def wrap_row(self, row):
-        """Return `row' wrapped in a db_row object."""
-        return self._row_class(row)
+        return row_factory.iter_rows(self, self._row_fields)
 
     def query(self, query, params=(), fetchall=True):
         """
         Perform an SQL query, and return all rows it yields.
 
         If the query produces any result, this can be returned in two
-        ways.  In both cases every row is wrapped in a db_row object.
+        ways.  In both cases every row is wrapped in a container object (see
+        row_factory).
 
         1. If `fetchall' is true (the default), all rows are
            immediately fetched from the database, and returned as a
@@ -347,12 +324,11 @@ class Cursor(object):
             # not return rows (e.g. "UPDATE" or "CREATE TABLE");
             # should we raise an exception here?
             return None
+
         if fetchall:
-            # Return all rows, wrapped up in db_row instances.
-            R = self._row_class
-            return [R(row) for row in self.fetchall()]
+            return row_factory.list_rows(self, self._row_fields)
         else:
-            return iter(self)
+            return row_factory.iter_rows(self, self._row_fields)
 
     def query_1(self, query, params=()):
         """
@@ -372,12 +348,13 @@ class Cursor(object):
            single column) the method will return the value within the
            row object (and not the row object itself).
         """
-        res = self.query(query, params)
-        if len(res) == 1:
-            if len(res[0]) == 1:
-                return res[0][0]
-            return res[0]
-        elif len(res) == 0:
+        rows = self.query(query, params=params, fetchall=True)
+        if len(rows) == 1:
+            row = rows[0]
+            if len(row) == 1:
+                return row[0]
+            return row
+        elif len(rows) == 0:
             raise Errors.NotFoundError(repr(params))
         else:
             raise Errors.TooManyRowsError(repr(params))
@@ -633,7 +610,8 @@ class Database(object):
         Perform an SQL query, and return all rows it yields.
 
         If the query produces any result, this can be returned in two
-        ways.  In both cases every row is wrapped in a db_row object.
+        ways.  In both cases every row is wrapped in a container object (see
+        row_factory).
 
         1. If `fetchall' is true (the default), all rows are
            immediately fetched from the database, and returned as a
@@ -668,15 +646,23 @@ class Database(object):
 
     def pythonify_data(self, data):
         """Convert type of values in row to native Python types."""
-        if isinstance(data, (list, tuple,
-                             # When doing type conversions, db_row
-                             # objects are treated as sequences.
-                             db_row.abstract_row)):
+        # TODO: This really should be deprecated - all it really does is *make
+        # a copy* of mapping- and sequence-like objects.
+        #
+        # When doing type conversions, database row containers are treated as
+        # sequences.
+        sequence_types = (list, tuple) + row_factory.ROW_TYPES
+        if isinstance(data, sequence_types):
             tmp = []
             for i in data:
                 tmp.append(self.pythonify_data(i))
-            # type(data) should not be affected by sequence conversion.
-            data = type(data)(tmp)
+            # type(data) should not be affected by sequence conversion,
+            # unless it's a database row object.
+            if isinstance(data, (list, tuple)):
+                cls = type(data)
+            else:
+                cls = tuple
+            data = cls(tmp)
         elif isinstance(data, dict):
             tmp = {}
             for k in data.keys():
