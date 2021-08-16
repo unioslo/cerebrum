@@ -27,12 +27,15 @@ Multiple arguments may be used at the same time, to get the wanted timedelta.
 """
 
 import argparse
+import logging
+import Cerebrum.logutils
 from datetime import datetime, timedelta
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.pwcheck.history import PasswordHistory
+from Cerebrum.utils.argutils import add_commit_args
 
 
-logger = Factory.get_logger('cronjob')
+logger = logging.getLogger(__name__)
 
 
 def get_relative_date(years=0, months=0, days=0):
@@ -76,13 +79,11 @@ def main():
         default=0,
         type=int,
         help='Number of days to add to the timedelta')
-    parser.add_argument(
-        '--commit',
-        action='store_true',
-        default=False,
-        help='Commit changes to DB')
-    args = parser.parse_args()
 
+    add_commit_args(parser)
+    Cerebrum.logutils.options.install_subparser(parser)
+    args = parser.parse_args()
+    Cerebrum.logutils.autoconf("cronjob", args)
     exp_date = get_relative_date(years=args.years,
                                  months=args.months,
                                  days=args.days)
