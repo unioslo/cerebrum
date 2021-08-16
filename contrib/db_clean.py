@@ -94,7 +94,24 @@ class CleanChangeLog(object):
         # Extend togglers
         self.togglers = default_dbcl_conf.togglers
         if hasattr(dbcl_conf, 'togglers'):
-            self.togglers.extend(dbcl_conf.togglers)
+            for i in dbcl_conf.togglers:
+                found = False
+                for j in self.togglers:
+                    if i['triggers'] == j['triggers']:
+                        found = True
+                        if ('togglable' in i and 'togglable' in j
+                                and i['togglable'] == j['togglable']):
+                            logger.info("Custom trigger %s " +
+                                    "with already default settings," +
+                                    " skipping", (j['triggers']))
+                        else:
+                            j['togglable'] = i['togglable']
+                            logger.info("Updated following trigger " +
+                                    "%s to 'togglable': %s", j['triggers'],
+                                    i['togglable'])
+                        break
+                if not found:
+                    self.togglers.append(i)
 
     def int_or_none(self, i):
         if i is not None:
