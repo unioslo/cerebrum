@@ -221,7 +221,6 @@ class SkoCache(object):
     """ Make a mapping from ou_id to stedkode for all OUs"""
 
     def __init__(self, db):
-        co = Factory.get('Constants')(db)
         ou = Factory.get('OU')(db)
 
         self._ou2sko = dict(
