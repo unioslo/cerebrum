@@ -3706,8 +3706,6 @@ class BofhdExtension(BofhdCommonMethods):
         SourceSystem(help_ref="source_system"))
 
     def person_set_id(self, operator, current_id, new_id, source_system):
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise PermissionDenied("Currently limited to superusers")
         person = self._get_person(*self._map_person_id(current_id))
         idtype, id = self._map_person_id(new_id)
         self.ba.can_set_person_id(operator.get_entity_id(), person, idtype)
