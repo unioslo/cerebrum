@@ -191,6 +191,7 @@ class BofhdExtension(BofhdCommonMethods):
     def __init__(self, *args, **kwargs):
         super(BofhdExtension, self).__init__(*args, **kwargs)
         self.external_id_mappings['fnr'] = self.const.externalid_fodselsnr
+        self.external_id_mappings['passnr'] = self.const.externalid_pass_number
         # exchange-relatert-jazz
         # currently valid language variants for UiO-Cerebrum
         # although these codes are used for distribution groups
