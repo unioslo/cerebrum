@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-# Copyright 2007-2020 University of Oslo, Norway
+#
+# Copyright 2007-2021 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -136,8 +136,8 @@ def parse_xml_roles(fname):
     map2 = { 'fodselsdato' : ...,
              'personnr'    : ..., }
 
-    S_i are an attempt to mimic db_rows (output from this function is used
-    elsewhere where such keys are required).
+    S_i are an attempt to mimic database rows (output from this function is
+    used elsewhere where such keys are required).
     """
 
     result = dict()

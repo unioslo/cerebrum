@@ -211,8 +211,8 @@ connect(\*args, \*\*kws)
 
 db_row
 ------
-Data returned from execute() are db_row objects, which makes it
-possible to reference them by column name.
+Data returned from execute() are row objects, which makes it
+possible to reference column values by column name.
 
 
 Metainfo

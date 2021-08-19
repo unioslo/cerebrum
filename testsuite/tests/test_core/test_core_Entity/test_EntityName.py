@@ -149,7 +149,7 @@ def test_list_names(database, Entity, domain_foo, domain_bar, entity_type):
 
     results = names.list_names(domain_foo)
     assert len(results) == 2
-    assert all(name in results[0].dict()
+    assert all(name in dict(results[0])
                for name in ['entity_id', 'value_domain', 'entity_name'])
     assert (
         long(first.entity_id),

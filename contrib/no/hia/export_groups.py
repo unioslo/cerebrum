@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-# Copyright 2005-2017 University of Oslo, Norway
+#
+# Copyright 2005-2021 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -33,20 +33,18 @@ DEFAULT_OUTFILE = os.path.join(
 
 def make_groups_list(flat, grps):
     """
+    :param bool flat:
+        Whether to flatten out group memberships.
 
-    @type flat: bool
-    @param flat:
-      Whether to flatten out group memberships.
+    :type grps: iterable
+    :param grps:
+        An iterable of groups to list.
 
-    @type grps: sequence or generator of db_rows
-    @param grps:
-      Sequence or generator of rows containing groups we want to scan for
-      members. See Group.search() for db_row description.
+        Each group is a result row from `Group.search()` or compatible
+        dict-like object, and must include a 'group_id' and 'name'.
 
-    @rtype: dict (of basestring to basestring)
-    @return:
-      A dict-like object from group names to a string with members
-      names. Member names are ','-separated within the string.
+    :return dict:
+        A mapping from group names to a string of member names (','-separated).
     """
     entity2name = dict((x["entity_id"], x["entity_name"]) for x in
                        group.list_names(constants.account_namespace))
@@ -74,7 +72,6 @@ def make_groups_list(flat, grps):
                             if int(x["member_id"]) in entity2name]
             members[i["name"]] = ','.join(member_names)
     return members
-# end make_groups_list
 
 
 def main():

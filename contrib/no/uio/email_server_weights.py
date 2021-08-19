@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2005 University of Oslo, Norway
+# Copyright 2005-2021 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,7 +18,6 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
 """
 Updates the weight traits associated with the e-mail servers.  The
 argument to --except is a regular expression, servers matching it will
@@ -39,7 +38,6 @@ assigned to it.  If a server has 10% less assigned quota than the
 fullest server, the chance of being assigned more users will be twice
 that of the fullest server.
 """
-
 from __future__ import unicode_literals
 
 import sys
@@ -106,7 +104,7 @@ def process_servers(server_type, except_re):
 
     assigned = {}
     for row in es.list_email_server_ext(server_type=server_type):
-        # logger.debug("Processing %r" % row.dict())
+        # logger.debug("Processing %r", dict(row.dict))
         if except_re and except_re.match(row['name']):
             logger.debug("Skipping server named '%s'" % row['name'])
             continue

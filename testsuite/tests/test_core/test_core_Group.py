@@ -204,7 +204,7 @@ def test_search_result(gr, groups):
 
     for row in rows:
         for attr_name in attributes:
-            assert attr_name in row.dict()
+            assert attr_name in dict(row)
 
 
 def test_search_member_id(gr, groups):
@@ -400,7 +400,7 @@ def test_search_members_assert_keys(gr, groups):
                                     member_filter_expired=False))
     assert len(result) == 1
     for attr in attributes:
-        assert attr in result[0].dict()
+        assert attr in dict(result[0])
 
 
 def test_search_members_by_id(gr, groups):

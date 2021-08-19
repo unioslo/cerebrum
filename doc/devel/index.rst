@@ -25,7 +25,7 @@ some Python experience.
 
   Cerebrum configuration: default_config and cereconf.
 
-  Database layer: Database, SqlScanner, db_row, ChangeLog,
+  Database layer: Database, SqlScanner, database rows, ChangeLog,
     DatabaseAccessor.
 
   Object-relational layer: Entity and subclasses, mark_update

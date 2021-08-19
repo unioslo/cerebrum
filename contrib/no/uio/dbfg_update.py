@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003 University of Oslo, Norway
+# Copyright 2003-2021 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,7 +18,6 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
 """
 This file performs group membership synchronization between several external
 databases and cerebrum.
@@ -93,7 +92,6 @@ information is written back to cerebrum:
 
 Each of the updates can be turned on/off from the command line.
 """
-
 from __future__ import unicode_literals
 
 import sys
@@ -243,7 +241,7 @@ def synchronize_group(external_group, cerebrum_group_name):
 
     try:
         list(external_group())
-    except:
+    except Exception:
         logger.exception("Failed synchronizing group=%s", cerebrum_group_name)
         return
 
@@ -271,8 +269,9 @@ def synchronize_group(external_group, cerebrum_group_name):
             # NB! This one searches among expired and non-expired users
             cerebrum_account.find_by_name(account_name)
         except Cerebrum.Errors.NotFoundError:
-            logger.info("%s exists in the external source, but not in Cerebrum",
-                        account_name)
+            logger.info(
+                "%s exists in the external source, but not in Cerebrum",
+                account_name)
         else:
             # Here we now that the account exists in Cerebrum.
             # Is it a member of CEREBRUM_GROUP_NAME already?
@@ -318,10 +317,9 @@ def remove_from_cerebrum_group(account, group, constants):
     Removes ACCOUNT.ENTITY_ID as a union/intersection member of
     GROUP.ENTITY_ID
     """
-
     try:
         group.remove_member(int(account.entity_id))
-    except:
+    except Exception:
         # FIXME: How safe is it to do any updates if this happens?
         type, value, tb = sys.exc_info()
         logger.error("Aiee! Removing %s from %s failed: %s, %s, %s",
@@ -346,7 +344,7 @@ def add_to_cerebrum_group(account, group, constants):
     try:
         if not group.has_member(account.entity_id):
             group.add_member(account.entity_id)
-    except:
+    except Exception:
         # FIXME: How safe is it to do any updates if this happens?
         type, value, tb = sys.exc_info()
         logger.error("Aiee! Adding %s to %s failed: %s, %s, %s",
@@ -407,7 +405,7 @@ def perform_synchronization(services):
             else:
                 obj = klass(db)
             accessor = getattr(obj, accessor_name)
-        except:
+        except Exception:
             type, value, tb = sys.exc_info()
             logger.error("Aiee! Failed to connect to %s: %s, %s, %s",
                          service,
@@ -481,7 +479,7 @@ def report_users(stream_name, databases):
         try:
             return make_report(user, report_missing, item, acc_name,
                                check_expired, *func_list)
-        except:
+        except Exception:
             logger.exception("Failed accessing db=%s (accessor=%s):",
                              item["dbname"], acc_name)
 
@@ -528,10 +526,10 @@ def make_report(user, report_missing, item, acc_name, *func_list):
     accessor = getattr(source, acc_name)
     stream = StringIO.StringIO()
 
-    for db_row in accessor():
+    for row in accessor():
         #
         # NB! This is not quite what we want. See comments in sanitize_group
-        username = string.lower(db_row["username"])
+        username = string.lower(row["username"])
 
         try:
             account.clear()

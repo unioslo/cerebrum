@@ -116,7 +116,7 @@ def test_list_spreads(entity, entity_type, entity_spread, entity_spread_alt):
     all_spreads = entity.list_spreads()
     assert len(all_spreads) >= len((entity_spread, entity_spread_alt))
     for col in columns:
-        assert col in all_spreads[0].dict()
+        assert col in dict(all_spreads[0])
 
     # 'entity_spread' and 'entity_spread_alt' should be the only spreads that
     # apply to 'entity_type'

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-# Copyright 2003-2019 University of Oslo, Norway
+#
+# Copyright 2003-2021 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,11 +18,10 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
+#
 # kbj005 2014.12.23: copied from /home/cerebrum/cerebrum/contrib/no/uio
 # kbj005 2015.02.05: Note! The description below here has not been updated
 # after the uio-ifi-specific things were removed.
-
 """Populer Cerebrum med FS-avledede grupper.
 
 Disse gruppene blir bl.a. brukt ved eksport av data til ClassFronter, og ved
@@ -75,20 +74,17 @@ logger = logging.getLogger(__name__)
 
 
 def make_sko(row, suffix=""):
-    """Construct a sko (formatted XXYYZZ) from a db-row.
+    """Construct a sko (formatted XXYYZZ) from a mapping with sko-data.
 
     suffix is added to the standard names 'faknr', 'instituttnr' and
     'gruppenr' to extract the proper fields from the db-row instance.
 
-    @param row:
-      A database row with information including the triplet we are looking
-      for.
-    @param row: L{db_row}
+    :param row:
+        A mapping with faknr*, instituttnr*, gruppenr*.
 
-    @param suffix:
-      An optional suffix to add to standard names before extracting the
-      corresponding values.
-    @param suffix: basestring.
+    :param str suffix:
+        An optional suffix to add to standard names before extracting the
+        corresponding values.
     """
     return "%02d%02d%02d" % tuple(map(int,
                                       (row["faknr" + suffix],
@@ -101,46 +97,40 @@ def process_role(enhet_id, template_id, roles_mapping,
     """Create additional groups stemming from roles associated with enhet
     (kurs, kursakt, undenh, undakt) enhet_id.
 
-    @param enhet_id:
-      enhet for which all the roles are to be processed (undenh, undakt,
-      evukurs, evukursakt, kull).
-    @type enhet_id: basestring
+    :param str enhet_id:
+        enhet for which all the roles are to be processed (undenh, undakt,
+        evukurs, evukursakt, kull).
 
-    @param template_id:
-      template_id is the template for the names we will generate from
-      L{roles_mapping} for the given enhet_id. This template is a ':'-separated
-      string (much like L{parent_id} or L{enhet_id}), with one 'slot' reserved
-      (that 'slot' is '%s', so that the exact name can be interpolated later).
+    :param str template_id:
+        template_id is the template for the names we will generate from
+        L{roles_mapping} for the given enhet_id.  This template is a
+        ':'-separated string (much like L{parent_id} or L{enhet_id}), with one
+        'slot' reserved (that 'slot' is '%s', so that the exact name can be
+        interpolated later).
 
-      The name to interpolate is derived from the role names. That is what we
-      do here.
-    @type template_id: basestring
+        The name to interpolate is derived from the role names. That is what we
+        do here.
 
-    @param roles_mapping: mapping from enhet_ids to dicts, where each inner
-      dict maps role types to sequences (e.g. 'FAGLÆRER' -> [s1, s2, ...,
-      sN]). Each s_i is a dict (faking a L{db_row}) with a fnr.
-    @type roles_mapping: dict
+    :param dict roles_mapping:
+        mapping from enhet_ids to dicts, where each inner dict maps role types
+        to sequences (e.g. 'FAGLÆRER' -> [s1, s2, ..., sN]). Each s_i is a dict
+        that represents a database row with a fnr.
 
-    @param parent_id:
-      parent_id is the group name for the parent of the enhet_id group.
-    @type parent_id: basestring
+    :param str parent_id:
+        parent_id is the group name for the parent of the enhet_id group.
 
-    @param sted:
-      Sko (stedkode) for the place with which L{enhet_id} is associated. Some
-      roles are assigned to sko, and inherited by every 'entity' associated
-      with that sko.
-    @type sted: basestring
+    :param str sted:
+        Sko (stedkode) for the place with which L{enhet_id} is associated. Some
+        roles are assigned to sko, and inherited by every 'entity' associated
+        with that sko.
 
-    @param stprog:
-      Studieprogramkode for the place with which L{enhet_id} is
-      associated. Some roles are associated with studieprogramkode, and
-      inherited by every kull associated with that studieprogramkode.
-    @type stprog: basestring
+    :param str stprog:
+        Studieprogramkode for the place with which L{enhet_id} is associated.
+        Some roles are associated with studieprogramkode, and inherited by
+        every kull associated with that studieprogramkode.
 
     description, mtype and auto_spread have the same meaning as in
     L{sync_group}.
-
-    @return: nothing
     """
     stedroller = roles_mapping.get(fields2key("sted", sted), {})
     stprogroller = roles_mapping.get(fields2key("stprog", stprog), {})
@@ -165,7 +155,8 @@ def process_role(enhet_id, template_id, roles_mapping,
             continue
 
         group_name = str2key(template_id % role)
-        fnrs = dict(itertools.izip(dbrows2account_ids(people), itertools.repeat(1)))
+        fnrs = dict(itertools.izip(dbrows2account_ids(people),
+                                   itertools.repeat(1)))
         logger.debug("Registering %d people with role %s for %s "
                      "(%s sted; %s stprog)",
                      len(fnrs), role, enhet_id, len(stedr), len(stprog))
@@ -427,7 +418,7 @@ def process_kursdata(role_file, undenh_file, undakt_file,
     # tilhørende "utgåtte" undervisningsenheter og -aktiviteter.
     logger.info("Oppdaterer supergruppe for alle emnekode-supergrupper")
     sync_group(None, fs_supergroup,
-               "Ikke-eksporterbar gruppe.  Definerer hvilke andre grupper " +
+               "Ikke-eksporterbar gruppe.  Definerer hvilke andre grupper "
                "som er opprettet automatisk som følge av FS-import.",
                co.entity_group,
                AffiliatedGroups[fs_supergroup])
@@ -441,15 +432,12 @@ def destined_for_lms(entity):
     attribute controlling the entities' export to Fronter.
 
 
-    @param entity:
-      Entity (undenh, undakt, evukurs, evuakt, kull) in question
-    @type entity: L{db_row}.
+    :param entity:
+        Entity mapping (undenh, undakt, evukurs, evuakt, kull) in question
 
-    @return:
-      True, if entity is to receive all fronter spreads, False otherwise.
-    @rtype: bool
+    :return bool:
+        True, if entity is to receive all fronter spreads, False otherwise.
     """
-
     return entity["status_eksport_lms"] == 'J'
 
 
@@ -459,22 +447,18 @@ def get_kull(kull_file, edu_file):
     This function generates a data structure describing the kull entries that
     will be processed in this run.
 
-    @type kull_file: basestring
-    @param kull_file:
-      XML file containing a list of all kull considered available/active in
-      FS. (The file is typically generated by import_from_FS.py)
+    :param str kull_file:
+        XML file containing a list of all kull considered available/active in
+        FS. (The file is typically generated by import_from_FS.py)
 
-    @type edu_file: basestring
-    @param edu_file:
-      XML file containing information about students' registration for kull
-      (among other things).
+    :param str edu_file:
+        XML file containing information about students' registration for kull
+        (among other things).
 
-    @rtype: dict
-    @return:
-      A mapping from kull ids to all the interesting info about the respective
-      kull.
+    :return dict:
+        A mapping from kull ids to all the interesting info about the
+        respective kull.
     """
-
     students = dict()
     logger.debug("Loading student kull info")
     for entry in EduGenericIterator(edu_file, "kull"):
@@ -515,24 +499,22 @@ def get_undenh(undenh_file, edu_file):
     This function generates multiple data structures describing the undenh
     (undervisningsenhet) that will be processed in this run.
 
-    @type undenh_file: basestring
-    @param undenh_file:
-      XML file containing a list of all undenh considered available/active in
-      FS. (The file is typically generated by import_from_FS.py)
+    :param str undenh_file:
+        XML file containing a list of all undenh considered available/active in
+        FS (typically generated by import_from_FS.py).
 
-    @type edu_file: basestring
-    @param edu_file:
-      XML file containing information about students' registration for undenh
-      (among other things).
+    :param str edu_file:
+        XML file containing information about students' registration for undenh
+        (among other things).
 
-    @rtype: a tuple of 3 dicts
-    @return:
-      3 dictionaries. The first is the mapping from enhet_id to all the
-      interesting info about that enhet_id. Obviously, enhet_ids cover undenh
-      only.
+    :return tuple:
+        A tuple with 3 dictionaries.
 
-      The second and third a specially crafted dicts to track undenh spanning
-      multiple semesters.
+        The first is the mapping from enhet_id to all the interesting info
+        about that enhet_id. Obviously, enhet_ids cover undenh only.
+
+        The second and third a specially crafted dicts to track undenh spanning
+        multiple semesters.
     """
 
     result = dict()
@@ -597,21 +579,18 @@ def get_undakt(edu_info, undakt_file, edu_file):
     data about undakt (undervisningsaktiviteter) that will be processed in
     this run.
 
-    @type edu_info: dict
-    @param edu_info:
-      A dict built by L{get_undenh} with undenh data. Undakt data are tied to
-      the correspoding undenh data. The former cannot exist without the
-      latter. It's like that by design.
+    :param dict edu_info:
+        A dict built by L{get_undenh} with undenh data. Undakt data are tied to
+        the correspoding undenh data. The former cannot exist without the
+        latter. It's like that by design.
 
-    @type undakt_file: basestring
-    @param undakt_file:
-      XML file containing a list of all undakt considered available/active in
-      FS. (The file is typically generated by import_from_FS.py)
+    :param str undakt_file:
+        XML file containing a list of all undakt considered available/active in
+        FS. (The file is typically generated by import_from_FS.py)
 
-    @type edu_file: basestring
-    @param edu_file:
-      XML file containing information about students' registration for undenh
-      (among other things).
+    :param str edu_file:
+        XML file containing information about students' registration for undenh
+        (among other things).
     """
 
     logger.debug("Prefetching undakt info...")
@@ -669,22 +648,18 @@ def get_evu(evu_file, edu_file):
     This function generates multiple data structures describing the evu
     (etter- og videreutdanningskurs) that will be processed in this run.
 
-    @type evu_file: basestring
-    @param evu_file:
-      XML file containing a list of all evu considered available/active in
-      FS. (The file is typically generated by import_from_FS.py)
+    :param str evu_file:
+        XML file containing a list of all evu considered available/active in
+        FS (typically generated by import_from_FS.py).
 
-    @type edu_file: basestring
-    @param edu_file:
-      XML file containing information about students' registration for evu
-      (among other things).
+    :param str edu_file:
+        XML file containing information about students' registration for evu
+        (among other things).
 
-    @rtype: dict
-    @return:
-      A mapping from evu_id to all the interesting info about that
-      evu. Obviously, evu_ids cover evu only.
+    :return dict:
+        A mapping from evu_id to all the interesting info about that evu.
+        Obviously, evu_ids cover evu only.
     """
-
     result = dict()
 
     logger.debug("Prefetching evu info...")
@@ -705,7 +680,7 @@ def get_evu(evu_file, edu_file):
                             evu['kurstidsangivelsekode'])
 
         # students' account ids (a dict, since sync_group expects a
-        # db_row-like object)
+        # db row-like object)
         tmp = dict((account_id, 1) for account_id in
                    fnrs2account_ids(students.get(evu_id, ()),
                                     prefer_student=True))
@@ -726,21 +701,18 @@ def get_kursakt(edu_info, kursakt_file, edu_file):
     This function supplements a data structure generated by get_evu with data
     about kursakt (evu-kursaktiviteter) that will be processed in this run.
 
-    @type edu_info: dict
-    @param edu_info:
-      A dict built by L{get_evu} with evu data. Kursakt data are tied to the
-      correspoding evu data. The former cannot exist without the latter. It's
-      like that by design.
+    :param dict edu_info:
+        A dict built by L{get_evu} with evu data. Kursakt data are tied to the
+        correspoding evu data. The former cannot exist without the latter. It's
+        like that by design.
 
-    @type kursakt_file: basestring
-    @param kursakt_file:
-      XML file containing a list of all kursakt considered available/active in
-      FS. (The file is typically generated by import_from_FS.py)
+    :param str kursakt_file:
+        XML file containing a list of all kursakt considered available/active
+        in FS (typically generated by import_from_FS.py)
 
-    @type edu_file: basestring
-    @param edu_file:
-      XML file containing information about students' registration for kursakt
-      (among other things).
+    :param str edu_file:
+        XML file containing information about students' registration for
+        kursakt (among other things).
     """
 
     logger.debug("Prefetching kursakt info...")
@@ -791,15 +763,10 @@ def account_id2uname(account_id):
 
     This is an internal help function used in error messages.
 
-    @type account_id: int
-    @param account_id:
-      account_id to remap
+    :param int account_id: account_id to remap
 
-    @rtype: basestring
-    @return:
-      Uname, if found, None otherwise.
+    :return str: Uname, if found, None otherwise.
     """
-
     acc = Factory.get("Account")(db)
     try:
         acc.find(account_id)
@@ -815,14 +782,14 @@ def populate_enhet_groups(enhet_id, role_mapping):
     type = type_id.pop(0)
 
     if type == 'kurs':
-        Instnr, emnekode, versjon, termk, aar, termnr = type_id
+        instnr, emnekode, versjon, termk, aar, termnr = type_id
 
         # Finnes det mer enn en undervisningsenhet knyttet til dette
         # emnet, kun forskjellig på versjonskode og/eller terminnr?  I
         # så fall bør gruppene få beskrivelser som gjør det mulig å
         # knytte dem til riktig undervisningsenhet.
         multi_enhet = []
-        multi_id = ":".join((Instnr, emnekode, termk, aar))
+        multi_id = ":".join((instnr, emnekode, termk, aar))
         if len(emne_termnr.get(multi_id, {})) > 1:
             multi_enhet.append("%s. termin" % termnr)
         if len(emne_versjon.get(multi_id, {})) > 1:
@@ -838,7 +805,7 @@ def populate_enhet_groups(enhet_id, role_mapping):
         # at kurset/emnet starter hvert semester.  Utvider strukturen
         # til å ta høyde for at det til enhver tid kan finnes flere
         # kurs av samme type til enhver tid.
-        kurs_id = UE2KursID('kurs', Instnr, emnekode,
+        kurs_id = UE2KursID('kurs', instnr, emnekode,
                             versjon, termk, aar, termnr)
         logger.debug("Lister opp ansvarlige, kurs_id = <%s>, enhet_id = <%s>",
                      kurs_id, enhet_id)
@@ -1042,39 +1009,38 @@ def sync_group(affil, gname, descr, mtype, memb, recurse=True,
     Locate (and create if necessary) a group representing an entity (corridor,
     rom, etc.) in Fronter.
 
-    @type affil: basestring or None
-    @param affil:
-      Parent for gname in the internal group structure (?)
+    :type affil: basestring or None
+    :param affil:
+        Parent for gname in the internal group structure (?)
 
-    @type gname: basestring
-    @param gname:
-      Basis for constructing the group name. For invisible groups, it is
-      prefixed with 'uit:fs'.
+    :type gname: basestring
+    :param gname:
+        Basis for constructing the group name. For invisible groups, it is
+        prefixed with 'uit:fs'.
 
-    @type descr: basestring
-    @param descr:
-      Description of the group to register in group_info in Cerebrum.
+    :type descr: basestring
+    :param descr:
+        Description of the group to register in group_info in Cerebrum.
 
-    @type mtype: A suitable constant object
-    @param mtype:
-      Constant describing member types in memb. Can be group or account
+    :type mtype: A suitable constant object
+    :param mtype:
+        Constant describing member types in memb. Can be group or account
 
-    @type memb: dict
-    @param memb:
-      Dictionary with member ids to add to gname.
+    :type memb: dict
+    :param memb:
+        Dictionary with member ids to add to gname.
 
-    @type auto_spread: bool or NotSet
-    @param auto_spread:
-      auto_spread decides whether to adjust fronter spreads belonging to
-      L{gname} automatically. Some groups receive and lose fronter spreads
-      automatically (cf. eksport_status_lms from FS). Others are updated
-      manually and should not be touched.
+    :type auto_spread: bool or NotSet
+    :param auto_spread:
+        auto_spread decides whether to adjust fronter spreads belonging to
+        L{gname} automatically. Some groups receive and lose fronter spreads
+        automatically (cf. eksport_status_lms from FS). Others are updated
+        manually and should not be touched.
 
-      NotSet means that the spread information should be left alone.
-      False means that fronter spreads should be removed.
-      True meands that fronter spreads should be added.
+        - NotSet means that the spread information should be left alone.
+        - False means that fronter spreads should be removed.
+        - True meands that fronter spreads should be added.
     """
-
     logger.debug("sync_group(%s; %s; %s; %s; %s; %s); auto_spread=%s" %
                  (affil, gname, descr, mtype, memb.keys(), recurse,
                   auto_spread is NotSet and "NotSet" or auto_spread))
@@ -1327,8 +1293,8 @@ def parse_xml_roles(fname):
       map2 = { 'fodselsdato' : ...,
                'personnr'    : ..., }
 
-    S_i are an attempt to mimic db_rows (output from this function is used
-    elsewhere where such keys are required).
+    S_i are an attempt to mimic database rows (output from this function is
+    used elsewhere where such keys are required).
 
     This structure is pretty complicated, but we need to hold *all* roles in
     memory while processing fronter groups (a sequential scan of the file for

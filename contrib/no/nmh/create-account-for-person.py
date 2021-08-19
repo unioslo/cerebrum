@@ -1,7 +1,25 @@
 #!/usr/bin/env python
-# -*- encoding: utf-8 -*-
-
-"""This script creates (or reactivates) an account for a person with specified
+# -*- coding: utf-8 -*-
+#
+# Copyright 2009-2021 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""
+This script creates (or reactivates) an account for a person with specified
 affiliation.
 
 Originally NMH used process_students.py to automatically create employee
@@ -34,7 +52,6 @@ Typical usage pattern would be to create/reactive accounts for SAP-employees:
 
 python create-account-for-person.py -a ANSATT
 """
-
 import getopt
 import sys
 
@@ -88,13 +105,12 @@ def ou_id2human_repr(ou_id):
 def fetch_names(person):
     """Get first, last names for an person.
 
-    @type person: Factory.get('Person') object associated with a person_id
-    @param person:
-      Person we want to select the names for.
+    :type person: Cerebrum.Person.Person
+    :param person:
+        Person we want to select the names for.
 
-    @rtype: tuple (of 2 basestrings)
-    @return:
-      A tiple (first name, last name). First name may be an empty string.
+    :return tuple:
+        A (first name, last name) pair. First name may be an empty string.
     """
 
     const = Factory.get("Constants")()
@@ -119,13 +135,13 @@ def fetch_names(person):
 def copy_owners_affiliations(person, account):
     """Copy person's affiliation to account.
 
-    @type person: Factory.get('Person') proxy associated with a person
-    @param person:
-      Account owner that 'supplies' the affiliations.
+    :type person: Cerebrum.Person.Person
+    :param person:
+        Account owner that 'supplies' the affiliations.
 
-    @type account: Factory.get('Account') proxy associated with an account.
-    @param account:
-      Account owned by L{person} that 'inherits' affiliations.
+    :type account: Cerebrum.Account.Account
+    :param account:
+        Account owned by L{person} that 'inherits' affiliations.
     """
 
     assert account.owner_id == person.entity_id
@@ -148,9 +164,8 @@ def set_initial_spreads(account):
 
     The initial spreads are taken from cereconf.BOFHD_NEW_USER_SPREADS.
 
-    @type account: Factory.get('Account') proxy associated with an account.
-    @param account:
-      Account to set spreads for.
+    :type account: Cerebrum.Account.Account
+    :param account: account to set spreads for
     """
     const = Factory.get("Constants")()
     for spread in cereconf.BOFHD_NEW_USER_SPREADS:
@@ -166,9 +181,8 @@ def set_initial_spreads(account):
 def set_password(account):
     """Register a new (random) password for account.
 
-    @type account: Factory.get('Account') proxy associated with an account.
-    @param account:
-      Account to set a password for.
+    :type account: Cerebrum.Account.Account
+    :param account: account to set a password for
     """
     password = account.make_passwd(account.account_name)
     account.set_password(password)
@@ -178,17 +192,17 @@ def set_password(account):
 
 
 def reactivate_expired_accounts(db, person_id, accounts):
-    """Re-activate expired accoutns for person_id.
+    """Re-activate expired account for person_id.
 
-    @type person_id: int
-    @param person_id:
-      Person id to reactive accounts for.
+    :param int person_id:
+        Person id to reactive accounts for.
 
-    @type accounts: sequence of db_rows.
-    @param accounts:
-      Sequence of db_rows holding account_id for all accounts belonging to
-      person. They should all be expired (i.e. the only way of getting *here*
-      is when a person has expired accounts only).
+    :param accounts:
+        Sequence of database rows holding account_id for all accounts belonging
+        to person.  Each row must include an 'account_id' column.
+
+        All accounts in this sequence should be expired (i.e. the only way of
+        getting *here* is when a person has expired accounts only).
     """
     person = Factory.get("Person")(db)
     person.find(person_id)
@@ -311,11 +325,11 @@ def collect_candidates(db, affiliations):
     """Collect all people that have one of affiliations and do NOT have a
     non-expired account.
 
-    @param db: Database proxy
+    :param db: Database proxy
 
-    @type affiliations: sequence of PersonAffiliation constant objects
-    @param affiliations:
-      Person affiliations that mark the candidates. There may be many.
+    :type affiliations: sequence of PersonAffiliation constant objects
+    :param affiliations:
+        Person affiliations that mark the candidates. There may be many.
     """
 
     result = set()
@@ -331,7 +345,8 @@ def collect_candidates(db, affiliations):
             logger.debug("Person id=%s is a candidate, since (s)he has "
                          "active accounts without affs=%s",
                          row["person_id"],
-                         [str(const.PersonAffiliation(x)) for x in affiliations])
+                         [str(const.PersonAffiliation(x))
+                          for x in affiliations])
             result.add(row["person_id"])
     logger.debug("Collected %d candidate(s)", len(result))
     return result
