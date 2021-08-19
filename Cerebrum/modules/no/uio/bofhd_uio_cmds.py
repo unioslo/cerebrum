@@ -3387,6 +3387,20 @@ class BofhdExtension(BofhdCommonMethods):
                 person.populate_external_id(self.const.system_manual,
                                             self.const.externalid_fodselsnr,
                                             id)
+            if id_type == self.const.externalid_pass_number:
+                try:
+                    person.find_by_external_id(self.const.externalid_pass_number,
+                                               id)
+                    raise CerebrumError("A person with that passnr exists")
+                except Errors.TooManyRowsError:
+                    raise CerebrumError("A person with that passnr exists")
+                except Errors.NotFoundError:
+                    pass
+                person.clear()
+                self._person_create_externalid_helper(person)
+                person.populate_external_id(self.const.system_manual,
+                                            self.const.externalid_pass_number,
+                                            id)
         person.populate(bdate, gender, description='Manually created')
         person.affect_names(self.const.system_manual,
                             self.const.name_first,
