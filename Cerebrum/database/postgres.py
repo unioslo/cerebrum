@@ -28,7 +28,13 @@ import psycopg2.extensions
 import six
 from mx import DateTime
 
-from Cerebrum.database import Cursor, Database, OraPgLock, kickstart
+from Cerebrum.database import (
+    Cursor,
+    Database,
+    ENABLE_MXDB,
+    OraPgLock,
+    kickstart,
+)
 from Cerebrum.Utils import read_password
 from Cerebrum.utils.funcwrap import deprecate
 from Cerebrum.utils.transliterate import to_ascii
@@ -40,9 +46,6 @@ import cereconf
 
 #
 # Postgres data type conversion
-#
-# TODO: Applied 'globally'. Should we support bytestrings in any way? If so,
-# we'd need to register the types on the cursor object after creating it...
 #
 PG_TYPE_UNICODE = psycopg2.extensions.UNICODE
 PG_TYPE_UNICODEARRAY = psycopg2.extensions.UNICODEARRAY
@@ -58,19 +61,13 @@ psycopg2.extensions.register_type(psycopg2.extensions.UNICODEARRAY)
 
 
 # mx.DateTime data types
-# TODO: Look into using a psycopg2 module compiled with mx.DateTime support.
-#       OR, even better, look into getting rid of mx.DateTime?
+
 def mxdate(value, cursor):
     """ psycopg2 type, DATE -> mx.DateTime. """
     dt = PG_TYPE_DATE(value, cursor)
     if dt is None:
         return None
     return DateTime.DateTime(dt.year, dt.month, dt.day)
-
-
-psycopg2.extensions.register_type(
-    psycopg2.extensions.new_type(
-        PG_TYPE_DATE.values, 'MXDATE', mxdate))
 
 
 def mxdatetime(value, cursor):
@@ -82,16 +79,22 @@ def mxdatetime(value, cursor):
                              dt.hour, dt.minute, dt.second)
 
 
-psycopg2.extensions.register_type(
-    psycopg2.extensions.new_type(
-        PG_TYPE_DATETIME.values, 'MXDATETIME', mxdatetime))
-
-
 def mxdatetimetype(value):
     """ psycopg2 adapter, mx.DateTimeType -> Timestamp. """
     return psycopg2.Timestamp(value.year, value.month, value.day, value.hour,
                               value.minute, int(value.second))
 
+
+if ENABLE_MXDB:
+    # DATE -> mx.DateTime
+    psycopg2.extensions.register_type(
+        psycopg2.extensions.new_type(
+            PG_TYPE_DATE.values, 'MXDATE', mxdate))
+
+    # TIMESTAMP -> mx.DateTime
+    psycopg2.extensions.register_type(
+        psycopg2.extensions.new_type(
+            PG_TYPE_DATETIME.values, 'MXDATETIME', mxdatetime))
 
 psycopg2.extensions.register_adapter(DateTime.DateTimeType, mxdatetimetype)
 

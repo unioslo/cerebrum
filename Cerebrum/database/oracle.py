@@ -28,7 +28,13 @@ import cx_Oracle as cx_oracle_module  # noqa: N813
 import six
 from mx import DateTime
 
-from Cerebrum.database import Cursor, Database, OraPgLock, kickstart
+from Cerebrum.database import (
+    Cursor,
+    Database,
+    ENABLE_MXDB,
+    OraPgLock,
+    kickstart,
+)
 from Cerebrum.Utils import read_password
 
 from . import macros
@@ -88,7 +94,7 @@ def cx_OutputTypeHandler(cursor, name, defaultType, size,  # noqa: N802, N803
                          precision, scale):
     """ Type casting handler for the cx_Oracle database. """
 
-    if defaultType == cx_oracle_module.DATETIME:
+    if ENABLE_MXDB and defaultType == cx_oracle_module.DATETIME:
         return cursor.var(datetime.datetime, size,
                           arraysize=cursor.arraysize,
                           outconverter=datetime2mx)
