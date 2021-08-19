@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-# Copyright 2009 University of Oslo, Norway
+#
+# Copyright 2009-2021 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,10 +17,10 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-# $Id: Subnet.py 14318 2011-05-31 12:37:00Z matmeis $
-
-
+"""
+This module contains all functionality relating to information about
+IPv6 subnets in Cerebrum.
+"""
 import math
 
 import cereconf
@@ -31,13 +30,6 @@ from Cerebrum.Entity import Entity
 
 from Cerebrum.modules.dns import IPv6Number
 from Cerebrum.modules.dns.IPv6Utils import IPv6Calc, IPv6Utils
-
-
-__doc__ = """
-This module contains all functionality relating to information about
-IPv6 subnets in Cerebrum.
-
-"""
 
 
 class IPv6Subnet(Entity):
@@ -438,22 +430,22 @@ class IPv6Subnet(Entity):
         Currently, no criteria can be given, hence all subnets are
         returned.
 
+        :rtype: list
+        :returns:
+            A list of matching dns data dicts from dns_ipv6_subnet,
+            supplemented with a 'subnet_mask' field.
         """
-        # Need to insert a dummy value as placeholder for subnet_mask,
-        # since we later wish to calculate the proper value for it,
-        # and db_row won't allow us to insert new keys into the
-        # result's rows.
-        result = self.query(
-            """SELECT entity_id, subnet_ip, 1 AS subnet_mask, ip_min, ip_max,
-                      description, dns_delegated, name_prefix, vlan_number,
-                      no_of_reserved_adr
-               FROM [:table schema=cerebrum name=dns_ipv6_subnet]""")
-
+        result = [
+            dict(row)
+            for row in self.query(
+                """SELECT entity_id, subnet_ip, ip_min, ip_max,
+                          description, dns_delegated, name_prefix, vlan_number,
+                          no_of_reserved_adr
+                   FROM [:table schema=cerebrum name=dns_ipv6_subnet]
+                """
+            )
+        ]
         for row in result:
             row["subnet_mask"] = IPv6Subnet.calculate_subnet_mask(
                 row['ip_min'], row['ip_max'])
         return result
-
-
-if __name__ == '__main__':
-    pass

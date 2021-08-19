@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
 #
-# Copyright 2010-2018 University of Oslo, Norway
+# Copyright 2010-2021 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -415,11 +415,11 @@ class BofhdVoipCommands(BofhdCommonMethods):
         eci = EntityContactInfo(self.db)
         for row in eci.list_contact_info(source_system=self.const.system_voip,
                                          contact_value=value):
-            result.append(row.dict())
+            result.append(dict(row))
 
         for row in eci.list_contact_info(source_system=self.const.system_voip,
                                          contact_alias=value):
-            result.append(row.dict())
+            result.append(dict(row))
 
         return result
 

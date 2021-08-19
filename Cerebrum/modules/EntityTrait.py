@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright 2005-2018 University of Oslo, Norway
+#
+# Copyright 2005-2021 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -173,13 +174,17 @@ class EntityTrait(Entity):
 
         """
         if not self.__traits:
-            for row in self.query("""
-            SELECT entity_id, entity_type, code,
-                   target_id, date, numval, strval
-            FROM [:table schema=cerebrum name=entity_trait]
-            WHERE entity_id=:entity_id
-            """, {'entity_id': self.entity_id}):
-                self.__traits[_EntityTraitCode(row['code'])] = row.dict()
+            for row in self.query(
+                    """
+                    SELECT entity_id, entity_type, code,
+                           target_id, date, numval, strval
+                    FROM [:table schema=cerebrum name=entity_trait]
+                    WHERE entity_id=:entity_id
+                    """,
+                    {
+                        'entity_id': self.entity_id,
+                    }):
+                self.__traits[_EntityTraitCode(row['code'])] = dict(row)
         return self.__traits
 
     def get_trait(self, trait):

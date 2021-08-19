@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 #
-# Copyright 2013-2018 University of Oslo, Norway
+# Copyright 2013-2021 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,8 +17,8 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-""" This file contains workflows and common operations related to virthome
+"""
+This file contains workflows and common operations related to virthome
 accounts and groups. It's a generalization of some of the bofhd-commands, so
 that they can be used by other applications.
 
@@ -318,7 +317,7 @@ class VirthomeUtils:
                 continue
             gr.clear()
             gr.find(group['group_id'])
-            tmp = group.dict()
+            tmp = dict(group)
             # Fetch url
             resource = gr.get_contact_info(self.co.system_virthome,
                                            self.co.virthome_group_url)

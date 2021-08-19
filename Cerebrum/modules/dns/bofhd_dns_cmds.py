@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2005-2018 University of Oslo, Norway
+# Copyright 2005-2021 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,6 +18,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 from collections import OrderedDict
+from itertools import chain
 
 from six import text_type
 
@@ -1004,19 +1005,16 @@ class BofhdExtension(BofhdCommandBase):
 
         # CNAME records with this as target, or this name
         cname = CNameRecord.CNameRecord(self.db)
-        tmp = cname.list_ext(target_owner=owner_id)
-        tmp.extend(cname.list_ext(cname_owner=owner_id))
-        for c in tmp:
-            row = ({
+        for c in chain(cname.list_ext(target_owner=owner_id),
+                       cname.list_ext(cname_owner=owner_id)):
+            ret.append({
                 'cname': c['name'],
                 'cname_target': c['target_name'],
             })
-            ret.append(row)
 
         # SRV records dersom dette er target/owner for en srv record
-        r = dns_owner.list_srv_records(owner_id=owner_id)
-        r.extend(dns_owner.list_srv_records(target_owner_id=owner_id))
-        for srv in r:
+        for srv in chain(dns_owner.list_srv_records(owner_id=owner_id),
+                         dns_owner.list_srv_records(target_owner_id=owner_id)):
             ret.append({
                 'srv_owner': srv['service_name'],
                 'srv_pri': srv['pri'],
@@ -1109,7 +1107,7 @@ class BofhdExtension(BofhdCommandBase):
                 ip, t_type)
             try:
                 name = arecord.list_ext(ip_number_id=owner_id)[0]['name']
-            except:
+            except Exception:
                 # Need to expand how names are looked for, but this needs
                 # testing
                 name = "(Unknown)"

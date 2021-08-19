@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2009 University of Oslo, Norway
+# Copyright 2009-2021 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,13 +17,12 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-"""Authentication/permission checking module for VirtHome's bofhd extensions.
+"""
+Authentication/permission checking module for VirtHome's bofhd extensions.
 
 This module contains the code necessary to support permission checks for
 virthome bofhd operations.
 """
-
 import cereconf
 
 from Cerebrum.Constants import Constants
@@ -105,8 +103,8 @@ class BofhdVirtHomeAuth(auth.BofhdAuth):
            ON en2.entity_id = ar.entity_id AND
               en2.value_domain = :domain2
         """)
-        return list(x.dict()
-                    for x in self.query(query, binds,))
+        return list(dict(x)
+                    for x in self.query(query, binds))
     # end _get_permission_holders_on_group
         
 

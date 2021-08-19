@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2013-2016 University of Oslo, Norway
+# Copyright 2013-2021 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,7 +18,6 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """Event-handler for Exchange events."""
-
 from __future__ import unicode_literals
 
 import traceback
@@ -27,6 +25,7 @@ from urllib2 import URLError
 
 from six import text_type
 
+from Cerebrum import Errors
 from Cerebrum.modules.exchange.Exceptions import (ExchangeException,
                                                   ServerUnavailableException)
 from Cerebrum.modules.event.errors import (EventExecutionException,
@@ -35,7 +34,8 @@ from Cerebrum.modules.event.errors import (EventExecutionException,
 from Cerebrum.modules.event.mapping import EventMap
 from Cerebrum.modules.no.uio.exchange.consumer import (
     ExchangeEventHandler as UIOExchangeEventHandler,)
-from Cerebrum import Errors
+from Cerebrum.modules.no.uio.exchange import ExchangeClient as UioClient
+from Cerebrum.modules.no.hia.exchange import ExchangeClient as UiaClient
 from Cerebrum.utils.funcwrap import memoize
 
 
@@ -59,11 +59,9 @@ class ExchangeEventHandler(UIOExchangeEventHandler):
         """
         if self.mock:
             self.logger.info('Running in mock-mode')
-            from Cerebrum.modules.no.uio.exchange.ExchangeClient import (
-                ClientMock as excclass, )
+            excclass = UioClient.ClientMock
         else:
-            from Cerebrum.modules.no.hia.exchange.ExchangeClient import (
-                UiAExchangeClient as excclass, )
+            excclass = UiaClient.ExchangeClient
 
         def j(*l):
             return '\\'.join(l)
@@ -108,8 +106,8 @@ class ExchangeEventHandler(UIOExchangeEventHandler):
     def create_mailbox(self, event):
         """ Handle mailbox creation upon spread addition.
 
-        :type event: Cerebrum.extlib.db_row.row
-        :param event: The event returned from Change- or EventLog."""
+        :param event: an event_log row to handle
+        """
         added_spread_code = self.ut.load_params(event)['spread']
         # An Exchange-spread has been added! Let's make a mailbox!
         if added_spread_code == self.mb_spread:
@@ -338,8 +336,7 @@ class ExchangeEventHandler(UIOExchangeEventHandler):
         If any of the settings fail to be proceessed, the event will be
         re-tried later on.
 
-        :type event: Cerebrum.extlib.db_row.row
-        :param event: The event returned from Change- or EventLog
+        :param event: an event_log row to handle
 
         :raises ExchangeException: If all accounts could not be updated.
         """
@@ -464,8 +461,7 @@ class ExchangeEventHandler(UIOExchangeEventHandler):
     def set_address_policy(self, event):
         """Disable the address policy on mailboxes or groups.
 
-        @type event: Cerebrum.extlib.db_row.row
-        @param event: The event returned from Change- or EventLog
+        :param event: an event_log row to handle
         """
         try:
             et = self.ut.get_entity_type(event['subject_entity'])

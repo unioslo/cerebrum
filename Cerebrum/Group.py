@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2002-2019 University of Oslo, Norway
+# Copyright 2002-2021 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -399,10 +399,9 @@ class BaseGroup(EntityQuarantine, EntityExternalId,
         :param int member_id:
           Member (id) to check for membership.
 
-        :rtype: L{db_row} instance or False
         :return:
-          A db_row with the membership in question (from group_member) when a
-          suitable membership exists; False otherwise.
+            A single group_member database row, or False if no membership
+            exists.
         """
 
         # IVR 2008-06-27 TBD: Perhaps, express this in terms of search_members?
@@ -583,14 +582,14 @@ class BaseGroup(EntityQuarantine, EntityExternalId,
           that have expired_date set and expired (relative to the call time).
           N.B. filter_expired and filter_expired are mutually exclusive
 
-        :rtype: iterable (yielding db-rows with group information)
+        :rtype: iterable (yielding rows with group information)
         :return:
           An iterable (sequence or a generator) that yields successive db-rows
           matching all of the specified filters. Regardless of the filters,
           any given group_id is guaranteed to occur at most once in the
-          result. The keys available in db_rows are the content of the
-          group_info table and group's name (if it does not exist, None is
-          assigned to the 'name' key).
+          result. The keys available in rows are the content of the
+          group_info table, supplemented with a 'name' column.  'name' will be
+          None if no group name exists.
         """
         # Sanity check: if indirect members is specified, then at least we
         # need one id to go on.
@@ -737,9 +736,8 @@ class BaseGroup(EntityQuarantine, EntityExternalId,
                 moderator_ids = [moderator_id]
                 for group in self.search(member_id=moderator_id):
                     moderator_ids.append(group['group_id'])
-
-                where.append(argument_to_sql(moderator_ids, "gmod.moderator_id",
-                                             binds, int))
+                where.append(argument_to_sql(moderator_ids,
+                                             "gmod.moderator_id", binds, int))
             else:
                 where.append(argument_to_sql(moderator_id, "gmod.moderator_id",
                                              binds, int))
@@ -888,9 +886,8 @@ class BaseGroup(EntityQuarantine, EntityExternalId,
 
         :rtype: generator (yielding db-rows with membership information)
         :return:
-          A generator that yields successive db-rows (from group_member)
-          matching all of the specified filters. These keys are available in
-          each of the db_rows:
+          A generator that yields successive group_member rows matching all of
+          the specified filters.  Each row contains columns:
             - group_id
             - group_name
             - member_type

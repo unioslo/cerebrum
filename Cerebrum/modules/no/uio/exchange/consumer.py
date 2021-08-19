@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2013-2016 University of Oslo, Norway
+# Copyright 2013-2021 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,7 +18,6 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """Event-handler for Exchange events."""
-
 from __future__ import unicode_literals
 
 import cereconf
@@ -38,7 +36,6 @@ from Cerebrum.modules.event.errors import (EventExecutionException,
                                            UnrelatedEvent)
 from Cerebrum.modules.exchange.CerebrumUtils import CerebrumUtils
 from Cerebrum.Utils import Factory
-from Cerebrum.utils import json
 from Cerebrum import Errors
 from Cerebrum.utils.funcwrap import memoize
 
@@ -46,6 +43,7 @@ from Cerebrum.utils.funcwrap import memoize
 from Cerebrum.modules.event.mapping import EventMap
 from Cerebrum.modules.event import evhandlers
 
+from . import ExchangeClient
 from . import group_flattener
 
 
@@ -150,11 +148,9 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
         """
         if self.mock:
             self.logger.info('Running in mock-mode')
-            from Cerebrum.modules.no.uio.exchange.ExchangeClient import (
-                ClientMock as excclass, )
+            excclass = ExchangeClient.ClientMock
         else:
-            from Cerebrum.modules.no.uio.exchange.ExchangeClient import (
-                ExchangeClient as excclass, )
+            excclass = ExchangeClient.ExchangeClient
 
         def j(*l):
             return '\\'.join(l)
@@ -233,8 +229,8 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
     def create_mailbox(self, event):
         """ Handle mailbox creation upon spread addition.
 
-        :type event: Cerebrum.extlib.db_row.row
-        :param event: The event returned from Change- or EventLog."""
+        :param event: an event_log row to handle
+        """
         # TODO: Handle exceptions!
         added_spread_code = self.ut.load_params(event)['spread']
         # An Exchange-spread has been added! Let's make a mailbox!
@@ -441,8 +437,8 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
     def create_shared_mailbox(self, event):
         """Event handler for creation of a shared mailbox.
 
-        :type event: Cerebrum.extlib.db_row.row
-        :param event: The event returned from Change- or EventLog."""
+        :param event: an event_log row to handle
+        """
         if self._is_shared_mailbox_op(event):
             name, _ = self.ut.get_group_information(
                 event['subject_entity'])
@@ -465,8 +461,8 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
     def remove_shared_mailbox(self, event):
         """Event handler for removal of shared mailbox.
 
-        :type event: Cerebrum.extlib.db_row.row
-        :param event: The event returned from Change- or EventLog."""
+        :param event: an event_log row to handle
+        """
         if self._is_shared_mailbox_op(event):
             name, _ = self.ut.get_group_information(
                 event['subject_entity'])
@@ -490,8 +486,8 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
         """Event handler for removal of mailbox when an account looses its
         spread.
 
-        :type event: Cerebrum.extlib.db_row.row
-        :param event: The event returned from Change- or EventLog."""
+        :param event: an event_log row to handle
+        """
         removed_spread_code = self.ut.load_params(event)['spread']
         if removed_spread_code == self.mb_spread:
             uname = self.ut.get_account_name(event['subject_entity'])
@@ -517,8 +513,7 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
         """Event handler method used for updating a persons accounts with
         the persons new name.
 
-        :type event: Cerebrum.extlib.db_row.row
-        :param event: The event returned from Change- or EventLog
+        :param event: an event_log row to handle
 
         :raises ExchangeException: If all accounts could not be updated.
         """
@@ -589,8 +584,7 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
         If any of the settings fail to be proceessed, the event will be
         re-tried later on.
 
-        :type event: Cerebrum.extlib.db_row.row
-        :param event: The event returned from Change- or EventLog
+        :param event: an event_log row to handle
 
         :raises ExchangeException: If all accounts could not be updated.
         """
@@ -697,12 +691,14 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
     def set_address_book_visibility_for_primary_account_change(self, event):
         """Update address book visibility when primary account changes.
 
-        :param event: The event returned from Change- or EventLog.
-        :type event: Cerebrum.extlib.db_row.row
-        :raises ExchangeException: If the visibility can't be set because of an
-            Exchange related error.
-        :raises EventExecutionException: If the event could not be processed
-            properly."""
+        :param event: an event_log row to handle
+
+        :raises ExchangeException:
+            If the visibility can't be set because of an Exchange related error.
+
+        :raises EventExecutionException:
+            If the event could not be processed properly.
+        """
         # TODO: This should be re-written as an aggregate-enrich-split-agent,
         # and a much simpler handler.
         # TODO: Add some criteria that filter out events that does not result
@@ -759,12 +755,14 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
     def set_mailbox_quota(self, event):
         """Set quota on a mailbox.
 
-        :param event: The event returned from Change- or EventLog.
-        :type event: Cerebrum.extlib.db_row.row
-        :raises ExchangeException: If the forward can't be set because of an
-            Exchange related error.
-        :raises EventExecutionException: If the event could not be processed
-            properly."""
+        :param event: an event_log row to handle
+
+        :raises ExchangeException:
+            If the forward can't be set because of an Exchange related error.
+
+        :raises EventExecutionException:
+            If the event could not be processed properly.
+        """
         try:
             et_eid, tid, tet, hq, sq = self.ut.get_email_target_info(
                 target_id=event['subject_entity'])
@@ -799,12 +797,14 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
     def set_mailbox_forward_addr(self, event):
         """Event handler method used for handling setting of forward adresses.
 
-        :param event: The event returned from Change- or EventLog.
-        :type event: Cerebrum.extlib.db_row.row
-        :raises ExchangeException: If the forward can't be set because of an
-            Exchange related error.
-        :raises EventExecutionException: If the event could not be processed
-            properly."""
+        :param event: an event_log row to handle
+
+        :raises ExchangeException:
+            If the forward can't be set because of an Exchange related error.
+
+        :raises EventExecutionException:
+            If the event could not be processed properly.
+        """
         params = self.ut.load_params(event)
 
         et_eid, tid, tet, hq, sq = self.ut.get_email_target_info(
@@ -840,12 +840,14 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
     def set_local_delivery(self, event):
         """Event handler method that sets the DeliverToMailboxAndForward option.
 
-        :param event: The EventLog entry to process.
-        :type event: Cerebrum.extlib.db_row.row
-        :raises ExchangeException: If local delivery can't be set because of an
-            Exchange related error.
-        :raises EventExecutionException: If the event could not be processed
-            properly."""
+        :param event: an event_log row to handle
+
+        :raises ExchangeException:
+            If local delivery can't be set because of an Exchange related error.
+
+        :raises EventExecutionException:
+            If the event could not be processed properly.
+        """
         et_eid, tid, tet, hq, sq = self.ut.get_email_target_info(
             target_id=event['subject_entity'])
         if (tet == self.co.entity_account and
@@ -886,10 +888,10 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
         """Event handler method used for adding e-mail addresses to
         accounts and distribution groups.
 
-        :type event: Cerebrum.extlib.db_row.row
-        :param event: The event returned from Change- or EventLog.
+        :param event: an event_log row to handle
 
-        :raises ExchangeException: If all accounts could not be updated."""
+        :raises ExchangeException: If all accounts could not be updated.
+        """
         params = self.ut.load_params(event)
         domain = self.ut.get_email_domain_info(params['dom_id'])['name']
         address = '%s@%s' % (params['lp'], domain)
@@ -947,10 +949,10 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
         """Event handler method used for removing e-mail addresses to
         accounts and distribution groups.
 
-        :type event: Cerebrum.extlib.db_row.row
-        :param event: The event returned from Change- or EventLog.
+        :param event: an event_log row to handle
 
-        :raises ExchangeException: If all accounts could not be updated."""
+        :raises ExchangeException: If all accounts could not be updated.
+        """
         params = self.ut.load_params(event)
         domain = self.ut.get_email_domain_info(params['dom_id'])['name']
         address = '%s@%s' % (params['lp'], domain)
@@ -1005,10 +1007,10 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
         """Event handler method used for setting the primary
         e-mail addresses of accounts and distribution groups.
 
-        :type event: Cerebrum.extlib.db_row.row
-        :param event: The event returned from Change- or EventLog.
+        :param event: an event_log row to handle
 
-        :raises ExchangeException: If all accounts could not be updated."""
+        :raises ExchangeException: If all accounts could not be updated.
+        """
         try:
             et_eid, eid, eit, hq, sq = self.ut.get_email_target_info(
                 target_id=event['subject_entity'])
@@ -1046,14 +1048,16 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
     def set_spam_settings(self, event):
         """Set spam settings for a user.
 
-        :type event: Cerebrum.extlib.db_row.row
-        :param event: The event returned from Change- or EventLog.
+        :param event: an event_log row to handle
 
-        :raises EventExecutionException: If the spam settings could not be
-            updated.
-        :raises EntityTypeError: If the email target entity type is
-            unsupported.
-        :raises UnrelatedEvent: If the email target disappeared.
+        :raises EventExecutionException:
+            If the spam settings could not be updated.
+
+        :raises EntityTypeError:
+            If the email target entity type is unsupported.
+
+        :raises UnrelatedEvent:
+            If the email target disappeared.
         """
         try:
             et_id, e_id, e_type, _, _ = self.ut.get_email_target_info(
@@ -1101,8 +1105,8 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
         """Event handler for creating roups upon addition of
         spread.
 
-        :type event: Cerebrum.extlib.db_row.row
-        :param event: The event returned from Change- or EventLog."""
+        :param event: an event_log row to handle
+        """
         gname = None
         # TODO: Handle exceptions!
         # TODO: Implicit checking of type. Should it be excplicit?
@@ -1304,8 +1308,8 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
     def remove_group(self, event):
         """Removal of group when spread is removed.
 
-        :type event: Cerebrum.extlib.db_row.row
-        :param event: The event returned from Change- or EventLog."""
+        :param event: an event_log row to handle
+        """
         data = self.ut.load_params(event)
         if data['roomlist'] == 'F':
             try:
@@ -1334,8 +1338,8 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
     def add_group_members(self, event):
         """Defer addition of member to group.
 
-        :type event: cerebrum.extlib.db_row.row
-        :param event: the event returned from change- or eventlog."""
+        :param event: an event_log row to handle
+        """
         self.logger.debug4(
             'Converting group_member:add to exchange_group:add for {}'.format(
                 event))
@@ -1345,8 +1349,8 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
     def remove_group_member(self, event):
         """Defer removal of member from group.
 
-        :type event: Cerebrum.extlib.db_row.row
-        :param event: The event returned from Change- or EventLog."""
+        :param event: an event_log row to handle
+        """
         self.logger.debug4(
             'Converting group_member:remove to exchange_group_member:remove for {}'.format(
                 event))
@@ -1356,8 +1360,8 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
     def set_group_visibility(self, event):
         """Set the visibility of a group.
 
-        :type event: Cerebrum.extlib.db_row.row
-        :param event: The event returned from Change- or EventLog."""
+        :param event: an event_log row to handle
+        """
         group_spreads = self.ut.get_group_spreads(event['subject_entity'])
         gname, description = self.ut.get_group_information(
             event['subject_entity'])
@@ -1386,8 +1390,8 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
     def set_distgroup_manager(self, event):
         """Set a distribution groups manager.
 
-        :type event: Cerebrum.extlib.db_row.row
-        :param event: The event returned from Change- or EventLog."""
+        :param event: an event_log row to handle
+        """
         gname, description = self.ut.get_group_information(
             event['subject_entity'])
         mngdby_address = cereconf.DISTGROUP_DEFAULT_ADMIN
@@ -1408,8 +1412,8 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
     def set_group_description_and_name(self, event):
         """Update displayname / description on a group.
 
-        :type event: Cerebrum.extlib.db_row.row
-        :param event: The event returned from Change- or EventLog."""
+        :param event: an event_log row to handle
+        """
         try:
             et = self.ut.get_entity_type(event['subject_entity'])
             if not et == self.co.entity_group:
