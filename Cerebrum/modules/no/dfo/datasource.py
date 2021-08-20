@@ -145,8 +145,8 @@ def parse_assignment(assignment_d):
         if member_d['innehaverAnsattnr'] not in employees:
             employees[member_d['innehaverAnsattnr']] = []
         employees[member_d['innehaverAnsattnr']].append((
-            parse_date(member_d['innehaverStartdato'], allow_empty=True),
-            parse_date(member_d['innehaverSluttdato'], allow_empty=True),
+            parse_date(member_d.get('innehaverStartdato'), allow_empty=True),
+            parse_date(member_d.get('innehaverSluttdato'), allow_empty=True),
         ))
 
     result['employees'] = employees
