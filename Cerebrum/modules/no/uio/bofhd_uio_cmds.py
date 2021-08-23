@@ -191,6 +191,7 @@ class BofhdExtension(BofhdCommonMethods):
     def __init__(self, *args, **kwargs):
         super(BofhdExtension, self).__init__(*args, **kwargs)
         self.external_id_mappings['fnr'] = self.const.externalid_fodselsnr
+        self.external_id_mappings['passnr'] = self.const.externalid_pass_number
         # exchange-relatert-jazz
         # currently valid language variants for UiO-Cerebrum
         # although these codes are used for distribution groups
@@ -3386,6 +3387,20 @@ class BofhdExtension(BofhdCommonMethods):
                 person.populate_external_id(self.const.system_manual,
                                             self.const.externalid_fodselsnr,
                                             id)
+            if id_type == self.const.externalid_pass_number:
+                try:
+                    person.find_by_external_id(self.const.externalid_pass_number,
+                                               id)
+                    raise CerebrumError("A person with that passnr exists")
+                except Errors.TooManyRowsError:
+                    raise CerebrumError("A person with that passnr exists")
+                except Errors.NotFoundError:
+                    pass
+                person.clear()
+                self._person_create_externalid_helper(person)
+                person.populate_external_id(self.const.system_manual,
+                                            self.const.externalid_pass_number,
+                                            id)
         person.populate(bdate, gender, description='Manually created')
         person.affect_names(self.const.system_manual,
                             self.const.name_first,
@@ -3705,8 +3720,6 @@ class BofhdExtension(BofhdCommonMethods):
         SourceSystem(help_ref="source_system"))
 
     def person_set_id(self, operator, current_id, new_id, source_system):
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise PermissionDenied("Currently limited to superusers")
         person = self._get_person(*self._map_person_id(current_id))
         idtype, id = self._map_person_id(new_id)
         self.ba.can_set_person_id(operator.get_entity_id(), person, idtype)

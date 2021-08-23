@@ -1100,8 +1100,6 @@ class BofhdAuth(DatabaseAccessor):
             return True
         if self.is_superuser(operator):
             return True
-        if person.get_external_id(id_type=idtype):
-            raise PermissionDenied("Already has a value for that idtype")
         account = Factory.get('Account')(self._db)
         account.find(operator)
         if person.entity_id == account.owner_id:
