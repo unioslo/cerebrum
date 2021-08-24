@@ -368,7 +368,8 @@ def get_memberships(db):
     #       all other members. I.e. if a person or account is added to a edu
     #       group, it will remain there until manually removed.
     gr = Factory.get('Group')(db)
-    for row in gr.search_members(member_type=gr.const.entity_group):
+    for row in gr.search_members(member_type=gr.const.entity_group,
+                                 member_filter_expired=False):
         yield row['group_id'], row['member_id']
 
 
