@@ -50,7 +50,7 @@ import cereconf
 
 import Cerebrum.logutils
 import Cerebrum.logutils.options
-from Cerebrun.utils import date_compat
+from Cerebrum.utils import date_compat
 from Cerebrum.utils.argutils import add_commit_args
 from Cerebrum.utils.transliterate import to_ascii
 from Cerebrum.Utils import Factory
