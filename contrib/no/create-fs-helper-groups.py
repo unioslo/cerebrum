@@ -361,7 +361,7 @@ def get_groups(db):
              for c in gr.const.fetch_constants(gr.const.GroupVisibility)}
     g_typ = {int(c): c
              for c in gr.const.fetch_constants(gr.const.GroupType)}
-    for row in gr.search():
+    for row in gr.search(filter_expired=False):
         yield {
             'id': row['group_id'],
             'name': row['name'],
