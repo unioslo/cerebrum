@@ -23,7 +23,6 @@ import getopt
 import pprint
 import sys
 
-import mx.DateTime
 import six
 
 import cereconf
@@ -257,9 +256,9 @@ def import_person(persons, all_nodes):
         #
         try:
             db_person.populate(
-                mx.DateTime.Date(int(person_to_be_processed['birth_year']),
-                                 int(person_to_be_processed['birth_month']),
-                                 int(person_to_be_processed['birth_day'])),
+                datetime.date(int(person_to_be_processed['birth_year']),
+                              int(person_to_be_processed['birth_month']),
+                              int(person_to_be_processed['birth_day'])),
                 int(person_to_be_processed['gender']))
         except Errors.CerebrumError as m:
             # unable to populate person object. Return error message and
