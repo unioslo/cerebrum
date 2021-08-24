@@ -50,6 +50,7 @@ import cereconf
 
 import Cerebrum.logutils
 import Cerebrum.logutils.options
+from Cerebrun.utils import date_compat
 from Cerebrum.utils.argutils import add_commit_args
 from Cerebrum.utils.transliterate import to_ascii
 from Cerebrum.Utils import Factory
@@ -348,26 +349,15 @@ def get_account_by_name(db, account_name):
     return ac
 
 
-def _pydate(obj):
-    if obj is None:
-        return obj
-    # otherwise assume mx.DateTime
-    return obj.pydate()
-
-
 def get_groups(db):
     gr = Factory.get('Group')(db)
-    g_vis = {int(c): c
-             for c in gr.const.fetch_constants(gr.const.GroupVisibility)}
-    g_typ = {int(c): c
-             for c in gr.const.fetch_constants(gr.const.GroupType)}
     for row in gr.search(filter_expired=False):
         yield {
             'id': row['group_id'],
             'name': row['name'],
-            'group_type': g_typ[row['group_type']],
-            'visibility': g_vis[row['visibility']],
-            'expire_date': _pydate(row['expire_date']),
+            'group_type': gr.const.GroupType(row['group_type']),
+            'visibility': gr.const.GroupVisibility(row['visibility']),
+            'expire_date': date_compat.get_date(row['expire_date']),
             'description': row['description'],
         }
 
@@ -481,7 +471,8 @@ class GroupCache(object):
                         group.group_name, len(to_add), len(to_remove))
 
     def update_expire_date(self, group, expire_date):
-        if not group.expire_date or group.expire_date < expire_date:
+        curr_expire = date_compat.get_date(group.expire_date)
+        if not curr_expire or curr_expire < expire_date:
             group.expire_date = expire_date
             group.write_db()
             self.groups[group.entity_id]['expire_date'] = expire_date
