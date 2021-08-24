@@ -528,7 +528,8 @@ class EduGroupBuilder(object):
         name_pattern = self.fs_prefix + ':' + unit.key + ':*'
         return set(
             r['group_id']
-            for r in filter_groups(self._gr.search(name=name_pattern),
+            for r in filter_groups(self._gr.search(name=name_pattern,
+                                                   filter_expired=False),
                                    roles, sub=not self.nested))
 
     def get_act_members(self, activity, roles):
@@ -537,7 +538,8 @@ class EduGroupBuilder(object):
         name_pattern = self.fs_prefix + ':' + unit_key + ':*:' + act_id
         return set(
             r['group_id']
-            for r in filter_groups(self._gr.search(name=name_pattern),
+            for r in filter_groups(self._gr.search(name=name_pattern,
+                                                   filter_expired=False),
                                    roles, sub=True))
 
     def _sync_activity_group(self, activity, roles, group_name, group_desc):
