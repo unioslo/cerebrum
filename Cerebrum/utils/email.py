@@ -94,13 +94,11 @@ def is_email(address):
     """
     letnums = "a-zA-Z0-9"
     special = "!#$%&'*+-/=?^_`{|}~"
-
     local = r'[' + letnums + special + r'](\.?[' + letnums + special + ']+)*'
-    label = r'[' + letnums + '][' + letnums + '-]*[' + letnums + r']'
+    label = '(?!-)[a-zA-Z0-9-]{1,63}(?<!-)'
     domain = '(' + label + r'\.)+' + label
-    regex = local + '@' + domain
-
-    return bool(re.match(regex+'$', address))
+    pattern = '^' + local + '@' + domain + '$'
+    return bool(re.match(pattern, address))
 
 
 def get_charset(message, default='ascii'):
