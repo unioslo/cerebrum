@@ -134,7 +134,7 @@ class HRDataImport(object):
         self.update_external_ids(db_person, empty_hr_person)
         self.update_names(db_person, empty_hr_person)
         # TODO: temporary - disable work title update
-        # self.update_titles(db_person, empty_hr_person)
+        self.update_titles(db_person, empty_hr_person)
         self.update_contact_info(db_person, empty_hr_person)
         self.update_affiliations(db_person, empty_hr_person)
         logger.info('removed person id=%r', db_person.entity_id)
@@ -147,7 +147,7 @@ class HRDataImport(object):
         self.update_external_ids(db_person, hr_person)
         self.update_names(db_person, hr_person)
         # TODO: temporary - disable work title update
-        # self.update_titles(db_person, hr_person)
+        self.update_titles(db_person, hr_person)
         self.update_contact_info(db_person, hr_person)
         self.update_affiliations(db_person, hr_person)
         logger.info('updated person id=%r', db_person.entity_id)
@@ -273,7 +273,6 @@ class HRDataImport(object):
                 self.co.LanguageCode(t.name_language),
                 t.name)
             for t in hr_person.titles)
-
         cerebrum_titles = set(
             models.HRTitle(
                 self.co.EntityNameCode(row['name_variant']),

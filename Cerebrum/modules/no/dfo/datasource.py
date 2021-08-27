@@ -185,6 +185,8 @@ class EmployeeDatasource(AbstractDatasource):
         """ Fetch data from sap (employee data, assignments, roles). """
         employee_id = reference
         employee_data = self._get_employee(employee_id)
+        if not employee_data:
+            raise DatasourceInvalid("missing employee_id: %r" % (employee_id))
 
         employee = {
             'id': parse_employee_id(reference),
@@ -192,23 +194,22 @@ class EmployeeDatasource(AbstractDatasource):
             'assignments': {},
         }
 
-        if employee_data:
-            employee['employee'] = Person('dfo-sap', reference, employee_data)
-            assignment_ids = {employee_data['stillingId']}
+        employee['employee'] = Person('dfo-sap', reference, employee_data)
+        assignment_ids = {employee_data['stillingId']}
 
-            for secondary_assignment in employee_data['tilleggsstilling']:
-                assignment_ids.add(secondary_assignment['stillingId'])
+        for secondary_assignment in employee_data['tilleggsstilling']:
+            assignment_ids.add(secondary_assignment['stillingId'])
 
-            for assignment_id in assignment_ids:
-                assignment = self._get_assignment(employee_id, assignment_id)
+        for assignment_id in assignment_ids:
+            assignment = self._get_assignment(employee_id, assignment_id)
 
-                if assignment:
-                    employee['assignments'][assignment_id] = (
-                        Assignment('dfo-sap', assignment_id, assignment)
-                    )
-                else:
-                    raise DatasourceInvalid('No assignment_id=%r found' %
-                                            (assignment_id,))
+            if assignment:
+                employee['assignments'][assignment_id] = (
+                    Assignment('dfo-sap', assignment_id, assignment)
+                )
+            else:
+                raise DatasourceInvalid('No assignment_id=%r found' %
+                                        (assignment_id,))
 
         return Employee('dfo-sap', reference, employee)
 
