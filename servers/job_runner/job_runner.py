@@ -60,6 +60,7 @@ from Cerebrum.Utils import Factory
 from Cerebrum.logutils import autoconf
 from Cerebrum.logutils.options import install_subparser
 from Cerebrum.modules.job_runner import JobRunner, sigchld_handler
+from Cerebrum.modules.job_runner.health import HealthMonitor
 from Cerebrum.modules.job_runner.job_actions import LockFile, LockExists
 from Cerebrum.modules.job_runner.job_config import get_job_config
 from Cerebrum.modules.job_runner.queue import JobQueue
@@ -91,21 +92,33 @@ def make_parser():
         required=not default_socket,
         default=default_socket,
         help='run the job_runner server on a given socket',
+        metavar='<sock>',
+    )
+
+    parser.add_argument(
+        '--health-report',
+        dest='health_report',
+        help='write a json health report to the given file',
+        metavar='<file>',
     )
 
     config = parser.add_mutually_exclusive_group()
     config.add_argument(
         '--config',
         dest='config',
-        metavar='NAME',
         default='scheduled_jobs',
         help='use alternative config (filename or module name)',
+        metavar='<module-or-file>',
     )
 
     return parser
 
 
-def run_daemon(jr_socket, jobs, quiet=False, thread=True):
+def run_daemon(jr_socket,
+               jobs,
+               health_report=None,
+               quiet=False,
+               enable_ipc=True):
     """ Try to start a new job runner daemon. """
     sock = SocketServer(jr_socket=jr_socket)
 
@@ -138,13 +151,20 @@ def run_daemon(jr_socket, jobs, quiet=False, thread=True):
     queue = JobQueue(jobs, Factory.get('Database')())
     runner = JobRunner(queue)
 
-    if thread:
+    if enable_ipc:
         socket_thread = threading.Thread(
             target=sock.start_listener,
             args=(runner, ))
         socket_thread.setDaemon(True)
         socket_thread.setName("socket_thread")
         socket_thread.start()
+
+    if health_report:
+        monitor = HealthMonitor(runner, health_report)
+        monitor_thread = threading.Thread(target=monitor.run)
+        monitor_thread.setDaemon(True)
+        monitor_thread.setName("monitor_thread")
+        monitor_thread.start()
 
     runner.run_job_loop()
     logger.debug("bye")
@@ -168,7 +188,7 @@ def main(inargs=None):
     scheduled_jobs = get_job_config(args.config)
 
     logger.info("Starting daemon with jobs from %r", scheduled_jobs)
-    run_daemon(jr_socket, scheduled_jobs)
+    run_daemon(jr_socket, scheduled_jobs, health_report=args.health_report)
 
 
 if __name__ == '__main__':
