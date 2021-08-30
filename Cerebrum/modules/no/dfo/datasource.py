@@ -186,7 +186,7 @@ class EmployeeDatasource(AbstractDatasource):
         employee_id = reference
         employee_data = self._get_employee(employee_id)
         if not employee_data:
-            raise DatasourceInvalid("missing employee_id: %r" % (employee_id))
+            logger.warning('no result for employee-id %r', employee_id)
 
         employee = {
             'id': parse_employee_id(reference),
