@@ -193,9 +193,9 @@ class EmployeeDatasource(AbstractDatasource):
             'employee': {},
             'assignments': {},
         }
-
-        employee['employee'] = Person('dfo-sap', reference, employee_data)
-        assignment_ids = {employee_data['stillingId']}
+        if employee_data:
+            employee['employee'] = Person('dfo-sap', reference, employee_data)
+            assignment_ids = {employee_data['stillingId']}
 
         for secondary_assignment in employee_data['tilleggsstilling']:
             assignment_ids.add(secondary_assignment['stillingId'])
