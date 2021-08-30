@@ -57,7 +57,9 @@ class Action(object):
                  notwhen=None,
                  max_duration=4*60*60,
                  multi_ok=0,
-                 nonconcurrent=[]):
+                 nonconcurrent=[],
+                 health=None,
+                 ):
         """
         :param list pre:
             List of names (strings) of jobs that must run before this job.
@@ -86,9 +88,11 @@ class Action(object):
             the ready_to_run queue
         :param TODO nonconcurrent:
             nonconcurrent contains the names of jobs that if running, should
+        :param health:
+            HealthCheck settings for the job runner health report (or None to
+            disable health checks for this action)
 
         """
-
         # TBD: Trenger vi engentlig post?  Dersom man setter en jobb
         # til å kjøre 1 sek etter en annen vil den automatisk havne
         # bakerst i ready_to_run køen, og man oppnår dermed det samme.
@@ -107,6 +111,7 @@ class Action(object):
         self.multi_ok = multi_ok
         self.notwhen = notwhen
         self.nonconcurrent = nonconcurrent
+        self.health = health
 
     def copy_runtime_params(self, other):
         """When reloading the configuration, we must preserve some
@@ -414,7 +419,7 @@ class Jobs(object):
     def check_cycles(self, joblist):
         """Check whether job prerequisites make a cycle."""
 
-        class node:
+        class _Node:
             UNMARKED = 0
             INPROGRESS = 1
             DONE = 2
@@ -429,7 +434,7 @@ class Jobs(object):
         # access them)
         graph = dict()
         for name, job in joblist.iteritems():
-            graph[name] = node(name, job.pre, job.post)
+            graph[name] = _Node(name, job.pre, job.post)
 
         # remap names to object (it'll be easier later)
         for n in graph.values():

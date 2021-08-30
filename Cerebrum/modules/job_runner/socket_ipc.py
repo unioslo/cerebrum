@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright 2018 University of Oslo, Norway
+# Copyright 2018-2021 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -35,6 +35,7 @@ import cereconf
 
 from Cerebrum.utils.date import to_seconds
 from .times import fmt_asc, fmt_time
+from .health import get_health_report
 
 
 logger = logging.getLogger(__name__)
@@ -307,6 +308,11 @@ class SocketProtocol(object):
     @commands.add('PING')
     def __ping(self):
         self.respond('PONG')
+
+    @commands.add('REPORT')
+    def __report(self):
+        report = get_health_report(self.job_runner)
+        self.respond(report)
 
 
 class SocketServer(object):
