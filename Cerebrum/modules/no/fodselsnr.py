@@ -38,6 +38,7 @@ Ported from the perl version written by Gisle Aas <aas@sn.no> (No::PersonNr).
 from __future__ import print_function
 
 import re
+import time
 
 
 class InvalidFnrError(ValueError):
@@ -93,7 +94,6 @@ def personnr_ok(nr, _ret_date=0, accept_00x00=True):
 
     # The rest of the hack for FS/SO numbers
     if SO_NUMBER:
-        import time
         if year in range(int(time.strftime("%y")) + 1, 99):
             year += 1900            # If year in [now + 1, ... 99] => year
         else:                       # probably be previous century.
