@@ -203,13 +203,13 @@ class EmployeeDatasource(AbstractDatasource):
             for assignment_id in assignment_ids:
                 assignment = self._get_assignment(employee_id, assignment_id)
 
-            if assignment:
-                employee['assignments'][assignment_id] = (
-                    Assignment('dfo-sap', assignment_id, assignment)
-                )
-            else:
-                raise DatasourceInvalid('No assignment_id=%r found' %
-                                        (assignment_id,))
+                if assignment:
+                    employee['assignments'][assignment_id] = (
+                        Assignment('dfo-sap', assignment_id, assignment)
+                    )
+                else:
+                    raise DatasourceInvalid('No assignment_id=%r found' %
+                                            (assignment_id,))
 
         return Employee('dfo-sap', reference, employee)
 
