@@ -93,14 +93,11 @@ def personnr_ok(nr, _ret_date=0, accept_00x00=True):
 
     # The rest of the hack for FS/SO numbers
     if SO_NUMBER:
-        if 120 <= pnr <= 199:
-            year += 2000
-        else:
-            import time
-            if year in range(int(time.strftime("%y")) + 1, 99 + 1):
-                year += 1900            # If year in [now + 1, ... 99] => year
-            else:                       # probably be previous century.
-                year += 2000            # Will potentially be a problem in 2050
+        import time
+        if year in range(int(time.strftime("%y")) + 1, 99):
+            year += 1900            # If year in [now + 1, ... 99] => year
+        else:                       # probably be previous century.
+            year += 2000            # Will potentially be a problem in 2050
 
     else:
         # Så var det det å kjenne igjen hvilket hundreår som er det riktige.
