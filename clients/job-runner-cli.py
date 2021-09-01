@@ -29,6 +29,7 @@ status and queue jobs using the job_runner socket server.
 import argparse
 import logging
 import os
+import sys
 
 try:
     import cereconf
@@ -39,6 +40,7 @@ import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum.modules.job_runner.job_config import get_job_config, dump_jobs
 from Cerebrum.modules.job_runner.socket_ipc import SocketServer, SocketTimeout
+from Cerebrum.modules.job_runner.health import write_health_report
 
 default_dump_config = 'scheduled_jobs'
 default_dump_depth = 1
@@ -118,6 +120,13 @@ cmd_pause = add_command(
 cmd_resume = add_command(
     'resume', 'RESUME',
     'Resume queue processing (from paused state)',
+)
+
+# <prog> report
+#
+cmd_report = add_command(
+    'report', 'REPORT',
+    'Show health report for a running job-runner',
 )
 
 # <prog> run <name> [--with-deps]
@@ -211,6 +220,11 @@ def main(inargs=None):
         scheduled_jobs = get_job_config(args.config)
         print("Showing jobs in {0!r}".format(scheduled_jobs))
         dump_jobs(scheduled_jobs, args.dump_depth)
+    elif command == 'REPORT':
+        logger.info("Running command=%r, args=%r, timeout=%r",
+                    command, c_args, args.timeout)
+        result = run_command(args.socket, command, c_args, args.timeout)
+        write_health_report(sys.stdout, result)
     else:
         logger.info("Running command=%r, args=%r, timeout=%r",
                     command, c_args, args.timeout)

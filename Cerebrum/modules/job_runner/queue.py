@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright 2018 University of Oslo, Norway
+# Copyright 2018-2021 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -123,6 +123,8 @@ class JobQueue(object):
         self._debug_time = debug_time
         self._forced_run_queue = []
         self._last_status = {}
+        self._last_success = {}
+        self._last_failure = {}
 
         self.reload_scheduled_jobs()
 
@@ -236,15 +238,29 @@ class JobQueue(object):
             self._run_queue.remove(job_name)
         self.logger.debug("Started [%s]" % job_name)
 
-    def job_done(self, job_name, pid, error=None, force=False):
+    def job_done(self, job_name, pid, ok=True, msg=None, force=False):
+        """ Mark job as completed.
+
+        :param job_name: job name
+        :param int pid: process id (if subprocess action, otherwise None)
+        :param bool ok: if the job finished successfully
+        :param str msg: optional status message
+        :param bool force: if this job is from the forced queue
+        """
+        curr_ts = time.time()
         if pid is not None:
             self._running_jobs.remove((job_name, pid))
 
-        self._last_status[job_name] = error or 'ok'
+        self._last_status[job_name] = msg or 'ok'
+
+        if ok:
+            self._last_success[job_name] = curr_ts
+        else:
+            self._last_failure[job_name] = curr_ts
 
         if job_name in self._started_at:
-            self._last_duration[job_name] = (
-                time.time() - self._started_at[job_name])
+            self._last_duration[job_name] = (curr_ts -
+                                             self._started_at[job_name])
             self.logger.debug("Completed [%s/%i] after %f seconds",
                               job_name,
                               pid or -1,
@@ -262,7 +278,7 @@ class JobQueue(object):
         if (pid is None
                 or (self._known_jobs[job_name].call
                     and self._known_jobs[job_name].call.wait)):
-            self._last_run[job_name] = time.time()
+            self._last_run[job_name] = curr_ts
             self.db_qh.update_last_run(job_name, self._last_run[job_name])
         else:
             # This means that an assertRunning job has terminated.
@@ -421,4 +437,34 @@ class JobQueue(object):
         return job_name in self._run_queue
 
     def last_status(self, job_name):
+        """
+        Get a status message from the last job run.
+
+        :returns:
+            status string, one of:
+
+            - "unknown" - job hasn't run yet
+            - "ok" - job finished without warnings/errors
+            - warning or error message from job
+        """
         return self._last_status.get(job_name) or 'unknown'
+
+    def last_success_at(self, job_name):
+        """
+        Get timestamp for last successful run.
+
+        :returns int:
+            timestamp of last successful run, or 0 if the job hastn't finished
+            successfully (yet), or is unknown.
+        """
+        return self._last_success.get(job_name, 0)
+
+    def last_failure_at(self, job_name):
+        """
+        Get timestamp for last failed run.
+
+        :returns int:
+            timestamp of last failed run, or 0 if the job hastn't failed (yet),
+            or is unknown.
+        """
+        return self._last_failure.get(job_name, 0)

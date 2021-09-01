@@ -157,9 +157,15 @@ class JobRunner(object):
                         "{} for {}, check %s".format(msg, job['name']),
                         rundir)
                     error = '{}, check {}'.format(msg, rundir)
+                    if msg.startswith('exit_code=0'):
+                        job_ok = True
+                    else:
+                        job_ok = False
                 else:
                     error = None
-                self.job_queue.job_done(job['name'], job['pid'], error=error)
+                    job_ok = True
+                self.job_queue.job_done(job['name'], job['pid'],
+                                        ok=job_ok, msg=error)
         return did_wait
 
     def wake_runner_signal(self):
