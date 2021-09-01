@@ -185,13 +185,14 @@ class EmployeeDatasource(AbstractDatasource):
         """ Fetch data from sap (employee data, assignments, roles). """
         employee_id = reference
         employee_data = self._get_employee(employee_id)
+        if not employee_data:
+            logger.warning('no result for employee-id %r', employee_id)
 
         employee = {
             'id': parse_employee_id(reference),
             'employee': {},
             'assignments': {},
         }
-
         if employee_data:
             employee['employee'] = Person('dfo-sap', reference, employee_data)
             assignment_ids = {employee_data['stillingId']}
