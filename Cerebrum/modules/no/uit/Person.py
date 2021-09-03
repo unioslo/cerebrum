@@ -51,22 +51,6 @@ class UiTPersonMixin(Person.Person):
         #       to be false for now.
         return False
 
-    # We want to raise an error when person.populate is called on a person with
-    # deceased_date set in the DB.
-    def populate(self, birth_date, gender, description=None,
-                 deceased_date=None, parent=None):
-        try:
-            db_deceased = self.deceased_date
-        except AttributeError:
-            pass
-        else:
-            if db_deceased is not None and deceased_date is None:
-                raise Errors.CerebrumError('Populate called with deceased_date'
-                                           '=None, but deceased_date already '
-                                           'set on person')
-        self.__super.populate(birth_date, gender, description, deceased_date,
-                              parent)
-
     def list_deceased(self):
         ret = {}
         for row in self.query(
