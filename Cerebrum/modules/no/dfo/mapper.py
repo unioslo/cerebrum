@@ -28,6 +28,7 @@ import logging
 
 import six
 
+from Cerebrum.modules.user_titles import UserTitles
 from Cerebrum.modules.hr_import import mapper as _base
 from Cerebrum.modules.hr_import.models import (HRPerson,
                                                HRTitle,
@@ -337,6 +338,13 @@ class EmployeeMapper(_base.AbstractMapper):
             HRTitle(name_variant='WORKTITLE',
                     name_language='nb',
                     name=parsed_name)
+        )
+        eng_title = UserTitles.extract_from_list(
+            UserTitles.translate(parsed_name, 'norTitle', 'engTitle'))
+        titles.add(
+            HRTitle(name_variant='WORKTITLE',
+                    name_language='en',
+                    name=eng_title)
         )
         logger.info('found %d titles: %r', len(titles), titles)
         return titles
