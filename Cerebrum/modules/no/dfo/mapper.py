@@ -345,6 +345,14 @@ class EmployeeMapper(_base.AbstractMapper):
     def create_hr_person(obj):
         person_id = obj['id']
         person_data = obj['employee']
+        resigned = obj["resigned"]
+
+        """
+        if resigned:
+            enable = False
+        else:
+            enable = person_data.get('eksternbruker', True),
+        """
 
         return HRPerson(
             hr_id=person_id,
@@ -352,7 +360,7 @@ class EmployeeMapper(_base.AbstractMapper):
             last_name=person_data.get('etternavn'),
             birth_date=parse_date(person_data.get('fdato'), allow_empty=True),
             gender=person_data.get('kjonn'),
-            enable=person_data.get('eksternbruker', True),
+            enable=enable
         )
 
     def update_hr_person(self, hr_person, obj):
@@ -362,6 +370,8 @@ class EmployeeMapper(_base.AbstractMapper):
         main_assignment = get_main_assignment(person_data, assignment_data)
         hr_person.external_ids = self.parse_external_ids(hr_person.hr_id,
                                                          person_data)
+        if obj["resigned"]:
+            return
         if not any(id_.id_type in REQUIRED_ID_TYPE
                    for id_ in hr_person.external_ids):
             raise Exception('None of required id types %s present: %s' % (

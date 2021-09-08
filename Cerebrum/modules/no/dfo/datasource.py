@@ -170,6 +170,8 @@ class EmployeeDatasource(AbstractDatasource):
 
         if isinstance(raw, list) and len(raw) == 1:
             result = parse_employee(raw[0])
+        elif isinstance(raw, unicode):
+            result = raw
         else:
             result = parse_employee(raw)
         return result
@@ -190,9 +192,13 @@ class EmployeeDatasource(AbstractDatasource):
             'id': parse_employee_id(reference),
             'employee': {},
             'assignments': {},
+            'resigned': False
         }
 
         if employee_data:
+            if employee_data == "resigned":
+                employee["resigned"] = True
+                return Employee('dfo-sap', reference, employee)
             employee['employee'] = Person('dfo-sap', reference, employee_data)
             assignment_ids = {employee_data['stillingId']}
 
