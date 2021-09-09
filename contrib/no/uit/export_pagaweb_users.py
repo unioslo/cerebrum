@@ -122,7 +122,8 @@ def parse_paga_csv(db, pagafile):
         #  T (timelønnet)
         if (detail[KEY_HOVEDARBFORH] == 'H' and
                 detail[KEY_TJFORH].upper() in ['E', 'F', 'K', 'U', 'V',
-                                               'Å', 'P', 'B', 'ÅP', 'L', 'T']):
+                                               'Å', 'P', 'B', 'ÅP', 'L',
+                                               'T', 'FK']):
             persons[detail[KEY_ANSATTNR]] = {}
 
     ac = Factory.get('Account')(db)
