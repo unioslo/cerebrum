@@ -120,6 +120,7 @@ def parse_paga_csv(db, pagafile):
         #  ÅP (postdoc)
         #  L (lærling)
         #  T (timelønnet)
+        #  FK (Fast kvalifiseringsvilkår)
         if (detail[KEY_HOVEDARBFORH] == 'H' and
                 detail[KEY_TJFORH].upper() in ['E', 'F', 'K', 'U', 'V',
                                                'Å', 'P', 'B', 'ÅP', 'L',
