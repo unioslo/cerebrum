@@ -339,6 +339,16 @@ class EmployeeMapper(_base.AbstractMapper):
                     name_language='nb',
                     name=parsed_name)
         )
+        try:
+            eng_title = UserTitles.extract_from_list(
+                UserTitles.translate(parsed_name, 'norTitle', 'engTitle'))
+            titles.add(
+                HRTitle(name_variant='WORKTITLE',
+                        name_language='en',
+                        name=eng_title)
+            )
+        except KeyError:
+            logger.warn('no translation found for title', parsed_name)
         logger.info('found %d titles: %r', len(titles), titles)
         return titles
 
