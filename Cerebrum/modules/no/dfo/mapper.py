@@ -348,7 +348,7 @@ class EmployeeMapper(_base.AbstractMapper):
                         name=eng_title)
             )
         except KeyError:
-            logger.warn('no translation found for title', parsed_name)
+            logger.exception('no translation found for title', parsed_name)
         logger.info('found %d titles: %r', len(titles), titles)
         return titles
 
