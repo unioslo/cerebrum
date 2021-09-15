@@ -112,14 +112,14 @@ def main(inargs=None):
     db = Factory.get('Database')()
     queue = TaskQueue(db)
 
-    added = queue.push(task, ignore_nbf_after=(not args.force))
+    added = queue.push_task(task, ignore_nbf_after=(not args.force))
     if added:
         print('Added/updated task:')
         print(pretty_format(added))
     else:
         print('Ignored task:')
         print(pretty_format(task))
-        existing = queue.get(task.queue, task.sub, task.key)
+        existing = queue.get_task(task.queue, task.sub, task.key)
         print('Already exists as:')
         print(pretty_format(existing))
 

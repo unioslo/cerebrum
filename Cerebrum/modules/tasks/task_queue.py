@@ -494,26 +494,26 @@ def sql_get_subqueue_counts(db, **kwargs):
 class TaskQueue(DatabaseAccessor):
     """ Access the task queue. """
 
-    def find(self, queue, sub, key):
+    def find_task(self, queue, sub, key):
         return db_row_to_task(sql_get(self._db, queue, sub, key))
 
-    def get(self, queue, sub, key):
+    def get_task(self, queue, sub, key):
         try:
             return self.find(queue, sub, key)
         except Cerebrum.Errors.NotFoundError:
             return None
 
-    def pop(self, queue, sub, key):
+    def pop_task(self, queue, sub, key):
         return db_row_to_task(sql_pop(self._db, queue, sub, key))
 
-    def pop_next(self, *args, **kwargs):
+    def pop_next_task(self, *args, **kwargs):
         return db_row_to_task(sql_pop_next(self._db, *args, **kwargs))
 
-    def search(self, **fields):
+    def search_tasks(self, **fields):
         for row in sql_search(self._db, **fields):
             yield db_row_to_task(row)
 
-    def push(self, task, ignore_nbf_after=False):
+    def push_task(self, task, ignore_nbf_after=False):
         kwargs = task.to_dict()
         kwargs['ignore_nbf_after'] = ignore_nbf_after
         row = sql_push(self._db, **kwargs)

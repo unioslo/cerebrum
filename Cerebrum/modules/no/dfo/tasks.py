@@ -96,14 +96,14 @@ class AssignmentTasks(process.QueueHandler):
     def handle_task(self, db, dryrun, task):
         do_import = self.get_import(db).handle_reference
 
-        push = TaskQueue(db).push
+        push_task = TaskQueue(db).push_task
 
         for employee_id, nbf in do_import(task.payload.data['id']):
             task = EmployeeTasks.create_manual_task(
                 employee_id,
                 sub="",
                 nbf=nbf)
-            push(task, ignore_nbf_after=True)
+            push_task(task, ignore_nbf_after=True)
         return None
 
     @classmethod

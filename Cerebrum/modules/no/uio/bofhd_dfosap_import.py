@@ -19,30 +19,27 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ This module contains tools for the bofh command `person dfosap_import"""
 
-import datetime
-from six import text_type
-
 from Cerebrum import Errors
-from Cerebrum.database.ctx import db_context
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
-from Cerebrum.modules.bofhd.cmd_param import (SimpleString,
-                                              Command,
-                                              FormatSuggestion)
-from Cerebrum.modules.bofhd.errors import (CerebrumError,
-                                           PermissionDenied)
+from Cerebrum.modules.bofhd.cmd_param import (
+    Command,
+    FormatSuggestion,
+    SimpleString,
+)
+from Cerebrum.modules.bofhd.errors import CerebrumError
 from Cerebrum.modules.no.dfo.tasks import EmployeeTasks
 from Cerebrum.modules.no.uio.bofhd_auth import UioAuth
 from Cerebrum.modules.tasks.formatting import TaskFormatter
-from Cerebrum.modules.tasks.task_queue import (TaskQueue,
-                                               sql_search)
+from Cerebrum.modules.tasks.task_queue import TaskQueue, sql_search
 from Cerebrum.Utils import Factory
+
 
 class SapImport(BofhdCommonMethods):
     """This class exists to serve the bofh command person dfosap_import"""
 
     def __init__(self, db, dfo_pid):
         self.dfo_pid = dfo_pid
-        self.db_ = db
+        self._db = db
         self.pe = Factory.get('Person')(db)
         self.co = Factory.get('Constants')(db)
         self.queued_tasks = []
@@ -68,14 +65,15 @@ class SapImport(BofhdCommonMethods):
 
     def push_to_queue(self, task):
         """Push task to queue, thereby forcing an import"""
-        TaskQueue(self.db_).push(task)
+        TaskQueue(self._db).push_task(task)
 
     def extract_from_queue(self):
         """Find the existing tasks in the queue for the person"""
-        format_table = TaskFormatter(('queue', 'key', 'iat', 'nbf', 'attempts'))
-        items=sql_search(self.db_)
+        format_table = TaskFormatter(('queue', 'key', 'iat', 'nbf',
+                                      'attempts'))
+        items = sql_search(self._db)
 
-        for index,row in enumerate(format_table(items, header=True)):
+        for index, row in enumerate(format_table(items, header=True)):
             if self.dfo_pid in row or index < 2:
                 self.queued_tasks.append(row)
 

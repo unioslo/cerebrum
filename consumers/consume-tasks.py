@@ -102,7 +102,7 @@ class TaskHandler(AbstractConsumerHandler):
             queue = TaskQueue(db)
             for task in (self.get_tasks(event) or ()):
                 logger.debug('adding task %s', repr(task))
-                queue.push(task, ignore_nbf_after=True)
+                queue.push_task(task, ignore_nbf_after=True)
 
     def on_error(self, event, error):
         # TODO: We should also implement better error handling here.
