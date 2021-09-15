@@ -33,7 +33,7 @@ from Cerebrum.utils.argutils import add_commit_args
 from Cerebrum.utils.date import now
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.tasks.task_queue import TaskQueue
-from Cerebrum.modules.tasks.task_models import Task
+from Cerebrum.modules.tasks.task_models import Task, merge_tasks
 
 logger = logging.getLogger(__name__)
 
@@ -112,16 +112,16 @@ def main(inargs=None):
     db = Factory.get('Database')()
     queue = TaskQueue(db)
 
-    added = queue.push_task(task, ignore_nbf_after=(not args.force))
-    if added:
+    old_task = queue.get_task(task.queue, task.sub, task.key)
+    if args.force or not old_task:
+        added = queue.push_task(merge_tasks(task, old_task))
         print('Added/updated task:')
         print(pretty_format(added))
     else:
         print('Ignored task:')
         print(pretty_format(task))
-        existing = queue.get_task(task.queue, task.sub, task.key)
         print('Already exists as:')
-        print(pretty_format(existing))
+        print(pretty_format(old_task))
 
     if args.commit:
         db.commit()

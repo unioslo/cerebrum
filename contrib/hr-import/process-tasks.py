@@ -154,7 +154,7 @@ def main(inargs=None):
             with db_context(database, dryrun=dryrun) as db:
                 retry_task = handle_task.get_retry_task(task, e)
                 logger.debug('re-queueing %r as %r', task, retry_task)
-                if TaskQueue(db).push_task(retry_task, ignore_nbf_after=True):
+                if TaskQueue(db).push_task(retry_task):
                     logger.info('queued retry-task %s/%s/%s at %s',
                                 retry_task.queue, retry_task.sub,
                                 retry_task.key, retry_task.nbf)

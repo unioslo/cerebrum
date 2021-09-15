@@ -90,7 +90,8 @@ class QueueHandler(object):
         """
         next_task = self.handle_task(db, dryrun, task)
         task_db = task_queue.TaskQueue(db)
-        if next_task and task_db.push_task(next_task, ignore_nbf_after=True):
+
+        if next_task and task_db.push_task(next_task):
             logger.info('queued next-task %s/%s/%s at %s',
                         next_task.queue, next_task.sub, next_task.key,
                         next_task.nbf)
