@@ -283,9 +283,9 @@ class OrgLDIFUiOMixin(OrgLdifCourseMixin,
         # TODO: Except TILKNYTTET/emeritus, see CRB-3763
         self.visible_sap_affs = ()
         self.visible_sap_statuses = (
-            (ansatt, int(self.const.affiliation_ansatt_tekadm)),
-            (ansatt, int(self.const.affiliation_ansatt_vitenskapelig)),
-            (ansatt, int(self.const.affiliation_ansatt_permisjon)),
+            (ansatt, int(self.const.affiliation_status_ansatt_tekadm)),
+            (ansatt, int(self.const.affiliation_status_ansatt_vitenskapelig)),
+            (ansatt, int(self.const.affiliation_status_ansatt_permisjon)),
         #    (tilkn_aff, int(self.const.affiliation_tilknyttet_ekst_stip)),
         #    (tilkn_aff, int(self.const.affiliation_tilknyttet_frida_reg)),
         #    (tilkn_aff, int(self.const.affiliation_tilknyttet_innkjoper)),
