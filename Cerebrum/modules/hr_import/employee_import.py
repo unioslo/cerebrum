@@ -38,6 +38,9 @@ logger = logging.getLogger(__name__)
 
 
 class EmployeeImportBase(AbstractImport):
+
+    REQUIRED_PERSON_ID = ('NO_BIRTHNO', 'PASSNR')
+
     def __init__(self, *args, **kwargs):
         super(EmployeeImportBase, self).__init__(*args, **kwargs)
         self.updater = HRDataImport(self.db, self.source_system)
@@ -55,10 +58,14 @@ class EmployeeImportBase(AbstractImport):
         if employee_data is None:
             raise ValueError('create() called without hr data!')
 
+        if not any(i.id_type in self.REQUIRED_PERSON_ID
+                   for i in employee_data.external_ids):
+            raise ValueError('None of required id types %s present: %s' %
+                             (self.REQUIRED_PERSON_ID,
+                              employee_data.external_ids))
+
         person_obj = Factory.get('Person')(self.db)
-
         # TODO: Search for soft matches (names) and warn?
-
         gender = self.const.Gender(employee_data.gender)
         if employee_data.birth_date is None:
             raise ValueError('No birth date, unable to create!')

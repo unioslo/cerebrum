@@ -28,7 +28,6 @@ import logging
 
 import six
 
-from Cerebrum.modules.user_titles import UserTitles
 from Cerebrum.modules.hr_import import mapper as _base
 from Cerebrum.modules.hr_import.models import (HRPerson,
                                                HRTitle,
@@ -43,7 +42,6 @@ logger = logging.getLogger(__name__)
 
 IGNORE_FNR_REGEX = re.compile(r'(.+00[12]00$|00000000000)')
 WORK_TITLE_NAME = re.compile(r'^\d+[-_ ](?P<name>.+)$')
-REQUIRED_ID_TYPE = ('NO_BIRTHNO', 'PASSNR')
 
 
 def parse_title_name(name):
@@ -249,18 +247,19 @@ class EmployeeMapper(_base.AbstractMapper):
         for key, value in numbers_to_add:
             try:
                 numberojb = phone_number_parse(value)
-            except NumberParseException as e:
+            except NumberParseException:
                 logger.info('Phone number %s is not on the E.164 format.'
                             ' Trying again with +47', value)
                 try:
                     numberojb = phone_number_parse(value, region='NO')
-                except NumberParseException as e:
+                except NumberParseException:
                     logger.info('Phone number not on the E.164 format.'
                                 ' Skipping phone number %s ', value)
                     continue
             logger.info('Found valid E.164 phone number: %s',
                         phone_number_format(numberojb))
-            normalized_numbers_to_add.append((key, phone_number_format(numberojb)))
+            normalized_numbers_to_add.append((key,
+                                              phone_number_format(numberojb)))
 
         numbers = set()
         for pref, (key, value) in enumerate(normalized_numbers_to_add):
@@ -363,11 +362,6 @@ class EmployeeMapper(_base.AbstractMapper):
         main_assignment = get_main_assignment(person_data, assignment_data)
         hr_person.external_ids = self.parse_external_ids(hr_person.hr_id,
                                                          person_data)
-        if not any(id_.id_type in REQUIRED_ID_TYPE
-                   for id_ in hr_person.external_ids):
-            raise Exception('None of required id types %s present: %s' % (
-                REQUIRED_ID_TYPE,
-                hr_person.external_ids))
         hr_person.contact_infos = self.parse_contacts(person_data)
         hr_person.titles = self.parse_titles(main_assignment)
         hr_person.affiliations = self.parse_affiliations(person_data,
