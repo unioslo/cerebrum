@@ -280,7 +280,7 @@ class OrgLDIFUiOMixin(OrgLdifCourseMixin,
         self.visible_sap_affs = (int(self.const.affiliation_ansatt),)
         tilkn_aff = int(self.const.affiliation_tilknyttet)
         # TODO: Temporarily comment out affiliated people, see CRB-3696
-        # TODO: Except TILKNYTTET/emeritus, see CRB-
+        # TODO: Except TILKNYTTET/emeritus, see CRB-3763
         self.visible_sap_statuses = (
         #    (tilkn_aff, int(self.const.affiliation_tilknyttet_ekst_stip)),
         #    (tilkn_aff, int(self.const.affiliation_tilknyttet_frida_reg)),
