@@ -285,7 +285,7 @@ class OrgLDIFUiOMixin(OrgLdifCourseMixin,
         self.visible_sap_statuses = (
             (ansatt, int(self.const.affiliation_status_ansatt_tekadm)),
             (ansatt, int(self.const.affiliation_status_ansatt_vitenskapelig)),
-            (ansatt, int(self.const.affiliation_status_ansatt_permisjon)),
+            (ansatt, int(self.const.affiliation_status_ansatt_perm)),
         #    (tilkn_aff, int(self.const.affiliation_tilknyttet_ekst_stip)),
         #    (tilkn_aff, int(self.const.affiliation_tilknyttet_frida_reg)),
         #    (tilkn_aff, int(self.const.affiliation_tilknyttet_innkjoper)),
