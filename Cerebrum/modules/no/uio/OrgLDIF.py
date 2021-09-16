@@ -277,11 +277,15 @@ class OrgLDIFUiOMixin(OrgLdifCourseMixin,
         # and FS. The default is to set the person to NOT visible, which
         # happens for all persons that doesn't have _any_ of the affiliations
         # defined here.
-        self.visible_sap_affs = (int(self.const.affiliation_ansatt),)
+        ansatt = int(self.const.affiliation_ansatt)
         tilkn_aff = int(self.const.affiliation_tilknyttet)
         # TODO: Temporarily comment out affiliated people, see CRB-3696
         # TODO: Except TILKNYTTET/emeritus, see CRB-3763
+        self.visible_sap_affs = ()
         self.visible_sap_statuses = (
+            (ansatt, int(self.const.affiliation_ansatt_tekadm)),
+            (ansatt, int(self.const.affiliation_ansatt_vitenskapelig)),
+            (ansatt, int(self.const.affiliation_ansatt_permisjon)),
         #    (tilkn_aff, int(self.const.affiliation_tilknyttet_ekst_stip)),
         #    (tilkn_aff, int(self.const.affiliation_tilknyttet_frida_reg)),
         #    (tilkn_aff, int(self.const.affiliation_tilknyttet_innkjoper)),
