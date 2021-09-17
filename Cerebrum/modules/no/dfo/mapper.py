@@ -28,6 +28,7 @@ import logging
 
 import six
 
+from Cerebrum.modules.user_titles import UserTitles
 from Cerebrum.modules.hr_import import mapper as _base
 from Cerebrum.modules.hr_import.models import (HRPerson,
                                                HRTitle,
@@ -362,8 +363,6 @@ class EmployeeMapper(_base.AbstractMapper):
         main_assignment = get_main_assignment(person_data, assignment_data)
         hr_person.external_ids = self.parse_external_ids(hr_person.hr_id,
                                                          person_data)
-        if obj["resigned"]:
-            return
         if not any(id_.id_type in REQUIRED_ID_TYPE
                    for id_ in hr_person.external_ids):
             raise Exception('None of required id types %s present: %s' % (

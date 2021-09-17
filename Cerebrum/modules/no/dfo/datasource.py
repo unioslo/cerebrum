@@ -168,9 +168,7 @@ class EmployeeDatasource(AbstractDatasource):
             logger.warning('no result for employee-id %r', employee_id)
             return {}
 
-        if isinstance(raw, unicode):
-            result = raw
-        elif isinstance(raw, list) and len(raw) == 1:
+        if isinstance(raw, list) and len(raw) == 1:
             result = parse_employee(raw[0])
         else:
             result = parse_employee(raw)
@@ -187,19 +185,15 @@ class EmployeeDatasource(AbstractDatasource):
         """ Fetch data from sap (employee data, assignments, roles). """
         employee_id = reference
         employee_data = self._get_employee(employee_id)
+        if not employee_data:
+            logger.warning('no result for employee-id %r', employee_id)
 
         employee = {
             'id': parse_employee_id(reference),
             'employee': {},
             'assignments': {},
-            'resigned': False
         }
-
         if employee_data:
-            if employee_data == "resigned":
-                employee["resigned"] = True
-                logger.info("Employee no longer employed, flagging for removal.")
-                return Employee('dfo-sap', reference, employee)
             employee['employee'] = Person('dfo-sap', reference, employee_data)
             assignment_ids = {employee_data['stillingId']}
 
