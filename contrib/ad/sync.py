@@ -175,7 +175,7 @@ def usage(exitcode=0):
     sys.exit(exitcode)
 
 
-def dump_cerebrum_data(sync):
+def print_cerebrum_data(sync):
     """ Format and print data collected from Cerebrum. """
     atrnames = sorted(sync.config['attributes'])
     for entname in sorted(sync.entities):
@@ -314,7 +314,7 @@ def main():
         sync.fetch_cerebrum_data()
         sync.calculate_ad_values()
         sync.server.close()
-        dump_cerebrum_data(sync)
+        print_cerebrum_data(sync)
         return
 
     try:
