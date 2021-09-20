@@ -31,6 +31,7 @@ import time
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.event import evhandlers
+from Cerebrum.modules.event.errors import EventExecutionException
 from Cerebrum.utils.funcwrap import memoize
 
 from .eventdb import EventsAccessor, from_row
@@ -95,10 +96,14 @@ class EventConsumer(evhandlers.DBConsumer):
         routing_key = self.formatter.get_key(event.event_type, event.subject)
 
         # Publish message
-        with self.publisher as client:
-            client.publish(routing_key, message)
-            self.logger.info('Message published (msg jti={0})'
-                             ''.format(message['jti']))
+        try:
+            with self.publisher as client:
+                client.publish(routing_key, message)
+                self.logger.info('Message published (msg jti={0})'
+                                 ''.format(message['jti']))
+        except Exception:
+            self.logger.warning('unable to publish event', exc_info=True)
+            raise EventExecutionException('unable to publish event')
 
 
 class EventListener(evhandlers.DBListener):
