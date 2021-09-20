@@ -211,11 +211,10 @@ class SapClient(object):
         url = self.urls.get_employee(employee_id)
         headers = merge_dicts(self.headers, self.api_headers['employee'])
         response = self.get(url, headers=headers)
+        if "SAP" not in response.headers.get('server',''):
+            response.raise_for_status()
         if response.status_code == 404:
-            if "IKKE ANSATT" in response.content.decode("utf-8"):
-                return "resigned"
-            else:
-                return None
+            return None
         if response.status_code == 200:
             data = response.json()
             return data.get('ansatt', None)
