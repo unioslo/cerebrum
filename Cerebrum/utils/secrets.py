@@ -21,6 +21,46 @@
 """
 Utilities for fetching passwords and other secrets.
 
+Sources
+-------
+file
+    Specify the full path to a file with secret data. Trailing newlines are
+    removed.  Example: ``/path/to/file``
+
+auth-file
+    Specify a filename in the ``cereconf.DB_AUTH_DIR`` directory.  Trailing
+    newlines are removed.  Example: ``passwd-example-file``
+
+legacy-file
+    Specify a password to retrieve from ``cereconf.DB_AUTH_DIR`` using the same
+    parameters as the legacy ``read_password`` function.
+    Examples:
+        - ``user@system`` (equivalent to ``auth-file``/``passwd-user@system``)
+        - ``user@system@host`` (equivalent to
+        ``auth-file``/``passwd-user@system@host``)
+
+plaintext
+    Provide a plaintext secret, as is.  Useful in configuration files where
+    providing the plaintext password is ok.  Example: ``hunter2``.
+
+
+Usage
+-----
+To look up a given secret using a given method:
+
+>>> get_secret('plaintext', 'hunter2')
+'hunter2'
+
+To allow multiple sources in a config field:
+
+::
+
+    >>> def get_password(value):
+    ...     source, _, arg = value.partition(':')
+    ...     return get_secret(source, arg)
+    >>> get_password('plaintext:hunter2')
+    'hunter2'
+
 TODO
 ----
 - Move ``Cerebrum.Utils.read_password`` here, and deprecate
