@@ -4805,11 +4805,13 @@ class BofhdExtension(BofhdCommonMethods):
 
         """
         sysadm_types = ('adm', 'drift', 'null')
-        valid_status = (
+        require_aff_status = (
             self.const.affiliation_status_ansatt_tekadm,
             self.const.affiliation_status_ansatt_vitenskapelig,
             self.const.affiliation_manuell_ekstern,
             self.const.affiliation_tilknyttet_ekst_partner)
+        require_aff_str = ', '.join(text_type(aff_status)
+                                    for aff_status in require_aff_status)
         domain = '@ulrik.uio.no'
 
         self.ba.can_create_sysadm(operator.get_entity_id())
@@ -4851,21 +4853,27 @@ class BofhdExtension(BofhdCommonMethods):
             ou_id = ou.entity_id
         else:
             ou_id = None
-        valid_aff = person.list_affiliations(
-            person_id=person.entity_id,
-            status=valid_status,
-            ou_id=ou_id)
-        status_blob = ', '.join(map(text_type, valid_status))
-        if valid_aff == []:
-            raise CerebrumError('Person has no %s affiliation' % status_blob)
-        elif len(valid_aff) > 1:
+        valid_affs = set(
+            (row['affiliation'], row['ou_id'])
+            for row in person.list_affiliations(
+                person_id=person.entity_id,
+                status=require_aff_status,
+                ou_id=ou_id))
+        if not valid_affs:
+            msg = 'Person has no valid %s affiliation' % (require_aff_str,)
+            if stedkode:
+                msg += ' @ ' + stedkode
+            raise CerebrumError(msg)
+        elif len(valid_affs) > 1:
             raise CerebrumError('More than than one %s affiliation, '
-                                'add stedkode as argument' % status_blob)
+                                'add stedkode as argument'
+                                % (require_aff_str,))
+        ac_type_aff, ac_type_ou = valid_affs.pop()
+
         account = self._user_create_basic(operator, person, accountname)
         self._user_password(operator, account)
         self._user_create_set_account_type(account, person.entity_id,
-                                           valid_aff[0]['ou_id'],
-                                           valid_aff[0]['affiliation'],
+                                           ac_type_ou, ac_type_aff,
                                            priority=900)
         account.populate_trait(code=self.const.trait_sysadm_account,
                                strval='on')
