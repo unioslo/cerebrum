@@ -20,16 +20,17 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 from __future__ import unicode_literals
 
-import mx.DateTime
 import json
 import logging
-import datetime
+from datetime import date, datetime, timedelta
 from collections import defaultdict
 
 from Cerebrum import Errors
-from Cerebrum.Utils import Factory
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.uio.AutoStud import StudentInfo
+from Cerebrum.Utils import Factory
+from Cerebrum.utils.date_compat import get_date
+
 
 import cereconf
 
@@ -250,8 +251,8 @@ class FsImporter(object):
             if 'studentnr_tildelt' in p:
                 studentnr = p['studentnr_tildelt']
             if not birth_date and 'dato_fodt' in p:
-                birth_date = datetime.datetime.strptime(p['dato_fodt'],
-                                                        "%Y-%m-%d %H:%M:%S.%f")
+                birth_date = datetime.strptime(p['dato_fodt'],
+                                               "%Y-%m-%d %H:%M:%S.%f")
             # Get affiliations
             if dta_type in ('fagperson',):
                 self._process_affiliation(
@@ -593,7 +594,7 @@ class FsImporter(object):
             return True
         return False
 
-    def rem_old_aff(self):
+    def rem_old_aff(self, spare_active_account_affs=False):
         """ Remove old affiliations.
 
         This method loops through the global `old_affs` mapping. The
@@ -643,10 +644,11 @@ class FsImporter(object):
             # end of grace period. Some affiliations should be removed at once
             # for certain institutions.
             grace_days = cereconf.FS_STUDENT_REMOVE_AFF_GRACE_DAYS
-            if (aff['last_date'] > (mx.DateTime.now() - grace_days) and
+            if (get_date(aff['last_date'])
+                    > (date.today() - timedelta(days=grace_days)) and
                     int(aff['status']) not in disregard_grace_for_affs):
-                logger.debug("Sparing aff (%s) for person_id=%r at ou_id=%r",
-                             aff_id, person_id, ou_id)
+                logger.debug("Sparing aff (%s) for person_id=%r at ou_id=%r,"
+                             " grace-period in effect",aff_id, person_id, ou_id)
                 stats['grace'] += 1
                 continue
 
@@ -657,6 +659,28 @@ class FsImporter(object):
                 logger.warn("Couldn't find person_id:%s, not removing aff",
                             person_id)
                 continue
+
+            # If the spare_active_account_affs flag is set to true, the
+            # affiliation is spared if the person has any active accounts
+            # (expire_date > today) with the same affiliation
+            if spare_active_account_affs:
+                acs = person.get_accounts()
+                spare_aff = False
+                for ac in acs:
+                    account = Factory.get("Account")(self.db)
+                    account.find(ac[0])
+                    if (account.expire_date and
+                           date.today() < get_date(account.expire_date) and
+                           any(aff['affiliation'] in affi for affi in
+                               account.get_account_types(filter_expired=False))):
+                        logger.debug("Sparing aff (%s) for person_id=%r at"
+                                     " ou_id=%r, person has active account"
+                                     " affiliation", aff_id, person_id, ou_id)
+                        spare_aff = True
+                if spare_aff:
+                    stats['grace'] += 1
+                    continue
+
             logger.info("Removing aff %s for person=%s, at ou_id=%s",
                         self.co.PersonAffiliation(aff_id), person_id, ou_id)
             person.delete_affiliation(ou_id=ou_id, affiliation=aff_id,
@@ -740,7 +764,7 @@ class FsImporter(object):
             logger.debug('Populating fagfelt for %s', fnr)
             person.populate_trait(
                 code=self.co.trait_fagomrade_fagfelt,
-                date=mx.DateTime.now(),
+                date=datetime.datetime.now(),
                 strval=json.dumps(fagfelt))
 
         person.write_db()
