@@ -28,6 +28,7 @@ import logging
 
 import six
 
+from Cerebrum.modules.user_titles import UserTitles
 from Cerebrum.modules.hr_import import mapper as _base
 from Cerebrum.modules.hr_import.models import (HRPerson,
                                                HRTitle,
