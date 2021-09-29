@@ -897,75 +897,95 @@ class OrgLDIF(object):
         return [p_ou] + s_ous
 
     def make_person_entry(self, row, person_id):
-        # Return (dn, person entry, alias_info) for a person to output,
-        # or (None, anything, anything) if the person should not be output.
-        # bool(alias_info) == False means no alias will be output.
-        # Receives a row from list_persons() as a parameter.
-        # The row must have key 'account_id',
-        # and if person_dn_primary_ou() is not overridden: 'ou_id'.
+        """ Build person entry dict.
+
+        :param row:
+            row-like value with data from `Person.list_persons`.
+
+            The row must have key *account_id*, and if `person_dn_primary_ou()`
+            is not overridden *ou_id*
+
+        :returns tuple:
+            - (dn, person entry, alias_info) for a person to output
+            - (None, anything, anything) if the person should not be output.
+
+            bool(alias_info) == False means no alias will be output.
+        """
         account_id = int(row['account_id'])
+        try:
+            account_name = self.acc_name[account_id]
+        except KeyError:
+            logger.warning('omitting account_id=%d (owner_id=%d), '
+                           'no username', account_id, person_id)
+            return None, None, None
 
         p_affiliations = self.affiliations.get(person_id)
         if not p_affiliations:
-            self.logger.debug3("Omitting person id=%d, no affiliations",
-                               person_id)
+            self.logger.debug3("omitting account %s (%d), no affiliations",
+                               account_name, account_id)
             return None, None, None
 
         names = self.person_names.get(person_id)
         if not names:
-            logger.warn("Person %s got no names. Skipping.", person_id)
+            logger.warning("omitting account %s (%d), no person names",
+                           account_name, account_id)
             return None, None, None
         name = names.get(int(self.const.name_full), '').strip()
         givenname = names.get(int(self.const.name_first), '').strip()
         lastname = names.get(int(self.const.name_last), '').strip()
         if not (lastname and givenname):
             givenname, lastname = _split_name(name, givenname, lastname)
-            if not lastname:
-                logger.warn("Omitting person_id=%d, no lastname", person_id)
-                return None, None, None
         if not name:
             name = " ".join(filter(None, (givenname, lastname)))
+        if not lastname:
+            logger.warning("omitting account %s (%d), no surname",
+                           account_name, account_id)
+            return None, None, None
 
         entry = {
-            'objectClass': ['top', 'person', 'organizationalPerson',
-                            'inetOrgPerson', 'eduPerson'],
+            'objectClass': [
+                'top',
+                'person',
+                'organizationalPerson',
+                'inetOrgPerson',
+                'eduPerson',
+            ],
             'cn': (name,),
-            'sn': (lastname,)}
+            'sn': (lastname,),
+        }
         if givenname:
             entry['givenName'] = (givenname,)
-        if account_id in self.acc_name:
-            entry['uid'] = (self.acc_name[account_id],)
-
-        try:
-            passwd = self.user_password.get(account_id)
-        except LookupError:
-            logger.warning('No authentication data for account_id=%r',
-                           account_id)
-            passwd = False
-
-        qt = self.acc_quarantines.get(account_id)
-        if qt:
-            qh = QuarantineHandler(self.db, qt)
-            if qh.should_skip():
-                self.logger.debug3("Omitting person id=%d, quarantined",
-                                   person_id)
-                return None, None, None
-            if self.acc_locked_quarantines is not self.acc_quarantines:
-                qt = self.acc_locked_quarantines.get(account_id)
-                if qt:
-                    qh = QuarantineHandler(self.db, qt)
-            if qt and qh.is_locked():
-                passwd = 0
-
-        if passwd:
-            entry['userPassword'] = passwd
-        elif passwd != 0 and entry.get('uid'):
-            logger.debug("User %s got no password-hash.", entry['uid'][0])
+        if account_name:
+            entry['uid'] = (account_name,)
 
         dn, primary_ou_dn = self.person_dn_primary_ou(entry, row, person_id)
         if not dn:
-            self.logger.debug3("Omitting person id=%d, no DN", person_id)
+            self.logger.debug3("omitting account %s (%d), no dn", account_name,
+                               account_id)
             return None, None, None
+
+        qt = self.acc_quarantines.get(account_id)
+        qh = QuarantineHandler(self.db, qt)
+        if qh.should_skip():
+            self.logger.debug3("omitting account %s (%d), quarantined",
+                               account_name, account_id)
+            return None, None, None
+
+        # we may have additional locking quarantines from settings
+        if self.acc_locked_quarantines is not self.acc_quarantines:
+            qt = self.acc_locked_quarantines.get(account_id)
+            qh = QuarantineHandler(self.db, qt)
+
+        # we only set userPassword when no locking quarantines are present
+        if qt and qh.is_locked():
+            self.logger.debug3('account %s (%d) is locked due to quarantines',
+                               account_name, account_id)
+        else:
+            try:
+                entry['userPassword'] = self.user_password.get(account_id)
+            except LookupError:
+                logger.debug('no authentication data for account %s (%d)',
+                             account_name, account_id)
 
         if self.org_dn:
             entry['eduPersonOrgDN'] = (self.org_dn,)
