@@ -340,15 +340,21 @@ class EmployeeMapper(_base.AbstractMapper):
                     name=parsed_name)
         )
         try:
-            eng_title = UserTitles.extract_from_list(
-                UserTitles.translate(parsed_name, 'norTitle', 'engTitle'))
-            titles.add(
-                HRTitle(name_variant='WORKTITLE',
-                        name_language='en',
-                        name=eng_title)
-            )
+            user_titles_object = UserTitles(db)
+            eng_title = user_titles_object.extract_from_list(
+                user_titles_object.translate(
+                    parsed_name, 'norTitle', 'engTitle'))
+            if eng_title:
+                titles.add(
+                    HRTitle(name_variant='WORKTITLE',
+                            name_language='en',
+                            name=eng_title)
+                )
+            else:
+                raise KeyError
         except KeyError:
-            logger.warning('no translation for %s', parsed_name, exc_info=True)
+            logger.warning('invalid or indeterministic translation for %s',
+                           parsed_name, exc_info=True)
         logger.info('found %d titles: %r', len(titles), titles)
         return titles
 
