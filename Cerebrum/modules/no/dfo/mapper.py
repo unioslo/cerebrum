@@ -340,8 +340,10 @@ class EmployeeMapper(_base.AbstractMapper):
                     name=parsed_name)
         )
         try:
-            eng_title = UserTitles.extract_from_list(
-                UserTitles.translate(parsed_name, 'norTitle', 'engTitle'))
+            user_titles_object = UserTitles(db)
+            eng_title = user_titles_object.extract_from_list(
+                user_titles_object.translate(
+                    parsed_name, 'norTitle', 'engTitle'))
             titles.add(
                 HRTitle(name_variant='WORKTITLE',
                         name_language='en',
