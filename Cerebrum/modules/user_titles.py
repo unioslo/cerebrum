@@ -41,8 +41,7 @@ class UserTitles(object):
         - code (integer)
         - customTitleId (abbreviated Norwegian title)
     """
-    def __init__(self, db):
-        self.db = db
+    def __init__(self):
         self.title_map = cereconf.USER_TITLE_MAP
         # Make this as config variables or keep it here?
         self.nor_key = text_type('norTitle')
