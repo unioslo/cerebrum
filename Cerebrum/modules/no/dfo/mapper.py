@@ -340,7 +340,7 @@ class EmployeeMapper(_base.AbstractMapper):
                     name=parsed_name)
         )
         try:
-            user_titles_object = UserTitles(db)
+            user_titles_object = UserTitles()
             eng_title = user_titles_object.extract_from_list(
                 user_titles_object.translate(
                     parsed_name, 'norTitle', 'engTitle'))
