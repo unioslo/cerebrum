@@ -1810,7 +1810,9 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
                                        person,
                                        ou,
                                        aff,
-                                       aff_status):
+                                       aff_status,
+                                       force=False,
+                                       check=False):
         """Helper-function for adding an affiliation to a person with permission
         checking. Person is expected to be a person object, while ou, aff and
         aff_status should be the textual representation from the client.
@@ -1818,6 +1820,12 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         aff = self._get_affiliationid(aff)
         aff_status = self._get_affiliation_statusid(aff, aff_status)
         ou = self._get_ou(stedkode=ou)
+        force = self._get_boolean(force)
+
+        if force:
+            # force has no effect in tsd, and should never be set to its
+            # non-default value *true*
+            raise CerebrumError("Force is not implemented")
 
         # Assert that the person already have the affiliation
         has_aff = False
