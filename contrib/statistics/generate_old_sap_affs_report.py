@@ -156,8 +156,13 @@ def get_sap_persons_missing_dfo_aff(db):
 
     logger.info('Finding UiOSAP affiliations...')
     nr_sapuio = 0
+    processed = set()
     for affiliation in pe.list_affiliations(source_system=co.system_sap):
         p_id = affiliation['person_id']
+
+        if p_id in processed:
+            continue
+        processed.add(p_id)
         if p_id in dfosap:
             continue
         if p_id in guests:
@@ -212,7 +217,7 @@ def get_sap_persons_missing_dfo_aff(db):
                 'dfoid': text_type(dfoid),
                 'accounts': u', '.join((_u(a) for a in accounts)),
             }
-    logger.debug("Matches reported: {}".format(nr_sapuio))
+    logger.debug("People reported: {}".format(nr_sapuio))
 
 
 def aggregate(iterable, *keys):
