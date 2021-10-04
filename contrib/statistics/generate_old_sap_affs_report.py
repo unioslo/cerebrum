@@ -99,7 +99,6 @@ template = u"""
           <th>entity_id</th>
           <th>Ansattnr (DFØ)</th>
           <th>Brukere</th>
-          <th>Manuell bilagsregistrering?</th>
         </tr>
       </thead>
       {% for person in data[fak][sko] | sort(attribute='pid') %}
@@ -109,7 +108,6 @@ template = u"""
         <td>{{ person['pid'] }}</td>
         <td>{{ person['dfoid'] }}</td>
         <td>{{ person['accounts'] }}</td>
-        <td>{{ person['manual'] }}
       </tr>
       {% endfor %}
     </table>
@@ -146,14 +144,30 @@ def get_sap_persons_missing_dfo_aff(db):
                         name_variant=co.ou_name_display,
                         name_language=co.language_nb))
 
-    # Get the OU used for manual ANSATT/bilag
-    ou.clear()
-    ou.find_sko('799999')
-    tmp_bilag_ou_id = ou.entity_id
+    dfosap = set(r['person_id'] for r in
+                 pe.list_affiliations(source_system=co.system_dfo_sap))
+    logger.debug('Nr of people from DFO_SAP: {}'.format(len(dfosap)))
+
+    guests = set(r['person_id'] for r in
+                 pe.list_affiliations(source_system=co.system_manual)
+                 if r['status'] != int(co.affiliation_tilknyttet_fagperson))
+    logger.debug('Nr of people registered in tmp guest sys: {}'
+                 .format(len(guests)))
 
     logger.info('Finding UiOSAP affiliations...')
+    nr_sapuio = 0
+    processed = set()
     for affiliation in pe.list_affiliations(source_system=co.system_sap):
         p_id = affiliation['person_id']
+
+        if p_id in processed:
+            continue
+        processed.add(p_id)
+        if p_id in dfosap:
+            continue
+        if p_id in guests:
+            continue
+
         pe.clear()
         try:
             pe.find(p_id)
@@ -161,57 +175,49 @@ def get_sap_persons_missing_dfo_aff(db):
             # Typically happens when a person-object has been joined
             # with another one since its creation
             continue
-        person_affs = [a for a in pe.get_affiliations()
-                       if a['source_system'] == co.system_dfo_sap]
-        if len(person_affs) == 0:
 
-            name = pe.search_person_names(
+        nr_sapuio += 1
+
+        name = pe.search_person_names(
+            person_id=p_id,
+            name_variant=co.name_full)[0]['name']
+
+        try:
+            dfoid = pe.get_external_id(
+                source_system=co.system_dfo_sap,
+                id_type=co.externalid_dfo_pid)[0]['external_id']
+        except IndexError:
+            dfoid = ''
+
+        accounts = []
+        for row in ac.search(owner_id=p_id):
+            ac.clear()
+            ac.find(row['account_id'])
+            if ac.is_reserved() or ac.is_deleted() or ac.is_expired():
+                status = '(inaktiv)'
+            elif ac.get_entity_quarantine():
+                status = '(karantene)'
+            else:
+                status = ''
+            accounts.append('%s %s' % (row['name'], status))
+
+        for row in pe.list_affiliations(
                 person_id=p_id,
-                name_variant=co.name_full)[0]['name']
+                source_system=co.system_sap):
 
-            try:
-                dfoid = pe.get_external_id(
-                    source_system=co.system_dfo_sap,
-                    id_type=co.externalid_dfo_pid)[0]['external_id']
-            except IndexError:
-                dfoid = ''
+            sko = ou2sko[row['ou_id']]
+            fak = sko[:2] + "0000"
 
-            accounts = []
-            for row in ac.search(owner_id=p_id):
-                ac.clear()
-                ac.find(row['account_id'])
-                if ac.is_reserved() or ac.is_deleted() or ac.is_expired():
-                    status = '(inaktiv)'
-                elif ac.get_entity_quarantine():
-                    status = '(karantene)'
-                else:
-                    status = ''
-                accounts.append('%s %s' % (row['name'], status))
-
-            tmp_manual = len(pe.list_affiliations(
-                p_id,
-                source_system=co.system_manual,
-                affiliation=co.affiliation_ansatt,
-                ou_id=tmp_bilag_ou_id)
-                ) > 0 
-
-            for row in pe.list_affiliations(
-                    person_id=p_id,
-                    source_system=co.system_sap):
-
-                sko = ou2sko[row['ou_id']]
-                fak = sko[:2] + "0000"
-
-                yield {
-                    'pid': int(p_id),
-                    'ou': u' - '.join((text_type(sko), _u(sko2name.get(sko, '')))),
-                    'faculty': _u(sko2name.get(fak)) or text_type(fak),
-                    'name': _u(name),
-                    'status': text_type(co.PersonAffStatus(row['status'])),
-                    'dfoid': text_type(dfoid),
-                    'accounts': u', '.join((_u(a) for a in accounts)),
-                    'manual': 'Ja' if tmp_manual else 'Nei',
-                }
+            yield {
+                'pid': int(p_id),
+                'ou': u' - '.join((text_type(sko), _u(sko2name.get(sko, '')))),
+                'faculty': _u(sko2name.get(fak)) or text_type(fak),
+                'name': _u(name),
+                'status': text_type(co.PersonAffStatus(row['status'])),
+                'dfoid': text_type(dfoid),
+                'accounts': u', '.join((_u(a) for a in accounts)),
+            }
+    logger.debug("People reported: {}".format(nr_sapuio))
 
 
 def aggregate(iterable, *keys):
