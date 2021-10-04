@@ -81,11 +81,14 @@ def main(inargs=None):
 
     Cerebrum.logutils.autoconf('cronjob', args)
 
+    logger.info('start %s', parser.prog)
+    logger.debug('args %s', repr(args))
+
     config = OrgLdifConfig.get_default(module=cereconf)
     db = Factory.get('Database')()
     ldif = Factory.get('OrgLDIF')(db, config=config)
 
-    timer = make_timer(logger, 'Starting dump.')
+    timer = make_timer(logger, 'starting dump')
 
     default_output = config.org.start_outfile(filename=args.output,
                                               max_change=args.max_change)
@@ -114,7 +117,8 @@ def main(inargs=None):
     config.ou.end_outfile(outfile=ou_output, default_file=default_output)
     config.org.end_outfile(outfile=default_output)
 
-    timer("Dump done.")
+    timer("all done")
+    logger.info('done %s', parser.prog)
 
 
 if __name__ == '__main__':
