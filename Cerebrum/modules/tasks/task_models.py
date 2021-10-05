@@ -156,8 +156,12 @@ def merge_tasks(new_task, old_task=None, _now=None):
         # no old task to update
         return new_task
 
-    if not all(getattr(old_task, field) == getattr(new_task, field)
-               for field in ('queue', 'sub', 'key')):
+    old_key = tuple(six.text_type(getattr(old_task, field))
+                    for field in ('queue', 'sub', 'key'))
+    new_key = tuple(six.text_type(getattr(new_task, field))
+                    for field in ('queue', 'sub', 'key'))
+
+    if old_key != new_key:
         raise ValueError('cannot merge different tasks: %s, %s'
                          % (repr(old_task), repr(new_task)))
 
