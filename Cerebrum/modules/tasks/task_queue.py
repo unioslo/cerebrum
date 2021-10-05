@@ -485,7 +485,7 @@ class TaskQueue(DatabaseAccessor):
 
     def get_task(self, queue, sub, key):
         try:
-            return self.find(queue, sub, key)
+            return self.find_task(queue, sub, key)
         except Cerebrum.Errors.NotFoundError:
             return None
 
