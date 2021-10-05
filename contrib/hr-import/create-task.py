@@ -76,7 +76,7 @@ def main(inargs=None):
     task = task_cls.create_manual_task(args.reference)
 
     with db_context(Factory.get('Database')(), dryrun) as db:
-        result = TaskQueue(db).push(task)
+        result = TaskQueue(db).push_task(task)
 
     if dryrun:
         print('dryrun, would have added:')

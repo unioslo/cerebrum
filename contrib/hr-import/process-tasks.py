@@ -107,7 +107,7 @@ def main(inargs=None):
     database = get_db()
 
     tasks = list(
-        TaskQueue(database).search(
+        TaskQueue(database).search_tasks(
             queues=handle_task.queue,
             nbf_before=nbf_cutoff,
             max_attempts=max_attempts,
@@ -119,7 +119,7 @@ def main(inargs=None):
         # Remove the current task
         with db_context(database, dryrun=dryrun) as db:
             try:
-                TaskQueue(db).pop(task.queue, task.sub, task.key)
+                TaskQueue(db).pop_task(task.queue, task.sub, task.key)
             except Cerebrum.Errors.NotFoundError:
                 logger.debug('task %s/%s/%s gone, already processed?',
                              task.queue, task.sub, task.key)
@@ -154,7 +154,7 @@ def main(inargs=None):
             with db_context(database, dryrun=dryrun) as db:
                 retry_task = handle_task.get_retry_task(task, e)
                 logger.debug('re-queueing %r as %r', task, retry_task)
-                if TaskQueue(db).push(retry_task, ignore_nbf_after=True):
+                if TaskQueue(db).push_task(retry_task):
                     logger.info('queued retry-task %s/%s/%s at %s',
                                 retry_task.queue, retry_task.sub,
                                 retry_task.key, retry_task.nbf)

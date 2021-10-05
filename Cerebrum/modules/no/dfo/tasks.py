@@ -23,6 +23,7 @@ import logging
 from Cerebrum.modules.hr_import.importer import get_next_retry
 from Cerebrum.modules.tasks import process
 from Cerebrum.modules.tasks import task_models
+from Cerebrum.modules.tasks.task_models import merge_tasks
 from Cerebrum.modules.tasks.task_queue import TaskQueue
 from Cerebrum.utils.date import now
 from .datasource import parse_message
@@ -96,14 +97,15 @@ class AssignmentTasks(process.QueueHandler):
     def handle_task(self, db, dryrun, task):
         do_import = self.get_import(db).handle_reference
 
-        push = TaskQueue(db).push
+        tq = TaskQueue(db)
 
         for employee_id, nbf in do_import(task.payload.data['id']):
             task = EmployeeTasks.create_manual_task(
                 employee_id,
                 sub="",
                 nbf=nbf)
-            push(task, ignore_nbf_after=True)
+            old_task = tq.get_task(task.queue, task.sub, task.key)
+            tq.push_task(merge_tasks(task, old_task))
         return None
 
     @classmethod

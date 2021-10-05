@@ -22,6 +22,7 @@ Models for tasks in the task queue.
 """
 import six
 
+from Cerebrum.utils.date import now
 from Cerebrum.utils.reprutils import ReprFieldMixin
 
 
@@ -128,3 +129,45 @@ def copy_task(task_like):
     :returns: a copy of the object
     """
     return type(task_like).from_dict(task_like.to_dict())
+
+
+def merge_tasks(new_task, old_task=None, _now=None):
+    """
+    Update *new_task* with info from *old_task*.
+
+    Whenever an *old_task* already exists in the queue and we get *another*
+    *new_task* where ``old_task.nbf < new_task.nbf``, we *usually* want to keep
+    the task with the older *nbf*.
+
+    This helper function merges these two tasks and returns an object that can
+    be pushed to the queue.
+
+    Example:
+
+    ::
+
+        old_task = TaskQueue(db).get_task(...)
+        new_task = merge_tasks(Task(...), old_task)
+        TaskQueue(db).push_task(new_task)
+
+    """
+    _now = _now or now()
+    if not old_task:
+        # no old task to update
+        return new_task
+
+    if ((old_task.queue, old_task.sub, old_task.key)
+            != (new_task.queue, new_task.sub, new_task.key)):
+        raise ValueError('cannot merge different tasks')
+
+    if old_task.nbf < (new_task.nbf or _now):
+        # old (existing task in queue) is due for processing before our new
+        # task, i.e. we should update/reset attempts in the old task
+        new_task = copy_task(new_task)
+        new_task.nbf = old_task.nbf
+        new_task.reason = old_task.reason
+    else:
+        # old (existing task in queue) is due for processing after our new
+        # task, i.e. we should replace the old task entirely.
+        pass
+    return new_task

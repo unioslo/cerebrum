@@ -60,6 +60,7 @@ from Cerebrum.modules.amqp.consumer import (
 )
 from Cerebrum.modules.amqp.handlers import AbstractConsumerHandler
 from Cerebrum.modules.tasks.config import TaskListMixin
+from Cerebrum.modules.tasks.task_models import merge_tasks
 from Cerebrum.modules.tasks.task_queue import TaskQueue
 from Cerebrum.utils.argutils import add_commit_args
 
@@ -101,8 +102,13 @@ class TaskHandler(AbstractConsumerHandler):
         with db_context(self.get_db(), self.dryrun) as db:
             queue = TaskQueue(db)
             for task in (self.get_tasks(event) or ()):
-                logger.debug('adding task %s', repr(task))
-                queue.push(task, ignore_nbf_after=True)
+                old_task = queue.get_task(task.queue, task.sub, task.key)
+                if old_task:
+                    task = merge_tasks(task, old_task)
+                    logger.debug('updating task %s', repr(task))
+                else:
+                    logger.debug('adding task %s', repr(task))
+                queue.push_task(task)
 
     def on_error(self, event, error):
         # TODO: We should also implement better error handling here.
