@@ -156,9 +156,10 @@ def merge_tasks(new_task, old_task=None, _now=None):
         # no old task to update
         return new_task
 
-    if ((old_task.queue, old_task.sub, old_task.key)
-            != (new_task.queue, new_task.sub, new_task.key)):
-        raise ValueError('cannot merge different tasks')
+    if not all(getattr(old_task, field) == getattr(new_task, field)
+               for field in ('queue', 'sub', 'key')):
+        raise ValueError('cannot merge different tasks: %s, %s'
+                         % (repr(old_task), repr(new_task)))
 
     if old_task.nbf < (new_task.nbf or _now):
         # old (existing task in queue) is due for processing before our new
