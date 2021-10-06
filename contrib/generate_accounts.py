@@ -223,6 +223,10 @@ def update_account(db, pe, affs, account_policy, creator, new_traits=None,
         )
     except Errors.InvalidAccountCreationArgument as e:
         logger.error(e)
+    except ValueError:
+        # Temporary fix: username issue
+        logger.error('Unable to create account for person %d',
+                     pe.entity_id, exc_info=True)
     else:
         logger.info("Created account %s for person %d",
                     account.account_name,
