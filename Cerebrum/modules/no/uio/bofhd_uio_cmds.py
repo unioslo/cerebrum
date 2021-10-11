@@ -1754,7 +1754,7 @@ class BofhdExtension(BofhdCommonMethods):
 
     def group_promote_posix(self, operator, group, description=None):
         self.ba.can_create_group(operator.get_entity_id(),
-                         groupname=self._get_group(group).group_name)
+                                 groupname=self._get_group(group).group_name)
         is_posix = False
         try:
             self._get_group(group, grtype="PosixGroup")
@@ -3092,50 +3092,109 @@ class BofhdExtension(BofhdCommonMethods):
         ret.sort(key=lambda d: d['name'])
         return ret
 
+    #
+    # person affilation_add <person> <ou> <aff> <status> [force]
+    #
+
     def _person_affiliation_add_helper(self, operator,
-                                       person, ou, aff, aff_status):
-        """Helper-function for adding an affiliation to a person with
-        permission checking.  person is expected to be a person
-        object, while ou, aff and aff_status should be the textual
-        representation from the client"""
+                                       person, ou, aff, aff_status,
+                                       force=False, check=False):
+        """
+        Helper-function that implements person_affiliation_add.
+
+        This is needed because *other* commands also need to set affiliations,
+        and they in turn would have to implement the same sanity checks,
+        permission checks, lookups, etc...
+
+        :param person: a cerebrum person object to add the affiliation to
+        :param ou: *stedkode* for a valid org unit to affiliate
+        :param aff: textual affiliation code to use
+        :param aff_status: textual affiliation status code to use
+        :param force:
+            add affiliation even if a similar affiliation already exists from
+            another source system
+        :param check:
+            silently ignore and do nothing if a similar affiliation already
+            exists
+
+        :raises CerebrumError:
+            If a conflicting affiliation exists, or if any of the given
+            affiliation parameters are invalid.
+
+        :raises PermissionDenied:
+            This function performs the required permission checks
+            (can_add_affiliation), and raises PermissionDenied if required.
+
+        :rtype: tuple
+        :returns: a tuple with the (ou, aff, status) that has been added
+        """
+        # lookups
         aff = self._get_affiliationid(aff)
         aff_status = self._get_affiliation_statusid(aff, aff_status)
+        aff_source = self.const.system_manual
         ou = self._get_ou(stedkode=ou)
+        ou_str = self._format_ou_name(ou)
+        force = self._get_boolean(force)
 
-        # Assert that the person already have the affiliation
-        has_aff = False
+        # Check if conflicting affiliations already exists
         for a in person.get_affiliations():
+            a_source = self.const.AuthoritativeSystem(a['source_system'])
+            a_status = self.const.PersonAffStatus(a['status'])
             if a['ou_id'] == ou.entity_id and a['affiliation'] == aff:
-                if a['status'] == aff_status:
-                    has_aff = True
-                elif a['source_system'] == self.const.system_manual:
-                    raise CerebrumError("Person has conflicting aff_status "
-                                        "for this OU/affiliation combination")
-        if not has_aff:
+                if a_status == aff_status and a_source == aff_source:
+                    # AFF/status@ou from source system manual already exists
+                    if check:
+                        # only checking - no update needed
+                        break
+                    raise CerebrumError(
+                        "Person already has %s@%s from %s, no update needed"
+                        % (text_type(aff_status), ou_str,
+                           text_type(aff_source)))
+                elif a_status == aff_status:
+                    # AFF/status@ou from a *different* source system
+                    if check and not force:
+                        # only checking - no update needed
+                        break
+                    if not force:
+                        raise CerebrumError(
+                            "Person already has %s@%s from %s, force the "
+                            "operation to add duplicate, manual aff"
+                            % (text_type(aff_status), ou_str,
+                               text_type(a_source)))
+                elif a_source == aff_source:
+                    # AFF/other-status@ou from source system *manual*
+                    raise CerebrumError(
+                        "Person already has %s@%s from %s, which must be "
+                        "removed first"
+                        % (text_type(a_status), ou_str, text_type(aff_source)))
+        else:
+            # no conflicing affs found, let's add it if we're allowed
             self.ba.can_add_affiliation(operator.get_entity_id(),
                                         person, ou, aff, aff_status)
-            person.add_affiliation(ou.entity_id, aff,
-                                   self.const.system_manual, aff_status)
+            person.add_affiliation(ou.entity_id, aff, aff_source, aff_status)
             person.write_db()
         return ou, aff, aff_status
 
-    # person affilation_add
     all_commands['person_affiliation_add'] = Command(
         ("person", "affiliation_add"),
         PersonId(help_ref="person_id_other"),
         OU(),
         Affiliation(),
         AffiliationStatus(),
+        YesNo(help_ref="yes_no_force", optional=True, default="No"),
         perm_filter='can_add_affiliation')
 
-    def person_affiliation_add(self, operator, person_id, ou, aff, aff_status):
+    def person_affiliation_add(self, operator, person_id, ou, aff, aff_status,
+                               force=False):
         try:
             person = self._get_person(*self._map_person_id(person_id))
         except Errors.TooManyRowsError:
             raise CerebrumError("Unexpectedly found more than one person")
+
         ou, aff, aff_status = self._person_affiliation_add_helper(
-            operator, person, ou, aff, aff_status)
-        return "OK, added %s@%s to %s" % (text_type(aff),
+            operator, person, ou, aff, aff_status, force)
+
+        return "OK, added %s@%s to %s" % (text_type(aff_status),
                                           self._format_ou_name(ou),
                                           person.entity_id)
 
@@ -3389,8 +3448,9 @@ class BofhdExtension(BofhdCommonMethods):
                                             id)
             if id_type == self.const.externalid_pass_number:
                 try:
-                    person.find_by_external_id(self.const.externalid_pass_number,
-                                               id)
+                    person.find_by_external_id(
+                        self.const.externalid_pass_number,
+                        id)
                     raise CerebrumError("A person with that passnr exists")
                 except Errors.TooManyRowsError:
                     raise CerebrumError("A person with that passnr exists")
@@ -3407,12 +3467,9 @@ class BofhdExtension(BofhdCommonMethods):
                             self.const.name_last)
         person.populate_name(self.const.name_first, person_name_first)
         person.populate_name(self.const.name_last, person_name_last)
-        try:
-            person.write_db()
-            self._person_affiliation_add_helper(
-                operator, person, stedkode, text_type(aff), aff_status)
-        except self.db.DatabaseError as m:
-            raise CerebrumError("Database error: %s" % exc_to_text(m))
+        person.write_db()
+        self._person_affiliation_add_helper(operator, person, stedkode,
+                                            text_type(aff), aff_status)
         return {'person_id': person.entity_id}
 
     def _person_create_externalid_helper(self, person):
@@ -4558,7 +4615,7 @@ class BofhdExtension(BofhdCommonMethods):
         account = self._get_account(accountname)
         person = self._get_person('entity_id', account.owner_id)
         ou, aff, aff_status = self._person_affiliation_add_helper(
-            operator, person, ou, aff, aff_status)
+            operator, person, ou, aff, aff_status, check=True)
         self.ba.can_add_account_type(operator.get_entity_id(), account,
                                      ou, aff, aff_status)
         account.set_account_type(ou.entity_id, aff)
