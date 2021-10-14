@@ -389,7 +389,7 @@ class BofhdExtension(BofhdCommonMethods):
         source_system = self.const.system_sap
 
         to_remove = tuple(
-            (person.const.PersonAffiliation(row['affiliation']). row['ou_id'])
+            (person.const.PersonAffiliation(row['affiliation']), row['ou_id'])
             for row in person.get_affiliations()
             if row['source_system'] == int(source_system))
 
