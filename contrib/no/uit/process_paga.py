@@ -681,9 +681,9 @@ class Build(object):
                 logger.warning("Account owner deceased: %s",
                                acc_obj.get_uname())
                 new_deceased = True
-        if (new_expire > current_expire or
-                new_deceased or
-                current_expire is None):
+        if (current_expire is None
+                or new_deceased
+                or new_expire > current_expire):
             changes.append(('expire_date', str(new_expire)))
 
         # check account affiliation and status
