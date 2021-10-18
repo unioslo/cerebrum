@@ -60,3 +60,20 @@ class CheckPasswordHistory(PasswordChecker):
         if (account._check_password_history(password) or
                 account._check_password_history(password[0:8])):
             return [_('Password is the same as an old password')]
+
+
+@pwchecker('current')
+class CurrentPassword(PasswordChecker):
+    """ Match the password against current auth. """
+
+    def __init__(self):
+        self._requirement = _(
+            'Must not be too similar to an old password')
+
+    def check_password(self, password, account=None):
+        try:
+            if account and account.verify_auth(password):
+                # check passed - reuse of current
+                return [_('Password is the same as an old password')]
+        except Exception:
+            pass
