@@ -308,7 +308,15 @@ class EmployeeMapper(_base.AbstractMapper):
             if external_id['idType'] not in dfo_2_cerebrum:
                 continue
             id_type, id_format = dfo_2_cerebrum[external_id['idType']]
-            id_value = id_format(external_id)
+            try:
+                id_value = id_format(external_id)
+            except KeyError as e:
+                # this seems to happen when e.g. a passport number is removed;
+                # the annenId object (idType and idLand) remains, but the
+                # *value* (idNr) is removed
+                logger.warning('missing value in annenId type=%s: %s',
+                               external_id['idType'], e)
+                continue
             external_ids.add(HRExternalID(id_type=id_type,
                                           external_id=id_value))
         logger.info('found %d ids: %r',
