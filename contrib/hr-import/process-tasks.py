@@ -136,7 +136,7 @@ def main(inargs=None):
                 handle_task(db, dryrun=dryrun_import, task=task)
             task_failed = None
         except (NonExistentOuError, DatasourceInvalid) as e:
-            logger.error(e.message)
+            logger.error('Failed lookup: %s', e.message)
             task_failed = e
         except Exception as e:
             logger.warning('failed task %s/%s/%s',
