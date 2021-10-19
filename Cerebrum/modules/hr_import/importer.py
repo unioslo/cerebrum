@@ -24,6 +24,7 @@ The importers binds together the datasources and mappers, and are responsible
 for performing the actual database updates.
 """
 import abc
+import datetime
 import logging
 import json
 
@@ -154,14 +155,24 @@ def get_retries(retry_dates):
     """
     # `retries` is currently a set of unix timestamp strings - we should
     # probably change this to a sorted tuple of datetime.date[time] objects.
-    return sorted(get_datetime_tz(d) for d in (retry_dates or ()))
+    def _iter_retries(date_list):
+        for date_like in (date_list or ()):
+            try:
+                yield get_datetime_tz(date_like)
+            except OverflowError:
+                # happens if the date_like is close to datetime.MAXYEAR, and tz
+                # conversion put it out of bounds.  This is not a retry date
+                # that is interesting to keep.
+                continue
+
+    return sorted(_iter_retries(retry_dates))
 
 
 def get_next_retry(retry_dates, cutoff=None):
-    """ Find the next retry from a set of timestamp strings.
+    """ Find the next retry from a set of retry dates.
 
     :param retry_dates:
-        iterable of local timestamps
+        iterable of date-like objects
 
     :param cutoff:
         only consider retry_dates after this datetime (defaults to now)
@@ -171,9 +182,19 @@ def get_next_retry(retry_dates, cutoff=None):
         the next retry time, or None if ``retry_dates`` does not contain a
         valid retry time
     """
-    if not cutoff:
-        cutoff = now()
+    # Ignore retries in the past - they would just cause an immediate second
+    # import task, which would end up processing the same set of data.
+    start_cutoff = cutoff or now()
+
+    # Ifnore retries after this hard-coded date - these tasks would just be too
+    # ridiculously far into the future to be viable.
+    #
+    # This filtering could (should?) probably be moved into the hr-system
+    # specific parts of the import (i.e. treat certain far-into-the-future
+    # start/end dates as being omitted), but it's so much easier to just filter
+    # them out here.
+    end_cutoff = datetime.date(2200, 1, 1)
 
     for retry in get_retries(retry_dates):
-        if retry > cutoff:
+        if retry > start_cutoff and retry.date() < end_cutoff:
             return retry
