@@ -41,7 +41,7 @@ from Cerebrum.utils.phone import format as phone_number_format, \
 
 logger = logging.getLogger(__name__)
 
-IGNORE_FNR_REGEX = re.compile(r'(.+00[12]00$|00000000000)')
+IGNORE_FNR_REGEX = re.compile(r'.+00[012]00$')
 WORK_TITLE_NAME = re.compile(r'^\d+[-_ ](?P<name>.+)$')
 
 
