@@ -324,13 +324,41 @@ class EmployeeMapper(_base.AbstractMapper):
         return external_ids
 
     @classmethod
-    def parse_titles(cls, main_assignment):
+    def parse_titles(cls, person_data, main_assignment):
         """
         Parse data from DFØ-SAP and return person titles.
 
         :rtype: set(HRTitle)
         """
         titles = set()
+        user_titles_object = UserTitles()
+
+        personal_title = person_data.get('tittel')
+
+        if personal_title:
+            titles.add(
+                HRTitle(
+                    name_variant='PERSONALTITLE',
+                    name_language='nb',
+                    name=personal_title)
+            )
+
+            try:
+                eng_title = user_titles_object.extract_from_list(
+                    user_titles_object.translate(
+                        personal_title, 'norTitle', 'engTitle'))
+                if eng_title:
+                    titles.add(
+                        HRTitle(
+                            name_variant='PERSONALTITLE',
+                            name_language='en',
+                            name=eng_title)
+                    )
+                else:
+                    raise KeyError
+            except KeyError:
+                logger.warning('invalid or indeterministic translation for %s',
+                               parsed_name, exc_info=True)
 
         # We only want the title of the main assignment
         if not main_assignment:
@@ -348,7 +376,6 @@ class EmployeeMapper(_base.AbstractMapper):
                     name=parsed_name)
         )
         try:
-            user_titles_object = UserTitles()
             eng_title = user_titles_object.extract_from_list(
                 user_titles_object.translate(
                     parsed_name, 'norTitle', 'engTitle'))
@@ -388,7 +415,7 @@ class EmployeeMapper(_base.AbstractMapper):
         hr_person.external_ids = self.parse_external_ids(hr_person.hr_id,
                                                          person_data)
         hr_person.contact_infos = self.parse_contacts(person_data)
-        hr_person.titles = self.parse_titles(main_assignment)
+        hr_person.titles = self.parse_titles(person_data, main_assignment)
         hr_person.affiliations = self.parse_affiliations(person_data,
                                                          assignment_data,
                                                          self.status_mapping)
