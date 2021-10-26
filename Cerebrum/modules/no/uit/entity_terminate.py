@@ -112,6 +112,7 @@ def delete(db, ac):
         ('group_member', 'member_id'),
         ('bofhd_session', 'account_id'),
         ('account_info', 'account_id'),
+        ('password_history', 'entity_id'),
         ('spread_expire', 'entity_id'),
         ('entity_spread', 'entity_id'),
         ('entity_quarantine', 'entity_id'),
