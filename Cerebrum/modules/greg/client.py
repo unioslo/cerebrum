@@ -81,9 +81,7 @@ class GregClient(object):
         This is typically needed for non-2xx responses that carry special
         meaning in the API.
         """
-        # TODO: Need to implement a check (typically a header check) to verify
-        # if this response is actually from the Greg-API.
-        raise NotImplementedError("Check if response is from API or proxy")
+        return 'X-Greg-Response-For' in response.headers
 
     def _call(self,
               method_name,
