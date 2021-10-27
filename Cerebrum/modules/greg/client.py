@@ -45,7 +45,18 @@ class GregEndpoints(object):
         return ('{cls.__name__}({obj.baseurl!r})').format(cls=type(self),
                                                           obj=self)
 
+    @property
+    def health(self):
+        """ url to health check endpoint. """
+        return http_utils.urljoin(self.baseurl, 'health/')
+
+    @property
+    def list_persons(self):
+        """ url to list/search persons. """
+        return http_utils.urljoin(self.baseurl, 'v1/persons')
+
     def get_person(self, person_id):
+        """ url to a specific person """
         return http_utils.urljoin(self.baseurl, 'v1/persons',
                                   http_utils.safe_path(person_id))
 
@@ -98,6 +109,17 @@ class GregClient(object):
                                      params=params,
                                      **kwargs)
 
+    def get_health(self):
+        """ Get Greg health check. """
+        url = self.urls.health
+        response = self._call('GET', url, headers=self.headers)
+        response.raise_for_status()
+        from_api = self._is_api_response(response)
+        is_ok = from_api and response.text == 'OK'
+        if not is_ok:
+            logger.warning('greg health: %s', response.text)
+        return is_ok
+
     def get_person(self, greg_pid):
         """ Look up a person by id. """
         url = self.urls.get_person(greg_pid)
@@ -106,9 +128,39 @@ class GregClient(object):
         if response.status_code == 404 and from_api:
             return None
         if response.status_code == 200:
-            data = response.json()
-            return data['guest']
+            return response.json()
         response.raise_for_status()
+
+    def list_persons(self, active=None, verified=None,
+                     first_name=None, last_name=None, cursor=None):
+        """
+        List/search for persons.
+
+        .. warning::
+           This method does not implement pagination, and will not return *all*
+           persons!
+
+        :raise NotImplementedError: if we iterate over all the results
+        """
+        url = self.urls.list_persons
+        params = {
+            key: value
+            for key, value in (
+                ('active', active),
+                ('verified', verified),
+                ('first_name', first_name),
+                ('last_name', last_name),
+                ('cursor', cursor),
+            ) if value is not None
+        }
+        response = self._call('GET', url, headers=self.headers, params=params)
+
+        response.raise_for_status()
+        for obj in response.json()['results']:
+            yield obj
+        # if we expect to iterate over every result, we'll have an incomplete
+        # result, best to:
+        raise NotImplementedError('pagination missing')
 
 
 class GregClientConfig(Configuration):
