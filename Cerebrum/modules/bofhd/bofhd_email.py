@@ -1166,9 +1166,16 @@ class BofhdEmailCommands(BofhdEmailBase):
         except Errors.NotFoundError:
             pass
 
+        # Deleteing and recreate the email address, creates the 
+        # required events for Exchange integration.
         ea = Email.EmailAddress(self.db)
         ea.find_by_address(address)
-        ea.email_addr_target_id = dest_et.entity_id
+
+        local_part = ea.get_localpart()
+        domain_id = ea.get_domain_id()
+        ea.delete()
+        ea.clear()
+        ea.populate(local_part, domain_id, dest_et.entity_id)
         ea.write_db()
 
         dest_acc.update_email_addresses()
