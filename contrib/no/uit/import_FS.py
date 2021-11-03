@@ -338,7 +338,7 @@ def main():
                                   fsimporter.process_person_callback,
                                   logger)
     if args.include_delete:
-        fsimporter.rem_old_aff()
+        fsimporter.rem_old_aff(spare_active_account_affs=True)
 
     if args.commit:
         fsimporter.db.commit()
