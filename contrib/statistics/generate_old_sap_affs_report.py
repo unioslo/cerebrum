@@ -285,6 +285,14 @@ def main(inargs=None):
         'faculty',
         'ou')
 
+    for key,value in persons_missing_dfo_aff.items():
+        if args.output is not sys.stdout:
+            output = (args.output.name.split(".")[0] + "_" + key.replace(" ","_")
+                      + "." + args.output.name.split(".")[1])
+            with open(output, 'w') as f:
+                write_html_report(f, args.codec, {key:value})
+                logger.info("Report written for %s", key)
+
     write_html_report(args.output, args.codec, persons_missing_dfo_aff)
 
     args.output.flush()
@@ -292,7 +300,7 @@ def main(inargs=None):
         logger.info("We are in closing section")
         args.output.close()
 
-    logger.info('Report written to %s', args.output.name)
+    logger.info('Full report written to %s', args.output.name)
     logger.info('Done with script %s', parser.prog)
 
 
