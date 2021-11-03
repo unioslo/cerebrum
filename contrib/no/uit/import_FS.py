@@ -247,15 +247,15 @@ class FsImporterUit(FsImporter):
               'aktiv_sted': aktiv_sted}
         return rv
 
-#    def _db_add_person(self, person, person_info, pd):
-#        try:
-#            db_deceased = person.deceased_date
-#        except AttributeError:
-#            pass
-#        else:
-#            if db_deceased is not None:
-#                logger.warn("Person is deceased")
-#        super(FsImporterUit, self)._db_add_person(person, person_info, pd)
+    def _db_add_person(self, person, person_info, pd):
+        try:
+            db_deceased = person.deceased_date
+        except AttributeError:
+            pass
+        else:
+            if db_deceased is not None:
+                logger.warn("Person is deceased")
+        super(FsImporterUit, self)._db_add_person(person, person_info, pd)
 
 def main():
     parser = argparse.ArgumentParser()
