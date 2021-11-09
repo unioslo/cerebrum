@@ -48,7 +48,7 @@ template = u"""
   <head>
     <meta http-equiv="Content-Type"
           content="text/html; charset={{ encoding | default('utf-8') }}">
-    <title>Personer fra UiOSAP uten tilknytning i DFØ</title>
+    <title>UiOSAP-personer uten tilknytning fra DFØ eller gjestetilknytning</title>
     <style type="text/css">
       /* <![CDATA[ */
       h1 {
@@ -120,6 +120,32 @@ template = u"""
   </body>
 </html>
 """.strip()
+
+def parent_is_root(db, parent_id, perspective):
+    ou = Factory.get("OU")(db)
+    ou.find(parent_id)
+    if ou.get_parent(perspective) in (ou.entity_id, None):
+        return True
+    return False
+
+
+def get_faculty(db, sko, perspective):
+    ou = Factory.get("OU")(db)
+    ou.find_sko(sko)
+    prev_parent = None
+    try:
+        while True:
+            if prev_parent:
+                ou.clear()
+                ou.find(prev_parent)
+                if parent_is_root(db, ou.get_parent(perspective), perspective):
+                    return ou.get_stedkode()
+            else:
+                if parent_is_root(db, ou.get_parent(perspective), perspective):
+                    return ou.get_stedkode()
+            prev_parent = ou.get_parent(perspective)
+    except Exception:
+        raise CerebrumError("Could not find faculty sko")
 
 
 def get_sap_persons_missing_dfo_aff(db):
@@ -206,7 +232,7 @@ def get_sap_persons_missing_dfo_aff(db):
                 source_system=co.system_sap):
 
             sko = ou2sko[row['ou_id']]
-            fak = sko[:2] + "0000"
+            fak = get_faculty(db, sko, co.perspective_sap)
 
             yield {
                 'pid': int(p_id),
