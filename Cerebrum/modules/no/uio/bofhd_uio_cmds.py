@@ -96,6 +96,7 @@ from Cerebrum.modules.no.uio.access_FS import FS
 from Cerebrum.modules.no.uio import bofhd_pw_issues
 from Cerebrum.modules.bofhd import bofhd_user_create_unpersonal
 from Cerebrum.modules.no.uio import bofhd_auth
+from Cerebrum.modules.no.uio import sysadm_utils
 from Cerebrum.modules.otp import bofhd_otp_cmds
 from Cerebrum.modules.ou_disk_mapping import bofhd_cmds
 from Cerebrum.modules.pwcheck.checker import (
@@ -4846,74 +4847,61 @@ class BofhdExtension(BofhdCommonMethods):
 
     def user_create_sysadm(self, operator,
                            accountname, stedkode=None, force=False):
-        """ Create a sysadm account with the given accountname.
-
-        TBD, requirements?
-            - Will add the person's primary affiliation, which must be
-              of type ANSATT/tekadm.
+        """ Create a sysadm account with the given account name.
 
         :param str accountname:
             Account to be created. Must include a hyphen and end with one of
-            *sysadm_types*.
+            *sysadm_utils.VALID_SYSADM_SUFFIXES*.
 
         :param str stedkode:
             Optional stedkode to place the sysadm account. Only used if a
-            person have multipile valid affiliations.
-
+            person have multiple valid affiliations.
         """
-        sysadm_types = ('adm', 'drift', 'null')
+        self.ba.can_create_sysadm(operator.get_entity_id())
+
         require_aff_status = (
             self.const.affiliation_status_ansatt_tekadm,
             self.const.affiliation_status_ansatt_vitenskapelig,
             self.const.affiliation_manuell_ekstern,
-            self.const.affiliation_tilknyttet_ekst_partner)
+            self.const.affiliation_tilknyttet_ekst_partner,
+        )
         require_aff_str = ', '.join(text_type(aff_status)
                                     for aff_status in require_aff_status)
-        domain = '@ulrik.uio.no'
 
-        self.ba.can_create_sysadm(operator.get_entity_id())
-
-        res = re.search('^([a-z0-9]+)-([a-z]+)$', accountname)
-        if res is None:
-            raise CerebrumError('Username must be on the form "foo-drift"')
-        user, suffix = res.groups()
-        if suffix not in sysadm_types:
+        target_name, _, suffix = accountname.partition('-')
+        # TODO: we should probably deprecate the <uid>-null and <uid>-adm
+        # suffixes
+        if suffix not in sysadm_utils.VALID_SYSADM_SUFFIXES:
             raise CerebrumError(
                 'Username "%s" does not have one of these suffixes: %s' %
-                (accountname, ', '.join(sysadm_types)))
-        # Funky... better solutions?
-        try:
-            self._get_account(accountname)
-        except CerebrumError:
-            pass
-        else:
-            raise CerebrumError('Username already in use')
-        account_owner = self._get_account(user)
-        if account_owner.owner_type != self.const.entity_person:
-            raise CerebrumError('Can only create personal sysadm accounts')
-        person = self._get_person('account_name', user)
+                (accountname, ', '.join(sysadm_utils.VALID_SYSADM_SUFFIXES)))
 
-        # Need to force if person already has a sysadm account
+        # Funky... better solutions?
+        target_acc = self._get_account(target_name)
+        if target_acc.owner_type != self.const.entity_person:
+            raise CerebrumError('Can only create personal sysadm accounts')
+
         if not self._get_boolean(force):
+            # Assert that the owner_id doesn't have any other sysadm_acocunts
             ac = self.Account_class(self.db)
-            suffix = '-{}'.format(suffix)
-            existing = filter(lambda x: x['name'].endswith(suffix),
-                              ac.search(owner_id=person.entity_id))
+            name_pattern = '*-{}'.format(suffix)
+            existing = list(ac.search(name=name_pattern,
+                                      owner_id=target_acc.owner_id))
             if existing:
-                self.logger.debug2("Existing accounts: {}".format(existing))
+                self.logger.debug("Existing accounts: %s", repr(existing))
                 raise CerebrumError(
                     'Person already has a sysadm account: {} (need to '
                     'force)'.format(existing[0]['name']))
 
-        if stedkode is not None:
-            ou = self._get_ou(stedkode=stedkode)
-            ou_id = ou.entity_id
+        # Find and set account_type for the new sysadm account
+        if stedkode:
+            ou_id = self._get_ou(stedkode=stedkode).entity_id
         else:
             ou_id = None
         valid_affs = set(
             (row['affiliation'], row['ou_id'])
-            for row in person.list_affiliations(
-                person_id=person.entity_id,
+            for row in self.Person_class(self.db).list_affiliations(
+                person_id=target_acc.owner_id,
                 status=require_aff_status,
                 ou_id=ou_id))
         if not valid_affs:
@@ -4927,36 +4915,17 @@ class BofhdExtension(BofhdCommonMethods):
                                 % (require_aff_str,))
         ac_type_aff, ac_type_ou = valid_affs.pop()
 
-        account = self._user_create_basic(operator, person, accountname)
-        self._user_password(operator, account)
-        self._user_create_set_account_type(account, person.entity_id,
+        # Required info collected and validated - let's create the account
+        sysadm_acc = sysadm_utils.create_sysadm_account(
+            self.db, target_acc, suffix, operator.get_entity_id())
+
+        # extra stuff that we only do in bofhd
+        self._user_password(operator, sysadm_acc)
+        self._user_create_set_account_type(sysadm_acc,
+                                           target_acc.owner_id,
                                            ac_type_ou, ac_type_aff,
                                            priority=900)
-        account.populate_trait(code=self.const.trait_sysadm_account,
-                               strval='on')
-        account.write_db()
-        # Promote POSIX:
-        pu = Utils.Factory.get('PosixUser')(self.db)
-        pu.populate(pu.get_free_uid(), None, None,
-                    shell=self.const.posix_shell_bash, parent=account,
-                    creator_id=operator.get_entity_id())
-        pu.write_db()
-        default_home_spread = self._get_constant(self.const.Spread,
-                                                 cereconf.DEFAULT_HOME_SPREAD,
-                                                 "spread")
-        pu.add_spread(default_home_spread)
-        homedir_id = pu.set_homedir(home='/',
-                                    status=self.const.home_status_not_created)
-        pu.set_home(default_home_spread, homedir_id)
-        pu.write_db()
-
-        account.add_spread(self.const.spread_uio_ad_account)
-        account.add_contact_info(self.const.system_manual,
-                                 type=self.const.contact_email,
-                                 value=user+domain)
-        account.write_db()
-        self._email_create_forward_target(accountname+domain, user+domain)
-        return {'accountname': accountname}
+        return {'accountname': sysadm_acc.account_name}
 
     def _check_for_pipe_run_as(self, account_id):
         et = Email.EmailTarget(self.db)
