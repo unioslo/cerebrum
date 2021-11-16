@@ -23,6 +23,7 @@ from __future__ import unicode_literals
 import logging
 import re
 from collections import defaultdict
+from itertools import product
 
 from Cerebrum.modules.OrgLDIF import OrgLdifGroupMixin
 from Cerebrum.modules.OrgLDIF import postal_escape_re
@@ -98,24 +99,31 @@ class OrgLDIFUiOMixin(OrgLdifCourseMixin,
             self.ou_quarantined[int(row['entity_id'])] = True
 
     def init_attr2id2contacts(self):
-        # Change from superclass: Include 'mobile' as well.
-        contact_source = getattr(
-            self.const,
-            self.config.org.parent.get('contact_source_system'))
+        # Changes from superclass:
+        # - Include 'mobile' as well
+        # - OUs get their contact info from the address_source_system
+        contact_sources = (
+            (self.const.entity_ou, getattr(self.const, self.config.org.parent.get('address_source_system'))),
+            (self.const.entity_person, getattr(self.const, self.config.org.parent.get('contact_source_system')))
+        )
+        contact_types = (
+            ('telephoneNumber', self.const.contact_phone),
+            ('mobile', self.const.contact_mobile_phone),
+            ('uioVisiblePrivateMobile', self.const.contact_private_mobile_visible),
+            ('facsimileTelephoneNumber', self.const.contact_fax)
+        )
+        sourced_contact_types = list(product(contact_sources, contact_types))
+        sourced_contact_types.append(((None, None), ('labeledURI', self.const.contact_url)))
+
         contacts = [(attr, self.get_contacts(
             contact_type=contact_type,
             source_system=source_system,
+            entity_type=entity_type,
             convert=self.attr2syntax[attr][0],
             verify=self.attr2syntax[attr][1],
             normalize=self.attr2syntax[attr][2]))
-            for attr, source_system, contact_type in (
-                ('telephoneNumber', contact_source, self.const.contact_phone),
-                ('mobile', contact_source, self.const.contact_mobile_phone),
-                ('uioVisiblePrivateMobile', contact_source,
-                 self.const.contact_private_mobile_visible),
-                ('facsimileTelephoneNumber', contact_source,
-                 self.const.contact_fax),
-                ('labeledURI', None, self.const.contact_url))]
+            for (entity_type, source_system), (attr, contact_type) in
+                sourced_contact_types]
 
         self.id2labeledURI = contacts[-1][1]
         self.attr2id2contacts = [v for v in contacts if v[1]]
