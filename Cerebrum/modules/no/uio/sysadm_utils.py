@@ -141,6 +141,24 @@ def get_sysadm_accounts(db, suffix=SYSADM_SUFFIX_DRIFT):
         }
 
 
+def cache_primary_addresses(db, target_type):
+    et = Email.EmailTarget(db)
+    ed = Email.EmailDomain(db)
+
+    def _iter_addrs():
+        for row in et.list_email_target_primary_addresses(
+                target_type=target_type):
+            if row['target_entity_id'] is None:
+                continue
+            yield (
+                row['target_entity_id'],
+                '{}@{}'.format(row['local_part'],
+                               ed.rewrite_special_domains(row['domain'])),
+            )
+
+    return dict(_iter_addrs())
+
+
 #
 # Sysadm create and utils
 #
@@ -231,15 +249,19 @@ def get_forward_to_address(target_account):
     """ Get formatted email address for a given target account. """
     db = target_account._db
     et = Email.EmailTarget(db)
-    et.find_by_target_entity(int(target_account.entity_id))
     ed = Email.EmailDomain(db)
 
-    preferred = '{}@ulrik.uio.no'.format(target_account.account_name)
-    if preferred in set(
-            '{}@{}'.format(r['local_part'],
-                           ed.rewrite_special_domains(r['domain']))
-            for r in et.get_addresses()):
-        return preferred
+    try:
+        et.find_by_target_entity(int(target_account.entity_id))
+    except NotFoundError:
+        pass
+    else:
+        preferred = '{}@ulrik.uio.no'.format(target_account.account_name)
+        if preferred in set(
+                '{}@{}'.format(r['local_part'],
+                               ed.rewrite_special_domains(r['domain']))
+                for r in et.get_addresses()):
+            return preferred
 
     # this *shoudn't* happen, but the account is missing a <uid>@ulrik.uio.no
     # fall back to the primary email address
