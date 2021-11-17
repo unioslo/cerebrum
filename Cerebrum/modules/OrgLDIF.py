@@ -1168,8 +1168,8 @@ class OrgLDIF(object):
             result.append(value)
         return result
 
-    def get_contacts(self, entity_id=None,
-                     contact_type=None, source_system=None,
+    def get_contacts(self, entity_id=None, contact_type=None,
+                     source_system=None, entity_type=None,
                      convert=None, verify=None, normalize=None):
         # Return a list of contact values for the specified parameters,
         # or if entity_id is None, a dict {entity_id: [contact values]}.
@@ -1179,7 +1179,8 @@ class OrgLDIF(object):
             convert = six.text_type
         for row in entity.list_contact_info(entity_id=entity_id,
                                             source_system=source_system,
-                                            contact_type=contact_type):
+                                            contact_type=contact_type,
+                                            entity_type=entity_type):
             c_list = [convert(six.text_type(row['contact_value']))]
             if '$' in c_list[0]:
                 c_list = c_list[0].split('$')
