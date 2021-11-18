@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 
 def _unicode2str(obj, encoding='utf-8'):
     """Encode unicode object to a str with the given encoding."""
-    if isinstance(obj, unicode):
+    if isinstance(obj, six.text_type):
         return obj.encode(encoding)
     return obj
 
@@ -85,9 +85,15 @@ def gpgme_encrypt(message, recipient_key_id=None, context=None):
     fingerprint (recommended): (f.i.'78D9E8FEB39594D4EAB7A9B85B17D23FFEAC69E4')
     """
     context = context or get_gpgme_context()
-    recipient_key = context.get_key(recipient_key_id)
+    try:
+        recipient_key = context.get_key(recipient_key_id)
+    except Exception as e:
+        # Some logging to identify the failing key
+        logger.warning('Unable to get key=%r: %s', recipient_key_id, e)
+        raise
     plaintext = io.BytesIO(_unicode2str(message))
     ciphertext = io.BytesIO()
+
     context.encrypt([recipient_key], 0, plaintext, ciphertext)
     return ciphertext.getvalue()
 
