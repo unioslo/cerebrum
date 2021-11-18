@@ -136,16 +136,12 @@ class ChannelSetup(object):
 
         BIND
             Set up queue bindings.
-
-        CONSUME
-            Start consuming messages.
         """
-        CONSUME = 1 << 0
-        BIND = 1 << 1
-        QUEUE = 1 << 2
-        EXCHANGE = 1 << 3
+        EXCHANGE = 1 << 0
+        QUEUE = 1 << 1
+        BIND = 1 << 2
 
-        ALL = EXCHANGE | QUEUE | BIND | CONSUME
+        ALL = EXCHANGE | QUEUE | BIND
 
         @classmethod
         def to_string(cls, flags):
@@ -159,7 +155,6 @@ class ChannelSetup(object):
                  exchanges=None,
                  queues=None,
                  bindings=None,
-                 handlers=None,
                  flags=Flags.ALL):
         """
         :type exchanges: list, set
@@ -187,7 +182,6 @@ class ChannelSetup(object):
         self.exchanges = exchanges or ()
         self.queues = queues or ()
         self.bindings = bindings or ()
-        self.handlers = handlers or {}
         self.flags = flags
 
     @property
@@ -210,7 +204,7 @@ class ChannelSetup(object):
                     self.Flags.to_string(flags), channel)
 
         if not flags:
-            logger.warning('no setup!')
+            logger.debug('setup: nothing to do')
 
         if flags & self.Flags.EXCHANGE:
             logger.debug('setup: EXCHANGE (%r)', self.exchanges)
@@ -226,11 +220,18 @@ class ChannelSetup(object):
             logger.debug('setup: BIND (%r)', self.bindings)
             for e in self.bindings:
                 bind_queue(channel, e)
-            # TODO: Should we add a step to set up qos/prefetch?
-            # channel.basic_qos(prefetch_count=1)
+
+        # TODO: Should we add a step to set up qos/prefetch?
+        # channel.basic_qos(prefetch_count=1)
 
 
 def _on_message_wrapper(callback):
+    """
+    Wrap message callback in try/except.
+
+    This prevents us from killing the consumer if the callback fails.
+    Unhandled exceptions are logged as errors with traceback.
+    """
 
     def on_message(channel, method, properties, body):
         """
@@ -257,7 +258,7 @@ class ChannelListeners(object):
     def __init__(self, listeners=None, consumer_tag_prefix=None):
         """
         :param listeners:
-            A mapping of queue name to message callbacks.
+            A mapping of queue name to message callback.
 
             Signature ``on_message(channel, method, properties, body)``
 
@@ -278,13 +279,15 @@ class ChannelListeners(object):
         """ Make a new consumer tag. """
         random_id = int(uuid.uuid4())
         if self.consumer_tag_prefix is None:
+            # queue name + random 4 byte id
             return '{}-{:08x}'.format(queue, random_id % (2 ** 32))
         else:
+            # prefix + queue name + random 2 byte id
             return '{}-{}-{:04x}'.format(self.consumer_tag_prefix,
                                          queue, random_id % (2 ** 16))
 
     def __call__(self, channel):
-        """ Process channel.  """
+        """ Process channel. """
         for queue, on_message in self._listeners.items():
             return_tag = channel.basic_consume(
                 queue=queue,
