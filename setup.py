@@ -396,6 +396,7 @@ setup(
         'Cerebrum/modules/feide',
         'Cerebrum/modules/fs',
         'Cerebrum/modules/gpg',
+        'Cerebrum/modules/greg',
         'Cerebrum/modules/hostpolicy',
         'Cerebrum/modules/bofhd',
         'Cerebrum/modules/bofhd_requests',
