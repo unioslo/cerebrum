@@ -208,22 +208,23 @@ def get_employees(affs):
     context of publication.
 
     """
-    affiliations = affs[0] or None
-    statuses = affs[1] or None
-    return set(row['person_id'] for row in
-               pe.list_affiliations(affiliation=affiliations, status=statuses,
-                                    source_system=co.system_dfo_sap)
+    source_systems = (co.system_dfo_sap, co.system_manual)
+    affiliations = (pe.list_affiliations(affiliation=affs[0], source_system=source_systems)
+                    if affs[0] else [])
+    statuses = (pe.list_affiliations(status=affs[1], source_system=source_systems)
+                if affs[1] else [])
+    return set(row['person_id'] for row in affiliations + statuses
                if row['status'] not in affs[2])
 
 
 def get_students(affs):
     """Returns a set with person_id for all that are considered students in
     context of publication."""
-    affiliations = affs[0] or None
-    statuses = affs[1] or None
-    return set(row['person_id'] for row in
-               pe.list_affiliations(affiliation=affiliations, status=statuses,
-                                    source_system=co.system_fs)
+    affiliations = (pe.list_affiliations(affiliation=affs[0], source_system=co.system_fs)
+                    if affs[0] else [])
+    statuses = (pe.list_affiliations(status=affs[1], source_system=co.system_fs)
+                if affs[1] else [])
+    return set(row['person_id'] for row in affiliations + statuses
                if row['status'] not in affs[2])
 
 
@@ -273,6 +274,7 @@ if __name__ == '__main__':
         opts, args = getopt.getopt(sys.argv[1:], 'h',
                                    ['help',
                                     'commit',
+                                    'dryrun',
                                     'student=',
                                     'employee='])
     except getopt.GetoptError, e:
@@ -288,6 +290,8 @@ if __name__ == '__main__':
             usage()
         elif opt in ('--commit',):
             with_commit = True
+        elif opt in ('--dryrun',):
+            with_commit = False
         elif opt in ('--student',):
             update_affiliations(val, studaffs)
         elif opt in ('--employee',):
