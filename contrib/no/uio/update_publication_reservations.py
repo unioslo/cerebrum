@@ -211,8 +211,8 @@ def get_employees(affs):
     affiliations = affs[0] or None
     statuses = affs[1] or None
     return set(row['person_id'] for row in
-               pe.list_affiliations(affiliation=affiliations, status=statuses,
-                                    source_system=co.system_dfo_sap)
+               pe.list_affiliations(affiliation=affiliations) +
+               pe.list_affiliations(status=statuses)
                if row['status'] not in affs[2])
 
 
@@ -222,7 +222,9 @@ def get_students(affs):
     affiliations = affs[0] or None
     statuses = affs[1] or None
     return set(row['person_id'] for row in
-               pe.list_affiliations(affiliation=affiliations, status=statuses,
+               pe.list_affiliations(affiliation=affiliations,
+                                    source_system=co.system_fs) +
+               pe.list_affiliations(status=statuses,
                                     source_system=co.system_fs)
                if row['status'] not in affs[2])
 
@@ -273,6 +275,7 @@ if __name__ == '__main__':
         opts, args = getopt.getopt(sys.argv[1:], 'h',
                                    ['help',
                                     'commit',
+                                    'dryrun',
                                     'student=',
                                     'employee='])
     except getopt.GetoptError, e:
@@ -287,6 +290,8 @@ if __name__ == '__main__':
         if opt in ('-h', '--help'):
             usage()
         elif opt in ('--commit',):
+            with_commit = True
+        elif opt in ('--dryrun',):
             with_commit = True
         elif opt in ('--student',):
             update_affiliations(val, studaffs)
