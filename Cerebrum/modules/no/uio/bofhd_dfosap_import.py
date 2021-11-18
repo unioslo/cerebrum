@@ -203,11 +203,18 @@ def clear_external_id(person, source_system, exclude_id_types=None):
 
 class BofhdHrImportAuth(UioAuth):
 
-    def can_dfo_import(self, operator, query_run_any=False):
-        has_access = self.is_schoolit(operator)
-        if query_run_any or has_access:
-            return has_access
+    def can_dfo_import(self, operator,  query_run_any=False):
+        """Access to list which entities has a trait."""
+        if self.is_superuser(operator):
+            return True
+        if query_run_any:
+            return self._has_operation_perm_somewhere(
+                operator, self.const.auth_import_dfo_person)
+        if self._has_operation_perm_somewhere(
+                operator, self.const.auth_import_dfo_person):
+            return True
         raise PermissionDenied('No access to import queue')
+
 
     def can_clear_sap_data(self, operator, query_run_any=False):
         has_access = self.is_superuser(operator)
