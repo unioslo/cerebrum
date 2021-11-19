@@ -215,7 +215,6 @@ class BofhdHrImportAuth(UioAuth):
             return True
         raise PermissionDenied('No access to import queue')
 
-
     def can_clear_sap_data(self, operator, query_run_any=False):
         has_access = self.is_superuser(operator)
         if query_run_any or has_access:
