@@ -580,10 +580,7 @@ def find_root_ou(identifier):
 
         if isinstance(identifier, (str, unicode)) and len(identifier) == 6:
             try:
-                ou.find_stedkode(identifier[:2],
-                                 identifier[2:4],
-                                 identifier[4:6],
-                                 cereconf.DEFAULT_INSTITUSJONSNR)
+                ou.find_sko(identifier)
                 return ou
             except Errors.NotFoundError:
                 pass
