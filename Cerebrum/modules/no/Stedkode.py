@@ -187,6 +187,9 @@ class Stedkode(OU):
                  landkode=0):
         """ find ou by full stedkode """
 
+        if isinstance(stedkode, int):
+            stedkode = str(stedkode)
+
         if len(stedkode) != 6 or not stedkode.isdigit():
             raise ValueError("Expected a six-digit stedkode.")
 
