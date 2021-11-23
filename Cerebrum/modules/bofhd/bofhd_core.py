@@ -41,7 +41,6 @@ from Cerebrum.modules.bofhd import cmd_param as cmd
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.utils import BofhdUtils
 from Cerebrum.modules.bofhd.auth import (BofhdAuthOpSet, BofhdAuthOpTarget)
-from Cerebrum.modules.no.Stedkode import Stedkode
 
 
 class BofhdCommandBase(object):
@@ -431,13 +430,11 @@ class BofhdCommandBase(object):
         @param stedkode:
           Stedkode for OU if not None.
         """
+        ou = self.OU_class(self.db)
         try:
             if ou_id is not None:
-                ou = self.OU_class(self.db)
-                ou.clear()
                 ou.find(ou_id)
             else:
-                ou = Stedkode(self.db)
                 ou.find_sko(stedkode)
             return ou
         except Errors.NotFoundError:
