@@ -30,6 +30,8 @@ class Task(ReprFieldMixin):
     """ A single item on the queue.  """
 
     repr_fields = ('queue', 'sub', 'key')
+    repr_id = False
+    repr_module = False
 
     def __init__(self, queue, key, sub=None, nbf=None, iat=None, attempts=None,
                  reason=None, payload=None):
