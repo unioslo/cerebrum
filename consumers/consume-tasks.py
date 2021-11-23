@@ -105,10 +105,18 @@ class TaskHandler(AbstractConsumerHandler):
                 old_task = queue.get_task(task.queue, task.sub, task.key)
                 if old_task:
                     task = merge_tasks(task, old_task)
-                    logger.debug('updating task %s', repr(task))
+
+                result = queue.push_task(task)
+                if result and old_task:
+                    # task already exists, but we updated some params (e.g.
+                    # reset attempts, shorten the nbf delay)
+                    logger.info('updated task %s', repr(result))
+                elif result:
+                    logger.info('added task %s', repr(result))
                 else:
-                    logger.debug('adding task %s', repr(task))
-                queue.push_task(task)
+                    # nothing got changed - this should only happen if a task
+                    # already exists with the same params
+                    logger.info('ignored task %s (already exists)', repr(task))
 
     def on_error(self, event, error):
         # TODO: We should also implement better error handling here.
