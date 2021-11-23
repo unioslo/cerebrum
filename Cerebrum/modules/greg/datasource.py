@@ -170,6 +170,8 @@ def _parse_person_role(d):
     return {
         'id': normalize_id(d['id']),
         'type': normalize_text(d['type']),
+        # TODO: The 'orgunit' field will probably change into an object, which
+        # includes both the internal greg orgunit id, as well as the orgreg id
         'orgunit_id': normalize_id(d['orgunit']),
         # 'sponsor_id': normalize_id(d['sponsor_id']),
         'start_date': parse_greg_date(d['start_date']),
