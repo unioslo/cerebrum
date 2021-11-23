@@ -296,13 +296,8 @@ def _get_ou(database, placecode=None):
     if not placecode:
         return None
     ou = Factory.get('OU')(database)
-    ou.clear()
     try:
-        ou.find_stedkode(
-            *map(''.join,
-                 zip(*[iter(str(
-                     placecode))] * 2)) + [cereconf.DEFAULT_INSTITUSJONSNR]
-        )
+        ou.find_sko(placecode)
         return ou
     except Errors.NotFoundError:
         return None
