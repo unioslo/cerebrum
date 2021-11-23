@@ -850,7 +850,6 @@ class AccountCriterias(AttrCriterias):
                         try:
                             ou = Factory.get('OU')(db)
                             ou.find_sko(ou_str)
-                            return ou
                         except Errors.NotFoundError:
                             raise ConfigError("Stedkode '%s' does not exist"
                                               % ou_str)
