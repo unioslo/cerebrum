@@ -40,6 +40,7 @@ import Cerebrum.logutils.options
 import Cerebrum.utils.csvutils as _csvutils
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.argutils import codec_type
+from Cerebrum.modules.no.Stedkode import OUCache
 
 logger = logging.getLogger(__name__)
 now = datetime.datetime.now
@@ -53,27 +54,6 @@ class CsvDialect(csv.excel):
     """
     delimiter = ';'
     lineterminator = '\n'
-
-
-class OuCache(object):
-    def __init__(self, db):
-        co = Factory.get('Constants')(db)
-        ou = Factory.get('OU')(db)
-
-        self._ou2sko = dict(
-            (row['ou_id'], (u"%02d%02d%02d" % (row['fakultet'],
-                                               row['institutt'],
-                                               row['avdeling'])))
-            for row in ou.get_stedkoder())
-
-        self._ou2name = dict(
-            (row['entity_id'], row['name'])
-            for row in ou.search_name_with_language(
-                name_variant=co.ou_name_short,
-                name_language=co.language_nb))
-
-    def format_ou(self, ou_id):
-        return u'{0} ({1})'.format(self._ou2sko[ou_id], self._ou2name[ou_id])
 
 
 def get_manual_users(db, stats=None, ignore_quarantined=False):
@@ -99,7 +79,7 @@ def get_manual_users(db, stats=None, ignore_quarantined=False):
             return db_value.decode(db.encoding)
         return text_type(db_value)
 
-    ou_cache = OuCache(db)
+    ou_cache = OUCache(db)
 
     # TODO: Dynamic exemptions
     EXEMPT_AFFILIATIONS = [
