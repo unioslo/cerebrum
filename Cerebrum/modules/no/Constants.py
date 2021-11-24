@@ -203,10 +203,6 @@ class ConstantsHigherEdu(Constants.Constants):
     # HR-system)
     system_fs = _AuthoritativeSystemCode('FS', 'FS')
     system_sap = _AuthoritativeSystemCode('SAP', 'SAP')
-    system_orgreg = _AuthoritativeSystemCode(
-        'OrgReg-tree',
-        'Organization tree from OrgReg'
-    )
 
     # external id definitions (student, employee and OU id)
     externalid_studentnr = _EntityExternalIdCode(
@@ -232,10 +228,6 @@ class ConstantsHigherEdu(Constants.Constants):
     # OU-structure perspectives
     perspective_fs = _OUPerspectiveCode('FS', 'FS')
     perspective_sap = _OUPerspectiveCode('SAP', 'SAP')
-    perspective_orgreg = _OUPerspectiveCode(
-        'OrgReg-tree',
-        'Organization tree from OrgReg'
-    )
 
     # Affiliations for students
     affiliation_student = _PersonAffiliationCode('STUDENT', 'Student')

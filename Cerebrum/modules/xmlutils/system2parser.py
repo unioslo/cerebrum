@@ -36,7 +36,7 @@ def system2parser(system_name):
            "system_sap": sapxml2object.SAPXMLDataGetter,
            "SAP": sapxml2object.SAPXMLDataGetter,
            "system_orgreg": sapxml2object.SAPXMLDataGetter,
-           "OrgReg-tree": sapxml2object.SAPXMLDataGetter,
+           "orgreg-tree": sapxml2object.SAPXMLDataGetter,
            "system_fs": fsxml2object.FSXMLDataGetter,
            "FS": fsxml2object.FSXMLDataGetter, }.get(system_name)
     return obj

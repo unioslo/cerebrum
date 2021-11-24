@@ -565,7 +565,7 @@ def main():
     ap.add_argument('-c', '--cumulate', action='store_true',
                     help='Add cumulated results to faculty')
     ap.add_argument('-e', '--perspective', action='store',
-                    choices=('FS', 'SAP', 'LT', 'OrgReg-tree'),
+                    choices=('FS', 'SAP', 'LT', 'orgreg-tree'),
                     required=True,
                     help='OU perspective to use')
     ap.add_argument('-k', '--keep', action='store_true',
@@ -580,7 +580,7 @@ def main():
         "FS": const.perspective_fs,
         "SAP": const.perspective_sap,
         "LT": const.perspective_lt,
-        "OrgReg-tree": const.perspective_orgreg
+        "orgreg-tree": const.perspective_orgreg
     }[args.perspective]
 
     cum = args.cumulate
