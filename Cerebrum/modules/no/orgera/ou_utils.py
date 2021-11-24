@@ -183,10 +183,5 @@ def get_ou_by_sko(db, sko):
         raise ValueError('Invalid stedkode: %s' % repr(sko))
 
     ou = Factory.get('OU')(db)
-    ou.find_stedkode(
-        fakultet=int(sko[:2]),
-        institutt=int(sko[2:4]),
-        avdeling=int(sko[4:6]),
-        institusjon=int(cereconf.DEFAULT_INSTITUSJONSNR),
-    )
+    ou.find_sko(sko)
     return ou
