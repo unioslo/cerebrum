@@ -69,6 +69,7 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules.EntityTrait import EntityTrait
 from Cerebrum.utils.argutils import codec_type, get_constant
 from Cerebrum.utils.funcwrap import memoize
+from cerebrum.modules.no.Stedkode import OUCache
 
 logger = logging.getLogger(__name__)
 now = datetime.datetime.now
@@ -184,30 +185,6 @@ def get_student_disks(db):
         for t in et.list_traits(code=co.trait_student_disk)))
 
 
-class OuCache(object):
-    def __init__(self, db):
-        co = Factory.get('Constants')(db)
-        ou = Factory.get('OU')(db)
-
-        self._ou2sko = dict(
-            (row['ou_id'], ("%02d%02d%02d" % (row['fakultet'],
-                                              row['institutt'],
-                                              row['avdeling'])))
-            for row in ou.get_stedkoder())
-
-        self._ou2name = dict(
-            (row['entity_id'], row['name'])
-            for row in ou.search_name_with_language(
-                name_variant=co.ou_name_display,
-                name_language=co.language_nb))
-
-    def get_sko(self, ou_id):
-        return self._ou2sko[ou_id]
-
-    def get_name(self, ou_id):
-        return self._ou2name[ou_id]
-
-
 # This function searches each student-disk for accounts that
 # are owned by persons that are not students, only employees.
 def get_empl_on_student_disks(db, spread, key='sko'):
@@ -254,7 +231,7 @@ def get_empl_on_student_disks(db, spread, key='sko'):
     logger.debug('... got %d disk ids', len(student_disks))
 
     logger.debug('caching ou data ...')
-    ou_cache = OuCache(db)
+    ou_cache = OUCache(db)
     logger.debug('... done caching ous')
 
     # Getting a list of all disks, and iterating over it
