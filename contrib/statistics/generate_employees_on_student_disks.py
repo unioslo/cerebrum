@@ -69,7 +69,7 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules.EntityTrait import EntityTrait
 from Cerebrum.utils.argutils import codec_type, get_constant
 from Cerebrum.utils.funcwrap import memoize
-from cerebrum.modules.no.Stedkode import OUCache
+from cerebrum.modules.no.Stedkode import OuCache
 
 logger = logging.getLogger(__name__)
 now = datetime.datetime.now
@@ -231,7 +231,7 @@ def get_empl_on_student_disks(db, spread, key='sko'):
     logger.debug('... got %d disk ids', len(student_disks))
 
     logger.debug('caching ou data ...')
-    ou_cache = OUCache(db)
+    ou_cache = OuCache(db)
     logger.debug('... done caching ous')
 
     # Getting a list of all disks, and iterating over it
