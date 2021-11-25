@@ -45,7 +45,7 @@ from Cerebrum.Constants import _CerebrumCode
 from Cerebrum.Utils import Factory
 from Cerebrum.extlib.xmlprinter import xmlprinter
 from Cerebrum.modules.no.stillingskoder import Stillingskoder
-from Cerebrum.modules.no.StedKode import OUCache
+from Cerebrum.modules.no.StedKode import OuCache
 from Cerebrum.modules.no.uit.PagaDataParser import PagaDataParserClass
 from Cerebrum.utils import csvutils
 from Cerebrum.utils.argutils import ParserContext
@@ -632,7 +632,7 @@ def main(inargs=None):
 
     db = Factory.get('Database')()
 
-    ou_cache = OUCache(db)
+    ou_cache = OuCache(db)
     bas_portal_mapping = build_ou_mappings(
         ou_cache,
         read_ou_mappings(args.mapping_file))
