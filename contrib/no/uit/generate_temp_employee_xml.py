@@ -76,7 +76,7 @@ import cereconf
 import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum import Errors
-from Cerebrum.modules.no.Stedkode import OUCache
+from Cerebrum.modules.no.Stedkode import OuCache
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.argutils import add_commit_args
 from Cerebrum.utils.argutils import get_constant
