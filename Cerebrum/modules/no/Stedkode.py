@@ -219,7 +219,7 @@ class Stedkode(OU):
         return "%02d%02d%02d" % (self.fakultet, self.institutt, self.avdeling)
 
 
-class OUCache(object):
+class OuCache(object):
     """ Make a mapping from ou_id to stedkode for all OUs
         Make a mapping from ou_id to OU name for all OUs """
 
