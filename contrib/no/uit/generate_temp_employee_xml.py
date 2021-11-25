@@ -298,7 +298,7 @@ def get_persons(db, affiliation_status_types):
     logger.debug("system_lookup_order: %r", map(six.text_type,
                                                 sys_lookup_order))
 
-    ou_cache = OUCache(db)
+    ou_cache = OuCache(db)
 
     def select_extid(entity_id, id_type):
         """ Get preferred fnr for a given person_id. """
