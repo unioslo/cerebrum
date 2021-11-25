@@ -147,6 +147,14 @@ class AbstractMapper(object):
                 retry_dates.add(retry_date)
                 logger.info('affiliation end %s, should retry at %s',
                             end, retry_date)
+
+        if hr_object.startdate and not hr_object.affiliations:
+            if (hr_object.startdate > t
+                and hr_object.startdate not in retry_dates):
+                retry_dates.add(hr_object.startdate)
+                logger.info("person has start date set in future and no valid"
+                            " affiliaton data, should retry on start date")
+
         return retry_dates
 
 

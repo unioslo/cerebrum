@@ -411,6 +411,11 @@ class EmployeeMapper(_base.AbstractMapper):
         person_data = obj['employee']
         assignment_data = obj['assignments']
 
+        try:
+            hr_person.startdate = person_data['startdato']
+        except KeyError:
+            logger.debug("no startdate registered for %s", hr_person.hr_id)
+
         main_assignment = get_main_assignment(person_data, assignment_data)
         hr_person.external_ids = self.parse_external_ids(hr_person.hr_id,
                                                          person_data)
