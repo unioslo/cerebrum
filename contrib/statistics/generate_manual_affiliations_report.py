@@ -40,7 +40,7 @@ import Cerebrum.logutils.options
 import Cerebrum.utils.csvutils as _csvutils
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.argutils import codec_type
-from Cerebrum.modules.no.Stedkode import OUCache
+from Cerebrum.modules.no.Stedkode import OuCache
 
 logger = logging.getLogger(__name__)
 now = datetime.datetime.now
