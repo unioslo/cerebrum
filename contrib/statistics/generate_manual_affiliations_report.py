@@ -79,7 +79,7 @@ def get_manual_users(db, stats=None, ignore_quarantined=False):
             return db_value.decode(db.encoding)
         return text_type(db_value)
 
-    ou_cache = OUCache(db)
+    ou_cache = OuCache(db)
 
     # TODO: Dynamic exemptions
     EXEMPT_AFFILIATIONS = [
