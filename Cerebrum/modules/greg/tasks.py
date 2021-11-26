@@ -1,0 +1,102 @@
+# -*- coding: utf-8 -*-
+#
+# Copyright 2021 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""
+Tasks related to the Greg guest import.
+
+"""
+import logging
+
+from Cerebrum.modules.tasks import process
+from Cerebrum.modules.tasks import task_models
+
+from .datasource import parse_message
+
+
+logger = logging.getLogger(__name__)
+
+
+class GregImportTasks(process.QueueHandler):
+    """ This object defines the 'greg-guest' tasks queue. """
+
+    queue = 'greg-guest'
+    manual_sub = 'manual'
+
+    max_attempts = 20
+
+    def __init__(self):
+        # TODO: Implement the actual import
+        raise NotImplementedError()
+
+    def handle_task(self, db, dryrun, task):
+        # TODO: Implement the actual import
+        raise NotImplementedError()
+
+    @classmethod
+    def create_manual_task(cls, reference, sub=manual_sub, nbf=None):
+        """ Create a manual task. """
+        return task_models.Task(
+            queue=cls.queue,
+            sub=sub,
+            key=reference,
+            nbf=nbf,
+            attempts=0,
+            reason='manually added',
+        )
+
+
+def get_tasks(event):
+    """
+    Get tasks from a consumer event.
+
+    :type db: Cerebrum.database.Database
+    :type event: Cerebrum.modules.amqp.handler.Event
+
+    :rtype: generator
+    :returns:
+        zero or more :py:class:`Cerebrum.modules.task.task_models.Task`
+        objects
+    """
+    try:
+        fields = parse_message(event.body)
+    except Exception:
+        logger.error('invalid event: %s', repr(event), exc_info=True)
+        return
+
+    msg_id = fields['id']
+    person_id = fields['data'].get('person_id')
+
+    # TODO: Should we examine `fields['type']` and only yield tasks for
+    #       type="person.*"?
+    if not person_id:
+        logger.info('ignoring event id=%s, missing person_id', msg_id)
+        return
+
+    yield task_models.Task(
+        queue=GregImportTasks.queue,
+        sub=None,
+        key=person_id,
+        reason='event: id={id} ex={ex} rk={rk} tag={ct}'.format(
+            id=msg_id,
+            ex=event.method.exchange,
+            rk=event.method.routing_key,
+            ct=event.method.consumer_tag,
+        ),
+        attempts=0,
+    )
