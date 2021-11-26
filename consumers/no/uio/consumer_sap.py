@@ -299,7 +299,8 @@ def _get_ou(database, placecode=None):
     try:
         ou.find_sko(placecode)
         return ou
-    except Errors.NotFoundError:
+    except (ValueError,
+            Errors.NotFoundError):
         return None
 
 
