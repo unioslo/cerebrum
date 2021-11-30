@@ -40,6 +40,8 @@ class Constants(Constants.Constants):
     #
     auth_set_password_important = _AuthRoleOpCode(
         'set_password_imp', 'Set password for important/critical accounts')
+    auth_import_dfo_person = _AuthRoleOpCode(
+        'import_dfo_person', "Import DFO-SAP Person")
 
     #
     # Authoritative systems/source systems
