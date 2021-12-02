@@ -359,8 +359,8 @@ class DataEmployment(NameContainer):
         """If the employment is on leave, e.g. working somewhere else
         temporarily.
         """
-        for l in self.leave:
-            if l['start_date'] <= date and (date <= l['end_date']):
+        for leave in self.leave:
+            if leave['start_date'] <= date and (date <= leave['end_date']):
                 return True
         return False
 
@@ -446,7 +446,8 @@ class DataOU(DataEntity):
 
     NO_SKO = "sko"
     NO_NSD = "nsdkode"
-    NO_ORGREG = "dfo_org_id"
+    NO_DFO = "dfo_org_id"
+    NO_ORGREG = "orgreg_org_id"
 
     NAME_ACRONYM = "acronym"
     NAME_SHORT = "short"
@@ -474,7 +475,7 @@ class DataOU(DataEntity):
         return iter(self._usage_codes)
 
     def validate_id(self, kind, value):
-        assert kind in (self.NO_SKO, self.NO_NSD, self.NO_ORGREG)
+        assert kind in (self.NO_SKO, self.NO_NSD, self.NO_DFO, self.NO_ORGREG)
 
     def validate_name(self, name):
         assert name.kind in (self.NAME_ACRONYM,
@@ -729,7 +730,7 @@ class XMLEntity2Object(object):
                     return obj
             except StopIteration:
                 raise
-            except:
+            except Exception:
                 # If *any* sort of exception occurs, log this, and continue
                 # with the parsing. We cannot afford one defective entry to
                 # break down the entire data import run.

@@ -467,21 +467,6 @@ class XML2Cerebrum:
         ou.clear()
         const = self.constants
 
-        try:
-            dfo_org_id = xmlou.get_id(xmlou.NO_ORGREG)
-            ou.affect_external_id(
-                self.source_system,
-                self.constants.externalid_dfo_ou_id
-            )
-            ou.populate_external_id(
-                self.source_system,
-                self.constants.externalid_dfo_ou_id,
-                dfo_org_id
-            )
-        except AttributeError:
-            # Silently ignore DFO
-            pass
-
         # We need sko, acronym, short_name, display_name, sort_name and parent.
         sko = xmlou.get_id(xmlou.NO_SKO)
         try:
@@ -510,6 +495,24 @@ class XML2Cerebrum:
         else:
             self.logger.debug("OU ids=%s is expired. Its names will not be "
                               "updated", list(xmlou.iterids()))
+
+        # custom orgreg import fields
+        external_ids = []
+        if hasattr(self.constants, 'externalid_dfo_ou_id'):
+            external_ids.append((self.constants.externalid_dfo_ou_id,
+                                 xmlou.get_id(xmlou.NO_DFO)))
+        if hasattr(self.constants, 'externalid_orgreg_id'):
+            external_ids.append((self.constants.externalid_orgreg_id,
+                                 xmlou.get_id(xmlou.NO_ORGREG)))
+
+        if external_ids:
+            affect = tuple(t for t, v in external_ids)
+            ou.affect_external_id(self.source_system, *affect)
+
+            for id_type, id_value in external_ids:
+                if not id_value:
+                    continue
+                ou.populate_external_id(self.source_system, id_type, id_value)
 
         self._sync_all_ou_contacts(ou, xmlou)
         self._sync_all_ou_addresses(ou, xmlou)

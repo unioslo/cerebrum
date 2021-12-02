@@ -66,7 +66,7 @@ def make_sko(data):
     # FIXME: re?
     try:
         int(data)
-    except:
+    except Exception:
         # TBD: What do we do here?
         return None
     # yrt
@@ -93,7 +93,8 @@ class XMLOU2Object(XMLEntity2Object):
     tag2type = {
         "Stedkode": DataOU.NO_SKO,
         "Akronym": DataOU.NAME_ACRONYM,
-        "DfoOrgId": DataOU.NO_ORGREG,
+        "DfoOrgId": DataOU.NO_DFO,
+        "OrgRegOuId": DataOU.NO_ORGREG,
         "Navn20": DataOU.NAME_SHORT,
         "Navn120": DataOU.NAME_LONG,
     }
@@ -202,7 +203,7 @@ class XMLOU2Object(XMLEntity2Object):
             value = None
             if sub.text:
                 value = ensure_unicode(sub.text.strip(), self.encoding)
-            if sub.tag == "DfoOrgId":
+            if sub.tag in ("DfoOrgId", "OrgRegOuId"):
                 result.add_id(self.tag2type[sub.tag], value)
             if sub.tag == "Stedkode":
                 sko = make_sko(value)
@@ -310,7 +311,7 @@ class XMLPerson2Object(XMLEntity2Object):
     def _make_address(self, addr_element):
         """Make a DataAddress instance out of an <Adresse>."""
 
-	assert addr_element.tag == "Adresse"
+        assert addr_element.tag == "Adresse"
 
         sap2intern = {
             "Besøksadresse": DataAddress.ADDRESS_BESOK,
@@ -320,7 +321,7 @@ class XMLPerson2Object(XMLEntity2Object):
             "Avvikende besøksadresse": DataAddress.ADDRESS_OTHER_BESOK,
         }
 
-	zip = city = country = addr_kind = ""
+        zip = city = country = addr_kind = ""
         street = []
 
         for sub in addr_element.getiterator():
@@ -466,10 +467,10 @@ class XMLPerson2Object(XMLEntity2Object):
 
     @XMLEntity2Object.exception_wrapper
     def _make_role(self, elem):
-        """Make an employment out of a <Roller>...</Roller>.
+        """
+        Make an employment out of a <Roller>...</Roller>.
 
-              SAP uses <Roller>-elements to designate bilagslønnede and gjester.
-
+        SAP uses <Roller>-elements to designate bilagslønnede and gjester.
         """
         ou_id = None
         start_date = end_date = None

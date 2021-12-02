@@ -192,7 +192,7 @@ def rec_make_ou(my_sko, ou, existing_ou_mappings, org_units,
     existing_ou_mappings[my_ouid] = parent_ouid
 
 
-def import_org_units(sources, target_system, cer_ou_tab):
+def import_org_units(sources, target_system, cer_ou_tab, dryrun):
     """
     Scan the sources and import all the OUs into Cerebrum.
 
@@ -265,7 +265,8 @@ def import_org_units(sources, target_system, cer_ou_tab):
 
             # Not sure why this casting to int is required for PostgreSQL
             stedkode2ou[formatted_sko] = int(ou_id)
-            db.commit()
+            if not dryrun:
+                db.commit()
 
         # Once we've registered all OUs, build and register parent information
         for node in ou.get_structure_mappings(perspective):
@@ -277,7 +278,8 @@ def import_org_units(sources, target_system, cer_ou_tab):
         for stedkode in org_units.keys():
             rec_make_ou(stedkode, ou, existing_ou_mappings, org_units,
                         stedkode2ou, perspective)
-        db.commit()
+        if not dryrun:
+            db.commit()
 
 
 def get_cere_ou_table():
@@ -297,7 +299,7 @@ def get_cere_ou_table():
     return sted_tab
 
 
-def set_quaran(cer_ou_tab):
+def set_quaran(cer_ou_tab, dryrun):
     """
     Set quarantine on OUs that are no longer in the data source.
 
@@ -326,7 +328,9 @@ def set_quaran(cer_ou_tab):
                                       acc.entity_id,
                                       description='import_OU',
                                       start=today)
-    db.commit()
+
+    if not dryrun:
+        db.commit()
 
 
 def list_new_ous(old_cere_ous):
@@ -411,6 +415,7 @@ Imports OU data from systems that use 'stedkoder' (e.g. SAP, FS or LT)
 
     -v | --verbose              increase verbosity
     -c | --clean                quarantine invalid OUs
+    -d | --dryrun               dryrun (default: commits changes)
     -f | --file SPEC            colon-separated (source-system, filename) pair
     -t | --target-system NAME   authoritative system the data is supplied for
     -l | --ldap-visibility
@@ -430,10 +435,11 @@ def main():
     try:
         opts, args = getopt.getopt(
             sys.argv[1:],
-            'hvcf:lt:e:',
+            'hvcdf:lt:e:',
             ['verbose',
              'help',
              'clean',
+             'dryrun',
              'file=',
              'ldap-visibility',
              'target-system=',
@@ -450,6 +456,7 @@ def main():
     target_system = None
     email_notify = []
     old_cere_ous = dict()
+    dryrun = False
 
     for opt, val in opts:
         if opt in ('-h', '--help'):
@@ -468,10 +475,19 @@ def main():
             target_system = val
         elif opt in ('-e', '--email'):
             email_notify.extend(val.split(','))
+        elif opt in ('-d', '--dryrun'):
+            dryrun = True
 
     if not target_system:
         print("Missing target-system")
         usage(1)
+
+    if not sources:
+        print("Missing org unit sources")
+        usage(4)
+
+    logger.info('Start')
+    logger.debug('args: %s', repr(sys.argv))
 
     if email_notify:
         old_cere_ous = get_cere_ou_table()
@@ -480,18 +496,24 @@ def main():
         cer_ou_tab = get_cere_ou_table()
         logger.debug("Collected %d ou_id->sko mappings from Cerebrum",
                      len(cer_ou_tab))
-    if sources:
-        import_org_units(sources, target_system, cer_ou_tab)
-    else:
-        usage(4)
-    set_quaran(cer_ou_tab)
+
+    import_org_units(sources, target_system, cer_ou_tab, dryrun)
+    set_quaran(cer_ou_tab, dryrun)
 
     if email_notify:
         new_cere_ous = list_new_ous(old_cere_ous)
-        if len(new_cere_ous):
+        if len(new_cere_ous) and not dryrun:
             send_notify_email(new_cere_ous, email_notify)
         else:
             logger.info('No new OUs, no notifications sent')
+
+    if dryrun:
+        db.rollback()
+        logger.info('Changes rolled back (dryrun)')
+    else:
+        logger.info('Changes committed')
+
+    logger.info('Done')
 
 
 if __name__ == '__main__':
