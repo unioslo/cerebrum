@@ -146,6 +146,19 @@ class BofhdWofhCommands(BofhdCommonMethods):
                     guest['name'] = names[0]['name']
                 else:
                     guest['name'] = affs['person_id']
-                if guest not in guests:
+
+                # Same guest at a different unit is ok,
+                # else keep freshest account only.
+                if not guests:
                     guests.append(guest)
+                else:
+                    counter = 0
+                    for present in guests:
+                        if guest['uname'] == present['uname'] and guest['unit'] == present['unit']:
+                            if guest['create_date'] > present['create_date']:
+                                guests[counter] = guest
+                            break
+                        counter += 1
+                    if counter == len(guests):
+                        guests.append(guest)  
         return guests
