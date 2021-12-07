@@ -320,7 +320,7 @@ class PassWordIssues(BofhdCommonMethods):
         phones = [ent for ent in filter_mobilephones(self.co, contact_rows)]
         valid_source_phone = False
         for phone in phones:
-            if phone['ssys'] in (self.co.system_sap,
+            if phone['ssys'] in (self.co.system_dfo_sap,
                                  self.co.system_fs,):
                 valid_source_phone = True
                 break
