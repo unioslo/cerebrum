@@ -37,3 +37,11 @@ class GregConstants(Constants.Constants):
         Constants.Constants.entity_person,
         'Unique person identificator from Greg',
     )
+
+    # We don't actually populate GREG_OU_ID, but it can be useful to assign
+    # greg ids to Cerebrum OU objects when testing.
+    externalid_greg_ou_id = Constants._EntityExternalIdCode(
+        'GREG_OU_ID',
+        Constants.Constants.entity_ou,
+        'Unique org unit identificator from Greg',
+    )
