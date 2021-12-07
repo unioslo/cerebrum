@@ -398,6 +398,7 @@ setup(
         'Cerebrum/modules/gpg',
         'Cerebrum/modules/greg',
         'Cerebrum/modules/hostpolicy',
+        'Cerebrum/modules/import_utils',
         'Cerebrum/modules/bofhd',
         'Cerebrum/modules/bofhd_requests',
         'Cerebrum/modules/guest',
