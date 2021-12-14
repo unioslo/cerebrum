@@ -51,13 +51,13 @@ import argparse
 import datetime
 import logging
 
-import cereconf
 import Cerebrum.logutils
 import Cerebrum.logutils.options
-from Cerebrum.modules.no.uit.PagaDataParser import PagaDataParserClass
+import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no import fodselsnr
+from Cerebrum.modules.no.uit.PagaDataParser import PagaDataParserClass
 from Cerebrum.utils.argutils import add_commit_args
 from Cerebrum.utils.date_compat import get_datetime_naive
 from Cerebrum.utils.funcwrap import memoize
@@ -177,6 +177,8 @@ def _determine_affiliations(db, const, pe, person):
                                        t['gruppenr_utgift'])
         sted = get_sted(db, fakultet, institutt, gruppe)
         if sted is None:
+            logger.warning("Affiliation not processed for paga_id=%r "
+                           "because of missing OU info (%r)", paga_nr, t)
             continue
         k = "%s:%s:%s" % (pe.entity_id, sted['id'],
                           int(const.affiliation_ansatt))
