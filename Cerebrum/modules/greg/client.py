@@ -20,12 +20,18 @@
 """
 Client for communicating with the Greg API.
 """
-from __future__ import absolute_import, division, unicode_literals
-
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import logging
 
 import requests
+import six
 
+from Cerebrum.config import loader
 from Cerebrum.config.configuration import (Configuration,
                                            ConfigDescriptor)
 from Cerebrum.config.secrets import Secret, get_secret_from_string
@@ -120,9 +126,9 @@ class GregClient(object):
             logger.warning('greg health: %s', response.text)
         return is_ok
 
-    def get_person(self, greg_pid):
+    def get_person(self, greg_id):
         """ Look up a person by id. """
-        url = self.urls.get_person(greg_pid)
+        url = self.urls.get_person(greg_id)
         response = self._call('GET', url, headers=self.headers)
         from_api = self._is_api_response(response)
         if response.status_code == 404 and from_api:
@@ -156,7 +162,10 @@ class GregClient(object):
         response = self._call('GET', url, headers=self.headers, params=params)
 
         response.raise_for_status()
-        for obj in response.json()['results']:
+        data = response.json()
+        results = data.pop('results')
+        yield data
+        for obj in results:
             yield obj
         # if we expect to iterate over every result, we'll have an incomplete
         # result, best to:
@@ -179,7 +188,22 @@ class GregClientConfig(Configuration):
 
 
 def get_client(config):
-    """ Get a GregClient from a GregClientConfig. """
+    """
+    Get a GregClient from a GregClientConfig.
+
+    :type config: str, dict, GregClientConfig
+    :param config: Client config (filename, config dict, config object)
+
+    :rtype: GregClient
+    """
+    if isinstance(config, dict):
+        config = GregClientConfig(config)
+    elif isinstance(config, six.string_types):
+        config = GregClientConfig(loader.read_config(config))
+    # else - assume already a GregClientConfig
+
+    config.validate()
+
     api_key_header = 'X-Gravitee-Api-Key'
     api_key_value = get_secret_from_string(config.auth)
 

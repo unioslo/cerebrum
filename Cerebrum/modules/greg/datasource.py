@@ -20,8 +20,8 @@
 """
 Greg datasource for guest imports.
 
-This module contains to convert and validate relevant objects from Grag.  Its
-main parts are:
+This module contains various utils to convert and validate relevant objects
+from Greg.  Its main parts are:
 
 py:func:`.parse_message`
     Convert an event payload to a simple dict with only relevant items (event
@@ -30,19 +30,23 @@ py:func:`.parse_message`
 py:func:`.parse_person`
     Convert and normalize person info (/persons/{id} json response from the
     Greg API) into a dict with only the relevant bits.
-"""
-from __future__ import unicode_literals
 
+py:func:`.parse_orgunit`
+    Convert and normalize org unit info (/ous/{id} json response from the Greg
+    API, as well as the "orgunit" value in roles) into a dict with only the
+    relevant bits.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import json
 import logging
 
 import six
 
-from Cerebrum.modules.hr_import.datasource import (
-    AbstractDatasource,
-    DatasourceInvalid,
-    RemoteObject,
-)
 from Cerebrum.utils import date as date_utils
 from Cerebrum.utils import textnorm
 
@@ -54,7 +58,7 @@ logger = logging.getLogger(__name__)
 
 
 def normalize_id(greg_id):
-    """ normalize greg reference values. """
+    """ Get a normalized reference to a greg object id. """
     return six.text_type(int(greg_id))
 
 
@@ -74,6 +78,9 @@ def parse_greg_dt(value, allow_empty=False):
 
 
 def normalize_text(value, allow_empty=False):
+    """ Get a normalized, non-empty text (or None). """
+    if value and not isinstance(value, six.string_types):
+        value = six.text_type(value)
     if not value or not value.strip():
         if allow_empty:
             return None
@@ -91,7 +98,11 @@ def _get_msg_id(d):
 
 
 def _get_msg_data(d):
-    """ key/value fields. """
+    """ Get key/value pairs from 'data' field in message dict. """
+    # TODO/TBD: Potential pitfall - we make some assumptions here that covers
+    # *all* messages.  Some current or future messages *may* get more complex.
+    # One alternative would be to try/except here, and skip values that doesn't
+    # follow this format.
     for key, value in d.get('data', {}).items():
         norm_key = normalize_text(key)
         if norm_key.endswith('_id'):
@@ -115,26 +126,45 @@ def parse_message(msg_text):
         - source (str): source system (e.g. "greg:uio:prod")
         - data (dict): event payload (e.g. {"person_id": "2"})
     """
-    # TODO: Does all messages follow the same format?
-    # Will all data in the 'data' portion of a message be on the form of
-    # *datatype* -> *id*?
-    try:
-        msg_data = json.loads(msg_text)
-        return {
-            'id': normalize_id(msg_data['id']),
-            'type': normalize_text(msg_data['type']),
-            'source': normalize_text(msg_data['source']),
-            # 'version': msg_data['specversion'],
-            'data': dict(_get_msg_data(msg_data)) or {},
-        }
-    except Exception as e:
-        # this is likely a KeyError (missing field) or ValueError (invalid
-        # field value)
-        logger.debug('invalid message: %s (%r)', e, msg_text)
-        raise DatasourceInvalid('invalid message')
+    msg_data = json.loads(msg_text)
+    return {
+        'id': normalize_id(msg_data['id']),
+        'type': normalize_text(msg_data['type']),
+        'source': normalize_text(msg_data['source']),
+        # 'version': msg_data['specversion'],
+        'data': dict(_get_msg_data(msg_data)) or {},
+    }
 
 
 # API endpoint object utils
+
+
+def _parse_orgunit_id(d):
+    return {
+        # 'id': normalize_id(d['id']),
+        'name': normalize_text(d['name']),
+        'source': normalize_text(d['source']),
+        'value': normalize_text(d['value']),
+    }
+
+
+def parse_orgunit(d):
+    """
+    Sanitize and normalize org units from greg.
+
+    Applies both to /orgunits/<id> and roles.orgunit from /persons/<id>
+    """
+    return {
+        'id': normalize_text(d['id']),
+        'parent': normalize_text(d['id'], allow_empty=True),
+        'active': bool(d['active']),
+        # 'deleted': bool(d['deleted']),
+        # 'created': parse_greg_dt(d['created']),
+        # 'updated': parse_greg_dt(d['created']),
+        # 'name_en': normalize_text(d['name_en']),
+        # 'name_nb': normalize_text(d['name_nb']),
+        'identifiers': tuple(_parse_orgunit_id(i) for i in d['identifiers']),
+    }
 
 
 def _parse_person_consent(d):
@@ -144,8 +174,7 @@ def _parse_person_consent(d):
         'consent_type': normalize_text(td['identifier']),
         # 'valid_from': parse_greg_date(td['valid_from']),
         # 'user_allowed_to_change': bool(td['user_allowed_to_change']),
-        'consent_given_at': parse_greg_date(d['consent_given_at'],
-                                            allow_empty=False),
+        'consent_given_at': parse_greg_date(d['consent_given_at'])
     }
 
 
@@ -172,7 +201,7 @@ def _parse_person_role(d):
         'type': normalize_text(d['type']),
         # TODO: The 'orgunit' field will probably change into an object, which
         # includes both the internal greg orgunit id, as well as the orgreg id
-        'orgunit_id': normalize_id(d['orgunit']),
+        'orgunit': parse_orgunit(d['orgunit']),
         # 'sponsor_id': normalize_id(d['sponsor_id']),
         'start_date': parse_greg_date(d['start_date']),
         'end_date': parse_greg_date(d['end_date']),
@@ -199,46 +228,22 @@ def parse_person(d):
     }
 
 
-# Main objects
-
-
-class GregPerson(RemoteObject):
-    """
-    Container for cleaned up person data from the Greg API.
-
-    This object works much like a read-only dict, but will additionally carry
-    the reference (the person.id/greg_pid) used to fetch the data.
-    """
-    pass
-
-
-class GregDatasource(AbstractDatasource):
+class GregDatasource(object):
     """
     Datasource implementation for Greg guests.
-
-    TODO: Do we really need this object?  Should we maybe *not* re-use this
-    part of the hr_import?
     """
 
     def __init__(self, client):
         self.client = client
 
-    def get_reference(self, event):
-        """ Extract reference from message body """
-        # TODO: We don't really need this method, but we made it an
-        # abc.abstractmethod in the superclass.  We should either revise this
-        # system (or just inherit from object?).
-        raise NotImplementedError()
-
     def get_object(self, reference):
         """ Fetch data from sap (employee data, assignments, roles). """
-        greg_pid = normalize_id(reference)
-
-        raw = self.client.get_person(greg_pid)
+        greg_id = normalize_id(reference)
+        raw = self.client.get_person(greg_id)
         if raw:
             greg_data = parse_person(raw)
         else:
-            logger.warning('no result for person-id %r', greg_pid)
-            greg_data = {}
+            logger.warning('no result for greg_id=%s', greg_id)
+            greg_data = {'id': greg_id}
 
-        return GregPerson('greg', greg_pid, greg_data)
+        return greg_data

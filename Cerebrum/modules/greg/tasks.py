@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 class GregImportTasks(process.QueueHandler):
     """ This object defines the 'greg-guest' tasks queue. """
 
-    queue = 'greg-guest'
+    queue = 'greg-person'
     manual_sub = 'manual'
 
     max_attempts = 20
