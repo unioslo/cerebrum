@@ -21,42 +21,45 @@
 import logging
 
 from Cerebrum.modules.hr_import.importer import get_next_retry
-from Cerebrum.modules.tasks import process
+from Cerebrum.modules.tasks import queue_handler
 from Cerebrum.modules.tasks import task_models
+from Cerebrum.modules.tasks import task_queue
 from Cerebrum.utils.date import now
 from .datasource import parse_message
 
 logger = logging.getLogger(__name__)
 
 
-class EmployeeTasks(process.QueueHandler):
+class EmployeeTasks(queue_handler.QueueHandler):
 
     queue = 'sap-legacy'
-
     manual_sub = 'manual'
     nbf_sub = 'nbf'
-
     max_attempts = 20
 
-    def __init__(self, get_import):
-        self.get_import = get_import
+    def handle_task(self, db, task):
+        """ handle an hr-import task. """
+        # regular employee import returns a list of retry_date datetime values
+        # we need to return a list of tasks, and we only want the first retry
+        result = self._callback(db, task)
+        next_retry = get_next_retry(result)
 
-    def handle_task(self, db, dryrun, task):
-        do_import = self.get_import(db).handle_reference
-        next_retry = get_next_retry(do_import(task.payload.data['id']))
-
-        if next_retry:
-            # import discovered a start date or end date to be processed
-            # later
-            return task_models.Task(
+        if not next_retry:
+            return
+        task_db = task_queue.TaskQueue(db)
+        next_task = task_db.push_task(
+            task_models.Task(
                 queue=self.queue,
                 sub=self.delay_sub,
                 key=task.key,
                 nbf=next_retry,
                 reason='next-change: on={when}'.format(when=next_retry),
-                payload=task.payload)
-        else:
-            return None
+                payload=task.payload,
+            ))
+        if not next_task:
+            logger.info('queued next-task %s/%s/%s at %s',
+                        next_task.queue, next_task.sub,
+                        next_task.key, next_task.nbf)
 
     @classmethod
     def create_manual_task(cls, reference):

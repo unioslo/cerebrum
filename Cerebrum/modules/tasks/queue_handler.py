@@ -60,6 +60,9 @@ class QueueHandler(object):
     # when to give up on a task
     max_attempts = 20
 
+    def __init__(self, callback):
+        self._callback = callback
+
     def get_retry_task(self, task, error):
         """ Create a retry task from a failed task. """
         retry = task_models.copy_task(task)
@@ -70,11 +73,7 @@ class QueueHandler(object):
         retry.reason = 'retry: failed_at={} error={}'.format(now(), error)
         return retry
 
-    def handle_task(self, db, dryrun, task):
-        """ Task implementation. """
-        raise NotImplementedError('abstract method')
-
-    def __call__(self, db, dryrun, task):
+    def handle_task(self, db, task):
         """
         Task processing entry point.
 
@@ -88,10 +87,27 @@ class QueueHandler(object):
         :param task:
             a task to process
         """
-        next_task = self.handle_task(db, dryrun, task)
-        task_db = task_queue.TaskQueue(db)
+        next_tasks = self._callback(db, task)
+        if next_tasks:
+            task_db = task_queue.TaskQueue(db)
+            for next_task in next_tasks:
+                if task_db.push_task(next_task):
+                    logger.info('queued next-task %s/%s/%s at %s',
+                                next_task.queue, next_task.sub,
+                                next_task.key, next_task.nbf)
 
-        if next_task and task_db.push_task(next_task):
-            logger.info('queued next-task %s/%s/%s at %s',
-                        next_task.queue, next_task.sub, next_task.key,
-                        next_task.nbf)
+    def get_queue_counts(self, db, **kwargs):
+        """ Get number of tasks by (queue, sub). """
+        if 'queues' in kwargs:
+            raise TypeError("get_queue_counts() got an unexpected keyword "
+                            "argument 'queues'")
+        for row in task_queue.sql_get_subqueue_counts(db, queues=self.queue,
+                                                      **kwargs):
+            yield (row['queue'], row['sub']), row['num']
+
+    def get_abandoned_counts(self, db):
+        """ Get number of abandoned tasks by (queue, sub). """
+        for qs, count in self.get_queue_counts(db,
+                                               min_attempts=self.max_attempts):
+            if count > 1:
+                yield qs, count

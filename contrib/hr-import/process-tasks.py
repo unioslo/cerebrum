@@ -21,21 +21,14 @@
 """ Process tasks on the hr-import queues.  """
 import argparse
 import logging
-import functools
 
 import Cerebrum.logutils
 import Cerebrum.logutils.options
 import Cerebrum.Errors
-from Cerebrum.Utils import Factory
-from Cerebrum.database.ctx import db_context
 from Cerebrum.modules.hr_import.config import TaskImportConfig
-from Cerebrum.modules.tasks.task_queue import TaskQueue
-from Cerebrum.modules.tasks.task_queue import sql_get_subqueue_counts
+from Cerebrum.modules.tasks.task_processor import QueueProcessor
 from Cerebrum.utils.argutils import add_commit_args
-from Cerebrum.utils.date import now
 from Cerebrum.utils.module import resolve
-from Cerebrum.modules.hr_import.errors import NonExistentOuError
-from Cerebrum.modules.hr_import.datasource import DatasourceInvalid
 
 
 logger = logging.getLogger(__name__)
@@ -48,14 +41,12 @@ def get_task_handler(config):
     task_cls = resolve(config.task_class)
     logger.info('task_cls: %s', config.task_class)
 
-    get_importer = functools.partial(import_cls, config=config)
-    return task_cls(get_importer)
+    def callback(db, task):
+        import_obj = import_cls(db, config=config)
+        dfo_id = task.payload.data['id']
+        return import_obj.handle_reference(dfo_id)
 
-
-def get_db():
-    db = Factory.get('Database')()
-    db.cl_init(change_program='hr-import-tasks')
-    return db
+    return task_cls(callback)
 
 
 def main(inargs=None):
@@ -76,12 +67,6 @@ def main(inargs=None):
     )
 
     db_args = parser.add_argument_group('Database')
-    db_args.add_argument(
-        '--dryrun-import',
-        dest='dryrun_import',
-        action='store_true',
-        help='rollback all hr-import changes (only when --commit)',
-    )
     add_commit_args(db_args)
 
     Cerebrum.logutils.options.install_subparser(parser)
@@ -93,82 +78,22 @@ def main(inargs=None):
     logger.debug("args: %r", args)
 
     config = TaskImportConfig.from_file(args.config)
-
-    handle_task = get_task_handler(config)
-    nbf_cutoff = now()
-    max_attempts = handle_task.max_attempts
     dryrun = not args.commit
-    dryrun_import = args.dryrun_import or dryrun
 
-    # Actually process tasks
-    logger.info('Collecting tasks (nbf=%s, limit=%r, max-attempts=%r)',
-                nbf_cutoff, args.limit, max_attempts)
+    proc = QueueProcessor(get_task_handler(config),
+                          limit=args.limit,
+                          dryrun=dryrun)
 
-    database = get_db()
-
-    tasks = list(
-        TaskQueue(database).search_tasks(
-            queues=handle_task.queue,
-            nbf_before=nbf_cutoff,
-            max_attempts=max_attempts,
-            limit=args.limit))
-
-    logger.info('Considering %d tasks', len(tasks))
-
+    tasks = proc.select_tasks()
     for task in tasks:
-        # Remove the current task
-        with db_context(database, dryrun=dryrun) as db:
-            try:
-                TaskQueue(db).pop_task(task.queue, task.sub, task.key)
-            except Cerebrum.Errors.NotFoundError:
-                logger.debug('task %s/%s/%s gone, already processed?',
-                             task.queue, task.sub, task.key)
-                # we collect and process tasks in different transactions,
-                # so there is a slight chance that some tasks no longer exists
-                continue
-
-        logger.info('processing task %s/%s/%s (dryrun=%r)',
-                    task.queue, task.sub, task.key, dryrun_import)
-
-        # Process the current taask
-        try:
-            with db_context(database, dryrun=dryrun_import) as db:
-                handle_task(db, dryrun=dryrun_import, task=task)
-            task_failed = None
-        except (NonExistentOuError, DatasourceInvalid) as e:
-            logger.error('Failed lookup: %s', e.message)
-            task_failed = e
-        except Exception as e:
-            logger.warning('failed task %s/%s/%s',
-                           task.queue, task.sub, task.key, exc_info=True)
-            task_failed = e
-
-        # Re-insert the current task on error
-        #
-        # There is a chance that _this_ part fails, and we're unable to
-        # re-insert a failed task.  Ideally, the entire task processing should
-        # happen in a single transaction, while `handle_task` should use
-        # savepoints to roll back if the import fails.  However, this would
-        # require a rewrite of all our ChangeLog implementations...
-        if task_failed:
-            with db_context(database, dryrun=dryrun) as db:
-                retry_task = handle_task.get_retry_task(task, e)
-                logger.debug('re-queueing %r as %r', task, retry_task)
-                if TaskQueue(db).push_task(retry_task):
-                    logger.info('queued retry-task %s/%s/%s at %s',
-                                retry_task.queue, retry_task.sub,
-                                retry_task.key, retry_task.nbf)
+        proc.process_task(task)
 
     # Check for tasks that we've given up on (i.e. over the
-    # max_attempts threshold)
+    # GregImportTasks.max_attempts threshold)
     logger.info('checking for abandoned tasks...')
-    for row in sql_get_subqueue_counts(
-            database,
-            queues=handle_task.queue,
-            min_attempts=handle_task.max_attempts):
-        if row['num']:
-            logger.warning('queue: %s/%s, given up on %d failed items',
-                           row['queue'], row['sub'], row['num'])
+    for (queue, sub), count in proc.get_abandoned_counts():
+        logger.warning('queue: %s/%s, given up on %d failed items',
+                       queue, sub, count)
 
     logger.info('done %s', parser.prog)
 
