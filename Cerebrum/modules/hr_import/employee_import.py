@@ -22,14 +22,20 @@ Generic HR import.
 """
 import logging
 
-import six
-
-import cereconf
-
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.date_compat import get_date
 from Cerebrum.modules.hr_import.errors import NonExistentOuError
+from Cerebrum.modules.import_utils.matcher import (
+    OuMatcher,
+    # PersonMatcher,
+)
+from Cerebrum.modules.import_utils.syncs import (
+    AffiliationSync,
+    ContactInfoSync,
+    ExternalIdSync,
+    PersonNameSync,
+)
 
 from .importer import AbstractImport
 from . import models
@@ -106,9 +112,15 @@ class HRDataImport(object):
         :param database:
         :param source_system:
         """
-        self.database = database
+        self.database = db = database
         self.source_system = source_system
-        self.co = Factory.get('Constants')(self.database)
+        self.co = co = Factory.get('Constants')(db)
+
+        self._sync_affs = AffiliationSync(db, source_system)
+        self._sync_cinfo = ContactInfoSync(db, source_system)
+        self._sync_ids = ExternalIdSync(db, source_system)
+        self._sync_name = PersonNameSync(db, source_system, (co.name_first,
+                                                             co.name_last))
 
     def remove_person(self, db_person, hr_person):
         logger.debug('remove_person(%r, %r)',
@@ -153,7 +165,6 @@ class HRDataImport(object):
         self.update_basic(db_person, hr_person)
         self.update_external_ids(db_person, hr_person)
         self.update_names(db_person, hr_person)
-        # TODO: temporary - disable work title update
         self.update_titles(db_person, hr_person)
         self.update_contact_info(db_person, hr_person)
         self.update_affiliations(db_person, hr_person)
@@ -193,82 +204,14 @@ class HRDataImport(object):
 
     def update_external_ids(self, db_person, hr_person):
         """Update person in Cerebrum with appropriate external ids"""
-        logger.debug('update_external_ids(%r, %r), ids=%r',
-                     db_person.entity_id, hr_person, hr_person.external_ids)
-        hr_ids = set(
-            (self.co.EntityExternalId(i.id_type), i.external_id)
-            for i in hr_person.external_ids)
-        db_ids = set(
-            (self.co.EntityExternalId(r['id_type']), r['external_id'])
-            for r in db_person.get_external_id(
-                source_system=self.source_system))
-
-        # All id-types that only exist in one of the sets
-        to_remove = set(t[0] for t in db_ids) - set(t[0] for t in hr_ids)
-        to_add = set(t[0] for t in hr_ids) - set(t[0] for t in db_ids)
-
-        # All id-types in both sets that differ in *value*
-        to_update = set(t[0] for t in (hr_ids - db_ids)) - to_add
-
-        logger.info('external_id: changes for id=%r, '
-                    'add=%r, update=%r, remove=%r',
-                    db_person.entity_id,
-                    sorted(six.text_type(c) for c in to_add),
-                    sorted(six.text_type(c) for c in to_update),
-                    sorted(six.text_type(c) for c in to_remove))
-
-        if not any(to_remove | to_add | to_update):
-            return
-
-        db_person.affect_external_id(
-            self.source_system,
-            *(to_remove | to_add | to_update))
-        for id_type, id_value in hr_ids:
-            db_person.populate_external_id(
-                self.source_system, id_type, id_value)
-        db_person.write_db()
+        hr_ids = tuple((i.id_type, i.external_id)
+                       for i in hr_person.external_ids)
+        self._sync_ids(db_person, hr_ids)
 
     def update_names(self, db_person, hr_person):
-        """Update person in Cerebrum with fresh names"""
-        logger.debug('update_names(%r, %r)', db_person.entity_id, hr_person)
-
-        def _get_name_type(name_type):
-            """Try to get the name of a specific type from cerebrum"""
-            try:
-                return db_person.get_name(self.source_system, name_type)
-            except Errors.NotFoundError:
-                return None
-
-        crb_first_name = _get_name_type(self.co.name_first)
-        crb_last_name = _get_name_type(self.co.name_last)
-
-        names = ((self.co.name_first, crb_first_name, hr_person.first_name),
-                 (self.co.name_last, crb_last_name, hr_person.last_name))
-
-        changes = tuple((name_type, hr_name)
-                        for name_type, crb_name, hr_name in names
-                        if crb_name != hr_name)
-        name_types = tuple(name_type for name_type, _ in changes)
-
-        logger.info('names: changes for id=%r, type=%r',
-                    db_person.entity_id, name_types)
-
-        if not changes:
-            return
-
-        db_person.affect_names(self.source_system, *name_types)
-
-        for name_type, name in changes:
-            if name is None:
-                logger.info(
-                    'names: clearing id=%r, name_type=%r',
-                    db_person.entity_id, name_type)
-            else:
-                logger.info(
-                    'names: setting id=%r, name_type=%r',
-                    db_person.entity_id, name_type)
-                db_person.populate_name(name_type, name)
-        db_person.write_db()
+        names = (('FIRST', hr_person.first_name),
+                 ('LAST', hr_person.last_name))
+        self._sync_name(db_person, names)
 
     def update_titles(self, db_person, hr_person):
         """Update person in Cerebrum with work and personal titles"""
@@ -312,150 +255,38 @@ class HRDataImport(object):
 
     def update_contact_info(self, db_person, hr_person):
         """Update person in Cerebrum with contact information"""
-        logger.debug('update_contact_info(%r, %r), contacts=%r',
-                     db_person.entity_id, hr_person, hr_person.contact_infos)
-        hr_contacts = {
-            self.co.ContactInfo(c.contact_type): (c.contact_value,
-                                                  c.contact_pref)
-            for c in hr_person.contact_infos}
+        hr_contacts = tuple((c.contact_type, c.contact_value)
+                            for c in hr_person.contact_infos)
+        self._sync_cinfo(db_person, hr_contacts)
 
-        db_contacts = {
-            self.co.ContactInfo(row['contact_type']): (row['contact_value'],
-                                                       row['contact_pref'])
-            for row in db_person.get_contact_info(source=self.source_system)}
-
-        to_remove = set(db_contacts) - set(hr_contacts)
-        to_add = set(hr_contacts) - set(db_contacts)
-        to_update = set(ctype
-                        for ctype in (set(hr_contacts) & set(db_contacts))
-                        if hr_contacts[ctype] != db_contacts[ctype])
-
-        logger.info('contact_info: changes for id=%r, '
-                    'add=%d, update=%d, remove=%d',
-                    db_person.entity_id, len(to_add), len(to_update),
-                    len(to_remove))
-
-        for ctype in to_remove:
-            db_value, db_pref = db_contacts[ctype]
-            logger.info(
-                'contact_info: clearing id=%r, type=%s, pref=%r',
-                db_person.entity_id, ctype, db_pref)
-            db_person.delete_contact_info(source=self.source_system,
-                                          contact_type=ctype)
-
-        for ctype in to_update:
-            db_value, db_pref = db_contacts[ctype]
-            hr_value, hr_pref = hr_contacts[ctype]
-            logger.info(
-                'contact_info: updating id=%r, type=%s, pref=%r,%r',
-                db_person.entity_id, ctype, db_pref, hr_pref)
-            db_person.delete_contact_info(source=self.source_system,
-                                          contact_type=ctype)
-            db_person.add_contact_info(source=self.source_system, type=ctype,
-                                       value=hr_value, pref=hr_pref)
-
-        for ctype in to_add:
-            hr_value, hr_pref = hr_contacts[ctype]
-            logger.info('contact_info: adding id=%r, type=%s, pref=%r',
-                        db_person.entity_id, ctype, hr_pref)
-            db_person.add_contact_info(source=self.source_system, type=ctype,
-                                       value=hr_value, pref=hr_pref)
-
-    # TODO: should probaly be moved into sap_uio/dfo_sap subclasses
-    def get_ou(self, hr_ou_id):
-        """Find OU in cerebrum from ou_id given by the hr system"""
+    def get_ou(self, ident):
+        """ Find matching ou from a Greg orgunit dict. """
         ou = Factory.get('OU')(self.database)
-        if isinstance(hr_ou_id, int):
-            hr_ou_id = str(hr_ou_id)
+        if isinstance(ident, int):
+            ident = str(ident)
 
+        # TODO: Remove this (and the ..no.uio.sap import)
         if self.source_system == self.co.system_sap:
             try:
-                ou.find_stedkode(
-                    hr_ou_id[0:2],
-                    hr_ou_id[2:4],
-                    hr_ou_id[4:6],
-                    cereconf.DEFAULT_INSTITUSJONSNR
-                )
-            except Errors.NotFoundError:
-                raise NonExistentOuError("Invalid stedkode hr_ou_id=%r" %
-                                         hr_ou_id)
-            return ou
-
-        source_systems = (self.co.system_orgreg, self.co.system_manual)
-        for source in source_systems:
-            try:
-                ou.find_by_external_id(
-                    id_type=self.co.externalid_dfo_ou_id,
-                    external_id=hr_ou_id,
-                    source_system=source
-                )
-            except Errors.NotFoundError:
-                ou.clear()
-            else:
+                ou.find_sko(ident)
                 return ou
-        raise NonExistentOuError('Could not find OU by dfo_ou_id %r' %
-                                 hr_ou_id)
+            except Errors.NotFoundError:
+                raise NonExistentOuError("Invalid stedkode: " + repr(ident))
+
+        search = OuMatcher()
+        criterias = [('DFO_OU_ID', ident)]
+        try:
+            return search(self.database, criterias, required=True)
+        except Errors.NotFoundError:
+            raise NonExistentOuError("Invalid OU: " + repr(criterias))
 
     def update_affiliations(self, db_person, hr_person):
         """Update person in Cerebrum with the latest affiliations"""
-        logger.debug('update_affiliations(%r, %r), affs=%r',
-                     db_person.entity_id, hr_person, hr_person.affiliations)
-        # Create hr_affiliations dict
-        hr_affiliations = {}
+        aff_tuples = []
         for aff in hr_person.affiliations:
+            affstr = aff.affiliation + '/' + aff.status
             ou = self.get_ou(aff.ou_id)
             ou_id = ou.entity_id
-            affiliation = self.co.PersonAffiliation(aff.affiliation)
-            status = self.co.PersonAffStatus(aff.affiliation, aff.status)
-            aff_data = (ou_id, affiliation, status)
-            if aff_data not in hr_affiliations:
-                hr_affiliations[aff_data] = models.HRAffiliation(
-                    ou_id=ou_id, affiliation=affiliation,
-                    status=status, precedence=aff.precedence
-                )
-        # Create corresponding dict of info already in db
-        db_affiliations = {}
-        for aff in db_person.list_affiliations(
-                person_id=db_person.entity_id,
-                source_system=self.source_system
-        ):
-            ou_id = aff['ou_id']
-            affiliation = self.co.PersonAffiliation(aff['affiliation'])
-            status = self.co.PersonAffStatus(aff['status'])
-            aff_data = (ou_id, affiliation, status)
-            if aff_data not in db_affiliations:
-                db_affiliations[aff_data] = models.HRAffiliation(
-                    ou_id=ou_id, affiliation=affiliation,
-                    status=status,
-                    precedence=aff['precedence']
-                )
-        # aff in db, but not in hr: Remove!
-        for aff_desc, aff_data in db_affiliations.items():
-            if aff_desc not in hr_affiliations:
-                db_person.delete_affiliation(
-                    ou_id=aff_data.ou_id,
-                    affiliation=aff_data.affiliation,
-                    source=self.source_system)
-                logger.info(
-                    'affiliations: clearing id=%r, aff=%r, ou_id=%r, '
-                    'precedence=%r',
-                    db_person.entity_id, six.text_type(aff_data.status),
-                    aff_data.ou_id, aff_data.precedence)
-        # aff not in db, but in hr: Add!
-        for aff_desc, aff_data in hr_affiliations.items():
-            if aff_desc not in db_affiliations:
-                db_person.add_affiliation(
-                    source=self.source_system,
-                    ou_id=aff_data.ou_id,
-                    affiliation=aff_data.affiliation,
-                    status=aff_data.status,
-                    precedence=aff_data.precedence
-                )
-                logger.info(
-                    'affiliations: setting id=%r, aff=%r, ou_id=%r '
-                    'precedence=%r',
-                    db_person.entity_id,
-                    six.text_type(aff_data.affiliation),
-                    aff_data.ou_id,
-                    aff_data.precedence)
-        db_person.write_db()
+            aff_data = (affstr, ou_id)
+            aff_tuples.append(aff_data)
+        self._sync_affs(db_person, aff_tuples)
