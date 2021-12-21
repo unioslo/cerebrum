@@ -18,6 +18,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+from __future__ import print_function
 
 __doc__ = """Usage: %s
 
@@ -71,7 +72,7 @@ from Cerebrum.Constants import _SpreadCode
 ## to have more strict constraints than Cerebrum. It would probably be
 ## a good idea to create a cereconf variable to set the character set
 ## allowed.
-valid_groupname_chars = string.ascii_letters + string.digits + 'æÆøØåÅ-_. '
+valid_groupname_chars = string.ascii_letters + string.digits + 'ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½-_. '
 
 unknown_entities = {}
 
@@ -277,7 +278,7 @@ def assign_memberships(groupname, members):
             
 
 def usage():
-    print __doc__
+    print(__doc__)
 
 
 def main():

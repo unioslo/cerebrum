@@ -20,6 +20,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 """Bulk-update server_id on email targets"""
+from __future__ import print_function
 
 import getopt
 import sys
@@ -58,10 +59,10 @@ def mangle(from_server, to_server, commit):
 
     if commit:
         db.commit()
-        print 'Committed all changes'
+        print('Committed all changes')
     else:
         db.rollback()
-        print 'Rolled back all changes'
+        print('Rolled back all changes')
 
 
 def usage(code=0):

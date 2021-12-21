@@ -36,6 +36,7 @@ person/account. Each line has four fields separated by ':'.
 no_ssn  -- 11-digit Norwegian social security number (personnummer)
 uname   -- account name
 """
+from __future__ import print_function
 
 import datetime
 import getopt
@@ -263,13 +264,13 @@ def reserve_user(owner_id, uname, maxlen):
 
 
 def usage():
-    print """Usage      : import_uname.py
+    print("""Usage      : import_uname.py
     -d, --dryrun        : Run a fake import. Rollback after run.
     -f, --file          : File to parse.
     -r, --reserve-unames: Just reserve unames
     -m, --maxlen        : Max length of usernames
     -s, --set-names     : Set person names
-    """
+    """)
     sys.exit(0)
 
 

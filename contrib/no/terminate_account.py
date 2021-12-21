@@ -29,6 +29,7 @@ Improvements: - add some options to allow removal of some
                 account attributes only?
 
 """
+from __future__ import print_function
 
 import cereconf
 
@@ -44,8 +45,8 @@ logger = Factory.get_logger("console")
 
 def usage(errorcode = 0, message = None):
     if message:
-        print "%s\n" % message
-    print """Usage: %(script)s [--accounts ACCOUNTS] [--commit]
+        print("%s\n" % message)
+    print("""Usage: %(script)s [--accounts ACCOUNTS] [--commit]
 
     %(doc)s
 
@@ -62,7 +63,7 @@ def usage(errorcode = 0, message = None):
     e.g. by user_demote_posix. Some instances makes for instance use of
     BofhdRequest for backing up the user's home disk.
     """ % {'script': os.path.basename(sys.argv[0]),
-           'doc': __doc__}
+           'doc': __doc__})
     sys.exit(errorcode)
 
 def has_remains(db, entity_id):

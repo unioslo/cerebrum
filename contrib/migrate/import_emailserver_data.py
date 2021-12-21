@@ -34,6 +34,7 @@ account/e-mail. Each line has four fields separated by ';'.
 uname   -- account name
 server  -- email server account is registered at
 """
+from __future__ import print_function
 
 import getopt
 import sys
@@ -143,10 +144,10 @@ def process_email_srv_data(uname, account_id, email_srv):
     
 
 def usage():
-    print """Usage: import_uname_mail.py
+    print("""Usage: import_uname_mail.py
     -d, --dryrun  : Run a fake import. Rollback after run.
     -f, --file    : File to parse.
-    """
+    """)
     sys.exit(0)
 # end usage
 

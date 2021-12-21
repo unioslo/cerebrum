@@ -20,6 +20,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 # $Id$
+from __future__ import print_function
 
 import sys
 import getopt
@@ -40,7 +41,7 @@ Usage: %s [options]
 
    <no_ssn>:<uname>:<lastname>:<firstname>
 
-   no_ssn    -- 11-digit Norwegian social security number (fødselsnummer)
+   no_ssn    -- 11-digit Norwegian social security number (fï¿½dselsnummer)
    uname     -- Account name = student ID-number
    lastname  -- Last name of the person in question
    firstname -- First name of the person in question
@@ -62,9 +63,8 @@ def usage(message=None):
     
     """
     if message is not None:
-        print >>sys.stderr, "\n%s" % message
-        
-    print >>sys.stderr, __doc__
+        print("\n%s" % message, file=sys.stderr)  
+    print(__doc__, file=sys.stderr)
 
 
 def main(argv=None):

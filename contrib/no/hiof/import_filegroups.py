@@ -38,6 +38,7 @@ maccount - user names of the groups account members
 
 * - zero or more
 """
+from __future__ import print_function
 
 import getopt
 import sys
@@ -151,11 +152,11 @@ def process_members(gname, mem):
 
 
 def usage():
-    print """Usage: import_filegroups.py
+    print("""Usage: import_filegroups.py
     -d, --dryrun  : Run a fake import. Rollback after run.
     -f, --file    : File to parse.
     -s, --spread (spread_nis_fg|spread_ans_nis_fg)
-    """
+    """)
 
 
 def main():

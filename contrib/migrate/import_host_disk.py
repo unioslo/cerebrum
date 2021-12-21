@@ -20,6 +20,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 """ Register hosts, disks or e-mail servers in Cerebrum from input file. """
+from __future__ import print_function
 
 import getopt
 import sys
@@ -33,7 +34,7 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
 
 def usage(exitcode=0):
-    print """Usage: import_host_disk.py -h hostname -d diskpath
+    print("""Usage: import_host_disk.py -h hostname -d diskpath
                     import_host_disk.py -f filename
 
     Register hosts, disks or e-mail servers in Cerebrum from input file.
@@ -62,7 +63,7 @@ def usage(exitcode=0):
 
     --dryrun            Do not commit the changes
     --help              Show this and quit
-    """
+    """)
     sys.exit(exitcode)
 
 def register_host(hname, description="A host"):
@@ -202,7 +203,7 @@ def main():
                                     'help',
                                     'dryrun'])
     except getopt.GetoptError, e:
-        print e
+        print(e)
         usage(1)
 
     dryrun = False
@@ -226,7 +227,7 @@ def main():
             usage()
 
     if not (host_in or disk_in) and infile == None:
-        print "Missing input file and/or -d or -h"
+        print("Missing input file and/or -d or -h")
         usage(1)
 
     if infile and (host_in or disk_in):

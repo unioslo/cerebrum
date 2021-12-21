@@ -30,7 +30,8 @@ The files read are formated as:
 
 gname - name of the group to be registered/updated
 """
- 
+from __future__ import print_function
+
 import getopt
 import sys
 import time
@@ -79,10 +80,10 @@ def process_group(name, description = None):
 
 
 def usage():
-    print """Usage: import_ownergroups.py
+    print("""Usage: import_ownergroups.py
     -d, --dryrun  : Run a fake import. Rollback after run.
     -f, --file    : File to parse.
-    """
+    """)
 
 
 def main():

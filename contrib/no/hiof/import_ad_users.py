@@ -44,8 +44,8 @@ Tasks:
 * set user <-> homedir trait
 
 """
-
-## Note that the script don't care about earlier imported data.
+from __future__ import print_function
+## Note that the script doesn't care about earlier imported data.
 ## Previous data for the users imported will be overridden. Thus all
 ## AD users should be imported in the same session.
 
@@ -200,10 +200,10 @@ def process_user(uname, homedir, spread, ou, domain):
 
 
 def usage():
-    print """Usage: import_ad_users.py
+    print("""Usage: import_ad_users.py
     -d, --dryrun  : Run a fake import. Rollback after run.
     -f, --file    : File to parse.
-    """
+    """)
 
 
 
