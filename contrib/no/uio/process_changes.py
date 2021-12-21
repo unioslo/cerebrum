@@ -35,7 +35,7 @@ into a bigger script, perhaps with some plugin-like structure for
 subscribing to certain event types.
 
 """
-
+from __future__ import print_function
 from __future__ import unicode_literals
 
 import os
@@ -318,7 +318,7 @@ def process_changes():
 
 
 def usage(exitcode=0):
-    print """process_changes.py [options]
+    print("""process_changes.py [options]
 
     -h | --help
     -i | --insert account_name
@@ -327,7 +327,7 @@ def usage(exitcode=0):
         Enable debugging in remote scripts, where avaliable
     --debug-hosts <comma-serparated list>
         limit rsh targets to hosts in host_info
-    """
+    """)
     sys.exit(exitcode)
 
 
@@ -359,7 +359,7 @@ def main():
             process_changes()
         elif opt == '--debug-hosts':
             debug_hostlist = val.split(",")
-            print debug_hostlist
+            print(debug_hostlist)
 
 
 if __name__ == '__main__':

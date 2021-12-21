@@ -18,6 +18,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+from __future__ import print_function
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
@@ -44,11 +45,11 @@ def main():
                         break
                 else:
                     dom.add_category(co.email_domain_category_uio_globals)
-                    print "Added: %d: %s" % (dom.entity_id, domain)
+                    print("Added: %d: %s" % (dom.entity_id, domain))
             except Errors.NotFoundError:
-                print "Not found: %s" % domain
+                print("Not found: %s" % domain)
         else:
-            print "Omitted: %s" % domain
+            print("Omitted: %s" % domain)
     db.commit()
 
 

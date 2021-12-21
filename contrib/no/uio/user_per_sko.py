@@ -18,7 +18,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
+from __future__ import print_function
 from __future__ import unicode_literals
 
 """
@@ -170,9 +170,9 @@ def display_statistics(statistics):
 
     values = (u"navn",) + tuple([x[0:field_width] for x in keys])
     enc = locale.getpreferredencoding()
-    print (((fak_format + u"|") % u"fak") +
-           ((field_format + u"|") * len(values)) % values).encode(enc)
-    print (u"%s%s" % (fak_underline, field_underline * len(values))).encode(enc)
+    print((((fak_format + u"|") % u"fak") +
+           ((field_format + u"|") * len(values)) % values).encode(enc))
+    print((u"%s%s" % (fak_underline, field_underline * len(values))).encode(enc))
 
     def output_fak(faculty, value):
         if isinstance(faculty, types.TupleType):
@@ -186,7 +186,7 @@ def display_statistics(statistics):
         for key in keys:
             message += "|" + field_format % value[key]
 
-        print message.encode(enc)
+        print(message.encode(enc))
 
     for faculty in faculty_keys:
         value = statistics[faculty]
@@ -196,14 +196,14 @@ def display_statistics(statistics):
                 text = u'%02d****' % faculty[0]
             else:
                 text = faculty + u' *'
-            # print (u"%s%s" % (fak_underline,
-            #                  field_underline * len(values))).encode(enc)
+            # print ((u"%s%s" % (fak_underline,
+            #                  field_underline * len(values))).encode(enc))
             output_fak(text, value['cum'])
         output_fak(faculty, value)
         for key in keys:
             total[key] += value[key]
 
-    print ("%s%s" % (fak_underline, field_underline * len(values))).encode(enc)
+    print(("%s%s" % (fak_underline, field_underline * len(values))).encode(enc))
 
     message = (fak_format + u"|") % u"Total" + (field_format + u"|") % u"--"
     summa = 0
@@ -215,8 +215,8 @@ def display_statistics(statistics):
         else:
             nosumma += total[key]
 
-    print message.encode(enc), (field_format % '{} (+{})'.format(summa, nosumma)
-                                .encode(enc))
+    print(message.encode(enc), (field_format % '{} (+{})'.format(summa, nosumma)
+                                .encode(enc)))
 
 
 def purge_0rows(statistics):

@@ -55,6 +55,7 @@ The script tags people in the following order:
 
 """
 
+from __future__ import print_function
 from __future__ import unicode_literals
 
 import sys
@@ -76,7 +77,7 @@ count_resrv_true = count_resrv_false = 0
 
 
 def usage(exitcode=0):
-    print """Usage: %(scriptname)s --employee AFFS --student AFFS [--commit]
+    print("""Usage: %(scriptname)s --employee AFFS --student AFFS [--commit]
 
     %(doc)s
 
@@ -119,7 +120,7 @@ def usage(exitcode=0):
     --help          Show this and quit.
 
     """ % {'scriptname': sys.argv[0],
-           'doc': __doc__}
+           'doc': __doc__})
     sys.exit(exitcode)
 
 
@@ -278,7 +279,7 @@ if __name__ == '__main__':
                                     'student=',
                                     'employee='])
     except getopt.GetoptError, e:
-        print e
+        print(e)
         usage(1)
 
     with_commit = False
@@ -297,14 +298,14 @@ if __name__ == '__main__':
         elif opt in ('--employee',):
             update_affiliations(val, emplaffs)
         else:
-            print "Unknown arg: %s" % opt
+            print("Unknown arg: %s" % opt)
             usage(1)
 
     if not emplaffs:
-        print "No employee affiliations given."
+        print("No employee affiliations given.")
         usage(1)
     if not studaffs:
-        print "No student affiliations given."
+        print("No student affiliations given.")
         usage(1)
 
     process(with_commit=with_commit, studaffs=studaffs, emplaffs=emplaffs)

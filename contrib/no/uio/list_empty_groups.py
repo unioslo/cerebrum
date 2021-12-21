@@ -25,6 +25,7 @@ only expired members, and thus may probably be eligible to removal.
 The information returned is ID, name, description (if available), group's
 admin (if available).
 """
+from __future__ import print_function
 
 import getopt
 import sys
@@ -87,9 +88,8 @@ def print_empty_groups_info(groups, output_stream):
         output_stream.write("\n")
 
 def usage():
-    print "***********************************"
-    print "Usage: python list_empty_groups.py [-f path_to_output_file]",  
-    print "[-h, --help]"
+    print("***********************************")
+    print("Usage: python list_empty_groups.py [-f path_to_output_file] [-h, --help]")
     exit(0)
 
 def main():
@@ -101,7 +101,7 @@ def main():
     output_filename = "stdout" 
     for opt, arg in options:
         if opt == '-h' or opt == '--help':
-            print __doc__
+            print(__doc__)
             usage()
         elif opt == '-f':
             output_filename = arg
