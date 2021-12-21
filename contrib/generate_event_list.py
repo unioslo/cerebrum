@@ -20,6 +20,8 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """Generates a JSON file with events."""
 
+from __future__ import print_function
+
 from Cerebrum.Utils import Factory
 from Cerebrum.utils import json
 

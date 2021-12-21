@@ -23,6 +23,8 @@
 Can be further restricted to users on a specific host or disk
 
 """
+
+from __future__ import print_function
 import datetime
 import getopt
 import sys
@@ -113,7 +115,7 @@ def main():
             try:
                 int(spread)
             except Errors.NotFoundError:
-                print "Unknown spread code:", val
+                print("Unknown spread code:", val)
         elif opt in ('-d',):
             diskname = val
         elif opt in ('-h',):
@@ -126,14 +128,14 @@ def main():
 
 
 def usage(exitcode=64):
-    print """Usage: [options]
+    print("""Usage: [options]
 List disk quotas for all users.
 Options:
     -t OUTPUT-FILE  (required)
     -s SPREAD       (required)
     -h HOST         restrict listing to users on HOST
     -d DISK         restrict listing to users on DISK (path)
-"""
+""")
     sys.exit(exitcode)
 
 

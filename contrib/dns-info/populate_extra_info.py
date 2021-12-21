@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+from __future__ import print_function
+
 import getopt
 import sys
 import re
@@ -83,12 +85,12 @@ def main():
         usage(1)
 
 def usage(exitcode=0):
-    print """Usage: [options]
+    print("""Usage: [options]
     Maintain various extra info, typically ran regulatly by a cronjob.
     Currently supported jobs are:
     
     --hinfo fname: Fix HINFO entries.
-    """
+    """)
     sys.exit(exitcode)
 
 if __name__ == '__main__':

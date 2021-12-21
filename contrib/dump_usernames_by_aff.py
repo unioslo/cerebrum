@@ -21,6 +21,7 @@
 
 # $Id$
 
+from __future__ import print_function
 import sys
 import getopt
 
@@ -66,9 +67,9 @@ def usage(message=None):
 
     """
     if message is not None:
-        print >>sys.stderr, "\n%s" % message
+        print("\n%s" % message, file=sys.stderr)
 
-    print >>sys.stderr, __doc__
+    print(__doc__, file=sys.stderr)
 
 
 def main(argv=None):

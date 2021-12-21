@@ -30,6 +30,8 @@
 # - receipt.html must contain the string @MSG@ which will be replaced
 #   with a message describing how the operation went.
 
+from __future__ import print_function
+
 import cgi
 # import cgitb; cgitb.enable(display=0, logdir="/tmp")
 import xmlrpclib
@@ -42,14 +44,14 @@ import cereconf
 def handle_request():
     form = cgi.FieldStorage()
 
-    print "Content-type: text/html\n"
+    print("Content-type: text/html\n")
 
     if not form.has_key("action"):
-        print get_tpl("passweb_form.html")
+        print(get_tpl("passweb_form.html"))
     else:
         msg = change_password(form)
         tpl = get_tpl("passweb_receipt.html")
-        print tpl.replace("@MSG@", msg)
+        print(tpl.replace("@MSG@", msg))
 
 def get_tpl(name):
     f = open("%s/%s" % (cereconf.TEMPLATE_DIR, name), 'rb')
