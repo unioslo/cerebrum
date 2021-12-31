@@ -144,7 +144,7 @@ def _determine_affiliations(db, const, pe, person):
     :param pe: A populated Cerebrum.Person object to calculate affs for
     :param person: A dict with person data.
     """
-    paga_nr = int(person['ansattnr'])
+    paga_nr = str(person['ansattnr'])
     ret = {}
     tittel = None
     prosent_tilsetting = -1
@@ -398,7 +398,7 @@ class PersonProcessor(object):
         :param person_dict: A dict-like person object.
         """
         try:
-            employee_id = int(person['ansattnr'])
+            employee_id = str(person['ansattnr'])
         except Exception:
             logger.error('Unable to process paga_id=%r, invalid identifier',
                          person['ansattnr'])
@@ -416,7 +416,7 @@ class PersonProcessor(object):
     def _process_person(self, person):
         db = self.db
         const = self.const
-        paga_nr = int(person['ansattnr'])
+        paga_nr = str(person['ansattnr'])
         logger.info("Processing paga_id=%r", paga_nr)
 
         try:
