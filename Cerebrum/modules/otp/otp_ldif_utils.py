@@ -35,6 +35,7 @@ from __future__ import unicode_literals
 
 import logging
 
+import six
 from six.moves.urllib.parse import quote
 
 from Cerebrum.Utils import make_timer
@@ -208,6 +209,7 @@ class RadiusOtpMixin(PosixLDIFRadius):
 
     radius_otp_type = 'radius-otp'
     radius_otp_attr = 'uioRadiusOtpSecret'
+    radius_otp_class = 'uioAccountObject'
     radius_otp_fmt = '{secret}'
 
     @property
@@ -220,6 +222,9 @@ class RadiusOtpMixin(PosixLDIFRadius):
         return cache
 
     def update_user_entry(self, account_id, entry, owner_id):
+        super(RadiusOtpMixin, self).update_user_entry(account_id, entry,
+                                                      owner_id)
+
         try:
             entry[self.radius_otp_attr] = format_ldap_value(
                 self.radius_otp_fmt,
@@ -227,6 +232,7 @@ class RadiusOtpMixin(PosixLDIFRadius):
             )
         except LookupError:
             pass
-
-        return super(RadiusOtpMixin, self).update_user_entry(account_id,
-                                                             entry, owner_id)
+        else:
+            entry['objectClass'] = attr_unique(
+                entry.get('objectClass', []) + [self.radius_otp_class],
+                six.text_type.lower)
