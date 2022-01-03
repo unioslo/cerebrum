@@ -72,7 +72,7 @@ from Cerebrum.Constants import _SpreadCode
 ## to have more strict constraints than Cerebrum. It would probably be
 ## a good idea to create a cereconf variable to set the character set
 ## allowed.
-valid_groupname_chars = string.ascii_letters + string.digits + '������-_. '
+valid_groupname_chars = string.ascii_letters + string.digits + '??????-_. '
 
 unknown_entities = {}
 

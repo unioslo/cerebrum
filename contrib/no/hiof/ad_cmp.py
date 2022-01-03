@@ -2,7 +2,7 @@
 # -*- coding: iso-8859-1 -*-
 
 '''
-For � dumpe data fra AD, gj�r noe ala:
+For ? dumpe data fra AD, gj?r noe ala:
 
 DN="DC=w2k3test,DC=uio,DC=no"
 ATTRS="cn,displayName,memberOf,homeDirectory,sAMAccountName,homeDrive,givenName,sn,profilePath,mail"
