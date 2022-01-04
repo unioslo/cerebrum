@@ -72,10 +72,15 @@ def update_person(logger, person, constants, source_system):
 def update_person_with_titles(logger, person, constants, source_system):
     """Remove base and title information from persons."""
     update_person(logger, person, constants, source_system)
-    clean_titles(person, [(constants.work_title, constants.language_en),
-                          (constants.work_title, constants.language_nb),
-                          (constants.personal_title, constants.language_en),
-                          (constants.personal_title, constants.language_nb)])
+    if not (constants.affiliation_ansatt in
+            [r['affiliation'] for r in person.get_affiliations()]):
+        clean_titles(person, [(constants.work_title, constants.language_en),
+                              (constants.work_title, constants.language_nb),
+                              (constants.personal_title, constants.language_en),
+                              (constants.personal_title, constants.language_nb)])
+    else:
+        logger.debug("Not cleaning title. "
+                     "Employee affiliation active in a source system")
 
 
 def perform(cleaner, committer, logger, person, constants, selection):
@@ -276,6 +281,7 @@ def parse_it():
 
     system_to_cleaner = {'FS': update_person,
                          'SAP': update_person_with_titles,
+                         'DFO_SAP': update_person_with_titles,
                          'EKSTENS': update_person}
 
     system_to_selectors = {'FS': [select_addresses,
@@ -285,6 +291,10 @@ def parse_it():
                                    select_contact_info,
                                    select_titles,
                                    select_names],
+                           'DFO_SAP': [select_addresses,
+                                       select_contact_info,
+                                       select_titles,
+                                       select_names],
                            'EKSTENS': [select_addresses,
                                        select_contact_info,
                                        select_names]}
