@@ -59,29 +59,6 @@ class AccountUiOMixin(Account.Account):
         # control to our superclass(es), as the superclass methods
         # might change the state.
         #
-        # exchange-relatert-jazz
-        # this code (up to and including 'pass') may be removed
-        # after Exchange roll-out, as it has been decided that all
-        # new mail-boxes will be created in Exchange and any old
-        # mailboxes restored to Exchange
-        # Jazz (2013-11)
-        state = {}
-        if spread == self.const.spread_uio_imap:
-            # exchange-relatert-jazz
-            # no account should have both IMAP and Exchange spread at the
-            # same time, as this will create a double mailbox
-            if self.has_spread(self.const.spread_exchange_account):
-                raise self._db.IntegrityError("Can't add IMAP-spread to an "
-                                              "account with Exchange-spread.")
-            # Is this account already associated with an Cyrus
-            # EmailTarget?
-            et = Email.EmailTarget(self._db)
-            try:
-                et.find_by_target_entity(self.entity_id)
-                if et.email_server_id:
-                    state['email_server_id'] = et.email_server_id
-            except Errors.NotFoundError:
-                pass
 
         if spread == self.const.spread_exchange_account:
             # no account should have both IMAP and Exchange spread at the
@@ -145,26 +122,7 @@ class AccountUiOMixin(Account.Account):
             # server, try generating email addresses connected to the
             # target.
             self.update_email_addresses()
-        # exchange-relatert-jazz
-        # this code (up to and including 'update_email_addresse')
-        # may be removed after Exchange roll-out, as it has been
-        # decided that all new mail-boxes will be created in Exchange
-        # and any old mailboxes restored to Exchange
-        # Jazz (2013-11)
-        if spread == self.const.spread_uio_imap:
-            # Unless this account already has been associated with an
-            # Cyrus EmailTarget, we need to do so.
-            et = self._UiO_update_email_server(
-                self.const.email_server_type_cyrus)
-            self.update_email_quota()
-            # register default spam and filter settings
-            self._UiO_default_spam_settings(et)
-            self._UiO_default_filter_settings(et)
-            # The user's email target is now associated with an email
-            # server; try generating email addresses connected to the
-            # target.
-            self.update_email_addresses()
-        elif spread == self.const.spread_ifi_nis_user:
+        if spread == self.const.spread_ifi_nis_user:
             # Add an account_home entry pointing to the same disk as
             # the uio spread
             try:
@@ -193,22 +151,6 @@ class AccountUiOMixin(Account.Account):
                 spread == self.const.spread_uio_nis_user):
             self.clear_home(spread)
 
-        # Remove IMAP user
-        # TBD: It is currently a bit uncertain who and when we should
-        # allow this.  Currently it should only be used when deleting
-        # a user.
-        # exchange-related-jazz
-        # this code, up to and including the TBD should be removed
-        # when migration to Exchange is completed as it wil no longer
-        # be needed. Jazz (2013-11)
-        #
-        if (spread == self.const.spread_uio_imap and
-                int(self.const.spread_uio_imap) in spreads):
-            et = Email.EmailTarget(self._db)
-            et.find_by_target_entity(self.entity_id)
-            self._UiO_order_cyrus_action(self.const.bofh_email_delete,
-                                         et.email_server_id)
-            # TBD: should we also perform a "cascade delete" from EmailTarget?
         # exchange-relatert-jazz
         # Due to the way Exchange is updated we no longer need to
         # register a delete request in Cerebrum. Setting target_type
@@ -279,31 +221,6 @@ class AccountUiOMixin(Account.Account):
                 esf.write_db()
 
     # exchange-relatert-jazz
-    # after Exchange migration is completed this method should be
-    # removed as it will no longer be necessary due to the Exchange
-    # updates being event based. It may even be possible to remove the
-    # method after Exchange roll-out and before migration is completed
-    # if we are sure that no imap-accounts will be moved between
-    # servers after roll-out. Jazz (2013-11)
-    def _UiO_order_cyrus_action(self, action, destination, state_data=None):
-        br = BofhdRequests(self._db, self.const)
-        # If there are any registered BofhdRequests for this account
-        # that would conflict with 'action', remove them.
-        for anti_action in br.get_conflicts(action):
-            for r in br.get_requests(entity_id=self.entity_id,
-                                     operation=anti_action):
-                self.logger.info("Removing BofhdRequest #%d: %r",
-                                 r['request_id'], r)
-                br.delete_request(request_id=r['request_id'])
-        # If the ChangeLog module knows who the user requesting this
-        # change is, use that knowledge.  Otherwise, set requestor to
-        # None; it's the best we can do.
-        requestor = getattr(self._db, 'change_by', None)
-        # Register a BofhdRequest to create the mailbox.
-        br.add_request(requestor, br.now, action, self.entity_id, destination,
-                       state_data=state_data)
-
-    # exchange-relatert-jazz
     # added a check for reservation from electronic listing
     def owner_has_e_reservation(self):
         # this method may be applied to any Cerebrum-instances that
@@ -335,123 +252,6 @@ class AccountUiOMixin(Account.Account):
         domains.append(self.const.group_namespace)
         return domains
 
-    # exchange-relatert-jazz
-    # after Exchange roll-out this method should be removed as it will
-    # no longer be necessary due to the server-data not being kept in
-    # Cerebrum for Exchange mailboxes. This method must not be used at
-    # restore of mailboxes after Exchange roll-out or at creation of
-    # Exchange mailboxes. The method is made void by 'add_spread
-    # override here. Jazz (2013-11)
-    #
-    def _UiO_update_email_server(self, server_type):
-        """Due to diverse legacy stuff and changes in server types as
-           well as requirements for assigning e-mail accounts this
-           process is getting rather complicated. The email servers are
-           now assigned as follows:
-
-            - create on new server, update target_type = CNS
-            - create on old server, update target_type = COS
-            - move to new server   = MNS
-
-       t_type/srv_type| none| cyrus, active| cyrus,non-active| non-cyrus
-       ------------------------------------------------------------------
-       target_deleted | CNS | COS          | CNS             | CNS
-       ------------------------------------------------------------------
-       target_account | MNS | PASS         | MNS             | MNS
-       ------------------------------------------------------------------
-        """
-
-        et = Email.EmailTarget(self._db)
-        es = Email.EmailServer(self._db)
-        new_server = None
-        old_server = None
-        srv_is_cyrus = False
-        email_server_in_use = False
-        target_type = self.const.email_target_account
-        # Find the account's EmailTarget
-        try:
-            et.find_by_target_entity(self.entity_id)
-            if et.email_target_type == self.const.email_target_deleted:
-                target_type = self.const.email_target_deleted
-        except Errors.NotFoundError:
-            # No EmailTarget found for account, creating one
-            et.populate(self.const.email_target_account,
-                        self.entity_id,
-                        self.const.entity_account)
-            et.write_db()
-        # Find old server id and type
-        try:
-            old_server = et.email_server_id
-            es.find(old_server)
-            if es.email_server_type == self.const.email_server_type_cyrus:
-                srv_is_cyrus = True
-            email_server_in_use = es.get_trait(
-                self.const.trait_email_server_weight)
-        except Errors.NotFoundError:
-            pass
-        # Different actions for target_type deleted and account
-        if target_type == self.const.email_target_account:
-            if srv_is_cyrus and email_server_in_use:
-                # both target and server type er ok, do nothing
-                pass
-            elif old_server is None:
-                # EmailTarget with no registered server
-                new_server = self._pick_email_server()
-                et.email_server_id = new_server
-                et.write_db()
-                self._UiO_order_cyrus_action(self.const.bofh_email_create,
-                                             new_server)
-            else:
-                # cyrus_nonactive or non_cyrus
-                new_server = self._pick_email_server()
-                et.email_server_id = new_server
-                et.write_db()
-        elif target_type == self.const.email_target_deleted:
-            if srv_is_cyrus and email_server_in_use:
-                # Create cyrus account on active server
-                self._UiO_order_cyrus_action(self.const.bofh_email_create,
-                                             old_server)
-            else:
-                # Pick new server and create cyrus account
-                new_server = self._pick_email_server()
-                et.email_server_id = new_server
-                et.write_db()
-                self._UiO_order_cyrus_action(self.const.bofh_email_create,
-                                             new_server)
-        return et
-
-    # exchange-relatert-jazz
-    # after Exchange roll-out this method should be removed as it will
-    # no longer be necessary due to the server-data not being kept in
-    # Cerebrum for Exchange mailboxes. See also
-    # _UiO_update_email_server() Jazz (2013-11)
-    #
-    def _pick_email_server(self):
-            # We try to spread the usage across servers, but want a
-            # random component to the choice of server.  The choice is
-            # weighted, although the determination of weights happens
-            # externally to Cerebrum since it is a relatively
-            # expensive operation (can take several seconds).
-            # Typically the weight will vary with the amount of users
-            # already assigned, the disk space available or similar
-            # criteria.
-            #
-            # Servers MUST have a weight trait to be considered for
-            # allocation.
-        es = Email.EmailServer(self._db)
-        user_weight = {}
-        total_weight = 0
-        for row in es.list_traits(self.const.trait_email_server_weight):
-            total_weight += row['numval']
-            user_weight[row['entity_id']] = row['numval']
-
-        pick = random.randint(0, total_weight - 1)
-        for svr_id in user_weight:
-            pick -= user_weight[svr_id]
-            if pick <= 0:
-                break
-        return svr_id
-
     def illegal_name(self, name):
         # Avoid circular import dependency
         from Cerebrum.modules.PosixUser import PosixUser
@@ -477,48 +277,6 @@ class AccountUiOMixin(Account.Account):
             for row in ea.search(local_part=uname, filter_expired=False):
                 return False
         return self.__super.validate_new_uname(domain, uname)
-
-    # exchange-relatert-jazz
-    # For Exchange mailboxes the use of GECOS is void and should be
-    # dropped. After Exchange migration is completed, this override
-    # may be dropped as using super will be sufficient. Jazz (2013-11)
-    #
-    def update_email_addresses(self):
-        """Update an accounts email addresses and quotas."""
-        spreads = [r['spread'] for r in self.get_spread()]
-        if self.const.spread_uio_imap in spreads:
-            # Make sure the email target of this account is associated
-            # with an appropriate email server.  We must do this before
-            # super, since without an email server, no target or address
-            # will be created.
-            self._UiO_update_email_server(self.const.email_server_type_cyrus)
-            self.update_email_quota()
-            return self.__super.update_email_addresses()
-        elif self.const.spread_exchange_account in spreads:
-            self.__super.update_email_addresses()
-            # Append the default domain for exchange accounts! This should
-            # probably be done elsewhere, but the code is so complex, that
-            # we'll have to live with this solution, until we redesign the
-            # email-module, or force the postmasters to write their own
-            # address-management system.
-            et = Factory.get('EmailTarget')(self._db)
-            ea = Email.EmailAddress(self._db)
-            ed = Email.EmailDomain(self._db)
-            try:
-                ed.find_by_domain(
-                    cereconf.EXCHANGE_DEFAULT_ADDRESS_PLACEHOLDER)
-                et.find_by_target_entity(self.entity_id)
-            except Errors.NotFoundError:
-                return
-            else:
-                try:
-                    ea.find_by_local_part_and_domain(self.account_name,
-                                                     ed.entity_id)
-                except Errors.NotFoundError:
-                    ea.populate(self.account_name, ed.entity_id, et.entity_id,
-                                expire=None)
-                    ea.write_db()
-            return self.update_email_quota()
 
     def is_employee(self):
         for r in self.get_account_types():

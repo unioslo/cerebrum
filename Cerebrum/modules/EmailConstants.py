@@ -195,11 +195,6 @@ class EmailConstants(Constants.Constants):
         'nfsmbox',
         "Server delivers mail as mbox-style mailboxes over NFS.")
 
-    email_server_type_cyrus = _EmailServerTypeCode(
-        'cyrus_IMAP',
-        "Server is a Cyrus IMAP server, which keeps mailboxes in a "
-        "Cyrus-specific format.")
-
     email_server_type_sympa = _EmailServerTypeCode(
         'sympa',
         "Server is a Sympa mailing list server.")
