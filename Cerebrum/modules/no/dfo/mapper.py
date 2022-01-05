@@ -28,13 +28,13 @@ import logging
 
 import six
 
-from Cerebrum.modules.user_titles import UserTitles
 from Cerebrum.modules.hr_import import mapper as _base
 from Cerebrum.modules.hr_import.models import (HRPerson,
                                                HRTitle,
                                                HRAffiliation,
                                                HRExternalID,
                                                HRContactInfo)
+from Cerebrum.modules.no.dfo import title_maps
 from Cerebrum.modules.no.dfo.utils import assert_list, parse_date
 from Cerebrum.utils.phone import format as phone_number_format, \
     parse as phone_number_parse, NumberParseException
@@ -331,66 +331,27 @@ class EmployeeMapper(_base.AbstractMapper):
         :rtype: set(HRTitle)
         """
         titles = set()
-        user_titles_object = UserTitles()
 
-        personal_title = person_data.get('tittel')
-
-        if personal_title:
-            titles.add(
-                HRTitle(
-                    name_variant='PERSONALTITLE',
-                    name_language='nb',
-                    name=personal_title)
-            )
-
-            try:
-                eng_title = user_titles_object.extract_from_list(
-                    user_titles_object.translate(
-                        personal_title, 'norTitle', 'engTitle'))
-                if eng_title:
-                    titles.add(
-                        HRTitle(
-                            name_variant='PERSONALTITLE',
-                            name_language='en',
-                            name=eng_title)
-                    )
-                else:
-                    raise KeyError
-            except KeyError:
-                logger.warning('invalid or indeterministic translation for %s',
-                               parsed_name, exc_info=True)
-
-        # We only want the title of the main assignment
-        if not main_assignment:
-            return titles
-
-        name = main_assignment.get('stillingstittel')
-        if not name:
-            return titles
-
-        parsed_name = parse_title_name(name)
-
-        titles.add(
-            HRTitle(name_variant='WORKTITLE',
-                    name_language='nb',
-                    name=parsed_name)
+        input_titles = (
+            ('PERSONALTITLE', person_data.get('tittel'),
+             title_maps.personal_titles),
+            ('WORKTITLE', (main_assignment or {}).get('stillingstittel'),
+             title_maps.job_titles),
         )
-        try:
-            eng_title = user_titles_object.extract_from_list(
-                user_titles_object.translate(
-                    parsed_name, 'norTitle', 'engTitle'))
-            if eng_title:
-                titles.add(
-                    HRTitle(name_variant='WORKTITLE',
-                            name_language='en',
-                            name=eng_title)
-                )
+
+        for variant, raw_value, t_map in input_titles:
+            if not raw_value:
+                continue
+
+            localized = t_map.get(raw_value, {})
+
+            if localized:
+                for lang, value in localized.items():
+                    titles.add(HRTitle(name_variant=variant,
+                                       name_language=lang, name=value))
             else:
-                raise KeyError
-        except KeyError:
-            logger.warning('invalid or indeterministic translation for %s',
-                           parsed_name, exc_info=True)
-        logger.info('found %d titles: %r', len(titles), titles)
+                logger.warning('no translation for %s title %s',
+                               variant, repr(raw_value))
         return titles
 
     @staticmethod
