@@ -318,6 +318,14 @@ class PassWordIssues(BofhdCommonMethods):
         if not valid_affiliations:
             issues.append('No valid affiliatons')
         phones = [ent for ent in filter_mobilephones(self.co, contact_rows)]
+        valid_source_phone = False
+        for phone in phones:
+            if phone['ssys'] in (self.co.system_dfo_sap,
+                                 self.co.system_fs,):
+                valid_source_phone = True
+                break
+        if not valid_source_phone:
+            issues.append('No phone number from valid source system.')
         phone_table = merge_affs_and_phones(self.co, valid_affiliations, phones)
         if phone_table:
             if not any_valid_phones(self.ac, self.co, phone_table, fresh_account):
@@ -391,8 +399,8 @@ class BofhdExtension(BofhdCommandBase):
         The cause(s) of failure and/or possibly relevant additional
         information is returned.  There are two kinds of issues:
         Category I issues raises an error without further
-        testing. Cathegory II issues may require a bit more detective
-        work from Houston. COnsequently, all checks are performed in
+        testing. Category II issues may require a bit more detective
+        work from Houston. Consequently, all checks are performed in
         case more than one issue is present.  If no potential problems
         are found, this is clearly stated.
 
