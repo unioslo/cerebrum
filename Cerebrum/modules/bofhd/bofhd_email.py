@@ -1559,7 +1559,8 @@ class BofhdEmailCommands(BofhdEmailBase):
                          self.const.email_target_deleted):
             ret += self._email_info_spam(et)
             ret += self._email_info_filters(et)
-            ret += self._email_info_forwarding(et, name)
+            if ttype != self.const.email_target_forward:
+                ret += self._email_info_forwarding(et, name)
 
         return ret
 
