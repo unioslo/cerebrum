@@ -48,6 +48,12 @@ def pretty_const(value):
     return six.text_type(value)
 
 
+def pretty_const_pairs(value):
+    """ Format a CerebrumCode, or sequence of CerebrumCode values. """
+    return tuple(sorted((six.text_type(a) + '/' + six.text_type(b))
+                        for a, b in value))
+
+
 def get_const(co, cls, value):
     """ Get a CerebrumCode from a code intval, strval.
 
@@ -76,9 +82,7 @@ def get_const(co, cls, value):
 
 
 class _BaseSync(six.with_metaclass(abc.ABCMeta)):
-    """ Abstract source system sync.
-
-    Base for sync classes.
+    """ Abstract sync class.
 
     Subclasses need to implement:
 
@@ -89,15 +93,26 @@ class _BaseSync(six.with_metaclass(abc.ABCMeta)):
     # Human readable name of this sync, for log messages and errors
     name = None
 
-    def __init__(self, db, source_system):
-        """
-        :param source_system:
-            A source system to affect.
-        """
+    def __init__(self, db):
         if not type(self).name:
             raise NotImplementedError('abstract sync (no name)')
         self.db = db
-        self.const = co = Factory.get('Constants')(db)
+        self.const = Factory.get('Constants')(db)
+
+    def __repr__(self):
+        return '<{name}>'.format(name=type(self).__name__)
+
+    @abc.abstractmethod
+    def __call__(self, entity, source_values):
+        pass
+
+
+class _SourceSystemSync(_BaseSync):
+    """ Abstract sync with source_system. """
+
+    def __init__(self, db, source_system):
+        super(_SourceSystemSync, self).__init__(db)
+        co = self.const
         self.source_system = get_const(co, co.AuthoritativeSystem,
                                        source_system)
 
@@ -106,12 +121,8 @@ class _BaseSync(six.with_metaclass(abc.ABCMeta)):
             name=type(self).__name__,
             source=six.text_type(self.source_system))
 
-    @abc.abstractmethod
-    def __call__(self, entity, source_values):
-        pass
 
-
-class _KeyValueSync(_BaseSync):
+class _KeyValueSync(_SourceSystemSync):
     """ Abstract sync of key/value tuples.
 
     Abstract, re-usable class for implementing simple (source-system,
@@ -127,10 +138,6 @@ class _KeyValueSync(_BaseSync):
     type_cls = None
 
     def __init__(self, db, source_system, affect_types=None):
-        """
-        :param source_system: A source system to affect.
-        :param affect_types: A sequence of CerebrumCode types to affect.
-        """
         if not type(self).type_cls:
             raise NotImplementedError('abstract sync (no type_cls)')
         super(_KeyValueSync, self).__init__(db, source_system)
@@ -157,13 +164,13 @@ class _KeyValueSync(_BaseSync):
     def apply_changes(self, entity, values, to_add, to_update, to_remove):
         """ Apply changes to entity.
 
-        Note that set(values) == (to_add | to_update)
-
         :param entity: an entity to update
         :param dict values: a map of (type -> value) for values to add/update
         :param to_add: a set of types to add
         :param to_update: a set of types to update
         :param to_remove: a set of types to remove
+
+        Note that set(values) must be (to_add | to_update)
         """
         pass
 
@@ -296,7 +303,7 @@ class ContactInfoSync(_KeyValueSync):
                                     value=values[ctype])
 
 
-class AffiliationSync(_BaseSync):
+class AffiliationSync(_SourceSystemSync):
     """ Callable to update affiliations info for a person. """
 
     name = 'affiliation'
@@ -318,7 +325,8 @@ class AffiliationSync(_BaseSync):
         for aff_value, ou_id in aff_tuples:
             aff, status = self.const.get_affiliation(aff_value)
             if status is None:
-                raise ValueError('invalid affiliation: ' + repr(aff_value))
+                raise ValueError('invalid affiliation/status: '
+                                 + repr(aff_value))
 
             try:
                 ou = Factory.get('OU')(self.db)
@@ -358,3 +366,108 @@ class AffiliationSync(_BaseSync):
             else:
                 logger.info('renewed affiliation for person_id=%d: %s @ '
                             'ou_id=%d', person_id, status, ou_id)
+
+
+class NameLanguageSync(_BaseSync):
+    """
+    Callable to update localized names for an entity.
+
+    Updates EntityNameWithLanguage entities with localized names.  This is
+    similar to the _KeyValueSync, but the key is a combination of
+    (_EntityNameCode, _LanguageCode).
+
+    Note that EntityNameWithLanguage doesn't store values per source system -
+    you would almost always want to set affect_types when using this class.
+    """
+
+    name = 'localized name'
+
+    def __init__(self, db, affect_types=None):
+        """
+        :param affect_types: A sequence of _EntityNameCode types to affect.
+        """
+        super(NameLanguageSync, self).__init__(db)
+        if affect_types:
+            self.affect_types = tuple(self.get_type(t) for t in affect_types)
+        else:
+            self.affect_types = None
+
+    def get_type(self, value):
+        return get_const(self.const, Constants._EntityNameCode, value)
+
+    def get_subtype(self, value):
+        return get_const(self.const, Constants._LanguageCode, value)
+
+    def fetch_current(self, entity):
+        for row in entity.search_name_with_language(
+                entity_id=int(entity.entity_id)):
+            yield (row['name_variant'], row['name_language'], row['name'])
+
+    def __call__(self, entity, triplets):
+        """ Sync localized name triplets.
+
+        :param entity:
+            An Entity object to sync
+
+        :param triplets:
+            A sequence of triplets to sync
+
+            The sequence should be the current (_EntityNameCode, _LanguageCode,
+            name) values to set.
+        """
+        entity_id = int(entity.entity_id)
+        new_pairs = set(
+            (self.get_type(key), self.get_subtype(subkey), value)
+            for key, subkey, value in triplets)
+        new_types = set(t[:2] for t in new_pairs)
+        logger.debug('%s(%d, <%s>)', repr(self), entity_id,
+                     pretty_const_pairs(new_types))
+        if len(new_types) != len(new_pairs):
+            raise ValueError('duplicate %s type given' % (self.name,))
+
+        if self.affect_types is not None:
+            invalid_types = set(t for t in new_types
+                                if t[0] not in self.affect_types)
+            if invalid_types:
+                raise ValueError('invalid %s types: %s (must be one of %s)'
+                                 % (self.name,
+                                    pretty_const_pairs(invalid_types),
+                                    pretty_const(self.affect_types)))
+
+        curr_pairs = set((self.get_type(key), self.get_subtype(subkey), value)
+                         for key, subkey, value in self.fetch_current(entity)
+                         if self.affect_types is None
+                         or key in self.affect_types)
+        curr_types = set(t[:2] for t in curr_pairs)
+
+        to_add = new_types - curr_types
+        to_remove = curr_types - new_types
+        to_update = set(t[:2] for t in (new_pairs - curr_pairs)) - to_add
+
+        logger.info('%s changes for entity_id=%d, add=%r, update=%r, '
+                    'remove=%r', self.name, entity_id,
+                    pretty_const_pairs(to_add),
+                    pretty_const_pairs(to_update),
+                    pretty_const_pairs(to_remove))
+
+        values = {t[:2]: t[2] for t in new_pairs}
+        self.apply_changes(entity, values,
+                           to_add, to_update, to_remove)
+
+    def apply_changes(self, entity, values, to_add, to_update, to_remove):
+        changes = (to_add | to_remove | to_update)
+        if not changes:
+            return
+
+        # populate_contact_info() is not suitable here, as we don't care about
+        # contact_pref in a simple key/value sync.  A very different sync class
+        # is needed to support multiple, different values for each type.
+        for name_type, name_lang in to_remove:
+            entity.delete_name_with_language(name_variant=name_type,
+                                             name_language=name_lang)
+
+        for name_type, name_lang in (to_update | to_add):
+            name_value = values[name_type, name_lang]
+            entity.add_name_with_language(name_variant=name_type,
+                                          name_language=name_lang,
+                                          name=name_value)
