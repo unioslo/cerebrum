@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2020 University of Oslo, Norway
+# Copyright 2020-2021 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,13 +17,12 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""
-DFØ import.
-"""
+""" DFØ import class.  """
 import logging
 
 from Cerebrum.modules.hr_import.employee_import import EmployeeImportBase
 from Cerebrum.modules.hr_import.config import get_configurable_module
+from Cerebrum.modules.import_utils.matcher import PersonMatcher
 from Cerebrum.modules.no.dfo.client import get_client
 from Cerebrum.modules.no.dfo.datasource import AssignmentDatasource
 from Cerebrum.modules.no.dfo.datasource import EmployeeDatasource
@@ -39,15 +38,29 @@ class DfoEmployeeImport(EmployeeImportBase):
     A DFØ employee import
     """
 
+    MATCH_ID_TYPES = ('DFO_PID',)
+
+    datasource_cls = EmployeeDatasource
+    mapper_cls = EmployeeMapper
+
     def __init__(self, db, config):
         client_config = get_configurable_module(config.client)
         client = get_client(client_config)
-        datasource = EmployeeDatasource(client)
+        datasource = self.datasource_cls(client)
         mapper_config = get_configurable_module(config.mapper)
-        mapper = EmployeeMapper(mapper_config)
+        mapper = self.mapper_cls(mapper_config)
         co = Factory.get('Constants')(db)
         super(DfoEmployeeImport, self).__init__(db, datasource, mapper,
                                                 co.system_dfo_sap)
+
+    def find_entity(self, hr_object):
+        """Find matching Cerebrum person for the given HRPerson."""
+        search = PersonMatcher(self.MATCH_ID_TYPES)
+        criterias = tuple((i.id_type, i.external_id)
+                          for i in hr_object.external_ids)
+        if not criterias:
+            raise ValueError('invalid person: no external_ids')
+        return search(self.db, criterias, required=False)
 
 
 class DfoAssignmentImport(object):

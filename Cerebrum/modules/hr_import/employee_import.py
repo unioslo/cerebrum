@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2020 University of Oslo, Norway
+# Copyright 2020-2021 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -26,10 +26,7 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.date_compat import get_date
 from Cerebrum.modules.hr_import.errors import NonExistentOuError
-from Cerebrum.modules.import_utils.matcher import (
-    OuMatcher,
-    # PersonMatcher,
-)
+from Cerebrum.modules.import_utils.matcher import OuMatcher
 from Cerebrum.modules.import_utils.syncs import (
     AffiliationSync,
     ContactInfoSync,

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2020 University of Oslo, Norway
+# Copyright 2020-2021 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,27 +18,15 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ DFØ import class with uio mixins. """
+from Cerebrum.modules.no.dfo.importer import DfoEmployeeImport
+from Cerebrum.modules.no.uio.dfo.mapper import EmployeeMapper
 from Cerebrum.modules.no.uio.hr_import.importer import (
     UioEmployeeImportMixin,
 )
-from Cerebrum.modules.hr_import.config import get_configurable_module
-from Cerebrum.modules.no.dfo.client import get_client
-from Cerebrum.modules.no.dfo.datasource import EmployeeDatasource
-from Cerebrum.modules.no.uio.dfo.mapper import EmployeeMapper
-from Cerebrum.Utils import Factory
 
 
-class EmployeeImport(UioEmployeeImportMixin):
+class EmployeeImport(UioEmployeeImportMixin, DfoEmployeeImport):
     """
     An UiO-DFØ employee import
     """
-
-    def __init__(self, db, config):
-        client_config = get_configurable_module(config.client)
-        client = get_client(client_config)
-        datasource = EmployeeDatasource(client)
-        mapper_config = get_configurable_module(config.mapper)
-        mapper = EmployeeMapper(mapper_config)
-        co = Factory.get('Constants')(db)
-        super(EmployeeImport, self).__init__(db, datasource, mapper,
-                                             co.system_dfo_sap)
+    mapper_cls = EmployeeMapper
