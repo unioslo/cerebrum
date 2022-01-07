@@ -25,6 +25,7 @@ from __future__ import (
     unicode_literals,
 )
 import logging
+import datetime
 
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.import_utils.matcher import (
@@ -37,6 +38,7 @@ from Cerebrum.modules.import_utils.syncs import (
     ExternalIdSync,
     PersonNameSync,
 )
+from Cerebrum.utils import date_compat
 
 from .mapper import GregMapper
 from .datasource import GregDatasource
@@ -107,7 +109,17 @@ class GregImporter(object):
         :type person_obj: Cerebrum.Person.Person, NoneType
         """
         greg_id = greg_person['id']
-        if self.mapper.is_active(greg_person):
+
+        is_deceased = (
+            person_obj
+            and person_obj.deceased_date
+            and (date_compat.get_date(person_obj.deceased_date)
+                 < datetime.date.today()))
+        if is_deceased:
+            logger.warning('person_id=%s is marked as deceased',
+                           person_obj.entity_id)
+
+        if self.mapper.is_active(greg_person) and not is_deceased:
             if person_obj:
                 logger.info('handle_object: update greg_id=%s, person_id=%s',
                             greg_id, person_obj.entity_id)
