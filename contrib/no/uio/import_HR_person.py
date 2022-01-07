@@ -256,9 +256,9 @@ def determine_affiliations(xmlperson, source_system):
     gjest2affstat = {'EMERITUS': const.affiliation_tilknyttet_emeritus,
                      'PCVAKT': const.affiliation_tilknyttet_pcvakt,
                      'UNIRAND': const.affiliation_tilknyttet_unirand,
-                     'GRP-Lï¿½RER': const.affiliation_tilknyttet_grlaerer,
+                     'GRP-LÆRER': const.affiliation_tilknyttet_grlaerer,
                      'EF-STIP': const.affiliation_tilknyttet_ekst_stip,
-                     'BILAGSLï¿½N': const.affiliation_tilknyttet_bilag,
+                     'BILAGSLØN': const.affiliation_tilknyttet_bilag,
                      'EF-FORSKER': const.affiliation_tilknyttet_ekst_forsker,
                      'SENIORFORS': const.affiliation_tilknyttet_ekst_forsker,
                      'GJ-FORSKER': const.affiliation_tilknyttet_gjesteforsker,
@@ -272,7 +272,7 @@ def determine_affiliations(xmlperson, source_system):
                      'ST-POL-UTV': const.affiliation_tilknyttet_studpol,
                      'ST-ORG FRI': const.affiliation_tilknyttet_studorg,
                      'ST-ORG UTV': const.affiliation_tilknyttet_studorg,
-                     'INNKJï¿½PER': const.affiliation_tilknyttet_innkjoper,
+                     'INNKJØPER': const.affiliation_tilknyttet_innkjoper,
 
                      # IVR 2007-07-11 These should be ignored
                      # eventually, according to baardj
@@ -331,7 +331,7 @@ def determine_affiliations(xmlperson, source_system):
                            t.kind == DataEmployment.HOVEDSTILLING)
 
     #
-    # #2 -- Bilagslï¿½nnede
+    # #2 -- Bilagslønnede
     bilag = [x for x in xmlperson.iteremployment()
              if x.kind == DataEmployment.BILAG and
              x.is_active() and

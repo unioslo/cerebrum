@@ -35,8 +35,7 @@ into a bigger script, perhaps with some plugin-like structure for
 subscribing to certain event types.
 
 """
-from __future__ import print_function
-from __future__ import unicode_literals
+from __future__ import print_function, unicode_literals
 
 import os
 import sys
