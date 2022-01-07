@@ -132,9 +132,10 @@ class GregPersonIds(object):
         'passport_number': 'PASSNR',
     }
 
-    # known, irrelevant identities.type
+    # known identities.type that shouldn't be considered
     ignore_types = set((
         'feide_id',
+        'feide_email',
         'private_email',
         'private_mobile',
     ))
@@ -201,9 +202,10 @@ class GregContactInfo(object):
         'private_mobile': 'PRIVATE_MOBILE',
     }
 
-    # known, irrelevant identities.type
+    # known identities.type that shouldn't be considered
     ignore_types = set((
         'feide_id',
+        'feide_email',
         'norwegian_national_id_number',
         'passport_number',
     ))
