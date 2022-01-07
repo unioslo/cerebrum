@@ -19,6 +19,23 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
 Client for communicating with the Greg API.
+
+To get a client:
+
+::
+
+    # from dict
+    config_d = {'url': 'http://localhost/api',
+               'auth': 'plaintext:my-api-key'}
+    client = get_client(config_d)
+
+    # from config object
+    config = GregClientConfig(config_d)
+    client = get_client(config)
+
+    # most convenient: from file
+    filename = 'greg-config.yml'
+    client = get_client(filename)
 """
 from __future__ import (
     absolute_import,
@@ -30,10 +47,10 @@ import logging
 
 import requests
 import six
+from six.moves.urllib.parse import parse_qsl, urlsplit
 
 from Cerebrum.config import loader
-from Cerebrum.config.configuration import (Configuration,
-                                           ConfigDescriptor)
+from Cerebrum.config.configuration import Configuration, ConfigDescriptor
 from Cerebrum.config.secrets import Secret, get_secret_from_string
 from Cerebrum.config.settings import String
 from Cerebrum.utils import http as http_utils
@@ -45,6 +62,9 @@ class GregEndpoints(object):
     """ Greg API endpoints.  """
 
     def __init__(self, url):
+        """
+        :param url: baseurl to the Greg API
+        """
         self.baseurl = url
 
     def __repr__(self):
@@ -57,14 +77,24 @@ class GregEndpoints(object):
         return http_utils.urljoin(self.baseurl, 'health/')
 
     @property
-    def list_persons(self):
-        """ url to list/search persons. """
+    def orgunits(self):
+        """ baseurl for, and url to list/search orgunits """
+        return http_utils.urljoin(self.baseurl, 'v1/orgunits')
+
+    @property
+    def persons(self):
+        """ baseurl for, and url to list/search persons """
         return http_utils.urljoin(self.baseurl, 'v1/persons')
 
-    def get_person(self, person_id):
+    def get_orgunit(self, greg_id):
         """ url to a specific person """
-        return http_utils.urljoin(self.baseurl, 'v1/persons',
-                                  http_utils.safe_path(person_id))
+        return http_utils.urljoin(self.orgunits,
+                                  http_utils.safe_path(greg_id))
+
+    def get_person(self, greg_id):
+        """ url to a specific person """
+        return http_utils.urljoin(self.persons,
+                                  http_utils.safe_path(greg_id))
 
 
 class GregClient(object):
@@ -115,8 +145,39 @@ class GregClient(object):
                                      params=params,
                                      **kwargs)
 
+    def _get_object(self, url):
+        """ fetch a single object at the given greg url """
+        response = self._call('GET', url, headers=self.headers)
+        from_api = self._is_api_response(response)
+        if response.status_code == 404 and from_api:
+            return None
+        if response.status_code == 200:
+            return response.json()
+        response.raise_for_status()
+
+    def _list_objects(self, url, params):
+        """ fetch all available objects at the given greg url """
+        response = self._call('GET', url, headers=self.headers, params=params)
+
+        while response:
+            response.raise_for_status()
+            data = response.json()
+            results = data.pop('results')
+            next_page = data.pop('next', None)
+
+            for obj in results:
+                yield obj
+
+            if next_page:
+                next_q = urlsplit(url).query
+                params = dict(parse_qsl(next_q))
+                response = self._call('GET', url, headers=self.headers,
+                                      params=params)
+            else:
+                response = None
+
     def get_health(self):
-        """ Get Greg health check. """
+        """ get health status """
         url = self.urls.health
         response = self._call('GET', url, headers=self.headers)
         response.raise_for_status()
@@ -126,29 +187,23 @@ class GregClient(object):
             logger.warning('greg health: %s', response.text)
         return is_ok
 
+    def get_orgunit(self, greg_id):
+        """ get orgunit by id """
+        return self._get_object(self.urls.get_orgunit(greg_id))
+
     def get_person(self, greg_id):
-        """ Look up a person by id. """
-        url = self.urls.get_person(greg_id)
-        response = self._call('GET', url, headers=self.headers)
-        from_api = self._is_api_response(response)
-        if response.status_code == 404 and from_api:
-            return None
-        if response.status_code == 200:
-            return response.json()
-        response.raise_for_status()
+        """ get person by id """
+        return self._get_object(self.urls.get_person(greg_id))
+
+    def list_orgunits(self):
+        """ list orgunits """
+        url = self.urls.orgunits
+        return self._list_objects(url, {})
 
     def list_persons(self, active=None, verified=None,
-                     first_name=None, last_name=None, cursor=None):
-        """
-        List/search for persons.
-
-        .. warning::
-           This method does not implement pagination, and will not return *all*
-           persons!
-
-        :raise NotImplementedError: if we iterate over all the results
-        """
-        url = self.urls.list_persons
+                     first_name=None, last_name=None):
+        """ list/search persons """
+        url = self.urls.persons
         params = {
             key: value
             for key, value in (
@@ -156,25 +211,31 @@ class GregClient(object):
                 ('verified', verified),
                 ('first_name', first_name),
                 ('last_name', last_name),
-                ('cursor', cursor),
             ) if value is not None
         }
-        response = self._call('GET', url, headers=self.headers, params=params)
-
-        response.raise_for_status()
-        data = response.json()
-        results = data.pop('results')
-        yield data
-        for obj in results:
-            yield obj
-        # if we expect to iterate over every result, we'll have an incomplete
-        # result, best to:
-        raise NotImplementedError('pagination missing')
+        return self._list_objects(url, params)
 
 
 class GregClientConfig(Configuration):
-    """ Greg API client config. """
+    """
+    Greg API client config.
 
+    Example YAML-config:
+
+    ::
+
+        url: "http://localhost/api"
+        auth: "plaintext:secret"
+
+    url
+        URL to a Greg API.  If the health check endpoint is at
+        https://example.org/subpath/health/, then *url* should be set to
+        https://example.org/subpath
+
+    auth
+        API auth secret (api key/header value) to access Greg.  See
+        py:class:`Cerebrum.config.secrets.Secrets` for details.
+    """
     url = ConfigDescriptor(
         String,
         default='http://localhost',

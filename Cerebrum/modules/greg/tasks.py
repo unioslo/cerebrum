@@ -23,7 +23,7 @@ Tasks related to the Greg guest import.
 """
 import logging
 
-from Cerebrum.modules.tasks import process
+from Cerebrum.modules.tasks import queue_handler
 from Cerebrum.modules.tasks import task_models
 
 from .datasource import parse_message
@@ -32,21 +32,12 @@ from .datasource import parse_message
 logger = logging.getLogger(__name__)
 
 
-class GregImportTasks(process.QueueHandler):
+class GregImportTasks(queue_handler.QueueHandler):
     """ This object defines the 'greg-guest' tasks queue. """
 
     queue = 'greg-person'
     manual_sub = 'manual'
-
     max_attempts = 20
-
-    def __init__(self):
-        # TODO: Implement the actual import
-        raise NotImplementedError()
-
-    def handle_task(self, db, dryrun, task):
-        # TODO: Implement the actual import
-        raise NotImplementedError()
 
     @classmethod
     def create_manual_task(cls, reference, sub=manual_sub, nbf=None):

@@ -68,7 +68,7 @@ class GregOrgunitIds(object):
     }
 
     # id -> cerebrum external_id
-    greg_id_type = None
+    greg_id_type = 'GREG_OU_ID'
 
     def __call__(self, greg_data):
         """

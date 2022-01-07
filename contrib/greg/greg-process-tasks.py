@@ -18,45 +18,41 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" Process tasks on the hr-import queues.  """
+""" Process tasks on the greg import queues.  """
 import argparse
+import functools
 import logging
 
 import Cerebrum.logutils
 import Cerebrum.logutils.options
 import Cerebrum.Errors
-from Cerebrum.modules.hr_import.config import TaskImportConfig
+from Cerebrum.modules.greg.client import get_client
+from Cerebrum.modules.greg.importer import GregImporter
+from Cerebrum.modules.greg.tasks import GregImportTasks
 from Cerebrum.modules.tasks.task_processor import QueueProcessor
 from Cerebrum.utils.argutils import add_commit_args
-from Cerebrum.utils.module import resolve
-
 
 logger = logging.getLogger(__name__)
 
 
-def get_task_handler(config):
-    import_cls = resolve(config.import_class)
-    logger.info('import_cls: %s', config.import_class)
-
-    task_cls = resolve(config.task_class)
-    logger.info('task_cls: %s', config.task_class)
-
-    def callback(db, task):
-        import_obj = import_cls(db, config=config)
-        dfo_id = task.payload.data['id']
-        return import_obj.handle_reference(dfo_id)
-
-    return task_cls(callback)
+def task_callback(db, task, client):
+    """ Callback for the GregImportTasks queue handler. """
+    greg_id = task.key
+    logger.info('Updating greg_id=%s', greg_id)
+    importer = GregImporter(db, client=client)
+    importer.handle_reference(greg_id)
+    logger.info('Updated greg_id=%s', greg_id)
+    return []
 
 
 def main(inargs=None):
     parser = argparse.ArgumentParser(
-        description='Process the hr-import task queues',
+        description='Process the greg-person import task queues',
     )
     parser.add_argument(
         '-c', '--config',
         required=True,
-        help='config to use (see Cerebrum.modules.hr_import.config)',
+        help='Client config to use (see Cerebrum.modules.greg.client)',
     )
     parser.add_argument(
         '-l', '--limit',
@@ -77,10 +73,12 @@ def main(inargs=None):
     logger.info("start %s", parser.prog)
     logger.debug("args: %r", args)
 
-    config = TaskImportConfig.from_file(args.config)
     dryrun = not args.commit
+    client = get_client(args.config)
+    callback = functools.partial(task_callback, client=client)
 
-    proc = QueueProcessor(get_task_handler(config),
+    # The QueueProcessor gets db and does commit/rollback according to dryrun
+    proc = QueueProcessor(GregImportTasks(callback),
                           limit=args.limit,
                           dryrun=dryrun)
 
