@@ -26,7 +26,7 @@ import Cerebrum.logutils
 import Cerebrum.logutils.options
 import Cerebrum.Errors
 from Cerebrum.modules.hr_import.config import TaskImportConfig
-from Cerebrum.modules.tasks.task_processor import QueueProcessor
+from Cerebrum.modules.tasks.queue_processor import QueueProcessor
 from Cerebrum.utils.argutils import add_commit_args
 from Cerebrum.utils.module import resolve
 
