@@ -6386,6 +6386,22 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
                 return False
         return True
 
+    def _email_info_detail(self, acc):
+        info = []
+        eq = Email.EmailQuota(self.db)
+        try:
+            eq.find_by_target_entity(acc.entity_id)
+            et = Email.EmailTarget(self.db)
+            et.find_by_target_entity(acc.entity_id)
+            es = Email.EmailServer(self.db)
+            es.find(et.email_server_id)
+
+            info.append({'dis_quota_hard': eq.email_quota_hard,
+                         'dis_quota_soft': eq.email_quota_soft})
+        except Errors.NotFoundError:
+            pass
+        return info
+
     def _email_info_dlgroup(self, groupname):
         et, dl_group = self._get_email_target_and_dlgroup(groupname)
         ret = []

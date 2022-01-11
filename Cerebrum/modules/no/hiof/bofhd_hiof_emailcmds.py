@@ -102,6 +102,29 @@ class BofhdExtension(bofhd_email.BofhdEmailCommands):
             info["server_type"] = "N/A"
         return data
 
+    def _email_info_detail(self, acc):
+        """ Get quotas from Cerebrum """
+        # NOTE: Very similar to ofk/giske and uio
+
+        info = []
+        eq = Email.EmailQuota(self.db)
+
+        # Get quota and usage
+        try:
+            eq.find_by_target_entity(acc.entity_id)
+            et = Email.EmailTarget(self.db)
+            et.find_by_target_entity(acc.entity_id)
+            es = Email.EmailServer(self.db)
+            es.find(et.email_server_id)
+
+            info.append({
+                'dis_quota_hard': eq.email_quota_hard,
+                'dis_quota_soft': eq.email_quota_soft,
+            })
+        except Errors.NotFoundError:
+            pass
+        return info
+
     #
     # email replace_server [username] [servername]
     #
