@@ -764,7 +764,7 @@ class FsImporter(object):
             logger.debug('Populating fagfelt for %s', fnr)
             person.populate_trait(
                 code=self.co.trait_fagomrade_fagfelt,
-                date=datetime.datetime.now(),
+                date=datetime.now(),
                 strval=json.dumps(fagfelt))
 
         person.write_db()
