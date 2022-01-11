@@ -61,6 +61,7 @@ class HRPerson(ReprMixin):
         self.gender = gender
         self.enable = enable
 
+        self.startdate = None
         self.external_ids = set()  # set of HRExternalID
         self.contact_infos = set()  # set of HRContactInfo
         self.titles = set()         # set of HRTitle
