@@ -119,8 +119,8 @@ class HRDataImport(object):
         self._sync_ids = ExternalIdSync(db, source_system)
         self._sync_name = PersonNameSync(db, source_system,
                                          (co.name_first, co.name_last))
-        self._sync_titles = NameLanguageSync(self.database,
-                                             (co.work_title, co.personal_title))
+        self._sync_titles = NameLanguageSync(db, (co.work_title,
+                                                  co.personal_title))
 
     def remove_person(self, db_person, hr_person):
         logger.debug('remove_person(%r, %r)',
@@ -209,8 +209,11 @@ class HRDataImport(object):
         self._sync_ids(db_person, hr_ids)
 
     def update_names(self, db_person, hr_person):
-        names = (('FIRST', hr_person.first_name),
-                 ('LAST', hr_person.last_name))
+        names = tuple(
+            (name_type, name)
+            for name_type, name in (('FIRST', hr_person.first_name),
+                                    ('LAST', hr_person.last_name))
+            if name and name.strip())
         self._sync_name(db_person, names)
 
     def update_titles(self, db_person, hr_person):
