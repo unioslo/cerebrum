@@ -29,7 +29,7 @@ import Cerebrum.Errors
 from Cerebrum.modules.greg.client import get_client
 from Cerebrum.modules.greg.importer import GregImporter
 from Cerebrum.modules.greg.tasks import GregImportTasks
-from Cerebrum.modules.tasks.task_processor import QueueProcessor
+from Cerebrum.modules.tasks.queue_processor import QueueProcessor
 from Cerebrum.utils.argutils import add_commit_args
 
 logger = logging.getLogger(__name__)
