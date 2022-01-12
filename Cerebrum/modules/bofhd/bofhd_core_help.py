@@ -273,6 +273,7 @@ command_help = {
         'user_reserve_personal':
             'Reserve a user name in the database for a person',
         'user_restore': 'Restore a deactivated user',
+        'user_restore_unpersonal':'Restore a deactivated unpersonal user',
         'user_set_disk_quota': 'Temporary override users disk quota',
         'user_set_disk_status': 'Set homedir status for user',
         'user_set_expire': 'Set expire date for an account',
