@@ -198,7 +198,6 @@ class GregContactInfo(object):
 
     # identities.type value -> cerebrum contact_info_type
     type_map = {
-        'private_email': 'EMAIL',
         'private_mobile': 'PRIVATEMOBILE',
     }
 
@@ -208,6 +207,7 @@ class GregContactInfo(object):
         'feide_email',
         'norwegian_national_id_number',
         'passport_number',
+        'private_email',
     ))
 
     # values of identities.verified to accept
