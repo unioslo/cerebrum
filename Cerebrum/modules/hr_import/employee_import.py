@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2020 University of Oslo, Norway
+# Copyright 2020-2021 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -26,14 +26,12 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.date_compat import get_date
 from Cerebrum.modules.hr_import.errors import NonExistentOuError
-from Cerebrum.modules.import_utils.matcher import (
-    OuMatcher,
-    # PersonMatcher,
-)
+from Cerebrum.modules.import_utils.matcher import OuMatcher
 from Cerebrum.modules.import_utils.syncs import (
     AffiliationSync,
     ContactInfoSync,
     ExternalIdSync,
+    NameLanguageSync,
     PersonNameSync,
 )
 
@@ -119,8 +117,10 @@ class HRDataImport(object):
         self._sync_affs = AffiliationSync(db, source_system)
         self._sync_cinfo = ContactInfoSync(db, source_system)
         self._sync_ids = ExternalIdSync(db, source_system)
-        self._sync_name = PersonNameSync(db, source_system, (co.name_first,
-                                                             co.name_last))
+        self._sync_name = PersonNameSync(db, source_system,
+                                         (co.name_first, co.name_last))
+        self._sync_titles = NameLanguageSync(self.database,
+                                             (co.work_title, co.personal_title))
 
     def remove_person(self, db_person, hr_person):
         logger.debug('remove_person(%r, %r)',
@@ -214,44 +214,10 @@ class HRDataImport(object):
         self._sync_name(db_person, names)
 
     def update_titles(self, db_person, hr_person):
-        """Update person in Cerebrum with work and personal titles"""
-        logger.debug('update_titles(%r, %r), titles=%r',
-                     db_person.entity_id, hr_person, hr_person.titles)
-        hr_titles = set(
-            models.HRTitle(
-                self.co.EntityNameCode(t.name_variant),
-                self.co.LanguageCode(t.name_language),
-                t.name)
+        hr_titles = tuple(
+            (t.name_variant, t.name_language, t.name)
             for t in hr_person.titles)
-        cerebrum_titles = set(
-            models.HRTitle(
-                self.co.EntityNameCode(row['name_variant']),
-                self.co.LanguageCode(row['name_language']),
-                row['name'])
-            for row in db_person.search_name_with_language(
-                entity_id=db_person.entity_id,
-                name_variant=[self.co.work_title, self.co.personal_title]))
-
-        for title in hr_titles - cerebrum_titles:
-            db_person.add_name_with_language(
-                name_variant=title.name_variant,
-                name_language=title.name_language,
-                name=title.name,
-            )
-            logger.info('titles: setting id=%r, type=%r, lang=%r',
-                        db_person.entity_id, title.name_variant,
-                        title.name_language)
-
-        # TODO: This will delete titles that we just changed!
-        for title in cerebrum_titles - hr_titles:
-            db_person.delete_name_with_language(
-                name_variant=title.name_variant,
-                name_language=title.name_language,
-                name=title.name,
-            )
-            logger.info('titles: clearing id=%r, type=%r, lang=%r',
-                        db_person.entity_id, title.name_variant,
-                        title.name_language)
+        self._sync_titles(db_person, hr_titles)
 
     def update_contact_info(self, db_person, hr_person):
         """Update person in Cerebrum with contact information"""
