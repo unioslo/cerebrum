@@ -193,13 +193,13 @@ class GregContactInfo(object):
     ...     }]}
     >>> get_contacts = GregContactInfo()
     >>> list(get_contacts(person))
-    [('PRIVATE_MOBILE', '20123456')]
+    [('PRIVATEMOBILE', '20123456')]
     """
 
     # identities.type value -> cerebrum contact_info_type
     type_map = {
         'private_email': 'EMAIL',
-        'private_mobile': 'PRIVATE_MOBILE',
+        'private_mobile': 'PRIVATEMOBILE',
     }
 
     # known identities.type that shouldn't be considered
