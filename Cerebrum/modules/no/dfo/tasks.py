@@ -56,7 +56,7 @@ class EmployeeTasks(queue_handler.QueueHandler):
                 reason='next-change: on={when}'.format(when=next_retry),
                 payload=task.payload,
             ))
-        if not next_task:
+        if next_task:
             logger.info('queued next-task %s/%s/%s at %s',
                         next_task.queue, next_task.sub,
                         next_task.key, next_task.nbf)
