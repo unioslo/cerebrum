@@ -245,27 +245,79 @@ class GregContactInfo(object):
 
 
 class GregConsents(object):
-    """ Extract consent data from greg person data. """
+    """
+    Extract consent data from greg person data.
+    """
+
+    type_map = {
+        # TODO: Add actual (common) consents
+        'mandatory': 'greg-consent-mandatory',
+        'optional': 'greg-consent-optional',
+    }
+
+    # TODO: Add actual, irrelevant consents
+    ignore_types = (
+        'consent-foo',
+        'consent-bar',
+        'consent-baz',
+    )
+
+    # Consent value (choice) to bool (is-consent)
+    value_map = {
+        'yes': True,
+        'no': False,
+    }
 
     def __call__(self, greg_data):
         """
         :param dict greg_data:
             Sanitized greg person data (e.g. from `datasource.parse_person`)
 
-        :returns generator:
-            TODO/TBD: Return value depends on how consents are actually
-            represented in Greg, and how they will be represented in Cerebrum.
+        :returns set:
+            Return a set of consents given.
         """
         greg_id = int(greg_data['id'])
+        seen = set()
+        consents = set()
+
         for c_obj in greg_data.get('consents', ()):
-            consent_type = c_obj['consent_type']
-            given_at = c_obj['consent_given_at']
-            # TODO/TBD: what constitutes a consent?  Is it enough that it
-            # exists in the consents tuple, or does consent_given_at need to be
-            # set as well?
-            if False:
-                # TODO: never reached 'yield' to make this a generator
-                yield (greg_id, consent_type, given_at)
+            greg_type = c_obj['type']
+            greg_value = c_obj['value']
+
+            if greg_type in self.ignore_types:
+                continue
+
+            if greg_type not in self.type_map:
+                logger.debug('ignoring unknown consent (%s=%r) for greg_id=%s',
+                             greg_type, greg_value, greg_id)
+                continue
+            crb_type = self.type_map[greg_type]
+
+            if greg_type in seen:
+                # if we see a consent type twice, we discard *all* consents of
+                # that type
+                logger.warning('duplicate consent %s (%s) for greg_id=%s',
+                               crb_type, greg_type, greg_id)
+                consents.discard(greg_type)
+            seen.add(greg_type)
+
+            if greg_value not in self.value_map:
+                # invalid consent value (choice), discard consent
+                is_consent = False
+                logger.warning('invalid consent %s value (%s=%r) for'
+                               ' greg_id=%s',
+                               crb_type, greg_type, greg_value, greg_id)
+            else:
+                is_consent = self.value_map[greg_value]
+                logger.debug('found consent %s=%r (%s=%r) for greg_id=%s',
+                             crb_type, is_consent, greg_type, greg_value,
+                             greg_id)
+            if is_consent:
+                consents.add(greg_type)
+            else:
+                consents.discard(greg_type)
+
+        return tuple(self.type_map[c] for c in consents)
 
 
 class GregRoles(object):
