@@ -206,8 +206,8 @@ class ChannelSetup(object):
     def __call__(self, channel):
         """ Run channel setup.  """
         flags = self.flags
-        logger.debug('setup: %s on channel %d',
-                     self.Flags.to_string(flags), channel)
+        logger.info('setup: %s on channel %d',
+                    self.Flags.to_string(flags), channel)
 
         if not flags:
             logger.warning('no setup!')
@@ -309,7 +309,6 @@ class Manager(object):
     Pika consumer/async manager.
     """
 
-    # TODO: Replace exchanges/queue/bindings with a single setup callable
     def __init__(self, connection_params, setup, process):
         """
         :type connection_params: pika.ConnectionParameters
@@ -355,6 +354,7 @@ class Manager(object):
 
     def connect(self):
         """connect to rabbitmq and configure."""
+        logger.debug('connect()')
         params = self.connection_params
         logger.info('connecting to %r', params)
         return pika.SelectConnection(
@@ -363,20 +363,10 @@ class Manager(object):
             on_open_error_callback=self.on_connection_open_error,
         )
 
-    def reconnect(self):
-        # This is the old connection IOLoop instance, stop its ioloop
-        self._connection.ioloop.stop()
-
-        if not self.stopped:
-            # Create a new connection
-            self._connection = self.connect()
-
-            # There is now a new connection, needs a new ioloop to run
-            self._connection.ioloop.start()
-
     def close_connection(self):
         """This method closes the connection to RabbitMQ."""
-        logger.info('closing connection')
+        logger.debug('close_connection() - connection=%s',
+                     repr(self._connection))
         self._connection.close()
 
     def on_connection_open(self, connection):
@@ -384,10 +374,8 @@ class Manager(object):
 
         :type connection: pika.SelectConnection
         """
-        logger.info('connection opened')
+        logger.debug('on_connection_open(connection=%s)', repr(connection))
         self.reset_timeout()
-
-        logger.debug('add on_close_callback')
         connection.add_on_close_callback(self.on_connection_closed)
         self.open_channel(connection)
 
@@ -396,36 +384,21 @@ class Manager(object):
 
         :type connection: pika.SelectConnection
         """
-        logger.error('unable to connect: %s', exception)
-
-        timeout = self.get_timeout()
-        logger.info('reconnecting in %d s', timeout)
-        time.sleep(timeout)
-
-        self.reconnect()
+        logger.debug('on_connection_open_error(connection=%s, exception=%s)',
+                     repr(connection), repr(exception))
+        connection.ioloop.stop()
 
     def on_connection_closed(self, connection, exception):
-        """ close connection callback -> reconnect if unexpected.
-
-        :type connection: pika.connection.Connection
-        :param Exception exception: An exception representing any errors
-        """
-        self._channel = None
-        if self.stopped:
-            connection.ioloop.stop()
-        else:
-            timeout = self.get_timeout()
-            logger.warning(
-                'Connection closed (%s), reopening in %d seconds',
-                exception, timeout)
-            connection.ioloop.call_later(timeout, self.reconnect)
+        logger.debug('on_connection_closed(connection=%s, exception=%s)',
+                     repr(connection), repr(exception))
+        connection.ioloop.stop()
 
     def open_channel(self, connection):
         """ open a new channel.
 
         :type connection: pika.connection.Connection
         """
-        logger.info('open_channel on connection=%r', connection)
+        logger.debug('open_channel(connection=%s)', repr(connection))
         connection.channel(on_open_callback=self.on_channel_open)
 
     def close_channel(self):
@@ -433,7 +406,7 @@ class Manager(object):
         Channel.Close RPC command.
 
         """
-        logger.info('closing the channel')
+        logger.debug('close_channel() - channel=%s', repr(self._channel))
         if self._channel:
             self._channel.close()
 
@@ -442,9 +415,8 @@ class Manager(object):
 
         :type channel: pika.channel.Channel
         """
-        logger.info('channel %i opened', channel)
+        logger.debug('on_channel_open(channel=%s)', repr(channel))
         self._channel = channel
-        logger.debug('adding on_close_callback, on_cancel_callback')
         channel.add_on_close_callback(self.on_channel_closed)
         channel.add_on_cancel_callback(self.on_consumer_cancelled)
         self._setup(channel)
@@ -456,8 +428,10 @@ class Manager(object):
         :type channel: pika.channel.Channel
         :param Exception exception: An exception representing any errors
         """
-        logger.warning('channel %i closed: %s', channel, exception)
-        if not channel.connection.is_closing and not channel.connection.is_closed:
+        logger.debug('on_channel_closed(channel=%s, exception=%s)',
+                     repr(channel), repr(exception))
+        if (not channel.connection.is_closing
+                and not channel.connection.is_closed):
             channel.connection.close()
 
     #
@@ -471,8 +445,7 @@ class Manager(object):
         :param pika.frame.Method method_frame: The Basic.Cancel frame
 
         """
-        logger.info('Consumer was cancelled remotely, shutting down: %r',
-                    method_frame)
+        logger.debug('on_consumer_cancelled(%s)', repr(method_frame))
         # TODO: can we get the channel from a Basic.Cancel frame?
         if self._channel:
             self._channel.close()
@@ -500,48 +473,47 @@ class Manager(object):
     #
 
     def run(self):
-        """Run the example consumer by connecting to RabbitMQ and then
-        starting the IOLoop to block and allow the SelectConnection to operate.
+        logger.info('starting manager')
+        while not self.stopped:
+            try:
+                self._connection = self.connect()
+                self._connection.ioloop.start()
 
-        """
-        self._connection = self.connect()
-        self._connection.ioloop.start()
+                if not self.stopped:
+                    timeout = self.get_timeout()
+                    logger.info('reconnecting in %d s', timeout)
+                    time.sleep(timeout)
+
+            except Exception:
+                logger.warning('unexpected error: stopping')
+                self._connection.ioloop.stop()
+                raise
 
     def stop(self):
-        """ stop the consumer
-
-        will cause on_cancelok
-        """
-        logger.info('stopping')
+        """ stop the consumer """
+        logger.info('stopping manager ...')
         self.stopped = True  # avoid re-connect
-        self.stop_consuming()
+
+        logger.info('stopping all consumers ...')
+        if self._channel:
+            for tag in self._channel.consumer_tags:
+                logger.debug('stopping consumer with tag=%s', repr(tag))
+                self._channel.basic_cancel(tag, callback=self.on_cancelok)
         self.close_channel()
 
-        # The IOLoop is started again because this method is invoked when
-        # CTRL-C is pressed raising a KeyboardInterrupt exception. This
-        # exception stops the IOLoop which needs to be running for pika to
-        # communicate with RabbitMQ.
-        # All of the commands issued prior to starting the IOLoop will be
-        # buffered but not processed.
+        # We need to re-start the ioloop in order to send the `basic_cancel()`
+        # rpc calls that we queued up.  As we don't have any active consumers
+        # active in the ioloop, it will terminate.
         self._connection.ioloop.start()
-
-        logger.info('stopped')
-
-    def stop_consuming(self):
-        """ issue a basic_cancel (to stop basic_consume). """
-        if self._channel:
-            logger.info('Sending a Basic.Cancel RPC command to RabbitMQ')
-            for tag in self._channel.consumer_tags:
-                self._channel.basic_cancel(tag, callback=self.on_cancelok)
+        logger.info('manager stopped')
 
     def on_cancelok(self, frame):
-        """ close channel when broker acks the cancellation of a consumer.
-
+        """
         :type frame: pika.frame.Method
         :param frame: a Basic.CancelOk frame
         """
-        logger.info('Cancelled consumer with tag %r',
-                    frame.method.consumer_tag)
+        logger.debug('stopped consumer with tag=%s',
+                     repr(frame.method.consumer_tag))
 
 
 def demo_callback(channel, method, properties, body):
