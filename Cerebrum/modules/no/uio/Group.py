@@ -84,7 +84,8 @@ class GroupUiOMixin(Group.Group):
         elif isinstance(self, ExchangeGroups.DistributionGroup):
             # allow [a-z0-9], '-' and '.' in DistributionGroup names
             if re.search("[^a-z0-9\-\.]", name):
-                return "name contains illegal characters (%s)" % name
+                return ("name %s contains illegal characters (lower case "
+                       "a-z, digits, '-' and '.' are legal)"  % name)
             # ad-groups may have names up to 64 char long
             if len(name) > 64:
                 return "Name %s too long (64 char allowed)" % name
