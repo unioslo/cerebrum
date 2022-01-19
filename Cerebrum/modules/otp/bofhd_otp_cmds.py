@@ -124,7 +124,7 @@ class OtpCommands(BofhdCommandBase):
         ('person', 'otp_info'),
         PersonId(help_ref="id:target:person"),
         fs=FormatSuggestion(
-            [(" %-9s  %-12s %s", ('person_id', 'otp_type', 'updated_at'))],
+            [(" %-9d  %-12s %s", ('person_id', 'otp_type', 'updated_at'))],
             hdr=" %-9s  %-12s %s" % ("person id", "otp type", "updated at"),
         ),
         perm_filter='can_show_otp_info',
@@ -136,7 +136,7 @@ class OtpCommands(BofhdCommandBase):
         otp_data = sql_search(self.db, person_id=person.entity_id)
         if not otp_data:
             raise CerebrumError('No otp_data for person %r' % (person_ident,))
-
+            
         return [{
             'person_id': row['person_id'],
             'otp_type': row['otp_type'],
