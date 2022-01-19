@@ -1184,6 +1184,7 @@ def format_cl_id_type(co, val):
 
 
 class ConstantsBase(DatabaseAccessor):
+
     def __iterate_constants(self, const_type=None):
         """Iterate all of constants within this constants proxy object.
 
@@ -1342,7 +1343,7 @@ class ConstantsBase(DatabaseAccessor):
         for const_obj in self.__iterate_constants(None):
             int(const_obj)
 
-    def human2constant(self, human_repr, const_type=None):
+    def human2constant(self, human_repr, const_type=None, _attr_lookup=True):
         """Map human representation of a const to _CerebrumCode.
 
         This method maps a human representation of a constant to the proper
@@ -1383,7 +1384,7 @@ class ConstantsBase(DatabaseAccessor):
                     human_repr = human_repr.decode('latin-1')
             # ok, that failed, so assume this is a constant attribute name ...
             try:
-                if hasattr(self, human_repr):
+                if _attr_lookup and hasattr(self, human_repr):
                     obj = getattr(self, human_repr)
             except UnicodeError:
                 # PY2 does not like non-ascii attribute names
@@ -1409,6 +1410,45 @@ class ConstantsBase(DatabaseAccessor):
             c = Factory.get(t)(database).human2constant(constant, const_type)
             if c:
                 return c
+
+    def get_constant(self, const_type, value):
+        """
+        Get a CerebrumCode from a code intval, strval.
+
+        This method is stricter than human2constant/resolve_constant:
+
+        1. A target _CerebrumCode (const_type) *must* be given.
+        2. The constant *must* exist in the database.
+        3. Does not look up constants by attribute name
+
+        :type const_type: type
+        :param const_type: _CerebrumCode subclass
+
+        :type value: int, str, CerebrumCode
+        :param value: a constant value to look up
+
+        :rtype: _CerebrumCode
+        :raises LookupError: if an invalid value is given
+        """
+        type_name = const_type.__name__
+        # find constant object:
+        if isinstance(value, const_type):
+            const = value
+        else:
+            const = self.human2constant(value, const_type=const_type,
+                                        _attr_lookup=False)
+            if const is None:
+                raise LookupError("%s %r not defined" % (type_name, value))
+        # verify constant object:
+        if type(const) != const_type:
+            raise LookupError('%r (%r) is not a %s!'
+                              % (value, const, type_name))
+        try:
+            int(const)
+        except Errors.NotFoundError:
+            raise LookupError("%s %r (%r) not in db"
+                              % (type_name, value, const))
+        return const
 
     def get_affiliation(self, aff_hint):
         """
@@ -1461,7 +1501,7 @@ class ConstantsBase(DatabaseAccessor):
     def get_auth_crypt_methods(self):
         """Get list of auth methods, humanized"""
         auth = tuple(self.human2constant(value, _AuthenticationCode) for
-                      value in getattr(cereconf, 'AUTH_CRYPT_METHODS', ()))
+                     value in getattr(cereconf, 'AUTH_CRYPT_METHODS', ()))
         for n in auth:
             int(n)
         return auth
