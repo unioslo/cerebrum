@@ -300,7 +300,7 @@ class BofhdExtension(BofhdCommonMethods):
         ("person", "dfo_import"),
         SimpleString(help_ref='dfo_pid'),
         fs=FormatSuggestion(
-            'Import qeueued for employee-id %s\n'
+            'Import qeueued for employee-id %d \n'
             'Hint: Use `person dfo_queue <pid>` to show queue',
             ('key',),
         ),
