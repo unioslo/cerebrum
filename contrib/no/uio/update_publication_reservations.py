@@ -208,7 +208,11 @@ def get_employees(affs):
     context of publication.
 
     """
-    source_systems = (co.system_dfo_sap, co.system_manual)
+    source_systems = (
+        co.system_dfo_sap,
+        co.system_greg,
+        co.system_manual,
+    )
     affiliations = (pe.list_affiliations(affiliation=affs[0], source_system=source_systems)
                     if affs[0] else [])
     statuses = (pe.list_affiliations(status=affs[1], source_system=source_systems)

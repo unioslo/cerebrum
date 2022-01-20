@@ -175,7 +175,7 @@ def get_sap_persons_missing_dfo_aff(db):
     logger.debug('Nr of people from DFO_SAP: {}'.format(len(dfosap)))
 
     guests = set(r['person_id'] for r in
-                 pe.list_affiliations(source_system=co.system_manual)
+                 pe.list_affiliations(source_system=(co.system_greg, co.system_manual))
                  if r['status'] != int(co.affiliation_tilknyttet_fagperson))
     logger.debug('Nr of people registered in tmp guest sys: {}'
                  .format(len(guests)))
