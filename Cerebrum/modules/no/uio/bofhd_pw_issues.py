@@ -33,7 +33,7 @@ from Cerebrum.modules.bofhd.cmd_param import (AccountName,
 
 # This should be equal to CEREBRUM_FRESH_DAYS which is configured in the
 # pofh-backend repo.
-FRESH_DAYS = 7
+FRESH_DAYS = 10
 
 
 def check_ac_basics(ac, correct_ac_type):
@@ -321,7 +321,8 @@ class PassWordIssues(BofhdCommonMethods):
         valid_source_phone = False
         for phone in phones:
             if phone['ssys'] in (self.co.system_dfo_sap,
-                                 self.co.system_fs,):
+                                 self.co.system_fs,
+                                 self.co.system_greg,):
                 valid_source_phone = True
                 break
         if not valid_source_phone:
