@@ -45,6 +45,7 @@ from Cerebrum.Constants import _CerebrumCode
 from Cerebrum.Utils import Factory
 from Cerebrum.extlib.xmlprinter import xmlprinter
 from Cerebrum.modules.no.stillingskoder import Stillingskoder
+from Cerebrum.modules.no.StedKode import OuCache
 from Cerebrum.modules.no.uit.PagaDataParser import PagaDataParserClass
 from Cerebrum.utils import csvutils
 from Cerebrum.utils.argutils import ParserContext
@@ -153,44 +154,6 @@ class AffCache(object):
 
             self._aff_to_stilling_map[aux_key] = aux_val
 
-
-class OuCache(object):
-    """A cache of relevant ou data"""
-    def __init__(self, db):
-        ou = Factory.get('OU')(db)
-        co = Factory.get('Constants')(db)
-
-        logger.info("Caching OUs")
-        self._id_to_sko = {}
-        self._sko_to_id = {}
-        for row in ou.get_stedkoder():
-            sko = '{:02d}{:02d}{:02d}'.format(row['fakultet'],
-                                              row['institutt'],
-                                              row['avdeling'])
-            self._id_to_sko[int(row['ou_id'])] = sko
-            self._sko_to_id[sko] = int(row['ou_id'])
-
-        logger.info("Caching OU names")
-        self._id_to_name = {}
-        for row in ou.search_name_with_language(
-                entity_type=co.entity_ou,
-                name_variant=co.ou_name,
-                name_language=co.language_nb):
-            self._id_to_name[int(row['entity_id'])] = row['name']
-
-    def get_ou_sko(self, ou_id):
-        return self._id_to_sko[ou_id]
-
-    def get_ou_name(self, ou_id):
-        return self._id_to_name.get(ou_id) or ''
-
-    def get_sko_id(self, sko):
-        return self._sko_to_id[sko]
-
-    def get_sko_name(self, sko):
-        return self._id_to_name.get(self._sko_to_id.get(sko)) or ''
-
-
 FIELD_STEDKODE_FROM = 0
 FIELD_STEDKODE_TO = 1
 
@@ -211,7 +174,7 @@ def build_ou_mappings(ou_cache, csv_data):
     mapping = {}
     for from_sko, to_sko in csv_data:
         try:
-            from_id = ou_cache.get_sko_id(from_sko)
+            from_id = ou_cache.get_id(from_sko)
         except KeyError:
             logger.error("Invalid sko mapping from %r (to %r)",
                          from_sko, to_sko)
@@ -219,7 +182,7 @@ def build_ou_mappings(ou_cache, csv_data):
         if from_id in mapping:
             logger.warning("Duplicate mappings from %r", from_sko)
         try:
-            ou_cache.get_sko_id(to_sko)
+            ou_cache.get_id(to_sko)
         except KeyError:
             logger.warning("Mapping to invalid sko %r (from %r)",
                            to_sko, from_sko)
@@ -395,7 +358,7 @@ def get_affiliations(db, ou_cache, ou_mapping, aff_cache):
         last_date = aff['last_date'].strftime("%Y-%m-%d")
 
         try:
-            ou_sko = ou_cache.get_ou_sko(ou_id)
+            ou_sko = ou_cache.get_sko(ou_id)
             ou_name = ou_cache.get_sko_name(ou_sko)
         except KeyError as e:
             logger.warning("No stedkode for aff with ou_id=%r, skipping (%s)",
@@ -430,7 +393,7 @@ def get_affiliations(db, ou_cache, ou_mapping, aff_cache):
 
         try:
             aux_key = (pid_fnr_dict[p_id],
-                       ou_cache.get_ou_sko(ou_id),
+                       ou_cache.get_sko(ou_id),
                        six.text_type(aff_stat))
             tils_info = aff_cache[aux_key]
         except KeyError:
