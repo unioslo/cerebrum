@@ -169,12 +169,12 @@ def parse_orgunit(d):
 
 def _parse_person_consent(d):
     """ Parse/convert/filter/flatten consent object values. """
-    td = d['type']
     return {
-        'consent_type': normalize_text(td['identifier']),
-        # 'valid_from': parse_greg_date(td['valid_from']),
-        # 'user_allowed_to_change': bool(td['user_allowed_to_change']),
-        'consent_given_at': parse_greg_date(d['consent_given_at'])
+        'type': normalize_text(d['type']['identifier']),
+        'value': normalize_text(d['choice']),
+        # 'valid_from': parse_greg_date(d['type']['valid_from']),
+        # 'allowed_to_change': bool(d['type']['user_allowed_to_change']),
+        # 'given_at': parse_greg_date(d['consent_given_at'])
     }
 
 
