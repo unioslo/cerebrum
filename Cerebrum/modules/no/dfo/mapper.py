@@ -35,7 +35,7 @@ from Cerebrum.modules.hr_import.models import (HRPerson,
                                                HRExternalID,
                                                HRContactInfo)
 from Cerebrum.modules.no.dfo import title_maps
-from Cerebrum.modules.no.dfo.utils import assert_list, parse_date
+from Cerebrum.modules.no.dfo.datasource import assert_list, parse_dfo_date
 from Cerebrum.utils.phone import format as phone_number_format, \
     parse as phone_number_parse, NumberParseException
 
@@ -363,7 +363,8 @@ class EmployeeMapper(_base.AbstractMapper):
             hr_id=person_id,
             first_name=person_data.get('fornavn'),
             last_name=person_data.get('etternavn'),
-            birth_date=parse_date(person_data.get('fdato'), allow_empty=True),
+            birth_date=parse_dfo_date(person_data.get('fdato'),
+                                      allow_empty=True),
             gender=person_data.get('kjonn'),
             enable=person_data.get('eksternbruker', True),
         )

@@ -25,19 +25,47 @@ from __future__ import unicode_literals
 import json
 import logging
 
+import six
+
 from Cerebrum.modules.hr_import.datasource import (
     AbstractDatasource,
     DatasourceInvalid,
     RemoteObject,
 )
-from Cerebrum.modules.no.dfo.utils import (
-    assert_list,
-    parse_date,
-    parse_employee_id
-)
+from Cerebrum.utils import date as date_utils
 from Cerebrum.utils.date_compat import get_datetime_tz
 
 logger = logging.getLogger(__name__)
+
+
+def normalize_id(dfo_id):
+    """ Get a normalized reference to a greg object id. """
+    return six.text_type(int(dfo_id))
+
+
+def assert_list(value):
+    """
+    Assert that value is a list.
+
+    Usage: ``some_key = assert_list(dfo_object.get('someKey'))``
+    """
+    # This is a hacky way to fix the broken DFØ API
+    # Some items in the API are specified to be a list, but lists of length 1
+    # are unwrapped, and empty lists are simply not present.
+    if not value:
+        return []
+
+    if not isinstance(value, list):
+        value = [value]
+    return [x for x in value if x is not None]
+
+
+def parse_dfo_date(value, allow_empty=True):
+    """ Get a date object from a DFO date value. """
+    value = value.strip()
+    if not value and allow_empty:
+        return None
+    return date_utils.parse_date(value)
 
 
 def _get_id(d):
@@ -60,7 +88,7 @@ def _get_nbf(d):
     if not obj_nbf:
         return None
     try:
-        return get_datetime_tz(parse_date(obj_nbf))
+        return get_datetime_tz(parse_dfo_date(obj_nbf))
     except Exception as e:
         raise DatasourceInvalid("invalid 'gyldigEtter' field: %s (%r, %r)"
                                 % (e, obj_nbf, d))
@@ -109,15 +137,15 @@ def parse_employee(employee_d):
     # TODO: Filter out unused fields, normalize the rest
     result = dict(employee_d)
     result.update({
-        'startdato': parse_date(employee_d['startdato'], allow_empty=True),
-        'sluttdato': parse_date(employee_d['sluttdato']),
+        'startdato': parse_dfo_date(employee_d['startdato'], allow_empty=True),
+        'sluttdato': parse_dfo_date(employee_d['sluttdato']),
         'tilleggsstilling': [],
     })
-    for assignment in assert_list(employee_d.get('tilleggsstilling')):
+    for amnt in assert_list(employee_d.get('tilleggsstilling')):
         result['tilleggsstilling'].append({
-            'stillingId': assignment['stillingId'],
-            'startdato': parse_date(assignment['startdato'], allow_empty=True),
-            'sluttdato': parse_date(assignment['sluttdato'], allow_empty=True),
+            'stillingId': amnt['stillingId'],
+            'startdato': parse_dfo_date(amnt['startdato'], allow_empty=True),
+            'sluttdato': parse_dfo_date(amnt['sluttdato'], allow_empty=True),
         })
     return result
 
@@ -141,12 +169,12 @@ def parse_assignment(assignment_d):
         result['category'].append(cat_d['stillingskatId'])
 
     employees = {}
-    for member_d in assert_list(assignment_d.get('innehaver')):
-        if member_d['innehaverAnsattnr'] not in employees:
-            employees[member_d['innehaverAnsattnr']] = []
-        employees[member_d['innehaverAnsattnr']].append((
-            parse_date(member_d.get('innehaverStartdato'), allow_empty=True),
-            parse_date(member_d.get('innehaverSluttdato'), allow_empty=True),
+    for mem_d in assert_list(assignment_d.get('innehaver')):
+        if mem_d['innehaverAnsattnr'] not in employees:
+            employees[mem_d['innehaverAnsattnr']] = []
+        employees[mem_d['innehaverAnsattnr']].append((
+            parse_dfo_date(mem_d.get('innehaverStartdato'), allow_empty=True),
+            parse_dfo_date(mem_d.get('innehaverSluttdato'), allow_empty=True),
         ))
 
     result['employees'] = employees
@@ -189,7 +217,7 @@ class EmployeeDatasource(AbstractDatasource):
             logger.warning('no result for employee-id %r', employee_id)
 
         employee = {
-            'id': parse_employee_id(reference),
+            'id': normalize_id(reference),
             'employee': {},
             'assignments': {},
         }

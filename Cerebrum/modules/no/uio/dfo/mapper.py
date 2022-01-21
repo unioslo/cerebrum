@@ -26,7 +26,7 @@ import logging
 
 from Cerebrum.modules.no.dfo import mapper as _base
 from Cerebrum.modules.no.uio.hr_import.models import HRPerson
-from Cerebrum.modules.no.dfo.utils import parse_date
+from Cerebrum.modules.no.dfo.datasource import parse_dfo_date
 from Cerebrum.modules.no.dfo.mapper import get_main_assignment
 
 logger = logging.getLogger(__name__)
@@ -67,7 +67,8 @@ class EmployeeMapper(_base.EmployeeMapper):
             hr_id=person_id,
             first_name=person_data.get('fornavn'),
             last_name=person_data.get('etternavn'),
-            birth_date=parse_date(person_data.get('fdato'), allow_empty=True),
+            birth_date=parse_dfo_date(person_data.get('fdato'),
+                                      allow_empty=True),
             gender=person_data.get('kjonn'),
             reserved=person_data.get('reservasjonPublisering')
         )
