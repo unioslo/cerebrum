@@ -250,17 +250,8 @@ class GregConsents(object):
     """
 
     type_map = {
-        # TODO: Add actual (common) consents
-        'mandatory': 'greg-consent-mandatory',
-        'optional': 'greg-consent-optional',
+        'publish': 'greg-publish',
     }
-
-    # TODO: Add actual, irrelevant consents
-    ignore_types = (
-        'consent-foo',
-        'consent-bar',
-        'consent-baz',
-    )
 
     # Consent value (choice) to bool (is-consent)
     value_map = {
@@ -284,12 +275,7 @@ class GregConsents(object):
             greg_type = c_obj['type']
             greg_value = c_obj['value']
 
-            if greg_type in self.ignore_types:
-                continue
-
             if greg_type not in self.type_map:
-                logger.debug('ignoring unknown consent (%s=%r) for greg_id=%s',
-                             greg_type, greg_value, greg_id)
                 continue
             crb_type = self.type_map[greg_type]
 

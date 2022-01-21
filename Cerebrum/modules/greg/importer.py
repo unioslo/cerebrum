@@ -40,8 +40,9 @@ from Cerebrum.modules.import_utils.syncs import (
 )
 from Cerebrum.utils import date_compat
 
-from .mapper import GregMapper
+from .consent import sync_greg_consent
 from .datasource import GregDatasource
+from .mapper import GregMapper
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +58,10 @@ class GregImporter(object):
         'GREG_PID',
     )
 
+    CONSENT_GROUPS = {
+        'greg-publish': sync_greg_consent,
+    }
+
     mapper = GregMapper()
 
     def __init__(self, db, client):
@@ -70,6 +75,14 @@ class GregImporter(object):
         self._sync_ids = ExternalIdSync(db, source_system)
         self._sync_name = PersonNameSync(db, source_system, (co.name_first,
                                                              co.name_last))
+
+    def _sync_consents(self, person_obj, consents):
+        """ Sync consents from greg. """
+        # Consents represented as groups:
+        for consent, update_group in self.CONSENT_GROUPS.items():
+            is_consent = consent in consents
+            update_group(self.db, person_obj.entity_id, is_consent)
+        # TODO: Also sync to Cerebrum.modules.consent?
 
     def get_person(self, greg_person):
         """ Find matching person from a Greg person dict. """
@@ -193,3 +206,4 @@ class GregImporter(object):
             in self.mapper.get_affiliations(greg_person)
         )
         self._sync_affs(person_obj, affs)
+        self._sync_consents(person_obj, self.mapper.get_consents(greg_person))

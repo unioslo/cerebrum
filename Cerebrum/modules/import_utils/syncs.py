@@ -54,33 +54,6 @@ def pretty_const_pairs(value):
                         for a, b in value))
 
 
-def get_const(co, cls, value):
-    """ Get a CerebrumCode from a code intval, strval.
-
-    :type value: int, str, CerebrumCode
-    :rtype: CerebrumCode
-    :raises LookupError: if an invalid value is given
-    """
-    type_name = cls.__name__
-    if isinstance(value, cls):
-        const = value
-    else:
-        const = co.human2constant(value, cls)
-        if const is None:
-            raise LookupError("%s %r not defined" % (type_name, value))
-    if isinstance(value, int):
-        if type(const) != cls:
-            raise LookupError('%r (%r) is not a %s!'
-                              % (value, const, type_name))
-    else:
-        try:
-            int(const)
-        except Errors.NotFoundError:
-            raise LookupError("%s %r (%r) not in db"
-                              % (type_name, value, const))
-    return const
-
-
 class _BaseSync(six.with_metaclass(abc.ABCMeta)):
     """ Abstract sync class.
 
@@ -113,8 +86,8 @@ class _SourceSystemSync(_BaseSync):
     def __init__(self, db, source_system):
         super(_SourceSystemSync, self).__init__(db)
         co = self.const
-        self.source_system = get_const(co, co.AuthoritativeSystem,
-                                       source_system)
+        self.source_system = self.const.get_constant(co.AuthoritativeSystem,
+                                                     source_system)
 
     def __repr__(self):
         return '<{name}[{source}]>'.format(
@@ -147,7 +120,7 @@ class _KeyValueSync(_SourceSystemSync):
             self.affect_types = None
 
     def get_type(self, value):
-        return get_const(self.const, self.type_cls, value)
+        return self.const.get_constant(self.type_cls, value)
 
     @abc.abstractmethod
     def fetch_current(self, entity):
@@ -393,10 +366,10 @@ class NameLanguageSync(_BaseSync):
             self.affect_types = None
 
     def get_type(self, value):
-        return get_const(self.const, Constants._EntityNameCode, value)
+        return self.const.get_constant(Constants._EntityNameCode, value)
 
     def get_subtype(self, value):
-        return get_const(self.const, Constants._LanguageCode, value)
+        return self.const.get_constant(Constants._LanguageCode, value)
 
     def fetch_current(self, entity):
         for row in entity.search_name_with_language(
