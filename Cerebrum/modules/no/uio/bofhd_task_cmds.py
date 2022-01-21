@@ -34,6 +34,7 @@ from Cerebrum.modules.bofhd.cmd_param import (
     SimpleString,
 )
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
+from Cerebrum.modules.import_utils import syncs
 from Cerebrum.modules.no.dfo.tasks import EmployeeTasks
 from Cerebrum.modules.no.uio.bofhd_auth import UioAuth
 from Cerebrum.modules.tasks.task_queue import TaskQueue, sql_search
@@ -89,49 +90,6 @@ def get_tasks(db, dfo_pid):
     return tasks
 
 
-def clear_contact_info(person, source_system):
-    """
-    Clear contact info from a given source system for a given person.
-
-    :type person: Cerebrum.Person.Person
-    :type source_system: Cerebrum.Constants._AutoritativeSystemCode
-    """
-    to_remove = tuple(
-        person.const.ContactInfo(row['contact_type'])
-        for row in person.get_contact_info(source=int(source_system)))
-
-    for ctype in to_remove:
-        person.delete_contact_info(source=source_system, contact_type=ctype)
-
-    if to_remove:
-        logger.info('removed contact info: person_id=%d, types=%s, source=%s',
-                    person.entity_id,
-                    repr([str(c) for c in to_remove]),
-                    source_system)
-    return to_remove
-
-
-def clear_names(person, source_system):
-    """
-    Clear names from a given source system for a given person.
-
-    :type person: Cerebrum.Person.Person
-    :type source_system: Cerebrum.Constants._AutoritativeSystemCode
-    """
-    to_remove = tuple(
-        person.const.PersonName(row['name_variant'])
-        for row in person.get_names(source_system=int(source_system)))
-
-    if to_remove:
-        person.affect_names(source_system, *to_remove)
-        person.write_db()
-        logger.info('removed names: person_id=%d, names=%s, source=%s',
-                    person.entity_id,
-                    repr([str(c) for c in to_remove]),
-                    source_system)
-    return to_remove
-
-
 def find_unique_external_ids(person, source_system):
     """
     Identify external id types that are *only* registered in the given
@@ -142,14 +100,14 @@ def find_unique_external_ids(person, source_system):
     """
     co = person.const
 
-    affected_types = []
     source_map = {}
+    values = {}
     for row in person.get_external_id():
         sys = co.AuthoritativeSystem(row['source_system'])
         typ = co.EntityExternalId(row['id_type'])
         val = row['external_id']
         if sys == source_system:
-            affected_types.append(typ)
+            values[typ] = val
         source_map.setdefault((typ, val), []).append(sys)
 
     duplicates = []
@@ -157,48 +115,10 @@ def find_unique_external_ids(person, source_system):
         if source_system in sources and len(sources) > 1:
             duplicates.append(typ)
 
-    unique = tuple(typ for typ in affected_types
-                   if typ not in duplicates)
-
-    return unique
-
-
-def clear_external_id(person, source_system, exclude_id_types=None):
-    """
-    Clear external ids from a given source system for a given person.
-
-    :type person: Cerebrum.Person.Person
-    :type source_system: Cerebrum.Constants._AutoritativeSystemCode
-    :param exclude_id_types:
-        An optional tuple of id types to keep.
-
-        Each id type must be a Cerebrum.Constants._EntityExternalIdCode
-    """
-    co = person.const
-    exclude_id_types = exclude_id_types or ()
-
-    id_types = tuple(
-        co.EntityExternalId(row['id_type'])
-        for row in person.get_external_id(source_system=int(source_system)))
-    to_remove = tuple(id_type for id_type in id_types
-                      if id_type not in exclude_id_types)
-    to_keep = tuple(id_type for id_type in id_types
-                    if id_type in exclude_id_types)
-
-    if to_remove:
-        person.affect_external_id(source_system, *to_remove)
-        person.write_db()
-        logger.info('removed external id: person_id=%d, types=%s, source=%s',
-                    person.entity_id,
-                    repr([str(c) for c in to_remove]),
-                    source_system)
-    if to_keep:
-        logger.debug('kept external id: person_id=%d, types=%s, source=%s',
-                     person.entity_id,
-                     repr([str(c) for c in to_keep]),
-                     source_system)
-
-    return to_remove
+    return tuple(
+        (typ, values[typ])
+        for typ in values
+        if typ not in duplicates)
 
 
 class BofhdHrImportAuth(UioAuth):
@@ -394,26 +314,22 @@ class BofhdExtension(BofhdCommonMethods):
         person = self._get_person(person_id)
         source_system = self.const.system_sap
 
-        to_remove = tuple(
-            (person.const.PersonAffiliation(row['affiliation']), row['ou_id'])
-            for row in person.get_affiliations()
-            if row['source_system'] == int(source_system))
+        aff_sync = syncs.AffiliationSync(self.db, source_system)
+        added, updated, removed = aff_sync(person, ())
 
-        if not to_remove:
+        if added | updated:
+            raise RuntimeError('Updated aff?')
+
+        if not removed:
             raise CerebrumError('No affiliations to remove from '
                                 + six.text_type(source_system))
-
-        for aff, ou_id in to_remove:
-            person.delete_affiliation(ou_id, aff, source_system)
-            logger.info('removed aff: person_id=%d aff=%s ou_id=%d, source=%s',
-                        person.entity_id, aff, ou_id, source_system)
 
         return [{
             'person_id': int(person.entity_id),
             'source_system': six.text_type(source_system),
             'affiliation': six.text_type(aff),
             'ou_id': int(ou_id),
-        } for aff, ou_id in to_remove]
+        } for ou_id, aff, _ in removed]
 
     #
     # person clear_sap_data <person>
@@ -445,7 +361,14 @@ class BofhdExtension(BofhdCommonMethods):
         source_system = self.const.system_sap
         removed = []
 
-        for c_type in clear_contact_info(person, source_system):
+        c_sync = syncs.ContactInfoSync(self.db, source_system)
+        n_sync = syncs.PersonNameSync(self.db, source_system)
+        i_sync = syncs.ExternalIdSync(self.db, source_system)
+
+        c_add, c_mod, c_rem = c_sync(person, ())
+        if c_add | c_mod:
+            raise RuntimeError("this shouldn't happen!")
+        for c_type in c_rem:
             removed.append({
                 'category': 'contact_info',
                 'person_id': int(person.entity_id),
@@ -453,7 +376,10 @@ class BofhdExtension(BofhdCommonMethods):
                 'type': six.text_type(c_type),
             })
 
-        for n_var in clear_names(person, source_system):
+        n_add, n_mod, n_rem = n_sync(person, ())
+        if n_add | n_mod:
+            raise RuntimeError("this shouldn't happen!")
+        for n_var in n_rem:
             removed.append({
                 'category': 'person_name',
                 'person_id': int(person.entity_id),
@@ -461,11 +387,12 @@ class BofhdExtension(BofhdCommonMethods):
                 'type': six.text_type(n_var),
             })
 
-        keep_id_types = find_unique_external_ids(person, source_system)
-        for id_type in clear_external_id(
-                person,
-                source_system,
-                exclude_id_types=keep_id_types):
+        keep_ids = find_unique_external_ids(person, source_system)
+
+        i_add, i_mod, i_rem = i_sync(person, keep_ids)
+        if i_add | i_mod:
+            raise RuntimeError("this shouldn't happen!")
+        for id_type in i_rem:
             removed.append({
                 'category': 'external_id',
                 'person_id': int(person.entity_id),

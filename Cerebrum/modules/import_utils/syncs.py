@@ -193,6 +193,7 @@ class _KeyValueSync(_SourceSystemSync):
 
         self.apply_changes(entity, dict(new_pairs),
                            to_add, to_update, to_remove)
+        return (to_add, to_update, to_remove)
 
 
 class PersonNameSync(_KeyValueSync):
@@ -321,6 +322,7 @@ class AffiliationSync(_SourceSystemSync):
             curr_affiliations.add((ou_id, aff, status))
 
         to_add = new_affiliations - curr_affiliations
+        to_update = new_affiliations & curr_affiliations
         to_remove = curr_affiliations - new_affiliations
 
         # populate_affiliation() is not suitable here, as we don't have a way
@@ -339,6 +341,8 @@ class AffiliationSync(_SourceSystemSync):
             else:
                 logger.info('renewed affiliation for person_id=%d: %s @ '
                             'ou_id=%d', person_id, status, ou_id)
+
+        return (to_add, to_update, to_remove)
 
 
 class NameLanguageSync(_BaseSync):
@@ -426,6 +430,7 @@ class NameLanguageSync(_BaseSync):
         values = {t[:2]: t[2] for t in new_pairs}
         self.apply_changes(entity, values,
                            to_add, to_update, to_remove)
+        return (to_add, to_update, to_remove)
 
     def apply_changes(self, entity, values, to_add, to_update, to_remove):
         changes = (to_add | to_remove | to_update)
