@@ -18,15 +18,15 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
-This module contains HR-import related utility commands for UiO.
+This module contains task-related commands for UiO.
 """
+from __future__ import absolute_import, print_function, unicode_literals
 import logging
 
 import six
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.cmd_param import (
     Command,
     FormatSuggestion,
@@ -34,32 +34,34 @@ from Cerebrum.modules.bofhd.cmd_param import (
     SimpleString,
 )
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
+from Cerebrum.modules.bofhd.help import merge_help_strings
+from Cerebrum.modules.greg.datasource import normalize_id as _norm_greg_id
+from Cerebrum.modules.greg.tasks import GregImportTasks
 from Cerebrum.modules.import_utils import syncs
-from Cerebrum.modules.no.dfo.tasks import EmployeeTasks
+from Cerebrum.modules.no.dfo.datasource import normalize_id as _norm_dfo_id
+from Cerebrum.modules.no.dfo.tasks import AssignmentTasks, EmployeeTasks
 from Cerebrum.modules.no.uio.bofhd_auth import UioAuth
-from Cerebrum.modules.tasks.task_queue import TaskQueue, sql_search
-
+from Cerebrum.modules.tasks import bofhd_task_cmds
 
 logger = logging.getLogger(__name__)
 
 
-def format_day(field):
-    """ Datetime format for FormatSuggestion. """
-    fmt = "yyyy-MM-dd"
-    return ":".join((field, "date", fmt))
-
-
-def _normalize_dfo_pid_input(value):
-    """ Try to parse value as a DFO_PID. """
+def _parse_dfo_pid(value):
+    """ Try to parse lookup value as a DFO_PID. """
     # 'dfo_pid:<employee-number>', 'dfo:<emplyee-number>'
     if value.partition(':')[0].lower() in ('dfo', 'dfo_pid'):
-        return int(value.partition(':')[2].strip())
-
+        value = value.partition(':')[2]
     # <employee-number>
-    if value.strip().isdigit():
-        return int(value.strip())
+    return _norm_dfo_id(value)
 
-    raise ValueError('Invalid DFO_PID')
+
+def _parse_greg_id(value):
+    """ Try to parse lookup value as a GREG_PID. """
+    # 'greg:<greg-id>', 'greg_id:<greg-id>'
+    if value.partition(':')[0].lower() in ('greg', 'greg_pid'):
+        value = value.partition(':')[2]
+    # <greg-id>
+    return _norm_greg_id(value)
 
 
 def find_by_dfo_pid(db, dfo_pid):
@@ -70,24 +72,18 @@ def find_by_dfo_pid(db, dfo_pid):
         pe.find_by_external_id(co.externalid_dfo_pid, dfo_pid)
         return pe
     except Errors.NotFoundError:
-        raise CerebrumError('Unknown employee id: ' + repr(dfo_pid))
+        raise CerebrumError('Unknown employee: ' + repr(dfo_pid))
 
 
-def get_tasks(db, dfo_pid):
-    """ Get tasks associated with a given employee number. """
-    # expand employee number to include incorrectly formatted values:
-    # - zero prefix
-    # - carriage return suffix
-    # TODO: Or just normalize the keys as a one-time job?
-    keys = tuple(key_fmt % (dfo_pid,) for key_fmt in ('%d', '0%d', '%d\r',
-                                                      '0%d\r',))
-    tasks = [dict(t) for t in sql_search(db,
-                                         queues=EmployeeTasks.queue,
-                                         keys=keys)]
-    if not tasks:
-        raise CerebrumError('No tasks in queue for employee id: '
-                            + repr(dfo_pid))
-    return tasks
+def find_by_greg_id(db, greg_id):
+    """ Find Person-object by GREG_ID value. """
+    pe = Factory.get('Person')(db)
+    co = pe.const
+    try:
+        pe.find_by_external_id(co.externalid_greg_pid, greg_id)
+        return pe
+    except Errors.NotFoundError:
+        raise CerebrumError('Unknown greg person: ' + repr(greg_id))
 
 
 def find_unique_external_ids(person, source_system):
@@ -121,7 +117,7 @@ def find_unique_external_ids(person, source_system):
         if typ not in duplicates)
 
 
-class BofhdHrImportAuth(UioAuth):
+class BofhdTaskAuth(UioAuth, bofhd_task_cmds.BofhdTaskAuth):
 
     def can_dfo_import(self, operator,  query_run_any=False):
         """Access to list which entities has a trait."""
@@ -135,6 +131,24 @@ class BofhdHrImportAuth(UioAuth):
             return True
         raise PermissionDenied('No access to import queue')
 
+    def can_greg_import(self, operator, query_run_any=False):
+        """Access to list which entities has a trait."""
+        if self.is_superuser(operator):
+            return True
+        # TODO:
+        # Add auth consts for greg?  Or better, add a generic task_queue auth
+        # type, and use queue/sub-queue params?
+        # If so, we should add greg bofhd-auth constants, and move these checks
+        # to the generic BofhdTaskAuth
+        if query_run_any:
+            # return self._has_operation_perm_somewhere(
+            #     operator, self.const.auth_import_dfo_person)
+            return False
+        # if self._has_operation_perm_somewhere(
+        #         operator, self.const.auth_import_dfo_person):
+        #     return True
+        raise PermissionDenied('No access to import queue')
+
     def can_clear_sap_data(self, operator, query_run_any=False):
         has_access = self.is_superuser(operator)
         if query_run_any or has_access:
@@ -142,21 +156,21 @@ class BofhdHrImportAuth(UioAuth):
         raise PermissionDenied('No access to clear hr data')
 
 
-class BofhdExtension(BofhdCommonMethods):
+class BofhdTaskCommands(bofhd_task_cmds.BofhdTaskCommands):
 
     all_commands = {}
-    authz = BofhdHrImportAuth
+    authz = BofhdTaskAuth
+    parent_commands = True
+    omit_parent_commands = (
+        # disallow task_add, as adding tasks without payload may beak
+        # some imports.  Replaced by person_*_import
+        'task_add',
+    )
 
     @classmethod
     def get_help_strings(cls):
+        grp_help = {}  # 'person' should already exist in parent
         cmd_help = {'person': {}}
-        arg_help = {
-            'dfo_pid': [
-                'dfo_pid',
-                'Enter employee number',
-                'Enter a valid employee number or a person identifier',
-            ],
-        }
         for name in cls.all_commands:
             if name in cmd_help['person']:
                 continue
@@ -168,7 +182,24 @@ class BofhdExtension(BofhdCommonMethods):
             first = doc.splitlines()[0].strip()
             cmd_help['person'][name] = first.rstrip('.')
 
-        return ({}, cmd_help, arg_help)
+        arg_help = {
+            'dfo-pid': [
+                'dfo-pid',
+                'Enter DFØ employee identifier',
+                ('Enter a valid employee number or other cerebrum person'
+                 ' identifier'),
+            ],
+            'greg-pid': [
+                'greg-pid',
+                'Enter Greg person identifier',
+                ('Enter a valid greg person id or other cerebrum person'
+                 ' identifier'),
+            ],
+        }
+
+        return merge_help_strings(
+            super(BofhdTaskCommands, cls).get_help_strings(),
+            (grp_help, cmd_help, arg_help))
 
     def _get_person(self, value):
         try:
@@ -184,7 +215,7 @@ class BofhdExtension(BofhdCommonMethods):
         or fetch a DFO_PID from an existing Person-object.
         """
         try:
-            return _normalize_dfo_pid_input(value)
+            return _parse_dfo_pid(value)
         except ValueError:
             pass
 
@@ -205,7 +236,7 @@ class BofhdExtension(BofhdCommonMethods):
         in the usual ways, and additionally by providing a valid DFO_PID.
         """
         try:
-            dfo_pid = _normalize_dfo_pid_input(value)
+            dfo_pid = _parse_dfo_pid(value)
             find_by_dfo_pid(self.db, dfo_pid)
         except ValueError:
             pass
@@ -218,38 +249,30 @@ class BofhdExtension(BofhdCommonMethods):
     #
     all_commands['person_dfo_import'] = Command(
         ("person", "dfo_import"),
-        SimpleString(help_ref='dfo_pid'),
-        fs=FormatSuggestion(
-            'Import qeueued for employee-id %d \n'
-            'Hint: Use `person dfo_queue <pid>` to show queue',
-            ('key',),
-        ),
+        SimpleString(help_ref='dfo-pid'),
+        fs=bofhd_task_cmds.BofhdTaskCommands._add_task_fs,
         perm_filter='can_dfo_import',
     )
 
     def person_dfo_import(self, operator, lookup_value):
         """ Add an employee to the hr import queue. """
         self.ba.can_dfo_import(operator.get_entity_id())
-
         dfo_pid = self._get_dfo_pid(lookup_value)
         task = EmployeeTasks.create_manual_task(dfo_pid)
-        TaskQueue(self.db).push_task(task)
-        return task.to_dict()
+        return self._add_task(task)
 
     #
     # person dfo_cancel <key>
     #
     all_commands['person_dfo_cancel'] = Command(
         ("person", "dfo_cancel"),
-        SimpleString(help_ref='dfo_pid'),
-        fs=FormatSuggestion(
-            'Import cancelled for employee id %s', ('key',),
-        ),
+        SimpleString(help_ref='dfo-pid'),
+        fs=bofhd_task_cmds.BofhdTaskCommands._remove_task_fs,
         perm_filter='can_dfo_import',
     )
 
     def person_dfo_cancel(self, operator, dfo_pid):
-        """ Cancel a previously added import task from the hr import queue. """
+        """ Cancel a previously added task from the hr import queue. """
         self.ba.can_dfo_import(operator.get_entity_id())
 
         if not dfo_pid.isdigit():
@@ -257,38 +280,174 @@ class BofhdExtension(BofhdCommonMethods):
 
         queue = EmployeeTasks.queue
         sub = EmployeeTasks.manual_sub
-
-        try:
-            return TaskQueue(self.db).pop_task(queue, sub, dfo_pid).to_dict()
-        except Errors.NotFoundError:
-            raise CerebrumError('No task for emplyee id %s in %s/%s'
-                                % (dfo_pid, queue, sub))
-            pass
+        return self._remove_task(queue, sub, dfo_pid)
 
     #
     # person dfo_queue <employee>
     #
     all_commands['person_dfo_queue'] = Command(
         ("person", "dfo_queue"),
-        SimpleString(help_ref='dfo_pid'),
-        fs=FormatSuggestion(
-            "%12s/%-12s  %8s  %8d  %10s  %10s",
-            ('queue', 'sub', 'key', 'attempts',
-             format_day('nbf'), format_day('iat')),
-            hdr="%12s/%-12s  %8s  %8s  %10s  %10s" % (
-                'Queue', 'Sub Queue', 'Key', 'Attempts',
-                'Not Before', 'Issued At',
-            ),
-        ),
+        SimpleString(help_ref='dfo-pid'),
+        fs=bofhd_task_cmds.BofhdTaskCommands._search_tasks_list_fs,
         perm_filter='can_dfo_import',
     )
 
     def person_dfo_queue(self, operator, lookup_value):
         """ Show tasks in the dfo import queues. """
         self.ba.can_dfo_import(operator.get_entity_id())
-
         dfo_pid = self._get_dfo_pid(lookup_value)
-        return get_tasks(self.db, dfo_pid)
+        # include known, un-normalized keys
+        params = {
+            'queues': EmployeeTasks.queue,
+            'keys': tuple(
+                key_fmt % int(dfo_pid)
+                for key_fmt in ('%d', '0%d', '%d\r', '0%d\r')
+            ) + (dfo_pid,),
+        }
+
+        tasks = list(self._search_tasks(params))
+        if tasks:
+            return tasks
+        raise CerebrumError('No dfo-import in queue for: '
+                            + repr(lookup_value))
+
+    #
+    # person dfo_stats
+    #
+    all_commands['person_dfo_stats'] = Command(
+        ("person", "dfo_stats"),
+        fs=bofhd_task_cmds.BofhdTaskCommands._get_queue_stats_fs,
+        perm_filter='can_dfo_import',
+    )
+
+    def person_dfo_stats(self, operator):
+        """ Get task counts for the dfo import queues. """
+        self.ba.can_dfo_import(operator.get_entity_id())
+        results = list(self._get_queue_stats(EmployeeTasks.queue,
+                                             EmployeeTasks.max_attempts))
+        results.extend(self._get_queue_stats(AssignmentTasks.queue,
+                                             AssignmentTasks.max_attempts))
+        if results:
+            return results
+        raise CerebrumError('No queued dfo import tasks')
+
+    # Greg utils
+
+    def _get_greg_id(self, value):
+        """
+        Get GREG_PID from user argument.
+
+        This helper function allow users to provide a GREG_PID value directly,
+        or fetch a GREG_PID from an existing Person-object.
+        """
+        try:
+            return _parse_greg_id(value)
+        except ValueError:
+            pass
+
+        # other identifiers, e.g. <username>, person:<username>, id:<entity-id>
+        try:
+            pe = self._get_person(value)
+            row = pe.get_external_id(source_system=pe.const.system_greg,
+                                     id_type=pe.const.externalid_greg_pid)
+            return int(row['external_id'])
+        except Exception:
+            raise CerebrumError("Invalid GREG_PID: " + repr(value))
+
+    def _get_greg_person(self, value):
+        """
+        Get Person from user argument.
+
+        This helper function allow users to look up Person-objects in Cerebrum
+        in the usual ways, and additionally by providing a valid GREG_PID.
+        """
+        try:
+            greg_id = _parse_greg_id(value)
+            find_by_greg_id(self.db, greg_id)
+        except ValueError:
+            pass
+
+        # other identifiers, e.g. <username>, person:<username>, id:<entity-id>
+        return self._get_person(value)
+
+    #
+    # person greg_import <employee>
+    #
+    all_commands['person_greg_import'] = Command(
+        ("person", "greg_import"),
+        SimpleString(help_ref='greg-pid'),
+        fs=bofhd_task_cmds.BofhdTaskCommands._add_task_fs,
+        perm_filter='can_greg_import',
+    )
+
+    def person_greg_import(self, operator, lookup_value):
+        """ Add a guest to the greg import queue. """
+        self.ba.can_greg_import(operator.get_entity_id())
+        key = self._get_greg_id(lookup_value)
+        task = GregImportTasks.create_manual_task(key)
+        return self._add_task(task)
+
+    #
+    # person greg_cancel <key>
+    #
+    all_commands['person_greg_cancel'] = Command(
+        ("person", "greg_cancel"),
+        SimpleString(help_ref='greg-pid'),
+        fs=bofhd_task_cmds.BofhdTaskCommands._remove_task_fs,
+        perm_filter='can_greg_import',
+    )
+
+    def person_greg_cancel(self, operator, greg_pid):
+        """ Cancel a previously added task from the greg import queue. """
+        self.ba.can_greg_import(operator.get_entity_id())
+
+        if not greg_pid.isdigit():
+            raise CerebrumError('Invalid greg id: ' + repr(greg_pid))
+
+        queue = GregImportTasks.queue
+        sub = GregImportTasks.manual_sub
+        return self._remove_task(queue, sub, greg_pid)
+
+    #
+    # person greg_queue <employee>
+    #
+    all_commands['person_greg_queue'] = Command(
+        ("person", "greg_queue"),
+        SimpleString(help_ref='greg-pid'),
+        fs=bofhd_task_cmds.BofhdTaskCommands._search_tasks_info_fs,
+        perm_filter='can_greg_import',
+    )
+
+    def person_greg_queue(self, operator, lookup_value):
+        """ Show tasks in the greg import queues. """
+        self.ba.can_greg_import(operator.get_entity_id())
+        params = {
+            'queues': GregImportTasks.queue,
+            'keys': self._get_greg_id(lookup_value),
+        }
+        tasks = list(self._search_tasks(params))
+        if tasks:
+            return tasks
+        raise CerebrumError('No greg-import in queue for: '
+                            + repr(lookup_value))
+
+    #
+    # person greg_stats
+    #
+    all_commands['person_greg_stats'] = Command(
+        ("person", "greg_stats"),
+        fs=bofhd_task_cmds.BofhdTaskCommands._get_queue_stats_fs,
+        perm_filter='can_greg_import',
+    )
+
+    def person_greg_stats(self, operator):
+        """ Get task counts for the greg import queues. """
+        self.ba.can_greg_import(operator.get_entity_id())
+        results = list(self._get_queue_stats(GregImportTasks.queue,
+                                             GregImportTasks.max_attempts))
+        if results:
+            return results
+        raise CerebrumError('No queued greg import tasks')
 
     #
     # person clear_sap_affiliations <person>
