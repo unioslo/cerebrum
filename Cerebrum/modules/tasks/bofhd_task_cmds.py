@@ -334,12 +334,12 @@ class BofhdTaskCommands(BofhdCommonMethods):
     _search_tasks_list_fs = FormatSuggestion(
         [
             # Regular task entries
-            ("%-32s  %8d  %-16s",
+            ("%-48s  %8d  %-16s",
              ('task_id', 'attempts', format_time('nbf'))),
-            # Allow for a special 'limit' sentinel value
+            # Allow for  special 'limit' sentinel value
             ("...\nLimited to %d results", ('limit',)),
         ],
-        hdr=("%-32s  %8s  %-16s"
+        hdr=("%-48s  %8s  %-16s"
              % ('Task id', 'Attempts', 'Not before')),
     )
 
@@ -376,15 +376,16 @@ class BofhdTaskCommands(BofhdCommonMethods):
 
     # reusable format sugegstion for `_get_queue_counts()` return values
     _get_queue_counts_fs = FormatSuggestion(
-        "%-24s  %d", ('queue_id', 'num'),
-        hdr="%-24s  %s" % ('Queue/Sub-queue', 'Count'))
+        "%-32s  %d", ('queue_id', 'num'),
+        hdr="%-32s  %s" % ('Queue/Sub-queue', 'Count'))
 
-    def _get_queue_stats(self, queue, max_attempts):
+    def _get_queue_stats(self, queue, max_attempts, by_sub=True):
         """
-        Fetch queue stats for a given queue.
+        Fetch (sub)queue stats for a given queue.
 
         :param str queue: the queue to get stats for
         :param int max_attempts: fail limit for the queue
+        :param bool by_sub: get results for each sub-queue
         :returns generator:
             Generates dict objects with stats for sub-queues of a given queue
 
@@ -394,25 +395,29 @@ class BofhdTaskCommands(BofhdCommonMethods):
                  'ready': 0, 'waiting': 24, 'failed': 7, 'total': 31}
         """
         template = {'ready': 0, 'waiting': 0, 'failed': 0, 'total': 0}
-        by_queue = {}
+        by_key = {}
         for preset in template:
             filters = TaskSearchParams.get_preset(preset, queue, max_attempts)
             for d in self._get_queue_counts(filters):
-                key = (d['queue'], d['sub'])
+                if by_sub:
+                    key = (d['queue'], d['sub'])
+                else:
+                    key = (d['queue'],)
+                    d['queue_id'] = d['queue']
                 num = d.pop('num')
-                if key not in by_queue:
-                    by_queue[key] = dict(template)
-                    by_queue[key].update(d)
-                by_queue[key][preset] = num
+                if key not in by_key:
+                    by_key[key] = dict(template)
+                    by_key[key].update(d)
+                by_key[key][preset] += num
 
-        for key in sorted(by_queue):
-            yield by_queue[key]
+        for key in sorted(by_key):
+            yield by_key[key]
 
     # reusable format suggestion for `_get_queue_stats()` results
     _get_queue_stats_fs = FormatSuggestion(
-        "%-24s  %7d  %7d  %7d  %7d",
+        "%-32s  %7d  %7d  %7d  %7d",
         ('queue_id', 'ready', 'waiting', 'failed', 'total'),
-        hdr=("%-24s  %7s  %7s  %7s  %7s"
+        hdr=("%-32s  %7s  %7s  %7s  %7s"
              % ('Queue/Sub-queue', 'Ready', 'Waiting', 'Failed',  'Total')),
     )
 
