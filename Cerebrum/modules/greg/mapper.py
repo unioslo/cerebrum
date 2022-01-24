@@ -384,6 +384,13 @@ class GregMapper(object):
             logger.info('incomplete registration for greg_id=%s', greg_id)
             return False
 
+        if not greg_data['date_of_birth']:
+            # Some mandatory fields may be missing until the guest has
+            # completed the regsitration.
+            logger.warning('missing mandatory date_of_birth for greg_id=%s',
+                           greg_id)
+            return False
+
         if not list(self.get_affiliations(greg_data, _today=today)):
             logger.info('no active roles for greg_id=%s', greg_id)
             return False
