@@ -39,7 +39,7 @@ logger = logging.getLogger(__name__)
 
 
 def normalize_id(dfo_id):
-    """ Get a normalized reference to a greg object id. """
+    """ Get a normalized employee object id. """
     return six.text_type(int(dfo_id))
 
 
@@ -62,10 +62,12 @@ def assert_list(value):
 
 def parse_dfo_date(value, allow_empty=True):
     """ Get a date object from a DFO date value. """
-    value = value.strip()
-    if not value and allow_empty:
+    if value:
+        return date_utils.parse_date(value)
+    elif allow_empty:
         return None
-    return date_utils.parse_date(value)
+    else:
+        raise ValueError('No date: %r' % (value,))
 
 
 def _get_id(d):
