@@ -216,7 +216,7 @@ def parse_person(d):
         'id': normalize_id(d['id']),
         'first_name': normalize_text(d['first_name'], allow_empty=True),
         'last_name': normalize_text(d['last_name'], allow_empty=True),
-        'date_of_birth': parse_greg_date(d['date_of_birth']),
+        'date_of_birth': parse_greg_date(d['date_of_birth'], allow_empty=True),
         'registration_completed_date': parse_greg_date(
             d['registration_completed_date'],
             allow_empty=True,
