@@ -176,8 +176,10 @@ class GregPersonIds(object):
                 continue
 
             value = id_obj['value']
-            # TODO/TBD: Validate values (e.g. valid fnr), or should this be
-            # done by the import?
+            # TODO/TBD:
+            #   Values should already be verified by Greg, so we should be able
+            #   to trust them.  Still, we might want to validate/normalize
+            #   values (e.g.  valid fnr, passport number) here as well.
             yield crb_type, value
 
 
@@ -210,12 +212,6 @@ class GregContactInfo(object):
         'private_email',
     ))
 
-    # values of identities.verified to accept
-    verified_values = set((
-        'automatic',
-        'manual',
-    ))
-
     def __call__(self, greg_data):
         """
         :param dict greg_data:
@@ -232,15 +228,13 @@ class GregContactInfo(object):
                 logger.debug('ignoring unknown id_type=%r for greg_id=%s',
                              id_obj['type'], greg_id)
                 continue
-            crb_type = self.type_map[id_obj['type']]
-            if id_obj['verified'] not in self.verified_values:
-                logger.debug('ignoring unverified id_type=%r for greg_id=%s',
-                             id_obj['type'], greg_id)
-                continue
 
+            crb_type = self.type_map[id_obj['type']]
             value = id_obj['value']
-            # TODO/TBD: Validate values (e.g. valid email, phone), or should
-            # this be done by the import?
+            # TODO/TBD:
+            #   Values should already be verified by Greg, so we should be able
+            #   to trust them.  Still, we might want to validate/normalize
+            #   values here as well.
             yield crb_type, value
 
 
