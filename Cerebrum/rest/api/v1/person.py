@@ -28,6 +28,10 @@ from six import text_type
 
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
+from Cerebrum.modules.bofhd.errors import CerebrumError
+from Cerebrum.modules.otp.otp_types import (PersonOtpUpdater,
+                                            get_policy,
+                                            validate_secret)
 
 from Cerebrum.rest.api import db, auth, fields, utils
 from Cerebrum.rest.api.v1 import models
@@ -336,3 +340,23 @@ class PersonAddressListResource(Resource):
             del addr['entity_id']
             data.append(addr)
         return data
+
+
+@api.route('/<int:id>/secret/<string:secret>')
+@api.doc(params={'id': 'Person entity ID', 'secret': 'OTP Secret'})
+class PersonSetOTPSecret(Resource):
+    """ Validate and save OPT secret for a person """
+    @auth.require()
+    def post(self, id, secret):
+        pe = find_person(id)
+
+        try:
+            validate_secret(secret)
+        except ValueError as e:
+            raise CerebrumError(e)
+
+        otp_policy = get_policy()
+        updater = PersonOtpUpdater(db.connection, otp_policy)
+        updater.update(pe.entity_id, secret)
+
+        return {'stored': True}
