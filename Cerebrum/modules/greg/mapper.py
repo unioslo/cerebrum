@@ -103,8 +103,8 @@ def get_names(greg_data):
     :returns generator:
         Valid Cerebrum (name_type, name_value) pairs
     """
-    fn = greg_data['first_name']
-    ln = greg_data['last_name']
+    fn = greg_data.get('first_name', '')
+    ln = greg_data.get('last_name', '')
     if fn:
         yield ('FIRST', fn)
     if ln:
