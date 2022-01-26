@@ -33,7 +33,7 @@ from Cerebrum.modules.otp.otp_types import (PersonOtpUpdater,
                                             get_policy,
                                             validate_secret)
 
-from Cerebrum.rest.api import db, auth, fields, utils
+from Cerebrum.rest.api import db, auth, fields, utils, validator
 from Cerebrum.rest.api.v1 import models
 
 api = Namespace('persons', description='Person operations')
@@ -342,21 +342,36 @@ class PersonAddressListResource(Resource):
         return data
 
 
-@api.route('/<int:id>/secret/<string:secret>')
-@api.doc(params={'id': 'Person entity ID', 'secret': 'OTP Secret'})
+@api.route('/<int:id>/otp/default', endpoint='person-otp-secret')
+@api.doc(params={'id': 'Person entity ID'})
 class PersonSetOTPSecret(Resource):
     """ Validate and save OPT secret for a person """
+
+    secret_parser = api.parser()
+    secret_parser.add_argument(
+        'secret',
+        type=validator.String(),
+        required=True,
+        location=['form', 'json'],
+        help='OTP secret',
+    )
+
+    @api.expect(secret_parser)
+    @api.response(204, 'secret validated and stored')
+    @db.autocommit
     @auth.require()
-    def post(self, id, secret):
+    def post(self, id):
         pe = find_person(id)
+        args = self.secret_parser.parse_args()
+        secret = args.secret
 
         try:
             validate_secret(secret)
         except ValueError as e:
-            raise CerebrumError(e)
+            abort(400, message='invalid secret')
 
         otp_policy = get_policy()
         updater = PersonOtpUpdater(db.connection, otp_policy)
         updater.update(pe.entity_id, secret)
 
-        return {'stored': True}
+        return None, 204
