@@ -362,6 +362,10 @@ class PersonSetOTPSecret(Resource):
     @auth.require()
     def post(self, id):
         pe = find_person(id)
+
+        if not hasattr(pe, "_OtpPersonMixin__super"):
+            abort(504, "OTP functionality not supported at this instance")
+
         args = self.secret_parser.parse_args()
         secret = args.secret
 
