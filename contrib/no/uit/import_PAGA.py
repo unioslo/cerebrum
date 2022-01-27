@@ -430,7 +430,7 @@ class PersonProcessor(object):
             gender = const.gender_female
 
         fnr = person['fnr']
-        if fnr and fnr[6:11] != '00000':
+        if(fnr and((fnr[6:11] != '00100') and fnr[6:11] != '00200')):
             try:
                 fodselsnr.personnr_ok(fnr)
             except Exception as e:
@@ -464,8 +464,9 @@ class PersonProcessor(object):
             national_id_val = None
 
         # Abort early if there are no valid identifiers from the source system:
-        if not any((fnr and fnr[6:11] != '00000',
-                    national_id_type == 'passnummer' and national_id_val,)):
+        if not any((fnr and fnr[6:11] != '00100' and fnr[6:11] != '00200',
+                    national_id_type == 'passnummer' and national_id_val,
+                    paga_nr,)):
             # TODO: Wouldn't it be enough with ansattnr?
             raise SkipPerson("No valid identifier (fnr, passnummer)")
 
@@ -496,9 +497,9 @@ class PersonProcessor(object):
         new_person.populate_name(const.name_first, person['fornavn'])
         new_person.populate_name(const.name_last, person['etternavn'])
 
-        if fnr and fnr[6:11] != '00000':
+        if (fnr and ((fnr[6:11] != '00100') and (fnr[6:11] != '00200'))):
             # do not import external id where external_id type is fnr and
-            # fnr[6-11] =='00000'
+            # fnr[6-11] =='00200' or fnr[6-11] == '00100'
             new_person.populate_external_id(const.system_paga,
                                             const.externalid_fodselsnr,
                                             fnr)
