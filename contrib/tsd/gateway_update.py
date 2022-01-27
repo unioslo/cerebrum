@@ -27,7 +27,7 @@ Gateway e.g through bofh commands and the import from Nettskjema, but not all
 information gets update that way.
 An example is quarantines that gets activated or deactivated.
 """
-from __future__ import unicode_literals
+from __future__ import unicode_literals, print_function
 
 import six
 
