@@ -202,7 +202,7 @@ def main():
                                     'help',
                                     'dryrun'])
     except getopt.GetoptError as e:
-        print e
+        print(e)
         usage(1)
 
     dryrun = False
