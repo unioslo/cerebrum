@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2021 University of Oslo, Norway
+# Copyright 2022 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -188,13 +188,18 @@ def parse_datetime(raw_value):
 
 # A text blurb that can be used in help_refs for arguments that allow this
 parse_datetime_help_blurb = """
- - "today": <current date> @ midnight (local time)
- - "now":    <current date>@<current time>
- - datetime: <datetime> (assumes local time, if not specified),
-             e.g. "2020-02-26 13:37", "2020-02-26T12:37:01.000Z"
- - date:     <date> @ midnight (local time), e.g.  "2020-02-26"
- - time:     today @ <time> (local time), e.g. "14:37"
-""".lstrip()
+ - "today":  current date @ midnight *
+ - "now":    current date @ current time
+ - datetime: iso-8601 datetime (T-separator optional),
+             e.g. "2020-02-26 13:37" *, "2020-02-26T10:37:01.000Z",
+             "2022-W04-2T12+0200"
+ - date:     iso-8601 date @ midnight *,
+             e.g. "2020-02-26", "2020-057", "2020-W09-3"
+ - time:     current date @ time *,  in iso-8601 extended legacy format,
+             e.g.  "14:37", "23:15:00.000" (not "1437", "T1437", "T14:37")
+
+*  All times are in local server time ({tz}), if not specified.
+""".lstrip('\n').format(tz=date_utils.TIMEZONE)
 
 
 def parse_date(raw_value):
@@ -210,6 +215,8 @@ def parse_date(raw_value):
 # A text blurb that can be used in help_refs for arguments that uses
 # parse_date()
 parse_date_help_blurb = """
- - "today": <current date> (local time)
- - date:    e.g. "2020-02-26"
-""".lstrip()
+ - "today":  current date, according to server time
+             ({tz})
+ - date:     iso-8601 date, e.g. "2020-02-26", "2020-057",
+             "2020-W09-3"
+""".lstrip('\n').format(tz=date_utils.TIMEZONE)
