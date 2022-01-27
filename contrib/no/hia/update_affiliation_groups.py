@@ -18,6 +18,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+from __future__ import print_function
 
 import sys
 import getopt
@@ -45,7 +46,7 @@ db.cl_init(change_program="update_affiliation_groups.py")
 
 
 def usage(exitcode=0):
-    print """Usage:
+    print("""Usage:
     %s [Options]
 
     Update group memberships for primary accounts based on affiliations.
@@ -55,7 +56,7 @@ def usage(exitcode=0):
     -d, --dryrun                    Don't commit changes to Cerebrum db.
     -a, --affmap    <aff:group>     Specify mappings between affs and groups.
                                     "ANSATT:ansattgroup STUDENT:studentgroup"
-    """ % sys.argv[0]
+    """ % sys.argv[0])
     sys.exit(exitcode)
 
 
@@ -65,9 +66,9 @@ def list_affs():
     """
     affiliations = pe.list_person_affiliation_codes()
     for a in affiliations:
-        print "%s: %s (%s)" % (str(int(a['code'])),
+        print("%s: %s (%s)" % (str(int(a['code'])),
                                a['code_str'],
-                               a['description'])
+                               a['description']))
 
 
 def update_aff_groups(aff_groups, dryrun):

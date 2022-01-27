@@ -36,6 +36,7 @@ no_ssn  -- 11-digit Norwegian social security number (personnummer)
 uname   -- account name
 keyword -- 'defaultmail' or 'mail'
 """
+from __future__ import print_function
 
 import getopt
 import sys
@@ -266,10 +267,10 @@ def process_mail(account_id, type, addr):
 
 
 def usage():
-    print """Usage: import_uname_mail.py
+    print("""Usage: import_uname_mail.py
     -d, --dryrun  : Run a fake import. Rollback after run.
     -f, --file    : File to parse.
-    """
+    """)
     sys.exit(0)
 # end usage
 

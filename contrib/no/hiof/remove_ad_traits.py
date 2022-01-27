@@ -24,6 +24,7 @@
 
 Usage: remove_all_ad_traits.py -u uname [-d]
 """
+from __future__ import print_function
 
 import getopt
 import sys
@@ -44,15 +45,15 @@ def remove_ad_traits(uname):
         usage(2, "Unknown user %s" % uname)
 
     ac.delete_ad_attrs()
-    print "Deleted all ad traits for user"
+    print("Deleted all ad traits for user")
   
 
 def usage(err=0, msg=None):
     if err:
-        print >>sys.stderr, err
+        print(err, file=sys.stderr)
     if msg:
-        print >>sys.stderr, msg
-    print >>sys.stderr, __doc__
+        print(msg, file=sys.stderr)
+    print(__doc__, file=sys.stderr)
     sys.exit(bool(err))
 
 
@@ -77,10 +78,10 @@ def main():
     remove_ad_traits(uname)
 
     if dryrun:
-        print "Rolling back all changes"
+        print("Rolling back all changes")
         db.rollback()
     else:
-        print "Committing all changes"
+        print("Committing all changes")
         db.commit()
         
 if __name__ == '__main__':

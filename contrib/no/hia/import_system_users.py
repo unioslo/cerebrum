@@ -30,6 +30,7 @@ account. Each line has four fields separated by ':'.
 
 <uname>
 """
+from __future__ import print_function
 
 import getopt
 import sys
@@ -97,10 +98,10 @@ def process_line(infile):
 # end process_line
 
 def usage():
-    print """Usage: import_uname_mail.py
+    print("""Usage: import_uname_mail.py
     -d, --dryrun  : Run a fake import. Rollback after run.
     -f, --file    : File to parse.
-    """
+    """)
 # end usage
 
 

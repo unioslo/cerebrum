@@ -26,6 +26,7 @@ Example:
 ./ad_cmp.py --old userdump.ldp.old --new userdump.ldp.new --old-dn $DN --new-dn $DN2 --attrs $ATTRS -c
 
 '''
+from __future__ import print_function
 
 import getopt
 import sys
@@ -59,7 +60,7 @@ def run_comparison(old_dta, new_dta, attrs, ignore_case_attrs):
         o = old_dta[dn]
         n = new_dta.get(dn)
         if n is None:
-            print "DN: %s only in old" % dn
+            print("DN: %s only in old" % dn)
             continue
         for a in attrs:
             oa = [x.strip() for x in o.get(a, [])]
@@ -70,11 +71,11 @@ def run_comparison(old_dta, new_dta, attrs, ignore_case_attrs):
             oa.sort()
             na.sort()
             if oa != na:
-                print "DN: %s attribute %s diffs: %s -> %s" % (dn, a, oa, na)
+                print("DN: %s attribute %s diffs: %s -> %s" % (dn, a, oa, na))
 
         del(new_dta[dn])
     if new_dta:
-        print "The following entries were only in new: %s" % new_dta.keys()
+        print("The following entries were only in new: %s" % new_dta.keys())
 
 def main():
     try:
@@ -108,7 +109,7 @@ def main():
                            attrs, ignore_case_attrs)
 
 def usage(exitcode=0):
-    print __doc__
+    print(__doc__)
     sys.exit(exitcode)
 
 if __name__ == '__main__':

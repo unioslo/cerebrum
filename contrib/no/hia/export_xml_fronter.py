@@ -18,6 +18,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+from __future__ import print_function
 from __future__ import unicode_literals
 import sys
 import os
@@ -667,7 +668,7 @@ def output_group_xml():
 
 
 def usage(exitcode):
-    print "Usage: export_xml_fronter.py OUTPUT_FILENAME"
+    print("Usage: export_xml_fronter.py OUTPUT_FILENAME")
     sys.exit(exitcode)
 
 

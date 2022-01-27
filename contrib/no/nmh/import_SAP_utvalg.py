@@ -31,6 +31,7 @@ cases, the elements are joined and comma separated before being stored, as we
 should only have one such element.
 
 """
+from __future__ import print_function
 
 ### TODO: need to change behaviour to support more than one fagmiljo per person.
 # Comma separated?
@@ -54,8 +55,8 @@ co = Factory.get("Constants")(db)
 pe = Factory.get('Person')(db)
 
 def usage(exitcode=0):
-    print __doc__
-    print """
+    print(__doc__)
+    print("""
     Usage: import_SAP_utvalg.py --utv-file UTVALGFILE
 
     -u --utv-file       The SAP person utvalg file to import from. The file is
@@ -65,7 +66,7 @@ def usage(exitcode=0):
 
     -h --help           Show this and quit.
 
-    """
+    """)
     sys.exit(exitcode)
 
 def populate_fagmiljo(person_id, fagmiljo):
@@ -142,7 +143,7 @@ def main():
                                       ["utv-file=",
                                        "dryrun",])
     except getopt.GetoptError, e:
-        print e
+        print(e)
         usage(1)
 
     input_name = None
@@ -156,11 +157,11 @@ def main():
         elif option in ("-h", "--help"):
             usage()
         else:
-            print "Unknown argument: %s" % option
+            print("Unknown argument: %s" % option)
             usage(1)
 
     if input_name is None:
-        print "No SAP file specified"
+        print("No SAP file specified")
         usage(1)
 
     process_utvalg(input_name, use_fok)

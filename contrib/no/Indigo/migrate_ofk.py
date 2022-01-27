@@ -37,6 +37,7 @@ name_full -- persons name
 uname   -- account name
 keyword -- 'defaultmail' or 'mail'
 """
+from __future__ import print_function
 
 import getopt
 import sys
@@ -62,7 +63,7 @@ def process_line(infile):
 
         logger.debug5("Processing line: |%s|", line)
         fields = string.split(line.strip(), ";")
-        print len(fields)
+        print(len(fields))
         if len(fields) != 5:
             logger.error("Bad line: %s. Skipping" % line)
             continue
@@ -223,10 +224,10 @@ def update_names(fnr, name_full):
     person2.write_db()    
 
 def usage():
-    print """Usage: import_uname_mail.py
+    print("""Usage: import_uname_mail.py
     -d, --dryrun  : Run a fake import. Rollback after run.
     -f, --file    : File to parse.
-    """
+    """)
     sys.exit(0)
 # end usage
 

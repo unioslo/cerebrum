@@ -25,7 +25,7 @@
     - filter on expired accounts
 
 """
-from __future__ import unicode_literals
+from __future__ import print_function, unicode_literals
 
 import argparse
 import logging
@@ -278,7 +278,7 @@ def main(args=None):
     # dryrun, rollback database and delete out file (if it exists!)
     #
     if args.dryrun:
-        print "dryrun: rollback all changes"
+        print("dryrun: rollback all changes")
         db.rollback()
     else:
         db.commit()
