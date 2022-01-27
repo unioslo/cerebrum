@@ -97,7 +97,7 @@ class CIMClient(object):
         """
         try:
             response.raise_for_status()
-        except HTTPError, e:
+        except HTTPError as e:
             if deletion and response.status_code == 404:
                 # We tried to delete a non-existing user. That's okay.
                 pass
@@ -107,7 +107,7 @@ class CIMClient(object):
                         response.status_code,
                         response.text))
                 return False
-        except (ConnectionError, Timeout), e:
+        except (ConnectionError, Timeout) as e:
             self.logger.error(
                 "CIMClient: Error communicating with CIM WS: {!r}".format(
                     e.message))

@@ -144,7 +144,7 @@ class Processor:
             pid = proj['name']
             try:
                 self.process_project(pid, proj)
-            except Gateway.GatewayException, e:
+            except Gateway.GatewayException as e:
                 logger.warn("GatewayException for %s: %s" % (pid, e))
             processed.add(pid)
 
@@ -162,7 +162,7 @@ class Processor:
                 continue
             try:
                 pid = self.ou.get_project_id()
-            except Errors.NotFoundError, e:
+            except Errors.NotFoundError as e:
                 logger.warn("No project id for ou_id %s: %s", row['ou_id'], e)
                 continue
             if pid in processed:
@@ -254,7 +254,7 @@ class Processor:
         for usr in self.gw.list_users():
             try:
                 self.process_user(usr, ac2proj)
-            except Gateway.GatewayException, e:
+            except Gateway.GatewayException as e:
                 logger.warn("GW exception for user %s: %s", usr['username'],
                             e)
             processed.add(usr['username'])
@@ -366,7 +366,7 @@ class Processor:
         for grp in self.gw.list_groups():
             try:
                 self.process_group(grp, gr2proj)
-            except Gateway.GatewayException, e:
+            except Gateway.GatewayException as e:
                 logger.warn("GW exception for group %s: %s",
                             grp['groupname'], e)
             processed.add(grp['groupname'])
@@ -570,7 +570,7 @@ class Processor:
             if vlan not in vlans:
                 try:
                     self.gw.delete_vlan(vlan)
-                except Gateway.GatewayException, e:
+                except Gateway.GatewayException as e:
                     logger.warn("GatewayException deleting VLAN %s: %s",
                                 vlan, e)
 
@@ -579,7 +579,7 @@ class Processor:
                 continue
             try:
                 self.gw.create_vlan(vlan)
-            except Gateway.GatewayException, e:
+            except Gateway.GatewayException as e:
                 logger.warn("GatewayException creating VLAN %s: %s",
                             vlan, e)
             else:
@@ -646,7 +646,7 @@ class Processor:
             logger.debug3("New subnet: %s" % (sub,))
             try:
                 self.gw.create_subnet(*sub)
-            except Gateway.GatewayException, e:
+            except Gateway.GatewayException as e:
                 logger.warn("GatewayException creating subnet: %s" % e)
 
     def _process_hosts(self, gw_hosts, host2project):
@@ -677,7 +677,7 @@ class Processor:
                 continue
             try:
                 self.gw.create_host(pid, host)
-            except Gateway.GatewayException, e:
+            except Gateway.GatewayException as e:
                 logger.warn("GatewayException creating host %s:%s: %s",
                             pid, host, e)
 
@@ -700,7 +700,7 @@ class Processor:
             try:
                 hostname = p['host']
                 pid = p['project']
-            except KeyError, e:
+            except KeyError as e:
                 logger.error("Missing element from GW about IP %s: %e",
                              addr, e)
                 continue
@@ -709,14 +709,14 @@ class Processor:
             if hostname not in host2project or hostname not in host2ips:
                 try:
                     self.gw.delete_ip(pid, hostname, addr)
-                except Gateway.GatewayException, e:
+                except Gateway.GatewayException as e:
                     logger.warn("GW exception for deleting IP %s for %s: %s",
                                 addr, hostname, e)
                 continue
             if addr not in host2ips[hostname]:
                 try:
                     self.gw.delete_ip(pid, hostname, addr)
-                except Gateway.GatewayException, e:
+                except Gateway.GatewayException as e:
                     logger.warn("GW exception for deleting IP %s for %s: %s",
                                 addr, hostname, e)
                 continue
@@ -732,7 +732,7 @@ class Processor:
                     continue
                 try:
                     self.gw.create_ip(pid, hst, adr)
-                except Gateway.GatewayException, e:
+                except Gateway.GatewayException as e:
                     logger.warn("GW exception for new IP %s: %s", adr, e)
 
 

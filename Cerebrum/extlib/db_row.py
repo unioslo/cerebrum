@@ -275,11 +275,11 @@ class MetaFields(type):
 
     for f in fields:
       if type(f) is not str:
-        raise TypeError, 'Field names must be ASCII strings'
+        raise TypeError('Field names must be ASCII strings')
       if not f:
-        raise ValueError, 'Field names cannot be empty'
+        raise ValueError('Field names cannot be empty')
       if f in field_names:
-        raise ValueError, 'Field names must be unique: %s' % f
+        raise ValueError('Field names must be unique: %s' % f)
 
       slots.append(f)
       field_names[f] = 1
@@ -313,7 +313,7 @@ class IMetaFields(MetaFields):
     try:
       ifields = tuple( [ f.lower() for f in fields ] )
     except AttributeError:
-      raise TypeError, 'Field names must be ASCII strings'
+      raise TypeError('Field names must be ASCII strings')
 
     super(IMetaFields,cls).build_properties(cls, ifields, field_dict)
     field_dict['__fields__'] = tuple(fields)
@@ -551,7 +551,7 @@ except ImportError:
         try:
           return getattr(self.fields,key)
         except AttributeError:
-          raise KeyError,key
+          raise KeyError(key)
       return self.fields.__getitem__(key)
 
     def __setitem__(self, key, value):
@@ -559,7 +559,7 @@ except ImportError:
         try:
           setattr(self.fields,key,value)
         except AttributeError:
-          raise KeyError,key
+          raise KeyError(key)
       else:
         self.fields.__setitem__(key,value)
 
@@ -568,7 +568,7 @@ except ImportError:
         try:
           delattr(self.fields,key)
         except AttributeError:
-          raise KeyError,key
+          raise KeyError(key)
       else:
         self.fields.__delitem__(key)
 
@@ -582,7 +582,7 @@ except ImportError:
       self.fields.__delslice__(i, j)
 
     def __hash__(self):
-      raise NotImplementedError,'Row objects are not hashable'
+      raise NotImplementedError('Row objects are not hashable')
 
     def __len__(self):
       return len(self.fields)
@@ -683,7 +683,7 @@ class Row(RowBase):
     return type(self)(self)
 
   def __hash__(self):
-    raise NotImplementedError,'Row objects are not hashable'
+    raise NotImplementedError('Row objects are not hashable')
 
 
 class IRow(Row):
@@ -890,19 +890,19 @@ def test(cls):
 
   try:
     d[4]
-    raise AssertionError, 'Illegal index not caught'
+    raise AssertionError('Illegal index not caught')
   except IndexError:
     pass
 
   try:
     d['f']
-    raise AssertionError, 'Illegal key not caught'
+    raise AssertionError('Illegal key not caught')
   except KeyError:
     pass
 
   try:
     d.fields.f
-    raise AssertionError, 'Illegal attribute not caught'
+    raise AssertionError('Illegal attribute not caught')
   except AttributeError:
     pass
 
@@ -1016,37 +1016,37 @@ def test_rw(cls):
 
   try:
     d['g'] = 'illegal'
-    raise AssertionError,'Illegal setitem'
+    raise AssertionError('Illegal setitem')
   except KeyError:
     pass
 
   try:
     del d['g']
-    raise AssertionError,'Illegal delitem'
+    raise AssertionError('Illegal delitem')
   except KeyError:
     pass
 
   try:
     d[5] = 'illegal'
-    raise AssertionError,'Illegal setitem'
+    raise AssertionError('Illegal setitem')
   except IndexError:
     pass
 
   try:
     del d[5]
-    raise AssertionError,'Illegal delitem'
+    raise AssertionError('Illegal delitem')
   except IndexError:
     pass
 
   try:
     d.fields.g = 'illegal'
-    raise AssertionError,'Illegal setattr'
+    raise AssertionError('Illegal setattr')
   except AttributeError:
     pass
 
   try:
     del d.fields.g
-    raise AssertionError,'Illegal delattr'
+    raise AssertionError('Illegal delattr')
   except AttributeError:
     pass
 
@@ -1107,25 +1107,25 @@ def test_incomplete(cls):
 
   try:
     d['B']
-    raise AssertionError,'Illegal getitem: "%s"' % d['B']
+    raise AssertionError('Illegal getitem: "%s"' % d['B'])
   except KeyError:
     pass
 
   try:
     d['c']
-    raise AssertionError,'Illegal getitem'
+    raise AssertionError('Illegal getitem')
   except KeyError:
     pass
 
   try:
     d.fields.b
-    raise AssertionError,'Illegal getattr'
+    raise AssertionError('Illegal getattr')
   except AttributeError:
     pass
 
   try:
     d.fields.c
-    raise AssertionError,'Illegal getattr'
+    raise AssertionError('Illegal getattr')
   except AttributeError:
     pass
 

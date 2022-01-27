@@ -89,7 +89,7 @@ class RequestLockHandler(object):
         self.reqid = reqid
         try:
             lockfile = file(self.lockdir % reqid, "wb")
-        except IOError, e:
+        except IOError as e:
             logger.error("Checking lock for %d failed: %s", reqid, e)
             return False
         try:
@@ -300,7 +300,7 @@ class MoveStudentProcessor(object):
         logger.debug("Callback for %s" % fnr)
         try:
             fodselsnr.personnr_ok(fnr)
-        except Exception, e:
+        except Exception as e:
             logger.exception(e)
             return
         if fnr not in self.fnr2move_student:
@@ -318,7 +318,7 @@ class MoveStudentProcessor(object):
                 profile = self.autostud.get_profile(person_info,
                                                     member_groups=groups)
                 logger.debug(profile.matcher.debug_dump())
-            except AutostudError, msg:
+            except AutostudError as msg:
                 logger.debug("Error getting profile, using pending: %s" % msg)
                 continue
 
@@ -381,7 +381,7 @@ class MoveStudentProcessor(object):
                                     cur_quota['quota'] != int(quota)):
                                 disk_quota_obj.set_quota(homedir_id,
                                                          quota=int(quota))
-                    except AutostudError, msg:
+                    except AutostudError as msg:
                         # Will end up on pending (since we only use one
                         # spread)
                         logger.debug("Error getting disk: %s" % msg)

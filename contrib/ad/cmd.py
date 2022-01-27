@@ -104,7 +104,7 @@ def main():
                                     "type=",
                                     "host=",
                                     "port="])
-    except getopt.GetoptError, e:
+    except getopt.GetoptError as e:
         print e
         usage(1)
 

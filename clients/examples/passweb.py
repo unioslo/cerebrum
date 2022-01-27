@@ -87,7 +87,7 @@ def change_password(dta):
         secret = svr.login(dta.getfirst('uname'), dta.getfirst('pass'))
         svr.run_command(secret, "account_password", dta.getfirst('uname'),
                         dta.getfirst('newpass'))
-    except xmlrpclib.Fault, m:
+    except xmlrpclib.Fault as m:
         if m.faultCode == 666:
             return "The operation did not succeed: <pre>%s</pre>" % m.faultString
         else:

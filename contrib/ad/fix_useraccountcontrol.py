@@ -102,7 +102,7 @@ class UserAccountControlFix(BaseSync):
                                    ', '.join(sorted(ad_object.keys())))
             try:
                 self.process_ad_object(ad_object)
-            except ADUtils.NoAccessException, e:
+            except ADUtils.NoAccessException as e:
                 # Access errors could be given to the AD administrators, as
                 # Cerebrum are not allowed to fix such issues.
                 self.add_admin_message('warning',
@@ -110,7 +110,7 @@ class UserAccountControlFix(BaseSync):
                                        ad_object['DistinguishedName'], e))
                 # TODO: do we need to strip out data from the exceptions? Could
                 # it for instance contain passwords?
-            except PowershellException, e:
+            except PowershellException as e:
                 self.logger.warn("PowershellException for %s: %s" %
                                  (ad_object['DistinguishedName'], e))
             else:
@@ -218,7 +218,7 @@ def main():
                                    ["help",
                                     "dryrun",
                                     "type="])
-    except getopt.GetoptError, e:
+    except getopt.GetoptError as e:
         print e
         usage(1)
 

@@ -216,14 +216,21 @@ class BofhdExtension(BofhdCommonMethods):
                              account.account_name)
             end_date = account.expire_date
 
-        # Get contect info
+        # Get contact info
         mobile = None
         try:
             mobile = account.get_contact_info(
-                source=self.const.system_manual,
+                source=self.const.system_greg,
                 type=self.const.contact_mobile_phone)[0]['contact_value']
-        except IndexError:
+        except (AttributeError, IndexError):
             pass
+        if mobile is None:
+            try:
+                mobile = account.get_contact_info(
+                    source=self.const.system_manual,
+                    type=self.const.contact_mobile_phone)[0]['contact_value']
+            except IndexError:
+                pass
         # Get account state
         status = 'active'
         if end_date < DateTime.now():
@@ -566,7 +573,7 @@ class BofhdExtension(BofhdCommonMethods):
         for row in self._get_guests():
             try:
                 ret.append(self._get_guest_info(row['entity_id']))
-            except CerebrumError, e:
+            except CerebrumError as e:
                 print "Error: %s" % e
                 continue
         if not ret:

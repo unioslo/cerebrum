@@ -128,13 +128,13 @@ def update_aff_groups(aff_groups, dryrun):
                 gr.remove_member(account)
                 gr.write_db()
                 logger.debug("Removed %s from %s." % (str(account), group))
-            except Errors.DatabaseError, e:
+            except Errors.DatabaseError as e:
                 logger.error("Failed removing %s from %s: %s" %
                              (str(account), group, e))
         if not dryrun:
             try:
                 gr.commit()
-            except Errors.DatabaseError, e:
+            except Errors.DatabaseError as e:
                 logger.error("Commit of removed group members failed: %s" % e)
         else:
             db.rollback()
@@ -145,13 +145,13 @@ def update_aff_groups(aff_groups, dryrun):
                 gr.add_member(account)
                 gr.write_db()
                 logger.debug("Added %s to %s." % (str(account), group))
-            except Errors.DatabaseError, e:
+            except Errors.DatabaseError as e:
                 logger.error("Failed adding %s to %s: %s" %
                              (str(account), group, e))
         if not dryrun:
             try:
                 gr.commit()
-            except Errors.DatabaseError, e:
+            except Errors.DatabaseError as e:
                 logger.error("Commit of added group members failed: %s" % e)
         else:
             db.rollback()
@@ -166,7 +166,7 @@ def main():
         opts, args = getopt.getopt(sys.argv[1:],
                                    'lda:',
                                    ['list', 'dryrun', 'affs='])
-    except getopt.GetoptError, e:
+    except getopt.GetoptError as e:
         logger.error(e)
         usage(1)
 

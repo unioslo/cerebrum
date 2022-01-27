@@ -114,7 +114,7 @@ def check_changelog_for_quarantine_triggers(db, sendmail):
                         logger.debug(generate_mail_notification(quar_info,
                                                                 event_info,
                                                                 debug=True))
-                except Exception, e:
+                except Exception as e:
                     logger.exception(e)
                     raise
                 q_stats['confirm'] += 1

@@ -40,7 +40,7 @@ Usage: %s [options]
 
    <no_ssn>:<uname>:<lastname>:<firstname>
 
-   no_ssn    -- 11-digit Norwegian social security number (fødselsnummer)
+   no_ssn    -- 11-digit Norwegian social security number (fï¿½dselsnummer)
    uname     -- Account name = student ID-number
    lastname  -- Last name of the person in question
    firstname -- First name of the person in question
@@ -88,7 +88,7 @@ def main(argv=None):
         opts, args = getopt.getopt(argv[1:],
                                    "hf:",
                                    ["help", "file="])
-    except getopt.GetoptError, error:
+    except getopt.GetoptError as error:
         usage(message=error.msg)
         return 1
 

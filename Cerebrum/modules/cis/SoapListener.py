@@ -103,14 +103,14 @@ class BasicSoapServer(rpclib.service.ServiceBase):
         """
         try:
             return super(BasicSoapServer, cls).call_wrapper(ctx)
-        except Errors.CerebrumRPCException, e:
+        except Errors.CerebrumRPCException as e:
             raise EndUserFault(e)
-        except PermissionDenied, e:
+        except PermissionDenied as e:
             raise NotAuthorizedError(e)
         # TODO: also except generic Faults?
         except CerebrumFault:
             raise
-        except Exception, e:
+        except Exception as e:
             # TODO: How to make unknown exceptions available for subclasses?
             log.msg('ERROR: Unhandled exception: %s' % type(e))
             log.err(e)
@@ -492,7 +492,7 @@ class TLSTwistedSoapStarter(TwistedSoapStarter):
                 log.msg('  digest: %s (sha256)' % x509.digest('sha256'))
                 log.msg('  digest: %s (sha1)' % x509.digest('sha1'))
                 log.msg('  digest: %s (md5)' % x509.digest('md5'))
-            except Exception, e:
+            except Exception as e:
                 log.msg('  exception: %s' % e)
                 log.err(e)
             return False

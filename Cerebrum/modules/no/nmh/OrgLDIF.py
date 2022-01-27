@@ -72,7 +72,7 @@ class nmhOrgLDIFMixin(OrgLDIF):  # noqa: N801
         for row in self.person.list_traits(self.const.trait_fagomrade_fagfelt):
             try:
                 fagfelt = json.loads(row['strval'])
-            except Exception, exc:
+            except Exception as exc:
                 logger.warn(
                     "Could not JSON-deserialize trait_fagomrade_fagfelt "
                     "for person:%s, %s",

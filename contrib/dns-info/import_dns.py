@@ -633,7 +633,7 @@ class Lookup(object):
         logger.debug2("get_dns_owner(%s, %s) -> %i" % (name, _type, found_id))
         if _type is None or _type == found_type:
             return mt[found_type], found_id
-        raise ValueError, "Found type: %s, expected %s" % (_type, found_type)
+        raise ValueError("Found type: %s, expected %s" % (_type, found_type))
 
     def filter_name(self, name):
         if not name.endswith(self._default_zone.postfix):

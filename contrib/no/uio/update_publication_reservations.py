@@ -277,7 +277,7 @@ if __name__ == '__main__':
                                     'dryrun',
                                     'student=',
                                     'employee='])
-    except getopt.GetoptError, e:
+    except getopt.GetoptError as e:
         print e
         usage(1)
 

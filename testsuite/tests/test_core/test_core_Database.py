@@ -126,7 +126,7 @@ def test_rollback(db, table_name):
     # Only this should generate DatabaseError
     try:
         db.query(select_sql)
-    except Cerebrum.database.DatabaseError, e:
+    except Cerebrum.database.DatabaseError as e:
         # Note that this test will break if the exception doesn't have an sql
         # attr.
         assert e.operation == repr(select_sql)

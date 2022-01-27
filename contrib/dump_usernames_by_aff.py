@@ -93,7 +93,7 @@ def main(argv=None):
                                    "ha:f:",
                                    ["help", "aff=",
                                     "file=", "students"])
-    except getopt.GetoptError, error:
+    except getopt.GetoptError as error:
         usage(message=error.msg)
         return 1
 

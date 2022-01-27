@@ -273,7 +273,7 @@ def write_ldif(db, ldap, auth, f, verbose=False):
                 try:
                     addrs, missing = ldap.get_multi_target(
                         ei, ignore_missing=True)
-                except ValueError, e:
+                except ValueError as e:
                     logger.warn("Target id=%s (type %s): %s", t, tt, e)
                     continue
                 for addr in addrs:

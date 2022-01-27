@@ -41,7 +41,7 @@ class IPCalc(object):
     def ip_to_long(ip):
         try:
             return struct.unpack('!L', socket.inet_aton(ip))[0]
-        except socket.error, msg:
+        except socket.error as msg:
             raise DNSError("Bad IP: %s" % msg)
 
     @staticmethod

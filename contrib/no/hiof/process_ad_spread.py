@@ -171,10 +171,10 @@ class Job(object):
                 entity_id2uname[entity_id] = ac.account_name
                 logger.debug1("Calculated values for %i: %s" % (
                     entity_id, new_attrs))
-            except Job.CalcError, v:
+            except Job.CalcError as v:
                 logger.warn(v)
                 continue
-            except ADMappingRules.MappingError, v:
+            except ADMappingRules.MappingError as v:
                 logger.warn("Couldn't calculate ad attrs for user %d. %s" % (
                     entity_id, v))
                 continue

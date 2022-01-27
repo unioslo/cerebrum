@@ -391,7 +391,7 @@ def synchronise_employment(employment_cache, tpl, person, ou_id):
     try:
         employment = SAPLonnsTittelKode(tpl.lonnstittel)
         description = employment.description
-    except Errors.NotFoundError, e:
+    except Errors.NotFoundError as e:
         logger.warn("Unknown lonnstittelkode %s for person with SAP-id: %s",
                     tpl.lonnstittel, tpl.sap_ansattnr)
         logger.warn(e)

@@ -121,7 +121,7 @@ class GatewayClient(xmlrpclib.Server, object):
             return self.__typecast(
                 super(GatewayClient, self)._ServerProxy__request(
                     methodname, self.__typecast(params)))
-        except xmlrpclib.Fault, e:
+        except xmlrpclib.Fault as e:
             raise GatewayException(e)
 
     def __typecast(self, data):

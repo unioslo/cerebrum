@@ -201,7 +201,7 @@ def update_user_freeze(db, dryrun):
             db.rollback()
         else:
             db.commit()
-    except Exception, e:
+    except Exception as e:
         logger.critical('Unexpected exception: {e}'.format(six.text_type(e)),
                         exc_info=True)
         db.rollback()

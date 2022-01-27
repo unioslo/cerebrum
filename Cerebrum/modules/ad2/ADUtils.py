@@ -1013,7 +1013,7 @@ class ADclient(PowershellClient):
                         try:
                             self._run_setadobject(ad_id, action,
                                                   {atrname: element})
-                        except SetAttributeException, e:
+                        except SetAttributeException as e:
                             success = False
                             self.logger.warn(
                                 "Failed updating %s for %s with element: '%s'"
@@ -1316,7 +1316,7 @@ class ADclient(PowershellClient):
             if not self.dryrun:
                 try:
                     self.run(cmd)
-                except PowershellException, e:
+                except PowershellException as e:
                     self.logger.warn("Failed adding '%s' to group %s: %s",
                                      groupid, member, e)
                     failed_members.append(member)

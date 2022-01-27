@@ -49,7 +49,7 @@ class SimpleFlock(object):
                 fcntl.flock(self._fd, self.lock_type | fcntl.LOCK_NB)
                 # Lock acquired!
                 return
-            except IOError, ex:
+            except IOError as ex:
                 # Resource temporarily unavailable
                 if ex.errno != errno.EAGAIN:
                     raise

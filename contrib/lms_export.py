@@ -639,7 +639,7 @@ def main(argv=None):
                                    ["help", "file=", "host=",
                                     "dryrun", "role-file=",
                                     "no-import", "no-export"])
-    except getopt.GetoptError, error:
+    except getopt.GetoptError as error:
         usage(message=error.msg)
         return 1
 

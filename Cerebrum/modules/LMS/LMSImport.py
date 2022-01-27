@@ -63,12 +63,12 @@ def course2CerebumID(coursetype, *courseinfo):
     """
     coursetype = coursetype.lower()
     if not coursetype in ('kurs'):
-        raise ValueError, "ERROR: Unknown coursetype <%s> (%s)" % (coursetype, courseinfo)
+        raise ValueError("ERROR: Unknown coursetype <%s> (%s)" % (coursetype, courseinfo))
 
     # Coursetype must now be "kurs"
     if len(courseinfo) != 6:
-        raise ValueError, ("ERROR: 'Undervisningsenhet' should be identified " +
-                           "by 6 fields, not <%s>" % ">, <".join(courseinfo))
+        raise ValueError(("ERROR: 'Undervisningsenhet' should be identified " +
+                          "by 6 fields, not <%s>" % ">, <".join(courseinfo)))
 
     instnr, emnecode, version, termk, year, termnr = courseinfo
     termnr = int(termnr)
@@ -77,21 +77,21 @@ def course2CerebumID(coursetype, *courseinfo):
     # Find 'termk' and 'year' (termnr - 1) terms ago
     if (tmp_termk == 'h_st'):
         if (termnr % 2) == 1:
-            termk = 'høst'
+            termk = 'hï¿½st'
         else:
-            termk = 'vår'
+            termk = 'vï¿½r'
         year -= int((termnr - 1) / 2)
     elif tmp_termk == 'v_r':
         if (termnr % 2) == 1:
-            termk = 'vår'
+            termk = 'vï¿½r'
         else:
-            termk = 'høst'
+            termk = 'hï¿½st'
         year -= int(termnr / 2)
     else:
         # Here's to crossing our fingers that there won't be any other
-        # terms that 'høst' and 'vår'....
-        raise ValueError, ("ERROR: Unknown terminkode <%s> for " +
-                           "emnekode <%s>." % (termk, emnekode))
+        # terms that 'hï¿½st' and 'vï¿½r'....
+        raise ValueError(("ERROR: Unknown terminkode <%s> for " +
+                          "emnekode <%s>." % (termk, emnekode)))
 
     # Note that termnr isn't part of the returned string. It has
     # become implicit by our calculations for 'year' and 'termk' for
@@ -126,7 +126,7 @@ class LMSImport(object):
 
     def assemble_person_to_account_id_mappings(self):
         """Assembles a mapping for all persons where the key is their
-        'fødselsnummer' and the value is the numeric ID for their
+        'fï¿½dselsnummer' and the value is the numeric ID for their
         primary account.
 
         """
@@ -237,7 +237,7 @@ class FSImport(LMSImport):
                 continue
             
             if self.UndervEnhet.has_key(enhet_id):
-                raise ValueError, "Duplicate undervisningsenhet: '%s'" % enhet_id
+                raise ValueError("Duplicate undervisningsenhet: '%s'" % enhet_id)
             
             self.UndervEnhet[enhet_id] = {'aktivitet': {}}
             multi_id = ":".join([str(x).lower() for x in
@@ -277,8 +277,8 @@ class FSImport(LMSImport):
                 logger.warning("Non-existing 'enhet' '%s' has activities" % enhet_id)
                 continue
             if self.UndervEnhet[enhet_id]['aktivitet'].has_key(akt['aktivitetkode']):
-                raise ValueError, "Duplicate undervisningsaktivitet '%s:%s'" % (
-                    enhet_id, akt['aktivitetkode'])
+                raise ValueError("Duplicate undervisningsaktivitet '%s:%s'" % (
+                    enhet_id, akt['aktivitetkode']))
             
             self.UndervEnhet[enhet_id]['aktivitet'][akt['aktivitetkode']] = akt['aktivitetsnavn']
             logger.debug("Added activity: '%s'" % akt_code_and_name)

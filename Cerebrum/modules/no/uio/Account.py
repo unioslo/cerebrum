@@ -186,8 +186,8 @@ class AccountUiOMixin(Account.Account):
         # 'uio' NIS domain.
         if (spread == self.const.spread_uio_nis_user and
                 int(self.const.spread_ifi_nis_user) in spreads):
-            raise self._db.IntegrityError, \
-                  "Can't remove uio spread to an account with ifi spread."
+            raise self._db.IntegrityError(
+                  "Can't remove uio spread to an account with ifi spread.")
 
         if (spread == self.const.spread_ifi_nis_user or
                 spread == self.const.spread_uio_nis_user):

@@ -174,7 +174,7 @@ def cyrus_create(user_id, host=None):
     try:
         cyradm = connect_cyrus(host=host, username=uname)
         cyr = connect_cyrus(host=host, username=uname, as_admin=False)
-    except CyrusConnectError, e:
+    except CyrusConnectError as e:
         logger.error("cyrus_create: %s", e)
         return False
     status = True
@@ -211,7 +211,7 @@ def cyrus_delete(host, uname, generation):
         return False
     try:
         cyradm = connect_cyrus(host=host)
-    except CyrusConnectError, e:
+    except CyrusConnectError as e:
         logger.error("bofh_email_delete: %s: %s" % (host.name, e))
         return False
     res, listresp = cyradm.list("user.", pattern=uname)

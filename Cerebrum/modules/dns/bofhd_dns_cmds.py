@@ -1298,7 +1298,7 @@ class BofhdExtension(BofhdCommandBase):
             new_ip_error = None
             try:
                 IPUtils.parse_ipv4(new_id)
-            except CerebrumError, error:
+            except CerebrumError as error:
                 new_ip_error = error
             if new_ip_error is not None:
                 raise CerebrumError("New host-id must be of same type as old "

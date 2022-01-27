@@ -363,8 +363,8 @@ class LTPersonRepresentation(object):
         # use fnr, although it's a bad identification in general, but we do
         # NOT have any other identifier in person.xml
         if "fnr" not in attributes:
-            raise (ValueError,
-                   "Missing critical data for person: " + str(attributes))
+            raise ValueError(
+                  "Missing critical data for person: " + str(attributes))
 
         self.fnr = attributes["fnr"]
 
