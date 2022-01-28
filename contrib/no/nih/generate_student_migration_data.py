@@ -41,7 +41,7 @@ Usage: %s [options]
 
    <no_ssn>:<uname>:<lastname>:<firstname>
 
-   no_ssn    -- 11-digit Norwegian social security number (f?dselsnummer)
+   no_ssn    -- 11-digit Norwegian social security number (fødselsnummer)
    uname     -- Account name = student ID-number
    lastname  -- Last name of the person in question
    firstname -- First name of the person in question

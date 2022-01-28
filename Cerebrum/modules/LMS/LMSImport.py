@@ -77,19 +77,19 @@ def course2CerebumID(coursetype, *courseinfo):
     # Find 'termk' and 'year' (termnr - 1) terms ago
     if (tmp_termk == 'h_st'):
         if (termnr % 2) == 1:
-            termk = 'h?st'
+            termk = 'høst'
         else:
-            termk = 'v?r'
+            termk = 'vår'
         year -= int((termnr - 1) / 2)
     elif tmp_termk == 'v_r':
         if (termnr % 2) == 1:
-            termk = 'v?r'
+            termk = 'vår'
         else:
-            termk = 'h?st'
+            termk = 'høst'
         year -= int(termnr / 2)
     else:
         # Here's to crossing our fingers that there won't be any other
-        # terms that 'h?st' and 'v?r'....
+        # terms that 'høst' and 'vår'....
         raise ValueError(("ERROR: Unknown terminkode <%s> for " +
                           "emnekode <%s>." % (termk, emnekode)))
 
@@ -126,7 +126,7 @@ class LMSImport(object):
 
     def assemble_person_to_account_id_mappings(self):
         """Assembles a mapping for all persons where the key is their
-        'f?dselsnummer' and the value is the numeric ID for their
+        'fødselsnummer' and the value is the numeric ID for their
         primary account.
 
         """
