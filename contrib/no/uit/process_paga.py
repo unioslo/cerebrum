@@ -331,6 +331,7 @@ def get_existing_accounts(db):
     account_cache = {}
     pid2fnr = {}
     pid2passnr = {}
+    pid2ansattnr = {}
 
     # getting deceased persons
     deceased = person.list_deceased()
@@ -342,7 +343,9 @@ def get_existing_accounts(db):
             fetchall=False):
         p_id = int(row['entity_id'])
         key = (int(const.externalid_fodselsnr), row['external_id'])
-        if p_id not in pid2fnr:
+        if (p_id not in pid2fnr and
+                p_id not in pid2passnr and
+                p_id not in pid2ansattnr):
             pid2fnr[p_id] = row['external_id']
             person_cache[key] = ExistingPerson(person_id=p_id)
             if p_id in deceased:
@@ -356,10 +359,29 @@ def get_existing_accounts(db):
             fetchall=False):
         p_id = int(row['entity_id'])
         key = (int(const.externalid_pass_number), row['external_id'])
-        if p_id not in pid2fnr and p_id not in pid2passnr:
+        if (p_id not in pid2fnr and
+                p_id not in pid2passnr and
+                p_id not in pid2ansattnr):
             pid2passnr[p_id] = row['external_id']
             person_cache[key] = ExistingPerson(person_id=p_id)
             logger.debug("Using passport id for person_id=%r", p_id)
+            if p_id in deceased:
+                person_cache[key].set_deceased_date(deceased[p_id])
+        del p_id, key
+
+    # get employees with ansattnr only
+    for row in person.search_external_ids(
+            id_type=const.externalid_paga_ansattnr,
+            source_system=const.system_paga,
+            fetchall=False):
+        p_id = int(row['entity_id'])
+        key = (int(const.externalid_paga_ansattnr), row['external_id'])
+        if (p_id not in pid2fnr and
+                p_id not in pid2passnr and
+                p_id not in pid2ansattnr):
+            pid2ansattnr[p_id] = row['external_id']
+            person_cache[key] = ExistingPerson(person_id=p_id)
+            logger.debug("Using employee id for person_id=%r", p_id)
             if p_id in deceased:
                 person_cache[key].set_deceased_date(deceased[p_id])
         del p_id, key
@@ -372,6 +394,8 @@ def get_existing_accounts(db):
             key = (int(const.externalid_fodselsnr), pid2fnr[p_id])
         elif p_id in pid2passnr:
             key = (int(const.externalid_pass_number), pid2passnr[p_id])
+        elif p_id in pid2ansattnr:
+            key = (int(const.externalid_paga_ansattnr), pid2ansattnr[p_id])
         else:
             key = None
 
@@ -394,6 +418,9 @@ def get_existing_accounts(db):
         elif int(row['owner_id']) in pid2passnr:
             id_type = const.externalid_pass_number
             id_value = pid2passnr[int(row['owner_id'])]
+        elif int(row['owner_id']) in pid2ansattnr:
+            id_type = const.externalid_paga_ansattnr
+            id_value = pid2ansattnr[int(row['owner_id'])]
         else:
             continue
         if UsernamePolicy.is_valid_sito_name(row['name']):
@@ -446,6 +473,10 @@ def get_existing_accounts(db):
             elif is_person_spread and e_id in pid2passnr:
                 person_cache[int(const.externalid_pass_number),
                              pid2passnr[e_id]].append_spread(spread_id)
+            elif is_person_spread and e_id in pid2ansattnr:
+                person_cache[int(const.externalid_paga_ansattnr),
+                             pid2ansattnr[e_id]].append_spread(spread_id)
+
             del e_id
 
     # Account Affiliations
@@ -572,7 +603,8 @@ class Build(object):
 
         def get_identifier(person_dict):
             if (person_dict.get('fnr') and
-                    person_dict['fnr'][6:11] != '00000'):
+                    (person_dict['fnr'][6:11] != '00100') and
+                    (person_dict['fnr'][6:11] != '00200')):
                 return (self.co.externalid_fodselsnr, person_dict['fnr'])
             if (person_dict.get('edag_id_type') == 'passnummer' and
                     person_dict.get('edag_id_nr') and
@@ -580,7 +612,12 @@ class Build(object):
                 passnr = '%s-%s' % (person_dict['country'],
                                     person_dict['edag_id_nr'])
                 return (self.co.externalid_pass_number, passnr)
-            raise SkipPerson('No valid identifier (fnr, edag_id_nr)')
+            if (person_dict.get('ansattnr')):
+                logger.debug("get_identifier return ansattnr:%s" %
+                             (person_dict['ansattnr']))
+                return (self.co.externalid_paga_ansattnr,
+                        person_dict['ansattnr'])
+            raise SkipPerson('No valid identifier (fnr, edag_id_nr, ansattnr)')
 
         # TODO: Should use ansattnr, not fnr/passnr
         for i, person_dict in enumerate(person_data, 1):
@@ -821,7 +858,7 @@ def main(inargs=None):
     id_type_arg = parser.add_argument(
         '--id-type',
         dest='id_type',
-        choices=('ssn', 'passnummer'),
+        choices=('ssn', 'passnummer', 'ansattnr'),
         help=(
             "Process a single person with id type %(metavar)s "
             "(default: process all). This option also requires a value"),
@@ -864,6 +901,8 @@ def main(inargs=None):
                 id_type = const.externalid_fodselsnr
             elif args.id_type == 'passnummer':
                 id_type = const.externalid_pass_number
+            elif args.id_type == 'ansattnr':
+                id_type = const.externalid_paga_ansattnr
             else:
                 raise ValueError("Invalid id_type %r" % (args.id_type, ))
 
