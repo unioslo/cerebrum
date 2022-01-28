@@ -32,6 +32,7 @@ NB! This script should only be used during migration.
 
 """
 
+from __future__ import print_function
 import getopt
 import sys
 
@@ -60,12 +61,12 @@ def attempt_commit(dryrun=False):
 
 def usage(msg=''):
     if msg:
-        print msg
-    print """Usage     : generate_new_unames.py
+        print(msg)
+    print("""Usage     : generate_new_unames.py
     -w, --write-mapping: write mapping of new -> old usernames
     -m, --maxlen       : Maxlen of usernames must be given
     -d, --dryrun       : Rollback after run.
-    """
+    """)
     sys.exit(0)
 
 

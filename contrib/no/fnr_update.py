@@ -54,6 +54,7 @@ Each input file is an XML document formatted according to:
 
 The 'date' attribute is formatted thus 'YYYY-MM-DD HH:MM:SS'.
 """
+from __future__ import print_function
 
 import sys
 import getopt
@@ -315,11 +316,11 @@ def read_exemptions_file(fname):
 
 
 def usage(exitcode=0):
-    print """Usage: [options] filenames
+    print("""Usage: [options] filenames
   
     -d | --dryrun : do not commit changes to database
     -e | --exemptions fname : Load exemptions from file
-    """
+    """)
     sys.exit(exitcode)
 # end usage
 

@@ -24,6 +24,8 @@ The guest commands in this module creates guest accounts.
 Guests created by these bofhd-commands are non-personal, owned by a group. A
 trait associates the guest with an existing personal account.
 """
+
+from __future__ import print_function
 import functools
 
 from mx import DateTime
@@ -574,7 +576,7 @@ class BofhdExtension(BofhdCommonMethods):
             try:
                 ret.append(self._get_guest_info(row['entity_id']))
             except CerebrumError as e:
-                print "Error: %s" % e
+                print("Error: %s" % e)
                 continue
         if not ret:
             raise CerebrumError("Found no guest accounts.")

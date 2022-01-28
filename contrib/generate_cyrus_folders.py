@@ -21,6 +21,7 @@
 
 #
 
+from __future__ import print_function
 import time
 import sys
 import base64
@@ -80,10 +81,10 @@ def create_inboxes():
                 acc.clear()
                 acc.find(ent_id)
                 target = acc.account_name
-                print "createmailbox user.%s\n" % target
+                print("createmailbox user.%s\n" % target)
                 q = get_quota(target)
                 if q > 0:
-                    print "setquota user.%s %d" % (uname, q)
+                    print("setquota user.%s %d" % (uname, q))
             except Errors.NotFoundError:
                 txt = "Target: %s(account) no user found: %s"% (t,ent_id)
                 sys.stderr.write(txt)

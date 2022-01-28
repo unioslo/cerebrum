@@ -24,6 +24,8 @@ Fix if necessary.
 
 """
 
+from __future__ import print_function
+
 import getopt
 import sys
 
@@ -183,7 +185,7 @@ class UserAccountControlFix(BaseSync):
         return ret
 
 def usage(exitcode=0):
-    print """Usage: fix_useraccountcontrol.py [OPTIONS] --type TYPE
+    print("""Usage: fix_useraccountcontrol.py [OPTIONS] --type TYPE
 
     %(doc)s
 
@@ -207,7 +209,7 @@ def usage(exitcode=0):
 
     -h, --help      Show this and quit.
 
-    """ % {'doc': __doc__}
+    """ % {'doc': __doc__})
 
     sys.exit(exitcode)
 
@@ -219,7 +221,7 @@ def main():
                                     "dryrun",
                                     "type="])
     except getopt.GetoptError as e:
-        print e
+        print(e)
         usage(1)
 
     encrypted = True
@@ -237,18 +239,18 @@ def main():
             configuration['dryrun'] = True
         elif opt == '--type':
             if val not in adconf.SYNCS:
-                print "Sync type '%s' not found in config" % val
-                print "Defined sync types:"
+                print("Sync type '%s' not found in config" % val)
+                print("Defined sync types:")
                 for typ in adconf.SYNCS:
-                    print '  %s' % typ
+                    print('  %s' % typ)
                 sys.exit(2)
             sync_type = configuration['sync_type'] = val
         else:
-            print "Unknown option: %s" % opt
+            print("Unknown option: %s" % opt)
             usage(1)
 
     if not sync_type:
-        print "Need to specify what sync type to perform"
+        print("Need to specify what sync type to perform")
         usage(1)
 
     # Make use of config file settings, if not set otherwise by arguments

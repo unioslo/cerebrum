@@ -34,6 +34,7 @@ will be substituted by a colon (:). TODO: what's the best solution for semi
 colons in names?
 """
 
+from __future__ import print_function
 import sys
 import getopt
 
@@ -51,7 +52,7 @@ pe = Factory.get('Person')(db)
 cl = CLHandler.CLHandler(db)
 
 def usage(exitcode=0):
-    print """Usage: dump_usernames_passwords.py [options]
+    print("""Usage: dump_usernames_passwords.py [options]
 
     %(doc)s
 
@@ -67,7 +68,7 @@ def usage(exitcode=0):
                             testing, to be able to rerun the dump.
 
     -h --help               Show this and quit.
-    """ % {'doc': __doc__}
+    """ % {'doc': __doc__})
     sys.exit(exitcode)
 
 def process_accounts(event_key, event_types, stream, spreads, dryrun):
@@ -146,7 +147,7 @@ def main():
                                     "create_file=",
                                     "pwd_file="])
     except getopt.GetoptError as e:
-        print e
+        print(e)
         usage(1)
 
     create_file = pwd_file = None
@@ -165,7 +166,7 @@ def main():
         elif opt in ('--spreads',):
             spreads.extend(int(co.Spread(s)) for s in val.split(','))
         else:
-            print "Unknown arg: %s" % opt
+            print("Unknown arg: %s" % opt)
             usage(1)
 
     if create_file:

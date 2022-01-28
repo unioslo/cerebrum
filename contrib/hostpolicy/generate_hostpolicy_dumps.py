@@ -56,7 +56,7 @@ The date format is: YYYY-MM-DD
 
 """
 
-from __future__ import unicode_literals
+from __future__ import print_function, unicode_literals
 
 import sys
 import os
@@ -74,7 +74,7 @@ logger = Factory.get_logger('cronjob')
 
 
 def usage(exitcode=0):
-    print """Usage: %(filename)s [options]
+    print("""Usage: %(filename)s [options]
 
     %(doc)s
 
@@ -91,7 +91,7 @@ def usage(exitcode=0):
 
     --help                  Show this and quit.
     """ % {'filename': os.path.basename(sys.argv[0]),
-           'doc': __doc__}
+           'doc': __doc__})
     sys.exit(exitcode)
 
 

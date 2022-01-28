@@ -81,6 +81,7 @@ Postfix on archive files are '-%Y-%m-%d.tar.gz'
 ##    til we no longer support version < 2.4.
 ##
 
+from __future__ import print_function
 import logging
 import os
 import re
@@ -272,7 +273,7 @@ def archive_files(name_pattern='', dirname='', archive_name='',
 
 
 def usage(exitcode=0):
-    print __doc__
+    print(__doc__)
     sys.exit(exitcode)
 
 

@@ -67,6 +67,8 @@ shell!
 
 """
 
+from __future__ import print_function
+
 import getopt
 import sys
 
@@ -80,7 +82,7 @@ co = Factory.get('Constants')(db)
 
 
 def usage(exitcode=0):
-    print """Usage: powershell.py [OPTIONS] CODE...
+    print("""Usage: powershell.py [OPTIONS] CODE...
 
     %(doc)s
 
@@ -128,7 +130,7 @@ def usage(exitcode=0):
 
     -h, --help      Show this and quit.
 
-    """ % {'doc': __doc__}
+    """ % {'doc': __doc__})
     sys.exit(exitcode)
 
 
@@ -146,7 +148,7 @@ def main():
                                     "ca_cert=",
                                     "domain_user="])
     except getopt.GetoptError as e:
-        print e
+        print(e)
         usage(1)
 
     encrypted = True
@@ -163,10 +165,10 @@ def main():
             encrypted = False
         elif opt == '--type':
             if val not in adconf.SYNCS:
-                print "Sync type '%s' not found in config" % val
-                print "Defined sync types:"
+                print("Sync type '%s' not found in config" % val)
+                print("Defined sync types:")
                 for typ in adconf.SYNCS:
-                    print '  %s' % typ
+                    print('  %s' % typ)
                 sys.exit(2)
             sync = adconf.SYNCS[val]
         elif opt == '--host':
@@ -183,15 +185,15 @@ def main():
             # Drain the client for pre-code:
             ADclient._pre_execution_code = u''
         else:
-            print "Unknown option: %s" % opt
+            print("Unknown option: %s" % opt)
             usage(1)
 
     if not host and not sync:
-        print "Need either --type or --host to connect to"
+        print("Need either --type or --host to connect to")
         usage(1)
 
     if not args:
-        print "Powershell code required"
+        print("Powershell code required")
         usage(1)
 
     if not host:
@@ -209,7 +211,7 @@ def main():
             ca = sync.get('ca')
     else:
         if not auth_user:
-            print "If no specific sync, --auth_user is required"
+            print("If no specific sync, --auth_user is required")
             usage(1)
 
     client = ADclient(logger=logger,
@@ -231,9 +233,9 @@ def main():
     for outtype in ('stderr', 'stdout'):
         data = out.get(outtype)
         if data:
-            print '%s:' % outtype.upper()
-            print data
-            print
+            print('%s:' % outtype.upper())
+            print(data)
+            print()
     logger.debug("Done")
 
 if __name__ == '__main__':

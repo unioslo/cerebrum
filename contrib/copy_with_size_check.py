@@ -53,6 +53,8 @@ OPTIONS
                           If the input file is longer or shorter by this number
                           of lines, output will not be overwritten."""
 
+from __future__ import print_function
+
 import os
 import sys
 import getopt
@@ -122,7 +124,7 @@ def write_and_check_size(
 def usage(exitcode=0):
     """Prints usage information."""
 
-    print __doc__
+    print(__doc__)
     sys.exit(exitcode)
 
 

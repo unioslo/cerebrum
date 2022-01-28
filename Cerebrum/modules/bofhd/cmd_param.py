@@ -19,6 +19,8 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 
+from __future__ import print_function
+
 class Parameter(object):
     """Defines some properties for an attribute.  If any arguments in
     the __init__ constructor are None, they may be overridden in a
@@ -447,4 +449,4 @@ if __name__ == '__main__':
         )
     }
 
-    print all_commands['account_create'].get_struct()
+    print(all_commands['account_create'].get_struct())

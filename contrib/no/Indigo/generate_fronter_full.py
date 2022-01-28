@@ -19,8 +19,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ Ofk fronter export. """
-
-from __future__ import unicode_literals
+from __future__ import print_function, unicode_literals
 
 import sys
 import os
@@ -601,7 +600,7 @@ def register_school_nodes(title, group_id, parent_id, typeval):
 
 
 def usage(exitcode):
-    print "Usage: generate_fronter_full.py OUTPUT_FILENAME"
+    print("Usage: generate_fronter_full.py OUTPUT_FILENAME")
     sys.exit(exitcode)
 
 

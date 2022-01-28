@@ -4,6 +4,8 @@
 # Collection of small test-scripts, should be converted to unit-test
 # framework.
 
+from __future__ import print_function
+
 import re
 import sys
 import getopt
@@ -27,13 +29,13 @@ def test_cname(a_rec_id):
     cname = Host.CnameRecord(db)
     if True:
         cname.populate("huba.uio.no", a_rec_id, ttl=50)
-        print "W=", cname.write_db()
+        print("W=", cname.write_db())
     if False:
         cname.clear()
         cname.find(223599)
-        print "Got: ", cname.cname, cname.a_record_id, cname.ttl
+        print("Got: ", cname.cname, cname.a_record_id, cname.ttl)
         cname.cname = "kake.iuo.no"
-        print "W=", cname.write_db()
+        print("W=", cname.write_db())
     db.commit()
 
 def clean_netgroup():
@@ -95,12 +97,12 @@ def test_hinfo_code(testname):
         except Errors.NotFoundError:
             x = co.HinfoCode('autogen', 'SUNFIRE-480R', 'SOLARIS-8')
             x.insert()
-        print x
-        print int(x)
+        print(x)
+        print(int(x))
     elif testname == '1':
-        print co.hi.os, co.hi.cpu
-        print co.hi, int(co.hi)
-        print co.HinfoCode("auto1").os
+        print(co.hi.os, co.hi.cpu)
+        print(co.hi, int(co.hi))
+        print(co.HinfoCode("auto1").os)
     db.commit()
     
 def test_host_info(testname):
@@ -108,22 +110,22 @@ def test_host_info(testname):
     if testname == 'create':
         host.populate(test_dta['name'], co.HinfoCode(test_dta['hinfo']))
         host.write_db()
-        print "Created, id=%i" % host.entity_id
+        print("Created, id=%i" % host.entity_id)
         db.commit()
     elif testname == 'find':
         host.find_by_name(test_dta['name'])
-        print "Found: ", host.name
+        print("Found: ", host.name)
 
 def test_ip(testname):
     ip = Host.IPNumber(db)
     if testname == 'create':
         ip.populate(test_dta['ip'])
         ip.write_db()
-        print "Created, id=%i" % ip.ip_number_id
+        print("Created, id=%i" % ip.ip_number_id)
         db.commit()
     elif testname == 'find':
         ip.find_by_ip(test_dta['ip'])
-        print "Found %s, id=%i " % (ip.a_ip, ip.ip_number_id)
+        print("Found %s, id=%i " % (ip.a_ip, ip.ip_number_id))
 
 def test_a_record(testname):
     ar = Host.ARecord(db)
@@ -133,16 +135,16 @@ def test_a_record(testname):
         ip.find_by_ip(test_dta['ip'])
         ar.populate(test_dta['name'], ip.ip_number_id)
         ar.write_db()
-        print "Created, id=%i" % ar.entity_id
+        print("Created, id=%i" % ar.entity_id)
         db.commit()
     elif testname == 'find':
         ar.find_by_name(test_dta['name'])
-        print "Found, ", ar.ip_number_id
+        print("Found, ", ar.ip_number_id)
     
 def usage(exitcode=0):
-    print """test.py [options]
+    print("""test.py [options]
     --hinfo [create | 1] : run test_hinfo_code
-"""
+""")
     sys.exit(exitcode)
 
 def main():

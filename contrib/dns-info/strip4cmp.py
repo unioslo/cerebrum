@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+from __future__ import print_function
+
 import re
 import sys
 import getopt
@@ -34,7 +36,7 @@ def strip_reverse_file(fname, outfname, default_zone):
     p.close()
 
 def usage(exitcode=0):
-    print """Usage: [options]
+    print("""Usage: [options]
 
     Convert the file to a format suitable for 'diff -u'.
 
@@ -44,7 +46,7 @@ def usage(exitcode=0):
     -z convert zonefile
     -r convert reverse map
     -Z | --zone-def name: a dns_zone.name entry
-    """
+    """)
     sys.exit(exitcode)
 
 def main():

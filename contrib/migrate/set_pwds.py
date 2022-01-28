@@ -25,6 +25,7 @@ be used with extreme caution as it changes passwords for all accounts
 registered in Cerebrum.
 
 """
+from __future__ import print_function
 
 import getopt
 import sys
@@ -41,10 +42,10 @@ def attempt_commit():
         logger.info("Committed all changes")
 
 def usage():
-    print """Usage: set_pwds.py
+    print("""Usage: set_pwds.py
     -d, --dryrun  : Rollback after run.
     -a, --active  : don't set password for accounts with active password
-    """
+    """)
     sys.exit(0)
 
 

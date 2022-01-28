@@ -35,6 +35,7 @@ TODO: This was requested by ØFK, but it should be generic enough to be used by
 other instances too.
 
 """
+from __future__ import print_function
 
 import cereconf
 
@@ -60,7 +61,7 @@ sms = SMSSender(logger=logger)
 commit = False
 
 def usage(exitcode = 0):
-    print """Usage: %(file)s --check-trait TRAIT --set-trait TRAIT [--days DAYS]
+    print("""Usage: %(file)s --check-trait TRAIT --set-trait TRAIT [--days DAYS]
 
     %(doc)s
 
@@ -95,7 +96,7 @@ def usage(exitcode = 0):
     -h --help               Show this and quit.
 
     """ % {'file': os.path.basename(sys.argv[0]),
-           'doc': __doc__}
+           'doc': __doc__})
     sys.exit(exitcode)
 
 def process(check_trait, set_trait, days, phone_types, message, only_aff):
@@ -249,7 +250,7 @@ if __name__ == '__main__':
                            'phone-types=',
                            'set-trait='])
     except getopt.GetoptError as e:
-        print e
+        print(e)
         usage(1)
 
     days = 180
@@ -284,17 +285,17 @@ if __name__ == '__main__':
                     raise Exception('Unknown phone type: %s' % t[1])
                 phone_types.append((source, type))
         else:
-            print "Unknown option: %s" % opt
+            print("Unknown option: %s" % opt)
             usage(1)
 
     if not check_trait:
-        print "Need to specify the trait to check for."
+        print("Need to specify the trait to check for.")
         usage(1)
     if not set_trait:
-        print "Need to specify the trait to set."
+        print("Need to specify the trait to set.")
         usage(1)
     if not phone_types:
-        print "Need to specify the phone types to use."
+        print("Need to specify the phone types to use.")
         usage(1)
     if not message:
         message = cereconf.SMS_REMINDER_MSG

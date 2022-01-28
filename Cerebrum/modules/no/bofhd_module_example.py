@@ -24,6 +24,8 @@ Also see Cerebrum.modules.bofhd.bofhd_core for more details and the basic
 functionality common for all bofhd instances.
 """
 
+from __future__ import print_function
+
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
 from Cerebrum.modules.bofhd.cmd_param import (Command,
                                               AccountName,
@@ -90,4 +92,4 @@ if __name__ == '__main__':
     db = Factory.get('Database')()
     logger = Factory.get_logger('console')
     sm = BofhdExtension(db, logger)
-    print "Ret: %s" % sm.get_stedkode_info('user', '900547')
+    print("Ret: %s" % sm.get_stedkode_info('user', '900547'))

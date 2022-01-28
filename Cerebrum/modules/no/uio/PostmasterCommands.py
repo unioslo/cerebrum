@@ -22,6 +22,8 @@
 
 """
 
+from __future__ import print_function
+
 import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
@@ -115,6 +117,6 @@ class Commands:
 
         ret = set(pe2email[row['person_id']] for row in rows
                   if pe2email.has_key(row['person_id']))
-        print 'DEBUG: Returning %d e-mail addresses' % len(ret)
+        print('DEBUG: Returning %d e-mail addresses' % len(ret))
         return ret
 

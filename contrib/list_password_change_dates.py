@@ -21,6 +21,8 @@
 
 u"""Takes a file with account names, lists password change timestamps."""
 
+from __future__ import print_function
+
 import cereconf
 
 from Cerebrum import Errors
@@ -47,9 +49,9 @@ def print_change_dates(accounts):
         if history:
             history = sorted(history, key=lambda x: x['set_at'])
             last = dict(history[-1])
-            print "{}\t{}".format(account_name, str(last['set_at']))
+            print("{}\t{}".format(account_name, str(last['set_at'])))
         else:
-            print "{}\t{}".format(account_name, 'NEVER')
+            print("{}\t{}".format(account_name, 'NEVER'))
 
 
 def main():

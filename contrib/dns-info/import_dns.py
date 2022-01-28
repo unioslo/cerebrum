@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+from __future__ import print_function
+
 import re
 import sys
 import getopt
@@ -75,7 +77,7 @@ class Netgroups(object):
                     m = r_digit.match(k)
                     if m:
                         if netgroups.has_key(m.group(1)):
-                            print "Merging ", (m.group(1), m.group(2))
+                            print("Merging ", (m.group(1), m.group(2)))
                             netgroups[m.group(1)]['machines'].extend(
                                 netgroups[k]['machines'])
                             netgroups[m.group(1)]['netgroups'].extend(
@@ -98,7 +100,7 @@ class Netgroups(object):
             for m in merged_netgroups.keys():
                 if m in netgroups[k]['netgroups']:
                     netgroups[k]['netgroups'].remove(m)
-        print "Non-existent bases found:", non_existent_bases.keys()
+        print("Non-existent bases found:", non_existent_bases.keys())
         #pp.pprint(netgroups)
         return netgroups
 
@@ -149,7 +151,7 @@ class Netgroups(object):
             group.clear()
             group.find(groupname2id[k])
             if not netgroups.has_key(k):
-                print "Warning, no members for %s" % k
+                print("Warning, no members for %s" % k)
                 continue
             for n in netgroups[k]['netgroups']:
                 group.add_member(groupname2id[n])
@@ -160,7 +162,7 @@ class Netgroups(object):
                 machines[n] = True
             for n in machines.keys():
                 if not dns_owner2id.has_key(n):
-                    print "Warning, unknown member: %s" % n
+                    print("Warning, unknown member: %s" % n)
                     continue
                 group.add_member(dns_owner2id[n])
         db.commit()
@@ -656,7 +658,7 @@ def clear_db():
     db.commit()
     
 def usage(exitcode=0):
-    print """Usage: [options]
+    print("""Usage: [options]
 
     Import an existing zone-file and corresponding reverse-map into
     Cerebrum.
@@ -680,7 +682,7 @@ def usage(exitcode=0):
 
     Example:
       contrib/import_dns.py -z data/uio.no.orig -h data/hosts.orig -i
-    """
+    """)
     sys.exit(exitcode)
 
 def main():

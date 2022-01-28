@@ -21,6 +21,7 @@
 """This script can be used for sending an export to a Fronter instances
 webservice"""
 
+from __future__ import print_function
 import sys
 import socket
 import getopt
@@ -90,7 +91,7 @@ def status(key, host):
 
 def usage(i=0):
     """Usage information"""
-    print """Usage: %s -k <key> -f <file> --logger-name <logger>
+    print("""Usage: %s -k <key> -f <file> --logger-name <logger>
       -k <key> defines which Fronter-integration will receive the file.
       -i <instance> the instance to export to, i.e. 'prod'.
       -f <file> defines the filename to the file.
@@ -115,7 +116,7 @@ def usage(i=0):
       the file name of the file each time you upload, in order for the
       integration to understand that there are changes. All this is based on a
       bit of speculation. Will try to inquire Fronter about this.
-      """
+      """)
     sys.exit(i)
 
 
@@ -129,7 +130,7 @@ def main():
     try:
         opts, j = getopt.getopt(sys.argv[1:], 'f:k:hH:i:')
     except getopt.GetoptError as err:
-        print 'Error: %s' % err
+        print('Error: %s' % err)
         usage(-2)
 
     for opt, val in opts:
@@ -144,7 +145,7 @@ def main():
         elif opt in ('-H',):
             host = val
         else:
-            print "Error: Invalid arg"
+            print("Error: Invalid arg")
             usage(-2)
 
     if not key:

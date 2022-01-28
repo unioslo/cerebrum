@@ -37,6 +37,7 @@ Example of use:
 -s spread_nis_ans_account
 
 """
+from __future__ import print_function
 
 import getopt
 import sys
@@ -179,13 +180,13 @@ def process_home(path, uname):
 
     
 def usage():
-    print """Usage: import_homes.py
+    print("""Usage: import_homes.py
     -h, --help   : Show this
     -d, --dryrun : Fake run
     -f, --file   : File to parse.
     -s, --spread : spread
     -h, --host   : create new disks on this host
-    """
+    """)
     sys.exit(0)
 
 

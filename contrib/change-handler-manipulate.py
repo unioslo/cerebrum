@@ -31,6 +31,9 @@ Future requests:
 - Add possibility for unchecking a given change_id, to rerun it in a sync
 
 """
+
+from __future__ import print_function
+
 import sys
 import logging
 

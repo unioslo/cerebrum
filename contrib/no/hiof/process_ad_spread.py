@@ -43,6 +43,7 @@ Usage: process_AD.py [options]
 -a ad_spread : spread_str for spread (domene)
 -o fname : utfil
 """
+from __future__ import print_function
 
 import getopt
 import sys
@@ -375,7 +376,7 @@ def main():
 
 
 def usage(exitcode=0):
-    print __doc__
+    print(__doc__)
     sys.exit(exitcode)
 
 

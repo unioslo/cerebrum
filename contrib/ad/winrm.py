@@ -25,6 +25,8 @@ to Windows machines.
 
 """
 
+from __future__ import print_function
+
 import getopt
 import sys
 from lxml import etree
@@ -39,7 +41,7 @@ db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
 
 def usage(exitcode=0):
-    print """Usage: winrm.py [OPTIONS]...
+    print("""Usage: winrm.py [OPTIONS]...
 
     %(doc)s
 
@@ -72,7 +74,7 @@ def usage(exitcode=0):
 
     -h, --help      Show this and quit.
 
-    """ % {'doc': __doc__}
+    """ % {'doc': __doc__})
     sys.exit(exitcode)
 
 def main():
@@ -86,7 +88,7 @@ def main():
                                     "delete-shell=",
                                     "port="])
     except getopt.GetoptError as e:
-        print e
+        print(e)
         usage(1)
 
     encrypted = True
@@ -101,10 +103,10 @@ def main():
             encrypted = False
         elif opt == '--type':
             if val not in adconf.SYNCS:
-                print "Sync type '%s' not found in config" % val
-                print "Defined sync types:"
+                print("Sync type '%s' not found in config" % val)
+                print("Defined sync types:")
                 for typ in adconf.SYNCS:
-                    print '  %s' % typ
+                    print('  %s' % typ)
                 sys.exit(2)
             sync = adconf.SYNCS[val]
         elif opt == '--host':
@@ -113,7 +115,7 @@ def main():
             port = int(val)
 
     if not host and not sync:
-        print "Need either --type or --host to connect to"
+        print("Need either --type or --host to connect to")
         usage(1)
 
     if not host:
@@ -153,18 +155,18 @@ def main():
     resource = 'windows/shell'
     req = client.wsman_enumerate(resource)
     logger.debug("Got request Id: %s", req)
-    print etree.tostring(client.wsman_pull(resource, req), pretty_print=True)
+    print(etree.tostring(client.wsman_pull(resource, req), pretty_print=True))
 
     logger.info("Listing listeners...")
     resource = 'winrm/config/listener'
     req = client.wsman_enumerate(resource)
     logger.debug("Got request Id: %s", req)
-    print etree.tostring(client.wsman_pull(resource, req), pretty_print=True)
+    print(etree.tostring(client.wsman_pull(resource, req), pretty_print=True))
 
     resource = 'http://schemas.microsoft.com/wbem/wsman/1/windows/shell/cmd'
     req = client.wsman_get(resource)
     logger.debug("Got request Id: %s", req)
-    print etree.tostring(client.wsman_pull(resource, req), pretty_print=True)
+    print(etree.tostring(client.wsman_pull(resource, req), pretty_print=True))
 
     # Try to create a WinRM shell:
     logger.info("Creating Shell...")
