@@ -20,7 +20,7 @@
 """
 Basic Cerebrum functionality for the Individuation service.
 """
-from __future__ import unicode_literals
+from __future__ import print_function, unicode_literals
 
 import hashlib
 import logging
@@ -56,16 +56,16 @@ class SimpleLogger(object):
 
     """
     def error(self, msg, *args):
-        print "ERROR: " + msg % args
+        print("ERROR: " + msg % args)
 
     def warning(self, msg, *args):
-        print "WARNING: " + msg % args
+        print("WARNING: " + msg % args)
 
     def info(self, msg, *args):
-        print "INFO: " + msg % args
+        print("INFO: " + msg % args)
 
     def debug(self, msg, *args):
-        print "DEBUG: " + msg % args
+        print("DEBUG: " + msg % args)
 
 
 logger = logging.getLogger(__name__)

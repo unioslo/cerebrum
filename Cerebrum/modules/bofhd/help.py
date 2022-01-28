@@ -20,6 +20,8 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ Help-command functionality for bofhd. """
 
+from __future__ import print_function
+
 # TODO: Update and clean this wall of text:
 
 _help_general = """
@@ -309,19 +311,19 @@ class PrintLog(object):
 
     def error(self, msg):
         """ Prints a log entry with level ERROR. """
-        print "ERROR: %s" % (msg,)
+        print("ERROR: %s" % (msg,))
 
     def warn(self, msg):
         """ Prints a log entry with level WARNING. """
-        print "WARN: %s" % (msg,)
+        print("WARN: %s" % (msg,))
 
     def info(self, msg):
         """ Prints a log entry with level INFO. """
-        print "INFO: %s" % (msg,)
+        print("INFO: %s" % (msg,))
 
     def debug(self, msg):
         """ Prints a log entry with level DEBUG. """
-        print "DEBUG: %s" % (msg,)
+        print("DEBUG: %s" % (msg,))
 
 
 def merge_help_strings(*tuples):
@@ -573,26 +575,26 @@ def test(args=None):
 
     def cb_general(args):
         bofhd_help = get_help(args.config)
-        print "======================= General help ========================="
-        print bofhd_help.get_general_help(get_all_commands())
+        print("======================= General help =========================")
+        print(bofhd_help.get_general_help(get_all_commands()))
 
     def cb_group(args):
         bofhd_help = get_help(args.config)
-        print "\n======================== Group help ========================="
+        print("\n======================== Group help =========================")
         for g in sorted(bofhd_help.group_help.keys()):
-            print "-------------------- %s --------------------" % g
-            print bofhd_help.get_group_help(get_all_commands(), g)
+            print("-------------------- %s --------------------" % g)
+            print(bofhd_help.get_group_help(get_all_commands(), g))
 
     def cb_command(args):
         # TODO: This is completely useless without a config...
         bofhd_help = get_help(args.config)
-        print "\n========================= Arg help =========================="
+        print("\n========================= Arg help ==========================")
         for g in sorted(bofhd_help.command_help.keys()):
-            print "-------------------- %s --------------------" % g
+            print("-------------------- %s --------------------" % g)
             for c in sorted(bofhd_help.command_help[g].keys()):
-                print "%s - %s" % (c, bofhd_help.command_help[g][c][0])
+                print("%s - %s" % (c, bofhd_help.command_help[g][c][0]))
                 for argtype in bofhd_help.command_help[g][c][2:]:
-                    print "   at=%s" % argtype
+                    print("   at=%s" % argtype)
 
     parser = argparse.ArgumentParser()
     parser.add_argument('-c', '--config',

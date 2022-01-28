@@ -18,6 +18,8 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
+from __future__ import print_function
 import datetime
 import getopt
 import locale
@@ -619,9 +621,9 @@ def export_data(output_stream):
 def usage(message=None):
     """Gives user info on how to use the program and its options."""
     if message is not None:
-        print >>sys.stderr, "\n%s" % message
+        print("\n%s" % message, file=sys.stderr)
 
-    print >>sys.stderr, __doc__
+    print(__doc__, file=sys.stderr)
 
 
 def main(argv=None):

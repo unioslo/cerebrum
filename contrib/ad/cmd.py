@@ -47,6 +47,8 @@ shell!
 
 """
 
+from __future__ import print_function
+
 import getopt
 import sys
 
@@ -60,7 +62,7 @@ db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
 
 def usage(exitcode=0):
-    print """Usage: cmd.py [OPTIONS] CODE...
+    print("""Usage: cmd.py [OPTIONS] CODE...
 
     %(doc)s
 
@@ -92,7 +94,7 @@ def usage(exitcode=0):
 
     -h, --help      Show this and quit.
 
-    """ % {'doc': __doc__}
+    """ % {'doc': __doc__})
     sys.exit(exitcode)
 
 def main():
@@ -105,7 +107,7 @@ def main():
                                     "host=",
                                     "port="])
     except getopt.GetoptError, e:
-        print e
+        print(e)
         usage(1)
 
     encrypted = True
@@ -120,10 +122,10 @@ def main():
             encrypted = False
         elif opt == '--type':
             if val not in adconf.SYNCS:
-                print "Sync type '%s' not found in config" % val
-                print "Defined sync types:"
+                print("Sync type '%s' not found in config" % val)
+                print("Defined sync types:")
                 for typ in adconf.SYNCS:
-                    print '  %s' % typ
+                    print('  %s' % typ)
                 sys.exit(2)
             sync = adconf.SYNCS[val]
         elif opt == '--host':
@@ -131,15 +133,15 @@ def main():
         elif opt == '--port':
             port = int(val)
         else:
-            print "Unknown option: %s" % opt
+            print("Unknown option: %s" % opt)
             usage(1)
 
     if not host and not sync:
-        print "Need either --type or --host to connect to"
+        print("Need either --type or --host to connect to")
         usage(1)
 
     if not args:
-        print "Command to run is required"
+        print("Command to run is required")
         usage(1)
 
     if not host:
@@ -167,9 +169,9 @@ def main():
     for outtype in ('stderr', 'stdout'):
         data = out.get(outtype)
         if data:
-            print '%s:' % outtype.upper()
-            print data
-            print
+            print('%s:' % outtype.upper())
+            print(data)
+            print()
     logger.debug("Done")
 
 if __name__ == '__main__':

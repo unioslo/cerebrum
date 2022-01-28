@@ -30,7 +30,7 @@ directory of the given instance.
 
 """
 
-from __future__ import unicode_literals
+from __future__ import print_function, unicode_literals
 
 group_help = {
     'disk': "Disk related commands",

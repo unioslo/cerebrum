@@ -40,7 +40,7 @@ keyword -- 'defaultmail' or 'mail'
 ## stored as external_id. Fix this!
 ## 
 
-
+from __future__ import print_function
 import getopt
 import sys
 
@@ -211,13 +211,13 @@ def process_mail(account, mtype, addr, spread=None, homemdb=None):
 
 
 def usage():
-    print """Usage: import_uname_mail.py
+    print("""Usage: import_uname_mail.py
     -d, --dryrun  : Run a fake import. Rollback after run.
     -f, --file    : File to parse.
     -s, --spread  : add spread to account (optional)
     -m, --homemdb : add homeMDB as trait
     -e, --extid  : check for account by external_id 
-    """
+    """)
     sys.exit(0)
 
 

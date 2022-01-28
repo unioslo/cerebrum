@@ -23,7 +23,7 @@
 The report should contain an overview of the owners groups and the members in
 each group.
 """
-from __future__ import unicode_literals
+from __future__ import print_function, unicode_literals
 import argparse
 import datetime
 import logging

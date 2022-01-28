@@ -17,7 +17,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-from __future__ import unicode_literals
+from __future__ import print_function, unicode_literals
 import re
 from Cerebrum.extlib import xmlprinter
 
@@ -61,23 +61,23 @@ class ABCXMLWriter(object):
     def parse_persons(self, iterator):
         """Iterate persons. Add them to the tree."""
         for person in iterator:
-            print person
+            print(person)
 
     def parse_orgs(self, iterator):
         """Iterate over organizations. Add the org to the tree."""
         for org in iterator:
-            print org
+            print(org)
             if org.ou:
                 for o in org.ou:
-                    print o
+                    print(o)
 
     def parse_groups(self, iterator):
         for group in iterator:
-            print group
+            print(group)
 
     def parse_relations(self, iterator):
         for rel in iterator:
-            print rel
+            print(rel)
 
     def end_parse(self):
         self.xp.endDocument()
