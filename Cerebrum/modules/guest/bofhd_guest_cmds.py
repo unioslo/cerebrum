@@ -222,17 +222,10 @@ class BofhdExtension(BofhdCommonMethods):
         mobile = None
         try:
             mobile = account.get_contact_info(
-                source=self.const.system_greg,
+                source=self.const.system_manual,
                 type=self.const.contact_mobile_phone)[0]['contact_value']
-        except (AttributeError, IndexError):
+        except IndexError:
             pass
-        if mobile is None:
-            try:
-                mobile = account.get_contact_info(
-                    source=self.const.system_manual,
-                    type=self.const.contact_mobile_phone)[0]['contact_value']
-            except IndexError:
-                pass
         # Get account state
         status = 'active'
         if end_date < DateTime.now():
