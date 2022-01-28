@@ -418,6 +418,9 @@ def get_existing_accounts(db):
         elif int(row['owner_id']) in pid2passnr:
             id_type = const.externalid_pass_number
             id_value = pid2passnr[int(row['owner_id'])]
+        elif int(row['owner_id']) in pid2ansattnr:
+            id_type = const.externalid_paga_ansattnr
+            id_value = pid2ansattnr[int(row['owner_id'])]
         else:
             continue
         if UsernamePolicy.is_valid_sito_name(row['name']):
