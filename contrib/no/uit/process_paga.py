@@ -473,6 +473,10 @@ def get_existing_accounts(db):
             elif is_person_spread and e_id in pid2passnr:
                 person_cache[int(const.externalid_pass_number),
                              pid2passnr[e_id]].append_spread(spread_id)
+            elif is_person_spread and e_id in pid2ansattnr:
+                person_cache[int(const.externalid_paga_ansattnr),
+                             pid2ansattnr[e_id]].append_spread(spread_id)
+
             del e_id
 
     # Account Affiliations
