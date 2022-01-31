@@ -23,8 +23,7 @@
 This piece of software ensures existence of user accounts in ePhorte,
 via the ePhorte web service.
 """
-
-from __future__ import unicode_literals
+from __future__ import print_function, unicode_literals
 
 # TODO:
 # - Handle primary account changes
@@ -886,7 +885,7 @@ def disable_users(client, selection_spread):
 
 def show_org_units(client):
     for org in client.get_all_org_units():
-        print dict(org)
+        print(dict(org))
 
 
 def main():

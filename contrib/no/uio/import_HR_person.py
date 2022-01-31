@@ -30,6 +30,7 @@ affiliations.
 different XML DTDs, but the interface to them is uniform (through
 modules.xmlutils.*)
 """
+from __future__ import print_function
 
 import cereconf
 
@@ -853,7 +854,7 @@ def update_reservations(group, group_members, person2external):
 
 
 def usage(exitcode=0):
-    print """Usage: %s -s system:filename [-g] [-d] [-r]""" % sys.argv[0]
+    print("""Usage: %s -s system:filename [-g] [-d] [-r]""" % sys.argv[0])
     sys.exit(exitcode)
 # end usage
 
@@ -866,7 +867,7 @@ def main():
                                     "include_delete",
                                     "dryrun"])
     except getopt.GetoptError, val:
-        print val
+        print(val)
         usage(1)
 
     gen_groups = 0
