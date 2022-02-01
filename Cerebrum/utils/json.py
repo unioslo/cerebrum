@@ -1,6 +1,6 @@
 # encoding: utf-8
 #
-# Copyright 2018 University of Oslo, Norway
+# Copyright 2018-2022 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,24 +17,27 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-from __future__ import unicode_literals, absolute_import
-import json
-import json.encoder
-import datetime
-import six
-from Cerebrum import Constants
-from Cerebrum.Entity import Entity
-from .date import apply_timezone
-from mx.DateTime import DateTimeType
-from Cerebrum.Utils import Factory
-import Cerebrum.Errors as Errors
-
-"""Utilities for JSON handling
+"""
+Utilities for JSON handling
 
 Normally, standard JSON functionality should be used, but these functions
 will amend standard behaviour with Cerebrum specific logic.
 """
+from __future__ import unicode_literals, absolute_import
+
+import datetime
+import json
+import json.encoder
+
+import six
+
+import Cerebrum.Errors as Errors
+from Cerebrum import Constants
+from Cerebrum.Entity import Entity
+from Cerebrum.Utils import Factory
+from Cerebrum.utils import date_compat
+from Cerebrum.utils.date import apply_timezone
+
 
 _conversions = []
 
@@ -54,10 +57,9 @@ def date_to_json(dt):
     return dt.isoformat()
 
 
-@_conv(DateTimeType)
-def mx_DateTime_to_json(dt):
-    """ Convert mx.DateTime.DateTime object to json. """
-    if dt.hour == dt.minute == 0 and dt.second == 0.0:
+def mx_datetime_to_json(dt):
+    """ Convert mx-like datetime object to json. """
+    if date_compat.is_mx_date(dt):
         return date_to_json(dt.pydate())
     else:
         return date_to_json(dt.pydatetime())
@@ -88,7 +90,7 @@ class JSONEncoder(json.encoder.JSONEncoder):
     """
     Extend JSONEncoder with:
 
-        * mx.DateTime
+        * date, datetime and mx-datetime like values
         * constants
         * Entity
     """
@@ -102,6 +104,9 @@ class JSONEncoder(json.encoder.JSONEncoder):
     def default(self, o):
         """ Handle Cerebrum cases """
         for base, fun in _conversions:
+            if date_compat.is_mx_datetime(o):
+                # TODO: remove when egenix-mx-base is gone
+                return mx_datetime_to_json(o)
             if isinstance(o, base):
                 return fun(o)
         return super(JSONEncoder, self).default(o)
@@ -228,4 +233,5 @@ def loads(*rest, **kw):
 
     if len(rest) >= 4 or 'object_hook' in kw:
         return json.loads(*rest, **kw)
-    return json.loads(*rest, object_hook=CerebrumObject(*_db_const(**kw)), **kw)
+    return json.loads(
+        *rest, object_hook=CerebrumObject(*_db_const(**kw)), **kw)
