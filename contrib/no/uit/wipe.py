@@ -92,6 +92,7 @@ def main():
     parser.add_argument(
         '-m',
         '--max_changes',
+        type=int,
         dest='max_changes',
         default=cereconf.PWD_MAX_WIPES,
         help='Maximum number of passwords to wipe. Default is {0}'.format(
@@ -99,6 +100,7 @@ def main():
     parser.add_argument(
         '-a',
         '-age_threshold',
+        type=int,
         dest='age_threshold',
         default=cereconf.PWD_AGE_THRESHOLD,
         help='how old passwords need to be before they are wiped. ' +
