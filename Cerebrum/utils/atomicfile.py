@@ -45,6 +45,7 @@ import inspect
 import io
 import os
 import random
+from six import reraise
 import shutil
 from string import ascii_lowercase, digits
 from warnings import warn as _warn
@@ -229,7 +230,7 @@ class AtomicFileWriter(object):
             self.__file.close()
         except:
             pass
-        raise exc_type, exc_value, traceback
+        reraise(exc_type, exc_value, traceback)
 
     @classmethod
     def __generate_tmpname(cls, realname):
