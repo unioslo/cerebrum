@@ -45,7 +45,7 @@ from Cerebrum.Constants import _CerebrumCode
 from Cerebrum.Utils import Factory
 from Cerebrum.extlib.xmlprinter import xmlprinter
 from Cerebrum.modules.no.stillingskoder import Stillingskoder
-from Cerebrum.modules.no.StedKode import OuCache
+from Cerebrum.modules.no.Stedkode import OuCache
 from Cerebrum.modules.no.uit.PagaDataParser import PagaDataParserClass
 from Cerebrum.utils import csvutils
 from Cerebrum.utils.argutils import ParserContext
