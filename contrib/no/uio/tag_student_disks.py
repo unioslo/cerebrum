@@ -32,6 +32,7 @@ are tagged as such in Cerebrum.
 
 """
 
+from __future__ import print_function
 # $Id$
 
 import sys
@@ -220,9 +221,9 @@ def usage(message=None):
 
     """
     if message is not None:
-        print >>sys.stderr, "\n%s" % message
+        print("\n%s" % message, file=sys.stderr)
 
-    print >>sys.stderr, __doc__
+    print(__doc__, file=sys.stderr)
 
 
 def main(argv=None):

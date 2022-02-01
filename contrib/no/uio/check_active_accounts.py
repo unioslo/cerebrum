@@ -25,10 +25,13 @@ active accounts with specific input numbers. Check the number of the
 active Cerebrum accounts for persons and send email as alarm when
 the number is greater than allowed.
 """
+from __future__ import print_function
+
 import sys
 import getopt
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.email import sendmail
+
 
 logger = Factory.get_logger("console")
 db = Factory.get('Database')()
@@ -40,7 +43,7 @@ pr = Factory.get('Person')(db)
 def usage(msg=None, exit_status=0):
     if msg is not None:
         logger.debug(msg)
-    print """Usage: %s [options]
+    print("""Usage: %s [options]
 
     -s, --summary   This option is default. List the overview
                     information for the active accounts in Cerebrum.
@@ -56,7 +59,7 @@ def usage(msg=None, exit_status=0):
 
     -h, --help      See this help infomation and exit.
 
-    """ % sys.argv[0]
+    """ % sys.argv[0])
     sys.exit(exit_status)
 
 
@@ -109,7 +112,7 @@ def checkACaccount(minimum,maxmum,detail,report_type,stream):
                 if report_type == 'mail':
                     continue
                 elif report_type == 'screen':
-                    print "Person %s has %s accounts: %s" % (row['person_id'], length, acc)  
+                    print("Person %s has %s accounts: %s" % (row['person_id'], length, acc))
                 elif report_type == 'file':
                     stream.write("%s\t\t%s\t\t%s\n" % (row['person_id'], length, acc)) 
     if not maxmum:
@@ -121,7 +124,7 @@ def checkACaccount(minimum,maxmum,detail,report_type,stream):
     if report_type == 'mail':
         pass
     elif report_type == 'screen':                    
-        print msg
+        print(msg)
     elif report_type == 'file':
         stream.write("\n%s\n\n" % msg)
     logger.info("Checking active accounts in range (%s,%s) - done" %(minimum,maxmum))
