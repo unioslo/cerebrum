@@ -40,8 +40,6 @@ SIMILARSIZE_LIMIT_MULTIPLIER
     warnings via the logger.
 
 """
-from future.utils import raise_with_traceback
-
 import filecmp
 import inspect
 import io
@@ -231,7 +229,7 @@ class AtomicFileWriter(object):
             self.__file.close()
         except:
             pass
-        raise raise_with_traceback(exc_type(exc_value))
+        raise exc_type, exc_value, traceback
 
     @classmethod
     def __generate_tmpname(cls, realname):
