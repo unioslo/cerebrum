@@ -29,6 +29,7 @@ from six import text_type
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
 from Cerebrum.modules.bofhd.errors import CerebrumError
+from Cerebrum.modules.otp.mixins import OtpPersonMixin
 from Cerebrum.modules.otp.otp_types import (PersonOtpUpdater,
                                             get_policy,
                                             validate_secret)
@@ -363,7 +364,7 @@ class PersonSetOTPSecret(Resource):
     def post(self, id):
         pe = find_person(id)
 
-        if not hasattr(pe, "_OtpPersonMixin__super"):
+        if not isinstance(pe, OtpPersonMixin):
             abort(501, "OTP functionality not supported at this instance")
 
         args = self.secret_parser.parse_args()
