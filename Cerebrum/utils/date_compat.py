@@ -1,6 +1,6 @@
 # coding: utf-8
 #
-# Copyright 2017-2019 University of Oslo, Norway
+# Copyright 2017-2022 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -29,6 +29,30 @@ import datetime
 from . import date
 
 
+# TODO: Refactor/remove is_mx_* when egenix-mx-base is gone
+_MX_ATTRS = ('pydate', 'pydatetime', 'pytime', 'hour', 'minute', 'second')
+
+
+def is_mx_datetime(obj):
+    """ Check if object is an mx.DateTime.DateTime-like object. """
+    return (obj and isinstance(obj, object)
+            and all(hasattr(obj, attr) for attr in _MX_ATTRS))
+
+
+def is_mx_date(obj):
+    """ Check if mx.DateTime.DateTime with date-like precision. """
+    if is_mx_datetime(obj):
+        return obj.hour == obj.minute == 0 and obj.second == 0.0
+    else:
+        return False
+
+
+def is_mx_delta(obj):
+    """ Check if object is an mx.DateTime.TimeDelta. """
+    return (obj and isinstance(obj, object)
+            and hasattr(obj, 'pytimedelta'))
+
+
 def get_date(dtobj, allow_none=True):
     """
     Get a datetime.date object from a datetime-like object.
@@ -55,8 +79,7 @@ def get_date(dtobj, allow_none=True):
         return dtobj.date()
     if isinstance(dtobj, datetime.date):
         return dtobj
-    if hasattr(dtobj, 'pydate'):
-        # mx.DateTime
+    if is_mx_datetime(dtobj):
         return dtobj.pydate()
     raise ValueError('Non-date value: %r' % (dtobj,))
 
@@ -98,8 +121,7 @@ def get_datetime_naive(dtobj, allow_none=True, tz=date.TIMEZONE):
             return date.strip_timezone(date.to_timezone(dtobj, tz))
     if isinstance(dtobj, datetime.date):
         return datetime.datetime.combine(dtobj, datetime.time(0))
-    if hasattr(dtobj, 'pydatetime'):
-        # mx.DateTime
+    if is_mx_datetime(dtobj):
         return dtobj.pydatetime()
     raise ValueError('Non-datetime value: %r' % (dtobj,))
 
@@ -142,8 +164,7 @@ def get_datetime_tz(dtobj, allow_none=True, tz=date.TIMEZONE):
         return date.apply_timezone(
             datetime.datetime.combine(dtobj, datetime.time(0)),
             tz)
-
-    if hasattr(dtobj, 'pydatetime'):
+    if is_mx_datetime(dtobj):
         # mx.DateTime
         return date.apply_timezone(dtobj.pydatetime(), tz)
     raise ValueError('Non-datetime value: %r' % (dtobj,))
@@ -171,7 +192,7 @@ def get_timedelta(value, allow_none=True):
         return None
     if isinstance(value, datetime.timedelta):
         return value
-    if hasattr(value, 'pytimedelta'):
+    if is_mx_delta(value):
         return value.pytimedelta()
     if isinstance(value, int):
         return datetime.timedelta(days=value)
