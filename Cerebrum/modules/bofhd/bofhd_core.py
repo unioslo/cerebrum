@@ -431,16 +431,11 @@ class BofhdCommandBase(object):
           Stedkode for OU if not None.
         """
         ou = self.OU_class(self.db)
-        ou.clear()
         try:
             if ou_id is not None:
                 ou.find(ou_id)
             else:
-                if len(stedkode) != 6 or not stedkode.isdigit():
-                    raise CerebrumError("Expected 6 digits in stedkode %r" %
-                                        stedkode)
-                ou.find_stedkode(stedkode[:2], stedkode[2:4], stedkode[4:],
-                                 institusjon=cereconf.DEFAULT_INSTITUSJONSNR)
+                ou.find_sko(stedkode)
             return ou
         except Errors.NotFoundError:
             raise CerebrumError("Unknown OU (%s)" %
