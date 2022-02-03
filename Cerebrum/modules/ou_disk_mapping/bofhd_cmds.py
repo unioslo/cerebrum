@@ -136,14 +136,8 @@ class BofhdOUDiskMappingCommands(BofhdCommandBase):
                 )
         elif len(ou) == 6:
             # Assume we got a stedkode
-            fakultet = ou[:2]
-            institutt = ou[2:4]
-            avdeling = ou[4:]
-            institusjon = cereconf.DEFAULT_INSTITUSJONSNR
             try:
-                ou_class.find_stedkode(
-                    fakultet, institutt, avdeling, institusjon
-                )
+                ou_class.find_sko(ou)
             except Errors.NotFoundError:
                 raise CerebrumError(
                     "Unknown OU with stedkode {}".format(six.text_type(ou))
