@@ -874,10 +874,9 @@ def delete_defunct_groups(groups):
             continue
 
         name, sko = group_name.rsplit("-", 1)
-        fak, inst, avd = [int(x) for x in (sko[:2], sko[2:4], sko[4:])]
         try:
             ou.clear()
-            ou.find_stedkode(fak, inst, avd, cereconf.DEFAULT_INSTITUSJONSNR)
+            ou.find_sko(sko)
             if not ou.get_entity_quarantine(only_active=True):
                 logger.debug("OU id=%s sko=%s exists and is not quarantined. "
                              "Group id=%s name=%s will NOT be deleted",
