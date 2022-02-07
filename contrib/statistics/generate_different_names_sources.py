@@ -74,7 +74,7 @@ def generate_diff(db, src_sys_a, src_sys_b):
         # TODO: check if fnr objects have identical numbers as well
 
         # Check if the person object in question has got both source systems
-        if any(src not in person_ids for src in (src_sys_b, src_sys_b)):
+        if any(src not in person_ids for src in (src_sys_a, src_sys_b)):
             continue
 
         # Check if there is a name entry for the first source system
