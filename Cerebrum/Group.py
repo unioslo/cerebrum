@@ -176,20 +176,23 @@ class BaseGroup(EntityQuarantine, EntityExternalId,
             tmp = self.illegal_name(self.group_name)
             if tmp:
                 raise self._db.IntegrityError("Illegal groupname: %s" % tmp)
-        binds = {'description': self.description,
-                 'group_id': self.entity_id,
-                 'visibility': int(self.visibility),
-                 'creator_id': self.creator_id,
-                 'expire_date': self.expire_date,
-                 'group_type': int(self.group_type),
-                 }
+        binds = {
+            'description': self.description,
+            'group_id': self.entity_id,
+            'visibility': int(self.visibility),
+            'creator_id': self.creator_id,
+            'expire_date': self.expire_date,
+            'group_type': int(self.group_type),
+        }
         if is_new:
             binds['entity_type'] = int(self.const.entity_group),
-            defs = {'tc': ", ".join(x for x in sorted(binds)),
-                    'tb': ", ".join(':{0}'.format(x) for x in sorted(binds))}
             insert_stmt = """
               INSERT INTO [:table schema=cerebrum name=group_info] (%(tc)s)
-              VALUES (%(tb)s)""" % defs
+              VALUES (%(tb)s)
+            """ % {
+                'tc': ", ".join(x for x in sorted(binds)),
+                'tb': ", ".join(':{0}'.format(x) for x in sorted(binds)),
+            }
             self.execute(insert_stmt, binds)
             self._db.log_change(self.entity_id,
                                 self.clconst.group_create,
@@ -206,7 +209,7 @@ class BaseGroup(EntityQuarantine, EntityExternalId,
             })
 
             change_params = {'old_' + k: v for k, v in
-                             original_state.items() if not v == binds[k]}
+                             dict(original_state).items() if not v == binds[k]}
 
             if change_params:
                 # True positive
