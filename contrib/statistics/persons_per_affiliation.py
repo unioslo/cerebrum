@@ -1,3 +1,6 @@
+import sys
+
+import Cerebrum.utils.csvutils as _csvutils
 from Cerebrum.Errors import NotFoundError
 from Cerebrum.modules.orgreg.constants import OrgregConstants
 from Cerebrum.modules.no.Stedkode import OuCache
@@ -8,7 +11,6 @@ def generate_amounts_affiliations(db):
     ou = Factory.get('OU')(db)
     ou_cache = OuCache(db)
 
-    person_ids = pe.list_persons()
     amount_dict = {}
     affiliations = pe.list_affiliations()
 
@@ -34,10 +36,18 @@ def generate_amounts_affiliations(db):
                 else:
                     amount_dict[parent] = amount_dict[parent]+amount_dict.pop(place)
             ou.clear()
-
+    print_info = []
     for place in amount_dict:
-        print(ou_cache.get_name(place))
-        print(amount_dict[place])
+        print_info.append({
+        'ou_id': place,
+        'seksjon': ou_cache.get_name(place),
+        'antall brukere': amount_dict[place],
+        })
+
+    fields = ['ou_id', 'seksjon', 'antall brukere']
+    writer = _csvutils.UnicodeDictWriter(sys.stdout, fields)
+    writer.writeheader()
+    writer.writerows(print_info)
 
 def main():
     db = Factory.get('Database')()
