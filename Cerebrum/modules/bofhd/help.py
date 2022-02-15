@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003-2018 University of Oslo, Norway
+# Copyright 2003-2022 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,34 +19,46 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ Help-command functionality for bofhd. """
-
-from __future__ import print_function
-
-# TODO: Update and clean this wall of text:
+from __future__ import print_function, unicode_literals
 
 _help_general = """
-BOFH help:
-
+BOFH
+----
 BOFH is a command-line application for user administration.
 
 More information about BOFH be viewed at:
-    http://www.uio.no/tjenester/it/brukernavn-passord/bofh/
+    https://www.uio.no/tjenester/it/brukernavn-passord/bofh/
 
-help <<command-group>> shows detailed information about commands in any of the
-main command groups.  A plus after an argument in the syntax description means
-that more than one argument can be given by putting them inside parentheses.
 
-Additional help is available in form of the commands <<help glossary>>,
-<<help intro>> and <<help basics>>.
+Getting started
+---------------
+help intro
+    Info on Cerebrum and the BOFH command system.
 
-Available main command groups are:
+help basics
+    Examples on how to run BOFH commands.
+
+help glossary
+    List of common Cerebrum/BOFH terms.
+
+help <<command-group>>
+    List avaliable commands in the given <<command group>>.
+
+help <<command-group>> <<command>>
+    Show information about the given <<command>>, and which arguments to give.
+
+help arg_help <<argument>>
+    Show detailed information about the given <<argument>>.
+
+
+Available command groups
+------------------------
 """
 
 _help_glossary = """
 Glossary of common terms in Cerebrum:
+
 - account: a user account (POSIX or generic user) in Cerebrum
-- account authentication: data needed to authenticate a particular
-  user throughout the system
 - account owner: person or group which holds the ownership of an
   account
 - account type: describes the ownership of an non-personal account
@@ -59,7 +71,6 @@ Glossary of common terms in Cerebrum:
   particular type of data in Cerebrum
 - changelog: system for keeping track of modifications to the database
   and making other systems detect changes at sync-time
-- core: Cerebrum core API (see http://cerebrum_core...)
 - disk: a disk defined on a machine registered in Cerebrum
 - entity: an account (user), organizational unit, person or a group
   registered in Cerebrum (abstract concept allowing easy administration
@@ -67,24 +78,19 @@ Glossary of common terms in Cerebrum:
 - entity id: an id assigned to each entity that exist in Cerebrum
 - email domain: the domain assignet to each e-mail address in Cerebrum
   (the part of the address after the "@")
-- export id: an internal id assigned to each entity used to ease the
-  export of Cerebrum-specific data to other systems
 - external id: unique id assigned to each person registered in Cerebrum
-   (e.g. national social security number)
+   (e.g. national identification number, passport number, internal id in
+   authoritative system)
 - group: a collection of users or machines usually used to assign various
   permissions in Cerebrum or other systems
-- group visibility:
 - home: home directory of a user registered in Cerebrum
-- uid: the numeric user ID value space in UNIX
+- uid: POSIX user id of an account
 - host: a machine registered in Cerebrum
 - ou: Organizational Unit
 - ou perspective: decides which ou-structure is to be used
 - spread: decides in which parts of the system within the organization an
   entity should be recognized
-- quarantine: limitations imposed on entitis in Cerebrum
-- quota: the resources available to a user in terms of storage
-  (home directory or email) or printing (sheets of paper available
-  per week)
+- quarantine: temporary lock or limitation imposed on entities in Cerebrum
 """
 
 _help_intro = """
@@ -196,22 +202,22 @@ Directory have to be given the spread AD_group.
 6. Move a user
 One of the most common tasks is moving a users home directory to another disk.
 This is usually done when a person gets an affiliation to a different OU. The
-basic command for this is <<user move>>. 
+basic command for this is <<user move>>.
  - jbofh >user move <move-type> <account-name> [<opts>]
- 
+
    It accepts the following variants:
-   1. immediate <account-name> <destination-disk> 
+   1. immediate <account-name> <destination-disk>
       - (immediately move users home directory to another disk)
-   2. batch <account-name> <destination-disk> 
+   2. batch <account-name> <destination-disk>
       - (enqueue the moving request)
-   3. nofile <account-name> <destination-disk> 
+   3. nofile <account-name> <destination-disk>
       - (do not move the home directory)
-   4. hard_nofile <account-name> <destination-disk> 
+   4. hard_nofile <account-name> <destination-disk>
       - (move user to a non registered disk)
    5. student <account-name>
       - (find appropriate disk for this user and enqueue the request)
    6. student_immediate <account-name>
-      - (find appropriate student disk for this user and 
+      - (find appropriate student disk for this user and
       move home directory)
    7. give <account-name> <group-name> <reason>
       - (user has lost affiliation to your OU, let someone else take them)

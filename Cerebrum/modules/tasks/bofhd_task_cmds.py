@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2021 University of Oslo, Norway
+# Copyright 2022 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -28,10 +28,7 @@ from Cerebrum import Errors
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.bofhd_core_help import get_help_strings
-from Cerebrum.modules.bofhd.bofhd_utils import (
-    default_format_day as format_day,
-    format_time,
-)
+from Cerebrum.modules.bofhd.bofhd_utils import format_time
 from Cerebrum.modules.bofhd.cmd_param import (
     Command,
     FormatSuggestion,
@@ -149,8 +146,8 @@ class TaskSearchParams(parsers.ParamsParser):
         'queue': 'Limit to tasks in a given queue',
         'sub': 'Limit to tasks in a given sub-queue',
         'key': 'Limit to tasks with a given key',
-        'min': 'Limit to tasks with at least <n> failed attempts',
-        'max': 'Limit to tasks with at most <n> failed attempts',
+        'min': 'Limit to tasks with <n> or more failed attempts',
+        'max': 'Limit to tasks with less than <n> failed attempts',
         'issued-before': 'Limit to tasks issued before <datetime>',
         'issued-after': 'Limit to tasks issued after <datetime>',
         'before': 'Limit to tasks that are ready (at <datetime>)',
@@ -205,6 +202,11 @@ class TaskSearchParams(parsers.ParamsParser):
 _task_filter_parser = TaskSearchParams()
 _task_filter_help_blurb = """
 Each task-filter follows a format of <param>:<value>.
+
+Example:  Find all tasks that are ready for processing in foo/ and foo/manual
+          with less than 20 attempts.
+
+    `task search queue:foo sub: sub:manual max:20 before:now`
 
 Valid filter params:
 
