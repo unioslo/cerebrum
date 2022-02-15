@@ -43,13 +43,13 @@ from Cerebrum.modules.feide.feide_utils import (is_valid_feide_id_type,
 class BofhdFeideAuth(BofhdAuth):
     def can_access_feide(self, operator, query_run_any=False):
         """ Operator has access to the feide bofh commands """
-        if query_run_any:
-            return True
         if self.is_superuser(operator):
             return True
         if self._has_operation_perm_somewhere(operator,
                                               self.const.auth_feide_commands):
             return True
+        if query_run_any:
+            return False
         raise PermissionDenied('No access to feide commands')
 
 class BofhdExtension(BofhdCommonMethods):
