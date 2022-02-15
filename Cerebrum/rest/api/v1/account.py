@@ -21,7 +21,7 @@
 
 from __future__ import unicode_literals
 
-from datetime.date import today
+import datetime
 
 from flask import make_response
 from flask_restx import Namespace, Resource, abort
@@ -288,7 +288,7 @@ def _format_quarantine(q):
     end_date = date_compat.get_date(q['end_date'])
     disable_until = date_compat.get_date(q['disable_until'])
     is_active = _in_range(
-        today(),
+        datetime.date.today(),
         start=(disable_until or start_date),
         end=end_date)
 
