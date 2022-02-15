@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2016-2021 University of Oslo, Norway
+# Copyright 2016-2022 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -21,11 +21,11 @@
 
 from __future__ import unicode_literals
 
+from datetime.date import today
+
 from flask import make_response
 from flask_restx import Namespace, Resource, abort
 from six import text_type
-
-import mx.DateTime
 
 from Cerebrum.rest.api import db, auth, fields, utils, validator
 from Cerebrum.rest.api.v1 import group
@@ -284,19 +284,25 @@ def _in_range(date, start=None, end=None):
 
 def _format_quarantine(q):
     """ Format an entity_quarantine row for models.EntityQuarantine. """
+    start_date = date_compat.get_date(q['start_date'])
+    end_date = date_compat.get_date(q['end_date'])
+    disable_until = date_compat.get_date(q['disable_until'])
+    is_active = _in_range(
+        today(),
+        start=(disable_until or start_date),
+        end=end_date)
 
-    _tz_aware = date_compat.get_datetime_tz
+    # TODO/TBD: We *shoudn't* do this, but quarantine dates has always been
+    # presented as *datetime* objects.
+    _tz_compat = date_compat.get_datetime_tz
 
     return {
         'type': q['quarantine_type'],
-        'start': _tz_aware(q['start_date']),
-        'end': _tz_aware(q['end_date']),
-        'disable_until': _tz_aware(q['disable_until']),
+        'start': _tz_compat(start_date),
+        'end': _tz_compat(end_date),
+        'disable_until': _tz_compat(disable_until),
         'comment': q['description'] or None,
-        'active': _in_range(
-            mx.DateTime.now(),
-            start=(q['disable_until'] or q['start_date']),
-            end=q['end_date']),
+        'active': is_active,
     }
 
 
@@ -393,6 +399,8 @@ class AccountQuarantineItemResource(Resource):
 
     # PUT /<account>/quarantines/<quarantine>
     #
+    # TODO: Quarantine start/end/disable should be ISO-8601 date,
+    # *not* datetime
     quarantine_parser = api.parser()
     quarantine_parser.add_argument(
         'start',

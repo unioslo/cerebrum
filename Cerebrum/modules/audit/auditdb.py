@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2018 University of Oslo, Norway
+# Copyright 2018-2022 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -28,10 +27,9 @@ retention.
 import datetime
 import json
 
-import mx.DateTime
-
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.Utils import argument_to_sql, Factory
+from Cerebrum.utils import date_compat
 from Cerebrum.utils.date import apply_timezone
 
 from .record import DbAuditRecord
@@ -46,20 +44,23 @@ def _serialize_datetime(dt):
 
 
 def _serialize_mx_datetime(dt):
-    """ Convert mx.DateTime.DateTime object to string. """
-    if dt.hour == dt.minute == 0 and dt.second == 0.0:
+    """ Convert mx.DateTime-like objects to string. """
+    if date_compat.is_mx_date(dt):
         return _serialize_datetime(dt.pydate())
-    else:
+    elif dt:
         return _serialize_datetime(dt.pydatetime())
+    else:
+        return None
 
 
 def serialize_params(value):
     # TODO: We should'd need to do this -- it would be better to ensure that
     # all change_params are properly serialized when calling log_change()
-    if isinstance(value, mx.DateTime.DateTimeType):
-        return _serialize_mx_datetime(value)
-    elif isinstance(value, datetime.date):
+    if isinstance(value, datetime.date):
         return _serialize_datetime(value)
+    elif date_compat.is_mx_datetime(value):
+        # Looks like an mx.DateTime
+        return _serialize_mx_datetime(value)
     elif isinstance(value, (list, tuple, set)):
         return [serialize_params(p) for p in value]
     elif isinstance(value, dict):
