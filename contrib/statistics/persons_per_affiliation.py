@@ -6,13 +6,13 @@ from Cerebrum.modules.orgreg.constants import OrgregConstants
 from Cerebrum.modules.no.Stedkode import OuCache
 from Cerebrum.Utils import Factory
 
-def generate_amounts_affiliations(db):
+def generate_amounts_affiliations(db, affiliation_type):
     pe = Factory.get('Person')(db)
     ou = Factory.get('OU')(db)
     ou_cache = OuCache(db)
 
     amount_dict = {}
-    affiliations = pe.list_affiliations()
+    affiliations = pe.list_affiliations(affiliation=affiliation_type)
 
     for affiliation in affiliations:
         if amount_dict.get(affiliation['ou_id']) is None:
@@ -40,18 +40,22 @@ def generate_amounts_affiliations(db):
     for place in amount_dict:
         print_info.append({
         'ou_id': place,
-        'seksjon': ou_cache.get_name(place),
+        'seksjon': ou_cache.get_name(place).encode('utf-8'),
         'antall brukere': amount_dict[place],
         })
-
-    fields = ['ou_id', 'seksjon', 'antall brukere']
-    writer = _csvutils.UnicodeDictWriter(sys.stdout, fields)
-    writer.writeheader()
-    writer.writerows(print_info)
+    return print_info
 
 def main():
     db = Factory.get('Database')()
-    generate_amounts_affiliations(db)
+    co = Factory.get('Constants')(db)
+    print_info = generate_amounts_affiliations(db, co.affiliation_ansatt)
+    fields = ['ou_id', 'seksjon', 'antall brukere']
+    output_file = open('output.txt', 'w')
+    writer = _csvutils.UnicodeDictWriter(output_file, fields)
+    writer.writeheader()
+    writer.writerows(print_info)
+    output_file.close()
+
 
 if __name__ == '__main__':
     main()
