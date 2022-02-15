@@ -444,7 +444,7 @@ class AdExport(object):
                 for a in contact_account:
                     already_exists = False
                     replaced = False
-                    for c in contact:
+                    for index, c in enumerate(contact):
                         if (a['contact_type'] == c['contact_type'] and
                                 a['source_system'] == c['source_system']):
                             already_exists = True
@@ -453,6 +453,8 @@ class AdExport(object):
                                 logger.debug("replace:%s with: %s",
                                              c['contact_value'],
                                              a['contact_value'])
+                                contact[index] = dict(c)
+                                c = contact[index]
                                 c['contact_value'] = a['contact_value']
                                 replaced = True
                     if already_exists is False and replaced is False:
