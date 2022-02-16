@@ -172,7 +172,7 @@ def output_OUs(writer, perspective, spread):
 
     writer.startElement("organisasjon")
 
-    filtered_ou_ids = ou.search(spread=spread, filter_quarantined=True)
+    filtered_ou_ids = [dict(row) for row in ou.search(spread=spread, filter_quarantined=True)]
     for row in filtered_ou_ids:
         ou_id = row["ou_id"]
         if ou_id not in ous:
