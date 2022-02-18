@@ -5679,6 +5679,130 @@ class BofhdExtension(BofhdCommonMethods):
         user.delete_posixuser()
         return "OK, %s was demoted" % accountname
 
+    def user_restore_handle(self, operator, ac, home, disk_id, aff_ou=None):
+        """ Common method for user restore and user restore unpersonal.
+        """
+        accountname = ac.account_name
+        # We demote posix
+        try:
+            pu = self._get_account(accountname, actype='PosixUser')
+        except CerebrumError:
+            pu = Utils.Factory.get('PosixUser')(self.db)
+        else:
+            pu.delete_posixuser()
+            pu = Utils.Factory.get('PosixUser')(self.db)
+
+        # We remove all old group memberships, except the personal group, which
+        # should have its expire date removed
+        grp = self.Group_class(self.db)
+        for row in grp.search(member_id=ac.entity_id, filter_expired=False):
+            grp.clear()
+            grp.find(row['group_id'])
+            if grp.get_trait('personal_group'):
+                grp.expire_date = None
+            else:
+                grp.remove_member(ac.entity_id)
+            grp.write_db()
+
+        # Automatic selection of affiliation. This could be used if the user
+        # should not choose affiliations.
+        # # Sort affiliations according to creation date (newest first), and
+        # # try to save it for later. If there exists no affiliations, we'll
+        # # raise an error, since we'll need an affiliation to copy from the
+        # # person to the account.
+        # try:
+        #     tmp = sorted(pe.get_affiliations(),
+        #                  key=lambda i: i['create_date'], reverse=True)[0]
+        #     ou, aff = tmp['ou_id'], tmp['affiliation']
+        # except IndexError:
+        #     raise CerebrumError('Person must have an affiliation')
+
+        if ac.owner_type == self.const.entity_person:
+            # When using user_restore on a personal account
+            # we remove all (the old) affiliations on the account
+            for row in ac.get_account_types(filter_expired=False):
+                ac.del_account_type(row['ou_id'], row['affiliation'])
+
+            # We set the affiliation selected by the operator.
+            self._user_create_set_account_type(ac,
+                                               ac.owner_id,
+                                               aff_ou['ou_id'],
+                                               aff_ou['aff'])
+
+        # And promote posix
+        old_uid = self._lookup_old_uid(ac.entity_id)
+        if old_uid is None:
+            uid = pu.get_free_uid()
+        else:
+            uid = old_uid
+
+        shell = self.const.posix_shell_bash
+
+        # Populate the posix user, and write it to the database
+        pu.populate(uid, None, None, shell, parent=ac,
+                    creator_id=operator.get_entity_id())
+        try:
+            pu.write_db()
+        except self.db.IntegrityError as e:
+            self.logger.debug("IntegrityError (user_restore): %r", e)
+            self.db.rollback()
+            raise CerebrumError('Please contact brukerreg in order to restore')
+
+        # Unset the expire date
+        ac.expire_date = None
+
+        # Add them spreads
+        for s in cereconf.BOFHD_NEW_USER_SPREADS:
+            if not pu.has_spread(self.const.Spread(s)):
+                pu.add_spread(self.const.Spread(s))
+
+        # And remove them quarantines (except those defined in cereconf)
+        for q in ac.get_entity_quarantine():
+            if (text_type(self.const.Quarantine(q['quarantine_type']))
+                    not in cereconf.BOFHD_RESTORE_USER_SAVE_QUARANTINES):
+                ac.delete_entity_quarantine(q['quarantine_type'])
+
+        # We set the new homedir
+        default_home_spread = self._get_constant(self.const.Spread,
+                                                 cereconf.DEFAULT_HOME_SPREAD,
+                                                 'spread')
+
+        homedir_id = pu.set_homedir(
+            disk_id=disk_id, home=home,
+            status=self.const.home_status_not_created)
+        pu.set_home(default_home_spread, homedir_id)
+
+        # We'll set a new password and store it for printing
+        passwd = ac.make_passwd(ac.account_name)
+        ac.set_password(passwd)
+
+        operator.store_state('new_account_passwd',
+                             {'account_id': int(ac.entity_id),
+                              'password': passwd})
+
+        # We'll need to write to the db, in order to store stuff.
+        try:
+            ac.write_db()
+        except self.db.IntegrityError as e:
+            self.logger.debug("IntegrityError (user_restore): %r", e)
+            self.db.rollback()
+            raise CerebrumError('Please contact brukerreg in order to restore')
+
+        # Return string with some info
+        if ac.get_entity_quarantine():
+            note = '\nNotice: Account is quarantined!'
+        else:
+            note = ''
+
+        if old_uid is None:
+            tmp = ', new uid=%i' % uid
+        else:
+            tmp = ', reused old uid=%i' % old_uid
+
+        return ('OK, promoted %s to posix user%s.\n'
+                'Password altered. Use misc list_password to print or view '
+                'the new password.%s' % (accountname, tmp, note))
+
     def user_restore_prompt_func(self, session, *args):
         '''Helper function for user_restore. Will display a prompt that
         asks which affiliation should be used, and more..'''
@@ -5768,123 +5892,80 @@ class BofhdExtension(BofhdCommonMethods):
         if not self.ba.can_create_user(operator.get_entity_id(), ac, disk_id):
             raise PermissionDenied('User restore is limited')
 
-        # We demote posix
-        try:
-            pu = self._get_account(accountname, actype='PosixUser')
-        except CerebrumError:
-            pu = Utils.Factory.get('PosixUser')(self.db)
+        return self.user_restore_handle(operator, ac, home, disk_id, aff_ou)
+
+    def user_restore_unpersonal_prompt_func(self, session, *args):
+        '''Helper function for user_restore_unpersonal. Will display a
+        prompt that asks which disk should be used. Only works if the
+        owner of the user is a group. '''
+
+        all_args = list(args[:])
+
+        # Get the account name
+        if not all_args:
+            return {'prompt': 'Account name',
+                    'help_ref': 'account_name_id_uid'}
+        arg = all_args.pop(0)
+        ac = self._get_account(arg)
+
+        if ac.owner_type != self.const.entity_group:
+            raise CerebrumError('Owner of entity is a person. '
+                                'Please use user restore instead to restore %s'
+                                % ac.get_account_name())
+
+        # Gets the disk the user will reside on
+        if not all_args:
+            return {
+                'prompt': 'Disk',
+                'help_ref': 'disk',
+                'last_arg': True,
+            }
+
+        arg = all_args.pop(0)
+        # TODO: are we checking if the arg is valid here?
+        self._get_disk(arg)
+
+        # Finishes off
+        if len(all_args) == 0:
+            return {'last_arg': True}
+
+        # We'll raise an error, if there is too many arguments:
+        raise CerebrumError('Too many arguments')
+
+    #
+    # user restore_unpersonal
+    #
+    all_commands['user_restore_unpersonal'] = Command(
+        ('user', 'restore_unpersonal'),
+        prompt_func=user_restore_unpersonal_prompt_func,
+        perm_filter='is_superuser')
+
+    def user_restore_unpersonal(self, operator, accountname, home):
+        ac = self._get_account(accountname)
+
+        # Check if the account is deleted or reserved
+        if not ac.is_deleted() and not ac.is_reserved():
+            raise CerebrumError('Please contact brukerreg to restore %r' %
+                                accountname)
+
+        # Checking to see if the home path is hardcoded.
+        # Raises CerebrumError if the disk does not exist.
+        if not home:
+            raise CerebrumError('Home must be specified')
+        elif home[0] != ':':  # Hardcoded path
+            disk_id, home = self._get_disk(home)[1:3]
         else:
-            pu.delete_posixuser()
-            pu = Utils.Factory.get('PosixUser')(self.db)
+            if not self.ba.is_superuser(operator.get_entity_id()):
+                raise PermissionDenied('Only superusers may use hardcoded'
+                                       ' path')
+            disk_id, home = None, home[1:]
 
-        # We remove all old group memberships, except the personal group, which
-        # should have its expire date removed
-        grp = self.Group_class(self.db)
-        for row in grp.search(member_id=ac.entity_id, filter_expired=False):
-            grp.clear()
-            grp.find(row['group_id'])
-            if grp.get_trait('personal_group'):
-                grp.expire_date = None
-            else:
-                grp.remove_member(ac.entity_id)
-            grp.write_db()
+        # Check if the operator can alter the user
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied('User restore_unpersonal is limited to'
+                                   ' superusers.')
 
-        # We remove all (the old) affiliations on the account
-        for row in ac.get_account_types(filter_expired=False):
-            ac.del_account_type(row['ou_id'], row['affiliation'])
-
-        # Automatic selection of affiliation. This could be used if the user
-        # should not choose affiliations.
-        # # Sort affiliations according to creation date (newest first), and
-        # # try to save it for later. If there exists no affiliations, we'll
-        # # raise an error, since we'll need an affiliation to copy from the
-        # # person to the account.
-        # try:
-        #     tmp = sorted(pe.get_affiliations(),
-        #                  key=lambda i: i['create_date'], reverse=True)[0]
-        #     ou, aff = tmp['ou_id'], tmp['affiliation']
-        # except IndexError:
-        #     raise CerebrumError('Person must have an affiliation')
-
-        # We set the affiliation selected by the operator.
-        self._user_create_set_account_type(ac,
-                                           ac.owner_id,
-                                           aff_ou['ou_id'],
-                                           aff_ou['aff'])
-
-        # And promote posix
-        old_uid = self._lookup_old_uid(ac.entity_id)
-        if old_uid is None:
-            uid = pu.get_free_uid()
-        else:
-            uid = old_uid
-
-        shell = self.const.posix_shell_bash
-
-        # Populate the posix user, and write it to the database
-        pu.populate(uid, None, None, shell, parent=ac,
-                    creator_id=operator.get_entity_id())
-        try:
-            pu.write_db()
-        except self.db.IntegrityError as e:
-            self.logger.debug("IntegrityError (user_restore): %r", e)
-            self.db.rollback()
-            raise CerebrumError('Please contact brukerreg in order to restore')
-
-        # Unset the expire date
-        ac.expire_date = None
-
-        # Add them spreads
-        for s in cereconf.BOFHD_NEW_USER_SPREADS:
-            if not pu.has_spread(self.const.Spread(s)):
-                pu.add_spread(self.const.Spread(s))
-
-        # And remove them quarantines (except those defined in cereconf)
-        for q in ac.get_entity_quarantine():
-            if (text_type(self.const.Quarantine(q['quarantine_type']))
-                    not in cereconf.BOFHD_RESTORE_USER_SAVE_QUARANTINES):
-                ac.delete_entity_quarantine(q['quarantine_type'])
-
-        # We set the new homedir
-        default_home_spread = self._get_constant(self.const.Spread,
-                                                 cereconf.DEFAULT_HOME_SPREAD,
-                                                 'spread')
-
-        homedir_id = pu.set_homedir(
-            disk_id=disk_id, home=home,
-            status=self.const.home_status_not_created)
-        pu.set_home(default_home_spread, homedir_id)
-
-        # We'll set a new password and store it for printing
-        passwd = ac.make_passwd(ac.account_name)
-        ac.set_password(passwd)
-
-        operator.store_state('new_account_passwd',
-                             {'account_id': int(ac.entity_id),
-                              'password': passwd})
-
-        # We'll need to write to the db, in order to store stuff.
-        try:
-            ac.write_db()
-        except self.db.IntegrityError as e:
-            self.logger.debug("IntegrityError (user_restore): %r", e)
-            self.db.rollback()
-            raise CerebrumError('Please contact brukerreg in order to restore')
-
-        # Return string with some info
-        if ac.get_entity_quarantine():
-            note = '\nNotice: Account is quarantined!'
-        else:
-            note = ''
-
-        if old_uid is None:
-            tmp = ', new uid=%i' % uid
-        else:
-            tmp = ', reused old uid=%i' % old_uid
-
-        return ('OK, promoted %s to posix user%s.\n'
-                'Password altered. Use misc list_password to print or view '
-                'the new password.%s' % (accountname, tmp, note))
+        return self.user_restore_handle(operator, ac, home, disk_id)
 
     #
     # user set_disk_status
