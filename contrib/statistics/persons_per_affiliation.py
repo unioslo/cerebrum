@@ -16,9 +16,9 @@ def generate_amounts_affiliations(db, affiliation_type):
 
     for affiliation in affiliations:
         if amount_dict.get(affiliation['ou_id']) is None:
-            amount_dict[affiliation['ou_id']] = 1
+            amount_dict[affiliation['ou_id']] = [affiliation['person_id']]
         else:
-            amount_dict[affiliation['ou_id']] = amount_dict[affiliation[1]] + 1
+            amount_dict[affiliation['ou_id']].append(affiliation['person_id'])
 
     run = 1
     while run > 0:
@@ -33,9 +33,15 @@ def generate_amounts_affiliations(db, affiliation_type):
                 run = 1
                 if(amount_dict.get(parent) == None):
                     amount_dict[parent] = amount_dict.pop(place)
+                elif(len(amount_dict.get(parent)) == 1):
+                    amount_dict.pop(place).append(amount_dict[parent])                  
                 else:
-                    amount_dict[parent] = amount_dict[parent]+amount_dict.pop(place)
+                    amount_dict[parent].extend(amount_dict.pop(place))
             ou.clear()
+    for place in list(amount_dict):
+        print(len(amount_dict[place]))
+        amount_dict[place] = len(set(amount_dict[place]))
+        print(amount_dict[place])
     return amount_dict
 
 def combine_numbers(db, ansatt_dict, student_dict, tilknyttet_dict):
