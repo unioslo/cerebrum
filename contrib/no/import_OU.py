@@ -23,7 +23,7 @@ This script loads organizational units data from various sources into Cerebrum.
 
 Specifically, XML input file with information about OUs is processed and
 stored in suitable form in Cerebrum. Presently, this job can accept OU data
-from FS, LT and SAP.
+from LT, SAP, FS and ORGREG.
 """
 from __future__ import print_function, unicode_literals
 
@@ -411,7 +411,7 @@ def send_notify_email(new_cere_ous, to_email_addrs):
 
 def usage(exitcode=0):
     print("""Usage: [options] [file ...]
-Imports OU data from systems that use 'stedkoder' (e.g. SAP, FS or LT)
+Imports OU data from systems that use 'stedkoder' (e.g. SAP, FS, LT or ORGREG)
 
     -v | --verbose              increase verbosity
     -c | --clean                quarantine invalid OUs
