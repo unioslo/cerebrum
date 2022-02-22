@@ -10,10 +10,12 @@ from Cerebrum.Utils import Factory
 def generate_amounts_affiliations(db, affiliation_type):
     pe = Factory.get('Person')(db)
     ou = Factory.get('OU')(db)
+    co = Factory.get('Constants')(db)
 
     amount_dict = {}
     affiliations = pe.list_affiliations(affiliation=affiliation_type)
-
+    if affiliation_type == co.affiliation_tilknyttet:
+        affiliations.extend(pe.list_affiliations(affiliation = co.affiliation_manuell))
     for affiliation in affiliations:
         if amount_dict.get(affiliation['ou_id']) is None:
             amount_dict[affiliation['ou_id']] = [affiliation['person_id']]
@@ -39,9 +41,7 @@ def generate_amounts_affiliations(db, affiliation_type):
                     amount_dict[parent].extend(amount_dict.pop(place))
             ou.clear()
     for place in list(amount_dict):
-        print(len(amount_dict[place]))
         amount_dict[place] = len(set(amount_dict[place]))
-        print(amount_dict[place])
     return amount_dict
 
 def combine_numbers(db, ansatt_dict, student_dict, tilknyttet_dict):
