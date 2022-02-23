@@ -39,7 +39,8 @@ class UiOEphorteAuth(BofhdAuth):
     def can_add_ephorte_role(self, operator, query_run_any=False):
         if self.is_superuser(operator):
             return True
-        if self.is_group_member(operator, cereconf.EPHORTE_ADMINS):
+        if (self.is_group_member(operator, cereconf.EPHORTE_ADMINS) and not
+                self._is_group_expired(cereconf.EPHORTE_ADMINS)):
             return True
         return False
 

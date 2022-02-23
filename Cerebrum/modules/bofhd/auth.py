@@ -2451,6 +2451,21 @@ class BofhdAuth(DatabaseAccessor):
         self._users_auth_entities_cache[entity_id] = list(set(ret))
         return ret
 
+    def _is_group_expired(self, groupname):
+        """Check if the group used for authentication is expired.
+
+        An expired group should not be able to grant their members
+        authentication to perform commands.
+
+        :param str groupname: The name of the group.
+
+        :rtype: bool
+        :raise Errors.NotFoundError: If the group doesn't exist.
+        """
+        group = Factory.get('Group')(self._db)
+        group.find_by_name(groupname)
+        return group.is_expired()
+
     def _get_group_members(self, groupname):
         """Get a group's *direct* members.
 
