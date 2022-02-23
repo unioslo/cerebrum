@@ -1,5 +1,6 @@
 import sys
 import codecs
+import argparse
 
 import Cerebrum.utils.csvutils as _csvutils
 from Cerebrum.Errors import NotFoundError
@@ -35,8 +36,6 @@ def generate_amounts_affiliations(db, affiliation_type):
                 run = 1
                 if(amount_dict.get(parent) == None):
                     amount_dict[parent] = amount_dict.pop(place)
-                elif(len(amount_dict.get(parent)) == 1):
-                    amount_dict.pop(place).append(amount_dict[parent])                  
                 else:
                     amount_dict[parent].extend(amount_dict.pop(place))
             ou.clear()
@@ -98,13 +97,16 @@ def combine_numbers(db, ansatt_dict, student_dict, tilknyttet_dict):
 def main():
     db = Factory.get('Database')()
     co = Factory.get('Constants')(db)
+    parser = argparse.ArgumentParser(description = 'Filename for output-file')
+    parser.add_argument('filename', type = str)
+    args = parser.parse_args()
     ansatt = generate_amounts_affiliations(db, co.affiliation_ansatt)
     student = generate_amounts_affiliations(db, co.affiliation_student)
     tilknyttet = generate_amounts_affiliations(db, co.affiliation_tilknyttet)
     print_info = combine_numbers(db, ansatt, student, tilknyttet)
     fields = ['ou_id', 'seksjon', 'antall ansatt brukere', 'antall student brukere', 'antall tilknyttet brukere']
     codec = codecs.lookup('utf-8')
-    output_file = open('output.txt', 'w')
+    output_file = open(args.filename, 'w')
     output = codec.streamwriter(output_file)
     writer = _csvutils.UnicodeDictWriter(output, fields)
     writer.writeheader()
