@@ -261,7 +261,7 @@ def get_posixgroup(db, groupname):
 
 def process(db, affiliations, new_traits=None, spreads=(), ignore_affs=(),
             remove_quars=(), posix=False, home=None, home_auto=None,
-            posix_uio=None):
+            posix_uio=None, source_systems=None):
     """Go through the database for new persons and give them accounts."""
 
     creator = Factory.get('Account')(db)
@@ -282,14 +282,25 @@ def process(db, affiliations, new_traits=None, spreads=(), ignore_affs=(),
                  if isinstance(af, Constants._PersonAffiliationCode))
 
     persons = set()
-    if statuses:
-        persons.update(row['person_id'] for row in
-                       pe.list_affiliations(status=statuses)
-                       if row['person_id'] not in has_account)
-    if affs:
-        persons.update(row['person_id'] for row in
-                       pe.list_affiliations(affiliation=affs)
-                       if row['person_id'] not in has_account)
+    if source_systems:
+        for source_system in source_systems:
+            if statuses:
+                persons.update(row['person_id'] for row in
+                               pe.list_affiliations(status=statuses, source_system=source_system)
+                               if row['person_id'] not in has_account)
+            if affs:
+                persons.update(row['person_id'] for row in
+                               pe.list_affiliations(affiliation=affs, source_system=source_system)
+                               if row['person_id'] not in has_account)
+    else:
+        if statuses:
+            persons.update(row['person_id'] for row in
+                           pe.list_affiliations(status=statuses)
+                           if row['person_id'] not in has_account)
+        if affs:
+            persons.update(row['person_id'] for row in
+                           pe.list_affiliations(affiliation=affs)
+                           if row['person_id'] not in has_account)
     logger.debug("Found %d persons without an account", len(persons))
 
     account_policy = AccountPolicy(db)
@@ -372,6 +383,13 @@ def make_parser():
         action='store_true',
         default=False,
         help='Add default POSIX data to new accounts.')
+    parser.add_argument(
+        '--source-systems',
+        dest='source_systems',
+        action=ExtendAction,
+        type=lambda arg: arg.split(','),
+        help='TODO'
+    )
     posix_dfg = parser.add_mutually_exclusive_group()
     posix_dfg.add_argument(
         '--posix-dfg',
@@ -430,6 +448,8 @@ def main(inargs=None):
     spreads = [co.Spread(s) for s in args.spreads]
     ignore_affs = [str2aff(co, a) for a in args.ignore_affs]
     remove_quars = [co.Quarantine(q) for q in args.remove_quars]
+    source_systems = [co.human2constant(s) for s in args.source_systems] if args.source_systems else None
+
 
     # Verify as valid constants
     for i in new_traits:
@@ -456,7 +476,7 @@ def main(inargs=None):
 
     db.cl_init(change_program="generate_accounts")
     process(db, affiliations, new_traits, spreads, ignore_affs, remove_quars,
-            posix, home, args.home_auto, args.posix_uio)
+            posix, home, args.home_auto, args.posix_uio, source_systems)
 
     if args.commit:
         db.commit()
