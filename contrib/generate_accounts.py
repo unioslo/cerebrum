@@ -388,8 +388,8 @@ def make_parser():
         dest='source_systems',
         action=ExtendAction,
         type=lambda arg: arg.split(','),
-        help='TODO'
-    )
+        help='Specify source system from which to generate accounts. '
+             'If none given, all source systems will be considered.')
     posix_dfg = parser.add_mutually_exclusive_group()
     posix_dfg.add_argument(
         '--posix-dfg',
