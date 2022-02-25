@@ -282,25 +282,17 @@ def process(db, affiliations, new_traits=None, spreads=(), ignore_affs=(),
                  if isinstance(af, Constants._PersonAffiliationCode))
 
     persons = set()
-    if source_systems:
-        for source_system in source_systems:
-            if statuses:
-                persons.update(row['person_id'] for row in
-                               pe.list_affiliations(status=statuses, source_system=source_system)
-                               if row['person_id'] not in has_account)
-            if affs:
-                persons.update(row['person_id'] for row in
-                               pe.list_affiliations(affiliation=affs, source_system=source_system)
-                               if row['person_id'] not in has_account)
-    else:
-        if statuses:
-            persons.update(row['person_id'] for row in
-                           pe.list_affiliations(status=statuses)
-                           if row['person_id'] not in has_account)
-        if affs:
-            persons.update(row['person_id'] for row in
-                           pe.list_affiliations(affiliation=affs)
-                           if row['person_id'] not in has_account)
+
+    if statuses:
+        persons.update(row['person_id'] for row in
+                       pe.list_affiliations(
+                           status=statuses, source_system=source_systems)
+                       if row['person_id'] not in has_account)
+    if affs:
+        persons.update(row['person_id'] for row in
+                       pe.list_affiliations(
+                           affiliation=affs, source_system=source_systems)
+                       if row['person_id'] not in has_account)
     logger.debug("Found %d persons without an account", len(persons))
 
     account_policy = AccountPolicy(db)
@@ -448,7 +440,9 @@ def main(inargs=None):
     spreads = [co.Spread(s) for s in args.spreads]
     ignore_affs = [str2aff(co, a) for a in args.ignore_affs]
     remove_quars = [co.Quarantine(q) for q in args.remove_quars]
-    source_systems = [co.human2constant(s) for s in args.source_systems] if args.source_systems else None
+    source_systems = ([co.get_constant(co.AuthoritativeSystem,s)
+                      for s in args.source_systems]
+                      if args.source_systems else None)
 
 
     # Verify as valid constants
