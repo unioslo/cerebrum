@@ -1251,9 +1251,10 @@ class OrgLDIF(object):
                             ou_str = status.split("@")[1]
                             try:
                                 ou.clear()
-                                ou.find_stedkode(
-                                    ou_str[0:2], ou_str[2:4], ou_str[4:6],
-                                    cereconf.INTERNAL_OU_NUMBER, 0)
+                                ou.find_sko(
+                                    ou_str,
+                                    cereconf.INTERNAL_OU_NUMBER
+                                )
                                 key = (int(aff_id), status_id,
                                        int(ou.entity_id))
                             except Errors.NotFoundError as e:
