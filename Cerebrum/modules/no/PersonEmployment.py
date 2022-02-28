@@ -210,6 +210,7 @@ class PersonEmploymentMixin(object):
 
         # This voodoo is necessary to hide how we represent booleans in the db.
         for row in self.query(query, binds, fetchall=False):
+            row = dict(row)
             if row["main_employment"] == 'T':
                 row["main_employment"] = True
             elif row["main_employment"] == 'F':
