@@ -60,9 +60,9 @@ def combine_numbers(db, ansatt_dict, student_dict, tilknyttet_dict):
         print_info.append({
         'ou_id': place,
         'seksjon': ou_cache.get_name(place),
-        'antall ansatt brukere': ansatte,
-        'antall student brukere': studenter,
-        'antall tilknyttet brukere': tilknyttede,
+        'antall ansattbrukere': ansatte,
+        'antall studentbrukere': studenter,
+        'antall tilknyttetbrukere': tilknyttede,
         })
     if len(student_dict) != 0:
         for place in list(student_dict):
@@ -75,9 +75,9 @@ def combine_numbers(db, ansatt_dict, student_dict, tilknyttet_dict):
             print_info.append({
             'ou_id': place,
             'seksjon': ou_cache.get_name(place),
-            'antall ansatt brukere': ansatte,
-            'antall student brukere': studenter,
-            'antall tilknyttet brukere': tilknyttede,
+            'antall ansattbrukere': ansatte,
+            'antall studentbrukere': studenter,
+            'antall tilknyttetbrukere': tilknyttede,
             })
     if len(tilknyttet_dict) != 0:
         for place in list(tilknyttet_dict):
@@ -87,9 +87,9 @@ def combine_numbers(db, ansatt_dict, student_dict, tilknyttet_dict):
             print_info.append({
             'ou_id': place,
             'seksjon': ou_cache.get_name(place),
-            'antall ansatt brukere': ansatte,
-            'antall student brukere': studenter,
-            'antall tilknyttet brukere': tilknyttede,
+            'antall ansattbrukere': ansatte,
+            'antall studentbrukere': studenter,
+            'antall tilknyttetbrukere': tilknyttede,
             })
 
     return print_info
@@ -97,14 +97,14 @@ def combine_numbers(db, ansatt_dict, student_dict, tilknyttet_dict):
 def main():
     db = Factory.get('Database')()
     co = Factory.get('Constants')(db)
-    parser = argparse.ArgumentParser(description = 'Filename for output-file')
-    parser.add_argument('filename', type = str)
+    parser = argparse.ArgumentParser()
+    parser.add_argument('filename', type = str, help = 'Filename for output-file')
     args = parser.parse_args()
     ansatt = generate_amounts_affiliations(db, co.affiliation_ansatt)
     student = generate_amounts_affiliations(db, co.affiliation_student)
     tilknyttet = generate_amounts_affiliations(db, co.affiliation_tilknyttet)
     print_info = combine_numbers(db, ansatt, student, tilknyttet)
-    fields = ['ou_id', 'seksjon', 'antall ansatt brukere', 'antall student brukere', 'antall tilknyttet brukere']
+    fields = ['ou_id', 'seksjon', 'antall ansattbrukere', 'antall studentbrukere', 'antall tilknyttetbrukere']
     codec = codecs.lookup('utf-8')
     output_file = open(args.filename, 'w')
     output = codec.streamwriter(output_file)
