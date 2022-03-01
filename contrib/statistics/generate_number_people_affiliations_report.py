@@ -64,33 +64,31 @@ def combine_numbers(db, ansatt_dict, student_dict, tilknyttet_dict):
         'antall studentbrukere': studenter,
         'antall tilknyttetbrukere': tilknyttede,
         })
-    if len(student_dict) != 0:
-        for place in list(student_dict):
-            ansatte = 0
-            studenter = student_dict.pop(place)
-            try:
-                tilknyttede = tilknyttet_dict.pop(place)
-            except KeyError:
-                tilknyttede = 0
-            print_info.append({
-            'ou_id': place,
-            'seksjon': ou_cache.get_name(place),
-            'antall ansattbrukere': ansatte,
-            'antall studentbrukere': studenter,
-            'antall tilknyttetbrukere': tilknyttede,
-            })
-    if len(tilknyttet_dict) != 0:
-        for place in list(tilknyttet_dict):
-            ansatte = 0
-            studenter = 0
+    for place in list(student_dict):
+        ansatte = 0
+        studenter = student_dict.pop(place)
+        try:
             tilknyttede = tilknyttet_dict.pop(place)
-            print_info.append({
-            'ou_id': place,
-            'seksjon': ou_cache.get_name(place),
-            'antall ansattbrukere': ansatte,
-            'antall studentbrukere': studenter,
-            'antall tilknyttetbrukere': tilknyttede,
-            })
+        except KeyError:
+            tilknyttede = 0
+        print_info.append({
+        'ou_id': place,
+        'seksjon': ou_cache.get_name(place),
+        'antall ansattbrukere': ansatte,
+        'antall studentbrukere': studenter,
+        'antall tilknyttetbrukere': tilknyttede,
+        })
+    for place in list(tilknyttet_dict):
+        ansatte = 0
+        studenter = 0
+        tilknyttede = tilknyttet_dict.pop(place)
+        print_info.append({
+        'ou_id': place,
+        'seksjon': ou_cache.get_name(place),
+        'antall ansattbrukere': ansatte,
+        'antall studentbrukere': studenter,
+        'antall tilknyttetbrukere': tilknyttede,
+        })
 
     return print_info
 
