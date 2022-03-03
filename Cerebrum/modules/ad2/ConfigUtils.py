@@ -848,11 +848,8 @@ class AccountCriterias(AttrCriterias):
                                 % (str(aff), status))
                     if ou_str:
                         try:
-                            ou_arg = (tuple([ou_str[i]+ou_str[i+1] for i in
-                                            range(0, len(ou_str), 2)])
-                                      + (cereconf.DEFAULT_INSTITUSJONSNR,))
                             ou = Factory.get('OU')(db)
-                            ou.find_stedkode(*ou_arg)
+                            ou.find_sko(ou_str)
                         except Errors.NotFoundError:
                             raise ConfigError("Stedkode '%s' does not exist"
                                               % ou_str)
