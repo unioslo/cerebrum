@@ -52,7 +52,8 @@ class ContactAuthMixin(BofhdContactAuth):
             return True
         if (
                 hasattr(cereconf, 'BOFHD_VOIP_ADMINS') and
-                self.is_group_member(operator, cereconf.BOFHD_VOIP_ADMINS)):
+                self.is_group_member(operator, cereconf.BOFHD_VOIP_ADMINS) and not
+                self._is_group_expired(cereconf.BOFHD_VOIP_ADMINS)):
             return True
         return super(ContactAuthMixin, self).can_get_contact_info(
             operator,
@@ -93,7 +94,8 @@ class UioAuth(ContactAuthMixin, BofhdAuth):
                 grp.find(owner_uio['target_id'])
             except NotFoundError:
                 return False
-            return self.is_group_member(operator, grp.group_name)
+            return (self.is_group_member(operator, grp.group_name) and not
+                    self._is_group_expired(grp.group_name))
         return False
 
     def _is_important_account(self, operator, account):
