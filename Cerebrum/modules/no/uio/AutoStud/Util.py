@@ -80,11 +80,8 @@ class LookupHelper(object):
             return self._sko_cache[name]
         try:
             ou = Factory.get('OU')(self._db)
-            fak = int(name[:2])
-            inst = int(name[2:4])
-            gr = int(name[4:])
             ou.clear()
-            ou.find_stedkode(fak, inst, gr, institusjon)
+            ou.find_sko(name, institusjon)
             self._sko_cache[name] = int(ou.entity_id)
         except (Errors.NotFoundError, ValueError):
             self._sko_cache[name] = None
