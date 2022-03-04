@@ -265,7 +265,13 @@ class PersonExternalIdListResource(Resource):
     def get(self, id):
         """Get external IDs of a person."""
         pe = find_person(id)
-        return pe.get_external_id()
+        return [
+            {
+                'id_type': row['id_type'],
+                'external_id': row['external_id'],
+                'source_system': row['source_system'],
+            }
+            for row in pe.get_external_id()]
 
 
 @api.route('/<int:id>/accounts', endpoint='person-accounts')
