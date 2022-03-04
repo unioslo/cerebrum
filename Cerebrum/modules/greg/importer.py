@@ -181,14 +181,19 @@ class GregImporter(object):
         self.update(greg_person, person_obj)
 
     def remove(self, greg_person, person_obj):
-        """ Clear HR data from a Person object. """
+        """ Clear greg data from a Person object. """
         if person_obj is None or not person_obj.entity_id:
             raise ValueError('remove() called without cerebrum person!')
 
-        # TODO/TBD: Are there any steps needed besides clearing everything
-        # (except the GREG_PID) that update() sets?
-        blank_person = {'id': greg_person['id']}
-        self.update(blank_person, person_obj)
+        # Note; We need to continue updating external ids - as this will allow
+        # us to cross-reference persons *created* by greg with persons that may
+        # appear in other source systems.
+
+        self._sync_name(person_obj, ())
+        self._sync_ids(person_obj, self.mapper.get_person_ids(greg_person))
+        self._sync_cinfo(person_obj, ())
+        self._sync_affs(person_obj, ())
+        self._sync_consents(person_obj, ())
 
     def update(self, greg_person, person_obj):
         """ Update the Person object using employee_data. """
