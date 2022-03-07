@@ -112,7 +112,7 @@ def main():
         logger.info("Writing groups file.")
         for k, v in groups_and_members.iteritems():
             stream.write(k + ';' + v)
-            stream.write('\n'.decode('utf-8'))
+            stream.write(u'\n')
     logger.info("All done.")
 
 
