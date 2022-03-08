@@ -1966,7 +1966,13 @@ class BofhdExtension(BofhdCommonMethods):
 
     def group_set_expire(self, operator, group, expire=None):
         grp = self._get_group(group)
-        self.ba.can_delete_group(operator.get_entity_id(), grp)
+
+        try:
+            self.ba.can_delete_group(operator.get_entity_id(), grp)
+        except PermissionDenied:
+            raise PermissionDenied(
+                "Not allowed to change expire date for group")
+
         self._raise_PermissionDenied_if_not_manual_group(grp)
 
         # TODO: Make new, non-mx generic date parsers in bofhd_utils.
