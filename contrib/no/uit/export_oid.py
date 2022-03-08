@@ -138,6 +138,12 @@ class AffCache(object):
                 dbh_kat = t['dbh_kat']
                 logger.error('No results for stillingskode=%r, using %r/%r',
                              stillingskode, stillingstittel, dbh_kat)
+            except ValueError:
+                logger.debug('stillingskode is empty string. set kode,tittel'
+                             'and kat manually to empty as well')
+                stillingskode = ""
+                stillingstittel = ""
+                dbh_kat = ""
 
             hovedarbeidsforhold = ''
             if 'hovedarbeidsforhold' in t:
@@ -354,12 +360,11 @@ def get_affiliations(db, ou_cache, ou_mapping, aff_cache):
         #     pass
 
         ou_id = aff['ou_id']
-
         last_date = aff['last_date'].strftime("%Y-%m-%d")
 
         try:
             ou_sko = ou_cache.get_sko(ou_id)
-            ou_name = ou_cache.get_sko_name(ou_sko)
+            ou_name = ou_cache.get_name(ou_id)
         except KeyError as e:
             logger.warning("No stedkode for aff with ou_id=%r, skipping (%s)",
                            ou_id, e)
