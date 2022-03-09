@@ -772,6 +772,8 @@ class BofhdAuth(DatabaseAccessor):
                                            timeout=60*60)
         self._bofhd_auth_systems = tuple(_get_bofhd_auth_systems(self.const))
         self._group_roles = GroupRoles(database)
+        self._group_expire_status_cache = Cache.Cache(
+                            mixins=[Cache.cache_timeout], timeout=60)
 
     def _get_uname(self, entity_id):
         """Return a human-friendly representation of entity_id."""
@@ -2450,6 +2452,29 @@ class BofhdAuth(DatabaseAccessor):
                                               indirect_members=False)])
         self._users_auth_entities_cache[entity_id] = list(set(ret))
         return ret
+
+    def _is_group_expired(self, groupname):
+        """Check if the group used for authorization is expired.
+
+        Members from an expired group that grants authorization should not be
+        able to use commands.
+
+        Group status is cached for a while.
+
+        :param str groupname: The name of the group.
+
+        :rtype: bool
+        :raise Errors.NotFoundError: If the group doesn't exist.
+        """
+        try:
+            return self._group_expire_status_cache[groupname]
+        except KeyError:
+            pass
+        group = Factory.get('Group')(self._db)
+        group.find_by_name(groupname)
+        status = group.is_expired()
+        self._group_expire_status_cache[groupname] = status
+        return status
 
     def _get_group_members(self, groupname):
         """Get a group's *direct* members.
