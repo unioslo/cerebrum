@@ -338,7 +338,7 @@ def parse_ou(ou_json, dfo_sap_id_type):
         sap2bas_sted.append(addr)
 
     # <Navn>
-    for _type in ["nob", ]:  # ["nob", "eng", "nno"]
+    for _type in ["nob", "eng", ]:  # ["nob", "eng", "nno"]
         name = transform_name(ou_json, _type)
         if name is None:
             continue
