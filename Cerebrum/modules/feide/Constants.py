@@ -28,11 +28,16 @@ from Cerebrum.Utils import Factory
 
 Entity_class = Factory.get("Entity")
 
+class _AuthRoleOpCode(CereConst._CerebrumCode):
+    """Mappings stored in the auth_role_op_code table"""
+    _lookup_table = '[:table schema=cerebrum name=auth_op_code]'
 
 class Constants(CereConst.Constants):
     # Entity type
     entity_feide_service = CereConst._EntityTypeCode('feide_service',
                                                      'Feide service')
+    auth_feide_commands = _AuthRoleOpCode(
+        'feide_commands', "Grant access to Feide commands")
 
 
 class CLConstants(CereConst.CLConstants):
