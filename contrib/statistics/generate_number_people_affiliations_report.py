@@ -16,7 +16,7 @@ def generate_amounts_affiliations(db, affiliation_type):
     amount_dict = {}
     affiliations = pe.list_affiliations(affiliation=affiliation_type)
     if affiliation_type == co.affiliation_tilknyttet:
-        affiliations.extend(pe.list_affiliations(affiliation = co.affiliation_manuell))
+         affiliations.extend(pe.list_affiliations(affiliation = co.affiliation_manuell))
     for affiliation in affiliations:
         if amount_dict.get(affiliation['ou_id']) is None:
             amount_dict[affiliation['ou_id']] = [affiliation['person_id']]
@@ -27,17 +27,25 @@ def generate_amounts_affiliations(db, affiliation_type):
     while run > 0:
         run = 0
         for place in list(amount_dict):
+            notvalid = 0
             ou.find(place)
-	    try:
-	        parent = ou.get_parent(OrgregConstants.perspective_orgreg)
-            except NotFoundError:
-                parent = None
-            if parent is not None and parent != 677:
-                run = 1
-                if(amount_dict.get(parent) == None):
-                    amount_dict[parent] = amount_dict.pop(place)
-                else:
-                    amount_dict[parent].extend(amount_dict.pop(place))
+            quarantines = ou.get_entity_quarantine()
+            if len(quarantines) > 0:
+                for quarantine in quarantines:
+                    if quarantine[0] == 518:
+                        amount_dict.pop(place)
+                        notvalid = 1
+            if notvalid != 1:
+                try:
+                    parent = ou.get_parent(OrgregConstants.perspective_orgreg)
+                except NotFoundError:
+                    parent = None
+                if parent is not None and parent != 677:
+                    run = 1
+                    if amount_dict.get(parent) is None:
+                        amount_dict[parent] = amount_dict.pop(place)
+                    else:
+                        amount_dict[parent].extend(amount_dict.pop(place))
             ou.clear()
     for place in list(amount_dict):
         amount_dict[place] = len(set(amount_dict[place]))
