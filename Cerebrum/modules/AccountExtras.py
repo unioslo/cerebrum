@@ -33,7 +33,7 @@ class AutoPriorityAccountMixin(Account.Account):
                                     current_pri=None):
         # Determine the status this affiliation resolves to
         if self.owner_id is None:
-            raise ValueError, "non-owned account can't have account_type"
+            raise ValueError("non-owned account can't have account_type")
         person = Factory.get('Person')(self._db)
         status = None
         for row in person.list_affiliations(person_id=self.owner_id,
@@ -80,5 +80,5 @@ class AutoPriorityAccountMixin(Account.Account):
             if new_pri not in taken:
                 return new_pri
             new_pri -= 1
-        raise ValueError, "No free priorities for that account_type!"
+        raise ValueError("No free priorities for that account_type!")
 

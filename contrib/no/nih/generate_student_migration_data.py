@@ -88,7 +88,7 @@ def main(argv=None):
         opts, args = getopt.getopt(argv[1:],
                                    "hf:",
                                    ["help", "file="])
-    except getopt.GetoptError, error:
+    except getopt.GetoptError as error:
         usage(message=error.msg)
         return 1
 

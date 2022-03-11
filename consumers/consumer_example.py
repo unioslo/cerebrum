@@ -43,7 +43,7 @@ def handle_user_create(data):
     """Post-processing of user creation."""
     try:
         int(dict())
-    except TypeError, e:
+    except TypeError as e:
         logger.error("Could not post-process {}: {}".format(
             data.get('account_name'), e))
 

@@ -766,7 +766,7 @@ class EmailPasswordNotifier(PasswordNotifier):
             previous = locale.getlocale(locale.LC_TIME)
             try:
                 locale.setlocale(locale.LC_TIME, language_code)
-            except locale.Error, e:
+            except locale.Error as e:
                 warnings.warn('locale.setlocale failed: {}'.format(e),
                               RuntimeWarning)
 

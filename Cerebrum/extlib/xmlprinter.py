@@ -100,7 +100,7 @@ class xmlprinter(object):
 
         self._encoding = encoding
         if self._past_decl:
-            raise WellFormedError, "past allowed point for XML declaration"
+            raise WellFormedError("past allowed point for XML declaration")
 
         self.fp.write('<?xml version=%s encoding=%s?>\n'
                       % (quoteattr(self.xml_version),
@@ -114,12 +114,12 @@ class xmlprinter(object):
         Optional for a well-formed document.
         At least a public_id or system_id must be specified if called."""
         if self._past_doctype:
-            raise WellFormedError, "past allowed point for doctype"
+            raise WellFormedError("past allowed point for doctype")
 
         self.fp.write('<!DOCTYPE %s' % name)
 
         if public_id is not None and system_id is None:
-            raise TypeError, "must have system_id with public_id"
+            raise TypeError("must have system_id with public_id")
 
         if public_id is not None:
             self.fp.write(" PUBLIC %s %s" % (quoteattr(public_id),
@@ -137,7 +137,7 @@ class xmlprinter(object):
         self._past_decl    = True
 
         if self._finished:
-            raise WellFormedError, "attempt to add second root element"
+            raise WellFormedError("attempt to add second root element")
 
         if self._data_mode:
             self.fp.write("\n")
@@ -161,7 +161,7 @@ class xmlprinter(object):
     def data(self, data):
         """Add text 'data'."""
         if not self._inroot:
-            raise WellFormedError, "attempt to add data outside of root"
+            raise WellFormedError("attempt to add data outside of root")
         self._has_data = 1
         data = escape(data)
         self.fp.write(self._encode_str(data))
@@ -174,7 +174,7 @@ class xmlprinter(object):
     def emptyElement(self, name, attrs={}):
         """Add an empty element (<example />)"""
         if not self._inroot:
-            raise WellFormedError, "attempt to add element outside of root"
+            raise WellFormedError("attempt to add element outside of root")
 
         if self._data_mode:
             self.fp.write("\n")
@@ -198,8 +198,8 @@ class xmlprinter(object):
         popel = self._elstack.pop()
 
         if name is not None and name != popel:
-            raise WellFormedError, "ending an unstarted element %s" \
-                  % repr(name)
+            raise WellFormedError("ending an unstarted element %s"
+                                  % repr(name))
 
         if name is None:
             name = popel
@@ -221,14 +221,14 @@ class xmlprinter(object):
         Else, all elements must already be closed.
         """
         if self._finished:
-            raise WellFormedError, "attempt to re-end a _finished document"
+            raise WellFormedError("attempt to re-end a _finished document")
 
         if autoclose:
             while len(self._elstack) > 0:
                 self.endElement()
 
         if len(self._elstack) > 0:
-            raise WellFormedError, "attempt to re-end a _finished document"
+            raise WellFormedError("attempt to re-end a _finished document")
 
         self._finished = True
 

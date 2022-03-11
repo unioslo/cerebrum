@@ -239,8 +239,7 @@ class AccountNIHMixin(Account.Account):
         try:
             person.find(int(self.owner_id))
         except Errors.NotFoundError:
-            raise self._db.IntegrityError, \
-                'No personal owner found'
+            raise self._db.IntegrityError('No personal owner found')
             return
         if self.is_employee(person) or self.is_affiliate(person):
             mdb_choice = 'DB03-Ansatt'
@@ -249,8 +248,7 @@ class AccountNIHMixin(Account.Account):
         else:
             mdb_choice = 'DB03-Ansatt'
         if mdb_choice is None:
-            raise self._db.IntegrityError, \
-                  "Cannot assign mdb"
+            raise self._db.IntegrityError("Cannot assign mdb")
         return mdb_choice
 
     def make_passwd(self, uname):

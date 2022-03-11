@@ -478,7 +478,7 @@ class ExchangeEventHandler(UIOExchangeEventHandler):
                 self.ec.set_mailbox_address_policy(name)
                 self.logger.info('eid:%d: EAP disabled on %s',
                                  event['event_id'], name)
-            except ExchangeException, e:
+            except ExchangeException as e:
                 self.logger.warn(
                     'eid:%d: Can\'t disable EAP on account %s: %s',
                     event['event_id'], name, e)
@@ -489,7 +489,7 @@ class ExchangeEventHandler(UIOExchangeEventHandler):
                 self.ec.set_distgroup_address_policy(name)
                 self.logger.info('eid:%d: EAP disabled on %s',
                                  event['event_id'], name)
-            except ExchangeException, e:
+            except ExchangeException as e:
                 self.logger.warn('eid:%d: Can\'t disable EAP for %s: %s',
                                  event['event_id'], name, e)
         else:

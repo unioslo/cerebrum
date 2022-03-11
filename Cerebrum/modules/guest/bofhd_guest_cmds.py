@@ -218,7 +218,7 @@ class BofhdExtension(BofhdCommonMethods):
                              account.account_name)
             end_date = account.expire_date
 
-        # Get contect info
+        # Get contact info
         mobile = None
         try:
             mobile = account.get_contact_info(
@@ -568,7 +568,7 @@ class BofhdExtension(BofhdCommonMethods):
         for row in self._get_guests():
             try:
                 ret.append(self._get_guest_info(row['entity_id']))
-            except CerebrumError, e:
+            except CerebrumError as e:
                 print("Error: %s" % e)
                 continue
         if not ret:

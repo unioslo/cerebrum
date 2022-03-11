@@ -81,7 +81,7 @@ class ResourceService(object):
         if hasattr(self, 'db'):
             try:
                 self.db.close()
-            except Exception, e:
+            except Exception as e:
                 log.warning("Problems with db.close: %s" % e)
         else:
             # TODO: this could be removed later, when it is considered stable

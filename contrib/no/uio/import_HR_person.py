@@ -866,7 +866,7 @@ def main():
                                     "group",
                                     "include_delete",
                                     "dryrun"])
-    except getopt.GetoptError, val:
+    except getopt.GetoptError as val:
         print(val)
         usage(1)
 

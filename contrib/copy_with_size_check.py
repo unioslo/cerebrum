@@ -89,7 +89,7 @@ def write_and_check_size(
     try:
         inFile = open(inFilePath, 'r')  # Can we read from input?
         assert(os.access(outFilePath, os.W_OK))  # Is output writable?
-    except IOError, err:
+    except IOError as err:
         logger.error(err)
         raise err
 
@@ -139,7 +139,7 @@ def main():
             'o:i:p:l:',
             ['output=', 'input=', 'limit-percentage=', 'limit-lines=']
         )
-    except getopt.GetoptError, err:
+    except getopt.GetoptError as err:
         logger.error(err)
         usage(1)
 

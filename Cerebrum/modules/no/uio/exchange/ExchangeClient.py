@@ -308,9 +308,9 @@ class ExchangeClient(PowershellClient):
 
         try:
             return super(ExchangeClient, self).execute(setup, *args, **kwargs)
-        except WinRMServerException, e:
+        except WinRMServerException as e:
             raise ExchangeException(e)
-        except URLError, e:
+        except URLError as e:
             # We can expect that the servers go up-and-down a bit.
             # We need to tell the caller about this. For example, events
             # should be queued for later attempts.
@@ -822,7 +822,7 @@ class ExchangeClient(PowershellClient):
             cmd_template.safe_substitute(args))
         try:
             out = self.run(cmd)
-        except PowershellException, e:
+        except PowershellException as e:
             raise ExchangeException(text_type(e))
         if 'stderr' in out:
             raise ExchangeException(out['stderr'])
@@ -1275,7 +1275,7 @@ class ExchangeClient(PowershellClient):
         out = self.run(json_wrapped)
         try:
             ret = self.get_output_json(out, dict())
-        except ValueError, e:
+        except ValueError as e:
             raise ExchangeException('No users exist?: %s' % e)
 
         if 'stderr' in out:
@@ -1315,7 +1315,7 @@ class ExchangeClient(PowershellClient):
         out = self.run(json_wrapped)
         try:
             ret = self.get_output_json(out, dict())
-        except ValueError, e:
+        except ValueError as e:
             raise ExchangeException('No groups exists?: %s' % e)
 
         if 'stderr' in out:
@@ -1348,7 +1348,7 @@ class ExchangeClient(PowershellClient):
         out = self.run(json_wrapped)
         try:
             ret = self.get_output_json(out, dict())
-        except ValueError, e:
+        except ValueError as e:
             raise ExchangeException('No groups exists?: %s' % e)
 
         if 'stderr' in out:
@@ -1373,7 +1373,7 @@ class ExchangeClient(PowershellClient):
         out = self.run(cmd)
         try:
             ret = self.get_output_json(out, dict())
-        except ValueError, e:
+        except ValueError as e:
             raise ExchangeException('No group members in %s?: %s' % (gname, e))
 
         if 'stderr' in out:

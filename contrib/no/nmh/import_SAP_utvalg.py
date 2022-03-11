@@ -142,7 +142,7 @@ def main():
                                       "u:d",
                                       ["utv-file=",
                                        "dryrun",])
-    except getopt.GetoptError, e:
+    except getopt.GetoptError as e:
         print(e)
         usage(1)
 

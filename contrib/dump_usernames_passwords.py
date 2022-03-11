@@ -97,7 +97,7 @@ def process_account(e_id, stream, handled, spreads):
     ac.clear()
     try:
         ac.find(e_id)
-    except Errors.NotFoundError, e:
+    except Errors.NotFoundError as e:
         logger.info("Unknown account for entity_id: %s", e_id)
         # TODO: Accounts that doesn't exist any more should just be ignored, or
         # are there cases where this is wrong?
@@ -113,7 +113,7 @@ def output(stream, ac):
     out = [ac.account_name, get_name(ac)]
     try:
         out.append(ac.get_account_authentication(co.auth_type_plaintext))
-    except Errors.NotFoundError, e:
+    except Errors.NotFoundError as e:
         logger.warn("Could not find plaintext password for %s", ac.account_name)
         return True
     stream.write("%s\n" % ';'.join(out))
@@ -146,7 +146,7 @@ def main():
                                     "spreads=",
                                     "create_file=",
                                     "pwd_file="])
-    except getopt.GetoptError, e:
+    except getopt.GetoptError as e:
         print(e)
         usage(1)
 

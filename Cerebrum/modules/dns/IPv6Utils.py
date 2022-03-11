@@ -14,7 +14,7 @@ class IPv6Calc(object):
         """Convert an IPv6 IP address to long format."""
         try:
             hi, lo = struct.unpack('!QQ', socket.inet_pton(socket.AF_INET6, ip))
-        except socket.error, msg:
+        except socket.error as msg:
             raise DNSError("Bad IP: %s" % msg)
         return (hi << 64) | lo
     ip_to_long = staticmethod(ip_to_long)
@@ -65,7 +65,7 @@ class IPv6Utils(object):
         try:
             tmp = socket.inet_pton(socket.AF_INET6, aaaa_ip)
         except socket.error:
-            raise DNSError, 'Invalid IPv6 address'
+            raise DNSError('Invalid IPv6 address')
 
         # Unpack so we get the high and low portions as an int
         hi, lo = struct.unpack('!QQ', tmp)

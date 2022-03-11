@@ -99,7 +99,7 @@ def main():
                              'file=',
                              'accounts=',
                              'commit'))
-    except getopt.GetoptError, e:
+    except getopt.GetoptError as e:
         usage(1, e)
     
     for opt, val in opts:
@@ -124,7 +124,7 @@ def main():
         account.clear()
         try:
             account.find_by_name(a)
-        except Errors.NotFoundError, e:
+        except Errors.NotFoundError as e:
             # account_name not found, check if it is an entity_id
             logger.debug("Unkown account_name '%s', trying entity_id" % a)
             if not a.isdigit():

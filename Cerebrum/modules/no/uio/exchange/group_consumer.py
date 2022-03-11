@@ -174,7 +174,7 @@ class ExchangeGroupEventHandler(evhandlers.EventLogConsumer):
                 client_cert=self.config.client.client_cert,
                 check_name=self.config.client.hostname_verification,
                 encrypted=self.config.client.enabled_encryption)
-        except URLError, e:
+        except URLError as e:
             # Here, we handle the rare circumstance that the springboard is
             # down when we connect to it. We log an error so someone can
             # act upon this if it is appropriate.
@@ -246,7 +246,7 @@ class ExchangeGroupEventHandler(evhandlers.EventLogConsumer):
                     self.ut.log_event_receipt(mod_ev, 'dlgroup_member:add')
                 except AlreadyPerformedException:
                     pass
-                except (ExchangeException, ServerUnavailableException), e:
+                except (ExchangeException, ServerUnavailableException) as e:
                     self.logger.warn(
                         'eid:{event_id}: Can\'t add {entity_name} to '
                         '{group_name}: {reason}'.format(
@@ -292,7 +292,7 @@ class ExchangeGroupEventHandler(evhandlers.EventLogConsumer):
                     self.ut.log_event_receipt(mod_ev, 'dlgroup_member:remove')
                 except AlreadyPerformedException:
                     pass
-                except (ExchangeException, ServerUnavailableException), e:
+                except (ExchangeException, ServerUnavailableException) as e:
                     self.logger.warn(
                         'eid:{event_id}: Can\'t remove {cand_name} from '
                         '{group_name}: {error}'.format(

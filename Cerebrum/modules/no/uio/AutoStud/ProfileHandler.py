@@ -142,7 +142,7 @@ class Profile(object):
         tmp_nivaakode, potential_disks = self._get_potential_disks(
             disk_spread, only_to=True)
         if not potential_disks:
-            raise NoAvailableDisk, "No disk matches profiles"
+            raise NoAvailableDisk("No disk matches profiles")
         self._logger.debug2("Resolve %s" % potential_disks)
 
         # Iterate over all potential disks
@@ -233,8 +233,7 @@ class Profile(object):
             return current_disk
         ret = new_disk.get_cerebrum_disk(check_ok_to=True)
         if ret is None:
-            raise NoAvailableDisk,\
-                  "No disks with free space matches %s" % new_disk
+            raise NoAvailableDisk("No disks with free space matches %s" % new_disk)
         return ret.disk_id
 
     def get_disk_kvote(self, disk_id):
@@ -283,7 +282,7 @@ class Profile(object):
         for t in self.matcher.get_match('gruppe'):
             if self.pc.group_defs[t]['is_posix']:
                 return t
-        raise NoDefaultGroup, "No dfg is a PosixGroup"
+        raise NoDefaultGroup("No dfg is a PosixGroup")
 
     def get_grupper(self):
         return self.matcher.get_match('gruppe')

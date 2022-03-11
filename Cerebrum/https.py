@@ -384,7 +384,7 @@ class HTTPSHandler(urllib2.HTTPSHandler, object):
         """ See urllib2.HTTPSHandler. """
         try:
             return self.do_open(self.ssl_connection, req)
-        except urllib2.URLError, err:
+        except urllib2.URLError as err:
             # I want to throw SSLErrors! This means SSLErrors will start their
             # tracebacks here but all other exceptions should be fine.
             if hasattr(err, 'reason') and isinstance(err.reason, ssl.SSLError):

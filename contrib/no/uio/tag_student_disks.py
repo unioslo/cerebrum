@@ -251,7 +251,7 @@ def main(argv=None):
     try:
         opts, args = getopt.getopt(argv[1:], "hs:",
                                    ["help", "studconfig-file="])
-    except getopt.GetoptError, error:
+    except getopt.GetoptError as error:
         usage(message=error.msg)
         return 1
 

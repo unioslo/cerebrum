@@ -54,7 +54,7 @@ def export(filename, key, host):
         conn.request('POST',
                      '/es/?authkey=%s' % str(key),  # 'key' should be ASCII
                      'POSTFILE\n%s\n%s' % (filename, data), headers)
-    except socket.error, err:
+    except socket.error as err:
         logger.error('Error during request: %s' % err[1])
         return -8
 
@@ -78,7 +78,7 @@ def status(key, host):
         conn.request('POST',
                      '/es/?authkey=%s' % key,
                      'STATUS\n', headers)
-    except socket.error, err:
+    except socket.error as err:
         logger.error('Error during request: %s' % err[1])
         return -8
 
@@ -129,7 +129,7 @@ def main():
 
     try:
         opts, j = getopt.getopt(sys.argv[1:], 'f:k:hH:i:')
-    except getopt.GetoptError, err:
+    except getopt.GetoptError as err:
         print('Error: %s' % err)
         usage(-2)
 
@@ -152,7 +152,7 @@ def main():
         from Cerebrum.Utils import read_password
         try:
             key = read_password(instance, host)
-        except Exception, e:
+        except Exception as e:
             logger.error("Error: %s" % e)
             sys.exit(-3)
 

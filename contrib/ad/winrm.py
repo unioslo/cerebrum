@@ -87,7 +87,7 @@ def main():
                                     "host=",
                                     "delete-shell=",
                                     "port="])
-    except getopt.GetoptError, e:
+    except getopt.GetoptError as e:
         print(e)
         usage(1)
 

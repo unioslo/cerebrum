@@ -69,7 +69,7 @@ if __name__ == '__main__':
                         old,
                         new,
                         row['entity_id'])
-        except Exception, exc:
+        except Exception as exc:
             logger.warn(
                 'Could not convert pickle to JSON for person_id:%s, %s',
                 row['entity_id'],

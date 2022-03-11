@@ -70,7 +70,7 @@ def main():
         "--force" in sys.argv and "console" or "cronjob")
     try:
         opts, args = getopt.getopt(sys.argv[1:], "", ("force", "max-change="))
-    except getopt.GetoptError, e:
+    except getopt.GetoptError as e:
         usage(e)
     if args:
         usage("Invalid arguments: " + " ".join(args))

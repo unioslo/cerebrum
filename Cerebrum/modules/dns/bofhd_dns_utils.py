@@ -104,8 +104,8 @@ class DnsBofhdUtils(object):
                     "Multiple records would be deleted, must force (y)")
             try:
                 self._update_helper.full_remove_dns_owner(owner_id)
-            except database.DatabaseError, m:
-                raise CerebrumError, "Database violation: %s" % m
+            except database.DatabaseError as m:
+                raise CerebrumError("Database violation: %s" % m)
 
     #
     # host, cname, entity-note
@@ -142,7 +142,7 @@ class DnsBofhdUtils(object):
                 target_name, dns.DNS_OWNER)
         except CerebrumError:
             if not force:
-                raise CerebrumError, "Target does not exist, must force (y)"
+                raise CerebrumError("Target does not exist, must force (y)")
             target_ref = self.alloc_dns_owner(target_name)
         self._cname.clear()
         self._cname.populate(dns_owner_ref, target_ref)
@@ -235,7 +235,7 @@ class DnsBofhdUtils(object):
             ipn.write_db()
 
         if not force and not new:
-            raise CerebrumError, 'IP already in use, must force (y)'
+            raise CerebrumError('IP already in use, must force (y)')
         return ipn.entity_id
 
 
@@ -273,7 +273,7 @@ class DnsBofhdUtils(object):
         """
         zone = self.get_zone_from_name(name)
         if zone == self.const.other_zone and warn_other and not force:
-            raise CerebrumError, "'%s' would end up in the 'other' zone, must force (y)" % name
+            raise CerebrumError("'%s' would end up in the 'other' zone, must force (y)" % name)
         self._dns_owner.clear()
         self._dns_owner.populate(zone, name, mx_set_id=mx_set)
         self._dns_owner.write_db()
@@ -349,7 +349,7 @@ class DnsBofhdUtils(object):
         try:
             self._mx_set.find_by_name(mx_set)
         except Errors.NotFoundError:
-            raise CerebrumError, "Cannot find mx-set %s" % mx_set
+            raise CerebrumError("Cannot find mx-set %s" % mx_set)
         self._mx_set.del_mx_set_member(target_id)
 
         # If set is empty, remove it
@@ -487,12 +487,12 @@ class DnsBofhdUtils(object):
         except Errors.NotFoundError:
             pass
         else:
-            raise CerebrumError, "host already has this A-record!"
+            raise CerebrumError("host already has this A-record!")
 
         if dns_owner_ref and same_type and not force:
             owner_types = self._find.find_dns_owners(dns_owner_ref)
             if dns.A_RECORD in owner_types:
-                raise CerebrumError, "name already in use, must force (y)"
+                raise CerebrumError("name already in use, must force (y)")
 
         # Check or get free IP
         if not ip:
@@ -501,7 +501,7 @@ class DnsBofhdUtils(object):
         else:
             ip_ref = self._find.find_ip(ip)
             if ip_ref and not force:
-                raise CerebrumError, "IP already in use or reserved, must force (y)"
+                raise CerebrumError("IP already in use or reserved, must force (y)")
             # Catch Utils.Find.find_free_ip()s CerebrumError in case there
             # are no free IPs. You must still force to register the a_record.
             new_ips = []
@@ -511,7 +511,7 @@ class DnsBofhdUtils(object):
                 # No IPs available
                 pass
             if (subnet and ip not in new_ips) and not force:
-                raise CerebrumError, "IP appears to be reserved, must force (y)"
+                raise CerebrumError("IP appears to be reserved, must force (y)")
 
         # Register dns_owner and/or ip_number
         if not ip_ref:
@@ -556,12 +556,12 @@ class DnsBofhdUtils(object):
         except Errors.NotFoundError:
             pass
         else:
-            raise CerebrumError, "host already has this AAAA-record!"
+            raise CerebrumError("host already has this AAAA-record!")
 
         # We'll check if the IP is reserved
         ip_ref = self._find.find_ip(ip)
         if ip_ref and not force:
-            raise CerebrumError, "IP already in use or reserved, must force (y)"
+            raise CerebrumError("IP already in use or reserved, must force (y)")
         # Catch Utils.Find.find_free_ip()s CerebrumError in case there
         # are no free IPs. You must still force to register the a_record.
         new_ips = []
@@ -571,13 +571,13 @@ class DnsBofhdUtils(object):
             # No IPs available
             pass
         if (subnet_ip and ip not in new_ips) and not force:
-            raise CerebrumError, "IP appears to be reserved, must force (y)"
+            raise CerebrumError("IP appears to be reserved, must force (y)")
 
         # Checking if the AAAA-record allready exists
         if dns_owner_ref and same_type and not force:
             owner_types = self._find.find_dns_owners(dns_owner_ref)
             if dns.AAAA_RECORD in owner_types:
-                raise CerebrumError, "name already in use, must force (y)"
+                raise CerebrumError("name already in use, must force (y)")
 
         ip_eid = self.alloc_ip(ip, force=force)
         if not dns_owner_ref:

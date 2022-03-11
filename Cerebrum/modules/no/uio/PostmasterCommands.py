@@ -54,7 +54,7 @@ class Commands:
         if hasattr(self, 'db'):
             try:
                 self.db.close()
-            except Exception, e:
+            except Exception as e:
                 log.warning("Problems with db.close: %s" % e)
 
     def _get_aff_status(self, input):

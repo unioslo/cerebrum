@@ -132,7 +132,7 @@ class DnsParser(object):
         else:
             try:
                 num = [int(x) for x in m.group(3).split('-')]
-            except ValueError, msg:
+            except ValueError as msg:
                 raise CerebrumError("error parsing number: %s" % msg)
         if len(num) == 2:
             for n in range(num[0], num[1]+1):

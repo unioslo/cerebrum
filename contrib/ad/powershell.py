@@ -147,7 +147,7 @@ def main():
                                     "auth_user=",
                                     "ca_cert=",
                                     "domain_user="])
-    except getopt.GetoptError, e:
+    except getopt.GetoptError as e:
         print(e)
         usage(1)
 

@@ -606,7 +606,7 @@ def report_person_perms(person, client):
     try:
         ephorte_perms = set(user_details_to_perms(
             client.get_user_details(userid)))
-    except EphorteWSError, e:
+    except EphorteWSError as e:
         if 'UserId not found in Ephorte' in str(e):
             logger.warn("Fetching of user details for %s failed: %s",
                         userid, e)
@@ -742,7 +742,7 @@ def update_person_roles(pe, client, remove_superfluous=False):
 
         try:
             client.ensure_role_for_user(user_id, **args)
-        except EphorteWSError, e:
+        except EphorteWSError as e:
             logger.warn('Could not ensure existence of role %s@%s for %s: %s',
                         args['role_id'], args['ou_id'], user_id, unicode(e))
 
@@ -759,7 +759,7 @@ def update_person_roles(pe, client, remove_superfluous=False):
                 client.disable_user_role(
                     user_id, role['role_id'], role['ou_id'],
                     role['arkivdel'], role['journalenhet'])
-            except EphorteWSError, e:
+            except EphorteWSError as e:
                 logger.warn('Could not remove role %s@%s for %s: %s',
                             role['role_id'], role['ou_id'], user_id,
                             unicode(e))
@@ -871,7 +871,7 @@ def disable_users(client, selection_spread):
                 else:
                     logger.debug('User %s is already disabled', eph_user_id)
                     disabled_previously += 1
-            except EphorteWSError, e:
+            except EphorteWSError as e:
                 logger.warn('Failed disabling user %s or its roles/authz: %s',
                             eph_user_id, unicode(e), exc_info=True)
                 failed += 1
