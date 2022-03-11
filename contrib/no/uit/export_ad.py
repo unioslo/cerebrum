@@ -195,6 +195,7 @@ class AdExport(object):
         self.person2contact = dict()
         for c in self.person.list_contact_info(
                 entity_type=self.co.entity_person):
+            c = dict(c)
             self.person2contact.setdefault(c['entity_id'], list()).append(c)
 
         logger.info(
