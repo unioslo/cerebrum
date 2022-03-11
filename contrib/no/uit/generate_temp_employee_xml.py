@@ -76,6 +76,7 @@ import cereconf
 import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum import Errors
+from Cerebrum.modules.no.Stedkode import OuCache
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.argutils import add_commit_args
 from Cerebrum.utils.argutils import get_constant
@@ -100,42 +101,6 @@ class Employment(object):
         return '<person_id=%r account=%r sko=%r>' % (self.person_id,
                                                      self.account_name,
                                                      self.stedkode)
-
-
-class OuCache(object):
-    """Cache required ou information."""
-
-    def __init__(self, db):
-        ou_ids = self.ou_ids = {}
-        ou_skos = self.ou_skos = {}
-        logger.info('Caching OU data...')
-        co = Factory.get('Constants')(db)
-        ou = Factory.get('OU')(db)
-        for row in ou.get_stedkoder():
-            ou.clear()
-            ou.find(row['ou_id'])
-            sko = "%02d%02d%02d" % (ou.fakultet, ou.institutt, ou.avdeling)
-            ou_ids[row['ou_id']] = ou_skos[sko] = {
-                'sko': sko,
-                'faculty': "%02d0000" % (ou.fakultet, ),
-                'name': ou.get_name_with_language(co.ou_name_acronym,
-                                                  co.language_nb,
-                                                  default=''),
-            }
-        # Quick sanity check
-        for ou_dict in ou_ids.values():
-            if ou_dict['faculty'] not in ou_skos:
-                logger.error("No faculty=%r found for ou=%r",
-                             ou_dict['faculty'], ou_dict)
-        logger.info('cached %d ous (%d ou sko)',
-                    len(ou_ids), len(ou_skos))
-
-    def get_sko(self, ou_id):
-        return self.ou_ids[ou_id]['sko']
-
-    def get_faculty_name(self, ou_id):
-        faculty_sko = self.ou_ids[ou_id]['faculty']
-        return self.ou_skos[faculty_sko]['name']
 
 
 def filter_employees(persons, employee_data):
@@ -395,8 +360,14 @@ def get_persons(db, affiliation_status_types):
                                account.account_id, account.account_name)
                 email = None
 
-            my_stedkode = ou_cache.get_sko(row['ou_id'])
-            faculty_name = ou_cache.get_faculty_name(row['ou_id'])
+            ou_id = row['ou_id']
+            my_stedkode = ou_cache.get_sko(ou_id)
+            try:
+                faculty_name = ou_cache.get_faculty_name(ou_id)
+            except Errors.CerebrumError:
+                logger.error("No faculty found for ou=%r",
+                             ou_cache.format_ou(ou_id))
+                faculty_name = ''
 
             logger.debug("Found candidate person_id=%r in db", person_id)
             emp = Employment(person_id, external_id, acc_name, faculty_name,
