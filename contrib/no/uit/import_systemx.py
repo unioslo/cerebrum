@@ -269,18 +269,15 @@ def create_sysx_person(db, sxp, update_affs, stats, _today=None):
     int(affiliation), int(affiliation_status)
 
     # get ou_id of stedkode used
-    fak = sxp['ou'][0:2]
-    ins = sxp['ou'][2:4]
-    avd = sxp['ou'][4:6]
+    stedkode = sxp['ou']
 
     # KEB
-    if fak == '0':
+    if sxp['ou'][0:2] == '0':
         logger.warning("sysx_id=%r (%s) has invalid sko=%r",
                        sysx_id, fullt_navn, sxp['ou'])
-        ins = avd = fak
+        stedkode = "000000"
     try:
-        my_stedkode.find_stedkode(fak, ins, avd,
-                                  cereconf.DEFAULT_INSTITUSJONSNR)
+        my_stedkode.find_sko(stedkode)
     except EntityExpiredError:
         logger.error("Skipping sysx_id=%r (%s), expired sko=%r",
                      sysx_id, fullt_navn, sxp['ou'])
