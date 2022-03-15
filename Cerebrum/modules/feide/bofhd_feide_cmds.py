@@ -41,8 +41,16 @@ from Cerebrum.modules.feide.feide_utils import (is_valid_feide_id_type,
 
 
 class BofhdFeideAuth(BofhdAuth):
-    pass
-
+    def can_access_feide(self, operator, query_run_any=False):
+        """ Operator has access to the feide bofh commands """
+        if self.is_superuser(operator):
+            return True
+        if self._has_operation_perm_somewhere(operator,
+                                              self.const.auth_feide_commands):
+            return True
+        if query_run_any:
+            return False
+        raise PermissionDenied('No access to feide commands')
 
 class BofhdExtension(BofhdCommonMethods):
     """Commands for managing Feide services and multifactor authentication."""
@@ -73,7 +81,7 @@ class BofhdExtension(BofhdCommonMethods):
         ('feide', 'service_add'),
         Integer(help_ref='feide_service_id'),
         SimpleString(help_ref='feide_service_name'),
-        perm_filter='is_superuser')
+        perm_filter='can_access_feide')
 
     def feide_service_add(self, operator, feide_id, service_name):
         """ Add a Feide service
@@ -81,8 +89,8 @@ class BofhdExtension(BofhdCommonMethods):
         The Feide service must have an ID, which will either be an integer
         or an UUID. The keyword 'all' is also accepted (capitalization is
         arbitrary). """
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise PermissionDenied('Only superusers may add Feide services')
+        self.ba.can_access_feide(operator.get_entity_id())
+
         if not is_valid_feide_id_type(feide_id):
             raise CerebrumError('Feide ID must either be a UUID, an integer, '
                                 'a string representation thereof, or the word '
@@ -111,13 +119,12 @@ class BofhdExtension(BofhdCommonMethods):
         ('feide', 'service_remove'),
         SimpleString(help_ref='feide_service_name'),
         YesNo(help_ref='feide_service_confirm_remove'),
-        perm_filter='is_superuser')
+        perm_filter='can_access_feide')
 
     def feide_service_remove(self, operator, service_name, confirm):
         """ Remove a Feide service. """
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise PermissionDenied(
-                'Only superusers may remove Feide services')
+        self.ba.can_access_feide(operator.get_entity_id())
+
         if not confirm:
             return 'No action taken.'
         service_name = service_name.strip()
@@ -134,7 +141,7 @@ class BofhdExtension(BofhdCommonMethods):
         fs=FormatSuggestion(
             '%-10i %-37s %s', ('service_id', 'feide_id', 'name'),
             hdr='%-10s %-37s %s' % ('Entity ID', 'Feide ID', 'Name')),
-        perm_filter='is_superuser')
+        perm_filter='can_access_feide')
 
     def feide_service_list(self, operator):
         """
@@ -146,8 +153,8 @@ class BofhdExtension(BofhdCommonMethods):
             feide_id: <str>
             name: <str>
         """
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise PermissionDenied('Only superusers may list Feide services')
+        self.ba.can_access_feide(operator.get_entity_id())
+
         fse = FeideService(self.db)
         return map(dict, fse.search())
 
@@ -159,13 +166,12 @@ class BofhdExtension(BofhdCommonMethods):
         SimpleString(help_ref='feide_service_name'),
         SimpleString(help_ref='feide_authn_entity_target'),
         Integer(help_ref='feide_authn_level'),
-        perm_filter='is_superuser')
+        perm_filter='can_access_feide')
 
     def feide_authn_level_add(self, operator, service_name, target, level):
         """ Add an authentication level for a given service and entity. """
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise PermissionDenied(
-                'Only superusers may add Feide authentication levels')
+        self.ba.can_access_feide(operator.get_entity_id())
+
         if not level.isdigit() or int(level) not in (3, 4):
             raise CerebrumError('Authentication level must be 3 or 4')
         service_name = service_name.strip()
@@ -193,13 +199,12 @@ class BofhdExtension(BofhdCommonMethods):
         SimpleString(help_ref='feide_service_name'),
         SimpleString(help_ref='feide_authn_entity_target'),
         Integer(help_ref='feide_authn_level'),
-        perm_filter='is_superuser')
+        perm_filter='can_access_feide')
 
     def feide_authn_level_remove(self, operator, service_name, target, level):
         """ Remove an authentication level for a given service and entity. """
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise PermissionDenied(
-                'Only superusers may remove Feide authentication levels')
+        self.ba.can_access_feide(operator.get_entity_id())
+
         if not level.isdigit() or int(level) not in (3, 4):
             raise CerebrumError('Authentication level must be 3 or 4')
         service_name = service_name.strip()
@@ -228,13 +233,12 @@ class BofhdExtension(BofhdCommonMethods):
         fs=FormatSuggestion(
             '%-20s %-6d %s', ('service_name', 'level', 'entity'),
             hdr='%-20s %-6s %s' % ('Service', 'Level', 'Entity')),
-        perm_filter='is_superuser')
+        perm_filter='can_access_feide')
 
     def feide_authn_level_list(self, operator, service_name):
         """ List all authentication levels for a service. """
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise PermissionDenied(
-                'Only superusers may list Feide authentication levels')
+        self.ba.can_access_feide(operator.get_entity_id())
+
         service_name = service_name.strip()
         fse = self._find_service(service_name)
         en = Factory.get('Entity')(self.db)
