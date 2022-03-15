@@ -386,3 +386,18 @@ class PersonSetOTPSecret(Resource):
         updater.update(pe.entity_id, secret)
 
         return None, 204
+
+    @api.response(204, 'secret deleted')
+    @db.autocommit
+    @auth.require()
+    def delete(self, id):
+        pe = find_person(id)
+
+        if not isinstance(pe, OtpPersonMixin):
+            abort(501, "OTP functionality not supported at this instance")
+
+        otp_policy = get_policy()
+        updater = PersonOtpUpdater(db.connection, otp_policy)
+        updater.clear_all(pe.entity_id)
+
+        return None, 204
