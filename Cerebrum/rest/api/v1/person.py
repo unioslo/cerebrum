@@ -33,6 +33,7 @@ from Cerebrum.modules.otp.mixins import OtpPersonMixin
 from Cerebrum.modules.otp.otp_types import (PersonOtpUpdater,
                                             get_policy,
                                             validate_secret)
+from Cerebrum.modules.otp.otp_db import sql_search
 
 from Cerebrum.rest.api import db, auth, fields, utils, validator
 from Cerebrum.rest.api.v1 import models
@@ -395,6 +396,10 @@ class PersonSetOTPSecret(Resource):
 
         if not isinstance(pe, OtpPersonMixin):
             abort(501, "OTP functionality not supported at this instance")
+
+        otp_data = sql_search(db.connection, person_id=id)
+        if not otp_data:
+            abort(404, message='person has no stored secrets')
 
         otp_policy = get_policy()
         updater = PersonOtpUpdater(db.connection, otp_policy)
