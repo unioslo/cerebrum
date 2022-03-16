@@ -397,7 +397,7 @@ class PersonSetOTPSecret(Resource):
         if not isinstance(pe, OtpPersonMixin):
             abort(501, "OTP functionality not supported at this instance")
 
-        otp_data = sql_search(db.connection, person_id=id)
+        otp_data = sql_search(db.connection, person_id=pe.entity_id)
         if not otp_data:
             abort(404, message='person has no stored secrets')
 
