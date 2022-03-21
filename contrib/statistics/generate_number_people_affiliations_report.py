@@ -12,17 +12,23 @@ def generate_amounts_affiliations(db, affiliation_type):
     pe = Factory.get('Person')(db)
     ou = Factory.get('OU')(db)
     co = Factory.get('Constants')(db)
-
+    error = 0
     amount_dict = {}
     affiliations = pe.list_affiliations(affiliation=affiliation_type)
     if affiliation_type == co.affiliation_tilknyttet:
          affiliations.extend(pe.list_affiliations(affiliation = co.affiliation_manuell))
     for affiliation in affiliations:
-        if amount_dict.get(affiliation['ou_id']) is None:
-            amount_dict[affiliation['ou_id']] = [affiliation['person_id']]
-        else:
-            amount_dict[affiliation['ou_id']].append(affiliation['person_id'])
-
+        try:
+            pe.find(affiliation[0])
+            if len(pe.get_accounts()) > 0:
+                if amount_dict.get(affiliation['ou_id']) is None:
+                    amount_dict[affiliation['ou_id']] = [affiliation['person_id']]
+                else:
+                    amount_dict[affiliation['ou_id']].append(affiliation['person_id'])
+            pe.clear()
+        except:
+            error = error + 1
+    print(error)
     run = 1
     while run > 0:
         run = 0
