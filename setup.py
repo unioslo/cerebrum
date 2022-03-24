@@ -433,6 +433,7 @@ setup(
         'Cerebrum/modules/synctools/ad_ldap',
         'Cerebrum/modules/synctools/clients',
         'Cerebrum/modules/tasks',
+        'Cerebrum/modules/trait',
         'Cerebrum/modules/tsd',
         'Cerebrum/modules/templates',
         'Cerebrum/modules/xmlutils',

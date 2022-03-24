@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2006-2021 University of Oslo, Norway
+# Copyright 2006-2022 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -42,6 +42,7 @@ from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.access_FS import make_fs
 from Cerebrum.modules.no.uio import bofhd_uio_cmds
 from Cerebrum.modules.bofhd import bofhd_access
+from Cerebrum.modules.trait import bofhd_trait_cmds
 
 
 def format_day(field):
@@ -140,10 +141,6 @@ uio_commands = [
     'spread_add',
     'spread_list',
     'spread_remove',
-    'trait_info',
-    'trait_list',
-    'trait_remove',
-    'trait_set',
     'user_affiliation_add',
     'user_affiliation_remove',
     'user_find',
@@ -426,6 +423,14 @@ class _OuAuth(NihAuth, bofhd_ou_cmds.OuAuth):
 
 class OuCommands(bofhd_ou_cmds.OuCommands):
     authz = _OuAuth
+
+
+class _TraitAuth(NihAuth, bofhd_trait_cmds.TraitAuth):
+    pass
+
+
+class TraitCommands(bofhd_trait_cmds.TraitCommands):
+    authz = _TraitAuth
 
 
 HELP_CMDS = {

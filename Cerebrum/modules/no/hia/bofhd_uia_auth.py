@@ -32,6 +32,7 @@ from Cerebrum.modules.bofhd.bofhd_access import BofhdAccessAuth
 from Cerebrum.modules.bofhd.errors import PermissionDenied
 from Cerebrum.modules.no.bofhd_note_cmds import EntityNoteBofhdAuth
 from Cerebrum.modules.bofhd import bofhd_user_create_unpersonal
+from Cerebrum.modules.trait import bofhd_trait_cmds
 
 
 class UiaAuth(EntityNoteBofhdAuth, BofhdAuth):
@@ -40,42 +41,6 @@ class UiaAuth(EntityNoteBofhdAuth, BofhdAuth):
 
     This class only contains special cases for UiA.
     """
-
-    def can_set_trait(self, operator, trait=None, ety=None, target=None,
-                      query_run_any=False):
-        # this should not be necessary, we have to agree on the way
-        # to use personal traits in order to avoid duplication and
-        # double work
-        if query_run_any:
-            return True
-        if self.is_superuser(operator):
-            return True
-        # persons can set some of their own traits
-        if ety and trait in (self.const.trait_accept_nondisc,
-                             self.const.trait_reject_nondisc,
-                             self.const.trait_accept_rules):
-            account = Factory.get('Account')(self._db)
-            account.find(operator)
-            if ety.entity_id == account.owner_id:
-                return True
-        elif ety and trait in (self.const.trait_reservation_sms_password,):
-            if ety.entity_id == operator:
-                return True
-        raise PermissionDenied("Not allowed to set trait")
-
-    def can_remove_trait(self, operator, trait=None, ety=None, target=None,
-                         query_run_any=False):
-        if query_run_any:
-            return True
-        if self.is_superuser(operator):
-            return True
-        # persons can remove some of their own traits
-        if ety and trait in (self.const.trait_reject_nondisc,):
-            account = Factory.get('Account')(self._db)
-            account.find(operator)
-            if ety.entity_id == account.owner_id:
-                return True
-        raise PermissionDenied("Not allowed to remove trait")
 
     def can_send_welcome_sms(self, operator, query_run_any=False):
         # Superusers can see and run command
@@ -211,3 +176,42 @@ class HistoryAuth(UiaAuth, bofhd_history_cmds.BofhdHistoryAuth):
 
 class OuAuth(UiaAuth, bofhd_ou_cmds.OuAuth):
     pass
+
+
+class TraitAuth(UiaAuth, bofhd_trait_cmds.TraitAuth):
+
+    def can_set_trait(self, operator, trait=None, ety=None, target=None,
+                      query_run_any=False):
+        # this should not be necessary, we have to agree on the way
+        # to use personal traits in order to avoid duplication and
+        # double work
+        if query_run_any:
+            return True
+        if self.is_superuser(operator):
+            return True
+        # persons can set some of their own traits
+        if ety and trait in (self.const.trait_accept_nondisc,
+                             self.const.trait_reject_nondisc,
+                             self.const.trait_accept_rules):
+            account = Factory.get('Account')(self._db)
+            account.find(operator)
+            if ety.entity_id == account.owner_id:
+                return True
+        elif ety and trait in (self.const.trait_reservation_sms_password,):
+            if ety.entity_id == operator:
+                return True
+        raise PermissionDenied("Not allowed to set trait")
+
+    def can_remove_trait(self, operator, trait=None, ety=None, target=None,
+                         query_run_any=False):
+        if query_run_any:
+            return True
+        if self.is_superuser(operator):
+            return True
+        # persons can remove some of their own traits
+        if ety and trait in (self.const.trait_reject_nondisc,):
+            account = Factory.get('Account')(self._db)
+            account.find(operator)
+            if ety.entity_id == account.owner_id:
+                return True
+        raise PermissionDenied("Not allowed to remove trait")

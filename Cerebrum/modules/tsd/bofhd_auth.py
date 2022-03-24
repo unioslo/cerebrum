@@ -38,6 +38,7 @@ from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.bofhd_constants import _AuthRoleOpCode
 from Cerebrum.modules.bofhd import bofhd_access
+from Cerebrum.modules.trait import bofhd_trait_cmds
 
 
 class TSDBofhdAuthConstants(Constants.Constants):
@@ -464,4 +465,8 @@ class HistoryAuth(TsdBofhdAuth, bofhd_history_cmds.BofhdHistoryAuth):
 
 
 class OuAuth(TsdBofhdAuth, bofhd_ou_cmds.OuAuth):
+    pass
+
+
+class TraitAuth(TsdBofhdAuth, bofhd_trait_cmds.TraitAuth):
     pass

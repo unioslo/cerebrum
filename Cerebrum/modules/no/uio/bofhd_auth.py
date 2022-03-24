@@ -37,6 +37,7 @@ from Cerebrum.modules.bofhd.errors import PermissionDenied
 from Cerebrum.modules.bofhd import bofhd_user_create_unpersonal
 from Cerebrum.modules.otp import bofhd_otp_cmds
 from Cerebrum.modules.ou_disk_mapping import bofhd_cmds
+from Cerebrum.modules.trait import bofhd_trait_cmds
 
 
 class ContactAuthMixin(BofhdContactAuth):
@@ -50,10 +51,9 @@ class ContactAuthMixin(BofhdContactAuth):
             return True
         if query_run_any:
             return True
-        if (
-                hasattr(cereconf, 'BOFHD_VOIP_ADMINS') and
-                self.is_group_member(operator, cereconf.BOFHD_VOIP_ADMINS) and not
-                self._is_group_expired(cereconf.BOFHD_VOIP_ADMINS)):
+        if (hasattr(cereconf, 'BOFHD_VOIP_ADMINS')
+                and self.is_group_member(operator, cereconf.BOFHD_VOIP_ADMINS)
+                and not self._is_group_expired(cereconf.BOFHD_VOIP_ADMINS)):
             return True
         return super(ContactAuthMixin, self).can_get_contact_info(
             operator,
@@ -138,31 +138,6 @@ class UioAuth(ContactAuthMixin, BofhdAuth):
                     'Cannot clear override for other persons')
             return True
         raise PermissionDenied('Not allowed to clear name')
-
-    def can_set_trait(self, operator, trait=None, ety=None, target=None,
-                      query_run_any=False):
-        if query_run_any:
-            return True
-        if self.is_superuser(operator):
-            return True
-        # users can set some of their own traits
-        if ety and trait in (self.const.trait_reservation_sms_password,):
-            if ety.entity_id == operator:
-                return True
-        # persons can set some of their own traits
-        if ety and trait in (self.const.trait_primary_aff,):
-            account = Factory.get('Account')(self._db)
-            account.find(operator)
-            if ety.entity_id == account.owner_id:
-                return True
-        # permission can be given via opsets
-        if trait and self._has_target_permissions(
-                operator=operator, operation=self.const.auth_set_trait,
-                target_type=self.const.auth_target_type_host,
-                target_id=ety.entity_id, victim_id=ety.entity_id,
-                operation_attr=str(trait)):
-            return True
-        raise PermissionDenied("Not allowed to set trait")
 
     def can_create_sysadm(self, operator, query_run_any=False):
         """Allow sysadmins to create sysadmin accounts.
@@ -450,3 +425,36 @@ class OtpAuth(UioAuth, bofhd_otp_cmds.OtpAuth):
             return True
         else:
             return super(OtpAuth, self)._is_otp_protected(person)
+
+
+class TraitAuth(UioAuth, bofhd_trait_cmds.TraitAuth):
+
+    def can_set_trait(self, operator, trait=None, ety=None, target=None,
+                      query_run_any=False):
+        if query_run_any:
+            return True
+
+        if self.is_superuser(operator):
+            return True
+
+        # users can set some of their own traits
+        if ety and trait in (self.const.trait_reservation_sms_password,):
+            if ety.entity_id == operator:
+                return True
+
+        # persons can set some of their own traits
+        if ety and trait in (self.const.trait_primary_aff,):
+            account = Factory.get('Account')(self._db)
+            account.find(operator)
+            if ety.entity_id == account.owner_id:
+                return True
+
+        # permission can be given via opsets
+        if trait and self._has_target_permissions(
+                operator=operator, operation=self.const.auth_set_trait,
+                target_type=self.const.auth_target_type_host,
+                target_id=ety.entity_id, victim_id=ety.entity_id,
+                operation_attr=str(trait)):
+            return True
+
+        raise PermissionDenied("Not allowed to set trait")

@@ -75,6 +75,7 @@ from Cerebrum.modules.no.uio import bofhd_uio_cmds
 from Cerebrum.modules.no.uio.access_FS import FS
 from Cerebrum.modules.no.uit import ad_email
 from Cerebrum.modules.no.uit import bofhd_auth
+from Cerebrum.modules.trait import bofhd_trait_cmds
 
 
 format_day = bofhd_uio_cmds.format_day
@@ -115,9 +116,11 @@ class BofhdExtension(bofhd_uio_cmds.BofhdExtension):
 
     def __init__(self, *args, **kwargs):
         super(BofhdExtension, self).__init__(*args, **kwargs)
-        self.external_id_mappings['studnr'] = self.const.externalid_studentnr
-        self.external_id_mappings['fnr'] = self.const.externalid_fodselsnr
-        self.external_id_mappings['sitonr'] = self.const.externalid_sito_ansattnr
+        self.external_id_mappings.update({
+            'fnr': self.const.externalid_fodselsnr,
+            'sitonr': self.const.externalid_sito_ansattnr,
+            'studnr': self.const.externalid_studentnr,
+        })
 
     @classmethod
     def get_help_strings(cls):
@@ -1097,3 +1100,7 @@ class HistoryCommands(bofhd_history_cmds.BofhdHistoryCmds):
 
 class OuCommands(bofhd_ou_cmds.OuCommands):
     authz = bofhd_auth.OuAuth
+
+
+class TraitCommands(bofhd_trait_cmds.TraitCommands):
+    authz = bofhd_auth.TraitAuth
