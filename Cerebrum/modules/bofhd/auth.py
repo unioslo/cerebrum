@@ -1254,9 +1254,9 @@ class BofhdAuth(DatabaseAccessor):
 
         @return: True or False
         """
-        if self.is_superuser(operator):
-            return True
         if query_run_any:
+            return True
+        if self.is_superuser(operator):
             return True
         if self._is_admin_or_moderator(operator, group.entity_id):
             return True

@@ -366,8 +366,8 @@ class TsdBofhdAuth(BofhdAuth):
         """
         if self.is_superuser(operator):
             return True
-        if query_run_any and self._is_admin(operator):
-            return True
+        if query_run_any:
+            return self._is_admin(operator)
         if self._is_admin(operator, group.entity_id):
             return True
         return super(TsdBofhdAuth, self).can_alter_group(operator, group,
