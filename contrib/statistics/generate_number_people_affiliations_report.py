@@ -1,6 +1,5 @@
-import sys
-import codecs
 import argparse
+import codecs
 
 import Cerebrum.utils.csvutils as _csvutils
 from Cerebrum.Errors import NotFoundError
@@ -12,7 +11,6 @@ def generate_amounts_affiliations(db, affiliation_type):
     pe = Factory.get('Person')(db)
     ou = Factory.get('OU')(db)
     co = Factory.get('Constants')(db)
-    error = 0
     amount_dict = {}
     affiliations = pe.list_affiliations(affiliation=affiliation_type)
     if affiliation_type == co.affiliation_tilknyttet:
@@ -27,27 +25,27 @@ def generate_amounts_affiliations(db, affiliation_type):
                     amount_dict[affiliation['ou_id']].append(affiliation['person_id'])
             pe.clear()
         except:
-            error = error + 1
-    print(error)
-    run = 1
-    while run > 0:
-        run = 0
+            pass
+
+    run = True
+    while run:
+        run = False
         for place in list(amount_dict):
-            notvalid = 0
+            notvalid = True
             ou.find(place)
             quarantines = ou.get_entity_quarantine()
             if len(quarantines) > 0:
                 for quarantine in quarantines:
                     if quarantine[0] == 518:
                         amount_dict.pop(place)
-                        notvalid = 1
-            if notvalid != 1:
+                        notvalid = False
+            if notvalid:
                 try:
                     parent = ou.get_parent(OrgregConstants.perspective_orgreg)
                 except NotFoundError:
                     parent = None
                 if parent is not None and parent != 677:
-                    run = 1
+                    run = True
                     if amount_dict.get(parent) is None:
                         amount_dict[parent] = amount_dict.pop(place)
                     else:
@@ -116,7 +114,8 @@ def main():
     student = generate_amounts_affiliations(db, co.affiliation_student)
     tilknyttet = generate_amounts_affiliations(db, co.affiliation_tilknyttet)
     print_info = combine_numbers(db, ansatt, student, tilknyttet)
-    fields = ['ou_id', 'seksjon', 'antall ansattbrukere', 'antall studentbrukere', 'antall tilknyttetbrukere']
+    fields = ['ou_id', 'seksjon', 'antall ansattbrukere',
+              'antall studentbrukere', 'antall tilknyttetbrukere']
     codec = codecs.lookup('utf-8')
     output_file = open(args.filename, 'w')
     output = codec.streamwriter(output_file)
