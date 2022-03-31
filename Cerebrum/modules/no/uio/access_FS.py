@@ -1011,12 +1011,8 @@ class UiOUndervisning(access_FS.Undervisning):
              'spring': 'VÅR'},
             fetchall=True
         )
-        # IVR 2009-03-12 FIXME: DCOracle2 returns a float when taking a union
-        # of two ints. The resons for this escape me.
-        for row in result:
-            row["terminnr"] = int(row["terminnr"])
-
         return result
+
 
     def list_studenter_alle_undakt(self):
         """Hent alle studenter på alle undakt.
