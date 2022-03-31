@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2021 University of Oslo, Norway
+# Copyright 2022 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -51,40 +51,22 @@ This value is used when fetching the default policy with py:func:`.get_policy`.
 """
 from __future__ import print_function
 
-import base64
-import os
-
 import cereconf
+from Cerebrum.utils.funcwrap import deprecate
 from Cerebrum.utils.module import resolve
 from . import otp_db
+from . import otp_utils
 from .jwe_utils import get_jwk, jwe_encrypt
 
 
-# Default secret size requirement, in bytes
-#
-# OTP secrets can be of any length, but Feide requires secrets to be 10 bytes
-# (16 base32 chars).
-DEFAULT_SECRET_SIZE = 10
+@deprecate('use Cerebrum.modules.otp.otp_utils.generate_secret')
+def generate_secret(*args, **kwargs):
+    return otp_utils.generate_secret(*args, **kwargs)
 
 
-def generate_secret(nbytes=DEFAULT_SECRET_SIZE):
-    """ Generate a new base32-encoded otp secret. """
-    return base64.b32encode(os.urandom(nbytes))
-
-
-def validate_secret(secret, nbytes=DEFAULT_SECRET_SIZE):
-    """ Check secret value.
-
-    :raise ValueError: if secret is invalid
-    """
-    try:
-        secret_len = len(base64.b32decode(secret))
-    except Exception as e:
-        raise ValueError('invalid base32-secret: %s' % (e,))
-
-    if secret_len != nbytes:
-        raise ValueError('invalid base32-secret: got %d bytes (expected %d)'
-                         % (secret_len, nbytes))
+@deprecate('use Cerebrum.modules.otp.otp_utils.validate_secret')
+def validate_secret(*args, **kwargs):
+    return otp_utils.validate_secret(*args, **kwargs)
 
 
 class OtpType(object):
@@ -186,6 +168,14 @@ class PersonOtpUpdater(object):
     def __init__(self, db, policy):
         self._db = db
         self._policy = policy
+
+    def get_types(self, person_id):
+        """ Get currently set otp_types in this policy for a person. """
+        policy_types = set(self._policy.otp_types)
+        exists = set(r['otp_type']
+                     for r in otp_db.sql_search(self._db,
+                                                person_id=int(person_id)))
+        return policy_types & exists
 
     def clear_obsolete(self, person_id):
         """ Clear otp secrets that does not appear in policy. """
