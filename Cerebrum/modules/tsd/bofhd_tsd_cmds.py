@@ -65,6 +65,7 @@ from Cerebrum.modules.pwcheck.checker import (
     RigidPasswordNotGoodEnough,
     check_password,
 )
+from Cerebrum.modules.trait import bofhd_trait_cmds
 from Cerebrum.modules.tsd import Gateway
 from Cerebrum.modules.tsd import bofhd_auth
 from Cerebrum.modules.tsd import bofhd_help
@@ -192,34 +193,12 @@ class VMType(cmd.Parameter):
     _help_ref = 'vm_type'
 
 
-class TSDBofhdExtension(BofhdCommonMethods):
-    """Superclass for common functionality for TSD's bofhd servers."""
+class _TsdBofhdOverrides(BofhdCommonMethods):
+    """ Common tsd-specific overrides and features.
 
-    all_commands = {}
-    hidden_commands = {}
-    parent_commands = True
-    authz = bofhd_auth.TsdBofhdAuth
-
-    def __init__(self, *args, **kwargs):
-        super(TSDBofhdExtension, self).__init__(*args, **kwargs)
-        self.external_id_mappings = {}
-        self.external_id_mappings['fnr'] = self.const.externalid_fodselsnr
-
-        # The client talking with the TSD gateway
-        self.__gateway = None
-
-    @property
-    def gateway(self):
-        if self.__gateway is None:
-            self.__gateway = Gateway.GatewayClient(logger=self.logger)
-        return self.__gateway
-
-    @classmethod
-    def get_help_strings(cls):
-        """Return all help messages for TSD."""
-        return (bofhd_help.group_help,
-                bofhd_help.command_help,
-                bofhd_help.arg_help)
+    This is used to override the getters and formatters, and add support for
+    e.g. the Project OU subclass.
+    """
 
     def _get_entity(self, entity_type=None, ident=None):
         """Return a suitable entity subclass for the specified entity_id.
@@ -231,7 +210,7 @@ class TSDBofhdExtension(BofhdCommonMethods):
             return self._get_project(ident)
         if ident and entity_type == 'host':
             return self._get_host(ident)
-        return super(TSDBofhdExtension, self)._get_entity(entity_type, ident)
+        return super(_TsdBofhdOverrides, self)._get_entity(entity_type, ident)
 
     def _get_project(self, projectid):
         """Return a project's OU by its name, if found.
@@ -307,7 +286,7 @@ class TSDBofhdExtension(BofhdCommonMethods):
         method that fetches an OU by its stedkode.
         """
         if ou_id is not None:
-            return super(TSDBofhdExtension, self)._get_ou(ou_id, stedkode)
+            return super(_TsdBofhdOverrides, self)._get_ou(ou_id, stedkode)
         return self._get_project(stedkode)
 
     def _format_ou_name(self, ou, include_short_name=True):
@@ -335,6 +314,36 @@ class TSDBofhdExtension(BofhdCommonMethods):
             return ou.get_project_id()
         name = ou.get_project_name()
         return "%s (%s)" % (ou.get_project_id(), name)
+
+
+class TSDBofhdExtension(_TsdBofhdOverrides):
+    """Superclass for common functionality for TSD's bofhd servers."""
+
+    all_commands = {}
+    hidden_commands = {}
+    parent_commands = True
+    authz = bofhd_auth.TsdBofhdAuth
+
+    def __init__(self, *args, **kwargs):
+        super(TSDBofhdExtension, self).__init__(*args, **kwargs)
+        self.external_id_mappings = {}
+        self.external_id_mappings['fnr'] = self.const.externalid_fodselsnr
+
+        # The client talking with the TSD gateway
+        self.__gateway = None
+
+    @property
+    def gateway(self):
+        if self.__gateway is None:
+            self.__gateway = Gateway.GatewayClient(logger=self.logger)
+        return self.__gateway
+
+    @classmethod
+    def get_help_strings(cls):
+        """Return all help messages for TSD."""
+        return (bofhd_help.group_help,
+                bofhd_help.command_help,
+                bofhd_help.arg_help)
 
     #
     # user password
@@ -818,11 +827,6 @@ admin_copy_uio = [
     'spread_add',
     'spread_list',
     'spread_remove',
-    'trait_info',
-    'trait_list',
-    'trait_remove',
-    'trait_set',
-    'trait_types',
     'user_affiliation_add',
     'user_affiliation_remove',
     'user_demote_posix',
@@ -2490,7 +2494,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         subnet.write_db(perform_checks=True)
         return 'Subnet created: {subnet}'.format(subnet=subnet)
 
-    def add_subnet(subnet, description, vlan, perform_checks=True):
+    def add_subnet(self, subnet, description, vlan, perform_checks=True):
         pass
 
 
@@ -2571,3 +2575,7 @@ class HistoryCommands(bofhd_history_cmds.BofhdHistoryCmds):
 
 class OuCommands(bofhd_ou_cmds.OuCommands):
     authz = bofhd_auth.OuAuth
+
+
+class TraitCommands(bofhd_trait_cmds.TraitCommands, _TsdBofhdOverrides):
+    authz = bofhd_auth.TraitAuth

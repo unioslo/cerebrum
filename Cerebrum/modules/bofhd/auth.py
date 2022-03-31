@@ -31,7 +31,7 @@ Summary
 How the access control works:
 
 - When access control is needed for some functionality, you call a method from
-  the `BofhdAuth` class, e.g. `BofhdAuth.can_set_trait`.
+  the `BofhdAuth` class, e.g. `BofhdAuth.can_set_password`.
 
 - The `BofhdAuth` then checks various things, like the operator's group
   memberships, to see if the account is part of a superuser group, or if any of
@@ -156,8 +156,8 @@ The auth module consists of the parts:
   superuser role.
 
 - Services that uses BofhdAuth would only see different auth methods, e.g.
-  can_view_trait(). The operations and OpSets are then checked internally, the
-  service does not need to know about these details.
+  can_set_disk_quota(). The operations and OpSets are then checked internally,
+  the service does not need to know about these details.
 
   An example is the bofhd command 'user_history', which calls
   BofhdAuth.can_show_history(). The auth method will check if the operator has
@@ -984,22 +984,6 @@ class BofhdAuth(DatabaseAccessor):
         return self.has_privileged_access_to_account_or_person(
             operator, self.const.auth_set_password, account)
 
-    def can_set_trait(self, operator, trait=None, ety=None, target=None,
-                      query_run_any=False):
-        if self.is_superuser(operator):
-            return True
-        if query_run_any:
-            return True
-        if trait and self._has_target_permissions(
-                operator=operator,
-                operation=self.const.auth_set_trait,
-                target_type=self.const.auth_target_type_host,
-                target_id=ety.entity_id,
-                victim_id=ety.entity_id,
-                operation_attr=six.text_type(trait)):
-            return True
-        raise PermissionDenied("Not allowed to set trait")
-
     def can_clear_name(self, operator, person=None, source_system=None,
                        query_run_any=False):
         """If operator is allowed to remove a person's name from a given source
@@ -1009,59 +993,6 @@ class BofhdAuth(DatabaseAccessor):
         if query_run_any:
             return False
         raise PermissionDenied('Not allowed to clear name')
-
-    def can_remove_trait(self, operator, trait=None, ety=None, target=None,
-                         query_run_any=False):
-        if self.is_superuser(operator):
-            return True
-        if query_run_any:
-            return True
-        if trait and self._has_target_permissions(
-                operator=operator,
-                operation=self.const.auth_remove_trait,
-                target_type=self.const.auth_target_type_host,
-                target_id=ety.entity_id,
-                victim_id=ety.entity_id,
-                operation_attr=six.text_type(trait)):
-            return True
-        raise PermissionDenied("Not allowed to remove trait")
-
-    def can_view_trait(self, operator, trait=None, ety=None, target=None,
-                       query_run_any=False):
-        """Access to view traits. Default is that operators can see their own
-        person's and user's traits."""
-        if query_run_any:
-            return True
-        if self.is_superuser(operator):
-            return True
-        if ety and ety.entity_id == operator:
-            return True
-        account = Factory.get('Account')(self._db)
-        account.find(operator)
-        if ety and ety.entity_id == account.owner_id:
-            return True
-        operation_attr = six.text_type(trait) if trait else None
-        if self._has_target_permissions(
-                operator=operator,
-                operation=self.const.auth_view_trait,
-                target_type=self.const.auth_target_type_host,
-                target_id=ety.entity_id,
-                victim_id=target,
-                operation_attr=operation_attr):
-            return True
-        raise PermissionDenied("Not allowed to see trait")
-
-    def can_list_trait(self, operator, trait=None, query_run_any=False):
-        """Access to list which entities has a trait."""
-        if self.is_superuser(operator):
-            return True
-        if query_run_any:
-            return self._has_operation_perm_somewhere(
-                operator, self.const.auth_list_trait)
-        if self._has_operation_perm_somewhere(
-                operator, self.const.auth_list_trait):
-            return True
-        raise PermissionDenied("Not allowed to list traits")
 
     def can_get_student_info(self, operator, person=None, query_run_any=False):
         if self.is_superuser(operator):
@@ -1323,9 +1254,9 @@ class BofhdAuth(DatabaseAccessor):
 
         @return: True or False
         """
-        if self.is_superuser(operator):
-            return True
         if query_run_any:
+            return True
+        if self.is_superuser(operator):
             return True
         if self._is_admin_or_moderator(operator, group.entity_id):
             return True

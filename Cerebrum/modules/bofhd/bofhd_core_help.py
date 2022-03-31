@@ -43,7 +43,6 @@ group_help = {
     'pquota': 'Pquota related commands',
     'quarantine': 'Quarantine related commands',
     'spread': 'Spread related commands',
-    'trait': 'Trait related commands',
     'user': 'Account building and manipulation',
 }
 
@@ -229,21 +228,6 @@ command_help = {
         'spread_add': 'Assign a new spread for an entity',
         'spread_list': 'List all defined spreads',
         'spread_remove': 'Remove a spread from an entity',
-    },
-    'trait': {
-        'trait_info':
-            'Display all traits associated with an entity',
-        'trait_list':
-            'List all entities which have specified trait',
-        'trait_remove':
-            'Remove a trait from an entity',
-        'trait_set':
-            'Add or update an entity\'s trait. '
-            'The trait value should be entered as key=value. '
-            'Available keys are; target_id, date, numval, strval. '
-            'Example: trait set uname dns_comment strval=\'words\'',
-        'trait_types':
-            'List all defined trait types (not all are editable)',
     },
     'user': {
         'user_affiliation_add': 'Add affiliation for an account',
@@ -670,20 +654,6 @@ arg_help = {
          'You should type a text indicating why you perform the operation'],
     'string_mdb':
         ['mdb', 'Enter mdb. Example: MailboxDatabase01'],
-    'trait':
-        ['trait', 'Name of trait'],
-    'trait_val':
-        ['value', 'Trait value',
-         """Enter the trait value as key=value.  'key' is one of
-
-         - target_id    value is an entity, entered as type:name
-         - date         value is on format YYYY-MM-DD
-         - numval       value is an integer
-         - strval       value is a string
-
-         The key name may be abbreviated.  If value is left empty, the value
-         associated with key will be cleared.  Updating an existing trait will
-         blank all unnamed keys."""],
     'user_create_person_id':
         ['owner', 'Enter account owner',
          u"""Identify account owner (person or group) by entering:

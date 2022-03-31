@@ -109,6 +109,7 @@ from Cerebrum.modules.pwcheck.history import (
     PasswordHistory,
     check_password_history,
 )
+from Cerebrum.modules.trait import bofhd_trait_cmds
 from Cerebrum.utils.date import parse_date
 from Cerebrum.utils import date_compat
 from Cerebrum.utils.email import mail_template, sendmail
@@ -4417,197 +4418,6 @@ class BofhdExtension(BofhdCommonMethods):
             text_type(spread), self._get_name_from_object(entity))
 
     #
-    # trait info -- show trait values for an entity
-    #
-    all_commands['trait_info'] = Command(
-        ("trait", "info"),
-        Id(help_ref="id:target:account"),
-        # Since the FormatSuggestion sorts by the type and not the order of the
-        # return data, we send both a string to make it pretty in jbofh, and a
-        # list to be used by brukerinfo, which is ignored by jbofh.
-        fs=FormatSuggestion("%s", ('text',)),
-        perm_filter="can_view_trait")
-
-    def trait_info(self, operator, ety_id):
-        ety = self.util.get_target(ety_id, restrict_to=[])
-        self.ba.can_view_trait(operator.get_entity_id(), ety=ety)
-
-        ety_name = self._get_name_from_object(ety)
-
-        text = []
-        ret = []
-        for trait, values in ety.get_traits().items():
-            try:
-                self.ba.can_view_trait(operator.get_entity_id(), trait=trait,
-                                       ety=ety, target=values['target_id'])
-            except PermissionDenied:
-                continue
-
-            text.append("  Trait:       %s" % text_type(trait))
-            if values['numval'] is not None:
-                text.append("    Numeric:   %d" % values['numval'])
-            if values['strval'] is not None:
-                text.append("    String:    %s" % values['strval'])
-            if values['target_id'] is not None:
-                target = self.util.get_target(int(values['target_id']))
-                text.append(
-                    "    Target:    %s (%s)" %
-                    (self._get_entity_name(target.entity_id,
-                                           target.entity_type),
-                     text_type(self.const.EntityType(target.entity_type))))
-            if values['date'] is not None:
-                text.append("    Date:      %s" % values['date'])
-            values['trait_name'] = text_type(trait)
-            ret.append(values)
-        if text:
-            text = ["Entity:        %s (%s)" % (
-                ety_name,
-                text_type(self.const.EntityType(ety.entity_type)))] + text
-            return {'text': "\n".join(text), 'traits': ret}
-        return "%s has no traits" % ety_name
-
-    #
-    # trait list -- list all entities with trait
-    #
-    all_commands['trait_list'] = Command(
-        ("trait", "list"),
-        SimpleString(help_ref="trait"),
-        fs=FormatSuggestion(
-            "%-16s %-16s %s", ('trait', 'type', 'name'),
-            hdr="%-16s %-16s %s" % ('Trait', 'Type', 'Name')
-        ),
-        perm_filter="can_list_trait")
-
-    def trait_list(self, operator, trait_name):
-        trait = self._get_constant(self.const.EntityTrait, trait_name, "trait")
-        self.ba.can_list_trait(operator.get_entity_id(), trait=trait)
-        ety_type = self.const.EntityType(trait.entity_type)
-
-        entity_type_namespace = getattr(
-            cereconf, 'ENTITY_TYPE_NAMESPACE', dict())
-        namespace = entity_type_namespace.get(text_type(ety_type))
-        if namespace is not None:
-            namespace = self.const.ValueDomain(namespace)
-
-        ety = self.Account_class(self.db)  # exact class doesn't matter
-        ety_name = Entity.EntityName(self.db)
-
-        def get_name(e_id):
-            if namespace is None:
-                return None
-            try:
-                ety_name.clear()
-                ety_name.find(e_id)
-                return ety_name.get_name(namespace)
-            except Errors.NotFoundError:
-                return None
-
-        ret = []
-        for row in ety.list_traits(trait):
-
-            e_id = row['entity_id']
-            name = get_name(e_id)
-
-            # TODO: Host, Disk and Person don't use entity_name, so name will
-            # be <not set>
-            ret.append({
-                'trait': text_type(trait),
-                'type': text_type(ety_type),
-                'name': name,
-            })
-        ret.sort(key=lambda d: d['name'])
-        return ret
-
-    #
-    # trait remove -- remove trait from entity
-    #
-    all_commands['trait_remove'] = Command(
-        ("trait", "remove"),
-        Id(help_ref="id:target:account"),
-        SimpleString(help_ref="trait"),
-        perm_filter="can_remove_trait")
-
-    def trait_remove(self, operator, ety_id, trait_name):
-        ety = self.util.get_target(ety_id, restrict_to=[])
-        trait = self._get_constant(self.const.EntityTrait, trait_name, "trait")
-        self.ba.can_remove_trait(operator.get_entity_id(),
-                                 ety=ety,
-                                 trait=trait)
-
-        if isinstance(ety, Utils.Factory.get('Disk')):
-            ety_name = ety.path
-        elif isinstance(ety, Utils.Factory.get('Person')):
-            ety_name = ety.get_name(self.const.system_cached,
-                                    self.const.name_full)
-        else:
-            ety_name = ety.get_names()[0][0]
-        if ety.get_trait(trait) is None:
-            return "%s has no %s trait" % (ety_name, text_type(trait))
-        ety.delete_trait(trait)
-        return "OK, deleted trait %s from %s" % (text_type(trait), ety_name)
-
-    #
-    # trait set -- add or update a trait
-    #
-    all_commands['trait_set'] = Command(
-        ("trait", "set"),
-        Id(help_ref="id:target:account"),
-        SimpleString(help_ref="trait"),
-        SimpleString(help_ref="trait_val", repeat=True),
-        perm_filter="can_set_trait")
-
-    def trait_set(self, operator, ent_name, trait_name, *values):
-        ent = self.util.get_target(ent_name, restrict_to=[])
-        trait = self._get_constant(self.const.EntityTrait, trait_name, "trait")
-        self.ba.can_set_trait(operator.get_entity_id(), trait=trait, ety=ent)
-        params = {}
-        for v in values:
-            if v.count('='):
-                key, value = v.split('=', 1)
-            else:
-                key = v
-                value = ''
-            key = self.util.get_abbr_type(key, ('target_id', 'date', 'numval',
-                                                'strval'))
-            if value == '':
-                params[key] = None
-            elif key == 'target_id':
-                target = self.util.get_target(value, restrict_to=[])
-                params[key] = target.entity_id
-            elif key == 'date':
-                # TODO: _parse_date only handles dates, not hours etc.
-                params[key] = self._parse_date(value)
-            elif key == 'numval':
-                params[key] = int(value)
-            elif key == 'strval':
-                params[key] = value
-        ent.populate_trait(trait, **params)
-        ent.write_db()
-        return "Ok, set trait %s for %s" % (text_type(trait), ent_name)
-
-    #
-    # trait types -- list out the defined trait types
-    #
-    all_commands['trait_types'] = Command(
-        ("trait", "types"),
-        fs=FormatSuggestion(
-            "%-25s %s", ('trait', 'description'),
-            hdr="%-25s %s" % ('Trait', 'Description')
-        ),
-        perm_filter="can_set_trait")
-
-    def trait_types(self, operator):
-        self.ba.can_set_trait(operator.get_entity_id())
-        ret = [
-            {
-                "trait": text_type(x),
-                "description": x.description,
-            }
-            for x in self.const.fetch_constants(self.const.EntityTrait)
-        ]
-        return sorted(ret, key=lambda x: x['trait'])
-
-    #
     # user affiliation_add
     #
     all_commands['user_affiliation_add'] = Command(
@@ -6817,3 +6627,7 @@ class OuCommands(bofhd_ou_cmds.OuCommands):
 
 class OtpCommands(bofhd_otp_cmds.OtpCommands):
     authz = bofhd_auth.OtpAuth
+
+
+class TraitCommands(bofhd_trait_cmds.TraitCommands):
+    authz = bofhd_auth.TraitAuth

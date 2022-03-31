@@ -42,6 +42,7 @@ from Cerebrum.modules.bofhd_requests import bofhd_requests_auth
 from Cerebrum.modules.bofhd_requests import bofhd_requests_cmds
 from Cerebrum.modules.bofhd.bofhd_utils import copy_func, copy_command
 from Cerebrum.modules.no.uio import bofhd_uio_cmds
+from Cerebrum.modules.trait import bofhd_trait_cmds
 
 
 # BofhdRequests are unfortunately very UiO specific. Let's try to keep
@@ -443,6 +444,14 @@ class _OuAuth(HiofAuth, bofhd_ou_cmds.OuAuth):
 
 class OuCommands(bofhd_ou_cmds.OuCommands):
     authz = _OuAuth
+
+
+class _TraitAuth(HiofAuth, bofhd_trait_cmds.TraitAuth):
+    pass
+
+
+class TraitCommands(bofhd_trait_cmds.TraitCommands):
+    authz = _TraitAuth
 
 
 HELP_CMDS = {

@@ -51,6 +51,7 @@ from Cerebrum.modules.no.hia.access_FS import FS
 from Cerebrum.modules.bofhd import bofhd_user_create_unpersonal
 from Cerebrum.modules.no.hia import bofhd_uia_auth
 from Cerebrum.modules.no.uio import bofhd_uio_cmds
+from Cerebrum.modules.trait import bofhd_trait_cmds
 
 
 def format_day(field):
@@ -153,10 +154,6 @@ copy_uio = [
     'spread_add',
     'spread_list',
     'spread_remove',
-    'trait_info',
-    'trait_list',
-    'trait_remove',
-    'trait_set',
     'user_affiliation_add',
     'user_affiliation_remove',
     'user_demote_posix',
@@ -1485,6 +1482,10 @@ class OuCommands(bofhd_ou_cmds.OuCommands):
     authz = bofhd_uia_auth.OuAuth
 
 
+class TraitCommands(bofhd_trait_cmds.TraitCommands):
+    authz = bofhd_uia_auth.TraitAuth
+
+
 HELP_GROUPS = {
     'print': 'Printer quota manipulation',
 }
@@ -1596,18 +1597,6 @@ HELP_ARGS = {
          "Example:\n"
          "  pc*,spread:AD_group  - list all AD groups whose names start"
          " with 'pc'"],
-    'trait_val':
-        ['value', 'Trait value',
-         "Enter the trait value as key=value.  'key' is one of\n"
-         "\n"
-         " * target_id -- value is an entity, entered as type:name\n"
-         " * date -- value is on format YYYY-MM-DD\n"
-         " * numval -- value is an integer\n"
-         " * strval -- value is a string\n"
-         "\n"
-         "The key name may be abbreviated.  If value is left empty, the \n"
-         "value associated with key will be cleared.  Updating an existing \n"
-         "trait will blank all unnamed keys."],
     'user_create_person_id':
         ['owner', 'Enter account owner',
          "Identify account owner (person or group) by entering:\n"

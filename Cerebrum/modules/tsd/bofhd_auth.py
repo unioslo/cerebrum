@@ -38,6 +38,7 @@ from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.bofhd_constants import _AuthRoleOpCode
 from Cerebrum.modules.bofhd import bofhd_access
+from Cerebrum.modules.trait import bofhd_trait_cmds
 
 
 class TSDBofhdAuthConstants(Constants.Constants):
@@ -365,8 +366,8 @@ class TsdBofhdAuth(BofhdAuth):
         """
         if self.is_superuser(operator):
             return True
-        if query_run_any and self._is_admin(operator):
-            return True
+        if query_run_any:
+            return self._is_admin(operator)
         if self._is_admin(operator, group.entity_id):
             return True
         return super(TsdBofhdAuth, self).can_alter_group(operator, group,
@@ -464,4 +465,8 @@ class HistoryAuth(TsdBofhdAuth, bofhd_history_cmds.BofhdHistoryAuth):
 
 
 class OuAuth(TsdBofhdAuth, bofhd_ou_cmds.OuAuth):
+    pass
+
+
+class TraitAuth(TsdBofhdAuth, bofhd_trait_cmds.TraitAuth):
     pass
