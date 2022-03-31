@@ -57,7 +57,7 @@ A few salient points:
 
 A typical run for UiO would be something like this:
 
-populate-automatic-groups.py --dryrun -s system_sap -p SAP \\
+populate-automatic-groups.py --dryrun -s -system_dfo_sap p SAP \\
         -c affiliation_status_ansatt_vitenskapelig:ansatt-vitenskapelig \\
         -c affiliation_status_ansatt_tekadm:ansatt-tekadm \\
         -c affiliation_status_ansatt_bil:ansatt-bilag \\
@@ -1350,8 +1350,8 @@ def main():
         type=str,
         action='append',
         help='Set the source system to fetch the personaffiliations from. \n'
-             'Defaults to \'system_sap\' if none is given.',
-        default=[],
+             'Required argument. Eg: system_sap or system_dfo',
+        required=True,
     )
     parser.add_argument(
         '--remove-all-auto-groups',
@@ -1426,9 +1426,6 @@ def main():
                                     parser,
                                     constants.OUPerspective,
                                     args.perspective)
-
-    if not args.source_system:
-        args.source_system = ['system_sap']
 
     source_systems = [get_constant(database,
                                    parser,
