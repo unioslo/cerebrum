@@ -22,21 +22,22 @@ from __future__ import unicode_literals
 import logging
 
 from Cerebrum.modules.OrgLDIF import OrgLdifGroupMixin
+from Cerebrum.modules.no.OrgLDIF import (
+    OrgLdifEntitlementsMixin,
+    norEduLDIFMixin,
+)
 
 logger = logging.getLogger(__name__)
 
 
-class HiofOrgLdifGroupMixin(OrgLdifGroupMixin):
+class HiofOrgLdifGroupMixin(OrgLdifGroupMixin, norEduLDIFMixin):
 
     person_memberof_attr = 'hiofMemberOf'
     person_memberof_class = 'hiofMembership'
 
 
-# TODO: Rename to HiofOrgLdif or something that *doesn't* cause N801
-# TODO: Why doesn't hiof use norEduOrgLdif?
-
-
-class hiofLDIFMixin(HiofOrgLdifGroupMixin):  # noqa: N801
+class HiofOrgLdifMixin(HiofOrgLdifGroupMixin,
+                       OrgLdifEntitlementsMixin):
 
     def init_person_addresses(self):
         # No snail mail addresses for persons.

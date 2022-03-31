@@ -49,7 +49,7 @@ import cereconf
 import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum.Utils import Factory
-from Cerebrum.utils.atomicfile import AtomicFileWriter
+from Cerebrum.utils.atomicfile import AtomicStreamRecoder
 
 logger = logging.getLogger(__name__)
 
@@ -158,11 +158,24 @@ def main(inargs=None):
 
     logger.info('Writing to %s', args.output)
     data = json.dumps(entitlements_per_person,
-                      ensure_ascii=False,
+                      ensure_ascii=True,
                       # sort + pretty print to compare runs with diff:
                       indent=2,
                       sort_keys=True)
-    with AtomicFileWriter(args.output, 'w') as fd:
+
+    # PY2/PY3 workaround:
+    # `json.dumps(obj, ensure_ascii=True)` will always return:
+    #   - ascii bytestring in PY2
+    #   - ascii-encodable str/unicode object in PY3
+    #
+    # `AtomicFileWriter` by default only handles unicode objects, so we use
+    # `AtomicStreamRecoder(encoding='ascii') which will both decode any
+    # bytestring input using 'ascii', and encode string/unicode data using
+    # 'ascii'
+    #
+    # When on PY3 we can revert to using `AtomicFileWriter(args.output,
+    # mode='w')` and `json.dumps(ensure_ascii=False)` - if we want.
+    with AtomicStreamRecoder(args.output, mode='w', encoding='ascii') as fd:
         fd.write(data)
 
     logger.info('Done %s', parser.prog)
