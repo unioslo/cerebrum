@@ -17,7 +17,7 @@ def generate_amounts_affiliations(db, affiliation_type):
          affiliations.extend(pe.list_affiliations(affiliation = co.affiliation_manuell))
     for affiliation in affiliations:
         try:
-            pe.find(affiliation[0])
+            pe.find(affiliation['person_id'])
             if len(pe.get_accounts()) > 0:
                 if amount_dict.get(affiliation['ou_id']) is None:
                     amount_dict[affiliation['ou_id']] = [affiliation['person_id']]
@@ -26,7 +26,10 @@ def generate_amounts_affiliations(db, affiliation_type):
             pe.clear()
         except:
             pass
+    return condense_dict(amount_dict, ou)
 
+def condense_dict(dict, ou):
+    amount_dict = dict
     run = True
     while run:
         run = False
