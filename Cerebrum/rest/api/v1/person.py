@@ -364,11 +364,23 @@ class PersonSetOTPSecret(Resource):
         help='OTP secret',
     )
 
+    @auth.require()
+    def get(self, id):
+        pe = find_person(id)
+
+        if not isinstance(pe, OtpPersonMixin):
+            abort(501, "OTP functionality not supported at this instance")
+
+        otp_data = sql_search(db.connection, person_id=pe.entity_id)
+        has_secret = True if otp_data else False
+
+        return {'id': pe.entity_id, "has_secret": has_secret}
+
     @api.expect(secret_parser)
     @api.response(204, 'secret validated and stored')
     @db.autocommit
     @auth.require()
-    def post(self, id):
+    def put(self, id):
         pe = find_person(id)
 
         if not isinstance(pe, OtpPersonMixin):
