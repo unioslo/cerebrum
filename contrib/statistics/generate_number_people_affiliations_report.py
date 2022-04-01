@@ -26,23 +26,22 @@ def generate_amounts_affiliations(db, affiliation_type):
             pe.clear()
         except:
             pass
-    return condense_dict(amount_dict, ou)
+    return condense_dict(amount_dict, ou, co)
 
-def condense_dict(dict, ou):
+def condense_dict(dict, ou, co):
     amount_dict = dict
     run = True
     while run:
         run = False
         for place in list(amount_dict):
-            notvalid = True
+            valid = True
             ou.find(place)
             quarantines = ou.get_entity_quarantine()
-            if len(quarantines) > 0:
-                for quarantine in quarantines:
-                    if quarantine[0] == 518:
-                        amount_dict.pop(place)
-                        notvalid = False
-            if notvalid:
+            for quarantine in quarantines:
+                if quarantine[0] == co.quarantine_ou_notvalid:
+                    amount_dict.pop(place)
+                    valid = False
+            if valid:
                 try:
                     parent = ou.get_parent(OrgregConstants.perspective_orgreg)
                 except NotFoundError:
