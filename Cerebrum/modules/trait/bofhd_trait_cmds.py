@@ -212,7 +212,6 @@ class TraitCommands(BofhdCommonMethods):
         ]
         text_vals = [
             ("  Trait:       {}", ("trait_name",)),
-            ("    Target:    {} ({})", ("target_name", "target_type")),
             ("    Numeric:   {:d}", ("numval",)),
             ("    String:    {}", ("strval",)),
             ("    Target:    {} ({})", ("target_name", "target_type")),
