@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2017-2020 University of Oslo, Norway
+# Copyright 2017-2022 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,10 +19,11 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """Mixin for contrib/no/uio/generate_randsone_ldif.py."""
 
-from Cerebrum.modules.no.OrgLDIF import norEduLDIFMixin
+from Cerebrum.modules.feide.ldif_mixins import NorEduAuthnLevelMixin
+from Cerebrum.modules.no.OrgLDIF import NorEduSmsAuthnMixin
 
 
-class RandsoneOrgLdif(norEduLDIFMixin):  # noqa: N801
+class RandsoneOrgLdif(NorEduAuthnLevelMixin, NorEduSmsAuthnMixin):
 
     def init_ou_structure(self):
         # Change from original: Drop OUs outside self.root_ou_id subtree.

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2004-2020 University of Oslo, Norway
+# Copyright 2004-2022 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,6 +17,30 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""
+Mixins for adding norEdu* attributes to `Cerebrum.modules.OrgLDIF`.
+
+This module implements the main Feide schema and norEdu attributes, as well as
+mixins for certain norEdu attribtues/features.
+
+py:class:`.NorEduOrgLdifMixin`
+    Common Feide (norEduPerson ++) mixin.
+
+py:class:`.OrgLdifCourseMixin`
+    Mixin to provide ``eduPersonEntitlement`` from a pickle-file of course
+    participation/role URNs.
+
+py:class:`.OrgLdifEntitlementsMixin`
+    Mixin to provide ``eduPersonEntitlement`` from a JSON-file of
+    person-id -> entitlement-list mappings.
+
+py:class:`.NorEduSmsAuthnMixin`
+    Mixin to provide `norEduPersonAuthnMethod` from EntityContactInfo (mobile
+    numbers for SMS one time codes).
+
+py:class:`.NorEduAzureAuthnMixin`
+    Mixin to enable Azure-AD authentication in Feide.
+"""
 from __future__ import unicode_literals
 
 import io
@@ -25,12 +49,11 @@ import logging
 import os
 import pickle
 import re
-import string
 
 import six
+from six.moves.urllib.parse import quote
 
-from Cerebrum import Entity
-from Cerebrum.modules.feide.service import FeideService
+from Cerebrum.Entity import EntityContactInfo
 from Cerebrum.modules.OrgLDIF import OrgLDIF
 from Cerebrum.modules.LDIFutils import (attr_unique,
                                         normalize_string,
@@ -44,9 +67,7 @@ from Cerebrum.Utils import make_timer
 logger = logging.getLogger(__name__)
 
 
-# TODO: NorEdu...
-
-class norEduLDIFMixin(OrgLDIF):  # NOQA: N801
+class NorEduOrgLdifMixin(OrgLDIF):
     """
     Mixin class for OrgLDIF, adding FEIDE attributes to the LDIF output.
 
@@ -71,7 +92,7 @@ class norEduLDIFMixin(OrgLDIF):  # NOQA: N801
     FEIDE_class_obsolete = None
 
     def __init__(self, *args, **kwargs):
-        super(norEduLDIFMixin, self).__init__(*args, **kwargs)
+        super(NorEduOrgLdifMixin, self).__init__(*args, **kwargs)
 
         root = self.config.org.parent
         schema_v = root.get('FEIDE_schema_version', default=None)
@@ -247,7 +268,7 @@ class norEduLDIFMixin(OrgLDIF):  # NOQA: N801
 
     def make_person_entry(self, row, person_id):
         """Override to add Feide specific functionality."""
-        dn, entry, alias_info = super(norEduLDIFMixin,
+        dn, entry, alias_info = super(NorEduOrgLdifMixin,
                                       self).make_person_entry(row, person_id)
         if not dn:
             return dn, entry, alias_info
@@ -348,7 +369,7 @@ class norEduLDIFMixin(OrgLDIF):  # NOQA: N801
         return pri_edu_aff, pri_ou, pri_aff
 
     def init_person_basic(self):
-        super(norEduLDIFMixin, self).init_person_basic()
+        super(NorEduOrgLdifMixin, self).init_person_basic()
         self._get_primary_aff_traits()
 
     def _get_primary_aff_traits(self):
@@ -371,7 +392,7 @@ class norEduLDIFMixin(OrgLDIF):  # NOQA: N801
         timer("...primary aff traits done.")
 
     def init_person_dump(self, use_mail_module):
-        super(norEduLDIFMixin, self).init_person_dump(use_mail_module)
+        super(NorEduOrgLdifMixin, self).init_person_dump(use_mail_module)
         self.init_person_fodselsnrs()
         self.init_person_birth_dates()
 
@@ -396,7 +417,8 @@ class norEduLDIFMixin(OrgLDIF):  # NOQA: N801
         # Changes from superclass:
         # If possible, add object class norEduPerson and its attributes
         # norEduPersonNIN, norEduPersonBirthDate, eduPersonPrincipalName.
-        super(norEduLDIFMixin, self).update_person_entry(entry, row, person_id)
+        super(NorEduOrgLdifMixin, self).update_person_entry(entry, row,
+                                                            person_id)
         uname = entry.get('uid')
         fnr = self.fodselsnrs.get(person_id)
         birth_date = self.birth_dates.get(person_id)
@@ -419,17 +441,34 @@ class norEduLDIFMixin(OrgLDIF):  # NOQA: N801
             if fnr:
                 entry['norEduPersonNIN'] = (str(fnr),)
 
-            # norEdu 1.6 introduces two-factor auth:
-            if self.FEIDE_schema_version >= '1.6':
-                self.update_person_authn(entry, person_id)
+
+class NorEduSmsAuthnMixin(NorEduOrgLdifMixin):
+    """
+    Mixin to provide MFA-attributes for one time codes by SMS to Feide.
+
+    This mixin will add mobile numbers to the ``norEduPersonAuthnMethod``
+    attribute, if supported for the given person.
+
+    The ``cereconf.LDAP_PERSON['norEduPersonAuthnMethod_selector']`` setting
+    controls which phone numbers can be used for this purpose, and for which
+    persons.
+    """
+
+    feide_authn_method_sms_fmt = (
+        'urn:mace:feide.no:auth:method:sms {value} label={label}')
 
     @property
     def person_authn_selection(self):
-        u""" Returns norEduPersonAuthnMethod_selector with constants.
+        """ Normalized norEduPersonAuthnMethod_selector.
 
-        Returns the LDAP_PERSON[norEduPersonAuthnMethod_selector] setting with
-        all strings replaced with their corresponding constant.
+        Returns the ``LDAP_PERSON[norEduPersonAuthnMethod_selector]``
+        mapping/setting with all strings replaced with their corresponding
+        constant:
 
+            <PersonAffiliation> -> [
+              (<AuthoritativeSystem>, <ContactInfo>),
+              ...
+            ]
         """
         if not hasattr(self, '_person_authn_selection'):
             self._person_authn_selection = dict()
@@ -437,7 +476,7 @@ class norEduLDIFMixin(OrgLDIF):  # NOQA: N801
             def get_const(name, cls):
                 constant = self.const.human2constant(name, cls)
                 if not constant:
-                    logger.warn(
+                    logger.warning(
                         "LDAP_PERSON[norEduPersonAuthnMethod_selector]: "
                         "Unknown %s %r", cls.__name__, name)
                 return constant
@@ -459,35 +498,38 @@ class norEduLDIFMixin(OrgLDIF):  # NOQA: N801
 
     @property
     def person_authn_methods(self):
-        """ Returns a contact info mapping for update_person_authn.
+        """ Phone numbers to use for MFA with SMS one time codes.
 
         Initializes self.person_authn_methods with a dict that maps person
         entity_id to a list of dicts with contact info:
 
-            person_id: [ {'contact_type': <const>,
-                          'source_system': <const>,
-                          'value': <str>, },
-                         ... ],
-            ...
+            person_id -> [
+              {
+                'contact_type': <ContactInfo>,
+                'source_system': <AuthoritativeSystem>,
+                'value': <str>,
+              },
+              ...
+            ],
 
         """
         if not hasattr(self, '_person_authn_methods'):
             timer = make_timer(logger,
                                'Fetching authentication methods...')
-            entity = Entity.EntityContactInfo(self.db)
-            self._person_authn_methods = dict()
+            entity = EntityContactInfo(self.db)
+            cache = self._person_authn_methods = {}
 
             # Find the unique systems and contact types for filtering
             source_systems = set(
-                (v[0] for s in self.person_authn_selection.itervalues()
+                (v[0] for s in self.person_authn_selection.values()
                  for v in s))
             contact_types = set(
-                (v[1] for s in self.person_authn_selection.itervalues()
+                (v[1] for s in self.person_authn_selection.values()
                  for v in s))
 
             if not source_systems or not contact_types:
                 # No authn methods to cache
-                return self._person_authn_methods
+                return cache
 
             # Cache contact info
             count = 0
@@ -495,91 +537,81 @@ class norEduLDIFMixin(OrgLDIF):  # NOQA: N801
                     entity_type=self.const.entity_person,
                     source_system=list(source_systems),
                     contact_type=list(contact_types)):
+                person_cache = cache.setdefault(int(row['entity_id']), [])
                 c_type = self.const.ContactInfo(row['contact_type'])
                 system = self.const.AuthoritativeSystem(row['source_system'])
-                self._person_authn_methods.setdefault(
-                    int(row['entity_id']), list()).append({
-                        'value': six.text_type(row['contact_value']),
-                        'contact_type': c_type,
-                        'source_system': system,
-                    })
+                person_cache.append({
+                    'value': six.text_type(row['contact_value']),
+                    'contact_type': c_type,
+                    'source_system': system,
+                })
                 count += 1
+            logger.info('cached %d authn methods from contact info', count)
             timer("...authentication methods done.")
         return self._person_authn_methods
 
-    @property
-    def person_authn_levels(self):
-        """ Returns a authentication level mapping for update_person_authn.
-
-        Initializes self.person_authn_levels with a dict that maps person
-        entity_id to a set of service authentication levels:
-
-            person_id: set([ (feide_service_id, authentication_level),
-                         ... ]),
-            ...
-
+    def _get_sms_authn_methods(self, person_id):
         """
-        if not hasattr(self, '_person_authn_levels'):
-            supported = self.config.person.get(
-                'norEduPersonAuthnMethod_selector',
-                default={})
-            if not supported:
-                self._person_authn_levels = {}
-                return self._person_authn_levels
-            timer = make_timer(logger,
-                               'Fetching authentication levels...')
-            fse = FeideService(self.db)
-            self._person_authn_levels = fse.get_person_to_authn_level_map()
-            timer("...authentication levels done.")
-        return self._person_authn_levels
+        Get norEduPersonAuthnMethod sms values for a person.
 
-    def update_person_authn(self, entry, person_id):
-        """ Add authentication info to the entry.
-
-        This method should be overridden to provide the LDAP attributes
-        'norEduPersonAuthnMethod' and 'norEduPersonServiceAuthnLevel', which
-        was introduced in the norEdu 1.6 specification.
-
-        :param dict entry: The person entry to update
-        :param int person_id: The Cerebrum entity_id of the person.
-
+        :returns list: values for the norEduPersonAuthnMethod attribute
         """
-        person_affs = [aff for aff, _s, _ou in self.affiliations[person_id]]
-        template = string.Template('urn:mace:feide.no:auth:method:sms $value '
-                                   'label=${source_system}%20${contact_type}')
+        # Note: 'self.affiliations' comes from 'init_person_affiliations' -
+        # default implementation in 'Cererbum.modules.OrgLDIF'
+        person_affs = [aff for aff, _, _ in self.affiliations[person_id]]
 
-        # Add populated template to norEduPersonAuthnMethod for each configured
-        # method, if the contact data exists
-        authn_methods = list()
+        # TODO: We should probably label a little bit better, and only include
+        # *one* of each phone number, even if the same number exists in more
+        # than one selection.
+        authn_methods = []
         for authn_entry in self.person_authn_methods.get(person_id, []):
-            for aff, selection in self.person_authn_selection.iteritems():
-                if (aff in person_affs and
-                        (authn_entry['source_system'],
-                         authn_entry['contact_type']) in selection):
-                    authn_methods.append(
-                        template.substitute(authn_entry))
-        entry['norEduPersonAuthnMethod'] = attr_unique(
-            authn_methods, normalize=normalize_string)
+            for aff, selection in self.person_authn_selection.items():
+                if aff not in person_affs:
+                    # This person doesn't have an aff that allows this authn
+                    # method
+                    continue
+                if ((authn_entry['source_system'], authn_entry['contact_type'])
+                        not in selection):
+                    # This contact info type doesn't apply to this selection
+                    continue
 
-        # Add norEduPersonServiceAuthnLevel entries
-        authn_levels = self.person_authn_levels.get(person_id, [])
-        if not authn_levels:
+                value = self.feide_authn_method_sms_fmt.format(
+                    # TODO: We really *should* sanitize/normalize value
+                    value=authn_entry['value'],
+                    label=quote(
+                        "{} {}".format(authn_entry['source_system'],
+                                       authn_entry['contact_type'])),
+                )
+                authn_methods.append(value)
+
+        return attr_unique(authn_methods, normalize=normalize_string)
+
+    def update_person_entry(self, entry, row, person_id):
+        super(NorEduSmsAuthnMixin, self).update_person_entry(entry, row,
+                                                             person_id)
+
+        # norEdu 1.6 introduces two-factor auth:
+        if self.FEIDE_schema_version < '1.6':
             return
-        authn_level_template = string.Template(
-            'urn:mace:feide.no:spid:${feide_id} '
-            'urn:mace:feide.no:auth:level:fad08:${level}')
-        authn_level_entries = []
-        for feide_id, level in authn_levels:
-            authn_level_entries.append(
-                authn_level_template.substitute({
-                    'feide_id': feide_id,
-                    'level': level
-                }))
-        entry['norEduPersonServiceAuthnLevel'] = attr_unique(
-            authn_level_entries, normalize=normalize_string)
+
+        # If parents didn't add the norEduPerson class, we can't add
+        # norEduPerson attributes
+        if 'norEduPerson' not in entry['objectClass']:
+            return
+
+        sms_methods = self._get_sms_authn_methods(person_id)
+
+        # there *shouldn't* be any value collisions here, as SMS methods use a
+        # distinct urn - if we ever make a new mixin that *also* produce
+        # norEduPersonAuthnMethod values with the same urn this should be
+        # re-done
+        if sms_methods and entry.get('norEduPersonAuthnMethod'):
+            entry['norEduPersonAuthnMethod'].extend(sms_methods)
+        elif sms_methods:
+            entry['norEduPersonAuthnMethod'] = sms_methods
 
 
-class OrgLdifCourseMixin(norEduLDIFMixin):
+class OrgLdifCourseMixin(NorEduOrgLdifMixin):
     """
     Mixin to provide eduPersonEntitlement from a pickle-file of URNs.
 
@@ -627,7 +659,7 @@ class OrgLdifCourseMixin(norEduLDIFMixin):
         return dn, entry, alias_info
 
 
-class OrgLdifEntitlementsMixin(norEduLDIFMixin):
+class OrgLdifEntitlementsMixin(NorEduOrgLdifMixin):
     """
     Mixin to provide eduPersonEntitlement from a file.
 
@@ -681,3 +713,39 @@ class OrgLdifEntitlementsMixin(norEduLDIFMixin):
                 entry['eduPersonEntitlement'] = set(entitlements)
 
         return dn, entry, alias_info
+
+
+class NorEduAzureAuthnMixin(NorEduOrgLdifMixin):
+    """
+    Mixin to enable/disable Azure-AD authentication in Feide.
+
+    If this mixin is used, all valid norEduPerson objects *will* have:
+    ::
+
+        norEduPersonAuthnMethod: urn:mace:feide.no:auth:method:azuread -
+    """
+    feide_authn_method_azuread = 'urn:mace:feide.no:auth:method:azuread -'
+
+    def update_person_entry(self, entry, row, person_id):
+        super(NorEduAzureAuthnMixin, self).update_person_entry(entry, row,
+                                                               person_id)
+
+        # norEdu 1.6 introduces two-factor auth:
+        if self.FEIDE_schema_version < '1.6':
+            return
+
+        # If parents didn't add the norEduPerson class, we can't add
+        # norEduPerson attributes
+        if 'norEduPerson' not in entry['objectClass']:
+            return
+
+        # there *shouldn't* be any value collisions here, as the "enable
+        # azure-ad" value use a distinct urn - if we ever make a new mixin that
+        # *also* produce norEduPersonAuthnMethod values with the same urn this
+        # should be re-done
+        values = attr_unique([self.feide_authn_method_azuread],
+                             normalize=normalize_string)
+        if values and entry.get('norEduPersonAuthnMethod'):
+            entry['norEduPersonAuthnMethod'].extend(values)
+        elif values:
+            entry['norEduPersonAuthnMethod'] = values

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2006-2020 University of Oslo, Norway
+# Copyright 2006-2022 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -27,7 +27,7 @@ from six import text_type
 
 from Cerebrum import Entity
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.no.OrgLDIF import OrgLDIF
+from Cerebrum.modules.no.OrgLDIF import NorEduOrgLdifMixin
 from Cerebrum.modules.LDIFutils import (
     attr_unique,
     normalize_string,
@@ -37,15 +37,13 @@ from Cerebrum.modules.no.nmh import StudentStudyProgramCache
 logger = logging.getLogger(__name__)
 
 
-# TODO: NmhOrgLDIFMixin
-
-class nmhOrgLDIFMixin(OrgLDIF):  # noqa: N801
+class NmhOrgLdif(NorEduOrgLdifMixin):
 
     # Fetch mail addresses from entity_contact_info of accounts, not persons.
     person_contact_mail = False
 
     def __init__(self, *args, **kwargs):
-        super(nmhOrgLDIFMixin, self).__init__(*args, **kwargs)
+        super(NmhOrgLdif, self).__init__(*args, **kwargs)
 
         self.attr2syntax['mobile'] = self.attr2syntax['telephoneNumber']
         self.attr2syntax['roomNumber'] = (None, None, normalize_string)
@@ -160,7 +158,7 @@ class nmhOrgLDIFMixin(OrgLDIF):  # noqa: N801
 
         NMH needs more data for their own use, e.g. to be used by their web
         pages."""
-        dn, entry, alias_info = super(nmhOrgLDIFMixin,
+        dn, entry, alias_info = super(NmhOrgLdif,
                                       self).make_person_entry(row, person_id)
         if dn:
             urns = entry.setdefault('eduPersonEntitlement', set())

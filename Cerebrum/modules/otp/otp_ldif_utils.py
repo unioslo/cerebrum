@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2021 University of Oslo, Norway
+# Copyright 2021-2022 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -42,7 +42,7 @@ from Cerebrum.Utils import make_timer
 from Cerebrum.export.base import EntityCache, EntityFetcher, MISSING
 from Cerebrum.modules.LDIFutils import attr_unique, normalize_string
 from Cerebrum.modules.PosixLDIF import PosixLDIFRadius
-from Cerebrum.modules.no.OrgLDIF import norEduLDIFMixin
+from Cerebrum.modules.no.OrgLDIF import NorEduOrgLdifMixin
 
 from .otp_db import sql_search
 
@@ -145,16 +145,9 @@ def _get_cache(db, otp_type, ldap_attr=''):
     return cache
 
 
-def format_ldap_value(fmt, secret, label='OTP'):
-    """ Format ldap otp secret from pre-defined formatstring. """
-    return fmt.format(
-        secret=quote(secret),
-        label=quote(label))
-
-
-class NorEduOtpMixin(norEduLDIFMixin):
+class NorEduOtpMixin(NorEduOrgLdifMixin):
     """
-    Mixin to provide encrypted OTP secrets in OrgLDIF/norEduLDIFMixin
+    Mixin to provide encrypted OTP secrets in OrgLDIF/NorEduOrgLdifMixin.
 
     This mixin adds or extends the *norEduPersonAuthnMethod* attribute with
     data from otp_type='feide-ga'.
@@ -164,7 +157,11 @@ class NorEduOtpMixin(norEduLDIFMixin):
 
     # Format for the ldap attribute value.
     # secret and label should be percent-encoded according to rfc3986.
-    feide_ldap_fmt = 'urn:mace:feide.no:auth:method:ga {secret} label={label}'
+    feide_authn_method_ga_fmt = (
+        'urn:mace:feide.no:auth:method:ga {value} label={label}')
+
+    # TODO: We should probably re-consider the label
+    feide_otp_label = 'OTP'
 
     @property
     def feide_otp_cache(self):
@@ -175,28 +172,39 @@ class NorEduOtpMixin(norEduLDIFMixin):
                 self.db, self.feide_otp_type, 'norEduPersonAuthnMethod')
         return cache
 
-    def update_person_authn(self, entry, person_id):
-        super(NorEduOtpMixin, self).update_person_authn(entry, person_id)
-
+    def _get_otp_authn_methods(self, person_id):
         try:
-            secret = format_ldap_value(
-                self.feide_ldap_fmt,
-                self.feide_otp_cache.get_payload(person_id)
-            )
+            secret = self.feide_otp_cache.get_payload(person_id)
         except LookupError:
+            return []
+
+        value = self.feide_authn_method_ga_fmt.format(
+            value=quote(secret),
+            label=quote(self.feide_otp_label),
+        )
+        return attr_unique([value], normalize=normalize_string)
+
+    def update_person_entry(self, entry, row, person_id):
+        super(NorEduOtpMixin, self).update_person_entry(entry, row, person_id)
+
+        # norEdu 1.6 introduces two-factor auth:
+        if self.FEIDE_schema_version < '1.6':
+            return
+
+        # If parent didn't add norEduPerson, we can't add norEduPerson
+        # attributes
+        if 'norEduPerson' not in entry['objectClass']:
             return
 
         # there *shouldn't* be any value collisions here, as encrypted TOTP
         # values use a distinct urn - if we ever make a new mixin that *also*
         # produce norEduPersonAuthnMethod values with the same urn this should
         # be re-done
-        to_add = attr_unique([secret], normalize=normalize_string)
-
-        # update entry attr with totp values
-        if entry.get('norEduPersonAuthnMethod'):
-            entry['norEduPersonAuthnMethod'].extend(to_add)
-        else:
-            entry['norEduPersonAuthnMethod'] = to_add
+        ga_values = self._get_otp_authn_methods(person_id)
+        if ga_values and entry.get('norEduPersonAuthnMethod'):
+            entry['norEduPersonAuthnMethod'].extend(ga_values)
+        elif ga_values:
+            entry['norEduPersonAuthnMethod'] = ga_values
 
 
 class RadiusOtpMixin(PosixLDIFRadius):
@@ -208,9 +216,16 @@ class RadiusOtpMixin(PosixLDIFRadius):
     """
 
     radius_otp_type = 'radius-otp'
+
+    # TODO: If anyone else ever needs this - change
+    # radius_otp_attr/radius_otp_class and implement a subclass in
+    # Cerebrum.modules.no.uio with these values.
+    #
+    # Also, we should probably have the option to both
+    #  - omit the attribute if the class is not present
+    #  - add the objectClass if not present
     radius_otp_attr = 'uioRadiusOtpSecret'
     radius_otp_class = 'uioAccountObject'
-    radius_otp_fmt = '{secret}'
 
     @property
     def radius_otp_cache(self):
@@ -226,10 +241,8 @@ class RadiusOtpMixin(PosixLDIFRadius):
                                                       owner_id)
 
         try:
-            entry[self.radius_otp_attr] = format_ldap_value(
-                self.radius_otp_fmt,
-                self.radius_otp_cache.get_payload(owner_id)
-            )
+            entry[self.radius_otp_attr] = quote(
+                self.radius_otp_cache.get_payload(owner_id))
         except LookupError:
             pass
         else:

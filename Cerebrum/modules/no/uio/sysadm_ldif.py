@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2020 University of Oslo, Norway
+# Copyright 2020-2022 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -26,14 +26,15 @@ from __future__ import print_function, unicode_literals
 import logging
 
 from Cerebrum.Utils import make_timer
-from Cerebrum.modules.no.OrgLDIF import norEduLDIFMixin
+from Cerebrum.modules.feide.ldif_mixins import NorEduAuthnLevelMixin
+from Cerebrum.modules.no.OrgLDIF import NorEduSmsAuthnMixin
 
 from . import sysadm_utils
 
 logger = logging.getLogger(__name__)
 
 
-class SysAdmOrgLdif(norEduLDIFMixin):
+class SysAdmOrgLdif(NorEduAuthnLevelMixin, NorEduSmsAuthnMixin):
     """
     Mixin for exporting system administrator accounts (*-drift).
 
@@ -70,6 +71,8 @@ class SysAdmOrgLdif(norEduLDIFMixin):
     @property
     def person_authn_levels(self):
         """Enforces authn level 3 for all users."""
+        # Overrides NorEduAuthnLevelMixin.person_authn_levels to require MFA
+        # for all included personal user acocunts.
         if not hasattr(self, '_person_authn_levels'):
             d = self._person_authn_levels = {}
             for person_id in self.persons:

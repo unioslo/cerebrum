@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2007-2020 University of Oslo, Norway
+# Copyright 2007-2022 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -22,22 +22,30 @@ from __future__ import unicode_literals
 import logging
 
 from Cerebrum.modules.OrgLDIF import OrgLdifGroupMixin
-from Cerebrum.modules.no.OrgLDIF import (
-    OrgLdifEntitlementsMixin,
-    norEduLDIFMixin,
-)
+from Cerebrum.modules.feide.ldif_mixins import NorEduAuthnLevelMixin
+from Cerebrum.modules.no.OrgLDIF import NorEduOrgLdifMixin
+from Cerebrum.modules.no.OrgLDIF import NorEduSmsAuthnMixin
+from Cerebrum.modules.no.OrgLDIF import OrgLdifEntitlementsMixin
 
 logger = logging.getLogger(__name__)
 
 
-class HiofOrgLdifGroupMixin(OrgLdifGroupMixin, norEduLDIFMixin):
+# We inherit from NorEduOrgLdifMixin only to keep the MRO (and in turn
+# objectClass values) in the same order they've been before refactors.
+#
+# This is only for easier diffing - it's not needed for any other purpose and
+# could be removed.
+class _HiofGroupMixin(OrgLdifGroupMixin, NorEduOrgLdifMixin):
 
+    # Attributes and values for OrgLdifGroupMixin
     person_memberof_attr = 'hiofMemberOf'
     person_memberof_class = 'hiofMembership'
 
 
-class HiofOrgLdifMixin(HiofOrgLdifGroupMixin,
-                       OrgLdifEntitlementsMixin):
+class HiofOrgLdif(_HiofGroupMixin,
+                  OrgLdifEntitlementsMixin,
+                  NorEduAuthnLevelMixin,
+                  NorEduSmsAuthnMixin):
 
     def init_person_addresses(self):
         # No snail mail addresses for persons.

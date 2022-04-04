@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2004-2020 University of Oslo, Norway
+# Copyright 2004-2022 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -23,6 +23,8 @@ from collections import defaultdict
 from six import text_type
 
 from Cerebrum import Entity
+from Cerebrum.modules.feide.ldif_mixins import NorEduAuthnLevelMixin
+from Cerebrum.modules.no.OrgLDIF import NorEduSmsAuthnMixin
 from Cerebrum.modules.no.OrgLDIF import OrgLdifEntitlementsMixin
 from Cerebrum.modules.LDIFutils import (
     attr_unique,
@@ -33,11 +35,13 @@ from Cerebrum.Utils import make_timer
 logger = logging.getLogger(__name__)
 
 
-class OrgLDIFHiAMixin(OrgLdifEntitlementsMixin):
+class UiaOrgLdif(OrgLdifEntitlementsMixin,
+                 NorEduAuthnLevelMixin,
+                 NorEduSmsAuthnMixin):
     """Mixin class for norEduLDIFMixin(OrgLDIF) with HiA modifications."""
 
     def __init__(self, *args, **kwargs):
-        super(OrgLDIFHiAMixin, self).__init__(*args, **kwargs)
+        super(UiaOrgLdif, self).__init__(*args, **kwargs)
         self.attr2syntax['mobile'] = self.attr2syntax['telephoneNumber']
         self.attr2syntax['roomNumber'] = (None, None, normalize_string)
 
@@ -98,7 +102,7 @@ class OrgLDIFHiAMixin(OrgLdifEntitlementsMixin):
     def init_person_titles(self):
         """Extends the person_titles dict with employment titles available via
         the PersonEmployment module."""
-        super(OrgLDIFHiAMixin, self).init_person_titles()
+        super(UiaOrgLdif, self).init_person_titles()
 
         timer = make_timer(logger,
                            'Fetching personal employment titles...')
