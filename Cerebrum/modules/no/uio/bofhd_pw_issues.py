@@ -321,7 +321,8 @@ class PassWordIssues(BofhdCommonMethods):
         valid_source_phone = False
         for phone in phones:
             if phone['ssys'] in (self.co.system_dfo_sap,
-                                 self.co.system_fs,):
+                                 self.co.system_fs,
+                                 self.co.system_greg,):
                 valid_source_phone = True
                 break
         if not valid_source_phone:
