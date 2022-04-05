@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2004-2020 University of Oslo, Norway
+# Copyright 2004-2022 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -27,9 +27,11 @@ from itertools import product
 
 from Cerebrum.modules.OrgLDIF import OrgLdifGroupMixin
 from Cerebrum.modules.OrgLDIF import postal_escape_re
+from Cerebrum.modules.feide.ldif_mixins import NorEduAuthnLevelMixin
+from Cerebrum.modules.no.OrgLDIF import NorEduOrgLdifMixin
+from Cerebrum.modules.no.OrgLDIF import NorEduSmsAuthnMixin
 from Cerebrum.modules.no.OrgLDIF import OrgLdifCourseMixin
 from Cerebrum.modules.no.OrgLDIF import OrgLdifEntitlementsMixin
-from Cerebrum.modules.no.OrgLDIF import norEduLDIFMixin
 from Cerebrum.modules.LDIFutils import (
     hex_escape_match,
     normalize_IA5String,
@@ -44,7 +46,7 @@ logger = logging.getLogger(__name__)
 ou_rdn2space_re = re.compile('[#\"+,;<>\\\\=\0\\s]+')
 
 
-class UioOrgLdifGroupMixin(OrgLdifGroupMixin, norEduLDIFMixin):
+class _UioGroupMixin(OrgLdifGroupMixin, NorEduOrgLdifMixin):
 
     # TODO: We only inherit from norEduLDIFMixin here in order to get the
     #       objectClass entries in the same order as before (i.e. uioMembership
@@ -52,17 +54,20 @@ class UioOrgLdifGroupMixin(OrgLdifGroupMixin, norEduLDIFMixin):
     #       This is done to reduce the change in the output file - the entries
     #       could be swapped around in order without consequence.
 
+    # Attributes and values for OrgLdifGroupMixin
     person_memberof_attr = 'uioMemberOf'
     person_memberof_class = 'uioMembership'
 
 
-class OrgLDIFUiOMixin(OrgLdifCourseMixin,
-                      UioOrgLdifGroupMixin,
-                      OrgLdifEntitlementsMixin):
+class UioOrgLdif(NorEduSmsAuthnMixin,
+                 NorEduAuthnLevelMixin,
+                 OrgLdifCourseMixin,
+                 _UioGroupMixin,
+                 OrgLdifEntitlementsMixin):
     """Mixin class for norEduLDIFMixin(OrgLDIF) with UiO modifications."""
 
     def __init__(self, *args, **kwargs):
-        super(OrgLDIFUiOMixin, self).__init__(*args, **kwargs)
+        super(UioOrgLdif, self).__init__(*args, **kwargs)
 
         self.attr2syntax['mobile'] = self.attr2syntax['telephoneNumber']
         self.attr2syntax['uioVisiblePrivateMobile'] = \
@@ -72,7 +77,7 @@ class OrgLDIFUiOMixin(OrgLdifCourseMixin,
         self.ou_quarantined = {}
 
     def init_ou_dump(self):
-        super(OrgLDIFUiOMixin, self).init_ou_dump()
+        super(UioOrgLdif, self).init_ou_dump()
         self.get_ou_quarantines()
         ou2parent = dict((c, p)
                          for p, ous in self.ou_tree.items()
@@ -103,27 +108,36 @@ class OrgLDIFUiOMixin(OrgLdifCourseMixin,
         # - Include 'mobile' as well
         # - OUs get their contact info from the address_source_system
         contact_sources = (
-            (self.const.entity_ou, getattr(self.const, self.config.org.parent.get('address_source_system'))),
-            (self.const.entity_person, getattr(self.const, self.config.org.parent.get('contact_source_system')))
+            (self.const.entity_ou,
+             getattr(self.const,
+                     self.config.org.parent.get('address_source_system'))),
+            (self.const.entity_person,
+             getattr(self.const,
+                     self.config.org.parent.get('contact_source_system'))),
         )
         contact_types = (
             ('telephoneNumber', self.const.contact_phone),
             ('mobile', self.const.contact_mobile_phone),
-            ('uioVisiblePrivateMobile', self.const.contact_private_mobile_visible),
+            ('uioVisiblePrivateMobile',
+             self.const.contact_private_mobile_visible),
             ('facsimileTelephoneNumber', self.const.contact_fax)
         )
         sourced_contact_types = list(product(contact_sources, contact_types))
-        sourced_contact_types.append(((None, None), ('labeledURI', self.const.contact_url)))
+        sourced_contact_types.append((
+            (None, None),
+            ('labeledURI', self.const.contact_url),
+        ))
 
-        contacts = [(attr, self.get_contacts(
-            contact_type=contact_type,
-            source_system=source_system,
-            entity_type=entity_type,
-            convert=self.attr2syntax[attr][0],
-            verify=self.attr2syntax[attr][1],
-            normalize=self.attr2syntax[attr][2]))
-            for (entity_type, source_system), (attr, contact_type) in
-                sourced_contact_types]
+        contacts = [
+            (attr, self.get_contacts(
+                contact_type=contact_type,
+                source_system=source_system,
+                entity_type=entity_type,
+                convert=self.attr2syntax[attr][0],
+                verify=self.attr2syntax[attr][1],
+                normalize=self.attr2syntax[attr][2]))
+            for (entity_type, source_system), (attr, contact_type)
+            in sourced_contact_types]
 
         self.id2labeledURI = contacts[-1][1]
         self.attr2id2contacts = [v for v in contacts if v[1]]
@@ -174,7 +188,7 @@ class OrgLDIFUiOMixin(OrgLdifCourseMixin,
             If True, Cerebrum.modules.Email will be used to populate this
             cache; otherwise the `self.account_mail` dict will be None.
         """
-        super(OrgLDIFUiOMixin, self).init_account_mail(use_mail_module)
+        super(UioOrgLdif, self).init_account_mail(use_mail_module)
         if use_mail_module:
             timer = make_timer(
                 logger,
@@ -220,7 +234,7 @@ class OrgLDIFUiOMixin(OrgLdifCourseMixin,
 
     def make_person_entry(self, row, person_id):
         """ Extend with UiO functionality. """
-        dn, entry, alias_info = super(OrgLDIFUiOMixin,
+        dn, entry, alias_info = super(UioOrgLdif,
                                       self).make_person_entry(row, person_id)
         account_id = int(row['account_id'])
 
@@ -280,7 +294,7 @@ class OrgLDIFUiOMixin(OrgLdifCourseMixin,
         SAPUiO and FS.
 
         """
-        super(OrgLDIFUiOMixin, self).init_person_selections(*args, **kwargs)
+        super(UioOrgLdif, self).init_person_selections(*args, **kwargs)
         # Set what affiliations that should be checked for visibility from SAP
         # and FS. The default is to set the person to NOT visible, which
         # happens for all persons that doesn't have _any_ of the affiliations
@@ -294,16 +308,17 @@ class OrgLDIFUiOMixin(OrgLdifCourseMixin,
             (ansatt, int(self.const.affiliation_status_ansatt_tekadm)),
             (ansatt, int(self.const.affiliation_status_ansatt_vitenskapelig)),
             (ansatt, int(self.const.affiliation_status_ansatt_perm)),
-        #    (tilkn_aff, int(self.const.affiliation_tilknyttet_ekst_stip)),
-        #    (tilkn_aff, int(self.const.affiliation_tilknyttet_frida_reg)),
-        #    (tilkn_aff, int(self.const.affiliation_tilknyttet_innkjoper)),
-        #    (tilkn_aff, int(self.const.
-        #                    affiliation_tilknyttet_assosiert_person)),
-        #    (tilkn_aff, int(self.const.affiliation_tilknyttet_ekst_forsker)),
+            # (tilkn_aff, int(self.const.affiliation_tilknyttet_ekst_stip)),
+            # (tilkn_aff, int(self.const.affiliation_tilknyttet_frida_reg)),
+            # (tilkn_aff, int(self.const.affiliation_tilknyttet_innkjoper)),
+            # (tilkn_aff, int(self.const.
+            #                 affiliation_tilknyttet_assosiert_person)),
+            # (tilkn_aff, int(self.const.affiliation_tilknyttet_ekst_forsker)),
             (tilkn_aff, int(self.const.affiliation_tilknyttet_emeritus)),
-        #    (tilkn_aff, int(self.const.affiliation_tilknyttet_gjesteforsker)),
-        #    (tilkn_aff, int(self.const.affiliation_tilknyttet_bilag)),
-        #    (tilkn_aff, int(self.const.affiliation_tilknyttet_ekst_partner)),
+            # (tilkn_aff, int(self.const.
+            #                 affiliation_tilknyttet_gjesteforsker)),
+            # (tilkn_aff, int(self.const.affiliation_tilknyttet_bilag)),
+            # (tilkn_aff, int(self.const.affiliation_tilknyttet_ekst_partner)),
         )
         student = int(self.const.affiliation_student)
         self.fs_aff_statuses = (

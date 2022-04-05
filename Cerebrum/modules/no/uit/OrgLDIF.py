@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2013-2020 University of Oslo, Norway
+# Copyright 2013-2022 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -28,28 +28,29 @@ import logging
 
 from Cerebrum.Utils import make_timer
 from Cerebrum.modules.OrgLDIF import OrgLdifGroupMixin
-from Cerebrum.modules.no.OrgLDIF import norEduLDIFMixin
+from Cerebrum.modules.no.OrgLDIF import NorEduOrgLdifMixin
 
 from .Account import UsernamePolicy
 
 logger = logging.getLogger(__name__)
 
 
-class UitOrgLdifGroupMixin(OrgLdifGroupMixin):
+class _UitGroupMixin(OrgLdifGroupMixin):
 
+    # Attributes and values for OrgLdifGroupMixin
     person_memberof_attr = 'member'
     person_memberof_class = 'uitMembership'
 
 
-class OrgLDIFUiTMixin(UitOrgLdifGroupMixin, norEduLDIFMixin):
+class UitOrgLdif(_UitGroupMixin, NorEduOrgLdifMixin):
 
     def __init__(self, *args, **kwargs):
-        super(OrgLDIFUiTMixin, self).__init__(*args, **kwargs)
+        super(UitOrgLdif, self).__init__(*args, **kwargs)
         self.attr2syntax['mobile'] = self.attr2syntax['telephoneNumber']
 
     def init_attr2id2contacts(self):
         """Override to include more, local data from contact info."""
-        super(OrgLDIFUiTMixin, self).init_attr2id2contacts()
+        super(UitOrgLdif, self).init_attr2id2contacts()
         fs = self.const.system_fs
         c = [(a, self.get_contacts(contact_type=t,
                                    source_system=s,
@@ -79,7 +80,7 @@ class OrgLDIFUiTMixin(UitOrgLdifGroupMixin, norEduLDIFMixin):
         timer("...OU tree done.")
 
     def init_account_info(self):
-        super(OrgLDIFUiTMixin, self).init_account_info()
+        super(UitOrgLdif, self).init_account_info()
 
         # Filter out sito accounts
         for account_id in tuple(self.acc_name):
@@ -92,7 +93,7 @@ class OrgLDIFUiTMixin(UitOrgLdifGroupMixin, norEduLDIFMixin):
 
     def make_person_entry(self, row, person_id):
         """ Extend with UiO functionality. """
-        dn, entry, alias_info = super(OrgLDIFUiTMixin,
+        dn, entry, alias_info = super(UitOrgLdif,
                                       self).make_person_entry(row, person_id)
 
         # UiT does not wish to populate the postalAddress field with either
