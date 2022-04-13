@@ -359,7 +359,7 @@ class WinRMProtocol(object):
             from Cerebrum import https
 
             ssl_config = https.SSLConfig()
-            ssl_config.set_ssl_version(https.SSLConfig.TLSv1)
+            ssl_config.set_ssl_version(https.SSLConfig.TLSv1_2)
 
             if ca is None:
                 # No certificate validation!
