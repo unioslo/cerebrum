@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2021 University of Oslo, Norway
+# Copyright 2021-2022 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -51,6 +51,10 @@ Configuration
 If the related ``mod_otp.sql`` database schema is present, the following
 configuration must be added to ``cereconf``:
 
+cereconf.CLASS_CONSTANTS
+    Must include OTP-related constants:
+    ``Cerebrum.modules.otp.constants/OtpConstants``.
+
 cereconf.CLASS_CLCONSTANTS
     Must include ``Cerebrum.modules.otp.constants/OtpChangeLogConstants`` for
     the auditlog, changelog, eventlog, and event publishing mechanism to
@@ -76,6 +80,37 @@ cereconf.CLASS_ORGLDIF
     Must include ``Cerebrum.modules.otp.otp_ldif_utils/NorEduOtpMixin`` for
     the 'feide-ga' payload to be included in the Feide-attribute
     ``norEduPersonAuthnMethod``.
+
+
+bofhd
+-----
+Add ``Cerebrum.modules.otp.bofhd_otp_cmds/OtpCommands`` (or a subclass with
+custom auth methods) to the bofhd config.
+
+To delegate access to `person otp_set`/`person otp_clear`, add `person_otp_set`
+or `person_otp_clear` to an appropriate opset.  E.g. in ``opset_config.py``:
+
+::
+
+    operation_sets = {
+
+        # allowed to set (both generate and specify) otp secrets
+        'generate-otp': {
+            'person_otp_set': {},
+        },
+
+        # only allowed to clear already set otp secrets
+        'clear-otp': {
+            'person_otp_clear': {},
+        },
+
+        # allowed to *generate* otp secrets
+        # allowed to clear already set otp secrets
+        'generate-and-clear-otp': {
+            'person_otp_set': {'attrs': ['generate']},
+            'person_otp_clear': {},
+        },
+    }
 
 
 Future changes

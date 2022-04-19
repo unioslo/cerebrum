@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2021 University of Oslo, Norway
+# Copyright 2021-2022 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -21,9 +21,13 @@
 OTP module constants.
 """
 from Cerebrum.Constants import _ChangeTypeCode, ConstantsBase
+from Cerebrum.modules.bofhd.bofhd_constants import _AuthRoleOpCode
 
 
 class OtpChangeTypeConstants(ConstantsBase):
+    """
+    OTP-related change type codes for ChangeLog implementations.
+    """
 
     person_otp_add = _ChangeTypeCode(
         'otp', 'add',
@@ -41,4 +45,21 @@ class OtpChangeTypeConstants(ConstantsBase):
         'otp', 'remove',
         'remove otp secret from %(subject)s',
         ('otp_type=%(string:otp_type)s',),
+    )
+
+
+class OtpConstants(ConstantsBase):
+    """
+    OTP-related constants.
+    """
+
+    auth_person_otp_set = _AuthRoleOpCode(
+        "person_otp_set",
+        "Grant access to set an initial otp secret",
+    )
+
+    auth_person_otp_clear = _AuthRoleOpCode(
+        "person_otp_clear",
+        "Grant access to clear otp secrets"
+        " - clear access is also required to re-set otp secrets",
     )
