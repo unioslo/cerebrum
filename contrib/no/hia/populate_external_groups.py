@@ -18,13 +18,36 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""<Documentation goes here.>"""
+"""
+Build groups from FS data structures.
+
+
+Hierarchy:
+
+::
+
+    FsSupergroup
+        FsEvuSubtree
+            FsEvuCourse
+                FsEvuCourseUsers
+        FsProgramSubtree
+            FsProgram
+                FsProgramRole
+                    FsProgramRoleUsers
+                FsProgramYear
+                    FsProgramYearUsers
+        FsUnitSubtree
+            FsUnitTerm
+                FsUnitSubject
+                    FsUnitUsers
+
+
+"""
 
 from __future__ import generators, unicode_literals
 
 import datetime
 import getopt
-import locale
 import os
 import sys
 
@@ -133,7 +156,8 @@ def destroy_group(group_id, max_recurse):
         destroy_group(subg_id, max_recurse - 1)
 
 
-class group_tree(object):
+class _GroupTree(object):
+    """ Abstract FS group tree. """
 
     # Dersom destroy_group() kalles med max_recurse == None, aborterer
     # programmet.
@@ -167,7 +191,7 @@ class group_tree(object):
         if self.users:
             raise RuntimeError(
                 "list_matches() not overriden for user-containing group.")
-        for subg in self.subnodes.itervalues():
+        for subg in self.subnodes.values():
             for match in subg.list_matches(gtype, data, category):
                 yield match
 
@@ -188,7 +212,7 @@ class group_tree(object):
         return ()
 
     def sync(self):
-        logger.debug("Start: group_tree.sync(), name = %s", self.name())
+        logger.debug("Start: _GroupTree.sync(), name = %s", self.name())
         db_group = self.create_or_get_group()
         if db_group.is_expired():
             return None
@@ -198,7 +222,7 @@ class group_tree(object):
             # Gruppa inneholder minst en person, og skal dermed
             # populeres med *kun* primærbrukermedlemmer.  Bygg opp
             # oversikt over primærkonto-id'er i 'sub_ids'.
-            for fnr in self.users.iterkeys():
+            for fnr in self.users.keys():
                 a_ids = fnr2account_id.get(fnr)
                 if a_ids is not None:
                     primary_account_id = int(a_ids[0])
@@ -228,7 +252,7 @@ class group_tree(object):
                 if member_type == const.entity_group:
                     destroy_group(member_id, self.max_recurse)
 
-        for member_id in sub_ids.iterkeys():
+        for member_id in sub_ids.keys():
             db_group.add_member(member_id)
         # Synkroniser gruppens spreads med lista angitt i
         # self.spreads.
@@ -241,9 +265,9 @@ class group_tree(object):
                 del want_spreads[spread]
             else:
                 db_group.delete_spread(spread)
-        for new_spread in want_spreads.iterkeys():
+        for new_spread in want_spreads.keys():
             db_group.add_spread(new_spread)
-        logger.debug("Ferdig: group_tree.sync(), name = %s", self.name())
+        logger.debug("Ferdig: _GroupTree.sync(), name = %s", self.name())
         return db_group.entity_id
 
     def create_or_get_group(self):
@@ -299,12 +323,13 @@ class group_tree(object):
         return hash(self.name())
 
 
-class fs_supergroup(group_tree):
+class FsSupergroup(_GroupTree):
+    """ Supergroup for all group trees. """
 
     max_recurse = None
 
     def __init__(self):
-        super(fs_supergroup, self).__init__()
+        super(FsSupergroup, self).__init__()
         self._prefix = ('internal', cereconf.INSTITUTION_DOMAIN_NAME_LMS, 'fs')
         self._name = ('{supergroup}',)
 
@@ -314,26 +339,27 @@ class fs_supergroup(group_tree):
 
     def add(self, gtype, attrs):
         if gtype == 'undenh':
-            subg = fs_undenh_1(self, attrs)
+            subg = FsUnitSubtree(self, attrs)
         elif gtype == 'studieprogram':
-            subg = fs_stprog_1(self, attrs)
+            subg = FsProgramSubtree(self, attrs)
         elif gtype == 'evu':
-            subg = fs_evu_1(self, attrs)
+            subg = FsEvuSubtree(self, attrs)
         else:
             raise ValueError("Ukjent gruppe i hierarkiet: %r" % (gtype,))
         children = self.subnodes
         # TBD: Make fs_{undenh,stprog}_N into singleton classes?
-        if children.has_key(subg):
+        if subg in children:
             subg = children[subg]
         else:
             children[subg] = subg
         subg.add(attrs)
 
 
-class fs_undenh_group(group_tree):
+class _FsUnitTree(_GroupTree):
+    """ Abstract group tree for FS undervisningsenhet. """
 
     def __init__(self, parent):
-        super(fs_undenh_group, self).__init__()
+        super(_FsUnitTree, self).__init__()
         self.parent = parent
         self.child_class = None
 
@@ -347,14 +373,15 @@ class fs_undenh_group(group_tree):
         new_child.add(ue)
 
 
-class fs_undenh_1(fs_undenh_group):
+class FsUnitSubtree(_FsUnitTree):
+    """ FS undervisningsenhet - supergroup """
 
     max_recurse = 3
 
     def __init__(self, parent, ue):
-        super(fs_undenh_1, self).__init__(parent)
+        super(FsUnitSubtree, self).__init__(parent)
         self._prefix = (ue['institusjonsnr'], 'undenh')
-        self.child_class = fs_undenh_2
+        self.child_class = FsUnitTerm
 
     def description(self):
         return ("Supergruppe for alle grupper avledet fra"
@@ -370,17 +397,18 @@ class fs_undenh_1(fs_undenh_group):
                 return ()
         if data.get('institusjonsnr', self._prefix[0]) != self._prefix[0]:
             return ()
-        return super(fs_undenh_1, self).list_matches(gtype, data, category)
+        return super(FsUnitSubtree, self).list_matches(gtype, data, category)
 
 
-class fs_undenh_2(fs_undenh_group):
+class FsUnitTerm(_FsUnitTree):
+    """ FS undervisningsenhet - semester subgroup """
 
     max_recurse = 2
 
     def __init__(self, parent, ue):
-        super(fs_undenh_2, self).__init__(parent)
+        super(FsUnitTerm, self).__init__(parent)
         self._prefix = (ue['arstall'], ue['terminkode'])
-        self.child_class = fs_undenh_3
+        self.child_class = FsUnitSubject
 
     def description(self):
         return ("Supergruppe for alle %s sine FS-undervisningsenhet-grupper"
@@ -392,21 +420,23 @@ class fs_undenh_2(fs_undenh_group):
             return ()
         if data.get('terminkode', self._prefix[1]) != self._prefix[1]:
             return ()
-        return super(fs_undenh_2, self).list_matches(gtype, data, category)
+        return super(FsUnitTerm, self).list_matches(gtype, data, category)
 
 
-class fs_undenh_3(fs_undenh_group):
+class FsUnitSubject(_FsUnitTree):
+    """ FS undervisningsenhet - subject sub-subgroup. """
 
     ue_versjon = {}
     ue_termin = {}
     max_recurse = 1
 
     def __init__(self, parent, ue):
-        super(fs_undenh_3, self).__init__(parent)
+        super(FsUnitSubject, self).__init__(parent)
         self._prefix = (ue['emnekode'], ue['versjonskode'], ue['terminnr'])
-        multi_id = ":".join([six.text_type(x)
-                             for x in(ue['institusjonsnr'], ue['emnekode'],
-                                      ue['arstall'], ue['terminkode'])])
+        multi_id = ":".join((
+            six.text_type(x)
+            for x in (ue['institusjonsnr'], ue['emnekode'],
+                      ue['arstall'], ue['terminkode'])))
         self.ue_versjon.setdefault(multi_id, {})[ue['versjonskode']] = 1
         self.ue_termin.setdefault(multi_id, {})[ue['terminnr']] = 1
         self._multi_id = multi_id
@@ -434,12 +464,12 @@ class fs_undenh_3(fs_undenh_group):
             return ()
         if data.get('terminnr', self._prefix[2]) != self._prefix[2]:
             return ()
-        return super(fs_undenh_3, self).list_matches(gtype, data, category)
+        return super(FsUnitSubject, self).list_matches(gtype, data, category)
 
     def add(self, ue):
         children = self.subnodes
         for category in ('student', 'foreleser', 'studieleder'):
-            gr = fs_undenh_users(self, ue, category)
+            gr = FsUnitUsers(self, ue, category)
             if gr in children:
                 logger.warn('Undervisningsenhet %r forekommer flere ganger.',
                             ue)
@@ -447,12 +477,13 @@ class fs_undenh_3(fs_undenh_group):
             children[gr] = gr
 
 
-class fs_undenh_users(fs_undenh_group):
+class FsUnitUsers(_FsUnitTree):
+    """ FS undervisningsenhet - users leaf group. """
 
     max_recurse = 0
 
     def __init__(self, parent, ue, category):
-        super(fs_undenh_users, self).__init__(parent)
+        super(FsUnitUsers, self).__init__(parent)
         self._name = (category,)
         self._emnekode = ue['emnekode']
 
@@ -483,10 +514,11 @@ class fs_undenh_users(fs_undenh_group):
         self.users[fnr] = user
 
 
-class fs_stprog_group(group_tree):
+class _FsProgramTree(_GroupTree):
+    """ Abstract group tree for study programs. """
 
     def __init__(self, parent):
-        super(fs_stprog_group, self).__init__()
+        super(_FsProgramTree, self).__init__()
         self.parent = parent
         self.child_class = None
 
@@ -500,15 +532,16 @@ class fs_stprog_group(group_tree):
         new_child.add(stprog)
 
 
-class fs_stprog_1(fs_stprog_group):
+class FsProgramSubtree(_FsProgramTree):
+    """ FS studieprogram - supergroup. """
 
     max_recurse = 3
 
     def __init__(self, parent, stprog):
-        super(fs_stprog_1, self).__init__(parent)
+        super(FsProgramSubtree, self).__init__(parent)
         self._prefix = (stprog['institusjonsnr_studieansv'],
                         'studieprogram')
-        self.child_class = fs_stprog_2
+        self.child_class = FsProgram
 
     def description(self):
         return ("Supergruppe for alle grupper relatert til"
@@ -524,15 +557,17 @@ class fs_stprog_1(fs_stprog_group):
                 return ()
         if data.get('institusjonsnr', self._prefix[0]) != self._prefix[0]:
             return ()
-        return super(fs_stprog_1, self).list_matches(gtype, data, category)
+        return super(FsProgramSubtree, self).list_matches(gtype, data,
+                                                          category)
 
 
-class fs_stprog_2(fs_stprog_group):
+class FsProgram(_FsProgramTree):
+    """ FS studieprogram - subgroup. """
 
     max_recurse = 2
 
     def __init__(self, parent, stprog):
-        super(fs_stprog_2, self).__init__(parent)
+        super(FsProgram, self).__init__(parent)
         self._prefix = (stprog['studieprogramkode'],)
         # Denne klassen har mer enn en mulig barn-klasse.
         self.child_class = None
@@ -545,27 +580,28 @@ class fs_stprog_2(fs_stprog_group):
         # Det skal lages to grener under hver gruppe på dette nivået.
         old = self.child_class
         try:
-            for child_class in (fs_stprog_3_kull, fs_stprog_3_rolle):
+            for child_class in (FsProgramYear, FsProgramRole):
                 self.child_class = child_class
-                super(fs_stprog_2, self).add(stprog)
+                super(FsProgram, self).add(stprog)
         finally:
             self.child_class = old
 
     def list_matches(self, gtype, data, category):
         if data.get('studieprogramkode', self._prefix[0]) != self._prefix[0]:
             return ()
-        return super(fs_stprog_2, self).list_matches(gtype, data, category)
+        return super(FsProgram, self).list_matches(gtype, data, category)
 
 
-class fs_stprog_3_kull(fs_stprog_group):
+class FsProgramYear(_FsProgramTree):
+    """ FS studieprogram - cohort/examination year sub-subgroup. """
 
     max_recurse = 1
 
     def __init__(self, parent, stprog):
-        super(fs_stprog_3_kull, self).__init__(parent)
+        super(FsProgramYear, self).__init__(parent)
         self._prefix = ('studiekull',)
         self._studieprog = stprog['studieprogramkode']
-        self.child_class = fs_stprog_kull_users
+        self.child_class = FsProgramYearUsers
         self.spreads = (const.spread_hia_fronter,)
 
     def description(self):
@@ -577,10 +613,10 @@ class fs_stprog_3_kull(fs_stprog_group):
         # list_matches()-metodene, da den også gjør opprettelse av
         # kullkode-spesifikke subgrupper når det er nødvendig.
         ret = []
-        for subg in self.subnodes.itervalues():
+        for subg in self.subnodes.values():
             ret.extend([m for m in subg.list_matches(gtype, data, category)])
-        if (not ret) and (data.has_key('arstall_kull')
-                          and data.has_key('terminkode_kull')):
+        if (not ret) and ('arstall_kull' in data
+                          and 'terminkode_kull' in data):
             ret.extend(self.add(data))
         return ret
 
@@ -595,8 +631,8 @@ class fs_stprog_3_kull(fs_stprog_group):
             # Opprettelse av grupper for de enkelte studiekullene
             # utsettes derfor til senere (i.e. ved parsing av
             # person.xml); se metoden list_matches over.
-            if (stprog.has_key('arstall_kull')
-                    and stprog.has_key('terminkode_kull')):
+            if ('arstall_kull' in stprog
+                    and 'terminkode_kull' in stprog):
                 gr = self.child_class(self, stprog, category)
                 if gr in children:
                     logger.warn("Kull %r forekommer flere ganger.", stprog)
@@ -609,12 +645,13 @@ class fs_stprog_3_kull(fs_stprog_group):
         return ret
 
 
-class fs_stprog_kull_users(fs_stprog_group):
+class FsProgramYearUsers(_FsProgramTree):
+    """ FS studieprogram - leaf group. """
 
     max_recurse = 0
 
     def __init__(self, parent, stprog, category):
-        super(fs_stprog_kull_users, self).__init__(parent)
+        super(FsProgramYearUsers, self).__init__(parent)
         self._prefix = (stprog['arstall_kull'], stprog['terminkode_kull'])
         self._studieprog = stprog['studieprogramkode']
         self._name = (category,)
@@ -646,15 +683,16 @@ class fs_stprog_kull_users(fs_stprog_group):
         self.users[fnr] = user
 
 
-class fs_stprog_3_rolle(fs_stprog_group):
+class FsProgramRole(_FsProgramTree):
+    """ FS studieprogram roles - role sub-subgroup. """
 
     max_recurse = 1
 
     def __init__(self, parent, stprog):
-        super(fs_stprog_3_rolle, self).__init__(parent)
+        super(FsProgramRole, self).__init__(parent)
         self._prefix = ('rolle',)
         self._studieprog = stprog['studieprogramkode']
-        self.child_class = fs_stprog_rolle_users
+        self.child_class = FsProgramRoleUsers
         self.spreads = (const.spread_hia_fronter,)
 
     def description(self):
@@ -672,12 +710,13 @@ class fs_stprog_3_rolle(fs_stprog_group):
             children[gr] = gr
 
 
-class fs_stprog_rolle_users(fs_stprog_group):
+class FsProgramRoleUsers(_FsProgramTree):
+    """ FS studieprogram roles - role leaf group. """
 
     max_recurse = 0
 
     def __init__(self, parent, stprog, category):
-        super(fs_stprog_rolle_users, self).__init__(parent)
+        super(FsProgramRoleUsers, self).__init__(parent)
         self._studieprog = stprog['studieprogramkode']
         self._name = (category,)
 
@@ -702,17 +741,15 @@ class fs_stprog_rolle_users(fs_stprog_group):
         self.users[fnr] = user
 
 
-class fs_evu_1(fs_undenh_group):
-    """
-    EVU-subtre
-    """
+class FsEvuSubtree(_FsUnitTree):
+    """ FS EVU - supergroup.  """
 
     max_recurse = 2
 
     def __init__(self, parent, evudata):
-        super(fs_evu_1, self).__init__(parent)
+        super(FsEvuSubtree, self).__init__(parent)
         self._prefix = (evudata["institusjonsnr_adm_ansvar"], "evu")
-        self.child_class = fs_evu_2
+        self.child_class = FsEvuCourse
 
     def description(self):
         return ("Supergruppe for alle grupper avledet fra"
@@ -732,14 +769,14 @@ class fs_evu_1(fs_undenh_group):
                      self._prefix[0]) != self._prefix[0]):
             return ()
 
-        return super(fs_evu_1, self).list_matches(gtype, data, category)
+        return super(FsEvuSubtree, self).list_matches(gtype, data, category)
 
 
-class fs_evu_2(fs_undenh_group):
+class FsEvuCourse(_FsUnitTree):
     max_recurse = 1
 
     def __init__(self, parent, evudata):
-        super(fs_evu_2, self).__init__(parent)
+        super(FsEvuCourse, self).__init__(parent)
         self._prefix = (evudata["etterutdkurskode"],
                         evudata["kurstidsangivelsekode"])
         self.spreads = (const.spread_hia_fronter,)
@@ -755,12 +792,12 @@ class fs_evu_2(fs_undenh_group):
                      self._prefix[1]) != self._prefix[1]):
             return ()
 
-        return super(fs_evu_2, self).list_matches(gtype, data, category)
+        return super(FsEvuCourse, self).list_matches(gtype, data, category)
 
     def add(self, evudata):
         children = self.subnodes
         for category in ("kursdeltaker", "foreleser"):
-            gr = fs_evu_users(self, evudata, category)
+            gr = FsEvuCourseUsers(self, evudata, category)
             if gr in children:
                 logger.warn("EVU-kurs %r forekommer flere ganger.",
                             evudata)
@@ -769,12 +806,12 @@ class fs_evu_2(fs_undenh_group):
             children[gr] = gr
 
 
-class fs_evu_users(fs_undenh_group):
+class FsEvuCourseUsers(_FsUnitTree):
 
     max_recurse = 0
 
     def __init__(self, parent, evudata, category):
-        super(fs_evu_users, self).__init__(parent)
+        super(FsEvuCourseUsers, self).__init__(parent)
         self._name = (category,)
 
     def description(self):
@@ -819,7 +856,7 @@ def prefetch_primaryusers():
         p_id = int(row['entity_id'])
         fnr = row['external_id']
         src_sys = int(row['source_system'])
-        if fnr_source.has_key(fnr) and fnr_source[fnr][0] != p_id:
+        if fnr in fnr_source and fnr_source[fnr][0] != p_id:
             # Multiple person_info rows have the same fnr (presumably
             # the different fnrs come from different source systems).
             logger.error("Multiple persons share fnr %s: (%d, %d)",
@@ -835,10 +872,10 @@ def prefetch_primaryusers():
             # The row we're currently processing should be preferred;
             # if the old row has an entry in fnr2account_id, delete
             # it.
-            if fnr2account_id.has_key(fnr):
+            if fnr in fnr2account_id:
                 del fnr2account_id[fnr]
         fnr_source[fnr] = (p_id, src_sys)
-        if personid2accountid.has_key(p_id):
+        if p_id in personid2accountid:
             account_ids = personid2accountid[p_id]
             fnr2account_id[fnr] = account_ids
     del fnr_source
@@ -859,10 +896,9 @@ def init_globals():
     dryrun = False
     immediate_evu_expire = False
 
-    opts, rest = getopt.getopt(sys.argv[1:],
-                               "d:r",
-                               ["dump-dir=", "dryrun",
-                                "immediate-evu-expire",])
+    opts, rest = getopt.getopt(
+        sys.argv[1:], "d:r",
+        ["dump-dir=", "dryrun", "immediate-evu-expire"])
     for option, value in opts:
         if option in ("-d", "--dump-dir"):
             dump_dir = value
@@ -884,7 +920,7 @@ def main():
     init_globals()
 
     # Opprett objekt for "internal:hia.no:fs:{supergroup}"
-    fs_super = fs_supergroup()
+    fs_super = FsSupergroup()
 
     # Gå igjennom alle kjente undervisningsenheter; opprett
     # gruppe-objekter for disse.
@@ -892,14 +928,14 @@ def main():
     # La fs-supergruppe-objektet ta seg av all logikk rundt hvor mange
     # nivåer gruppestrukturen skal ha for undervisningsenhet-grupper,
     # etc.
-    def create_UE_helper(el_name, attrs):
+    def create_ue_helper(el_name, attrs):
         if el_name == 'undenhet':
             fs_super.add('undenh', attrs)
 
     logger.info("Leser XML-fil: underv_enhet.xml")
     access_FS.underv_enhet_xml_parser(
         os.path.join(dump_dir, 'underv_enhet.xml'),
-        create_UE_helper)
+        create_ue_helper)
 
     # Gå igjennom alle kjente EVU-kurs; opprett gruppeobjekter for disse.
     def create_evukurs_helper(el_name, attrs):
@@ -922,7 +958,7 @@ def main():
     logger.info("Ferdig med %s", xmlfile)
 
     # Meld studenter inn i undervisningsenhet-gruppene
-    def student_UE_helper(el_name, attrs):
+    def student_ue_helper(el_name, attrs):
         if el_name == 'student':
             for undenh in fs_super.list_matches_1('undenh', attrs,
                                                   'student'):
@@ -931,10 +967,10 @@ def main():
     logger.info("Leser XML-fil: student_undenh.xml")
     access_FS.student_undenh_xml_parser(
         os.path.join(dump_dir, 'student_undenh.xml'),
-        student_UE_helper)
+        student_ue_helper)
 
     # Meld EVU-kursdeltakere i de respektive EVU-kursgruppene.
-    def EVU_deltaker_helper(el_name, attrs):
+    def evu_deltaker_helper(el_name, attrs):
         if el_name == "person" and len(attrs.get("evu")) > 0:
             # Dette blir ikke fult så pent -- i merged_persons plasserer man
             # informasjonen om EVU-tilknytning i form av underelementer av
@@ -954,7 +990,7 @@ def main():
     xmlfile = "merged_persons.xml"
     logger.info("Leser XML-fil: %s", xmlfile)
     access_FS.deltaker_xml_parser(os.path.join(dump_dir, xmlfile),
-                                  EVU_deltaker_helper)
+                                  evu_deltaker_helper)
     logger.info("Ferdig med %s", xmlfile)
 
     # Gå igjennom alle kjente studieprogrammer; opprett gruppeobjekter
