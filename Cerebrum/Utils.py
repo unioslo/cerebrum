@@ -549,7 +549,7 @@ def argument_to_sql(argument,
             return '(%s %s (%s))' % (
                 sql_attr_name,
                 compare_set,
-                ', '.join([':' + x for x in tmp.iterkeys()]))
+                ', '.join([':' + x for x in tmp.keys()]))
 
     assert binds_name not in binds
     binds[binds_name] = transformation(argument)

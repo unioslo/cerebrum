@@ -901,7 +901,7 @@ def populate_enhet_groups(enhet_id, role_mapping):
                        auto_spread=aktivitet["fronter_spreads"])
 
         # ferdig med alle aktiviteter, bare et hack igjen ...
-        for account_id in student_med_akt.iterkeys():
+        for account_id in student_med_akt.keys():
             if account_id in alle_stud:
                 # Ved å fjerne alle som er meldt til minst en
                 # aktivitet, ender vi opp med en liste over de som
@@ -1253,12 +1253,12 @@ def remove_spread_from_group(group, spread):
         logger.debug("Removing spread %s from %s" % (spread, group))
 
 
-def get_group(id):
+def get_group(value):
     gr = Factory.get('Group')(db)
-    if not isinstance(id, int):
-        gr.find_by_name(id)
+    if isinstance(value, int):
+        gr.find(value)
     else:
-        gr.find(id)
+        gr.find_by_name(value)
     return gr
 
 
