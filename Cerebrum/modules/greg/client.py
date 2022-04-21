@@ -169,8 +169,10 @@ class GregClient(object):
                 yield obj
 
             if next_page:
-                next_q = urlsplit(url).query
+                next_q = urlsplit(next_page).query
                 params = dict(parse_qsl(next_q))
+                logger.debug('next: %r, params: %r',
+                             next_page, params)
                 response = self._call('GET', url, headers=self.headers,
                                       params=params)
             else:
