@@ -363,7 +363,7 @@ class OtpCommands(BofhdCommandBase):
         self.ba.can_set_otp_secret(operator.get_entity_id(),
                                    person=person, generate=not secret)
 
-        for row in otp_db.sql_search(self._db, person_id=person.entity_id):
+        for row in otp_db.sql_search(self.db, person_id=person.entity_id):
             # This check is here for *two* reasons:
             #
             # 1. we want operators to explicitly *decide* to clear/reset otp
