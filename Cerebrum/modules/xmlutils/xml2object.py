@@ -150,6 +150,8 @@ class DataContact(object):
     CONTACT_MOBILE_WORK = "cell phone work"
     CONTACT_MOBILE_PRIVATE = "cell phone private"
     CONTACT_MOBILE_PRIVATE_PUBLIC = "cell phone private to display"
+    CONTACT_UREG_UNIX_USERNAME = "ureg unix username"
+    CONTACT_UIO_SAP_USERNAME = "brukernavn i SAP-systemet (SY-UNAME)"
 
     """Class for storing contact information (phone, e-mail, URL, etc.)"""
 
@@ -158,6 +160,8 @@ class DataContact(object):
         assert self.kind in (self.CONTACT_PHONE, self.CONTACT_FAX,
                              self.CONTACT_URL, self.CONTACT_EMAIL,
                              self.CONTACT_PRIVPHONE, self.CONTACT_MOBILE_WORK,
+                             self.CONTACT_UREG_UNIX_USERNAME,
+                             self.CONTACT_UIO_SAP_USERNAME,
                              self.CONTACT_MOBILE_PRIVATE,
                              self.CONTACT_MOBILE_PRIVATE_PUBLIC)
         self.value = value
