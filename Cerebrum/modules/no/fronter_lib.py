@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-
-# Copyright 2003-2019 University of Oslo, Norway
+#
+# Copyright 2003-2022 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,22 +17,19 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-"""This module contains utilities for ClassFronter XML generation.
+"""
+This module contains utilities for Fronter XML generation.
 
 NB! This module is used by other institutions as well. Be careful with
 shuffling the functionality around.
 """
-
 from __future__ import unicode_literals
 
 import re
 import six
-from Cerebrum.extlib import xmlprinter
-from Cerebrum.utils.atomicfile import AtomicFileWriter
 
 
-def UE2KursID(kurstype, *rest):
+def UE2KursID(kurstype, *rest):  # noqa: N802
     """Lag ureg2000-spesifikk 'kurs-ID' av primærnøkkelen til en
     undervisningsenhet, et EVU-kurs eller et kull.  Denne kurs-IDen forblir
     uforandret så lenge kurset pågår; den endres altså ikke når man
@@ -146,47 +143,3 @@ def key2fields(key):
     @type key: basestring
     """
     return key.lower().split(":")
-
-
-class XMLWriter(object):
-    # TODO: Move to separate file
-    # TODO: should produce indented XML for easier readability
-
-    def __init__(self, fname):
-        self.__file = AtomicFileWriter(fname, 'wb')
-        self.gen = xmlprinter.xmlprinter(
-            self.__file, indent_level=2, data_mode=1,
-            input_encoding='UTF-8')
-
-    def startTag(self, tag, attrs={}):
-        a = {}
-        # saxutils don't like integers as values (convert to str)
-        for k, v in attrs.iteritems():
-            a[k] = str(attrs[k])
-        self.gen.startElement(tag, a)
-
-    def endTag(self, tag):
-        self.gen.endElement(tag)
-
-    def emptyTag(self, tag, attrs={}):
-        a = {}
-        # saxutils don't like integers as values (convert to str)
-        for k, v in attrs.iteritems():
-            a[k] = str(v)
-        self.gen.emptyElement(tag, a)
-
-    def dataElement(self, tag, data, attrs={}):
-        a = {}
-        for k, v in attrs.iteritems():
-            a[k] = str(v)
-        self.gen.dataElement(tag, data, a)
-
-    def comment(self, data):  # TODO: implement
-        self.gen.comment(data)
-
-    def startDocument(self, encoding):
-        self.gen.startDocument(encoding)
-
-    def endDocument(self):
-        self.gen.endDocument()
-        self.__file.close()

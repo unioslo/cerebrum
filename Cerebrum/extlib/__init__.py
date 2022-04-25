@@ -51,6 +51,4 @@ Bundled and/or modified third party modules.
     - ``Cerebrum.modules.abcenterprise.ABCXmlWriter.ABCXMLWriter``
     - ``Cerebrum.modules.fs.import_from_FS.ImportFromFs``
     - ``Cerebrum.modules.xmlutils.GeneralXMLWriter.XMLWriter``
-    - ``Cerebrum.modules.no.fronter_lib.XMLWriter``
-    - ``Cerebrum.modules.no.hia.fronter_lib.XMLWriter``
 """
