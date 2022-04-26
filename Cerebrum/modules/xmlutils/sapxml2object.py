@@ -521,6 +521,9 @@ class XMLPerson2Object(XMLEntity2Object):
             u"Arbeidstelefon 3": DataContact.CONTACT_PHONE,
             u"Mobilnummer, jobb": DataContact.CONTACT_MOBILE_WORK,
             u"Mobilnummer, privat": DataContact.CONTACT_MOBILE_PRIVATE,
+            u"UREG UNIX Brukernavn": DataContact.CONTACT_UREG_UNIX_USERNAME,
+            u"Brukernavn i SAP-systemet (SY-UNAME)":
+                DataContact.CONTACT_UIO_SAP_USERNAME,
             u"Privat mobil synlig på web":
                 DataContact.CONTACT_MOBILE_PRIVATE_PUBLIC}
 
