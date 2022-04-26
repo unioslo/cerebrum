@@ -202,8 +202,7 @@ class HostInfo(Entity):
         """A search method for hosts.
 
         To be expanded in the future with more functionality when needed, e.g.
-        to filter by zone_id(s) and name. Also DnsOwners has a an
-        L{expire_date}, which we in some situations might want to filter by.
+        to filter by zone_id(s) and name.
 
         @type spread: int or sequence thereof or None
         @param spread:
