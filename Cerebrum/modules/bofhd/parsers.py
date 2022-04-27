@@ -164,8 +164,13 @@ class ParamsParser(object):
         return params
 
 
-def parse_datetime(raw_value):
+def parse_datetime(raw_value, optional=False):
     """ Parse localized datetime from user input """
+    if not raw_value or not raw_value.strip():
+        if optional:
+            return None
+        raise CerebrumError('missing mandatory date/time')
+
     if raw_value.strip().lower() == 'now':
         return date_utils.now()
     if raw_value.strip().lower() == 'today':
@@ -202,8 +207,13 @@ parse_datetime_help_blurb = """
 """.lstrip('\n').format(tz=date_utils.TIMEZONE)
 
 
-def parse_date(raw_value):
+def parse_date(raw_value, optional=False):
     """ Parse date from user input """
+    if not raw_value or not raw_value.strip():
+        if optional:
+            return None
+        raise CerebrumError('missing mandatory date')
+
     if raw_value.strip().lower() == 'today':
         return datetime.date.today()
     try:
@@ -220,3 +230,48 @@ parse_date_help_blurb = """
  - date:     iso-8601 date, e.g. "2020-02-26", "2020-057",
              "2020-W09-3"
 """.lstrip('\n').format(tz=date_utils.TIMEZONE)
+
+
+def parse_legacy_date_range(raw_value):
+    """
+    Parse two dates from string, separated by '--'.
+
+    - If only one date is given, it is assumed to be the end date.
+    - If no start date is given, the start date will be "today"
+    """
+    # TODO: These should probably be replaced with ISO8601 interval parsers
+    # (i.e.  implement date/datetime interval parsers in Cerebrum.utils.date,
+    # based on aniso8601.parse_interval)
+    date_start = datetime.date.today()
+    date_end = None
+
+    if raw_value and raw_value.strip():
+        parts = raw_value.split("--")
+        if len(parts) == 2:
+            date_start = parse_date(parts[0], optional=True)
+            date_end = parse_date(parts[1], optional=True)
+        elif len(parts) == 1:
+            # no separator - assume date is end date, if given
+            date_end = parse_date(parts[0], optional=True)
+        else:
+            # multiple separators?
+            raise CerebrumError("invalid date range: " + repr(raw_value))
+    return (date_start, date_end)
+
+
+parse_legacy_date_range_help_blurb = """
+An end date, or a start and end date separated by '--'.  Start date defaults to
+"today".
+
+Examples:
+
+ - 2020-02-26
+ - 1998-06-28--
+ - --2020-02-26
+ - 1998-06-28--2020-02-26
+ - 1998-06-28--today
+
+Date format:
+
+{}
+""".lstrip().format(parse_date_help_blurb)
