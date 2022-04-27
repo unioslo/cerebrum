@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2011-2018 University of Oslo, Norway
+# Copyright 2011-2022 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,28 +18,36 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite. 330, Boston, MA 02111-1307, USA.
 """ host policy bofhd commands. """
-from six import text_type
+import six
 
 import cereconf
 
 from Cerebrum import Errors
 from Cerebrum.Utils import NotSet
+from Cerebrum.modules.bofhd import parsers
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
-from Cerebrum.modules.bofhd.cmd_param import (Command,
-                                              FormatSuggestion,
-                                              Parameter)
+from Cerebrum.modules.bofhd.cmd_param import (
+    Command,
+    FormatSuggestion,
+    Parameter,
+)
+from Cerebrum.modules.bofhd.bofhd_utils import default_format_day as format_day
 from Cerebrum.modules.bofhd.errors import CerebrumError
 from Cerebrum.modules.bofhd.help import merge_help_strings
-from Cerebrum.modules.dns import DnsOwner, IP_NUMBER, DNS_OWNER
+from Cerebrum.modules.dns import IP_NUMBER, DNS_OWNER
 from Cerebrum.modules.dns.CNameRecord import CNameRecord
+from Cerebrum.modules.dns.DnsOwner import DnsOwner
 from Cerebrum.modules.dns.Utils import Find
-from Cerebrum.modules.dns.bofhd_dns_cmds import (DnsBofhdAuth,
-                                                 HELP_DNS_ARGS,
-                                                 HostId,
-                                                 format_day)
-from Cerebrum.modules.hostpolicy.PolicyComponent import (Atom,
-                                                         PolicyComponent,
-                                                         Role)
+from Cerebrum.modules.dns.bofhd_dns_cmds import (
+    DnsBofhdAuth,
+    HELP_DNS_ARGS,
+    HostId,
+)
+from Cerebrum.modules.hostpolicy.PolicyComponent import (
+    Atom,
+    PolicyComponent,
+    Role,
+)
 
 
 class HostPolicyBofhdAuth(DnsBofhdAuth):
@@ -86,6 +94,100 @@ class PolicyName(Parameter):
 class Filter(Parameter):
     _type = 'filter'
     _help_ref = 'hostpolicy_component_filter'
+
+
+def _parse_filter_date_range(raw_value):
+    """
+    Parse two dates from string, separated by '--'.
+
+    If only one date is given, it is assumed to be the start date, with an
+    undefined end date.
+    """
+    # TODO: Filter parser should implement separate <field>_start, <field>_end
+    # filters
+    date_start = date_end = NotSet
+    if raw_value and raw_value.strip():
+        parts = raw_value.split("--")
+        if len(parts) == 2:
+            date_start = parsers.parse_date(parts[0], optional=True)
+            date_end = parsers.parse_date(parts[1], optional=True)
+        elif len(parts) == 1:
+            # no separator - assume date is start date, if given
+            date_start = parsers.parse_date(parts[0], optional=True)
+        else:
+            # multiple separators?
+            raise CerebrumError("invalid date range: " + repr(raw_value))
+    return (date_start, date_end)
+
+
+def _parse_filters(filter_input, filters, default_filter=NotSet,
+                   default_value=NotSet, separator=',', type_sep=':'):
+    """
+    Parse an input string with different filters and return a dict with
+    the different filters set, according to the set options. CerebrumErrors
+    are raise in case of invalid input, with explanations to what have
+    failed.
+
+    The input string must define filters on the form:
+
+        name1:pattern1,name2:pattern2,...
+
+    the filters are separated by L{separator} (default: ','), and each
+    filter has a name and a value, separated by L{type_sep} (default: ':').
+
+    The L{filters} is the dict that defines the available filters. Errors
+    are raised if the input contains other types of filters. Example of
+    filters:
+
+        'name':     str
+        'desc':     str
+        'spread':   _is_spread_valid
+        'expired':  _parse_date
+
+    The filters' values are callbacks to a method that should validate and
+    might reformat the input before it's returned. If a callback raises an
+    error, a CerebrumError is given back to the user.
+
+    If an input filter does not specify its filter type, the one defined in
+    L{default_filter} is used - which should match a key in L{filters}.
+
+    If L{default_value} is set, this value will be put in all defined
+    filters that aren't specified in the input.
+    """
+    # TODO: This should probably be replaced by a `parsers.ParamsParser` class.
+    if default_filter is not NotSet and default_filter not in filters:
+        raise RuntimeError('Default filter not specified in the filters')
+    if not filter_input or filter_input == "":
+        raise CerebrumError("No filter specified")
+    patterns = {}
+    for rule in filter_input.split(separator):
+        rule = rule.strip()
+        if rule.find(":") != -1:
+            type, pattern = rule.split(type_sep, 1)
+        elif default_filter is not NotSet:
+            # the first defined filter is the default one
+            type = default_filter
+            pattern = rule
+        else:
+            raise CerebrumError('Filter type not specified for: %r' % rule)
+        type, pattern = type.strip(), pattern.strip()
+        if type not in filters:
+            raise CerebrumError("Unknown filter type: %r" % type)
+
+        if filters[type] is None:
+            patterns[type] = pattern
+        else:
+            # call callback function:
+            # Callbacks should only raise CerebrumErrors, which can be
+            # raised directly. Everything else is bugs and should be
+            # raised.
+            patterns[type] = filters[type](pattern)
+    # fill in with default values
+    if default_value is not NotSet:
+        for f in filters:
+            if f not in patterns:
+                patterns[f] = default_value
+    return patterns
 
 
 class Foundation(Parameter):
@@ -169,7 +271,7 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
         except Errors.NotFoundError:
             pass
 
-        dns_owner = DnsOwner.DnsOwner(self.db)
+        dns_owner = DnsOwner(self.db)
         try:
             dns_owner.find(owner_id)
         except Errors.NotFoundError:
@@ -196,111 +298,6 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
         if tmp:
             raise CerebrumError("Policy is used as source for: %s" %
                                 ', '.join(tmp))
-
-    def _parse_filters(self, input, filters, default_filter=NotSet,
-                       default_value=NotSet, separator=',', type_sep=':'):
-        """Parse an input string with different filters and return a dict with
-        the different filters set, according to the set options. CerebrumErrors
-        are raise in case of invalid input, with explanations to what have
-        failed.
-
-        The input string must define filters on the form:
-
-            name1:pattern1,name2:pattern2,...
-
-        the filters are separated by L{separator} (default: ','), and each
-        filter has a name and a value, separated by L{type_sep} (default: ':').
-
-        The L{filters} is the dict that defines the available filters. Errors
-        are raised if the input contains other types of filters. Example of
-        filters:
-
-            'name':     str
-            'desc':     str
-            'spread':   _is_spread_valid
-            'expired':  _parse_date
-
-        The filters' values are callbacks to a method that should validate and
-        might reformat the input before it's returned. If a callback raises an
-        error, a CerebrumError is given back to the user.
-
-        If an input filter does not specify its filter type, the one defined in
-        L{default_filter} is used - which should match a key in L{filters}.
-
-        If L{default_value} is set, this value will be put in all defined
-        filters that aren't specified in the input.
-        """
-        if default_filter is not NotSet and default_filter not in filters:
-            raise RuntimeError('Default filter not specified in the filters')
-        if not input or input == "":
-            raise CerebrumError("No filter specified")
-        patterns = {}
-        for rule in input.split(separator):
-            rule = rule.strip()
-            if rule.find(":") != -1:
-                type, pattern = rule.split(type_sep, 1)
-            elif default_filter is not NotSet:
-                # the first defined filter is the default one
-                type = default_filter
-                pattern = rule
-            else:
-                raise CerebrumError('Filter type not specified for: %r' % rule)
-            type, pattern = type.strip(), pattern.strip()
-            if type not in filters:
-                raise CerebrumError("Unknown filter type: %r" % type)
-
-            if filters[type] is None:
-                patterns[type] = pattern
-            else:
-                # call callback function:
-                # Callbacks should only raise CerebrumErrors, which can be
-                # raised directly. Everything else is bugs and should be
-                # raised.
-                patterns[type] = filters[type](pattern)
-        # fill in with default values
-        if default_value is not NotSet:
-            for f in filters:
-                if f not in patterns:
-                    patterns[f] = default_value
-        return patterns
-
-    def _parse_create_date_range(self, date, separator='--'):
-        """Parse a string with a date range and return a tuple of length two
-        with DateTime objects, or None, if range is missing. The format has the
-        form:
-
-            YYYY-MM-DD--YYYY-MM-DD
-
-        where the end date is optional, and would then default to None.
-
-        The main difference between this method and bofhd_uio_cmds' method
-        _parse_date_from_to is that if only only one date is given, this is
-        considered the start date and not the end date. In addition we differ
-        between not set dates and dates that is explicitly set to None.
-
-        Dates that have not been specified are set to NotSet, but dates that
-        have explicitly set to nothing returns None. Examples:
-
-            YYYY-MM-DD              returns (<start>, NotSet)
-            YYYY-MM-DD--            returns (<start>, None)
-            --YYYY-MM-DD            returns (None,    <end>)
-            YYYY-MM-DD--YYYY-MM-DD  returns (<start>, <end>)
-            '' (empty string)       returns (NotSet, NotSet)
-        """
-        date_start = date_end = NotSet
-        if date:
-            tmp = date.split(separator)
-            if len(tmp) == 2:
-                date_start = date_end = None
-                if tmp[0]:  # string could start with the separator
-                    date_start = self._parse_date(tmp[0])
-                if tmp[1]:  # string could end with separator
-                    date_end = self._parse_date(tmp[1])
-            elif len(tmp) == 1:
-                date_start = self._parse_date(date)
-            else:
-                raise CerebrumError("Incorrect date specification: %r" % date)
-        return (date_start, date_end)
 
     # TODO: we miss functionality for setting mutex relationships
 
@@ -330,7 +327,7 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
         tmp = atom.illegal_attr(foundation)
         if tmp:
             raise CerebrumError('Illegal foundation: %r' % tmp)
-        foundation_date = self._parse_date(foundation_date)
+        foundation_date = parsers.parse_date(foundation_date, optional=True)
 
         # check that name isn't already in use
         try:
@@ -392,7 +389,7 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
         tmp = role.illegal_attr(foundation)
         if tmp:
             raise CerebrumError('Illegal foundation: %r' % tmp)
-        foundation_date = self._parse_date(foundation_date)
+        foundation_date = parsers.parse_date(foundation_date, optional=True)
 
         # check that name isn't already in use
         try:
@@ -489,8 +486,9 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
         self.ba.assert_dns_superuser(operator.get_entity_id())
         policy = self._get_component(policy_id)
         policy.foundation = foundation
-        if date:
-            policy.foundation_date = self._parse_date(date)
+        foundation_date = parsers.parse_date(date, optional=True)
+        if foundation_date:
+            policy.foundation_date = foundation_date
         policy.write_db()
         return "Foundation updated for %s" % policy.component_name
 
@@ -896,18 +894,22 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
             hdr='%-20s %-30s' % ('Name', 'Description')
         ))
 
-    def policy_list_atoms(self, operator, filter):
+    def policy_list_atoms(self, operator, filter_input):
         """Return a list of atoms that match the given filters."""
         # This method is available for everyone
         atom = Atom(self.db)
-        filters = self._parse_filters(filter,
-                                      {'name': None,
-                                       'date': self._parse_create_date_range,
-                                       'create': self._parse_create_date_range,
-                                       'desc': None,
-                                       'foundation': None},
-                                      default_filter='name',
-                                      default_value=None)
+        filters = _parse_filters(
+            filter_input,
+            {
+                'name': None,
+                'date': _parse_filter_date_range,
+                'create': _parse_filter_date_range,
+                'desc': None,
+                'foundation': None,
+            },
+            default_filter='name',
+            default_value=None,
+        )
         date_start = date_end = None
         if filters['date']:
             date_start, date_end = filters['date']
@@ -943,18 +945,22 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
             hdr='%-20s %-30s' % ('Name', 'Description')
         ))
 
-    def policy_list_roles(self, operator, filter):
+    def policy_list_roles(self, operator, filter_input):
         """Return a list of roles that match the given filters."""
         # This method is available for everyone
         role = Role(self.db)
-        filters = self._parse_filters(filter,
-                                      {'name': str,
-                                       'date': self._parse_create_date_range,
-                                       'create': self._parse_create_date_range,
-                                       'desc': str,
-                                       'foundation': str},
-                                      default_filter='name',
-                                      default_value=None)
+        filters = _parse_filters(
+            filter_input,
+            {
+                'name': str,
+                'date': _parse_filter_date_range,
+                'create': _parse_filter_date_range,
+                'desc': str,
+                'foundation': str,
+            },
+            default_filter='name',
+            default_value=None,
+        )
         date_start = date_end = None
         if filters['date']:
             date_start, date_end = filters['date']
@@ -1011,7 +1017,7 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
         comp = self._get_component(policy_id)
         ret = [{
             'name': comp.component_name,
-            'type': text_type(self.const.EntityType(comp.entity_type)),
+            'type': six.text_type(self.const.EntityType(comp.entity_type)),
             'create_date': comp.created_at,
             'desc': comp.description,
             'foundation': comp.foundation,
