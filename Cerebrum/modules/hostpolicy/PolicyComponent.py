@@ -26,8 +26,9 @@ in Cfengine-configuration.
 import re
 
 from Cerebrum import Errors
-from Cerebrum.Utils import Factory, prepare_string, argument_to_sql
 from Cerebrum.Entity import EntityName
+from Cerebrum.Utils import Factory, prepare_string, argument_to_sql
+from Cerebrum.utils import date_compat
 
 Entity_class = Factory.get("Entity")
 
@@ -162,13 +163,19 @@ class PolicyComponent(EntityName, Entity_class):
                   SET (%s)
                   WHERE component_id=:component_id""" % set_str
                 self.execute(update_stmt, binds)
+                # Compatibility - we should *probably* let log_change() deal
+                # with serialization of foundation_date
+                change_date = (
+                    date_compat.to_mx_format(self.foundation_date)
+                    if self.foundation_date else str(None))
                 self._db.log_change(
                     self.entity_id, event,
                     None,
                     change_params={
                         'description': self.description,
                         'foundation': self.foundation,
-                        'foundation_date': str(self.foundation_date)})
+                        'foundation_date': change_date,
+                    })
             if 'component_name' in self.__updated:
                 self.update_entity_name(
                     self.const.hostpolicy_component_namespace,
@@ -206,7 +213,7 @@ class PolicyComponent(EntityName, Entity_class):
         """Fill this component instance with data from the database."""
         self.__super.find(component_id)
         (self.description, self.foundation,
-         self.foundation_date, self.component_name) = self.query_1(
+         foundation_date, self.component_name) = self.query_1(
              """SELECT
                 co.description, co.foundation,
                 co.foundation_date, en.entity_name
@@ -219,6 +226,7 @@ class PolicyComponent(EntityName, Entity_class):
                 co.component_id = :component_id
              """, {'component_id': component_id,
                    'domain': self.const.hostpolicy_component_namespace})
+        self.foundation_date = date_compat.get_date(foundation_date)
         try:
             del self.__in_db
         except AttributeError:
