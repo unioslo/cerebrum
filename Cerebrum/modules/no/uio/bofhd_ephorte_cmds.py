@@ -31,7 +31,7 @@ from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.no.uio.Ephorte import EphortePermission
 from Cerebrum.modules.no.uio.Ephorte import EphorteRole
 from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as cl_base
-
+from Cerebrum.utils.date_compat import get_date
 
 class UiOEphorteAuth(BofhdAuth):
     """Authorisation. UiO ePhorte specific operations."""
@@ -527,7 +527,7 @@ class BofhdExtension(BofhdCommonMethods):
             ou = self._get_ou(ou_id=row['adm_enhet'])
             requestee = self.util.get_target(int(row['requestee_id']))
             if row['end_date']:
-                end_date = row['end_date'].date
+                end_date = get_date(row['end_date']).strftime('%Y-%m-%d')
             else:
                 end_date = ''
             ret.append({
