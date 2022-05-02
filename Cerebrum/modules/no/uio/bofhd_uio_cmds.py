@@ -44,6 +44,7 @@ from Cerebrum.modules.apikeys import bofhd_apikey_cmds
 from Cerebrum.modules.audit import bofhd_history_cmds
 from Cerebrum.modules.bofhd import bofhd_core_help
 from Cerebrum.modules.bofhd import bofhd_ou_cmds
+from Cerebrum.modules.bofhd import parsers
 from Cerebrum.modules.bofhd.auth import (AuthConstants,
                                          BofhdAuthOpSet,
                                          BofhdAuthOpTarget,
@@ -2511,7 +2512,8 @@ class BofhdExtension(BofhdCommonMethods):
         SimpleString(help_ref='string_host'),
         DiskId(),
         SimpleString(help_ref='disk_quota_set'),
-        perm_filter='can_set_disk_default_quota')
+        perm_filter='can_set_disk_default_quota',
+    )
 
     def disk_quota(self, operator, hostname, diskname, quota):
         host = self._get_host(hostname)
@@ -2672,7 +2674,8 @@ class BofhdExtension(BofhdCommonMethods):
         ("host", "disk_quota"),
         SimpleString(help_ref='string_host'),
         SimpleString(help_ref='disk_quota_set'),
-        perm_filter='can_set_disk_default_quota')
+        perm_filter='can_set_disk_default_quota',
+    )
 
     def host_disk_quota(self, operator, hostname, quota):
         host = self._get_host(hostname)
@@ -4794,19 +4797,17 @@ class BofhdExtension(BofhdCommonMethods):
         Integer(help_ref="disk_quota_size"),
         Date(help_ref="disk_quota_expire_date"),
         SimpleString(help_ref="string_why"),
-        perm_filter='can_set_disk_quota')
+        perm_filter='can_set_disk_quota',
+    )
 
     def user_set_disk_quota(self, operator, accountname, size, date, why):
         account = self._get_account(accountname)
-        try:
-            age = DateTime.strptime(date, '%Y-%m-%d') - DateTime.now()
-        except Exception:
-            raise CerebrumError("Error parsing date")
+        exp_date = parsers.parse_date(date)
         why = why.strip()
         if len(why) < 3:
             raise CerebrumError("Why cannot be blank")
         unlimited = forever = False
-        if age.days > 185:
+        if (exp_date - datetime.date.today()).days > 185:
             forever = True
         try:
             size = int(size)
@@ -4817,12 +4818,12 @@ class BofhdExtension(BofhdCommonMethods):
         self.ba.can_set_disk_quota(operator.get_entity_id(), account,
                                    unlimited=unlimited, forever=forever)
         home = account.get_home(self.const.spread_uio_nis_user)
-        _date = self._parse_date(date)
-        if size < 0:               # Unlimited
+        if size < 0:
+            # unlimited disk quota
             size = None
         dq = DiskQuota(self.db)
         dq.set_quota(home['homedir_id'], override_quota=size,
-                     override_expiration=_date, description=why)
+                     override_expiration=exp_date, description=why)
         return "OK, quota overridden for %s" % accountname
 
     #
@@ -4960,13 +4961,14 @@ class BofhdExtension(BofhdCommonMethods):
                 if has_quota and dq_row['quota'] is not None:
                     ret['disk_quota'] = str(int(dq_row['quota']))
                 # Only display recent quotas
-                days_left = ((dq_row['override_expiration'] or
-                              DateTime.Epoch) - DateTime.now()).days
+                dq_expire = date_compat.get_date(dq_row['override_expiration'])
+                days_left = ((dq_expire or datetime.date.min)
+                             - datetime.date.today()).days
                 if days_left > -30:
                     ret['dq_override'] = dq_row['override_quota']
                     if dq_row['override_quota'] is not None:
                         ret['dq_override'] = str(int(dq_row['override_quota']))
-                    ret['dq_expire'] = dq_row['override_expiration']
+                    ret['dq_expire'] = dq_expire
                     ret['dq_why'] = dq_row['description']
                     if days_left < 0:
                         ret['dq_why'] += " [INACTIVE]"
@@ -5237,8 +5239,10 @@ class BofhdExtension(BofhdCommonMethods):
                 current_quota = dq_row['quota']
                 if dq_row['quota'] is not None:
                     current_quota = dq_row['quota']
-                days_left = ((dq_row['override_expiration'] or
-                              DateTime.Epoch) - DateTime.now()).days
+
+                dq_expire = date_compat.get_date(dq_row['override_expiration'])
+                days_left = ((dq_expire or datetime.date.min)
+                             - datetime.date.today()).days
                 if days_left > 0 and dq_row['override_quota'] is not None:
                     current_quota = dq_row['override_quota']
 
@@ -6593,10 +6597,6 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
         return "OK, updated e-mail server for %s (to %s)" % (uname, server)
 
 
-class BofhdRequestCommands(bofhd_requests_cmds.BofhdExtension):
-    authz = bofhd_auth.BofhdRequestsAuth
-
-
 class AccessCommands(bofhd_access.BofhdAccessCommands):
     authz = bofhd_auth.AccessAuth
 
@@ -6605,28 +6605,32 @@ class ApiKeyCommands(bofhd_apikey_cmds.BofhdApiKeyCommands):
     authz = bofhd_auth.ApiKeyAuth
 
 
-class PasswordIssuesCommands(bofhd_pw_issues.BofhdExtension):
-    authz = bofhd_auth.PasswordIssuesAuth
+class BofhdRequestCommands(bofhd_requests_cmds.BofhdExtension):
+    authz = bofhd_auth.BofhdRequestsAuth
 
 
 class CreateUnpersonalCommands(bofhd_user_create_unpersonal.BofhdExtension):
     authz = bofhd_auth.CreateUnpersonalAuth
 
 
+class HistoryCommands(bofhd_history_cmds.BofhdHistoryCmds):
+    authz = bofhd_auth.HistoryAuth
+
+
 class OUDiskMappingCommands(bofhd_cmds.BofhdOUDiskMappingCommands):
     authz = bofhd_auth.OUDiskMappingAuth
 
 
-class HistoryCommands(bofhd_history_cmds.BofhdHistoryCmds):
-    authz = bofhd_auth.HistoryAuth
+class OtpCommands(bofhd_otp_cmds.OtpCommands):
+    authz = bofhd_auth.OtpAuth
 
 
 class OuCommands(bofhd_ou_cmds.OuCommands):
     authz = bofhd_auth.OuAuth
 
 
-class OtpCommands(bofhd_otp_cmds.OtpCommands):
-    authz = bofhd_auth.OtpAuth
+class PasswordIssuesCommands(bofhd_pw_issues.BofhdExtension):
+    authz = bofhd_auth.PasswordIssuesAuth
 
 
 class TraitCommands(bofhd_trait_cmds.TraitCommands):
