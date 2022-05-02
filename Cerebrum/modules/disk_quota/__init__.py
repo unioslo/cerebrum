@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright 2003-2019 University of Oslo, Norway
+#
+# Copyright 2003-2022 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -31,7 +32,7 @@ If mod_disk_quota is in use, the following cereconf-variables needs to be
 configured:
 
 CLASS_DISK
-    Should be set to/include 'Cerebrum.modules.disk_quota.mixins/DiskQuotaMixin'
+    Should include 'Cerebrum.modules.disk_quota.mixins/DiskQuotaMixin'
 
 CLASS_CONSTANTS
     Should include Cerebrum.modules.disk_quota.constants/Constants
@@ -52,6 +53,7 @@ from Cerebrum import Account
 from Cerebrum import Errors
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.Utils import Factory, NotSet, argument_to_sql
+from Cerebrum.utils import date_compat
 
 __version__ = '1.0'
 
@@ -73,7 +75,7 @@ class DiskQuota(DatabaseAccessor):
         dq.set_quota(
             account_home.homedir_id,
             override_quota=90,
-            override_expiration=mx.DateTime.now(),
+            override_expiration=datetime.date.today(),
             description='nice guy')
 
         # Remove override
@@ -154,10 +156,10 @@ class DiskQuota(DatabaseAccessor):
         # TODO: We should really changelog the old_values...
         change_params = dict(new_values)
         change_params['homedir_id'] = homedir_id
-        if 'override_expiration' in change_params:
+        if change_params.get('override_expiration'):
             change_params.update({
                 'override_expiration':
-                    override_expiration.strftime('%Y-%m-%d'),
+                    date_compat.get_date(override_expiration).isoformat(),
              })
         self._db.log_change(
             self._get_account_id(homedir_id),

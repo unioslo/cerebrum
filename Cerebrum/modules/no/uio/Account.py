@@ -17,12 +17,11 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
+import datetime
 import random
 
 import re
 import cereconf
-from mx import DateTime
 from Cerebrum import Account
 from Cerebrum import Errors
 from Cerebrum.modules import Email
@@ -30,6 +29,7 @@ from Cerebrum.modules import EmailConstants
 from Cerebrum.modules.disk_quota import DiskQuota
 from Cerebrum.modules.bofhd_requests.request import BofhdRequests
 from Cerebrum.Utils import Factory
+from Cerebrum.utils import date_compat
 
 
 class AccountUiOMixin(Account.Account):
@@ -567,8 +567,9 @@ class AccountUiOMixin(Account.Account):
                     # No default quota, so keep the quota information.
                     pass
                 else:
-                    if (info['override_expiration'] and
-                            DateTime.now() < info['override_expiration']):
+                    quota_exp = date_compat.get_date(
+                        info['override_expiration'])
+                    if quota_exp and datetime.date.today() < quota_exp:
                         old_quota = info['override_quota']
                     else:
                         old_quota = info['quota']
