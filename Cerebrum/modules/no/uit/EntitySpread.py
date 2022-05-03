@@ -37,14 +37,14 @@ def to_date(obj):
     if obj is None:
         return None
     else:
-        return date_compat.get_date(obj)
+        return date_compat.get_date(obj, allow_none=False )
 
 
 def to_delta(obj):
     if obj is None:
         return None
     else:
-        return date_compat.get_timedelta(obj)
+        return date_compat.get_timedelta(obj, allow_none=False)
 
 
 def get_expire_policy(spread):
