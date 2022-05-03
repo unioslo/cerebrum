@@ -27,7 +27,6 @@ import logging
 import sys
 
 import cereconf
-import mx.DateTime
 from Cerebrum.Utils import read_password
 from Cerebrum.utils import csvutils
 

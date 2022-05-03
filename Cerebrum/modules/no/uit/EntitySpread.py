@@ -22,12 +22,13 @@ Adds spread expire notifications.
 """
 import logging
 
-import mx.DateTime
+import datetime
 
 import cereconf
 
 from Cerebrum.modules import spread_expire
 from Cerebrum.Utils import Factory
+from Cerebrum.utils import date_compat
 
 logger = logging.getLogger(__name__)
 
@@ -36,14 +37,14 @@ def to_date(obj):
     if obj is None:
         return None
     else:
-        return mx.DateTime.DateFrom(obj)
+        return date_compat.get_date(obj)
 
 
 def to_delta(obj):
     if obj is None:
         return None
     else:
-        return mx.DateTime.DateTimeDelta(obj)
+        return date_compat.get_timedelta(obj)
 
 
 def get_expire_policy(spread):
@@ -88,7 +89,7 @@ class UitEntitySpreadMixin(spread_expire.EntitySpreadMixin):
         if entity_id is None:
             entity_id = self.entity_id
         if expire_date is None:
-            expire_date = mx.DateTime.today()
+            expire_date = datetime.datetime.now().date()
 
         needs_reset = self._spread_expire_db.exists(entity_id, spread)
         super(UitEntitySpreadMixin, self).set_spread_expire(spread,
