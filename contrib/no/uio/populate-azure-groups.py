@@ -95,8 +95,8 @@ def sync_group(db, target_group, include_groups=None, exclude_groups=None):
     # Remove any member from target group that is no loger present in the
     # include_groups OR any member of target group that is also a member of
     # the exclude_groups
-    remove_members = ((current_members - include_group_members)|
-                      (current_members.intersection(exclude_group_members)))
+    remove_members = current_members - (include_group_members -
+                                        exclude_group_members)
     logger.info("Removing %s members from %s", len(remove_members), target_group)
     for member in remove_members:
         gr.remove_member(member)
