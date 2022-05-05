@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2005-2019 University of Oslo, Norway
+# Copyright 2005-2022 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,12 +18,11 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""Dump disk quotas for users with a specific spread to file
+"""
+Dump disk quotas for users with a specific spread to file
 
 Can be further restricted to users on a specific host or disk
-
 """
-
 from __future__ import print_function
 import datetime
 import getopt
@@ -31,9 +30,9 @@ import sys
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
+from Cerebrum.modules.disk_quota import DiskQuota
 from Cerebrum.utils import date_compat
 from Cerebrum.utils.atomicfile import SimilarSizeWriter
-from Cerebrum.modules.disk_quota import DiskQuota
 
 
 db = Factory.get('Database')()
@@ -82,9 +81,8 @@ def list_disk_quotas(f, disk_id, spread):
     for row in dq.list_quotas(spread=spread, disk_id=disk.entity_id,
                               all_users=all_users):
         quota = row['quota']
-        if (row['override_expiration'] and
-                 date_compat.get_date(row['override_expiration'])
-                 > datetime.date.today()):
+        override_exp = date_compat.get_date(row['override_expiration'])
+        if override_exp and override_exp > datetime.date.today():
             quota = row['override_quota']
         if quota is None:
             quota = default_quota
