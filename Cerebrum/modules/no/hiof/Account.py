@@ -97,8 +97,8 @@ class AccountHiOfMixin(Account.Account):
         # user's addresses, and don't allocate any new addresses.
         ea = Email.EmailAddress(self._db)
         if target_type == self.const.email_target_deleted:
-            expire_date = datetime.date.fromtimestamp(time.time() +
-                                                 60 * 60 * 24 * 180)
+            seconds = 60 * 60 * 24 * 180
+            expire_date = datetime.date.fromtimestamp(time.time() + seconds)
             for row in et.get_addresses():
                 ea.clear()
                 ea.find(row['address_id'])
