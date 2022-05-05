@@ -58,17 +58,18 @@ The date format is: YYYY-MM-DD
 
 from __future__ import print_function, unicode_literals
 
-import sys
+import argparse
 import os
+import sys
 
 from six import text_type
 
-
 from Cerebrum.Utils import Factory
-from Cerebrum.utils.atomicfile import SimilarSizeWriter
-from Cerebrum.modules.hostpolicy.PolicyComponent import PolicyComponent
 from Cerebrum.modules.hostpolicy.PolicyComponent import Atom
+from Cerebrum.modules.hostpolicy.PolicyComponent import PolicyComponent
 from Cerebrum.modules.hostpolicy.PolicyComponent import Role
+from Cerebrum.utils import date_compat
+from Cerebrum.utils.atomicfile import SimilarSizeWriter
 
 logger = Factory.get_logger('cronjob')
 
@@ -95,16 +96,25 @@ def usage(exitcode=0):
     sys.exit(exitcode)
 
 
+def _format_date(date_like):
+    date = date_compat.get_date(date_like)
+    return date.isoformat()
+
+
 def process_atoms(stream):
     """Go through all atoms in the database and send them to the stream."""
     logger.info('process_atoms started')
     db = Factory.get('Database')()
     atom = Atom(db)
     for row in atom.search():
-        stream.write(';'.join((row['name'],
-                               row['description'],
-                               row['foundation'] or '',
-                               row['created_at'].strftime('%Y-%m-%d'))))
+        stream.write(
+            ';'.join((
+                row['name'],
+                row['description'],
+                row['foundation'] or '',
+                _format_date(row['created_at']),
+            ))
+        )
         stream.write('\n')
     logger.info('process_atoms done')
 
@@ -118,13 +128,17 @@ def process_roles(stream):
     # instead of have a relations call for every role (there might be a lot of
     # roles in the future?).
     for row in role.search():
-        stream.write(';'.join((row['name'],
-                               row['description'],
-                               row['foundation'] or '',
-                               row['created_at'].strftime('%Y-%m-%d'),
-                               ','.join(m['target_name'] for m in
-                                        role.search_relations(
-                                            source_id=row['component_id'])))))
+        stream.write(
+            ';'.join((
+                row['name'],
+                row['description'],
+                row['foundation'] or '',
+                _format_date(row['created_at']),
+                ','.join(m['target_name']
+                         for m in role.search_relations(
+                             source_id=row['component_id'])),
+            ))
+        )
         stream.write('\n')
     logger.info('process_roles done')
 
@@ -137,10 +151,13 @@ def process_hostpolicies(stream):
     by_hosts = {}
     for row in component.search_hostpolicies():
         by_hosts.setdefault(row['dns_owner_name'], []).append(row)
-    for dns_owner_name, rows in by_hosts.iteritems():
-        stream.write(';'.join((dns_owner_name,
-                               ','.join(text_type(row['policy_name'])
-                                        for row in rows))))
+    for dns_owner_name, rows in by_hosts.items():
+        stream.write(
+            ';'.join((
+                dns_owner_name,
+                ','.join(text_type(row['policy_name']) for row in rows),
+            ))
+        )
         stream.write('\n')
     logger.info('process_hostpolicies done')
 
@@ -152,19 +169,18 @@ def process_relationships(stream):
     db = Factory.get('Database')()
     role = Role(db)
     for row in role.search_relations():
-        stream.write(';'.join((row['source_name'],
-                               text_type(row['relationship_str']),
-                               row['target_name'])))
+        stream.write(
+            ';'.join((
+                row['source_name'],
+                text_type(row['relationship_str']),
+                row['target_name'],
+            ))
+        )
         stream.write('\n')
     logger.info('process_relationships done')
 
 
 def main():
-    try:
-        import argparse
-    except ImportError:
-        from Cerebrum.extlib import argparse
-
     filenames = ('atoms', 'roles', 'hostpolicies', 'relationships')
     parser = argparse.ArgumentParser(description="Produce host policy files")
     for filename in filenames:
