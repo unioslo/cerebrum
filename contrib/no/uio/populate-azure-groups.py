@@ -77,7 +77,8 @@ def sync_group(db, target_group, include_groups=None, exclude_groups=None):
     exclude_group_members = set()
     if exclude_groups:
         for exclude_group in exclude_groups:
-            exclude_group_members.update(get_members(db, exclude_group))
+            exclude_group_members.update(get_members(db, exclude_group,
+                                                     indirect_members=True))
         logger.debug("Found %s members of %s", len(exclude_group_members),
                     exclude_groups)
 
