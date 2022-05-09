@@ -52,10 +52,7 @@ class ADclientMock(ADUtils.ADclient):
             self._cache = json.load(f)
 
     def _store_state(self, fname):
-        try:
-            import json
-        except ImportError:
-            from Cerebrum.extlib import json
+        from Cerebrum.utils import json
         with open(fname, 'w') as f:
             json.dump(self._cache, f)
 

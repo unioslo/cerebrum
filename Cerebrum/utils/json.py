@@ -86,6 +86,12 @@ def entity_to_json(entity):
             entity.entity_type)))
 
 
+@_conv(set)
+def set_to_json(value):
+    """ Convert sets to sorted list of set items. """
+    return list(sorted(value))
+
+
 class JSONEncoder(json.encoder.JSONEncoder):
     """
     Extend JSONEncoder with:
