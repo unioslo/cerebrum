@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2018 University of Oslo, Norway
+# Copyright 2018-2022 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,52 +17,59 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
 """Constants for the feide service"""
 
+import Cerebrum.Constants
+from Cerebrum.modules.bofhd.bofhd_constants import _AuthRoleOpCode
 
-import Cerebrum.Constants as CereConst
-from Cerebrum.Utils import Factory
 
+class Constants(Cerebrum.Constants.Constants):
 
-Entity_class = Factory.get("Entity")
+    entity_feide_service = Cerebrum.Constants._EntityTypeCode(
+        'feide_service',
+        'Feide service',
+    )
 
-class _AuthRoleOpCode(CereConst._CerebrumCode):
-    """Mappings stored in the auth_role_op_code table"""
-    _lookup_table = '[:table schema=cerebrum name=auth_op_code]'
-
-class Constants(CereConst.Constants):
-    # Entity type
-    entity_feide_service = CereConst._EntityTypeCode('feide_service',
-                                                     'Feide service')
     auth_feide_commands = _AuthRoleOpCode(
-        'feide_commands', "Grant access to Feide commands")
+        'feide_commands',
+        "Grant access to Feide commands",
+    )
 
 
-class CLConstants(CereConst.CLConstants):
-    # Change log
-    feide_service_add = CereConst._ChangeTypeCode(
+class CLConstants(Cerebrum.Constants.CLConstants):
+
+    feide_service_add = Cerebrum.Constants._ChangeTypeCode(
         'feide_service', 'add',
         'added feide service %(subject)s',
-        ("feide_id=%(int:feide_id)s", "name=%(string:name)s"))
-    feide_service_mod = CereConst._ChangeTypeCode(
+        ("feide_id=%(int:feide_id)s", "name=%(string:name)s"),
+    )
+
+    feide_service_mod = Cerebrum.Constants._ChangeTypeCode(
         'feide_service', 'modify',
         'modified feide service %(subject)s',
-        ("feide_id=%(int:feide_id)s", "name=%(string:name)s"))
-    feide_service_del = CereConst._ChangeTypeCode(
+        ("feide_id=%(int:feide_id)s", "name=%(string:name)s"),
+    )
+
+    feide_service_del = Cerebrum.Constants._ChangeTypeCode(
         'feide_service', 'remove',
         'deleted feide service %(subject)s',
-        ("feide_id=%(int:feide_id)s", "name=%(string:name)s"))
+        ("feide_id=%(int:feide_id)s", "name=%(string:name)s"),
+    )
 
-    feide_service_authn_level_add = CereConst._ChangeTypeCode(
+    feide_service_authn_level_add = Cerebrum.Constants._ChangeTypeCode(
         'feide_service_authn_level', 'add',
         'added authn level for %(subject)s, service=%(dest)s',
-        "level=%(int:level)s")
-    feide_service_authn_level_mod = CereConst._ChangeTypeCode(
+        "level=%(int:level)s",
+    )
+
+    feide_service_authn_level_mod = Cerebrum.Constants._ChangeTypeCode(
         'feide_service_authn_level', 'modify',
         'modified authn level for %(subject)s, service=%(dest)s',
-        "level=%(int:level)s")
-    feide_service_authn_level_del = CereConst._ChangeTypeCode(
+        "level=%(int:level)s",
+    )
+
+    feide_service_authn_level_del = Cerebrum.Constants._ChangeTypeCode(
         'feide_service_authn_level', 'remove',
         'deleted authn level for %(subject)s, service=%(dest)s',
-        "level=%(int:level)s")
+        "level=%(int:level)s",
+    )
