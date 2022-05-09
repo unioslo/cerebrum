@@ -285,7 +285,7 @@ def _get_primary_account(person):
 
 
 class OtpCommands(BofhdCommandBase):
-    """BofhdExtension for history related commands and functionality."""
+    """BofhdExtension for OTP related commands and functionality."""
 
     all_commands = {}
     authz = OtpAuth
