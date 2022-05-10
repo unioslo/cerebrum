@@ -51,6 +51,30 @@ def get_members(db, group_name, indirect_members=False,
 
     return mems
 
+
+def get_persons(db, members):
+    """
+    If any of the entity_ids of members belongs to account objects, replace it
+    in the output with the owner_id of this account.
+    """
+    ac = Factory.get('Account')(db)
+    gr = Factory.get('Group')(db)
+    co = Factory.get('Constants')(db)
+    owners = set()
+
+    for member in members:
+        owner = member
+        ac.clear()
+        try:
+            ac.find(member)
+            owner = ac.owner_id
+        except:
+            pass
+        owners.add(owner)
+
+    return owners
+
+
 def sync_group(db, target_group, include_groups=None, exclude_groups=None):
     """
     Update members of target group, based on membership in other groups.
@@ -81,6 +105,9 @@ def sync_group(db, target_group, include_groups=None, exclude_groups=None):
                                                      indirect_members=True))
         logger.debug("Found %s members of %s", len(exclude_group_members),
                     exclude_groups)
+
+    # This step is needed to sanitise the contents of 'it-uio-ms365-betalende'
+    exclude_group_members = get_persons(db, exclude_group_members)
 
     gr.find_by_name(target_group)
     current_members = get_members(db, target_group)
@@ -135,7 +162,6 @@ def main():
     else:
         db.rollback()
         logger.info("Dryrun mode, rolling back changes")
-
 
 
 if __name__ == "__main__":
