@@ -305,7 +305,7 @@ def process_affiliations(employment_file, person_file, use_fok,
             logger.debug("Entry %s has no timeframe", tpl)
             continue
         if not ((get_date_object(tpl.start_date) -
-                datetime.timedelta(days=180)) <= datetime.datetime.now() <=
+                datetime.timedelta(days=180)) <= datetime.date.today() <=
                 get_date_object(tpl.end_date)):
             logger.debug("Entry %s has wrong timeframe (start: %s, end: %s)",
                          tpl, tpl.start_date, tpl.end_date)
