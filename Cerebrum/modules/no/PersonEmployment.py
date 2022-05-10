@@ -62,8 +62,8 @@ class PersonEmploymentMixin(object):
                      self.const.AuthoritativeSystem(source_system)),
                  "employment_code": str(employment_code),
                  "percentage": float(percentage),
-                 "start_date": get_date(start_date),
-                 "end_date": get_date(end_date),
+                 "start_date": start_date,
+                 "end_date": end_date,
                  "main_employment": main_employment and "T" or "F"}
 
         existing = list(self.search_employment(self.entity_id,
@@ -83,8 +83,10 @@ class PersonEmploymentMixin(object):
         row = existing[0]
         # If there is a difference, run an update... (otherwise do nothing)
         if (binds["employment_code"] != row["employment_code"] or
-                binds["start_date"] != get_date(row["start_date"]) or
-                binds["end_date"] != get_date(row["end_date"]) or
+                binds["start_date"] != get_date(row["start_date"],
+                                                allow_none=False) or
+                binds["end_date"] != get_date(row["end_date"],
+                                              allow_none=False) or
                 abs(binds["percentage"] - row["percentage"]) > 0.1 or
                 main_employment != row["main_employment"]):
 
