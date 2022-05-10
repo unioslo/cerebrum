@@ -3653,7 +3653,7 @@ class BofhdExtension(BofhdCommonMethods):
                 getattr(self.const, cereconf.DEFAULT_GECOS_NAME))
             p_name = p_name + ' [from Cached]'
         except Errors.NotFoundError:
-            raise CerebrumError("No name is registered for this person")
+            p_name = None
         data = [{
             'name': p_name,
             'entity_id': person.entity_id,
