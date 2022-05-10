@@ -1035,8 +1035,6 @@ class BofhdAuth(DatabaseAccessor):
             return True
         account = Factory.get('Account')(self._db)
         account.find(operator)
-        if person.entity_id == account.owner_id:
-            return True
         return self.has_privileged_access_to_account_or_person(
             operator, self.const.auth_create_user, account)
 
