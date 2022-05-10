@@ -1033,12 +1033,10 @@ class BofhdAuth(DatabaseAccessor):
             return True
         if self.is_superuser(operator):
             return True
-        account = Factory.get('Account')(self._db)
-        account.find(operator)
-        if person.entity_id == account.owner_id:
-            return True
         return self.has_privileged_access_to_account_or_person(
-            operator, self.const.auth_create_user, account)
+            operator=operator,
+            operation=self.const.auth_create_user,
+            entity=person)
 
     def can_set_person_info(self, operator, person=None, query_run_any=False):
         """Access to updating data that *should* come from other systems."""
