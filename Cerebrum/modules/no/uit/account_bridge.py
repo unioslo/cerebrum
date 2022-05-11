@@ -26,6 +26,7 @@ import psycopg2
 import psycopg2.extras
 
 from .Account import UsernamePolicy
+from Cerebrum.utils import date_compat
 
 logger = logging.getLogger(__name__)
 default_database = "cerebrum"
@@ -320,7 +321,7 @@ class AccountBridge(object):
                 target_id = row['target_id']
                 local_part = row['local_part']
                 domain_id = row['domain_id']
-                expire_date = row['expire_date']
+                expire_date = date_compat.get_date(row['expire_date'])
                 if expire_date:
                     expire_date = expire_date.strftime("%Y-%m-%d")
 
@@ -417,7 +418,7 @@ class AccountBridge(object):
                 target_id = row['target_id']
                 local_part = row['local_part']
                 domain = row['domain']
-                expire_date = row['expire_date']
+                expire_date = date_compat.get_date(row['expire_date'])
                 if expire_date:
                     expire_date = expire_date.strftime("%Y-%m-%d")
 

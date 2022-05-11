@@ -69,6 +69,7 @@ from __future__ import unicode_literals
 import re
 import string
 import time
+import datetime
 
 import six
 
@@ -2364,7 +2365,7 @@ class AccountEmailMixin(Account.Account):
         if changed and cereconf.EMAIL_EXPIRE_ADDRESSES is not False:
             if target_type == self.const.email_target_deleted:
                 seconds = cereconf.EMAIL_EXPIRE_ADDRESSES * 86400
-                expire_date = self._db.DateFromTicks(time.time() + seconds)
+                expire_date = datetime.date.fromtimestamp(time.time() + seconds)
             else:
                 expire_date = None
             for row in et.get_addresses():

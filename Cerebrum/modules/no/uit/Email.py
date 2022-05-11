@@ -25,6 +25,7 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
 from Cerebrum.modules.Email import AccountEmailMixin
 from Cerebrum.modules.no.uit.ad_email import AdEmail
+from Cerebrum.utils import date_compat
 
 logger = logging.getLogger(__name__)
 
@@ -128,8 +129,8 @@ class UiTAccountEmailMixin(AccountEmailMixin):
                 'local_part': row['local_part'],
                 'domain': row['domain'],
                 'create_date': row['created_at'],
-                'change_date': row['change_date'],
-                'expire_date': row['expire_date'],
+                'change_date': date_compat.get_date(row['change_date']),
+                'expire_date': date_compat.get_date(row['expire_date']),
             }
             addresses.append(mailinfo)
         return ret
