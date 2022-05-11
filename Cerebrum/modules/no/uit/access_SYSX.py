@@ -1,5 +1,5 @@
 # -*- coding: utf-8-*-
-# Copyright 2002, 2003, 2019 University of Oslo, Norway
+# Copyright 2002-2022 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -27,7 +27,6 @@ import logging
 import sys
 
 import cereconf
-import mx.DateTime
 from Cerebrum.Utils import read_password
 from Cerebrum.utils import csvutils
 
