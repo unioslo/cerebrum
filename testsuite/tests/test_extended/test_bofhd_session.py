@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-u""" Tests for Cerebrum.modules.bofhd.session """
+""" Tests for Cerebrum.modules.bofhd.session """
+from __future__ import print_function, unicode_literals
 
 import pytest
 
@@ -10,12 +11,11 @@ BOFHD_SHORT_TIMEOUT = 60
 BOFHD_SHORT_TIMEOUT_HOSTS = ['10.10.0.0/5', '10.10.128.0']
 
 
-@pytest.fixture
-def cereconf(cereconf):
-    u""" Patched `cereconf` with known BOFHD_ session values. """
-    setattr(cereconf, 'BOFHD_SHORT_TIMEOUT', BOFHD_SHORT_TIMEOUT)
-    setattr(cereconf, 'BOFHD_SHORT_TIMEOUT_HOSTS', BOFHD_SHORT_TIMEOUT_HOSTS)
-    return cereconf
+@pytest.fixture(autouse=True)
+def _patch_cereconf(cereconf):
+    """ Patched `cereconf` with known BOFHD_ session values. """
+    cereconf.BOFHD_SHORT_TIMEOUT = BOFHD_SHORT_TIMEOUT
+    cereconf.BOFHD_SHORT_TIMEOUT_HOSTS = BOFHD_SHORT_TIMEOUT_HOSTS
 
 
 @pytest.fixture
@@ -25,32 +25,25 @@ def database(database):
 
 
 @pytest.fixture
-def AccountCode(constant_module):
-    return constant_module._AccountCode
+def np_type(constant_module):
+    u""" A new, unique group spread. """
+    code = constant_module._AccountCode
+    np_type = code('6c96aa56a57d0831',
+                   description='test_bofhd_session account')
+    np_type.insert()
+    return np_type
 
 
 @pytest.fixture
-def account(cereconf, factory, database, AccountCode):
-    u""" Create a non-personal account for tests. """
+def account(factory, database, np_type, initial_account, initial_group):
+    """ Create a non-personal account for tests. """
+    creator_id = initial_account.entity_id
+    owner = initial_group
+
     acc = factory.get('Account')(database)
-    group = factory.get('Group')(database)
-
-    # creator_id
-    acc.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
-    creator_id = acc.entity_id
-    acc.clear()
-
-    # owner_id, owner_type
-    group.find_by_name(cereconf.INITIAL_GROUPNAME)
-
-    # non-personal account type
-    np_type = AccountCode('6c96aa56a57d0831',
-                          description='test_bofhd_session account')
-    np_type.insert()
-
     acc.populate('fc3acf7e',
-                 group.entity_type,
-                 group.entity_id,
+                 owner.entity_type,
+                 owner.entity_id,
                  np_type,
                  creator_id,
                  None)
@@ -107,14 +100,14 @@ def test_conf_short_timeout_hosts(session_module):
 
 def test_setup_session(session, account):
     sid = session.set_authenticated_entity(account.entity_id, SOURCE_IP_LONG)
-    print 'session_id', repr(sid)
+    print('session_id', repr(sid))
     assert sid is not None
     assert len(sid) > 1
 
 
 @pytest.fixture
 def long_session(session, account):
-    u""" Logged in session. """
+    """ Logged in session. """
     session.set_authenticated_entity(account.entity_id, SOURCE_IP_LONG)
     return session
 

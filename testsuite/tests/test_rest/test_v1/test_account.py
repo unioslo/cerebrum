@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """ Tests for api.v1.account """
 from __future__ import print_function, unicode_literals
@@ -11,8 +10,8 @@ import random
 from flask import url_for
 
 
-@pytest.fixture
-def cereconf(cereconf):
+@pytest.fixture(autouse=True)
+def _patch_cereconf(cereconf):
     # Password rules for testing
     cereconf.PASSWORD_CHECKS = {
         'rigid': (
@@ -22,7 +21,6 @@ def cereconf(cereconf):
               'min_chars_per_group': 2}),
         ),
     }
-    return cereconf
 
 
 def random_string(length=32):

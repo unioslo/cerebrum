@@ -3,6 +3,7 @@
 Global py-test config and fixtures.
 """
 import pytest
+import sys
 import types
 
 
@@ -14,15 +15,30 @@ def cereconf():
     settings need to be tested, or when certain changes needs to be injected
     for the test to run as expected.
 
-    TODO: This fixture should probably have autorun=True
-    TODO: This fixture should probably backup and restore settings
-    between tests automatically.
+    To patch cereconf:
+
+        @pytest.fixture(autouse=True)
+        def _patch_foo(cereconf):
+            cereconf.FOO = 3
     """
     try:
         import cereconf
-        return cereconf
+        sys_remove = False
     except ImportError:
-        pytest.xfail("Unable to import 'cereconf'")
+        cereconf = types.ModuleType('cereconf', 'mock cereconf module')
+        sys.modules['cereconf'] = cereconf
+        sys_remove = True
+    # backup of initial module attributes:
+    to_restore = dict(cereconf.__dict__)
+    yield cereconf
+
+    # Reset cereconf changes
+    # Note: This will not reset mutations done to individual attribute values -
+    # e.g. a cereconf.LDAP_PERSON.update({'foo': 'bar'})
+    cereconf.__dict__.clear()
+    cereconf.__dict__.update(to_restore)
+    if sys_remove:
+        del sys.modules['cereconf']
 
 
 @pytest.fixture

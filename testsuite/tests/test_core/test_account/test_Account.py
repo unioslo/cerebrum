@@ -20,21 +20,14 @@ def _set_of_ids(account_dicts):
 
 
 @pytest.fixture(autouse=True)
-def _patch_account(cereconf):
+def _patch_cereconf(cereconf):
     """
     Patch cereconf.AUTH_CRYPT_METHODS
 
     Make sure AUTH_CRYPT_METHODS only only contains auth methods supported by
     Cerebrum.Account.Account
     """
-    notset = object()
-    old = getattr(cereconf, 'AUTH_CRYPT_METHODS', notset)
     cereconf.AUTH_CRYPT_METHODS = list(all_auth_methods)
-    yield
-    if old is notset:
-        delattr(cereconf, 'AUTH_CRYPT_METHODS')
-    else:
-        cereconf.AUTH_CRYPT_METHODS = old
 
 
 @pytest.fixture
