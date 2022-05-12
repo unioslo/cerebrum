@@ -2,9 +2,21 @@
 """
 Global py-test config and fixtures.
 """
-import pytest
+from __future__ import print_function
+
 import sys
 import types
+
+import pytest
+
+import Cerebrum.logutils
+
+
+@pytest.fixture(autouse=True, scope='session')
+def logger():
+    Cerebrum.logutils._install()
+    Cerebrum.logutils._configured = True
+    return Cerebrum.logutils._get_legacy_logger('console')
 
 
 @pytest.fixture
@@ -53,17 +65,25 @@ def factory(cereconf):
 
 
 @pytest.fixture
-def logger(factory):
-    # TODO: Get a dummy logger that doesn't depend on logging.ini?
-    return factory.get_logger('console')
-
-
-@pytest.fixture
 def database(factory):
     """`Cerebrum.database.Database` with automatic rollback."""
-    db = factory.get('Database')()
-    db.commit = db.rollback
+    db_cls = factory.get('Database')
 
+    class _DbWrapper(db_cls):
+
+        def commit(self):
+            print('db.commit() trapped, running db.rollback()')
+            super(_DbWrapper, self).rollback()
+
+        def rollback(self):
+            print('db.rollback()')
+            super(_DbWrapper, self).rollback()
+
+        def close(self):
+            print('db.close()')
+            super(_DbWrapper, self).close()
+
+    db = _DbWrapper()
     # TODO: This isn't ideal. We shouldn't use Factory to get our db driver,
     # and *really* shouldn't use a bunch of CL implementations when we run our
     # tests.  How *should* we build our db driver and ocnfigure the test db
