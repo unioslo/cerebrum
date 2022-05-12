@@ -8,7 +8,7 @@ Each TSD project is represented by an OU.
 
 import unittest
 
-from mx import DateTime
+import mx.DateTime as DateTime
 
 import cereconf
 from Cerebrum import Errors
@@ -17,13 +17,12 @@ from Cerebrum.modules.dns import Subnet, IPv6Subnet
 from Cerebrum.modules.dns import Errors as dnsErrors
 from Cerebrum.modules.EntityTrait import EntityTrait
 
-from datasource import BasicAccountSource, BasicPersonSource
-from dbtools import DatabaseTools
+from Cerebrum.testutils.datasource import BasicAccountSource, BasicPersonSource
+from Cerebrum.testutils.dbtools import DatabaseTools
 
 
 class TSDOUTest(unittest.TestCase):
-    """ This is a testcase for TSD's OU class.
-    """
+    """ This is a testcase for TSD's OU class.  """
 
     @classmethod
     def setUpClass(cls):
@@ -159,7 +158,7 @@ class SimpleOUTests(TSDOUTest):
 
         """
         self._ou.clear()
-        pid = self._ou.create_project(name)
+        self._ou.create_project(name)
         self._ou.setup_project(self.db_tools.get_initial_account_id(),
                                vlan=vlan)
 

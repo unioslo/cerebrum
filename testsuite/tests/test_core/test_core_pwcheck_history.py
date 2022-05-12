@@ -13,8 +13,8 @@ from Cerebrum.modules.pwcheck.history import PasswordHistory
 # from Cerebrum.modules.pwcheck.checker import PasswordNotGoodEnough
 
 # Cerebrum-specific test modules
-from datasource import BasicAccountSource
-from dbtools import DatabaseTools
+from Cerebrum.testutils.datasource import BasicAccountSource
+from Cerebrum.testutils.dbtools import DatabaseTools
 
 # Global cererbum objects
 db = None

@@ -4,7 +4,8 @@
 from __future__ import unicode_literals
 
 import pytest
-import datasource
+
+from Cerebrum.testutils import datasource
 
 
 @pytest.fixture

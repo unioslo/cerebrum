@@ -12,16 +12,12 @@ import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.dns import DnsOwner
+from Cerebrum.testutils.datasource import BasicAccountSource, BasicPersonSource
+from Cerebrum.testutils.dbtools import DatabaseTools
 
-from datasource import BasicAccountSource, BasicPersonSource
-from dbtools import DatabaseTools
-from datasource import expired_filter, nonexpired_filter
 
 class TSDAccountTest(unittest.TestCase):
-
-    """ This is a testcase for TSD's Account class.
-
-    """
+    """ This is a testcase for TSD's Account class.  """
 
     @classmethod
     def setUpClass(cls):
@@ -62,6 +58,7 @@ class TSDAccountTest(unittest.TestCase):
         cls.db_tools.clear_ous()
         cls._db.rollback()
 
+
 class SimpleAccountsTest(TSDAccountTest):
     """ This is a test case for simple scenarios. """
 
@@ -99,7 +96,7 @@ class SimpleAccountsTest(TSDAccountTest):
         self._ou.create_project('test1')
         ouids.append(self._ou.entity_id)
         self._ou.clear()
-        pid = self._ou.create_project('test2')
+        self._ou.create_project('test2')
         ouids.append(self._ou.entity_id)
 
         person_id = self.db_tools.create_person(self.person_ds().next())
@@ -177,9 +174,9 @@ class SimpleAccountsTest(TSDAccountTest):
         for grname in ('member-group',):
             self._gr.clear()
             self._gr.find_by_name('-'.join((pid, grname)))
-            #self.assertTrue(self._gr.has_member(self._ac.entity_id))
+            # self.assertTrue(self._gr.has_member(self._ac.entity_id))
 
-        # TODO: This should rather be in the teardown, to avoid trouble in later
-        # tests:
+        # TODO: This should rather be in the teardown, to avoid trouble in
+        # later tests:
         cereconf.TSD_PROJECT_GROUPS = old_cereconf_groups
         cereconf.TSD_GROUP_MEMBERS = old_cereconf_members

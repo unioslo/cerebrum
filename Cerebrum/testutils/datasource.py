@@ -41,17 +41,30 @@ from mx.DateTime import now
 
 
 # When used with filter(expired_filter, items), will return expired items
-expired_filter = lambda x: ((x.get('expire_date') is not None) and
-                            (x.get('expire_date') < now()))
-""" A filter to identify expired items (according to the key 'expire_date') in
-a dict or dict-like object. """
+def expired_filter(data):
+    """
+    A filter to identify expired items.
 
-# When used with filter(nonexpired_filter, items), will return non-expired
-# items
-nonexpired_filter = lambda x: ((x.get('expire_date') is None) or
-                               (x.get('expire_date') >= now()))
-""" A filter to identify non-expired items (according to the key 'expire_date')
-in a dict or dict-like object. """
+    This is useful for picking out relevant datasource items from the
+    py:class:`.ExpireDateMixin`.
+
+    Example: filter(expired_filter, BasicGroupSource(limit=3))
+    """
+    return ((data.get('expire_date') is not None)
+            and (data.get('expire_date') < now()))
+
+
+def nonexpired_filter(data):
+    """
+    A filter to identify non-expired items.
+
+    This is useful for picking out relevant datasource items from the
+    py:class:`.ExpireDateMixin`.
+
+    Example: filter(nonexpired_filter, BasicGroupSource(limit=3))
+    """
+    return ((data.get('expire_date') is None)
+            or (data.get('expire_date') >= now()))
 
 
 class BaseDataSource(object):
@@ -99,7 +112,7 @@ class BaseDataSource(object):
             yield self.get_next_item()
 
     def _get_next_ident(self):
-        """ Create a unique string that identifies this item. 
+        """ Create a unique string that identifies this item.
 
         @rtype: str
         @return: An item id

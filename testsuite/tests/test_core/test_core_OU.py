@@ -4,7 +4,8 @@
 from __future__ import unicode_literals
 
 import pytest
-import datasource
+
+from Cerebrum.testutils import datasource
 
 
 @pytest.fixture
@@ -69,7 +70,7 @@ def _populator(ou, limit=5):
             e['entity_id'] = ou.entity_id
             e['entity_type'] = ou.entity_type
             ous.append(e)
-        except:
+        except Exception:
             ou._db.rollback()
             raise
         finally:
@@ -202,7 +203,8 @@ def test_delete(ou_object, basic_ous):
 
 
 def test_search_by_spread(ou_object, basic_ous, ous_with_spreads, ou_spread):
-    if any(len(l) < 1 for l in (basic_ous, ous_with_spreads)):
+    if any(len(ou_group) < 1
+           for ou_group in (basic_ous, ous_with_spreads)):
         pytest.skip('Test needs at least three OUs, one with a quarantine, '
                     'one with a spread, and one without.')
 
@@ -213,7 +215,8 @@ def test_search_by_spread(ou_object, basic_ous, ous_with_spreads, ou_spread):
 
 
 def test_search_exclude_quar(ou_object, basic_ous, ous_with_quarantines):
-    if any(len(l) < 1 for l in (basic_ous, ous_with_quarantines)):
+    if any(len(ou_group) < 1
+           for ou_group in (basic_ous, ous_with_quarantines)):
         pytest.skip('Test needs at least three OUs, one with a quarantine, '
                     'one with a quarantine, and one without.')
 
@@ -232,8 +235,9 @@ def test_search_exclude_quar(ou_object, basic_ous, ous_with_quarantines):
 
 def test_search_all(ou_object, basic_ous, ous_with_spreads,
                     ous_with_quarantines):
-    if any(len(l) < 1 for l in (basic_ous, ous_with_quarantines,
-                                ous_with_spreads)):
+    if any(len(ou_group) < 1
+           for ou_group in (basic_ous, ous_with_quarantines,
+                            ous_with_spreads)):
         pytest.skip('Test needs ous with and without spreads and quarantines')
 
     # check that we can search for all ous

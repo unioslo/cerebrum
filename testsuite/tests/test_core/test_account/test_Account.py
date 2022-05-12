@@ -5,11 +5,10 @@ from __future__ import unicode_literals
 
 import pytest
 
-import datasource  # testsuite/testtools/
-
 from Cerebrum import Account
 from Cerebrum import Errors
 from Cerebrum import Person
+from Cerebrum.testutils import datasource
 
 person_cls = Person.Person
 account_cls = Account.Account
