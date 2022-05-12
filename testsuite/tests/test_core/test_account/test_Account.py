@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """Basic tests for Cerebrum/Account.py."""
 from __future__ import unicode_literals
@@ -8,6 +7,7 @@ import pytest
 from Cerebrum import Account
 from Cerebrum import Errors
 from Cerebrum import Person
+from Cerebrum.auth import all_auth_methods
 from Cerebrum.testutils import datasource
 
 person_cls = Person.Person
@@ -17,6 +17,24 @@ account_cls = Account.Account
 def _set_of_ids(account_dicts):
     return set(int(a.get('entity_id', a.get('account_id')))
                for a in account_dicts)
+
+
+@pytest.fixture(autouse=True)
+def _patch_account(cereconf):
+    """
+    Patch cereconf.AUTH_CRYPT_METHODS
+
+    Make sure AUTH_CRYPT_METHODS only only contains auth methods supported by
+    Cerebrum.Account.Account
+    """
+    notset = object()
+    old = getattr(cereconf, 'AUTH_CRYPT_METHODS', notset)
+    cereconf.AUTH_CRYPT_METHODS = list(all_auth_methods)
+    yield
+    if old is notset:
+        delattr(cereconf, 'AUTH_CRYPT_METHODS')
+    else:
+        cereconf.AUTH_CRYPT_METHODS = old
 
 
 @pytest.fixture
