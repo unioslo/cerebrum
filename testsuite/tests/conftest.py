@@ -1,8 +1,6 @@
-#!/usr/bin/env python
 # encoding: utf-8
-u""" Global py-test config and fixtures.
-
-This module contains fixtures that should be shared across all tests.
+"""
+Global py-test config and fixtures.
 """
 import pytest
 import types
@@ -10,22 +8,26 @@ import types
 
 @pytest.fixture
 def cereconf():
-    u""" 'cereconf' config.
+    """ 'cereconf' config.
 
-    This fixture allows test modules to change cereconf settings when certain
-    settings need to be tested, or when certain changes needs to be injected in
-    the config.
+    This fixture allows test modules to patch cereconf settings when certain
+    settings need to be tested, or when certain changes needs to be injected
+    for the test to run as expected.
+
+    TODO: This fixture should probably have autorun=True
+    TODO: This fixture should probably backup and restore settings
+    between tests automatically.
     """
     try:
         import cereconf
         return cereconf
     except ImportError:
-        pytest.xfail(u"Unable to import 'cereconf'")
+        pytest.xfail("Unable to import 'cereconf'")
 
 
 @pytest.fixture
 def factory(cereconf):
-    u""" `Cerebrum.Utils.Factory`.
+    """ `Cerebrum.Utils.Factory`.
 
     We list cereconf as a 'dependency' in order to have it processed before
     importing and using the factory.
@@ -40,7 +42,7 @@ def logger(factory):
     return factory.get_logger('console')
 
 
-@pytest.yield_fixture
+@pytest.fixture
 def database(factory):
     """`Cerebrum.database.Database` with automatic rollback."""
     db = factory.get('Database')()
@@ -61,7 +63,7 @@ def database(factory):
 
 @pytest.fixture
 def constant_module(database):
-    u""" Patched `Cerebrum.Constants` module.
+    """ Patched `Cerebrum.Constants` module.
 
     This fixture patches the _CerebrumCode constants, so that they use the same
     database transaction as the `database` fixture.
@@ -70,16 +72,16 @@ def constant_module(database):
     cleared for each scope.
 
     """
-    from Cerebrum import Constants as module
+    from Cerebrum import Constants
     # Patch the `sql` property to always return a known db-object
-    module._CerebrumCode.sql = property(lambda *args: database)
+    Constants._CerebrumCode.sql = property(lambda *args: database)
     # Clear the constants cache of each _CerebrumCode class, to avoid caching
     # intvals that doesn't exist in the database.
-    for item in vars(module).values():
+    for item in vars(Constants).values():
         if (isinstance(item, (type, types.ClassType))
-                and issubclass(item, module._CerebrumCode)):
+                and issubclass(item, Constants._CerebrumCode)):
             item._cache = dict()
-    return module
+    return Constants
 
 
 @pytest.fixture
