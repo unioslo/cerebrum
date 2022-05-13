@@ -145,15 +145,17 @@ def main():
 
     sync_group(db, "it-uio-ms365-student",
                include_groups=["meta-student-900000"],
-               exclude_groups=["it-uio-ms365-betalende"])
+               exclude_groups=["it-uio-ms365-betalende-utflatet"])
     sync_group(db, "it-uio-ms365-ansatt",
                include_groups=["meta-ansatt-vitenskapelig-900000",
                                "meta-ansatt-tekadm-900000"],
-               exclude_groups=["it-uio-ms365-betalende", "it-uio-ms365-student"])
+               exclude_groups=["it-uio-ms365-betalende-utflatet",
+                               "it-uio-ms365-student"])
     sync_group(db, "it-uio-ms365-andre",
                include_groups=["meta-ansatt-bilag-900000",
                                "meta-tilknyttet-900000"],
-               exclude_groups=["it-uio-ms365-betalende", "it-uio-ms365-student",
+               exclude_groups=["it-uio-ms365-betalende-utflatet",
+                               "it-uio-ms365-student",
                                "it-uio-ms365-ansatt"])
 
     if args.commit:
