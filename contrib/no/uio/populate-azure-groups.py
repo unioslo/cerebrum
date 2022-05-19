@@ -39,14 +39,26 @@ logger = logging.getLogger(__name__)
 
 
 def get_members(db, group_name, indirect_members=False,
-                filter_expired=True):
+                filter_expired=True, filter_groups=False):
     """ Return, as a set, the member_ids of a given group """
+    co = Factory.get('Constants')(db)
     gr = Factory.get('Group')(db)
     gr.find_by_name(group_name)
-    rows =  gr.search_members(group_id=gr.entity_id,
-                              indirect_members=indirect_members,
-                              member_filter_expired=filter_expired)
-    mems = {m["member_id"] for m in rows}
+    if filter_groups:
+        mems = {
+            m["member_id"]
+            for m in gr.search_members(group_id=gr.entity_id,
+                                       indirect_members=indirect_members,
+                                       member_filter_expired=filter_expired)
+            if m['member_type'] != co.entity_group
+        }
+    else:
+        mems = {
+            m["member_id"]
+            for m in gr.search_members(group_id=gr.entity_id,
+                                       indirect_members=indirect_members,
+                                       member_filter_expired=filter_expired)
+        }
     gr.clear()
 
     return mems
@@ -94,7 +106,8 @@ def sync_group(db, target_group, include_groups=None, exclude_groups=None):
     if include_groups:
         for include_group in include_groups:
             include_group_members.update(get_members(db, include_group,
-                                                  indirect_members=True))
+                                                     indirect_members=True,
+                                                     filter_groups=True))
         logger.debug("Found %s members of %s", len(include_group_members),
                     include_groups)
 
