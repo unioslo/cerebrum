@@ -6,15 +6,15 @@ from __future__ import print_function, unicode_literals
 import pytest
 
 
-@pytest.fixture
-def cereconf(cereconf):
+@pytest.fixture(autouse=True)
+def _patch_cereconf(cereconf):
     cereconf.SMS_DISABLED = True
     cereconf.SMS_ACCEPT_REGEX = (r'^\+47\d{8}$', )
     return cereconf
 
 
 @pytest.fixture
-def sms_sender_class(cereconf):
+def sms_sender_class():
     from Cerebrum.utils.sms import SMSSender
     return SMSSender
 

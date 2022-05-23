@@ -2,23 +2,23 @@
 # -*- encoding: utf-8 -*-
 #
 """ Tests for the Ephorte module - Cerebrum/modules/no/uio/Ephorte.py."""
-
+import pickle
 import unittest
 
-from Cerebrum.modules.no.uio import Ephorte
+import mx.DateTime as DateTime
+
 from Cerebrum.Utils import Factory
+from Cerebrum.modules.no.uio import Ephorte
+from Cerebrum.testutils.datasource import BasicAccountSource
+from Cerebrum.testutils.datasource import BasicPersonSource
+from Cerebrum.testutils.dbtools import DatabaseTools
 
-from datasource import BasicPersonSource
-from datasource import BasicAccountSource
-from dbtools import DatabaseTools
-
-from mx import DateTime
-import pickle
 
 # TODO: Refactor all the functions.
 
 
 class EphorteTest(unittest.TestCase):
+
     @classmethod
     def setUpClass(cls):
         cls._db = Factory.get('Database')()

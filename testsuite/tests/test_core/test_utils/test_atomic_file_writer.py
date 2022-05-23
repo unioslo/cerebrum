@@ -1,32 +1,29 @@
-#!/usr/bin/env python
 # coding: utf-8
-u""" Unit tests for AtomicFileWriter and related file writers. """
+""" Unit tests for AtomicFileWriter and related file writers. """
 from __future__ import print_function, unicode_literals
 
 import pytest
 
-import os
 import math
-import string
+import os
 import random
-import tempfile
 import shutil
+import string
+import tempfile
 
 
-# pytest.mark.skip only exists from pytest 2.9
-#   from distutils.version import LooseVersion
-#   if LooseVersion(pytest.__version__) < LooseVersion('2.9.0'):
-#       from functools import partial
-#       setattr(pytest.mark, 'skip', partial(pytest.mark.skipif, True))
-
-
-class AFWTestException(Exception):
+class _MockFailure(Exception):
+    """ A unique exception to catch """
     pass
 
 
-@pytest.yield_fixture(scope='module')
+# Filter rule to ignore atomic file warnings:
+_ignore_rule = 'ignore::Cerebrum.utils.atomicfile.FileWriterWarning'
+
+
+@pytest.fixture(scope='module')
 def write_dir():
-    u""" Creates a temp dir for use by this test module. """
+    """ Creates a temp dir for use by this test module. """
     tempdir = tempfile.mkdtemp()
     yield tempdir
     # `rm -r` the temp-dir after after all tests have completed, to clear out
@@ -35,16 +32,16 @@ def write_dir():
     shutil.rmtree(tempdir)
 
 
-@pytest.fixture
-def cereconf(cereconf):
+@pytest.fixture(autouse=True)
+def _patch_cereconf(cereconf):
+    # Ensure no multiplier is set
     cereconf.SIMILARSIZE_LIMIT_MULTIPLIER = 1.0
-    return cereconf
 
 
 @pytest.fixture
 def file_module(cereconf):
-    import Cerebrum.utils.atomicfile as module
-    return module
+    from Cerebrum.utils import atomicfile
+    return atomicfile
 
 
 @pytest.fixture(params=['AtomicFileWriter',
@@ -92,21 +89,21 @@ def generate_text(num_chars):
         [random.choice(choice) for i in range(num_chars)])
 
 
-@pytest.fixture(params=[70, ])
+@pytest.fixture(params=[70], ids=lambda p: 'text({})'.format(p))
 def text(request):
-    u""" Creates a string of `param` printable characters. """
+    """ Creates a string of `param` printable characters. """
     return generate_text(request.param)
 
 
-@pytest.fixture(params=[120, ])
+@pytest.fixture(params=[120], ids=lambda p: 'more_text({})'.format(p))
 def more_text(request):
-    u""" Creates a string of `param` printable characters. """
+    """ Creates a string of `param` printable characters. """
     return generate_text(request.param)
 
 
 @pytest.yield_fixture
 def new_file(write_dir):
-    u""" Gets a `filename` that doesn't exist, and removes it if created. """
+    """ Gets a `filename` that doesn't exist, and removes it if created. """
     fd, name = tempfile.mkstemp(dir=write_dir)
     os.close(fd)
     os.unlink(name)
@@ -119,7 +116,7 @@ def new_file(write_dir):
 
 @pytest.yield_fixture
 def text_file(write_dir, text):
-    u""" Creates a new file with `text` as contents. """
+    """ Creates a new file with `text` as contents. """
     fd, name = tempfile.mkstemp(dir=write_dir)
     os.write(fd, text)
     os.close(fd)
@@ -128,7 +125,7 @@ def text_file(write_dir, text):
 
 
 def match_contents(filename, expected):
-    u""" Checks that the contents of `filename` is `contents`. """
+    """ Checks that the contents of `filename` is `contents`. """
     current = ""
     with open(filename, 'r') as f:
         current = f.read()
@@ -144,15 +141,13 @@ def test_writer_warns_if_validation_disabled(AtomicFileWriter, new_file):
     assert af.validate is False
 
 
-@pytest.mark.filterwarnings(
-    'ignore::Cerebrum.utils.atomicfile.FileWriterWarning')
+@pytest.mark.filterwarnings(_ignore_rule)
 def test_writer_prop_name(AtomicFileWriter, new_file):
     af = AtomicFileWriter(new_file)
     assert af.name == new_file
 
 
-@pytest.mark.filterwarnings(
-    'ignore::Cerebrum.utils.atomicfile.FileWriterWarning')
+@pytest.mark.filterwarnings(_ignore_rule)
 def test_writer_prop_closed(AtomicFileWriter, new_file):
     af = AtomicFileWriter(new_file)
     assert not af.closed
@@ -160,9 +155,8 @@ def test_writer_prop_closed(AtomicFileWriter, new_file):
     assert af.closed
 
 
-@pytest.mark.filterwarnings(
-    'ignore::Cerebrum.utils.atomicfile.FileWriterWarning')
-def test_writer_prop_tmpname(AtomicFileWriter, new_file, text):
+@pytest.mark.filterwarnings(_ignore_rule)
+def test_writer_prop_tmpname(AtomicFileWriter, new_file):
     af = AtomicFileWriter(new_file)
     assert os.path.exists(af.tmpname)
     assert not os.path.exists(new_file)
@@ -171,8 +165,7 @@ def test_writer_prop_tmpname(AtomicFileWriter, new_file, text):
     assert os.path.exists(new_file)
 
 
-@pytest.mark.filterwarnings(
-    'ignore::Cerebrum.utils.atomicfile.FileWriterWarning')
+@pytest.mark.filterwarnings(_ignore_rule)
 def test_writer_prop_discarded(AtomicFileWriter, text_file, text):
     af = AtomicFileWriter(text_file)
     assert not af.discarded
@@ -182,9 +175,9 @@ def test_writer_prop_discarded(AtomicFileWriter, text_file, text):
     assert af.discarded
 
 
-@pytest.mark.filterwarnings(
-    'ignore::Cerebrum.utils.atomicfile.FileWriterWarning')
+@pytest.mark.filterwarnings(_ignore_rule)
 def test_writer_prop_replace(AtomicFileWriter, text_file, text, more_text):
+    """ Check that content is only written to a tmpfile if replace=False. """
     af = AtomicFileWriter(text_file, replace_equal=True)
     af.replace = False
     af.write(more_text)
@@ -194,8 +187,7 @@ def test_writer_prop_replace(AtomicFileWriter, text_file, text, more_text):
     assert match_contents(af.tmpname, more_text)
 
 
-@pytest.mark.filterwarnings(
-    'ignore::Cerebrum.utils.atomicfile.FileWriterWarning')
+@pytest.mark.filterwarnings(_ignore_rule)
 def test_writer_prop_replaced(AtomicFileWriter, new_file, text):
     af = AtomicFileWriter(new_file)
     assert not af.replaced
@@ -217,8 +209,7 @@ def test_new_file_write(AtomicFileWriter, new_file, text):
     assert match_contents(af.tmpname, text)
 
 
-@pytest.mark.filterwarnings(
-    'ignore::Cerebrum.utils.atomicfile.FileWriterWarning')
+@pytest.mark.filterwarnings(_ignore_rule)
 def test_new_file_close(AtomicFileWriter, new_file, text):
     # Write 'text' to a new file (non-existing filename)
     af = AtomicFileWriter(new_file)
@@ -240,8 +231,7 @@ def test_replace_write(AtomicFileWriter, text, text_file, more_text):
     assert match_contents(text_file, text)
 
 
-@pytest.mark.filterwarnings(
-    'ignore::Cerebrum.utils.atomicfile.FileWriterWarning')
+@pytest.mark.filterwarnings(_ignore_rule)
 def test_replace_close(AtomicFileWriter, text, text_file, more_text):
     # Write 'replace' to a file with contents 'text', and close the file
     af = AtomicFileWriter(text_file)
@@ -252,8 +242,7 @@ def test_replace_close(AtomicFileWriter, text, text_file, more_text):
     assert match_contents(text_file, more_text)
 
 
-@pytest.mark.filterwarnings(
-    'ignore::Cerebrum.utils.atomicfile.FileWriterWarning')
+@pytest.mark.filterwarnings(_ignore_rule)
 def test_context_pass(AtomicFileWriter, text, text_file, more_text):
     with AtomicFileWriter(text_file) as af:
         af.write(more_text)
@@ -264,8 +253,8 @@ def test_context_fail(AtomicFileWriter, text, text_file, more_text):
     try:
         with AtomicFileWriter(text_file) as af:
             af.write(more_text)
-            raise AFWTestException()
-    except AFWTestException:
+            raise _MockFailure()
+    except _MockFailure:
         pass
     assert match_contents(text_file, text)
 
@@ -278,8 +267,7 @@ def test_append_write(AtomicFileWriter, text, text_file, more_text):
     assert match_contents(text_file, text)
 
 
-@pytest.mark.filterwarnings(
-    'ignore::Cerebrum.utils.atomicfile.FileWriterWarning')
+@pytest.mark.filterwarnings(_ignore_rule)
 def test_append_close(AtomicFileWriter, text, text_file, more_text):
     af = AtomicFileWriter(text_file, mode='a')
     af.write(more_text)
@@ -363,10 +351,10 @@ def test_line_count_fail(SimilarLineCountWriter, file_module, text, text_file):
     af = SimilarLineCountWriter(text_file)
     af.max_line_change = 1
 
-    lines = text.split(u"\n")
+    lines = text.split("\n")
     lines.append('another line')
     lines.append('another line')
-    too_many_lines = u"\n".join(lines)
+    too_many_lines = "\n".join(lines)
 
     af.write(too_many_lines)
 
@@ -380,9 +368,9 @@ def test_line_count_pass(SimilarLineCountWriter, text, text_file):
     af = SimilarLineCountWriter(text_file)
     af.max_line_change = 1
 
-    lines = text.split(u"\n")
+    lines = text.split("\n")
     lines.append('another line')
-    new_content = u"\n".join(lines)
+    new_content = "\n".join(lines)
 
     af.write(new_content)
     af.close()
@@ -425,6 +413,3 @@ def test_mixed_writer_fail_change(MixedWriter, file_module, text_file, text):
         af.close()
 
     assert match_contents(text_file, text)
-
-
-# TODO: Test buffering?

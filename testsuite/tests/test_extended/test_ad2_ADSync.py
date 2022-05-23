@@ -34,15 +34,15 @@ import types
 
 import pytest
 
-import datasource  # testsuite/testtools/
-
 import Cerebrum.config.adconf
 from Cerebrum import Account
 from Cerebrum import Person
 from Cerebrum import Utils
 from Cerebrum.logutils.loggers import CerebrumLogger
 from Cerebrum.modules.ad2 import ADUtils
+from Cerebrum.testutils import datasource
 from Cerebrum.utils.gpg import gpgme_decrypt
+
 
 person_cls = Person.Person
 account_cls = Account.Account

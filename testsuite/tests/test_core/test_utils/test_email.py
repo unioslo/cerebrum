@@ -3,30 +3,31 @@
 """ Unit tests for e-mail utlities. """
 from __future__ import print_function, unicode_literals
 
-import pytest
 import base64
 import os
 import tempfile
 
+import pytest
 
-MAIL_TEMPLATE = """From: noreply@example.com
+
+MAIL_TEMPLATE = """
+From: noreply@example.com
 Subject: hello
 X-Custom-Field: foo
 
 FOO=${FOO}
 RECIPIENT=${RECIPIENT}
 SENDER=${SENDER}
-"""
+""".lstrip()
 
 
-@pytest.fixture
-def cereconf(cereconf):
+@pytest.fixture(autouse=True)
+def _patch_email_settings(cereconf):
     cereconf.EMAIL_DISABLED = True
     cereconf.TEMPLATE_DIR = tempfile.gettempdir()
-    return cereconf
 
 
-def test_sendmail(cereconf):
+def test_sendmail():
     from Cerebrum.utils.email import sendmail
     mail = {
         'toaddr': 'foo@example.com,bar@example.com',
@@ -43,7 +44,7 @@ def test_sendmail(cereconf):
     assert base64.b64encode(mail['body']) in result
 
 
-def test_mail_template(cereconf):
+def test_mail_template():
     from Cerebrum.utils.email import mail_template
     with tempfile.NamedTemporaryFile(prefix='test_mail_template') as f:
         f.write(MAIL_TEMPLATE)

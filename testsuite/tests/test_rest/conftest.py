@@ -25,6 +25,14 @@ class TestConfig(object):
     ]
 
 
+@pytest.fixture(autouse=True)
+def _skip_api_tests():
+    # The API tests are broken — there is currently no good way to stub out
+    # Cerebrum.rest.api.db.autocommit, or to prevent commit/rollback between
+    # API calls.
+    pytest.skip("Skipping broken Cerebrum.rest.api tests")
+
+
 @pytest.fixture
 def app():
     from Cerebrum.rest.api import create_app

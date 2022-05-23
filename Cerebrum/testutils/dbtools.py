@@ -1,15 +1,32 @@
 # -*- coding: utf-8 -*-
-""" Database utils
-
-This class contains database utils for Cerebrum tests.
+#
+# Copyright 2014-2022 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""
+Database utils for Cerebrum tests.
 
 This class helps with creating temporary objects in the database, for use in
-tests. It's not as flexible as the API, but the idea is to generalize simple
-tasks that needs to happen in the database before and after each test, in
+tests.  It's not as flexible as the API, but the idea is to generalize simple
+tasks that needs to happen in the database before and after each test in
 different test cases.
-
 """
 import cereconf
+
 from Cerebrum.Utils import Factory
 from Cerebrum.Constants import _CerebrumCode
 from Cerebrum.Errors import NotFoundError
@@ -35,6 +52,10 @@ class DatabaseManager(object):
 class DatabaseTools(object):
     """
     Tools to read and write to and from a database transaction.
+
+    ..note::
+        This class should be deprecated and replaced by simple helper functions
+        that can be used in pytest fixtures.
     """
 
     def __init__(self,
@@ -329,7 +350,6 @@ class DatabaseTools(object):
         :return: The entity_id for the new OU
 
         """
-        creator_id = self.get_initial_account_id()
         self._ou.clear()
         self._ou.populate()
         self._ou.write_db()

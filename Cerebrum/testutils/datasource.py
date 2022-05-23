@@ -1,57 +1,104 @@
 # -*- coding: utf-8 -*-
-""" Default test data sources.
+#
+# Copyright 2014-2022 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""
+Data generators for Cerebrum objects.
 
-This class contains data source generators for our tests. The classes in this
-file contains simple generators, which can be extended if need be.
 
-These data sources use an int counter (ident) to:
- - Insert/append the ident to a string
- - Select from a preset list based on the ident (cyclic)
+Example use
+-----------
+Create three new groups using name/description/expire_date from
+py:class:`.BasicGroupSource`:
+::
 
-We can easily extend these classes to provide random data, or to calculate
-data from other types of idents.
+    # create two groups:
+    groups = []
+    group_data = list(BasicGroupSource()(limit=3))
+    for entry in group_data
+        gr = Factory.get('Group')(db)
+        gr.populate(
+            creator_id=initial_account.entity_id,
+            visibility=int(group_visibility),
+            name=entry['group_name'],
+            description=entry['description'],
+            group_type=int(group_type),
+        )
+        gr.expire_date = entry.get('expire_date')
+        gr.write_db()
+        entry.update({
+            'entity_id': gr.entity_id,
+            'entity_type': gr.entity_type,
+        })
+        groups.append(gr)
 
-The ident is mostly internal (not treated as int outside of the class) - it is
-only used by teste to relocate/re-create data (e.g. what is the name of an item
-with ident x).
 
-Example usage and extension:
+Extending
+---------
+Create a datasource with a alternating foo attribute:
+::
 
-    This is an example setup, where we've extended AccountTestData to include a
-    set of different passwords.
+    class _MyDataSource(BaseDataSource):
+        foo_values = ['foo', 'bar']
 
+        def get_foo(self, ident):
+            return self._get_cyclic_value(ident, self.foo_values)
 
-    In test_SomeClass.py:
-    ---------------------
-    from <module> import BaseDataSource, SomeMixin
+        def __init__(self):
+            super(_MyDataSource, self).__init__()
+            self.register_attr('foo', self.get_foo)
 
-    class _MyDataSource(BaseDataSource, SomeMixin):
-        some_mixin_setting = 'setting'
 
     datasource = _MyDataSource()
     items = [d for d in datasource(limit=10)]
 
     infinite_source = datasource()
     another_item = infinite_source.next()
-
-    <do things with items, like create them in the database>
 """
 from mx.DateTime import DateTimeDelta
 from mx.DateTime import now
 
 
 # When used with filter(expired_filter, items), will return expired items
-expired_filter = lambda x: ((x.get('expire_date') is not None) and
-                            (x.get('expire_date') < now()))
-""" A filter to identify expired items (according to the key 'expire_date') in
-a dict or dict-like object. """
+def expired_filter(data):
+    """
+    A filter to identify expired items.
 
-# When used with filter(nonexpired_filter, items), will return non-expired
-# items
-nonexpired_filter = lambda x: ((x.get('expire_date') is None) or
-                               (x.get('expire_date') >= now()))
-""" A filter to identify non-expired items (according to the key 'expire_date')
-in a dict or dict-like object. """
+    This is useful for picking out relevant datasource items from the
+    py:class:`.ExpireDateMixin`.
+
+    Example: filter(expired_filter, BasicGroupSource(limit=3))
+    """
+    return ((data.get('expire_date') is not None)
+            and (data.get('expire_date') < now()))
+
+
+def nonexpired_filter(data):
+    """
+    A filter to identify non-expired items.
+
+    This is useful for picking out relevant datasource items from the
+    py:class:`.ExpireDateMixin`.
+
+    Example: filter(nonexpired_filter, BasicGroupSource(limit=3))
+    """
+    return ((data.get('expire_date') is None)
+            or (data.get('expire_date') >= now()))
 
 
 class BaseDataSource(object):
@@ -99,7 +146,7 @@ class BaseDataSource(object):
             yield self.get_next_item()
 
     def _get_next_ident(self):
-        """ Create a unique string that identifies this item. 
+        """ Create a unique string that identifies this item.
 
         @rtype: str
         @return: An item id

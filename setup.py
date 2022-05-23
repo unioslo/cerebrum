@@ -445,6 +445,7 @@ setup(
         'Cerebrum/modules/cis',
         'Cerebrum/config',
         'Cerebrum/database',
+        'Cerebrum/testutils',
         'Cerebrum/utils',
         'Cerebrum/rest',
         'Cerebrum/rest/api',

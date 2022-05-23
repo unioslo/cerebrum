@@ -44,11 +44,8 @@ def gpg_home():
 
 
 @pytest.fixture(autouse=True)
-def cereconf(cereconf, gpg_home):
-    old_home = cereconf.GNUPGHOME
+def _patch_cereconf(cereconf, gpg_home):
     cereconf.GNUPGHOME = gpg_home
-    yield cereconf
-    cereconf.GNUPGHOME = old_home
 
 
 @pytest.fixture(scope='session')
