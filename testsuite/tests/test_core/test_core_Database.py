@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-"""Testing of Database.py's functionality
+"""
+Tests for Cerebrum.database
 
 - Make sure that Factory.get('Database')() always has a _db, _cursor and the
   like. Both after the *first* and after the *n'th* call.
@@ -17,9 +16,7 @@
 - Testing 'our' sql-lexer extensions should be put in its own file
   (test_sql_lexer or somesuch)
 """
-from functools import wraps
-
-from nose.tools import raises, assert_raises
+import pytest
 
 import Cerebrum.database
 from Cerebrum.Utils import Factory
@@ -28,111 +25,79 @@ from Cerebrum.Utils import Factory
 # TODO: This could be done better...
 # TODO: This test module should we rewritten to use pytest
 
-def create_table(table_name, *table_defs):
-    """ Decorator for tests that creates a temporary tables.
-
-    This method creates the actual decorator, based on the arguments given.
-    The wrapped method must take a database connection as first argument, and
-    the table_name as the second argument.
-
-    @type table_name: str
-    @param table_name: The name of the temporary table
-
-    @type table_defs: *tuple
-    @param table_defs: Variable length arguments, each is a string that defines
-        a column in the table
-
-    @rtype: decorator
-    @return: A decorator that can be used to wrap a test function
-
+def create_table(db, table_name, *table_defs):
     """
+    Create a table.
 
-    def wrap(method):
-        """ This is the I{actual} decorator. It returns a wrapped C{method}.
-
-        The decorated method will create a database object, use it to create a
-        new table. The table name and db connection will be passed on to the
-        wrapped method as the first and second argument, respectively.
-
-        After the method returns, we perform a rollback on the transaction.
-        """
-        # The 'wraps' decorator sets up proper __doc__ and __name__ attrs
-        @wraps(method)
-        def wrapper(db, *args, **kwargs):
-            """ See help L{%s} for info""" % method.__name__
-
-            assert isinstance(db, Cerebrum.database.Database)
-            db.execute('create table %s (%s)' % (
-                table_name, ','.join(table_defs)))
-            method(db, table_name, *args, **kwargs)
-
-        return wrapper
-    return wrap
-
-
-def use_db(commit=False, **db_args):
-    """ Wrap a function to provide and perform rollback on database object.
-
-    The decorated method will create a database object, and pass it on as
-    the first argument to the wrapped function. After the wrapped function
-    returns, we perform a rollback on the transaction.
-
-    @type db_args: dict
-    @param db_args: Keyword-arguments for the database constructor
-
-    @rtype: decorator
-    @return: A decorator that can be used to wrap a test function
-
+    :param str table_name: The name of the temporary table
+    :param str *: column definitions
     """
-
-    def wrap(method):
-        """ Wrap a function to provide and perform rollback on database object.
-
-        The decorated method will create a database object, and pass it on as
-        the first argument to the wrapped function. After the wrapped function
-        returns, we perform a rollback on the transaction.
-
-        """
-        # The 'wraps' decorator sets up proper __doc__ and __name__ attrs
-        @wraps(method)
-        def wrapper(*args, **kwargs):
-            """ See help L{%s} for info""" % method.__name__
-            try:
-                db = Factory.get('Database')(**db_args)
-                if not commit:
-                    db.commit = db.rollback
-                method(db, *args, **kwargs)
-            finally:
-                db.rollback()
-        return wrapper
-    return wrap
+    db.execute('create table %s (%s)' % (table_name, ','.join(table_defs)))
+    return table_name
 
 
-@use_db()
-@create_table('foo', 'x int not null')
-def test_rollback(db, table_name):
+@pytest.fixture
+def db():
+    try:
+        database = Factory.get('Database')()
+        database.commit = database.rollback
+        yield database
+    finally:
+        database.rollback()
+
+
+class _Table(object):
+
+    def __init__(self, name, **cols):
+        self.name = name
+        self.cols = cols
+
+    @property
+    def create(self):
+        return 'create table {table}({cols})'.format(
+            table=self.name,
+            cols=', '.join(('{} {}'.format(k, v)
+                            for k, v in self.cols.items())),
+        )
+
+    def fmt_insert(self, **values):
+        cols = list(sorted(values))
+        stmt = 'insert into {table}({cols}) values ({vals})'.format(
+            table=self.name,
+            cols=', '.join(cols),
+            vals=', '.join((':' + col for col in cols)),
+        )
+        return stmt, values
+
+    def insert(self, db, **values):
+        stmt, binds = self.fmt_insert(**values)
+        db.execute(stmt, binds)
+
+
+@pytest.fixture
+def table_foo_x(db):
+    t = _Table('foo', x='int not null')
+    db.execute(t.create)
+    return t
+
+
+def test_rollback(db, table_foo_x):
     """ Database.rollback() transaction rollback functionality. """
-    insert_sql = 'insert into %s(%s) values (:value)' % (table_name, 'x')
-    select_sql = 'select %s from %s' % ('x', table_name)
+
+    select_sql = 'select * from ' + table_foo_x.name
 
     for value in (0, 1, 2, 3):
-        db.execute(insert_sql, {'value': value})
+        table_foo_x.insert(db, x=value)
 
     res = db.query(select_sql)
-    assert len(res) > 0
+    assert len(res) == 4
 
     db.rollback()
 
-    # Only this should generate DatabaseError
-    try:
+    with pytest.raises(Cerebrum.database.DatabaseError) as exc_info:
         db.query(select_sql)
-    except Cerebrum.database.DatabaseError as e:
-        # Note that this test will break if the exception doesn't have an sql
-        # attr.
-        assert e.operation == repr(select_sql)
-    else:
-        # Should raise error
-        assert False, 'No error raised'
+
+    assert exc_info.value.operation == repr(select_sql)
 
 
 def test_commit():
@@ -168,55 +133,57 @@ def test_commit():
         db.commit()
 
 
-@use_db()
-@create_table('foo', 'x int not null')
-def test_db_simple_query(db, table_name):
+def test_db_simple_query(db, table_foo_x):
     """ Database.execute() database basics. """
-
-    insert_sql = 'insert into %s(%s) values (:value)' % (table_name, 'x')
-    select_sql = 'select count(*) as one from %s' % table_name
+    select_sql = 'select count(*) as one from ' + table_foo_x.name
 
     lo, hi = 1, 4
-    for x in range(lo, hi):
-        db.execute(insert_sql, {'value': x})
+    for value in range(lo, hi):
+        table_foo_x.insert(db, x=value)
+
     count = db.query_1(select_sql)
     assert count == hi - lo
 
 
-@use_db()
-@create_table('foo', 'x int not null', 'y int null')
-def test_db_numeric_interaction(db, table_name):
-    """ Database.execute() numeric processing by the backend. """
+@pytest.fixture
+def table_foo_xy(db):
+    t = _Table('foo', x='int not null', y='int null')
+    db.execute(t.create)
+    return t
 
-    insert_sql = 'insert into %s(%s) values (:value)' % (table_name, 'x')
-    select_sql = 'select * from %s where %s = :value' % (table_name, 'x')
+
+def test_db_numeric_interaction(db, table_foo_xy):
+    """ Database.execute() numeric processing by the backend. """
 
     values = (0, 1, -10, 10, 2**30, -2**30)
 
     for value in values:
-        db.execute(insert_sql, {'value': value})
+        table_foo_xy.insert(db, x=value)
 
+    select_sql = 'select * from foo where x = :val'
     for value in values:
-        row = db.query_1(select_sql, {'value': value})
+        row = db.query_1(select_sql, {'val': value})
         # assert type(row['x']) is type(value) # int -> long, for any numerical
         assert row['x'] == value
 
 
-@use_db(client_encoding='utf-8')
-@create_table('foo', 'x text not null', 'y integer null')
-def test_db_unicode_interaction(db, table_name):
+@pytest.fixture
+def table_bar_xy(db):
+    t = _Table('bar', x='text not null', y='int null')
+    db.execute(t.create)
+    return t
+
+
+def test_db_unicode_interaction(db, table_bar_xy):
     """ Database.execute() unicode text. """
-
-    insert_sql = 'insert into %s(%s) values (:value)' % (table_name, 'x')
-    select_sql = 'select * from %s where %s = :value' % (table_name, 'x')
-
     # TODO: What about "øæå"? Should the backend somehow guess the
     # encoding? Or assume some default? Or read it from cereconf?
-
     values = (u'unicode', u'latin-1:øåæ', unicode('utf-8:øæå', 'utf-8'))
 
     for value in values:
-        db.execute(insert_sql, {"value": value})
+        table_bar_xy.insert(db, x=value)
+
+    select_sql = 'select * from bar where x = :value'
 
     for value in values:
         row = db.query_1(select_sql, {"value": value})
@@ -226,58 +193,58 @@ def test_db_unicode_interaction(db, table_name):
         assert retval == value
 
 
-def test_db_exception_types():
+@pytest.mark.parametrize(
+    'catch, throw',
+    [
+        ('Database.Error', 'db.IntegrityError'),
+        ('Database.Warning', 'db.Warning'),
+        ('db.Error', 'db.IntegrityError'),
+    ])
+def test_db_exception_types(db, catch, throw):
     """ Database.Error, correct class types. """
 
-    # We can't wrap methods that yield other functions.
     db = Factory.get('Database')()
 
-    tests = [
-        (Cerebrum.database.Error, db.IntegrityError(
-            'Database error is not instance of Cerebrum.database.Error')),
-        (Cerebrum.database.Warning, db.Warning(
-            'Database warning is not instance of Cerebrum.database.Warning')),
-        (db.Error, db.IntegrityError(
-            'Database error is not instance of self.Error')), ]
+    def get_cls(value):
+        if value.startswith('db.'):
+            return getattr(db, value[3:])
+        elif value.startswith('Database.'):
+            return getattr(Cerebrum.database, value[9:])
+        raise AttributeError('invalid error class: ' + repr(value))
 
-    # We can't wrap a statement...
-    def raise_exception(e):
-        """ Raise a given exception. """
-        raise e
+    throw_cls = get_cls(throw)
+    catch_cls = get_cls(catch)
 
-    for catch_with, throw in tests:
-        func = raises(catch_with)(raise_exception)
-        yield func, throw
+    with pytest.raises(catch_cls):
+        raise throw_cls()
 
 
-@use_db()
 def test_exception_catch_base(db):
     """ Catch exception raised by the db-driver with Database.Error. """
-    assert_raises(Cerebrum.database.Error,
-                  db.execute,
-                  "create table foo")
+    with pytest.raises(Cerebrum.database.Error):
+        db.execute('create table foo')
 
 
-@use_db()
 def test_exception_catch_instance(db):
     """ Catch exception raised by the db-driver with db.Error. """
-    assert_raises(db.Error,
-                  db.execute,
-                  "create table foo")
+    with pytest.raises(db.Error):
+        db.execute('create table foo')
 
 
-@use_db()
-@create_table('foo', 'x int not null', 'y int null')
-@create_table('bar', 'z int not null', 'y text null')
-def test_unions_with_numeric(db, bar_name, foo_name):
+@pytest.fixture
+def table_baz_zy(db):
+    t = _Table('baz', z='int not null', y='text null')
+    db.execute(t.create)
+    return t
+
+
+def test_unions_with_numeric(db, table_foo_xy, table_baz_zy):
     """ Database.execute(), SQL UNION on numericals returns int/long. """
-    foo_insert = 'insert into %s values (:x, :y)' % foo_name
-    bar_insert = 'insert into %s values (:z, :y)' % bar_name
-    select_sql = 'select %s as n from %s union select %s as n from %s' % (
-        'x', foo_name, 'z', bar_name)
 
-    db.execute(foo_insert, {'x': 1, 'y': 2})
-    db.execute(bar_insert, {'z': 3, 'y': 'bar'})
+    table_foo_xy.insert(db, x=1, y=2)
+    table_baz_zy.insert(db, z=3, y='bar')
+
+    select_sql = 'select x as n from foo union select z as n from baz'
     resultset = db.query(select_sql)
 
     assert len(resultset) == 2
@@ -285,7 +252,6 @@ def test_unions_with_numeric(db, bar_name, foo_name):
         assert isinstance(row['n'], (int, long))
 
 
-@use_db()
 def test_all_critical_db_attributes(db):
     """ Database attributes. """
 
@@ -297,34 +263,35 @@ def test_all_critical_db_attributes(db):
     # WTF else do we need?
 
 
-@raises(Cerebrum.database.ProgrammingError)
-@use_db()
-@create_table('foo', 'x int not null', 'y int null')
-def test_multiple_queries(db, foo_name):
+def test_multiple_queries(db, table_foo_xy):
     """ Database.execute(), multiple queries are forbidden. """
-    foo_select = 'select * from %s' % foo_name
-    db.execute(';'.join((foo_select, foo_select)))
+
+    foo_select = 'select * from ' + table_foo_xy.name
+
+    with pytest.raises(Cerebrum.database.ProgrammingError):
+        db.execute(';'.join((foo_select, foo_select)))
 
 
-@raises(Cerebrum.database.ProgrammingError)
-@use_db()
 def test_missing_table(db):
     """ Database.ProgrammingError for non-existing relation. """
-    foo_select = 'select * from efotdzzb'
-    db.execute(foo_select)
+
+    with pytest.raises(Cerebrum.database.ProgrammingError):
+        db.execute('select * from efotdzzb')
 
 
-@use_db()
-@create_table('foo', 'x text null')
-def test_unicode(db, table_name):
+@pytest.fixture
+def table_text(db):
+    t = _Table('text', value='text null')
+    db.execute(t.create)
+    return t
+
+
+def test_unicode(db, table_text):
     """ Database.rollback() transaction rollback functionality. """
 
-    def insert(x):
-        db.execute('insert into %s(x) values (:x)' % (table_name, ),
-                   {'x': x})
-
     def select():
-        return [r['x'] for r in db.query('select x from %s' % table_name)]
+        return [r['value']
+                for r in db.query('select value from ' + table_text.name)]
 
     tests = [
         u'blåbærsyltetøy',
@@ -334,8 +301,8 @@ def test_unicode(db, table_name):
         u'Æ̎̉Ø͂̄Å͐̈'
     ]
 
-    for x in tests:
-        insert(x)
+    for value in tests:
+        table_text.insert(db, value=value)
 
     results = select()
 
@@ -345,21 +312,19 @@ def test_unicode(db, table_name):
     assert tests == results
 
 
-@raises(UnicodeError)
-@use_db()
-@create_table('foo', 'x text null')
-def test_assert_latin1_unicode(db, table_name):
+def test_assert_latin1_unicode(db, table_text):
     """ Database.rollback() transaction rollback functionality. """
-    insert = 'insert into %s(x) values (:x)' % (table_name, )
+    insert = 'insert into text(value) values (:x)'
     base = u'blåbærsyltetøy'
-    db.execute(insert, {'x': base.encode('latin1')})
+
+    with pytest.raises(UnicodeError):
+        db.execute(insert, {'x': base.encode('latin1')})
 
 
-@raises(UnicodeError)
-@use_db()
-@create_table('foo', 'x text null')
-def test_assert_utf8_unicode(db, table_name):
+def test_assert_utf8_unicode(db, table_text):
     """ Database.rollback() transaction rollback functionality. """
-    insert = 'insert into %s(x) values (:x)' % (table_name, )
+
+    insert = 'insert into text(value) values (:x)'
     base = u'blåbærsyltetøy'
-    db.execute(insert, {'x': base.encode('utf-8')})
+    with pytest.raises(UnicodeError):
+        db.execute(insert, {'x': base.encode('utf-8')})
