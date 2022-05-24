@@ -818,7 +818,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
 
     def __clear_precedence(self, precedence, all_precs):
         """ Clear precedences. """
-        row = all_precs[precedence]
+        row = dict(all_precs[precedence])
         if precedence + 1 in all_precs:
             self.__clear_precedence(precedence + 1, all_precs)
 
