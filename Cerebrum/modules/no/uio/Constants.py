@@ -397,6 +397,10 @@ class Constants(Constants.Constants):
         'Xpand_group',
         Constants.Constants.entity_group,
         "Group included in Xpand's AD-OU")
+    spread_uio_ad_azure = Constants._SpreadCode(
+        'azure_group',
+        Constants.Constants.entity_group,
+        "Group included in Azure's AD-OU")
 
     # Spreads for Exchange
     spread_exchange_account = Constants._SpreadCode(
