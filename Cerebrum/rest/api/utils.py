@@ -24,7 +24,6 @@ from __future__ import unicode_literals
 from flask import url_for
 from six import text_type
 
-import Cerebrum.modules.bofhd.auth as bofhd_auth
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.rest.api import db
@@ -193,80 +192,6 @@ def get_entity_name(entity):
     elif entity.entity_type == db.const.entity_group:
         name = entity.group_name
     return name
-
-
-def get_opset(opset_name):
-    aos = bofhd_auth.BofhdAuthOpSet(db.connection)
-    aos.find_by_name(opset_name)
-    return aos
-
-
-def get_op_target(entity, create=True):
-    tt_lut = {
-        # TODO: More
-        # FIXME: Make sure constants exist
-        db.const.entity_group: db.const.auth_target_type_group,
-        db.const.entity_account: db.const.auth_target_type_group,
-        db.const.entity_person: db.const.auth_target_type_person,
-    }
-    entity_id = entity.entity_id
-    target_type = tt_lut[entity.entity_type]
-    aot = bofhd_auth.BofhdAuthOpTarget(db.connection)
-
-    op_targets = [t for t in aot.list(entity_id=entity_id,
-                                      target_type=target_type)]
-
-    # No target exists, create one
-    if not op_targets and create:
-        aot.populate(entity_id, target_type)
-        aot.write_db()
-        return aot
-
-    assert len(op_targets) == 1  # This method will never create more than one
-    assert op_targets[0]['attr'] is None  # ... and never populates attr
-
-    # Target exists, return it
-    aot.find(op_targets[0]['op_target_id'])
-    return aot
-
-
-def grant_auth(sub, opset, obj):
-    """
-    :param Entity sub:
-        Subject granted auth.
-    :param BofhdAuthOpSet opset:
-        The opset (role) that is granted.
-    :param Entity obj:
-        The object that is being controlled.
-    """
-    ar = bofhd_auth.BofhdAuthRole(db.connection)
-    aot = get_op_target(obj)
-    ar.grant_auth(sub.entity_id, opset.op_set_id, aot.op_target_id)
-
-
-def revoke_auth(sub, opset, obj):
-    """
-    :param Entity sub:
-        Subject losing auth.
-    :param BofhdAuthOpSet opset:
-        The opset (role) that is revoked.
-    :param Entity obj:
-        The object that is no longer being controlled.
-    """
-    ar = bofhd_auth.BofhdAuthRole(db.connection)
-    aot = get_op_target(obj, create=False)
-    roles = list(ar.list(sub.entity_id, opset.op_set_id, aot.op_target_id))
-
-    if len(roles) == 0:
-        return False
-
-    ar.revoke_auth(sub.entity_id, opset.op_set_id, aot.op_target_id)
-
-    # If that was the last permission for this op_target, kill op_target
-    if len(list(ar.list(op_target_id=aot.op_target_id))) == 0:
-        aot.delete()
-
-    return True
 
 
 def str_to_bool(value):
