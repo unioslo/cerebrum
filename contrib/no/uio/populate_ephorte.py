@@ -15,6 +15,7 @@ import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.argutils import get_constant
+from Cerebrum.utils.date_compat import get_date
 from Cerebrum.utils.email import mail_template as mail_template_util
 from Cerebrum.utils.funcwrap import memoize
 from Cerebrum.modules.no.uio.Ephorte import EphorteRole
@@ -460,12 +461,18 @@ class PopulateEphorte(object):
             pe.clear()
             pe.find(person_id)
             for perm in ephorte_perm.list_permission(person_id=person_id):
+                perm = dict(perm)
+                perm["start_date"] = get_date(perm["start_date"])
+                perm["end_date"] = get_date(perm["end_date"])
                 logger.info('Removing permission: {}'.format(
                     format_permission(dict(perm))))
                 ephorte_perm.remove_permission(person_id=person_id,
                                                perm_type=perm['perm_type'],
                                                sko=perm['adm_enhet'])
             for role in ephorte_role.list_roles(person_id=person_id):
+                role = dict(role)
+                role["start_date"] = get_date(role["start_date"])
+                role["end_date"] = get_date(role["end_date"])
                 logger.info('Removing role: {}'.format(
                     format_role(dict(role))))
                 ephorte_role.remove_role(person_id=person_id,
