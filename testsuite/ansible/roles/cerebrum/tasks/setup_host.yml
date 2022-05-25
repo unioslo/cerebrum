@@ -34,7 +34,6 @@
     - libffi-devel
     - openssl-devel
     - openldap-devel
-    - cyrus-sasl-devel
   sudo: yes
 
 - name: install dependencies to build lxml module  # Used in Ad2

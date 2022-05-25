@@ -797,57 +797,8 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
             es = Email.EmailServer(self.db)
             es.find(et.email_server_id)
 
-            # exchange-relatert-jazz
-            # since Exchange-users will have a different kind of
-            # server this code will not be affected at Exchange
-            # roll-out It may, however, be removed as soon as
-            # migration is completed (up to and including
-            # "dis_quota_soft': eq.email_quota_soft})")
-            if es.email_server_type == self.const.email_server_type_cyrus:
-                pw = self.db._read_password(cereconf.CYRUS_HOST,
-                                            cereconf.CYRUS_ADMIN)
-                used = 'N/A'
-                limit = None
-                try:
-                    cyrus = Utils.CerebrumIMAP4_SSL(
-                        es.name,
-                        ssl_version=ssl.PROTOCOL_TLSv1)
-                    # IVR 2007-08-29 If the server is too busy, we do not want
-                    # to lock the entire bofhd.
-                    # 5 seconds should be enough
-                    cyrus.socket().settimeout(5)
-                    cyrus.login(cereconf.CYRUS_ADMIN, pw)
-                    res, quotas = cyrus.getquota("user." + acc.account_name)
-                    cyrus.socket().settimeout(None)
-                    if res == "OK":
-                        for line in quotas:
-                            try:
-                                folder, qtype, qused, qlimit = line.split()
-                                if qtype == "(STORAGE":
-                                    used = str(int(qused)/1024)
-                                    limit = int(qlimit.rstrip(")"))/1024
-                            except ValueError:
-                                # line.split fails e.g. because quota isn't set
-                                # on server
-                                folder, junk = line.split()
-                                self.logger.warning("No IMAP quota set for %r",
-                                                    acc.account_name)
-                                used = "N/A"
-                                limit = None
-                except (bofhd_uio_cmds.TimeoutException, socket.error):
-                    used = 'DOWN'
-                except bofhd_uio_cmds.ConnectException as e:
-                    used = exc_to_text(e)
-                except imaplib.IMAP4.error:
-                    used = 'DOWN'
-                info.append({'quota_hard': eq.email_quota_hard,
-                             'quota_soft': eq.email_quota_soft,
-                             'quota_used': used})
-                if limit is not None and limit != eq.email_quota_hard:
-                    info.append({'quota_server': limit})
-            else:
-                info.append({'dis_quota_hard': eq.email_quota_hard,
-                             'dis_quota_soft': eq.email_quota_soft})
+            info.append({'dis_quota_hard': eq.email_quota_hard,
+                         'dis_quota_soft': eq.email_quota_soft})
         except Errors.NotFoundError:
             pass
         return info

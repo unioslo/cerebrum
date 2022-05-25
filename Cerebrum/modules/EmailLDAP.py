@@ -142,8 +142,6 @@ class EmailLDAP(DatabaseAccessor):
                                        int(self.targ2server_id[target])]
         if server_type == self.const.email_server_type_exchange:
             result["ExchangeServer"] = server_name
-        elif server_type == self.const.email_server_type_cyrus:
-            result["IMAPserver"] = server_name
 
         return result
 

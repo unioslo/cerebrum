@@ -103,7 +103,7 @@ class BofhdExtension(bofhd_email.BofhdEmailCommands):
         return data
 
     def _email_info_detail(self, acc):
-        """ Get quotas from Cerebrum, and usage from Cyrus. """
+        """ Get quotas from Cerebrum """
         # NOTE: Very similar to ofk/giske and uio
 
         info = []
@@ -117,53 +117,10 @@ class BofhdExtension(bofhd_email.BofhdEmailCommands):
             es = Email.EmailServer(self.db)
             es.find(et.email_server_id)
 
-            if es.email_server_type == self.const.email_server_type_cyrus:
-                used = 'N/A'
-                limit = None
-                pw = self.db._read_password(cereconf.CYRUS_HOST,
-                                            cereconf.CYRUS_ADMIN)
-                try:
-                    cyrus = imaplib.IMAP4(es.name)
-                    # IVR 2007-08-29 If the server is too busy, we do not want
-                    # to lock the entire bofhd.
-                    # 5 seconds should be enough
-                    cyrus.socket().settimeout(5)
-                    cyrus.login(cereconf.CYRUS_ADMIN, pw)
-                    res, quotas = cyrus.getquota("user." + acc.account_name)
-                    cyrus.socket().settimeout(None)
-                    if res == "OK":
-                        for line in quotas:
-                            try:
-                                folder, qtype, qused, qlimit = line.split()
-                                if qtype == "(STORAGE":
-                                    used = str(int(qused) / 1024)
-                                    limit = int(qlimit.rstrip(")")) / 1024
-                            except ValueError:
-                                # line.split fails e.g. because quota isn't set
-                                # on server
-                                folder, junk = line.split()
-                                self.logger.warning(
-                                    "No IMAP quota set for '%s'" %
-                                    acc.account_name)
-                                used = "N/A"
-                                limit = None
-                except (TimeoutException, socket.error):
-                    used = 'DOWN'
-                except ConnectException as e:
-                    used = text_type(e)
-                info.append({
-                    'quota_hard': eq.email_quota_hard,
-                    'quota_soft': eq.email_quota_soft,
-                    'quota_used': used,
-                })
-                if limit is not None and limit != eq.email_quota_hard:
-                    info.append({'quota_server': limit})
-            else:
-                # Just get quotas
-                info.append({
-                    'dis_quota_hard': eq.email_quota_hard,
-                    'dis_quota_soft': eq.email_quota_soft,
-                })
+            info.append({
+                'dis_quota_hard': eq.email_quota_hard,
+                'dis_quota_soft': eq.email_quota_soft,
+            })
         except Errors.NotFoundError:
             pass
         return info

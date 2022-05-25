@@ -26,7 +26,6 @@ PyYAML
 raven
 requests
 rpclib==2.7.0-beta
-sasl
 six>=1.10
 statsd==3.2.2
 sqlparse==0.3.0
