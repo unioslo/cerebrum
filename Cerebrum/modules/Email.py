@@ -83,6 +83,7 @@ from Cerebrum import Errors
 from EmailConstants import (_EmailTargetCode, _EmailSpamActionCode,
                             _EmailSpamLevelCode, _EmailVirusFoundCode,
                             _EmailVirusRemovedCode)
+from Cerebrum.utils.email import legacy_validate_lp, legacy_validate_domain
 import cereconf
 
 __version__ = "1.6"
@@ -142,19 +143,10 @@ class EmailDomain(Entity_class):
 
         @raise AttributeError: If domainname fails any of the checks.
         """
-        uber_hyphen = re.compile(r'--+')
-        valid_chars = re.compile(r'^[a-zA-Z\-0-9]+$')
-
-        for element in domainname.split("."):
-            if element.startswith("-") or element.endswith("-"):
-                raise AttributeError("Illegal name: '%s';" % domainname +
-                                     " Element cannot start or end with '-'")
-            if uber_hyphen.search(element):
-                raise AttributeError("Illegal name: '%s';" % domainname +
-                                     " More than one '-' in a row")
-            if not valid_chars.search(element):
-                raise AttributeError("Illegal name: '%s';" % domainname +
-                                     " Invalid character(s)")
+        try:
+            legacy_validate_domain(domainname)
+        except ValueError as e:
+            raise AttributeError(e)
 
     def populate(self, domain, description, parent=None):
         # conv
@@ -1030,23 +1022,12 @@ class EmailAddress(Entity_class):
         parentheses) are not allowed.
 
         """
-        # TBD: Should populate() etc. call this function?  If so, it
-        # would need to throw an exception.  Which one?
-
-        # 64 characters should be enough for everybody.
-        # (RFC 2821 4.5.3.1)
-        if len(localpart) > 64:
+        try:
+            legacy_validate_lp(localpart)
+        except ValueError:
             return False
-        # Only allow US-ASCII, and no SPC or DEL either.
-        if re.search(r'[^!-~]', localpart):
-            return False
-        # No empty atoms
-        if localpart.count(".."):
-            return False
-        # No "specials" (RFC 2822 3.2.1)
-        if re.search(r'[()<>[]:;@\\,]', localpart):
-            return False
-        return True
+        else:
+            return True
 
     # FIXME: Can anyone explain what this can be used for?
     def list_email_addresses(self):
