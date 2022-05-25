@@ -55,7 +55,10 @@ class Constants(Constants.Constants):
     system_fs_derived = Constants._AuthoritativeSystemCode(
         'FS-auto',
         'Utledet av FS data')
-    system_folk_uio_no = Constants._AuthoritativeSystemCode(
+
+    # Note: folk.uio.no is no more - the constant is only kept to prevent
+    # lookups from breaking (e.g. change_log)
+    _system_folk_uio_no = Constants._AuthoritativeSystemCode(
         'folk.uio.no',
         'http://folk.uio.no/')
 
