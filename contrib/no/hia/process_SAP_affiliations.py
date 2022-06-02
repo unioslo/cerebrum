@@ -126,13 +126,6 @@ def get_person(sap_person_id):
         return None
 
 
-def get_date_object(date_str):
-    try:
-        return datetime.datetime.strptime(date_str, "%Y%m%d").date()
-    except TypeError:
-        logger.error("Could not resolve date format")
-
-
 def cache_db_affiliations():
     """Return a cache with all affilliation_ansatt.
 
@@ -304,9 +297,9 @@ def process_affiliations(employment_file, person_file, use_fok,
         if not tpl.start_date or not tpl.end_date:
             logger.debug("Entry %s has no timeframe", tpl)
             continue
-        if not ((get_date_object(tpl.start_date) -
-                datetime.timedelta(days=180)) <= datetime.date.today() <=
-                get_date_object(tpl.end_date)):
+        if not (tpl.start_date -
+                datetime.timedelta(days=180) <= datetime.date.today() <=
+                tpl.end_date):
             logger.debug("Entry %s has wrong timeframe (start: %s, end: %s)",
                          tpl, tpl.start_date, tpl.end_date)
             continue
@@ -431,8 +424,6 @@ def synchronise_employment(employment_cache, tpl, person, ou_id):
                      str(tpl))
         return
 
-    tpl.start_date = get_date_object(tpl.start_date)
-    tpl.end_date = get_date_object(tpl.end_date)
     if tpl.start_date and tpl.end_date:
     # This will either insert or update
         person.add_employment(ou_id, title, constants.system_sap,

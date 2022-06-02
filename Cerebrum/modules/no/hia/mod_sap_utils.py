@@ -33,8 +33,7 @@ TODO: This module should be profiled.
 
 import re
 import sys
-from mx.DateTime import strptime
-from mx.DateTime import now
+from datetime import datetime
 
 
 def make_passnr_iterator(source, logger=None):
@@ -375,10 +374,12 @@ class _SAPPersonDataTuple(_SAPTupleBase):
     _field_count = 39
     _field_rules = {'sap_ansattnr': 0,
                     'sap_termination_date': (2, lambda x: x and
-                                             strptime(x, "%Y%m%d") or None),
+                                             datetime.strptime(x, "%Y%m%d")
+                                             or None),
                     'sap_fnr': 4,
                     # <- defer fnr check to later
-                    'sap_birth_date': (5, lambda x: strptime(x, "%Y%m%d")),
+                    'sap_birth_date': (5, lambda x:
+                                       datetime.strptime(x, "%Y%m%d")),
                     'sap_middle_name': _with_strip(7),
                     'sap_first_name': ((6, 7),
                                        lambda x, y: y and x.strip() + " " +
@@ -405,7 +406,7 @@ class _SAPPersonDataTuple(_SAPTupleBase):
     def expired(self):
         """Is this entry expired?"""
         return (self.sap_termination_date and
-                (self.sap_termination_date < now()))
+                (self.sap_termination_date < datetime.now()))
 
     # TODO: Should this really just return True?
     def valid(self):
@@ -454,8 +455,10 @@ class _SAPEmploymentTuple(_SAPTupleBase):
     _field_rules = {'sap_ansattnr': 0,
                     'funksjonstittel': 2,
                     'lonnstittel': 3,
-                    'start_date': (5, lambda x: strptime(x, "%Y%m%d")),
-                    'end_date': (6, lambda x: strptime(x, "%Y%m%d")),
+                    'start_date': (5, lambda x:
+                                   dateitme.strptime(x, "%Y%m%d").date()),
+                    'end_date': (6, lambda x:
+                                 datetime.strptime(x, "%Y%m%d").date()),
                     'stillingstype': 7,
                     'percentage': (8, float),
                     'sap_ou_id': 1, }
@@ -501,19 +504,22 @@ class _SAPUtvalgTuple(_SAPTupleBase):
                     'sap_unknown': 2,
                     'sap_fagmiljo': 3,
                     'sap_start_date': (4, lambda x: x and
-                                       strptime(x, "%Y%m%d") or None),
+                                       datetime.strptime(x, "%Y%m%d")
+                                       or None),
                     'sap_termination_date': (5, lambda x: x and
-                                             strptime(x, "%Y%m%d") or None),
+                                             datetime.strptime(x, "%Y%m%d")
+                                             or None),
                     'sap_role': 6, }
 
     def expired(self):
         """Is this entry expired?"""
         return (self.sap_termination_date and
-                (self.sap_termination_date < now()))
+                (self.sap_termination_date < datetime.now()))
 
     def valid(self):
         """Is this entry to be ignored?"""
-        return (not self.sap_start_date) or (self.sap_start_date < now())
+        return (not self.sap_start_date) or (self.sap_start_date <
+                                             datetime.now())
 
 
 def _sap_row_to_tuple(sap_row):
