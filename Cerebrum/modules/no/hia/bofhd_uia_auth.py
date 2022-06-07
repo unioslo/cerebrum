@@ -152,6 +152,43 @@ class EmailAuth(UiaAuth, BofhdEmailAuth):
             return False
         raise PermissionDenied("Currently limited to superusers")
 
+    # non-employee users and local sysadmin is allowed to turn forwarding on/off
+    def can_email_forward_toggle(self, operator, account=None,
+                                 query_run_any=False):
+        if query_run_any:
+            return True
+        if self._is_local_postmaster(operator,
+                                     self.const.auth_email_forward_off,
+                                     account=account,
+                                     domain=None,
+                                     query_run_any=query_run_any):
+            return True
+        if account and operator == account.entity_id:
+            if account.is_employee():
+                raise PermissionDenied("Employees may not toggle email forwarding")
+            else:
+                return True
+        raise PermissionDenied("Currently limited to superusers")
+
+    # only non-employee users may add or remove forward addresses
+    def can_email_forward_edit(self, operator, account=None, domain=None,
+                               query_run_any=False):
+        if query_run_any:
+            return True
+        # TODO: make a separate authentication operation for this!
+        if self._is_local_postmaster(operator,
+                                     self.const.auth_email_forward_off,
+                                     account=account,
+                                     domain=domain,
+                                     query_run_any=query_run_any):
+            return True
+        if account and operator == account.entity_id:
+            if account.is_employee():
+                raise PermissionDenied("Employees may not edit email forwarding")
+            else:
+                return True
+        raise PermissionDenied("Currently limited to superusers")
+
 
 class BofhdRequestsAuth(UiaAuth, RequestsAuth):
     pass
