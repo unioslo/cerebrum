@@ -53,8 +53,6 @@ The behaviour of this module changes with the environment variable
   the new py:mod:`Cerebrum.extlib.records` objects.
 """
 import os
-
-from Cerebrum.extlib import db_row
 from Cerebrum.extlib import records
 
 
@@ -68,7 +66,14 @@ ENABLE_RECORDS = bool(int(os.environ.get('CEREBRUM_RECORDS') or 0))
 # TODO: Does this work with records?!
 if ENABLE_RECORDS:
     ROW_TYPES = (records.Record,)
+
+    def make_row_class(*args, **kwargs):
+        raise NotImplementedError('db_row disabled')
+
 else:
+    # PY3: db_row is not importable
+    from Cerebrum.extlib import db_row
+    make_row_class = db_row.make_row_class
     ROW_TYPES = (db_row.abstract_row,)
 
 
@@ -134,7 +139,7 @@ def iter_rows(cursor, fields):
         row_gen = (records.Record(fields, row) for row in data)
         return records.RecordCollection(row_gen)
     else:
-        row_class = db_row.make_row_class(fields)
+        row_class = make_row_class(fields)
         return _DbRowIterator(cursor, row_class)
 
 
@@ -162,5 +167,5 @@ def list_rows(cursor, fields):
         row_gen = (records.Record(fields, row) for row in data)
         return records.RecordCollection(row_gen).all()
     else:
-        row_class = db_row.make_row_class(fields)
+        row_class = make_row_class(fields)
         return [row_class(r) for r in data]
