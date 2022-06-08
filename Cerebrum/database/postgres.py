@@ -26,7 +26,6 @@ import uuid
 import psycopg2
 import psycopg2.extensions
 import six
-from mx import DateTime
 
 from Cerebrum.database import (
     Cursor,
@@ -61,31 +60,29 @@ psycopg2.extensions.register_type(psycopg2.extensions.UNICODEARRAY)
 
 
 # mx.DateTime data types
-
-def mxdate(value, cursor):
-    """ psycopg2 type, DATE -> mx.DateTime. """
-    dt = PG_TYPE_DATE(value, cursor)
-    if dt is None:
-        return None
-    return DateTime.DateTime(dt.year, dt.month, dt.day)
-
-
-def mxdatetime(value, cursor):
-    """ psycopg2 type, DATETIME -> mx.DateTime. """
-    dt = PG_TYPE_DATETIME(value, cursor)
-    if dt is None:
-        return None
-    return DateTime.DateTime(dt.year, dt.month, dt.day,
-                             dt.hour, dt.minute, dt.second)
-
-
-def mxdatetimetype(value):
-    """ psycopg2 adapter, mx.DateTimeType -> Timestamp. """
-    return psycopg2.Timestamp(value.year, value.month, value.day, value.hour,
-                              value.minute, int(value.second))
-
-
 if ENABLE_MXDB:
+    import mx.DateTime
+
+    def mxdate(value, cursor):
+        """ psycopg2 type, DATE -> mx.DateTime. """
+        dt = PG_TYPE_DATE(value, cursor)
+        if dt is None:
+            return None
+        return mx.DateTime.DateTime(dt.year, dt.month, dt.day)
+
+    def mxdatetime(value, cursor):
+        """ psycopg2 type, DATETIME -> mx.DateTime. """
+        dt = PG_TYPE_DATETIME(value, cursor)
+        if dt is None:
+            return None
+        return mx.DateTime.DateTime(dt.year, dt.month, dt.day,
+                                    dt.hour, dt.minute, dt.second)
+
+    def mxdatetimetype(value):
+        """ psycopg2 adapter, mx.DateTimeType -> Timestamp. """
+        return psycopg2.Timestamp(value.year, value.month, value.day,
+                                  value.hour, value.minute, int(value.second))
+
     # DATE -> mx.DateTime
     psycopg2.extensions.register_type(
         psycopg2.extensions.new_type(
@@ -96,7 +93,8 @@ if ENABLE_MXDB:
         psycopg2.extensions.new_type(
             PG_TYPE_DATETIME.values, 'MXDATETIME', mxdatetime))
 
-psycopg2.extensions.register_adapter(DateTime.DateTimeType, mxdatetimetype)
+    psycopg2.extensions.register_adapter(mx.DateTime.DateTimeType,
+                                         mxdatetimetype)
 
 
 def safebytes(value):
