@@ -61,7 +61,12 @@ def find_account(identifier):
             account = utils.get_account(identifier=identifier,
                                         idtype=idtype)
     except utils.EntityLookupError as e:
-        abort(404, message=e)
+        # handle some abort() encoding issues
+        try:
+            msg = str(e)
+        except UnicodeError:
+            msg = repr(e)
+        abort(404, message=msg)
     return account
 
 
