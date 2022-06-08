@@ -32,7 +32,7 @@ DEFAULT_FORM = 'NFC'
 
 @six.python_2_unicode_compatible
 class UnicodeNormalizer(object):
-    """ Unicode normalizer function factory.
+    r""" Unicode normalizer function factory.
 
     Create a callable object that normalizes unicode text according to one of
     the normalization forms.
@@ -136,8 +136,6 @@ class NormalizingCodec(codecs.Codec, object):
         NormalizingUtf8Reader = NormalizingCodec.patch(codec_info.streamreader,
                                                        decode='NFC')
     """
-    __slots__ = ('_encode_form', '_decode_form')
-
     _encode_form = UnicodeNormalizer(None, True)
     _decode_form = UnicodeNormalizer(None, True)
 
