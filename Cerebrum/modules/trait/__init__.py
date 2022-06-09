@@ -48,7 +48,7 @@ Trait attributes
 
 History
 -------
-Functionality has een (or will be) collected here from various places:
+Functionality has been (or will be) collected here from various places:
 
 Bofh commands
     Moved from ``Cerebrum.modules.no.uio.bofhd_uio_commands`` after:
@@ -80,3 +80,6 @@ Move module version
     ``Cerebrum.modules.EntityTrait`` and into this __init__ module (and
     references in makedb/migrate-db updated).
 """
+
+# database schema version (mod_entity_trait)
+__version__ = "1.1"

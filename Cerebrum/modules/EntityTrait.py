@@ -25,9 +25,6 @@ from Cerebrum.Utils import NotSet
 from .EntityTraitConstants import _EntityTraitCode
 
 
-__version__ = "1.1"
-
-
 @_ChangeTypeCode.formatter('trait')
 def format_cl_trait(co, val):
     return _get_code(co.EntityTrait, val, '<unknown>')

@@ -363,7 +363,7 @@ def check_schema_versions(db, strict=False):
         'dns': 'Cerebrum.modules.dns',
         'email': 'Cerebrum.modules.Email',
         'entity_expire': 'Cerebrum.modules.entity_expire',
-        'entity_trait': 'Cerebrum.modules.EntityTrait',
+        'entity_trait': 'Cerebrum.modules.trait',
         'eventlog': 'Cerebrum.modules.EventLog',
         'events': 'Cerebrum.modules.event_publisher',
         'hostpolicy': 'Cerebrum.modules.hostpolicy',
@@ -545,7 +545,6 @@ def runfile(fname, db, debug, phase):
 
     if output_col is not None:
         print("")
-
 
 
 if __name__ == '__main__':
