@@ -21,8 +21,7 @@ from Cerebrum.Entity import Entity
 from Cerebrum.Constants import _ChangeTypeCode, _get_code
 from Cerebrum import Errors
 from Cerebrum.Utils import NotSet
-
-from .EntityTraitConstants import _EntityTraitCode
+from Cerebrum.modules.trait.constants import _EntityTraitCode
 
 
 @_ChangeTypeCode.formatter('trait')

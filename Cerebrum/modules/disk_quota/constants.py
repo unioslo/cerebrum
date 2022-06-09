@@ -22,7 +22,7 @@ Constants for mod_disk_quota
 
 """
 import Cerebrum.Constants
-from Cerebrum.modules.EntityTraitConstants import _EntityTraitCode
+from Cerebrum.modules.trait.constants import _EntityTraitCode
 
 
 class Constants(Cerebrum.Constants.Constants):

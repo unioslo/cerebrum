@@ -21,7 +21,6 @@ Constants common for higher education institutions in Norway.
 """
 from __future__ import unicode_literals
 
-
 from Cerebrum import Constants
 from Cerebrum.Constants import (
     _AccountCode,
@@ -37,7 +36,7 @@ from Cerebrum.Constants import (
     _SpreadCode,
 )
 from Cerebrum.modules.bofhd.bofhd_constants import _AuthRoleOpCode
-from Cerebrum.modules.EntityTraitConstants import _EntityTraitCode
+from Cerebrum.modules.trait.constants import _EntityTraitCode
 
 
 class ConstantsActiveDirectory(Constants.Constants):

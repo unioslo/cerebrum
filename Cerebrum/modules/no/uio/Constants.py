@@ -25,12 +25,12 @@ Address, Gender etc. type.
 
 """
 from Cerebrum import Constants
-from Cerebrum.modules.PosixConstants import _PosixShellCode
 from Cerebrum.modules import EmailConstants
-from Cerebrum.modules.EntityTraitConstants import _EntityTraitCode
+from Cerebrum.modules.PosixConstants import _PosixShellCode
 from Cerebrum.modules.bofhd.bofhd_constants import _AuthRoleOpCode
 from Cerebrum.modules.consent import Consent
 from Cerebrum.modules.dns import DnsConstants
+from Cerebrum.modules.trait.constants import _EntityTraitCode
 
 
 class Constants(Constants.Constants):

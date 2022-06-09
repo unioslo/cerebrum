@@ -63,22 +63,11 @@ Refactor/move ``Cerebrum.modules.EntityTrait``
     database queries, and a mixins module, and moved into
     ``Cerebrum.modules.trait``.
 
-Refactor/move ``Cerebrum.modules.EntityTraitConstants``
-    Defines the ``_EntityTraitCode`` (trait type) and adds ``_ChangeTypeCode``
-    constants for each trait change type.
-
-    Should be moved into a ``Cerebrum.modules.trait.constants`` module.
-
 Extract trait related codes from ``Cerebrum.modules.bofhd.bofhd_constants``
     Defines ``_AuthRoleOpCode`` constants for delegating access to bofhd trait
     commands.
 
-    Should be moved into a `Cerebrum.modules.trait.constants` module.
-
-Move module version
-    The versioning of the traits module should be moved from
-    ``Cerebrum.modules.EntityTrait`` and into this __init__ module (and
-    references in makedb/migrate-db updated).
+    Should be moved into `Cerebrum.modules.trait.constants`.
 """
 
 # database schema version (mod_entity_trait)

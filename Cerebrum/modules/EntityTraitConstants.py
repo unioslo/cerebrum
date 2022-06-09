@@ -18,58 +18,13 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
-Base constant types and constants related to traits
+Compatibility module (trait constants).
+
+This module is deprecated - please import Cerebrum.modules.trait.constants
+directly.
 """
-import Cerebrum.Constants
+from Cerebrum.modules.trait.constants import CLConstants
+from Cerebrum.modules.trait.constants import Constants
+from Cerebrum.modules.trait.constants import _EntityTraitCode
 
-
-class _EntityTraitCode(Cerebrum.Constants._CerebrumCodeWithEntityType):
-    """
-    Code values for entity traits, used in table entity_trait
-    """
-
-    _lookup_table = '[:table schema=cerebrum name=entity_trait_code]'
-
-
-class CLConstants(Cerebrum.Constants.CLConstants):
-
-    trait_add = Cerebrum.Constants._ChangeTypeCode(
-        "entity_trait", "add",
-        "new trait for %(subject)s",
-        (
-            "%(trait:code)s",
-            "numval=%(int:numval)s",
-            "strval=%(string:strval)s",
-            "date=%(string:date)s",
-            "target=%(entity:target_id)s",
-        )
-    )
-
-    trait_del = Cerebrum.Constants._ChangeTypeCode(
-        "entity_trait", "remove",
-        "removed trait from %(subject)s",
-        (
-            "%(trait:code)s",
-            "numval=%(int:numval)s",
-            "strval=%(string:strval)s",
-            "date=%(string:date)s",
-            "target=%(entity:target_id)s",
-        )
-    )
-
-    trait_mod = Cerebrum.Constants._ChangeTypeCode(
-        "entity_trait", "modify",
-        "modified trait for %(subject)s",
-        (
-            "%(trait:code)s",
-            "numval=%(int:numval)s",
-            "strval=%(string:strval)s",
-            "date=%(string:date)s",
-            "target=%(entity:target_id)s",
-        )
-    )
-
-
-class Constants(Cerebrum.Constants.Constants):
-
-    EntityTrait = _EntityTraitCode
+__all__ = ('CLConstants', 'Constants', '_EntityTraitCode')
