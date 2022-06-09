@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2005-2021 University of Oslo, Norway
+# Copyright 2005-2022 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,13 +17,12 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-
 from Cerebrum.Entity import Entity
 from Cerebrum.Constants import _ChangeTypeCode, _get_code
 from Cerebrum import Errors
 from Cerebrum.Utils import NotSet
-from EntityTraitConstants import _EntityTraitCode
+
+from .EntityTraitConstants import _EntityTraitCode
 
 
 __version__ = "1.1"
