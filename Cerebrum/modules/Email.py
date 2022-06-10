@@ -2545,7 +2545,7 @@ class AccountEmailMixin(Account.Account):
                 given_names = 0
 
         # List of prefixes that are not to be compressed
-        prefixes = ['de', 'van', 'von', 'der', 'af']
+        prefixes = ['de', 'van', 'von', 'der', 'af', 'st']
         if len(names) > given_names:
             # Compress initials if not in prefix list
             initials = []
