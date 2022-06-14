@@ -818,7 +818,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
 
     def __clear_precedence(self, precedence, all_precs):
         """ Clear precedences. """
-        row = dict(all_precs[precedence])
+        row = all_precs[precedence]
         if precedence + 1 in all_precs:
             self.__clear_precedence(precedence + 1, all_precs)
 
@@ -878,7 +878,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         all_prs = dict()
         for row in self.list_affiliations(person_id=self.entity_id,
                                           include_deleted=True):
-            all_prs[int(row['precedence'])] = row
+            all_prs[int(row['precedence'])] = dict(row)
         binds = {'ou_id': int(ou_id),
                  'affiliation': int(affiliation),
                  'source': int(source),
