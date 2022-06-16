@@ -876,14 +876,18 @@ LDAP_PERSON = {
     # Selects which contact info to use for norEduPersonAuthnMethod (sms).
     #
     # The value is a  dict that maps affiliation (e.g. 'ANSATT' or 'STUDENT')
-    # to a tuple consisting of source system and contact type tuples (e.g.
-    # `tuple('SAP', 'MOBILE')`).
+    # to a map consisting of source system and contact type tuples (e.g.
+    # ``('SAP', 'MOBILE')``) to label.
     #
     # A full config might look like:
     #     'norEduPersonAuthnMethod_selector': {
-    #         'ANSATT': ( ('SAP', 'MOBILE'),
-    #                     ('SAP', 'PRIVATEMOBILE'),
-    #                     ('FS', 'MOBILE'), ),
+    #         'ANSATT': {
+    #             ('SAP', 'MOBILE'): 'Work mobile',
+    #             ('SAP', 'PRIVATEMOBILE'): 'Private mobile (HR)',
+    #         },
+    #         'STUDENT': {
+    #             ('FS', 'MOBILE'): None,  # default/fallback label
+    #         },
     #     }
     'norEduPersonAuthnMethod_selector': {},
     #

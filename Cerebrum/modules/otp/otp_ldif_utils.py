@@ -161,7 +161,7 @@ class NorEduOtpMixin(NorEduOrgLdifMixin):
         'urn:mace:feide.no:auth:method:ga {value} label={label}')
 
     # TODO: We should probably re-consider the label
-    feide_otp_label = 'OTP'
+    feide_authn_method_ga_label = 'OTP'
 
     @property
     def feide_otp_cache(self):
@@ -180,7 +180,7 @@ class NorEduOtpMixin(NorEduOrgLdifMixin):
 
         value = self.feide_authn_method_ga_fmt.format(
             value=quote(secret),
-            label=quote(self.feide_otp_label),
+            label=quote(self.feide_authn_method_ga_label),
         )
         return attr_unique([value], normalize=normalize_string)
 

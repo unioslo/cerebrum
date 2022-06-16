@@ -457,6 +457,91 @@ class NorEduSmsAuthnMixin(NorEduOrgLdifMixin):
     feide_authn_method_sms_fmt = (
         'urn:mace:feide.no:auth:method:sms {value} label={label}')
 
+    # Replaced by `_set_sms_authn_label` and labels from config by default.
+    # To hard-code labels - override `_set_sms_authn_label with a no-op and
+    # override this dict with (aff, source, type) -> label mappings.
+    feide_authn_method_sms_labels = {}
+
+    def _set_sms_authn_label(self, affiliation, source_system, contact_type,
+                             label):
+        """
+        Set label for a given sms authn method.
+
+        This is called by py:meth:`.person_authn_selection` - which reads
+        labels from ``cereconf.LDAP_PERSON[norEduPersonAuthnMethod_selector]``.
+
+        Labels from config are cached in
+        py:attr:`.feide_authn_method_sms_labels` for later use by
+        py:meth:`._get_sms_authn_label`
+
+        :type affiliation: Cerebrum.Constants._PersonAffiliationCode
+        :type source_system: Cerebrum.Constants._AuthoritativeSystemCode
+        :type contact_type: Cerebrum.Constants._ContactInfoCode
+        :type label: six.text_type
+        """
+        if not label:
+            return
+        key = (
+            six.text_type(affiliation),
+            six.text_type(source_system),
+            six.text_type(contact_type),
+        )
+        if not hasattr(self, 'feide_authn_method_sms_labels'):
+            self.feide_authn_method_sms_labels = dict()
+        self.feide_authn_method_sms_labels[key] = six.text_type(label)
+
+    def _get_sms_authn_label(self, affiliation, source_system,
+                             contact_type, contact_value):
+        """
+        Get label for a given sms authn method.
+
+        This method may be overridden to provide e.g. partial phone numbers in
+        the auth method labels, or to change how labels are generated e.g. by
+        affiliation.
+
+        :type affiliation: Cerebrum.Constants._PersonAffiliationCode
+        :type source_system: Cerebrum.Constants._AuthoritativeSystemCode
+        :type contact_type: Cerebrum.Constants._ContactInfoCode
+        :type contact_value: six.text_type
+
+        :returns:
+            A properly quoted label for the given authn method.
+        """
+        key = (
+            six.text_type(affiliation),
+            six.text_type(source_system),
+            six.text_type(contact_type),
+        )
+        if key in self.feide_authn_method_sms_labels:
+            label = self.feide_authn_method_sms_labels[key]
+            return quote(label.encode('utf-8'))
+        else:
+            # fallback, e.g. 'PRIVATEMOBILE from SAP'
+            return quote('{2} from {1}'.format(*key).encode('utf-8'))
+
+    def _format_sms_authn_entry(self, affiliation, source_system, contact_type,
+                                contact_value):
+        """
+        Format a norEduPersonAuthnMethod entry from contact info.
+
+        :type affiliation: Cerebrum.Constants._PersonAffiliationCode
+        :type source_system: Cerebrum.Constants._AuthoritativeSystemCode
+        :type contact_type: Cerebrum.Constants._ContactInfoCode
+        :type contact_value: six.text_type
+
+        :rtype: six.text_type
+        """
+        return self.feide_authn_method_sms_fmt.format(
+            # TODO: We really *should* sanitize/normalize value
+            value=contact_value,
+            label=self._get_sms_authn_label(
+                affiliation,
+                source_system,
+                contact_type,
+                contact_value,
+            ),
+        )
+
     @property
     def person_authn_selection(self):
         """ Normalized norEduPersonAuthnMethod_selector.
@@ -487,11 +572,13 @@ class NorEduSmsAuthnMixin(NorEduOrgLdifMixin):
                 aff = get_const(aff, self.const.PersonAffiliation)
                 if not aff:
                     continue
-                for system, c_type in selections:
+                for selector, label in selections.items():
+                    system, c_type = selector
                     system = get_const(system, self.const.AuthoritativeSystem)
                     c_type = get_const(c_type, self.const.ContactInfo)
                     if (not system) or (not c_type):
                         continue
+                    self._set_sms_authn_label(aff, system, c_type, label)
                     self._person_authn_selection.setdefault(aff, []).append(
                         (system, c_type))
         return self._person_authn_selection
@@ -575,13 +662,11 @@ class NorEduSmsAuthnMixin(NorEduOrgLdifMixin):
                     # This contact info type doesn't apply to this selection
                     continue
 
-                value = self.feide_authn_method_sms_fmt.format(
-                    # TODO: We really *should* sanitize/normalize value
-                    value=authn_entry['value'],
-                    label=quote(
-                        "{} {}".format(authn_entry['source_system'],
-                                       authn_entry['contact_type'])),
-                )
+                value = self._format_sms_authn_entry(
+                    aff,
+                    authn_entry['source_system'],
+                    authn_entry['contact_type'],
+                    authn_entry['value'])
                 authn_methods.append(value)
 
         return attr_unique(authn_methods, normalize=normalize_string)
