@@ -114,7 +114,7 @@ class NmhOrgLdif(NorEduOrgLdifMixin):
                                    normalize=self.attr2syntax[a][2]))
              for a, s, t in (
                  ('telephoneNumber', sap, self.const.contact_phone),
-                 ('mobile', (sap, fs), self.const.contact_mobile_phone),
+                 ('mobile', sap, self.const.contact_mobile_phone),
                  ('facsimileTelephoneNumber', sap, self.const.contact_fax),
                  ('labeledURI', None, self.const.contact_url))]
         self.id2labeledURI = c[-1][1]
