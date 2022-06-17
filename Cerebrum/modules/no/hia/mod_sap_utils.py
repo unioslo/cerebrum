@@ -456,7 +456,7 @@ class _SAPEmploymentTuple(_SAPTupleBase):
                     'funksjonstittel': 2,
                     'lonnstittel': 3,
                     'start_date': (5, lambda x:
-                                   dateitme.strptime(x, "%Y%m%d").date()),
+                                   datetime.strptime(x, "%Y%m%d").date()),
                     'end_date': (6, lambda x:
                                  datetime.strptime(x, "%Y%m%d").date()),
                     'stillingstype': 7,
