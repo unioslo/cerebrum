@@ -451,7 +451,7 @@ def main(inargs=None):
     for group_id in groups_with_expiring_trait:
         gr.clear()
         gr.find(group_id)
-        if gr.expire_date > limit_2:
+        if gr.expire_date and gr.expire_date > limit_2:
             gr.delete_trait(co.trait_group_expire_notify)
             logger.debug("Removed trait for group id %s", group_id)
     # Commit or rollback
