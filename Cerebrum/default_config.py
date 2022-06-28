@@ -671,16 +671,20 @@ LDAP = {
 
     # If set, default attributes for all LDAP_*['dn'] objects except ORG. Each
     # attribute is added if the object does not already have that attribute:
+    #
     #   'container_attrs': {"objectClass": ("top", "uioUntypedObject")},
 
     # Constants.py varname of source system with phone and fax for people and
     # organization, plus postal and street addresses for people.
+    #
     #   'contact_source_system': 'system_foobar',
 
     # Addresses can be collected from a different source_system than that given
-    # in 'contact_source_system' using 'address_source_system'. If this variable
-    # is not set, address will be collected from 'contact_source_system'.
-    #    'address_source_system': 'system_foobar'
+    # in 'contact_source_system' using 'address_source_system'. If this
+    # variable is not set, address will be collected from
+    # 'contact_source_system'.
+    #
+    #   'address_source_system': 'system_foobar'
 
     # Mapping used to rewrite domains in e-mail addresses:
     # {"domain returned from Cerebrum": "real domain", ...}.
@@ -890,6 +894,18 @@ LDAP_PERSON = {
     #         },
     #     }
     'norEduPersonAuthnMethod_selector': {},
+    #
+    # Enable/disable use of labels for the norEduPersonAuthnMethod
+    # sms/contact info entries.
+    #
+    # - If set to True (the default):
+    #   Labels will be given to entries as described in the
+    #   norEduPersonAuthnMethod_selector setting.
+    # - If set to False:
+    #   No label is included for the sms entries.  The Feide default is to show
+    #   the two last digits of the users phone number.  Duplicate phone number
+    #   enties will be hidden.
+    'norEduPersonAuthnMethod_labels': True,
     #
     # Selects which target type to use for the 'mail' attribute.
     #

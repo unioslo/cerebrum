@@ -454,13 +454,31 @@ class NorEduSmsAuthnMixin(NorEduOrgLdifMixin):
     persons.
     """
 
-    feide_authn_method_sms_fmt = (
+    feide_authn_method_sms_label_fmt = (
         'urn:mace:feide.no:auth:method:sms {value} label={label}')
 
-    # Replaced by `_set_sms_authn_label` and labels from config by default.
-    # To hard-code labels - override `_set_sms_authn_label with a no-op and
-    # override this dict with (aff, source, type) -> label mappings.
-    feide_authn_method_sms_labels = {}
+    feide_authn_method_sms_nolabel_fmt = (
+        'urn:mace:feide.no:auth:method:sms {value}')
+
+    @property
+    def feide_authn_method_sms_labels(self):
+        """
+        Maps contact info (aff, source, type) -> label
+
+        This dict is populated by
+        labels set in
+        ``self.config.person['norEduPersonAuthnMethod_selector']`` when
+        fetching ``self.person_authn_selection``.
+        """
+        try:
+            labels = self.__labels
+        except AttributeError:
+            labels = self.__labels = {}
+        return labels
+
+    @property
+    def _use_sms_authn_labels(self):
+        return bool(self.config.person.get('norEduPersonAuthnMethod_labels'))
 
     def _set_sms_authn_label(self, affiliation, source_system, contact_type,
                              label):
@@ -486,8 +504,6 @@ class NorEduSmsAuthnMixin(NorEduOrgLdifMixin):
             six.text_type(source_system),
             six.text_type(contact_type),
         )
-        if not hasattr(self, 'feide_authn_method_sms_labels'):
-            self.feide_authn_method_sms_labels = dict()
         self.feide_authn_method_sms_labels[key] = six.text_type(label)
 
     def _get_sms_authn_label(self, affiliation, source_system,
@@ -531,16 +547,23 @@ class NorEduSmsAuthnMixin(NorEduOrgLdifMixin):
 
         :rtype: six.text_type
         """
-        return self.feide_authn_method_sms_fmt.format(
-            # TODO: We really *should* sanitize/normalize value
-            value=contact_value,
-            label=self._get_sms_authn_label(
-                affiliation,
-                source_system,
-                contact_type,
-                contact_value,
-            ),
-        )
+        # TODO: We *really* should validate and normalize the contact_value.
+        # Numbers need to include country code and must be formatted according
+        # to ITU E.164.
+        if self._use_sms_authn_labels:
+            return self.feide_authn_method_sms_label_fmt.format(
+                value=contact_value,
+                label=self._get_sms_authn_label(
+                    affiliation,
+                    source_system,
+                    contact_type,
+                    contact_value,
+                ),
+            )
+        else:
+            return self.feide_authn_method_sms_nolabel_fmt.format(
+                value=contact_value,
+            )
 
     @property
     def person_authn_selection(self):
