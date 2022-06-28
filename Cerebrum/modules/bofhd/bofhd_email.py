@@ -2689,7 +2689,7 @@ class BofhdEmailCommands(BofhdEmailBase):
     all_commands['email_spam_filter_add'] = Command(
         ('email', 'spam_filter_add'),
         SimpleString(help_ref='string_email_filter'),
-        SimpleString(help_ref='string_email_target_name', repeat="True"),
+        SimpleString(help_ref='string_email_target_name', repeat=True),
         perm_filter='can_email_spam_settings')
 
     def email_spam_filter_add(self, operator, filter, address):
@@ -2736,7 +2736,7 @@ class BofhdEmailCommands(BofhdEmailBase):
     all_commands['email_spam_filter_remove'] = Command(
         ('email', 'spam_filter_remove'),
         SimpleString(help_ref='string_email_filter'),
-        SimpleString(help_ref='string_email_target_name', repeat="True"),
+        SimpleString(help_ref='string_email_target_name', repeat=True),
         perm_filter='can_email_spam_settings')
 
     def email_spam_filter_remove(self, operator, filter, address):
