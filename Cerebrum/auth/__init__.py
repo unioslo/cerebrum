@@ -284,12 +284,17 @@ class AuthTypeMD4NT(AuthBaseClass):
             raise ValueError("plaintext cannot be bytestring and not binary")
 
         if isinstance(plaintext, six.text_type):
+            # You probably need a degree in archeology to find an actual spec,
+            # but NTLMv2 seems to use UCS-2 LE for passwords.
+            #
+            # `passlib.hash.nthash.hash()` already handles this by decoding
+            # bytestrings as utf-8 and re-encoding them as utf-16-le
             plaintext = plaintext.encode('utf-8')
 
         # Previously the smbpasswd module was used to create nthash, and it
-        # only produced uppercase hashes. The hash is case insensitive, but
-        # be backwards compatible if some comsumers
-        # depend on upper case strings.
+        # produced uppercase hex-string hashes.  This should be case
+        # insensitive, but let's be backwards compatible if some comsumers
+        # expects this to be upper case.
         return passlib.hash.nthash.hash(plaintext).decode().upper()
 
     def verify(self, plaintext, cryptstring):
