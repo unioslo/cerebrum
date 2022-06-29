@@ -543,8 +543,7 @@ class Build(object):
 
         logger.debug("Current expire %s, new expire %s", current_expire,
                      new_expire)
-        if ((current_expire is not None and new_expire > current_expire)
-            or new_deceased):
+        if not current_expire or new_expire > current_expire or new_deceased:
             changes.append(('expire_date', str(new_expire)))
 
         # check account affiliation and status
