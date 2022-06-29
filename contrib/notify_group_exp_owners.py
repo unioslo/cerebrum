@@ -73,7 +73,7 @@ INFO_LINK = 'https://www.uio.no/tjenester/it/brukernavn-passord/brukeradministra
 
 TRANSLATION = {
     'en': {
-        'title': 'Review of soon expiring groups you are administrating',
+        'title': 'Review of soon expiring groups you are administrating or moderating',
         'greeting': 'Hi,',
         'message': "The following groups will expire in the near future. If "
                    "you want the groups to remain, please extend their expire "
@@ -81,9 +81,9 @@ TRANSLATION = {
                    "needed."
 
                    "The groups can be managed with the account {}. "
-                   "You are considered to be an administrator of these groups "
-                   "because you are a direct administrator, or a member of "
-                   "administrator group(s) giving you that role. ",
+                   "You are considered to be an administrator and/or a moderator of these groups "
+                   "because you are a direct administrator, a member of "
+                   "administrator group(s) or moderator group(s) giving you that role. ",
         'info_link': 'For more information go to the page ',
         'here': 'Automatisk rapportering av grupper.',
         'signature': 'Best regards,',
@@ -95,16 +95,16 @@ TRANSLATION = {
         ]),
     },
     'nb': {
-        'title': 'Oversikt over grupper med kort utløpsdato du administrerer',
+        'title': 'Oversikt over grupper med kort utløpsdato du administrerer eller modererer',
         'greeting': 'Hei,',
         'message': "Her følger en oversikt over grupper med utløpsdato i "
                    "nærmeste fremtid. Vennligst forleng utløpsdato om du "
                    "ønsker å beholde dem. Hvis du vil at gruppene skal utløpe "
                    "trenger du ikke foreta deg noe. "
                    "Gruppene kan administrereres med kontoen {}. "
-                   "Du blir regnet som administrator for disse gruppene fordi "
-                   "du er satt som administrator, eller er medlem av "
-                   "administrator-gruppe(r) som gir deg den rollen. "
+                   "Du blir regnet som administrator og/eller moderator for disse gruppene fordi "
+                   "du er satt som administrator, er medlem av "
+                   "administrator-gruppe(r) eller moderator-gruppe(r) som gir deg den rollen. "
                    "På UiO blir tilgang til nettsider og en del verktøy "
                    "definert av gruppemedlemskap. Det er derfor viktig at "
                    "grupper vedlikeholdes kontinuerlig.",
@@ -119,12 +119,13 @@ TRANSLATION = {
         ]),
     },
     'nn': {
-        'title': 'Oversikt over grupper med kort utløpsdato du administrerer',
+        'title': 'Oversikt over grupper med kort utløpsdato du administrerer eller modererer',
         'greeting': 'Hei,',
         'message': 'Her følgjer ei oversikt over alle grupper du kan '
                    'administrerere med brukaren {}. Du blir '
-                   'rekna som administrator for desse gruppene fordi du er '
-                   'medlem av administrator-gruppe(r) som gir deg den rolla. '
+                   'rekna som administrator og/eller moderator for desse gruppene fordi du '
+                   'er satt som administrator, er medlem av administrator-gruppe(r), '
+                   'eller moderator-gruppe(r) som gir deg den rolla. '
                    'På UiO blir tilgang til nettsider og ein '
                    'del verktøy definert av gruppemedlemskap. Det er derfor '
                    'viktig at kun riktige personer er medlemmar i kvar '
@@ -278,6 +279,18 @@ def get_group_info(gr, group_id):
     gr.find(group_id)
     return gr.group_name, six.text_type(gr.expire_date.date)
 
+def get_admin_mod_type(user):
+    type = None
+    if user['admin_type']:
+        type = user['admin_type']
+    elif user['moderator_type']:
+        type = user['moderator_type']
+
+    return type
+
+def get_admin_mod_id(user):
+    return user['admin_id'] if user['admin_id'] else user['moderator_id']
+
 
 def get_admins_groups_emails(db, expiring_groups):
     gr = Factory.get('Group')(db)
@@ -310,12 +323,15 @@ def get_admins_groups_emails(db, expiring_groups):
         return
 
     roles = GroupRoles(db)
-    admins = roles.search_admins(group_id=expiring_groups)
+    admins = (roles.search_admins(group_id=expiring_groups)
+            + roles.search_moderators(group_id=expiring_groups))
+
     for admin in admins:
         gr_id = admin['group_id']
-        if admin['admin_type'] == co.entity_group:
+        type = get_admin_mod_type(admin)
+        if type == co.entity_group:
             for row in gr.search_members(
-                    group_id=admin['admin_id'],
+                    group_id=get_admin_mod_id(admin),
                     member_type=(co.entity_account, co.entity_person)
             ):
                 if row['member_type'] == co.entity_account:
@@ -329,20 +345,20 @@ def get_admins_groups_emails(db, expiring_groups):
                     if ac_id is not None:
                         cache_owner_groups_and_email(ac_id, gr_id)
 
-        elif admin['admin_type'] == co.entity_account:
-            ac_id = admin['admin_id']
+        elif type == co.entity_account:
+            ac_id = get_admin_mod_id(admin)
             cache_owner_groups_and_email(ac_id, gr_id)
 
-        elif admin['admin_type'] == co.entity_person:
+        elif type == co.entity_person:
             pe.clear()
-            pe.find(admin['admin_id'])
+            pe.find(get_admin_mod_id(admin))
             ac_id = pe.get_primary_account()
             if ac_id is not None:
                 cache_owner_groups_and_email(ac_id, gr_id)
 
         else:
             raise ValueError(
-                "Unknown admin type '{}'".format(admin['admin_type']))
+                "Unknown admin/moderator type '{}'".format(type))
     return {'owner2groupids': owner2groupids,
             'owner2mail': owner2mail,
             'groupid2name': groupid2name,
