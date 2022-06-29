@@ -213,8 +213,8 @@ def notify_user(ac, quar_start_in_days):
     body = body.replace('${DAYS_TO_START}', str(quar_start_in_days))
     body = body.replace(
         '${QUARANTINE_DATE}',
-        str(datetime.date.today() + datetime.timedelta(
-            days=quar_start_in_days)))
+        str(datetime.date.today()
+            + datetime.timedelta(days=quar_start_in_days)))
 
     try:
         first_name = (pe.search_person_names(
@@ -259,13 +259,15 @@ def find_candidates(exclude_aff=[], grace=0, quarantine=None):
         - `quarantined`: A set with account-IDs for all quarantined accounts.
 
     """
-    datelimit = datetime.datetime.today() + datetime.timedelta(days=int(grace))
-    logger.debug2("Including affiliations deleted after: %s", datelimit)
+    date_cutoff = datetime.date.today() - datetime.timedelta(days=int(grace))
+    logger.debug2("Including affiliations deleted after: %s", date_cutoff)
 
     def is_aff_considered(row):
         """Check for if an affiliation should be considered or not."""
+        deleted_date = get_date(row['deleted_date'])
+
         # Exclude affiliations deleted before the datelimit:
-        if row['deleted_date'] and row['deleted_date'] < datelimit:
+        if deleted_date and deleted_date < date_cutoff:
             return False
         if (row['affiliation'], row['status']) in exclude_aff:
             return False
@@ -318,17 +320,16 @@ def set_quarantine(pids, quar, offset, quarantined):
     success = set()
     failed_notify = 0
     no_processed = 0
-    date = datetime.date.today() + datetime.timedelta(days=int(offset))
+    q_start = datetime.date.today() + datetime.timedelta(days=int(offset))
 
     # Cache what entities has the target quarantine:
     with_target_quar = set(
-        r['entity_id'] for r in
-        ac.list_entity_quarantines(quarantine_types=quar,
-                                   only_active=False,
-                                   entity_types=co.entity_account)
-        if (
-                get_date(r['start_date']) and
-                get_date(r['start_date']) <= date))
+        r['entity_id']
+        for r in ac.list_entity_quarantines(
+            quarantine_types=quar,
+            only_active=False,
+            entity_types=co.entity_account)
+        if r['start_date'] and get_date(r['start_date']) <= q_start)
     logger.debug2('Accounts with target quarantine: %d', len(with_target_quar))
     # Cache the owner to account relationship:
     pid2acs = {}
@@ -363,7 +364,7 @@ def set_quarantine(pids, quar, offset, quarantined):
 
             if notified:
                 ac.delete_entity_quarantine(quar)
-                ac.add_entity_quarantine(quar, creator, start=str(date))
+                ac.add_entity_quarantine(quar, creator, start=str(q_start))
                 # Commiting here to avoid that users get multiple emails if the
                 # script is stopped before it's done.
                 ac.commit()
