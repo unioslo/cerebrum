@@ -83,7 +83,7 @@ TRANSLATION = {
                    "The groups can be managed with the account {}. "
                    "You are considered to be an administrator and/or a moderator of these groups "
                    "because you are a direct administrator, a member of "
-                   "administrator group(s) or moderator group(s) giving you that role. ",
+                   "administrator group(s), or a member of moderator group(s) giving you that role. ",
         'info_link': 'For more information go to the page ',
         'here': 'Automatisk rapportering av grupper.',
         'signature': 'Best regards,',
@@ -104,7 +104,7 @@ TRANSLATION = {
                    "Gruppene kan administrereres med kontoen {}. "
                    "Du blir regnet som administrator og/eller moderator for disse gruppene fordi "
                    "du er satt som administrator, er medlem av "
-                   "administrator-gruppe(r) eller moderator-gruppe(r) som gir deg den rollen. "
+                   "administrator-gruppe(r), eller er medlem av moderator-gruppe(r) som gir deg den rollen. "
                    "På UiO blir tilgang til nettsider og en del verktøy "
                    "definert av gruppemedlemskap. Det er derfor viktig at "
                    "grupper vedlikeholdes kontinuerlig.",
@@ -125,7 +125,7 @@ TRANSLATION = {
                    'administrerere med brukaren {}. Du blir '
                    'rekna som administrator og/eller moderator for desse gruppene fordi du '
                    'er satt som administrator, er medlem av administrator-gruppe(r), '
-                   'eller moderator-gruppe(r) som gir deg den rolla. '
+                   'eller er medlem av moderator-gruppe(r) som gir deg den rolla. '
                    'På UiO blir tilgang til nettsider og ein '
                    'del verktøy definert av gruppemedlemskap. Det er derfor '
                    'viktig at kun riktige personer er medlemmar i kvar '
