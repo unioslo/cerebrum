@@ -1453,6 +1453,9 @@ class BofhdExtension(BofhdCommonMethods):
                                                       group.group_name))
             except Errors.NotFoundError:
                 pass
+        if self._is_perishable_manual_group(group):
+            group.set_default_expire_date()
+            group.write_db()
         try:
             group.remove_member(member.entity_id)
         except self.db.DatabaseError as m:
