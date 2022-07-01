@@ -2418,6 +2418,8 @@ class UserSync(BaseSync):
                         disk_path=row['path'],
                         home=row['home'],
                         spread=row['home_spread'])
+                    tmp['host_id'] = row['host_id']
+                    tmp['entity_name'] = row['entity_name']
                     ent.home[row['home_spread']] = tmp
                     i += 1
         self.logger.debug("Found %d account home directories" % i)
