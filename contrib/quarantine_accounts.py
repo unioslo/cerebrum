@@ -447,6 +447,32 @@ def parse_affs(affs):
     return parsed
 
 
+def get_email_template(filename):
+    """
+    Email template for notifications.
+
+    :param filename: email template file to read
+
+    :rtype: dict
+    :returns:
+        a dict with:
+
+        Subject: email Subject template for notifications
+        From: email From address for notifications
+        Cc: email Cc addresses for notifications
+        Body: email Body template for notifications
+    """
+    with io.open(filename, 'r', encoding='utf-8') as f:
+        msg = email.message_from_file(f)
+
+    return {
+        'Subject': email.Header.decode_header(msg['Subject'])[0][0],
+        'From': msg['From'],
+        'Cc': msg['Cc'],
+        'Body': msg.get_payload(decode=1)
+    }
+
+
 if __name__ == '__main__':
     db = Factory.get('Database')()
     db.cl_init(change_program='quarantine_accounts')
@@ -500,15 +526,7 @@ if __name__ == '__main__':
             ignore_aff = parse_affs(val.decode('UTF-8'))
         elif opt in ('-m',):
             try:
-                with io.open(val, 'r', encoding='UTF-8') as f:
-                    msg = email.message_from_file(f)
-                email_info = {
-                    'Subject': email.Header.decode_header(
-                        msg['Subject'])[0][0],
-                    'From': msg['From'],
-                    'Cc': msg['Cc'],
-                    'Body': msg.get_payload(decode=1)
-                }
+                email_info = get_email_template(val)
             except IOError as e:
                 print('Mail body file: %s' % e)
                 sys.exit(2)
