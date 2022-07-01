@@ -979,7 +979,7 @@ class BofhdExtension(BofhdCommonMethods):
     #
     all_commands['group_exchange_remove'] = Command(
         ("group", "exchange_remove"),
-        GroupName(help_ref="group_name", repeat='true'),
+        GroupName(help_ref="group_name", repeat=True),
         YesNo(help_ref='yes_no_expire_group', default='No'),
         perm_filter='is_postmaster')
 
@@ -1034,7 +1034,7 @@ class BofhdExtension(BofhdCommonMethods):
     all_commands['group_roomlist_create'] = Command(
         ("group", "roomlist_create"),
         GroupName(help_ref="group_name_new"),
-        SimpleString(help_ref="group_disp_name", optional='true'),
+        SimpleString(help_ref="group_disp_name", optional=True),
         SimpleString(help_ref="string_description"),
         fs=FormatSuggestion("Group created, internal id: %i", ("group_id",)),
         perm_filter='is_postmaster')
