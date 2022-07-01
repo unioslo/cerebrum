@@ -46,7 +46,7 @@ usage pattern.
 """
 
 import argparse
-from mx.DateTime import today, DateTimeDelta
+import datetime
 import os
 
 import cereconf
@@ -294,7 +294,11 @@ def process_affiliations(employment_file, person_file, use_fok,
 
         # is the entry within a valid time frame?
         # The shift by 180 days has been requested by UiA around 2007-03-27
-        if not (tpl.start_date - DateTimeDelta(180) <= today() <=
+        if not tpl.start_date or not tpl.end_date:
+            logger.debug("Entry %s has no timeframe", tpl)
+            continue
+        if not (tpl.start_date -
+                datetime.timedelta(days=180) <= datetime.date.today() <=
                 tpl.end_date):
             logger.debug("Entry %s has wrong timeframe (start: %s, end: %s)",
                          tpl, tpl.start_date, tpl.end_date)
@@ -420,10 +424,11 @@ def synchronise_employment(employment_cache, tpl, person, ou_id):
                      str(tpl))
         return
 
+    if tpl.start_date and tpl.end_date:
     # This will either insert or update
-    person.add_employment(ou_id, title, constants.system_sap,
-                          tpl.percentage, tpl.start_date, tpl.end_date,
-                          code, tpl.stillingstype == 'H')
+        person.add_employment(ou_id, title, constants.system_sap,
+                              tpl.percentage, tpl.start_date, tpl.end_date,
+                              code, tpl.stillingstype == 'H')
 
 
 def process_employments(employment_file, use_fok, people_to_ignore=None):

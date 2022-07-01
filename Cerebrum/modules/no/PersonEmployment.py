@@ -17,13 +17,11 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import datetime
-import mx.DateTime
 import six
 
 
 from Cerebrum.Utils import argument_to_sql
-
+from Cerebrum.utils.date_compat import get_date
 
 __version__ = '1.0'  # Should match design/mod_employment.sql
 
@@ -49,32 +47,6 @@ class PersonEmploymentMixin(object):
         """ % self.__table, {"person_id": self.entity_id})
         super(PersonEmploymentMixin, self).delete()
 
-    def _human2mxDateTime(self, something):
-        """Make an mx.DateTime out of something.
-
-        Let's try to be nice to callers and accept the following syntaxes and
-        types:
-
-          * 2011-12-31
-          * 20111231
-          * <mx.DateTime instance>
-          * <datetime.datetime> instance
-        """
-
-        if isinstance(something, mx.DateTime.DateTimeType):
-            return something
-
-        if isinstance(something, (str, unicode)):
-            block = something.replace("-", "")
-            return mx.DateTime.strptime(block, "%Y%m%d")
-
-        if isinstance(something, (datetime.datetime,
-                                  datetime.date)):
-            return mx.DateTime.DateTime(something.year,
-                                        something.month,
-                                        something.day)
-        assert False, "Unknown format for date %s" % repr(something)
-
     def add_employment(self, ou_id, description, source_system,
                        percentage, start_date, end_date,
                        employment_code=None, main_employment=True):
@@ -90,8 +62,8 @@ class PersonEmploymentMixin(object):
                      self.const.AuthoritativeSystem(source_system)),
                  "employment_code": str(employment_code),
                  "percentage": float(percentage),
-                 "start_date": self._human2mxDateTime(start_date),
-                 "end_date": self._human2mxDateTime(end_date),
+                 "start_date": start_date,
+                 "end_date": end_date,
                  "main_employment": main_employment and "T" or "F"}
 
         existing = list(self.search_employment(self.entity_id,
@@ -111,8 +83,10 @@ class PersonEmploymentMixin(object):
         row = existing[0]
         # If there is a difference, run an update... (otherwise do nothing)
         if (binds["employment_code"] != row["employment_code"] or
-                binds["start_date"] != row["start_date"] or
-                binds["end_date"] != row["end_date"] or
+                binds["start_date"] != get_date(row["start_date"],
+                                                allow_none=False) or
+                binds["end_date"] != get_date(row["end_date"],
+                                              allow_none=False) or
                 abs(binds["percentage"] - row["percentage"]) > 0.1 or
                 main_employment != row["main_employment"]):
 
