@@ -543,7 +543,7 @@ class UsernamePolicy(DatabaseAccessor):
         """
         # Gets the first 3 letters based upon the name of the user.
         full_name = transliterate.for_posix(full_name)
-        name = full_name.replace('.', ' ').replace('\'', '').split()
+        name = full_name.replace('.', ' ').replace('\'', '').replace('-', '').split()
         name_length = len(name)
 
         if name_length == 1:
