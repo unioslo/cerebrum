@@ -1,6 +1,6 @@
 # encoding: utf-8
 #
-# Copyright 2017 University of Oslo, Norway
+# Copyright 2017-2022 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -22,10 +22,10 @@ from __future__ import absolute_import
 
 import datetime
 import itertools
-import mx.DateTime
 import pytz
 
 import cereconf
+from Cerebrum.utils.date_compat import is_mx_datetime
 
 
 class _VerbSingleton(type):
@@ -155,7 +155,7 @@ class DateTimeDescriptor(object):
             # UTC timestamp
             value = pytz.utc.localize(
                 datetime.datetime.fromtimestamp(value))
-        elif isinstance(value, mx.DateTime.DateTimeType):
+        elif is_mx_datetime(value):
             # Naive datetime in default_timezone
             value = self.default_timezone.localize(value.pydatetime())
         elif isinstance(value, datetime.datetime):
