@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003-2019 University of Oslo, Norway
+# Copyright 2003-2022 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -30,19 +29,16 @@ TODO:
 from __future__ import unicode_literals
 
 import base64
-import crypt
 import hashlib
 import logging
 import re
-import string
 
 import six
 
 import cereconf
-from Cerebrum.auth import all_auth_methods, AuthBaseClass
+from Cerebrum import auth
 from Cerebrum import Account
 from Cerebrum import Errors
-from Cerebrum import Utils
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.Entity import EntityName
 from Cerebrum.Utils import Factory
@@ -53,8 +49,8 @@ from Cerebrum.utils import transliterate
 logger = logging.getLogger(__name__)
 
 
-@all_auth_methods('MD5-crypt2')
-class AuthTypeMD5Crypt2(AuthBaseClass):
+@auth.all_auth_methods('MD5-crypt2')
+class AuthTypeMD5Crypt2(auth.AuthBaseClass):
     def encrypt(self, plaintext, salt=None, binary=False):
         """
         Unsalted MD5 hex digest.
@@ -76,15 +72,15 @@ class AuthTypeMD5Crypt2(AuthBaseClass):
         m = hashlib.md5()
         m.update(plaintext)
         encrypted = m.hexdigest()
-        return six.text_type(encrypted)
+        return auth.to_text(encrypted)
 
     def verify(self, plaintext, cryptstring):
         salt = cryptstring
         return (self.encrypt(plaintext, salt=salt) == cryptstring)
 
 
-@all_auth_methods('MD5-crypt_base64')
-class AuthTypeMD5Base64(AuthBaseClass):
+@auth.all_auth_methods('MD5-crypt_base64')
+class AuthTypeMD5Base64(auth.AuthBaseClass):
     def encrypt(self, plaintext, salt=None, binary=False):
         """
         Unsalted MD5 for LDAP
@@ -107,20 +103,16 @@ class AuthTypeMD5Base64(AuthBaseClass):
         if isinstance(plaintext, six.text_type):
             plaintext = plaintext.encode('utf-8')
 
-        m = hashlib.md5()
-        m.update(plaintext)
-        foo = m.digest()
-        encrypted = base64.encodestring(foo)
-        encrypted = encrypted.rstrip()
-        return six.text_type(encrypted)
+        digest_bytes = hashlib.md5(plaintext).digest()
+        return auth.to_text(base64.standard_b64encode(digest_bytes))
 
     def verify(self, plaintext, cryptstring):
         salt = cryptstring
         return (self.encrypt(plaintext, salt=salt) == cryptstring)
 
 
-@all_auth_methods('crypt3-DES')
-class AuthTypeCrypt3DES(AuthBaseClass):
+@auth.all_auth_methods('crypt3-DES')
+class AuthTypeCrypt3DES(auth.AuthBaseClass):
     def encrypt(self, plaintext, salt=None, binary=False):
         """
         Salted triple-DES cryptstring for use with e.g. ``crypt(3)``.
@@ -135,13 +127,12 @@ class AuthTypeCrypt3DES(AuthBaseClass):
             plaintext = plaintext.encode('utf-8')
 
         if salt is None:
-            saltchars = string.ascii_letters + string.digits + "./"
-            salt = bytes(Utils.random_string(2, saltchars))
+            salt = auth.generate_salt(2)
         elif isinstance(salt, six.text_type):
             # should be ascii only
-            salt = bytes(salt)
+            salt = auth.to_bytes(salt)
 
-        return six.text_type(crypt.crypt(plaintext, salt))
+        return auth.crypt_bytes(plaintext, salt, encoding='utf-8')
 
     def verify(self, plaintext, cryptstring):
         salt = cryptstring
@@ -224,7 +215,7 @@ class AccountUiTMixin(Account.Account):
         Support UiT added encryption methods, for other methods call super()
         """
         try:
-            method = all_auth_methods[str(method)]()
+            method = auth.all_auth_methods[str(method)]()
             return method.encrypt(plaintext, salt, binary)
         except NotImplementedError as ne:
             logger.warn("Encrypt Auth method (%s) not implemented: %s",
@@ -239,7 +230,7 @@ class AccountUiTMixin(Account.Account):
         Support UiT added encryption methods, for other methods call super()
         """
         try:
-            method = all_auth_methods[str(method)]()
+            method = auth.all_auth_methods[str(method)]()
             return method.encrypt(cryptstring)
         except NotImplementedError as ne:
             logger.warn("Decrypt Auth method (%s) not implemented: %s",
@@ -256,7 +247,7 @@ class AccountUiTMixin(Account.Account):
         doesn't.  Raises a ValueError if the method is unsupported.
         """
         try:
-            method = all_auth_methods[str(method)]()
+            method = auth.all_auth_methods[str(method)]()
             return method.verify(plaintext, cryptstring)
         except NotImplementedError as ne:
             logger.warn("Verify Auth method (%s) not implemented: %s",
