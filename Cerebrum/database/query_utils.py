@@ -46,7 +46,7 @@ class _Range(object):
         gt = self._convert(gt)
         ge = self._convert(ge)
         if gt is not None and ge is not None:
-            raise ValueError('invalid range: gt/ge is incompatible')
+            raise TypeError('invalid range: gt/ge is incompatible')
 
         self.start = ge if gt is None else gt
         self.start_inclusive = gt is None
@@ -54,13 +54,13 @@ class _Range(object):
         lt = self._convert(lt)
         le = self._convert(le)
         if lt is not None and le is not None:
-            raise ValueError('invalid ranle: lt/le is incompatible')
+            raise TypeError('invalid range: lt/le is incompatible')
 
         self.stop = le if lt is None else lt
         self.stop_inclusive = lt is None
 
         if all(i is None for i in (self.start, self.stop)):
-            raise ValueError('invalid range: must provide a limit')
+            raise TypeError('invalid range: must provide a limit')
 
         if (self.start is not None
                 and self.stop is not None
@@ -130,17 +130,17 @@ class Pattern(reprutils.ReprFieldMixin):
 
     To query database using Pattern:
 
-    >>> Pattern(r"Foo-*" case_sensitive=False).sql_pattern('col', 'ref')
-    ("col ILIKE :ref", {'ref': r'Foo-%'})
+    >>> Pattern(r"Foo-*", case_sensitive=False).get_sql_select('col', 'ref')
+    ('(col ILIKE :ref)', {'ref': 'Foo-%'})
 
-    >>> Pattern(r"% _").sql_pattern('col', 'ref')
-    ("col LIKE :ref", {'ref': r'\% \_})
+    >>> Pattern(r"% _").get_sql_select('col', 'ref')
+    ('(col LIKE :ref)', {'ref': '\\% \\_'})
 
-    >>> Pattern(r"* ?").sql_pattern('col', 'ref')
-    ("col LIKE :ref", {'ref': r'% _'})
+    >>> Pattern(r"* ?").get_sql_select('col', 'ref')
+    ('(col LIKE :ref)', {'ref': '% _'})
 
-    >>> Pattern(r"\* \?").sql_pattern('col', 'ref')
-    ("col LIKE :ref", {'ref': r'? *'})
+    >>> Pattern(r"\* \?").get_sql_select('col', 'ref')
+    ('(col LIKE :ref)', {'ref': '* ?'})
     """
 
     repr_id = False
@@ -149,6 +149,16 @@ class Pattern(reprutils.ReprFieldMixin):
 
     TOKEN_STRING = 'string'
     TOKEN_WILDCARD = 'wildcard'
+    WILDCARDS = {
+        '*': '%',
+        '?': '_',
+    }
+
+    @classmethod
+    def _sql_escape(cls, value):
+        for char in cls.WILDCARDS.values():
+            value = value.replace(char, '\\' + char)
+        return value
 
     @classmethod
     def tokenize(cls, pattern, escape='\\'):
@@ -176,8 +186,9 @@ class Pattern(reprutils.ReprFieldMixin):
                 is_escaped = True
                 continue
 
-            if char == '*':
-                yield cls.TOKEN_STRING, buffer
+            if char in cls.WILDCARDS:
+                if buffer:
+                    yield cls.TOKEN_STRING, buffer
                 yield cls.TOKEN_WILDCARD, char
                 buffer = ''
             else:
@@ -221,10 +232,9 @@ class Pattern(reprutils.ReprFieldMixin):
     @property
     def sql_pattern(self):
         """ sql LIKE/ILIKE formatted pattern string. """
-        wildcards = {'*': '%', '?': '_'}
-        return ''.join(wildcards[value]
+        return ''.join(self.WILDCARDS[value]
                        if token == self.TOKEN_WILDCARD
-                       else value.replace('%', '\\%').replace('_', '\\_')
+                       else self._sql_escape(value)
                        for token, value in self._tokens)
 
     def get_sql_select(self, colname, ref):
@@ -232,7 +242,7 @@ class Pattern(reprutils.ReprFieldMixin):
         Get SQL matching rule for this pattern.
 
         >>> Pattern('ba?-*', False).get_sql_select('my_t.my_col', 'my_val')
-        ('my_t.my_col ILIKE :my_val', {'my_val': 'ba_-%'})
+        ('(my_t.my_col ILIKE :my_val)', {'my_val': 'ba_-%'})
 
         :param colname: the column name to match
         :param ref: the binding name to use
