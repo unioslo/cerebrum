@@ -878,7 +878,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         all_prs = dict()
         for row in self.list_affiliations(person_id=self.entity_id,
                                           include_deleted=True):
-            all_prs[int(row['precedence'])] = row
+            all_prs[int(row['precedence'])] = dict(row)
         binds = {'ou_id': int(ou_id),
                  'affiliation': int(affiliation),
                  'source': int(source),
