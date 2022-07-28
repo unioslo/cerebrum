@@ -1473,7 +1473,7 @@ class ADclient(PowershellClient):
                 cmd = '''
                 try {{
                     [System.Convert]::FromBase64String({pwd}) | Set-Content {tmp_enc_passwd_file} -encoding byte;
-                    $decrypted_text = gpg2 -q --batch --decrypt {tmp_enc_passwd_file};
+                    $decrypted_text = gpg -q --batch --decrypt {tmp_enc_passwd_file};
                     $pwd = ConvertTo-SecureString -AsPlainText -Force $decrypted_text;
                     {cmd} -NewPassword $pwd;
                 }} catch {{
@@ -1488,7 +1488,7 @@ class ADclient(PowershellClient):
                 cmd = '''
                 try {{
                     [System.Convert]::FromBase64String({pwd}) | Set-Content {tmp_enc_passwd_file} -encoding byte;
-                    $decrypted_text = gpg2 -q --batch --decrypt {tmp_enc_passwd_file};
+                    $decrypted_text = gpg -q --batch --decrypt {tmp_enc_passwd_file};
                     $passphrase = [System.Text.Encoding]::Unicode.GetString(
                         [System.Text.Encoding]::Convert(
                             [System.Text.Encoding]::UTF8,
