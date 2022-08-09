@@ -552,10 +552,8 @@ class ADclient(PowershellClient):
         # Note that this could also affect other ObjectClasses...
         if object_class == 'user':
             cmd = 'Get-ADUser'
-        # TODO: It looks like we should use ForEach-Object instead, to avoid
-        # too much memory usage, which creates problems for WinRM.
-        command = ("if ($str = %s | ConvertTo-Json) { $str -replace '$',';' }"
-                   % self._generate_ad_command(cmd, params, filter))
+        command = "{} | ConvertTo-Json".format(
+                            self._generate_ad_command(cmd, params, filter))
         # TODO: Should return a callable instead of having another method for
         # getting the data. Could be using a decorator instead.
         return self.execute(command)
@@ -679,10 +677,9 @@ class ADclient(PowershellClient):
             access for the object.
 
         """
-        out = self.run('''if ($str = %s | ConvertTo-Json) {
-            $str -replace '$', ';'
-            }''' % self._generate_ad_command('Get-ADObject',
-                                             {'Identity': ad_id}))
+        out = self.run('{} | ConvertTo-Json'
+                       .format(self._generate_ad_command('Get-ADObject',
+                                                         {'Identity': ad_id})))
         ret = self.get_output_json(out, dict())
         if not ret:
             raise Exception("Bad output - was object '%s' not found?" % ad_id)
@@ -736,7 +733,7 @@ class ADclient(PowershellClient):
             extra = 'Filter {%s}' % ' -and '.join("%s -eq '%s'" % (k, v)
                                                   for k, v in
                                                   filters.iteritems())
-        cmd = ("if ($str = %s | ConvertTo-Json) { $str -replace '$', ';' }" %
+        cmd = "{} | ConvertTo-Json".format(
                self._generate_ad_command('Get-ADObject', parameters, extra))
         out = self.run(cmd)
         res_list = []
@@ -866,9 +863,7 @@ class ADclient(PowershellClient):
             parameters['Type'] = object_class
             cmd = self._generate_ad_command('New-ADObject',
                                             parameters, 'PassThru')
-        cmd = '''if ($str = %s | ConvertTo-Json) {
-            $str -replace '$',';'
-            }''' % cmd
+        cmd = '{} | ConvertTo-Json'.format(cmd)
         if self.dryrun:
             # Some of the variables are mandatory to be returned, so we have to
             # just put something in them, for the sake of testing:
@@ -1217,10 +1212,10 @@ class ADclient(PowershellClient):
 
         """
         # No dryrun here, since it's read-only
-        return self.execute('''if ($str = %s | ConvertTo-Json) {
-                $str -replace '$', ';'
-            }''' % self._generate_ad_command('Get-ADGroupMember',
-                                             {'Identity': groupid}))
+        return self.execute('{} | ConvertTo-Json'
+                            .format(self._generate_ad_command('Get-ADGroupMember',
+                                                              {'Identity':
+                                                               groupid})))
 
     def get_list_members(self, commandid):
         """Get the list of group members, as requested by L{start_list_members}.
