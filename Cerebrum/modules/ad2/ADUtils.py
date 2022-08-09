@@ -259,7 +259,7 @@ class ADclient(PowershellClient):
 
         Usernames could be in various formats:
          - username@domain
-         - domain\username
+         - domain\\username
          - domain/username
 
         @rtype: tuple
