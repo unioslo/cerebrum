@@ -39,6 +39,8 @@ talking with the domain controllers through Active Directory Web Service:
 
 """
 
+from __future__ import unicode_literals
+
 import time
 import re
 import base64
@@ -441,7 +443,7 @@ class ADclient(PowershellClient):
     # Commands to execute before every given powershell command. This is to set
     # up the environment properly, for our use. Note that it requires some
     # input arguments to be valid powershell code.
-    _pre_execution_code = u"""
+    _pre_execution_code = """
         $pass = ConvertTo-SecureString -Force -AsPlainText %(ad_pasw)s;
         $cred = New-Object System.Management.Automation.PSCredential(%(ad_user)s, $pass);
         """
@@ -458,7 +460,7 @@ class ADclient(PowershellClient):
                                                      'ad_account_password',
                                                      None)),
                 }
-        self.logger.debug4(u'Executing powershell command: %r',
+        self.logger.debug4('Executing powershell command: %r',
                            args)
         return super(ADclient, self).execute(setup, *args, **kwargs)
 
@@ -1088,7 +1090,7 @@ class ADclient(PowershellClient):
             attributes got updated.
 
         """
-        self.logger.info(u'Updating attributes for %s: %s', ad_id,
+        self.logger.info('Updating attributes for %s: %s', ad_id,
                          ', '.join(attributes.keys()))
         removes = dict()
         adds = dict()
