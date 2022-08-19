@@ -915,7 +915,7 @@ def get_default_expire_date():
     else:
         month = 2
     year = int(next_sem[0])
-    day = 16
+    day = 18
     return datetime.date(year=year, month=month, day=day)
 
 
