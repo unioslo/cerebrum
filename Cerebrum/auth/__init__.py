@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2002-2019 University of Oslo, Norway
+# Copyright 2002-2022 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -23,19 +23,114 @@ Auth module containers.
 This module handles all auth implmentations by wrapping them in a dict-like
 object, which you can derive different implementations from.
 
-New implemtations should follow the same pattern as below:
+Every implementation consists of a single py:class:`.AuthBaseClass`.  Usage:
+
+py:meth:`.AuthBaseClass.encrypt(plaintext)`
+    Create a cryptstring from plaintext.  Both plaintext and cryptstring are
+    unicode/text objects.
+
+py:meth:`.AuthBaseClass.encrypt(plaintext, salt=cryptstring)`
+    Re-create a cryptstring from plaintext, using the salt from the given
+    cryptstring.  Both plaintext and salt/cryptstring are expected to be
+    unicode/text objects.
+
+py:meth:`.AuthBaseClass.verify(plaintext, cryptstring)`
+    Check that password matches the given cryptstring.  Both plaintext and
+    cryptstring must be unicode/text objects.
 
 """
 import base64
 import crypt
 import hashlib
+import random
 import string
-from collections import Mapping
+import sys
+
+# collections[.abc].Mapping
+# (six.moves.collections_abc is broken in some versions)
+if sys.version_info < (3,):
+    from collections import Mapping
+else:
+    from collections.abc import Mapping
 
 import passlib.hash
 import six
 
-from Cerebrum import Utils
+
+#
+# Python 3 compatibility helpers
+#
+
+def to_bytes(value):
+    """ ensure value is a bytestring """
+    if isinstance(value, six.text_type):
+        return value.encode('ascii')
+    if isinstance(value, bytes):
+        return value
+    else:
+        return bytes(value)
+
+
+def to_text(value):
+    """ ensure value is a unicode text object. """
+    if isinstance(value, bytes):
+        return value.decode('ascii')
+    elif isinstance(value, six.text_type):
+        return value
+    else:
+        return six.text_type(value)
+
+
+def crypt_bytes(plaintext, salt, encoding='utf-8'):
+    """
+    Python 3 compatibility function for crypt.crypt().
+
+    `crypt.crypt()` expects str (unicode) objects in Python 3.  This is a bit
+    silly, as we've already taken care to ensure plaintext input is a unicode
+    object, and the plaintext given to hashing functions is a bytestring in our
+    selected encoding.
+
+    `crypt.crypt() in Python 3 seemingly encodes passwords as utf-8 prior to
+    hashing.  crypt(3) doesn't specify any particular encodings, as it expects
+    bytestrings.
+    """
+    # TODO: crypt.crypt() is deprecated as of Python 3.11.  We should probably
+    # replace all uses of `crypt.crypt` with `passlib.hash`.
+
+    if sys.version_info < (3,):
+        # pass our bytestrings along to crypt.crypt
+        cryptstring = crypt.crypt(plaintext, salt)
+    else:
+        cryptstring = crypt.crypt(plaintext.decode(encoding),
+                                  salt.decode('ascii'))
+    return to_text(cryptstring)
+
+
+_crypt_salt_chars = to_bytes(string.ascii_letters + string.digits + "./")
+
+
+def generate_salt(length, prefix=''):
+    """
+    Generate a crypt(3) compatible salt value.
+
+    :param int length:
+        Number of salt bytes/chars
+
+    :param bytes prefix:
+        A salt prefix (e.g. "$1$", for use in cryptstrings).  Must be bytes or
+        ascii compatible text.
+
+    :returns bytes:
+        Returns a salt bytestring.
+    """
+    prefix = to_bytes(prefix)
+    # Create a local random object for increased randomness:
+    # > Use os.urandom() or SystemRandom if you require a
+    # > cryptographically secure pseudo-random number generator.
+    # > - <docs.python.org/2.7/library/random.html#random.SystemRandom>
+    lrandom = random.SystemRandom()
+    salt = b''.join([lrandom.choice(_crypt_salt_chars) for _ in range(length)])
+    return prefix + salt
 
 
 class AuthBaseClass(object):
@@ -177,18 +272,17 @@ class AuthTypeSSHA(AuthBaseClass):
             plaintext = plaintext.encode('utf-8')
 
         if salt is None:
-            saltchars = string.ascii_letters + string.digits + "./"
-            # PY3: py3 incompatible (bytes() without encoding)
-            salt = bytes(Utils.random_string(16, saltchars))
+            salt = generate_salt(16)
         elif isinstance(salt, six.text_type):
-            # PY3: py3 incompatible (bytes() without encoding)
-            salt = bytes(salt)
+            salt = to_bytes(salt)
 
-        return base64.b64encode(
-            hashlib.sha1(plaintext + salt).digest() + salt).decode()
+        return to_text(
+            base64.standard_b64encode(
+                hashlib.sha1(plaintext + salt).digest()
+                + salt))
 
     def verify(self, plaintext, cryptstring):
-        salt = base64.decodestring(cryptstring.encode())[20:].decode()
+        salt = base64.standard_b64decode(to_bytes(cryptstring))[20:]
         return (self.encrypt(plaintext, salt=salt) == cryptstring)
 
 
@@ -261,12 +355,11 @@ class AuthTypeMD5(AuthBaseClass):
             plaintext = plaintext.encode('utf-8')
 
         if salt is None:
-            saltchars = string.ascii_letters + string.digits + "./"
-            salt = bytes("$1$" + Utils.random_string(8, saltchars))
+            salt = generate_salt(8, prefix="$1$")
         elif isinstance(salt, six.text_type):
-            salt = bytes(salt)
+            salt = to_bytes(salt)
 
-        return crypt.crypt(plaintext, salt).decode()
+        return crypt_bytes(plaintext, salt, encoding='utf-8')
 
     def verify(self, plaintext, cryptstring):
         salt = cryptstring
@@ -284,13 +377,18 @@ class AuthTypeMD4NT(AuthBaseClass):
             raise ValueError("plaintext cannot be bytestring and not binary")
 
         if isinstance(plaintext, six.text_type):
+            # You probably need a degree in archeology to find an actual spec,
+            # but NTLMv2 seems to use UCS-2 LE for passwords.
+            #
+            # `passlib.hash.nthash.hash()` already handles this by decoding
+            # bytestrings as utf-8 and re-encoding them as utf-16-le
             plaintext = plaintext.encode('utf-8')
 
         # Previously the smbpasswd module was used to create nthash, and it
-        # only produced uppercase hashes. The hash is case insensitive, but
-        # be backwards compatible if some comsumers
-        # depend on upper case strings.
-        return passlib.hash.nthash.hash(plaintext).decode().upper()
+        # produced uppercase hex-string hashes.  This should be case
+        # insensitive, but let's be backwards compatible if some comsumers
+        # expects this to be upper case.
+        return to_text(passlib.hash.nthash.hash(plaintext)).upper()
 
     def verify(self, plaintext, cryptstring):
         return passlib.hash.nthash.verify(plaintext, cryptstring)
@@ -334,7 +432,7 @@ class AuthTypeMD5Unsalt(AuthBaseClass):
         if isinstance(plaintext, six.text_type):
             plaintext = plaintext.encode('utf-8')
 
-        return hashlib.md5(plaintext).hexdigest().decode()
+        return to_text(hashlib.md5(plaintext).hexdigest())
 
     def verify(self, plaintext, cryptstring):
         salt = cryptstring

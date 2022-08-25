@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2002-2019 University of Oslo, Norway
+# Copyright 2002-2022 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -42,6 +42,7 @@ import cereconf
 # Compatibility imports / relocated classes and functions
 import Cerebrum.meta
 import Cerebrum.utils.imap
+from Cerebrum.utils.funcwrap import deprecate
 
 
 class _NotSet(object):
@@ -230,8 +231,6 @@ def unicode2str(obj, encoding='utf-8'):
     return obj
 
 
-
-
 class Factory(object):
 
     class_cache = {}
@@ -366,6 +365,7 @@ class Factory(object):
         return Cerebrum.logutils.get_logger(name=name, _stacklevel=3)
 
 
+@deprecate("Cerebrum.Utils.random_string is deprecated")
 def random_string(length, characters=ascii_lowercase + digits):
     """
     Generate a random string of a given length using the given characters.
