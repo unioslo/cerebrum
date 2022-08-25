@@ -45,10 +45,11 @@ import six
 import Cerebrum.utils.email
 import cereconf
 from Cerebrum import logutils
-from Cerebrum.Utils import Factory, NotSet
 from Cerebrum.group.GroupRoles import GroupRoles
+from Cerebrum.Utils import Factory, NotSet
 from Cerebrum.utils.argutils import add_commit_args
 from Cerebrum.utils.argutils import codec_type
+from Cerebrum.utils.date_compat import get_date
 from Cerebrum.utils.funcwrap import memoize
 from Cerebrum.modules.email_report.utils import (
     timestamp_title,
@@ -451,7 +452,7 @@ def main(inargs=None):
     for group_id in groups_with_expiring_trait:
         gr.clear()
         gr.find(group_id)
-        if gr.expire_date > limit_2:
+        if gr.expire_date and get_date(gr.expire_date) > limit_2:
             gr.delete_trait(co.trait_group_expire_notify)
             logger.debug("Removed trait for group id %s", group_id)
     # Commit or rollback
