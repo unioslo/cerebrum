@@ -16,7 +16,6 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
 """
 This module implements an abstraction layer for various XML data sources.
 
@@ -47,10 +46,9 @@ from __future__ import unicode_literals
 
 import copy
 import time
-
 from xml.etree.cElementTree import parse, iterparse, ElementTree
-from six import text_type
 
+import six
 from mx.DateTime import Date, DateTimeDelta
 
 import cereconf
@@ -78,11 +76,11 @@ def get_xml_file_encoding(file_name):
 
 
 def ensure_unicode(text, encoding):
-    if not isinstance(text, basestring):
-        raise Exception('Not a string: {}'.format(text))
-    if isinstance(text, str):
+    if isinstance(text, six.text_type):
+        return text
+    if isinstance(text, bytes):
         return text.decode(encoding)
-    return text
+    raise Exception('Not a string: ' + repr(text))
 
 
 #######################################################################
@@ -371,7 +369,7 @@ class DataEmployment(NameContainer):
     def __str__(self):
         return "(%s) Employment: %s%% %s [%s..%s @ %s]" % (
             self.kind, self.percentage,
-            ", ".join("%s:%s" % (x[0], map(text_type, x[1]))
+            ", ".join("%s:%s" % (x[0], map(six.text_type, x[1]))
                       for x in self.iternames()),
             self.start, self.end, self.place)
 
