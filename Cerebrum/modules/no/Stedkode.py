@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright 2002, 2003 University of Oslo, Norway
+#
+# Copyright 2002-2022 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -16,10 +17,8 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-from __future__ import unicode_literals
-
-"""Norwegian higher education-specific OU extension.
+"""
+Norwegian higher education-specific OU extension.
 
 This module implements extensions to the standard Cerebrum OU class
 that are specific to the higher education sector in Norway.  The
@@ -30,12 +29,15 @@ following additional properties are defined:
   - avdeling
   - institusjon
 """
+from __future__ import unicode_literals
 
+import six
+
+import cereconf
 from Cerebrum.Errors import CerebrumError
 from Cerebrum.OU import OU
 from Cerebrum.Utils import Factory
-import cereconf
-import six
+
 
 __version__ = "1.1"
 
@@ -196,7 +198,8 @@ class Stedkode(OU):
         institutt = stedkode[2:4]
         avdeling = stedkode[4:6]
 
-        self.find_stedkode(fakultet, institutt, avdeling, institusjon, landkode)
+        self.find_stedkode(fakultet, institutt, avdeling, institusjon,
+                           landkode)
 
     def get_stedkoder(self, landkode=0,
                       institusjon=cereconf.DEFAULT_INSTITUSJONSNR,
@@ -235,7 +238,7 @@ class OuCache(object):
                                               row['avdeling'])
             self._ou2sko[int(row['ou_id'])] = sko
             self._sko2ou[sko] = int(row['ou_id'])
-        
+
         self._ou2name = dict(
             (row['entity_id'], row['name'])
             for row in ou.search_name_with_language(
@@ -247,14 +250,16 @@ class OuCache(object):
         try:
             return self._ou2sko[ou_id]
         except KeyError:
-            raise CerebrumError("Could not find stedkode for ou_id %s" %ou_id)
-    
+            raise CerebrumError("Could not find stedkode for ou_id %s"
+                                % (ou_id,))
+
     def get_name(self, ou_id):
         ou_id = int(ou_id)
         try:
             return self._ou2name[ou_id]
         except KeyError:
-            raise CerebrumError("Could not find OU name for ou_id %s" %ou_id)
+            raise CerebrumError("Could not find OU name for ou_id %s"
+                                % (ou_id,))
 
     def get_id(self, stedkode):
         if isinstance(stedkode, int):
@@ -264,14 +269,15 @@ class OuCache(object):
         try:
             return self._sko2ou[stedkode]
         except KeyError:
-            raise CerebrumError("Could not find OU name for stedkode %s" %stedkode)
-        
+            raise CerebrumError("Could not find OU name for stedkode %s"
+                                % (stedkode,))
+
     def get_faculty_name(self, ou_id):
         stedkode = self.get_sko(ou_id)
         faculty_sko = '%02d0000' % int(stedkode[0:2])
         faculty_id = self.get_id(faculty_sko)
         return self.get_name(faculty_id)
-    
+
     def format_ou(self, ou_id):
         ou_id = int(ou_id)
         return u'{0} ({1})'.format(self._ou2sko[ou_id], self._ou2name[ou_id])
