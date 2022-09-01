@@ -81,11 +81,13 @@ Note that the *source-argument* may contain ``:`` characters:
 ':foo:bar:'
 
 
-TODO
-----
-- Move ``Cerebrum.Utils.read_password`` here, and deprecate
-  ``Cerebrum.Utils.read_password``.
+History
+-------
+py:func:`.legacy_read_password` was moved here from
+``Cerebrum.Utils.read_password``.  The original function can be seen in:
 
+    Commit: d677e7c86851181f29cf9374db57c45c18fbc375
+    Date:   Wed Aug 31 14:13:51 2022 +0200
 """
 import io
 import os
@@ -93,7 +95,43 @@ import os
 import cereconf
 
 from Cerebrum.utils.mappings import DecoratorMap
-from Cerebrum.Utils import read_password
+
+
+def legacy_read_password(user, system, host=None, encoding=None):
+    """
+    Get password for *user* in *system*, optionally separated by *host*.
+
+    In practice, this function just reads one of:
+
+        <cereconf.DB_AUTH_DIR>/passwd-<user>@<system>
+        <cereconf.DB_AUTH_DIR>/passwd-<user>@<system>@<host>
+
+    ... the latter being used if a *host* value was given.
+    """
+    format_str = 'passwd-{user}@{system}'
+
+    # NOTE: lowercasing usernames may not have been a good idea, e.g. FS
+    # operates with usernames starting with capital 'i'...
+    # However, the username is not actually read from the file, but only used
+    # as a sanity check.
+    format_vars = {'user': user.lower(), 'system': system.lower()}
+
+    # NOTE: "hosts" starting with a '/' are local sockets, and should use the
+    # password files for this host, i.e. don't qualify password filename with
+    # hostname.
+    if host is not None and not host.startswith("/"):
+        format_str += '@{host}'
+        format_vars['host'] = host.lower()
+
+    basename = format_str.format(**format_vars)
+    filename = os.path.join(cereconf.DB_AUTH_DIR, basename)
+    mode = 'rb' if encoding is None else 'r'
+
+    with io.open(filename, mode, encoding=encoding) as f:
+        # .rstrip() removes any trailing newline, if present.
+        dbuser, dbpass = f.readline().rstrip('\n').split('\t', 1)
+        assert dbuser == user
+        return dbpass
 
 
 sources = DecoratorMap()
@@ -134,8 +172,8 @@ def _read_legacy_password_file(value):
     Read a legacy password file.
 
     The value should follow the format ``<user>@<system>[@<host>]``.  The
-    secret itself is fetched using :func:`Cerebrum.Utils.read_password`, which
-    looks up a passwd-* file in ``cereconf.DB_AUTH_DIR``.
+    secret itself is fetched using :func:`.legacy_read_password`, which looks
+    up a passwd-* file in ``cereconf.DB_AUTH_DIR``.
     """
     parts = value.split('@')
 
@@ -145,7 +183,9 @@ def _read_legacy_password_file(value):
         except IndexError:
             return default
 
-    return read_password(user=_pop(''), system=_pop(''), host=_pop(None))
+    return legacy_read_password(user=_pop(''),
+                                system=_pop(''),
+                                host=_pop(None))
 
 
 sources.register('plaintext')(lambda s: s)
