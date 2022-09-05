@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2020 University of Oslo, Norway
+# Copyright 2020-2022 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -21,51 +21,73 @@
 """
 Utilities for fetching passwords and other secrets.
 
+This module contains *handlers* for various sources of secret/protected
+information, like passwords or keys.  Each *handler* takes a single argument,
+but some sources may require many arguments to be serialized into a single
+argument string (e.g. legacy-file).
+
+
 Sources
 -------
 file
     Specify the full path to a file with secret data. Trailing newlines are
-    removed.  Example: ``/path/to/file``
+    removed.  Example argument: ``/path/to/file``
 
 auth-file
     Specify a filename in the ``cereconf.DB_AUTH_DIR`` directory.  Trailing
-    newlines are removed.  Example: ``passwd-example-file``
+    newlines are removed.  Example argument: ``passwd-example-file``
 
 legacy-file
     Specify a password to retrieve from ``cereconf.DB_AUTH_DIR`` using the same
     parameters as the legacy ``read_password`` function.
-    Examples:
-        - ``user@system`` (equivalent to ``auth-file``/``passwd-user@system``)
-        - ``user@system@host`` (equivalent to
-        ``auth-file``/``passwd-user@system@host``)
+
+    Note that legacy files contain both a username (for sanity check) and a
+    password, separated by a tab character.  This means that passord files
+    formatted for legacy-file cannot be fetched using e.g. ``auth-file``
+    without further processing.
+
+    Example arguments:
+
+    - ``user@system`` (looks up ``<DB_AUTH_DIR>/passwd-user@system``)
+    - ``user@system@host`` (looks up ``<DB_AUTH_DIR>/passwd-user@system@host``)
 
 plaintext
     Provide a plaintext secret, as is.  Useful in configuration files where
-    providing the plaintext password is ok.  Example: ``hunter2``.
+    providing the plaintext secret is OK (e.g. mock values for tests).  Example
+    argument: ``hunter2``.
 
 
-Usage
------
-To look up a given secret using a given method:
+To look up a given secret using a given source:
 
 >>> get_secret('plaintext', 'hunter2')
 'hunter2'
 
-To allow multiple sources in a config field:
 
-::
+Secret strings
+--------------
+Secret strings makes it possible to encode *source* and a *source-argument* as
+a single string value, with format ``<source>:<source-argument>``.
 
-    >>> def get_password(value):
-    ...     source, _, arg = value.partition(':')
-    ...     return get_secret(source, arg)
-    >>> get_password('plaintext:hunter2')
-    'hunter2'
+This is typically used in config files to allow multiple types of lookup of
+secrets.  Example:
 
-TODO
-----
-- Move ``Cerebrum.Utils.read_password`` here, and deprecate
-  ``Cerebrum.Utils.read_password``.
+>>> config = {"user": "AzureDiamond", "pass": "plaintext:hunter2"}
+>>> get_secret_from_string(config["pass"])
+'hunter2'
 
+Note that the *source-argument* may contain ``:`` characters:
+
+>>> get_secret_from_string("plaintext::foo:bar:)
+':foo:bar:'
+
+
+History
+-------
+py:func:`.legacy_read_password` was moved here from
+``Cerebrum.Utils.read_password``.  The original function can be seen in:
+
+    Commit: d677e7c86851181f29cf9374db57c45c18fbc375
+    Date:   Wed Aug 31 14:13:51 2022 +0200
 """
 import io
 import os
@@ -73,7 +95,43 @@ import os
 import cereconf
 
 from Cerebrum.utils.mappings import DecoratorMap
-from Cerebrum.Utils import read_password
+
+
+def legacy_read_password(user, system, host=None, encoding=None):
+    """
+    Get password for *user* in *system*, optionally separated by *host*.
+
+    In practice, this function just reads one of:
+
+        <cereconf.DB_AUTH_DIR>/passwd-<user>@<system>
+        <cereconf.DB_AUTH_DIR>/passwd-<user>@<system>@<host>
+
+    ... the latter being used if a *host* value was given.
+    """
+    format_str = 'passwd-{user}@{system}'
+
+    # NOTE: lowercasing usernames may not have been a good idea, e.g. FS
+    # operates with usernames starting with capital 'i'...
+    # However, the username is not actually read from the file, but only used
+    # as a sanity check.
+    format_vars = {'user': user.lower(), 'system': system.lower()}
+
+    # NOTE: "hosts" starting with a '/' are local sockets, and should use the
+    # password files for this host, i.e. don't qualify password filename with
+    # hostname.
+    if host is not None and not host.startswith("/"):
+        format_str += '@{host}'
+        format_vars['host'] = host.lower()
+
+    basename = format_str.format(**format_vars)
+    filename = os.path.join(cereconf.DB_AUTH_DIR, basename)
+    mode = 'rb' if encoding is None else 'r'
+
+    with io.open(filename, mode, encoding=encoding) as f:
+        # .rstrip() removes any trailing newline, if present.
+        dbuser, dbpass = f.readline().rstrip('\n').split('\t', 1)
+        assert dbuser == user
+        return dbpass
 
 
 sources = DecoratorMap()
@@ -114,8 +172,8 @@ def _read_legacy_password_file(value):
     Read a legacy password file.
 
     The value should follow the format ``<user>@<system>[@<host>]``.  The
-    secret itself is fetched using :func:`Cerebrum.Utils.read_password`, which
-    looks up a passwd-* file in ``cereconf.DB_AUTH_DIR``.
+    secret itself is fetched using :func:`.legacy_read_password`, which looks
+    up a passwd-* file in ``cereconf.DB_AUTH_DIR``.
     """
     parts = value.split('@')
 
@@ -125,10 +183,27 @@ def _read_legacy_password_file(value):
         except IndexError:
             return default
 
-    return read_password(user=_pop(''), system=_pop(''), host=_pop(None))
+    return legacy_read_password(user=_pop(''),
+                                system=_pop(''),
+                                host=_pop(None))
 
 
 sources.register('plaintext')(lambda s: s)
+
+
+def get_handler(source):
+    """
+    Fetch a given source handler.
+
+    :param source:
+        One of the methods for fetching a secret (as provided by ``sources``).
+
+    :rtype: callable
+    """
+    if source not in sources:
+        raise ValueError("Invalid source %s, must be one of %s"
+                         % (repr(source), repr(tuple(sources))))
+    return sources[source]
 
 
 def get_secret(source, value):
@@ -144,7 +219,35 @@ def get_secret(source, value):
     :rtype: str
     :returns: Returns a matching secret
     """
-    return sources[source](value)
+    handler = get_handler(source)
+    return handler(value)
+
+
+def split_secret_string(raw_value):
+    """
+    Split raw secrets string value into (source, args) tuple.
+
+    :param raw_value: A text string with format "<source>:<value>".
+
+    :rtype: tuple
+    :returns: Returns a pair with "<source>" and "<value>"
+    """
+    source, sep, source_arg = raw_value.partition(':')
+    if not sep:
+        # Missing mandatory ':' separator
+        raise ValueError("Invalid format, must be '<source>:<secret>'")
+    return source, source_arg
+
+
+def get_secret_from_string(raw_value):
+    """
+    Lookup secret from "<source>:<args>" string.
+
+    :rtype: str
+    :returns: The secret from the given source
+    """
+    source, arg = split_secret_string(raw_value)
+    return get_secret(source, arg)
 
 
 def _main():

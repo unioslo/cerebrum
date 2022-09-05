@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2020 University of Oslo, Norway
+# Copyright 2020-2022 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -64,25 +64,10 @@ class Secret(Setting):
 
         'plaintext:hunter2'
         'file:/etc/pki/tls/private/my.key'
-        'legacy_file:AzureDiamond@example.org'
+        'legacy-file:AzureDiamond@example.org'
     """
 
     _valid_types = six.string_types
-    _valid_sources = six.viewkeys(secrets.sources)
-
-    @classmethod
-    def _split(cls, raw_value):
-        """ Split raw config value into (source, args) tuple. """
-        source, sep, source_arg = raw_value.partition(':')
-        if not sep:
-            # Missing mandatory ':' separator
-            raise ValueError("Invalid format, must be '<source>:<secret>'")
-        if source not in cls._valid_sources:
-            # Text before the mandatory ':' separator is not valid
-            raise ValueError(
-                'Invalid source {!r}, must be one of {!r}'.format(
-                    source, tuple(cls._valid_sources)))
-        return source, source_arg
 
     def validate(self, value):
         """Validates a value.
@@ -100,8 +85,11 @@ class Secret(Setting):
         if super(Secret, self).validate(value):
             return True
 
-        # If it _split()s correctly, it's probably valid
-        self._split(value)
+        # validate format
+        source, arg = secrets.split_secret_string(value)
+
+        # validate source value
+        secrets.get_handler(source)
 
         return False
 
@@ -110,10 +98,8 @@ class Secret(Setting):
         return super(Secret, self).doc_struct
 
 
-def get_secret_from_string(config_value):
-    """ Get password using a Secret configuration. """
-    source, value = Secret._split(config_value)
-    return secrets.get_secret(source, value)
+# for backwards compatibility
+get_secret_from_string = secrets.get_secret_from_string
 
 
 if __name__ == '__main__':

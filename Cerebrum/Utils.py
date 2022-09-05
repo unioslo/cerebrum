@@ -42,6 +42,7 @@ import cereconf
 # Compatibility imports / relocated classes and functions
 import Cerebrum.meta
 import Cerebrum.utils.imap
+import Cerebrum.utils.secrets
 from Cerebrum.utils.funcwrap import deprecate
 
 
@@ -101,37 +102,6 @@ def is_unicode(x):
 def remove_control_characters(s):
     """Remove unicode control characters."""
     return "".join(ch for ch in s if unicodedata.category(ch)[0] != "C")
-
-
-# TODO: Deprecate: needlessly complex in terms of readability and end result
-
-
-def read_password(user, system, host=None, encoding=None):
-    """Read the password 'user' needs to authenticate with 'system'.
-    It is stored as plain text in DB_AUTH_DIR.
-
-    """
-    fmt = ['passwd-%s@%s']
-    var = [user.lower(), system.lower()]
-    # "hosts" starting with a '/' are local sockets, and should use
-    # this host's password files, i.e. don't qualify password filename
-    # with hostname.
-    # TODO: lowercasing user names may not be a good
-    # idea, e.g. FS operates with usernames starting with capital
-    # 'i'...
-    if host is not None and not host.startswith("/"):
-        fmt.append('@%s')
-        var.append(host.lower())
-    format_str = ''.join(fmt)
-    format_var = tuple(var)
-    filename = os.path.join(cereconf.DB_AUTH_DIR,
-                            format_str % format_var)
-    mode = 'rb' if encoding is None else 'r'
-    with io.open(filename, mode, encoding=encoding) as f:
-        # .rstrip() removes any trailing newline, if present.
-        dbuser, dbpass = f.readline().rstrip('\n').split('\t', 1)
-        assert dbuser == user
-        return dbpass
 
 
 def spawn_and_log_output(
@@ -693,3 +663,4 @@ class Messages(dict):
 CerebrumIMAP4_SSL = Cerebrum.utils.imap.Imap4SslVersionMixin
 auto_super = Cerebrum.meta.AutoSuper
 mark_update = Cerebrum.meta.MarkUpdate
+read_password = Cerebrum.utils.secrets.legacy_read_password
