@@ -428,6 +428,7 @@ setup(
         'Cerebrum/modules/orgreg',
         'Cerebrum/modules/otp',
         'Cerebrum/modules/ou_disk_mapping',
+        'Cerebrum/modules/ou_import',
         'Cerebrum/modules/password_notifier',
         'Cerebrum/modules/password_generator',
         'Cerebrum/modules/posix',
