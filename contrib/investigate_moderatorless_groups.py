@@ -54,7 +54,7 @@ def get_abandoned_manual_groups():
         group.find(adminless_group[0])
         g_type = const.GroupType(group.group_type)
         if (g_type in manual_abandonees and not group.is_expired()
-                and not group.group_type is const.group_type_internal):
+                and group.group_type is not const.group_type_internal):
             manual_abandonees[g_type].append({'id': group.entity_id,
                                               'name': group.group_name,
                                               'desc': group.description})
