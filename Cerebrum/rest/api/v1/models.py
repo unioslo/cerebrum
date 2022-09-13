@@ -84,6 +84,7 @@ class ExternalIdType(object):
         'NO_FSNO': 'fsPersonSerialNumber',
         'DFO_PID': 'dfoPersonId',
         'PAGA_ANSATTNR': 'pagaEmployeeNumber',
+        'GREG_PID': 'gregPersonId',
     }
 
     _rev_map = dict((v, k) for k, v in _map.iteritems())
