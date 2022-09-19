@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2020 University of Oslo, Norway
+# Copyright 2020-2022 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,11 +18,17 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
-UIO import.
+UIO import
+
+This import mixin adds:
+
+- Aff -> account-type change sync (for simple cases)
+- Manager groups sync (adm-leder-<location>)
+- Reservation group sync (reservation from online publication)
 """
 from Cerebrum.modules.hr_import.employee_import import EmployeeImportBase
 
-from leader_groups import LeaderGroupUpdater
+from leader_groups import ManagerGroupSync
 from reservation_group import ReservationGroupUpdater
 from account_type import AccountTypeUpdater
 
@@ -37,14 +43,12 @@ def _get_affiliations(db_object, account_types):
 
 
 class UioEmployeeImportMixin(EmployeeImportBase):
-    """
-    An employee import for SAP and DFØ @ UiO.
-    """
+
     def __init__(self, *args, **kwargs):
         super(UioEmployeeImportMixin, self).__init__(*args, **kwargs)
-        self.leader_group_updater = LeaderGroupUpdater(self.db,
-                                                       self.source_system)
-        self.reservation_group = ReservationGroupUpdater(self.db)
+
+        self._leader_group = ManagerGroupSync(self.db)
+        self._reservation_group = ReservationGroupUpdater(self.db)
 
     def _update_account_types(self, hr_object, db_object, parent_method):
         account_types = AccountTypeUpdater(
@@ -63,20 +67,28 @@ class UioEmployeeImportMixin(EmployeeImportBase):
 
     def update(self, hr_object, db_object):
         parent_method = super(UioEmployeeImportMixin, self).update
+
+        # Run parent update(), trace aff changes, and transfer aff changes
+        # if applicable
         self._update_account_types(hr_object, db_object, parent_method)
 
-        self.reservation_group.set(db_object.entity_id, hr_object.reserved)
-        # Convert ou_ids into Cerebrum OU-objects
-        leader_ous = (
-            self.updater.get_ou(ou_id) for ou_id in hr_object.leader_ous
-        )
+        # Calculate if and where this person is a manager - update groups
+        leader_ous = (self._get_ou(ou_id_pairs)
+                      for ou_id_pairs in hr_object.leader_ous)
+        self._leader_group.sync(db_object.entity_id, leader_ous)
 
-        self.leader_group_updater.sync(db_object.entity_id, leader_ous)
+        # Update reservation group if flag is set
+        self._reservation_group.set(db_object.entity_id, hr_object.reserved)
 
     def remove(self, hr_object, db_object):
         parent_method = super(UioEmployeeImportMixin, self).remove
+
+        # Run parent remove(), trace aff changes, and transfer aff changes
+        # if applicable
         self._update_account_types(hr_object, db_object, parent_method)
 
-        self.reservation_group.set(db_object.entity_id, False)
+        # Remove all org-manager group memberships
+        self._leader_group.sync(db_object.entity_id, set())
 
-        self.leader_group_updater.sync(db_object.entity_id, set())
+        # Remove public catalog reservation
+        self._reservation_group.set(db_object.entity_id, False)

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2020 University of Oslo, Norway
+# Copyright 2020-2022 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,14 +18,12 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
-Leader group module.
+Manager group module.
 
-This module defines the Cerebrum leader groups, ``adm-leder-<ou>``.  These
-groups mirror manager roles from the hr system.
+This module defines the Cerebrum groups for managers, ``adm-leder-<ou>``.
+These groups mirror manager roles from the hr system.
 """
 import logging
-
-import cereconf
 
 from Cerebrum.Utils import Factory
 
@@ -43,15 +41,12 @@ def get_leader_group(db, identifier):
     return get_automatic_group(db, identifier, LEADER_GROUP_PREFIX)
 
 
-class LeaderGroupUpdater(object):
-    """
-    Update leader groups from affs.
-    """
+class ManagerGroupSync(object):
+    """ Update manager groups.  """
 
-    def __init__(self, db, source_system):
+    def __init__(self, db):
         self.db = db
         self.const = Factory.get('Constants')(self.db)
-        self.source_system = source_system
 
     def _get_current_groups(self, person_id):
         gr = Factory.get('Group')(self.db)
@@ -63,26 +58,32 @@ class LeaderGroupUpdater(object):
                           filter_expired=True,
                           fetchall=False))
 
-    def get_leader_group_ids(self, hr_ous):
+    def fetch_group_ids(self, ou_objects):
         """Convert a set of OU's into a set of leader group ids
 
-        :param hr_ous: Cerebrum OU-objects of OUs where the person is a leader
+        :type: ou_objects: list[Cerebrum.OU.OU]
+        :param list ou_objects: List of OUs where the person is a manager
         """
         leader_group_ids = set()
-        for hr_ou in hr_ous:
-            stedkode = hr_ou.get_stedkode()
+        for ou in ou_objects:
+            stedkode = ou.get_stedkode()
             leader_group_id = get_leader_group(self.db, stedkode).entity_id
             leader_group_ids.add(leader_group_id)
         return leader_group_ids
 
-    def sync(self, person_id, hr_ous):
-        require_memberships = self.get_leader_group_ids(hr_ous)
+    def sync(self, person_id, ou_objects):
+        require_memberships = self.fetch_group_ids(ou_objects)
         current_memberships = set(self._get_current_groups(person_id))
+
+        if require_memberships:
+            logger.debug('person id=%r is a manager', person_id)
+        else:
+            logger.debug('person id=%r is not a manager', person_id)
 
         if require_memberships == current_memberships:
             return
 
-        logger.info('Updating person_id=%r leader groups (add=%r, remove=%r)',
+        logger.info('Updating person_id=%r manager groups (add=%r, remove=%r)',
                     person_id,
                     require_memberships - current_memberships,
                     current_memberships - require_memberships)

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2020 University of Oslo, Norway
+# Copyright 2020-2022 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -28,11 +28,10 @@ import datetime
 import logging
 import json
 
+from Cerebrum.modules.import_utils.matcher import PersonMatcher
 from Cerebrum.utils.date import now
-from Cerebrum.utils.date_compat import get_datetime_tz
+from Cerebrum.utils import date_compat
 
-from .matcher import match_entity
-from .mapper import NoMappedObjects
 from .datasource import DatasourceInvalid
 
 logger = logging.getLogger(__name__)
@@ -58,6 +57,11 @@ def load_message(event):
 
 class AbstractImport(object):
 
+    # ID types that leads to a definite match in Cerebrum.  This will typically
+    # contain the primary id type for the source system that we're using
+    # (e.g.  DFO_PID for DFO_SAP)
+    MATCH_ID_TYPES = ()
+
     def __init__(self, db, datasource, mapper, source_system):
         self.db = db
         self._datasource = datasource
@@ -80,54 +84,96 @@ class AbstractImport(object):
         return self._source_system
 
     def find_entity(self, hr_object):
-        """Find matching Cerebrum entity for the given HRPerson."""
-        return match_entity(hr_object.external_ids, self.db)
+        """ Find matching Cerebrum object for the given hr_object. """
+        search = PersonMatcher(self.MATCH_ID_TYPES)
+        criterias = tuple(hr_object.ids)
+        if not criterias:
+            raise ValueError('invalid person: no external_ids')
+        return search(self.db, criterias, required=False)
 
     def handle_reference(self, reference):
         """
-        Initiate hr import from reference.
+        Initiate import from a reference.
 
-        This is the entrypoint for use with e.g. scripts.
-        Fetches object data from the datasource and calls handle_object.
+        This is the entrypoint for use with e.g. scripts, or when processing
+        tasks.  Fetches the referred object from the datasource and calls
+        `handle_object(datasource-object)`.
         """
         raw_data = self.datasource.get_object(reference)
-        hr_object = self.mapper.translate(reference, raw_data, self.db)
+        return self.handle_object(raw_data)
+
+    def handle_object(self, raw_data):
+        """
+        Initiate import using an object from a datasource.
+
+        This is usually triggered by `handle_reference`, but can be called
+        directly to e.g. run a test import from fixtures.
+
+        It will use the mapper to extract relevant data from the raw_data given
+        as input, find a matching object in Cerebrum (if available) and call
+        `sync_object(mapped-data, cerebrum-object)` to start the actual sync.
+        """
+        reference = raw_data['id']
+        hr_object = self.mapper.translate(reference, raw_data)
 
         try:
             db_object = self.find_entity(hr_object)
-        except NoMappedObjects:
+        except ValueError:
+            # This means we definitely can't find an existing person.
+            # We'll try to create one in the next step, but it'll fail as we
+            # don't have any valid identifiers...
+            logger.warning("No valid identifiers for hr-object=%r", hr_object)
             db_object = None
 
-        return self.handle_object(hr_object, db_object)
+        return self.sync_object(hr_object, db_object)
 
-    def handle_object(self, hr_object, db_object):
+    def sync_object(self, hr_object, db_object):
         """
-        Initiate hr import.
+        Sync hr-object with given database-object.
 
         This method inspects and compares the source data and cerebrum data,
         and calls the relevant create/update/remove method.
+
+        :type hr_object: HrPerson
+        :type db_object: Cerebrum.Person.Person
         """
         retry_dates = self.mapper.needs_delay(hr_object)
         if not hr_object:
             raise DatasourceInvalid('hr_object is empty')
 
-        if self.mapper.is_active(hr_object):
+        db_id = db_object.entity_id if db_object else None
+
+        is_active = self.mapper.is_active(hr_object)
+        logger.debug('sync-object: %r (active=%r) to id=%r',
+                     hr_object, is_active, db_id)
+
+        is_deceased = (
+            db_object
+            and db_object.deceased_date
+            and (date_compat.get_date(db_object.deceased_date)
+                 < datetime.date.today()))
+        if is_deceased:
+            logger.warning('sync-object: id=%r is marked as deceased', db_id)
+
+        if is_active and not is_deceased:
             if db_object:
-                logger.info('handle_object: updating id=%r, obj=%r',
-                            db_object.entity_id, hr_object)
+                logger.info('sync-object: updating id=%r from %r',
+                            db_id, hr_object)
                 self.update(hr_object, db_object)
             else:
-                logger.info('handle_object: creating obj=%r', hr_object)
+                logger.info('sync-object: creating new db-object from %r',
+                            hr_object)
                 self.create(hr_object)
         elif db_object:
-            logger.info('handle_object: removing id=%r, obj=%r',
+            logger.info('sync-object: removing id=%r from %r',
                         db_object.entity_id, hr_object)
             self.remove(hr_object, db_object)
         else:
-            logger.info('handle_object: ignoring obj=%r', hr_object)
+            logger.info('sync-object: nothing to do for %r', hr_object)
 
         if retry_dates:
-            logger.debug('handle_object: needs delay, retry=%r', retry_dates)
+            logger.debug('sync-object: needs delay, retry at %r',
+                         retry_dates)
         return retry_dates
 
     @abc.abstractmethod
@@ -158,7 +204,7 @@ def get_retries(retry_dates):
     def _iter_retries(date_list):
         for date_like in (date_list or ()):
             try:
-                yield get_datetime_tz(date_like)
+                yield date_compat.get_datetime_tz(date_like)
             except OverflowError:
                 # happens if the date_like is close to datetime.MAXYEAR, and tz
                 # conversion put it out of bounds.  This is not a retry date
@@ -186,7 +232,7 @@ def get_next_retry(retry_dates, cutoff=None):
     # import task, which would end up processing the same set of data.
     start_cutoff = cutoff or now()
 
-    # Ifnore retries after this hard-coded date - these tasks would just be too
+    # Ignore retries after this hard-coded date - these tasks would just be too
     # ridiculously far into the future to be viable.
     #
     # This filtering could (should?) probably be moved into the hr-system

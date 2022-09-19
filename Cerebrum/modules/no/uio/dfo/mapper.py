@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2020 University of Oslo, Norway
+# Copyright 2020-2022 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -25,27 +25,27 @@ from __future__ import unicode_literals
 import logging
 
 from Cerebrum.modules.no.dfo import mapper as _base
-from Cerebrum.modules.no.uio.hr_import.models import HRPerson
-from Cerebrum.modules.no.dfo.datasource import parse_dfo_date
-from Cerebrum.modules.no.dfo.mapper import get_main_assignment
 
 logger = logging.getLogger(__name__)
 
 
-def parse_leader_ous(person_data, main_assignment):
+def get_main_assignment(employee_data):
+    main_id = employee_data['stillingId']
+    assignments = employee_data['assignments']
+    return assignments.get(main_id)
+
+
+def parse_leader_ous(employee_data):
     """
     Parse leader OUs from DFØ-SAP data
 
-    :param person_data: Data from DFØ-SAP
-                        `/ansatte/{id}`
-    :type person_data: dict
-    :param main_assignment: Assignment data from DFØ-SAP
-    :type main_assignment: dict
+    :param dict employee_data: Normalized employee data
 
-    :rtype: set(int)
-    :return OU ids where the person is a leader
+    :rtype: set[int]
+    :returns: DFØ org unit ids where the person is a leader
     """
-    if not main_assignment or not person_data.get('lederflagg'):
+    main_assignment = get_main_assignment(employee_data)
+    if not main_assignment or not employee_data.get('lederflagg'):
         return set()
 
     # TODO:
@@ -58,28 +58,17 @@ def parse_leader_ous(person_data, main_assignment):
 class EmployeeMapper(_base.EmployeeMapper):
     """A simple employee mapper class"""
 
-    @staticmethod
-    def create_hr_person(obj):
-        person_id = obj['id']
-        person_data = obj['employee']
+    def translate(self, reference, employee_data):
+        person = super(EmployeeMapper, self).translate(reference,
+                                                       employee_data)
 
-        return HRPerson(
-            hr_id=person_id,
-            first_name=person_data.get('fornavn'),
-            last_name=person_data.get('etternavn'),
-            birth_date=parse_dfo_date(person_data.get('fdato'),
-                                      allow_empty=True),
-            gender=person_data.get('kjonn'),
-            reserved=person_data.get('reservasjonPublisering')
-        )
+        # set reservation
+        setattr(person, 'reserved',
+                employee_data.get('reservasjonPublisering'))
 
-    def update_hr_person(self, hr_person, obj):
-        super(EmployeeMapper, self).update_hr_person(hr_person, obj)
-        person_data = obj['employee']
-        assignment_data = obj['assignments']
-
-        # TODO:
-        #  This should be fetched from orgreg by ``datasource.py`` sometime in
-        #  the future.
-        main_assignment = get_main_assignment(person_data, assignment_data)
-        hr_person.leader_ous = parse_leader_ous(person_data, main_assignment)
+        # A list of org units where this person is considered a manager
+        # Each org unit is a list of (id_type, id_value) pairs
+        ou_terms = [[('DFO_OU_ID', org_id)]
+                    for org_id in parse_leader_ous(employee_data)]
+        setattr(person, 'leader_ous', ou_terms)
+        return person
