@@ -40,12 +40,6 @@ from .importer import AbstractImport
 
 logger = logging.getLogger(__name__)
 
-# extra loggger for debugging values - can be turned on by logger config
-# TODO: This should probably be a feature in the import utils
-debug_log = logger.getChild('debug')
-debug_log.propagate = False
-debug_log.addHandler(logging.NullHandler())
-
 
 class EmployeeImportBase(AbstractImport):
 
@@ -154,9 +148,6 @@ class EmployeeImportBase(AbstractImport):
 
     def _update_basic(self, db_person, hr_person):
         """Update person with birth date and gender"""
-        debug_log.debug('basic-info: id=%r, birth_date=%r, gender=%r',
-                        hr_person.hr_id, hr_person.birth_date,
-                        hr_person.gender)
         change = False
 
         # TODO: We should probably not update these fields - if there is a
@@ -188,20 +179,16 @@ class EmployeeImportBase(AbstractImport):
 
     def _update_external_ids(self, db_person, hr_person):
         """Update person in Cerebrum with appropriate external ids"""
-        debug_log.debug('external-id: %s', repr(hr_person.ids))
         self._sync_ids(db_person, hr_person.ids)
 
     def _update_names(self, db_person, hr_person):
-        debug_log.debug('names: %s', repr(hr_person.names))
         self._sync_name(db_person, hr_person.names)
 
     def _update_titles(self, db_person, hr_person):
-        debug_log.debug('titles: %s', repr(hr_person.titles))
         self._sync_titles(db_person, hr_person.titles)
 
     def _update_contact_info(self, db_person, hr_person):
         """Update person in Cerebrum with contact information"""
-        debug_log.debug('contact-info: %s', repr(hr_person.contacts))
         self._sync_cinfo(db_person, hr_person.contacts)
 
     def _get_ou(self, criterias):
@@ -213,7 +200,6 @@ class EmployeeImportBase(AbstractImport):
 
     def _update_affiliations(self, db_person, hr_person, _today=None):
         """Update person in Cerebrum with the latest affiliations"""
-        debug_log.debug('affiliations: %s', repr(hr_person.affiliations))
         today = _today or datetime.date.today()
         aff_tuples = []
         for aff, ou_idents, start, end in hr_person.affiliations:

@@ -40,6 +40,23 @@ from Cerebrum.Utils import Factory
 
 logger = logging.getLogger(__name__)
 
+# Extra loggger for debugging (potentially sensitive personal information)
+# values.  This logger is disabled by default, but can be enabled by calling
+# `enable_debug_log` or by setting *propagate* in logger config.
+debug_log = logger.getChild('debug')
+debug_log.propagate = False
+debug_log.addHandler(logging.NullHandler())
+
+
+def enable_debug_log():
+    """
+    Enable debug logging of input values.
+
+    Note: This should generally not be used in production code.  Prefer adding
+    config of `__name__ + '.debug'` to logger config.
+    """
+    debug_log.propagate = True
+
 
 def pretty_const(value):
     """ Format a CerebrumCode, or sequence of CerebrumCode values. """
@@ -160,6 +177,8 @@ class _KeyValueSync(_SourceSystemSync):
             system.
         """
         entity_id = int(entity.entity_id)
+        debug_log.debug('%s(%d, %s)', repr(self), entity_id, repr(pairs))
+
         new_pairs = set((self.get_type(key), value) for key, value in pairs)
         new_types = set(t[0] for t in new_pairs)
         logger.debug('%s(%d, <%s>)', repr(self), entity_id,
@@ -294,6 +313,7 @@ class AffiliationSync(_SourceSystemSync):
             system.
         """
         person_id = int(person_obj.entity_id)
+        debug_log.debug('%s(%d, %s)', repr(self), person_id, repr(aff_tuples))
 
         new_affiliations = set()
         for aff_value, ou_id in aff_tuples:
@@ -393,6 +413,8 @@ class NameLanguageSync(_BaseSync):
             name) values to set.
         """
         entity_id = int(entity.entity_id)
+        debug_log.debug('%s(%d, %s)', repr(self), entity_id, repr(triplets))
+
         new_pairs = set(
             (self.get_type(key), self.get_subtype(subkey), value)
             for key, subkey, value in triplets)
