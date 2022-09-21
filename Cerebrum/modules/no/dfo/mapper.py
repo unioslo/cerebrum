@@ -428,11 +428,16 @@ class EmployeeMapper(AbstractMapper):
         return 'X'
 
     def translate(self, reference, employee_data):
+
         person = HrPerson(
             hr_id=employee_data['id'],
             birth_date=employee_data['fdato'],
             gender=self.get_gender(employee_data),
-            enable=employee_data['eksternbruker'] or True,
+            # eksternbruker=False -> shouldn't get a user account, i.e. we
+            # don't need any information in Cerebrum.
+            # Note: This is a dangerous field - if misinterpreted, all employee
+            # roles could be removed.
+            enable=employee_data.get('eksternbruker', True),
         )
 
         if employee_data['startdato']:
@@ -452,7 +457,9 @@ class EmployeeMapper(AbstractMapper):
         today = _today or datetime.date.today()
 
         def _add_delta(dt, d):
-            # add a timedelta, but ignore out of bounds results
+            # Add a timedelta, but ignore out of bounds results.  This is a bit
+            # hacky, but OverflowError means the result is so far into the past
+            # or the future that any offset we're adding isn't really relevant.
             try:
                 return dt + d
             except OverflowError:

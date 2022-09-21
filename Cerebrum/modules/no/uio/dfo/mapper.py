@@ -62,6 +62,10 @@ class EmployeeMapper(_base.EmployeeMapper):
         person = super(EmployeeMapper, self).translate(reference,
                                                        employee_data)
 
+        # eksternbruker isn't populated at uio - all active employees should be
+        # considered
+        person.enable = True
+
         # set reservation
         setattr(person, 'reserved',
                 employee_data.get('reservasjonPublisering'))
