@@ -34,11 +34,11 @@ from Cerebrum.modules.automatic_group.structure import (
 
 logger = logging.getLogger(__name__)
 
-LEADER_GROUP_PREFIX = 'adm-leder-'
+MANAGER_GROUP_PREFIX = 'adm-leder-'
 
 
-def get_leader_group(db, identifier):
-    return get_automatic_group(db, identifier, LEADER_GROUP_PREFIX)
+def get_manager_group(db, identifier):
+    return get_automatic_group(db, identifier, MANAGER_GROUP_PREFIX)
 
 
 class ManagerGroupSync(object):
@@ -49,44 +49,53 @@ class ManagerGroupSync(object):
         self.const = Factory.get('Constants')(self.db)
 
     def _get_current_groups(self, person_id):
+        """
+        Get all current manager group memberships for a given person.
+        """
         gr = Factory.get('Group')(self.db)
 
         return (r['group_id'] for r in
                 gr.search(member_id=person_id,
-                          name=LEADER_GROUP_PREFIX + '*',
+                          name=MANAGER_GROUP_PREFIX + '*',
                           group_type=self.const.group_type_affiliation,
                           filter_expired=True,
                           fetchall=False))
 
-    def fetch_group_ids(self, ou_objects):
-        """Convert a set of OU's into a set of leader group ids
+    def _fetch_group_ids(self, ou_objects):
+        """
+        Convert a collection of OU objects into a set of manager group ids
 
         :type: ou_objects: list[Cerebrum.OU.OU]
         :param list ou_objects: List of OUs where the person is a manager
         """
-        leader_group_ids = set()
         for ou in ou_objects:
             stedkode = ou.get_stedkode()
-            leader_group_id = get_leader_group(self.db, stedkode).entity_id
-            leader_group_ids.add(leader_group_id)
-        return leader_group_ids
+            mgr_group_id = get_manager_group(self.db, stedkode).entity_id
+            yield mgr_group_id
 
     def sync(self, person_id, ou_objects):
-        require_memberships = self.fetch_group_ids(ou_objects)
+        """
+        Ensure that person_id is a manager at the given org units.
+
+        :param person_id:
+            entity id of the person to sync
+
+        :param ou_objects:
+            a sequence of Cerebrum.OU.OU objects with each location where this
+            person is a manager (if any).
+        """
+        require_memberships = set(self._fetch_group_ids(ou_objects))
+        logger.debug("manager groups for person_id=%r: %r",
+                     person_id, require_memberships)
+
         current_memberships = set(self._get_current_groups(person_id))
-
-        if require_memberships:
-            logger.debug('person id=%r is a manager', person_id)
-        else:
-            logger.debug('person id=%r is not a manager', person_id)
-
         if require_memberships == current_memberships:
             return
 
-        logger.info('Updating person_id=%r manager groups (add=%r, remove=%r)',
-                    person_id,
-                    require_memberships - current_memberships,
-                    current_memberships - require_memberships)
+        logger.info(
+            "manager group changes for person_id=%r: add=%r, remove=%r",
+            person_id, require_memberships - current_memberships,
+            current_memberships - require_memberships)
 
         update_memberships(Factory.get('Group')(self.db),
                            person_id,

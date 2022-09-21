@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2020 University of Oslo, Norway
+# Copyright 2020-2022 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,20 +18,21 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
-Update account_types (acccunt affiliations) from person affiliation changes.
+Update *account types* (acccunt affiliations) from person affiliation changes.
 
-The intention is to keep Person affiliations in sync with the persons primary
-account account_types.
+The intention is to keep account types of a primary account in sync with any
+person affiliations changes.
 
-We can only sync affiliations if:
+We only sync these affiliations if:
 
-1. The person only owns *one* account.
+1. The person only owns *one* account
+
 2. That account is/was only used for *a similar purpose*.  E.g. we *only*
-   update employee account_types if the account is *only* used as an employee
-   account (i.e. has account_types of a given affiliation from a given source
+   update employee account types if the account is *only* used as an employee
+   account (i.e. has account types of a given affiliation from a given source
    system).
 
-In all other cases, any attempt to automatically assign account_type will
+In all other cases, any attempt to automatically assign account type will
 likely end up doing the wrong thing.
 """
 import logging
@@ -99,7 +100,6 @@ class AccountTypeUpdater(object):
                 (person.entity_id, len(accounts)))
         ac = Factory.get('Account')(self.db)
         ac.find(accounts[0]['account_id'])
-
         return ac
 
     def _get_account_types(self, account):
@@ -169,7 +169,6 @@ class AccountTypeUpdater(object):
         account.set_account_type(ou_id, affiliation)
 
     def sync(self, person, added, removed):
-
         try:
             account = self._get_account(person)
         except _UpdateError as e:
