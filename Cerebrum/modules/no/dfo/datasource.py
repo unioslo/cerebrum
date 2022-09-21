@@ -43,7 +43,6 @@ import six
 from Cerebrum.modules.hr_import.datasource import (
     AbstractDatasource,
     DatasourceInvalid,
-    RemoteObject,
 )
 from Cerebrum.utils import date as date_utils
 from Cerebrum.utils import textnorm
@@ -423,12 +422,6 @@ class EmployeeDatasource(AbstractDatasource):
         return prepare_employee_data(*args, **kwargs)
 
 
-class Assignment(RemoteObject):
-    # TODO: Rid ourselves of the RemoteObject wrappers.  They're really just
-    # dicts anyway, and makes everything more complicated later.
-    pass
-
-
 class AssignmentDatasource(AbstractDatasource):
 
     def __init__(self, client):
@@ -451,5 +444,4 @@ class AssignmentDatasource(AbstractDatasource):
         if not assignment:
             raise DatasourceInvalid('No assignment_id=%r found' %
                                     (reference,))
-        # TODO: Remove Assignment type
-        return Assignment('dfo-sap', reference, assignment)
+        return assignment
