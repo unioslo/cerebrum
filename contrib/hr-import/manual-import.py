@@ -33,6 +33,7 @@ import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum.database.ctx import db_context
 from Cerebrum.modules.hr_import.config import TaskImportConfig
+from Cerebrum.modules.import_utils import syncs
 from Cerebrum.utils.module import resolve
 from Cerebrum.utils.argutils import add_commit_args
 from Cerebrum.Utils import Factory
@@ -70,6 +71,11 @@ def main(inargs=None):
         """.strip()
     )
     parser.add_argument(
+        '-d', '--debug',
+        action='store_true',
+        help='debug import values',
+    )
+    parser.add_argument(
         '-c', '--config',
         required=True,
         help='hr-import config to use (see Cerebrum.modules.hr_import.config)',
@@ -84,6 +90,9 @@ def main(inargs=None):
 
     args = parser.parse_args(inargs)
     Cerebrum.logutils.autoconf('tee', args)
+
+    if args.debug:
+        syncs.enable_debug_log()
 
     logger.info("start %s", parser.prog)
     logger.debug("args: %r", args)
