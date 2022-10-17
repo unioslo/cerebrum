@@ -365,6 +365,15 @@ def prepare_employee_data(raw_employee_data, raw_assignments_data):
     return employee
 
 
+def _unpack_list_item(value):
+    if not value:
+        raise ValueError("empty list")
+    value = assert_list(value)
+    if len(value) != 1:
+        raise ValueError("invalid number of objects: " + str(len(value)))
+    return value[0]
+
+
 class EmployeeDatasource(AbstractDatasource):
 
     def __init__(self, client):
@@ -376,20 +385,21 @@ class EmployeeDatasource(AbstractDatasource):
 
     def _get_employee(self, employee_id):
         raw = self.client.get_employee(employee_id)
-        if not raw:
-            logger.warning('no result for employee-id %r', employee_id)
+        try:
+            raw = _unpack_list_item(raw)
+        except ValueError as e:
+            logger.warning('no result for employee-id %s (%s)',
+                           repr(employee_id), str(e))
             return {}
-
-        if isinstance(raw, list) and len(raw) == 1:
-            result = parse_employee(raw[0])
-        else:
-            result = parse_employee(raw)
-        return result
+        return parse_employee(raw)
 
     def _get_assignment(self, employee_id, assignment_id):
         raw = self.client.get_stilling(assignment_id)
-        if not raw:
-            logger.warning('no result for assignment-id %r', assignment_id)
+        try:
+            raw = _unpack_list_item(raw)
+        except ValueError as e:
+            logger.warning('no result for assignment-id %s (%s)',
+                           repr(assignment_id), str(e))
             return {}
         return parse_assignment(raw)
 
@@ -398,7 +408,6 @@ class EmployeeDatasource(AbstractDatasource):
         employee_id = reference
         employee = self._get_employee(employee_id)
         if not employee:
-            logger.warning('no result for employee-id %r', employee_id)
             return {'id': employee_id}
 
         assignment_ids = set(get_assignment_ids(employee))
@@ -433,8 +442,11 @@ class AssignmentDatasource(AbstractDatasource):
 
     def _get_assignment(self, assignment_id):
         raw = self.client.get_stilling(assignment_id)
-        if not raw:
-            logger.error('no result for assignment-id %r', assignment_id)
+        try:
+            raw = _unpack_list_item(raw)
+        except ValueError as e:
+            logger.warning('no result for assignment-id %s (%s)',
+                           repr(assignment_id), str(e))
             return {}
         return parse_assignment(raw)
 
