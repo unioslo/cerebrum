@@ -253,10 +253,12 @@ def parse_assignment(d):
     result = {
         'id': assert_int(d['id']),
         # - stillingsnavn
-        'stillingskode': assert_digits(d['stillingskode']),
+        'stillingskode': assert_digits(d['stillingskode'],
+                                       allow_empty=True),
         'stillingstittel': normalize_text(d.get('stillingstittel'),
                                           allow_empty=True),
-        'organisasjonId': assert_digits(d['organisasjonId']),
+        'organisasjonId': assert_digits(d['organisasjonId'],
+                                        allow_empty=True),
         # - yrkeskode
         # - yrkeskodetekst
     }
