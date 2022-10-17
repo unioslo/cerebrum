@@ -183,6 +183,15 @@ def parse_assignment(assignment_d):
     return result
 
 
+def _unpack_list_item(value):
+    if not value:
+        raise ValueError("empty list")
+    value = assert_list(value)
+    if len(value) != 1:
+        raise ValueError("invalid number of objects: " + str(len(value)))
+    return value[0]
+
+
 class EmployeeDatasource(AbstractDatasource):
 
     def __init__(self, client):
@@ -194,20 +203,23 @@ class EmployeeDatasource(AbstractDatasource):
 
     def _get_employee(self, employee_id):
         raw = self.client.get_employee(employee_id)
-        if not raw:
-            logger.warning('no result for employee-id %r', employee_id)
+        try:
+            raw = _unpack_list_item(raw)
+        except ValueError as e:
+            logger.warning('no result for employee-id %s (%s)',
+                           repr(employee_id), str(e))
             return {}
 
-        if isinstance(raw, list) and len(raw) == 1:
-            result = parse_employee(raw[0])
-        else:
-            result = parse_employee(raw)
+        result = parse_employee(raw)
         return result
 
     def _get_assignment(self, employee_id, assignment_id):
         raw = self.client.get_stilling(assignment_id)
-        if not raw:
-            logger.warning('no result for assignment-id %r', assignment_id)
+        try:
+            raw = _unpack_list_item(raw)
+        except ValueError as e:
+            logger.warning('no result for assignment-id %s (%s)',
+                           repr(assignment_id), str(e))
             return {}
         return parse_assignment(raw)
 
@@ -215,8 +227,6 @@ class EmployeeDatasource(AbstractDatasource):
         """ Fetch data from sap (employee data, assignments, roles). """
         employee_id = reference
         employee_data = self._get_employee(employee_id)
-        if not employee_data:
-            logger.warning('no result for employee-id %r', employee_id)
 
         employee = {
             'id': normalize_id(reference),
@@ -255,8 +265,11 @@ class AssignmentDatasource(AbstractDatasource):
 
     def _get_assignment(self, assignment_id):
         raw = self.client.get_stilling(assignment_id)
-        if not raw:
-            logger.error('no result for assignment-id %r', assignment_id)
+        try:
+            raw = _unpack_list_item(raw)
+        except ValueError as e:
+            logger.warning('no result for assignment-id %s (%s)',
+                           repr(assignment_id), str(e))
             return {}
         return parse_assignment(raw)
 
