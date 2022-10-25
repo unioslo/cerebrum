@@ -141,6 +141,7 @@ class HR2FSSyncer(object):
                  use_cache=True,
                  fagperson_export_fields=None,
                  email_cache=False,
+                 force_active=False,
                  commit=False):
 
         self.person_affiliations = person_affiliations
@@ -153,6 +154,7 @@ class HR2FSSyncer(object):
         self.co = co
         self.db = db
 
+        self.force_active = force_active
         self.commit = commit
 
         self.ansattnr_code = co.EntityExternalId(ansattnr_code_str)
@@ -755,7 +757,12 @@ class HR2FSSyncer(object):
         if not fs_info:
             # According to mgrude, this field is to be set to 'N' for new
             # entries and left untouched for already existing entries.
-            values["status_aktiv"] = 'N'
+            # But it turned out to be that other institutions have
+            # some different approach on the matter (RT#5171111)!
+            if self.force_active:
+                values["status_aktiv"] = 'J'
+            else:
+                values["status_aktiv"] = 'N'
 
             logger.info("Add new entry to FS.fagperson: person_id=%r",
                         person_id)
@@ -885,6 +892,12 @@ def main():
         help='Cache e-mail addresses'
     )
     parser.add_argument(
+        '--force-active-status',
+        action='store_true',
+        dest='force_active',
+        help='Force "status_aktiv" to "J" on the creation of new entries'
+    )
+    parser.add_argument(
         '-c', '--commit',
         action='store_true',
         dest='commit',
@@ -961,7 +974,7 @@ def main():
                          ou_perspective, db, fs, co, ansattnr_code_str,
                          fagperson_export_fields=fagperson_fields,
                          use_cache=True, email_cache=args.email_cache,
-                         commit=args.commit)
+                         force_active=args.force_active, commit=args.commit)
 
     syncer.sync_to_fs()
 
@@ -976,3 +989,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
