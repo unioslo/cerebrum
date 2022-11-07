@@ -5,4 +5,4 @@ pylint
 pytest
 pytest-cov
 pytest-flask
-pytest-watch
+pytest-watch==4.1.0
