@@ -69,12 +69,14 @@ def normalize_text(value, allow_empty=False):
 
 
 def assert_bool(value):
+    """ Verify value is a `bool`. """
     if value in (True, False):
         return value
     raise ValueError("invalid value: " + repr(value))
 
 
 def assert_int(value, allow_empty=False):
+    """ Verify value is an `int`. """
     if value in (None, ""):
         if allow_empty:
             return None
@@ -84,9 +86,18 @@ def assert_int(value, allow_empty=False):
 
 
 def assert_list(value):
-    # This is a hacky way to fix the broken DFØ API
-    # Some items in the API are specified to be a list, but lists of length 1
-    # are unwrapped, and empty lists are simply not present.
+    """
+    Normalize list values.
+
+    This is a work-around for the variable list-values we sometimes get from
+    dfo.  This function ensures that the given value is a list:
+
+    - If a non-list value is given, it will be wrapped in a list
+    - None-values are filtered out
+
+    >>> [assert_list(x) for x in (None, 1, [1, None, 2, 3])]
+    [[], [1], [1, 2, 3]]
+    """
     if not value:
         return []
 
@@ -96,6 +107,7 @@ def assert_list(value):
 
 
 def assert_digits(value, allow_empty=False):
+    """ Normalize text with only digits. """
     digits = normalize_text(value, allow_empty=allow_empty)
     if digits and not digits.isdigit():
         raise ValueError("invalid number string")
@@ -168,14 +180,22 @@ def parse_employee(d):
     """ Sanitize and normalize assignment data """
     result = {
         # External ids:
-        # - brukerident
-        # - dfoBrukerident
-        # - eksternIdent
         'id': normalize_id(d['id']),
         'fnr': assert_digits(d.get('fnr'), allow_empty=True),
         'annenId': assert_list(d.get('annenId')),
 
-        # Person info
+        # Dfo identifier types not in use, but useful for debugging.
+        #
+        # brukerident and dfoBrukerident are internal dfo usernames.
+        # eksternIdent should (in time) get updated with a Cerebrum username in
+        # the cererbum-to-dfo integration
+        'brukerident': normalize_text(d.get('brukerident'), allow_empty=True),
+        'dfoBrukerident': normalize_text(d.get('dfoBrukerident'),
+                                         allow_empty=True),
+        'eksternIdent': normalize_text(d.get('eksternIdent'),
+                                       allow_empty=True),
+
+        # Basic person info
         'fornavn': normalize_text(d.get('fornavn'), allow_empty=True),
         'etternavn': normalize_text(d.get('etternavn'), allow_empty=True),
         'fdato': parse_dfo_date(d.get('fdato'), allow_empty=True),
@@ -194,9 +214,11 @@ def parse_employee(d):
         # custom field 'eksternbruker' - the employee should exist in systems
         # outside dfo
         'eksternbruker': assert_bool(d.get('eksternbruker', True)),
+
         # custom field 'lederflagg' - the employee main assignment is a
         # department head position
         'lederflagg': assert_bool(d.get('lederflagg', False)),
+
         # custom field 'reservasjonPublisering' - the employee should be
         # omitted in public listings
         'reservasjonPublisering': assert_bool(d.get('reservasjonPublisering')
@@ -204,13 +226,19 @@ def parse_employee(d):
 
     }
 
-    # Update contact info fields
-    # - epost
-    # - privatEpost
+    # Contact info fields
     result.update({
         k: normalize_text(d.get(k), allow_empty=True)
-        for k in ('mobilPrivat', 'mobilnummer', 'privatTelefonnummer',
-                  'privatTlfUtland', 'telefonnummer', 'tjenestetelefon')
+        for k in (
+            # 'epost',  # not in use
+            'mobilPrivat',
+            'mobilnummer',
+            # 'privatEpost',  # not in use
+            'privatTelefonnummer',
+            'privatTlfUtland',
+            'telefonnummer',
+            'tjenestetelefon',
+        )
     })
 
     # Process secondary assignments
@@ -220,7 +248,7 @@ def parse_employee(d):
             'stillingId': assert_int(item['stillingId']),
             'startdato': parse_dfo_date(item['startdato'], allow_empty=True),
             'sluttdato': parse_dfo_date(item['sluttdato'], allow_empty=True),
-            # - dellonnsprosent
+            # 'dellonnsprosent',  # ignored
         })
 
     # Other, ignored fields:
@@ -252,15 +280,15 @@ def parse_assignment(d):
     """
     result = {
         'id': assert_int(d['id']),
-        # - stillingsnavn
         'stillingskode': assert_digits(d['stillingskode'],
                                        allow_empty=True),
         'stillingstittel': normalize_text(d.get('stillingstittel'),
                                           allow_empty=True),
         'organisasjonId': assert_digits(d['organisasjonId'],
                                         allow_empty=True),
-        # - yrkeskode
-        # - yrkeskodetekst
+        # 'stillingsnavn': None,  # ignored
+        # 'yrkeskode': None,  # ignored
+        # 'yrkeskodetekst': None,  # ignored
     }
 
     # Process employees
@@ -294,7 +322,7 @@ def parse_assignment(d):
         })
 
     # Collect a simplified list of categories for assignment
-    # TODO: Is this really needed?  Should probably be moevd to a mapper
+    # TODO: Is this really needed?  Should probably be moved to a mapper
     cat = result['category'] = []
     for cat_d in categories:
         cat.append(cat_d['stillingskatId'])
@@ -368,6 +396,7 @@ def prepare_employee_data(raw_employee_data, raw_assignments_data):
 
 
 def _unpack_list_item(value):
+    """ Unpack a single value wrapped in a list. """
     if not value:
         raise ValueError("empty list")
     value = assert_list(value)
