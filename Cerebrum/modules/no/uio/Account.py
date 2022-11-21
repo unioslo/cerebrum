@@ -18,7 +18,6 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 import datetime
-
 import random
 
 import re
@@ -318,7 +317,7 @@ class AccountUiOMixin(Account.Account):
         return person.has_e_reservation()
 
     def populate(self, name, owner_type, owner_id, np_type, creator_id,
-            expire_date, description=None, parent=None):
+                 expire_date, description=None, parent=None):
         """Override to check that the account name is not already taken by a
         group.
         """
@@ -427,17 +426,17 @@ class AccountUiOMixin(Account.Account):
     # _UiO_update_email_server() Jazz (2013-11)
     #
     def _pick_email_server(self):
-            # We try to spread the usage across servers, but want a
-            # random component to the choice of server.  The choice is
-            # weighted, although the determination of weights happens
-            # externally to Cerebrum since it is a relatively
-            # expensive operation (can take several seconds).
-            # Typically the weight will vary with the amount of users
-            # already assigned, the disk space available or similar
-            # criteria.
-            #
-            # Servers MUST have a weight trait to be considered for
-            # allocation.
+        # We try to spread the usage across servers, but want a
+        # random component to the choice of server.  The choice is
+        # weighted, although the determination of weights happens
+        # externally to Cerebrum since it is a relatively
+        # expensive operation (can take several seconds).
+        # Typically the weight will vary with the amount of users
+        # already assigned, the disk space available or similar
+        # criteria.
+        #
+        # Servers MUST have a weight trait to be considered for
+        # allocation.
         es = Email.EmailServer(self._db)
         user_weight = {}
         total_weight = 0
@@ -465,7 +464,7 @@ class AccountUiOMixin(Account.Account):
                 return "is too long (%s)" % name
             if re.search("^[^A-Za-z]", name):
                 return "must start with a character (%s)" % name
-            if re.search("[^A-Za-z0-9\-_]", name):
+            if re.search(r"[^-_A-Za-z0-9]", name):
                 return "contains illegal characters (%s)" % name
         return super(AccountUiOMixin, self).illegal_name(name)
 
