@@ -362,8 +362,13 @@ class DfoAffiliations(object):
                     continue
 
             else:
-                start_date = assignment['startdato']
-                end_date = assignment['sluttdato']
+                start_date = end_date = None
+                for secondary in (employee_data.get('tilleggsstilling') or ()):
+                    if assignment_id != secondary['stillingId']:
+                        continue
+                    start_date = secondary['startdato']
+                    end_date = secondary['sluttdato']
+                    break
 
                 if not aff:
                     # Same as for main assignment above - no valid
