@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2020 University of Oslo, Norway
+# Copyright 2020-2022 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -20,9 +20,12 @@
 """
 Abstract mapper for HR imports.
 
-The mapper is responsible for translating the raw data from a datasource into
-HR objects, as well as mapping external objects to local objects (e.g.  find a
-Cerebrum.Person object from employee data).
+The mapper is responsible for translating data from a datasource into
+actual types and values for Cerebrum.
+
+The py:method:`.AbstractMapper.translate` function turns a complete set of
+hr-data into a py:class:`.HrPerson`.  The latter is a collection of all the
+external ids, affiliations, etc... that could be of relevance in the import.
 """
 import datetime
 import abc
@@ -36,23 +39,9 @@ from Cerebrum.config.configuration import (
     Namespace,
 )
 from Cerebrum.config.settings import Integer, Iterable, String
+from Cerebrum.utils.reprutils import ReprFieldMixin
 
 logger = logging.getLogger(__name__)
-
-
-class MapperError(RuntimeError):
-    """ Unable to fetch data. """
-    pass
-
-
-class NoMappedObjects(MapperError):
-    """ Unable to map object - no matches. """
-    pass
-
-
-class ManyMappedObjects(MapperError):
-    """ Unable to map object - multiple matches. """
-    pass
 
 
 def in_date_range(value, start=None, end=None):
@@ -74,30 +63,49 @@ class AbstractMapper(object):
         """
         # TODO: beskrivelse for config-argumentet?
         """
-        self.end_grace = datetime.timedelta(days=abs(config.end_grace))
-        self.start_grace = datetime.timedelta(days=abs(config.start_grace))
+        # TODO: We should probably rename the settings to make the "polarity"
+        # of the value clearer, and then *not* abs() the values here.  This
+        # should be fine, though, as there aren't really any good reason to
+        # turn these any other way around.
+        #
+        # Also, should this really be config? Maybe, maybe not.
+        self.start_offset = -1 * datetime.timedelta(abs(config.start_grace))
+        self.end_offset = datetime.timedelta(days=abs(config.end_grace))
+
+        # TODO: Do we really need to *ignore* these dates?  The only reason to
+        # ignore values, would be to ignore any end-dates/future task that is
+        # unreasonably far into the future.  Probably better to just have a
+        # sliding cutoff, e.g. ignore anything more than 10, 50, 100 years
+        # ahead in time.
         self.end_dates_ignore = [
             datetime.datetime.strptime(x, '%Y-%m-%d').date()
             for x in config.end_dates_ignore]
+
+        # TODO: is this really config?  If so, why this and not the mg/mug
+        # roles?  These settings are never really used in the new import, but
+        # hardcoded into the appropriate mapper subclass.
+        #
+        # Also this is the abstract import -- dfo_category_id isn't really
+        # something this mapper should know about...
         self.status_mapping = {
             x['dfo_category_id']: x['cerebrum_status']
             for x in config.status_mapping}
 
     @abc.abstractmethod
-    def translate(self, reference, obj, db_object):
+    def translate(self, reference, source):
         """
-        Translate datasource into a remote object.
+        Translate datasource into an importable object.
 
         :type reference: six.text_type
         :param reference:
             An object reference, as provided by
             :meth:`AbstractDatasource.get_reference`
 
-        :type obj: object
-        :param obj:
-            An object, as provided by :meth:`AbstractDatasource.get_object`
+        :type data: dict
+        :param data:
+            A data object, as provided by :meth:`AbstractDatasource.get_object`
 
-        :rtype: models.HRPerson
+        :rtype: object
         """
         pass
 
@@ -106,34 +114,34 @@ class AbstractMapper(object):
         """
         Decide if an HR object should be present in the database.
 
-        :type hr_object: models.HRPerson
+        :param object hr_object: result from py:meth:`.translate`
 
         :rtype: bool
         """
         pass
 
-    def needs_delay(self, hr_object):
+    def needs_delay(self, hr_object, _today=None):
         """ Find relevant start or end dates that requires future updates.
 
-        :type hr_object: Cerebrum.modules.hr_import.models.HRPerson
+        :param object hr_object: result from py:meth:`.translate`
 
         :rtype: list
         :returns: a list of date objects
         """
-        t = datetime.date.today()
-        start_cutoff = t - self.start_grace
-        end_cutoff = t + self.end_grace
+        today = _today or datetime.date.today()
+        start_cutoff = today + self.start_offset
+        end_cutoff = today + self.end_offset
         active_date_ranges = []
 
-        for a in hr_object.affiliations:
-            active_date_ranges.append((a.start_date, a.end_date))
+        for aff, ou, start_date, end_date in hr_object.affiliations:
+            active_date_ranges.append((start_date, end_date))
 
         # TODO: Add roles?
         retry_dates = set()
         for start, end in active_date_ranges:
             if not in_date_range(start_cutoff, start=start):
                 # Start of affiliation is in the future
-                retry_date = start - self.start_grace
+                retry_date = start + self.start_offset
                 retry_dates.add(retry_date)
                 logger.info('affiliation start %s, should retry at %s',
                             start, retry_date)
@@ -143,22 +151,45 @@ class AbstractMapper(object):
                     in_date_range(end_cutoff, end=end)):
                 # We have to try again the day after the affiliations end date
                 # if we are actually going to remove it. Thus the + 1
-                retry_date = end + self.end_grace + datetime.timedelta(days=1)
+                retry_date = end + self.end_offset + datetime.timedelta(days=1)
                 retry_dates.add(retry_date)
                 logger.info('affiliation end %s, should retry at %s',
                             end, retry_date)
 
-        if hr_object.startdate and not hr_object.affiliations:
-            if (hr_object.startdate > t
-                and hr_object.startdate not in retry_dates):
-                retry_dates.add(hr_object.startdate)
-                logger.info("person has start date set in future and no valid"
-                            " affiliaton data, should retry on start date")
+        if hr_object.start_date and not hr_object.affiliations:
+            if (hr_object.start_date > today):
+                retry_dates.add(hr_object.start_date)
+                logger.info("no affiliations to consider, "
+                            "should retry at %s (employee start date)",
+                            hr_object.start_date)
 
         return retry_dates
 
 
+class HrPerson(ReprFieldMixin):
+
+    repr_module = False
+    repr_id = False
+    repr_fields = ('hr_id', 'enable')
+
+    def __init__(self, hr_id, birth_date, gender, enable):
+        self.hr_id = hr_id
+        self.birth_date = birth_date
+        self.gender = gender
+        self.enable = enable
+
+        self.start_date = None
+        self.affiliations = []
+        self.contacts = []
+        self.ids = []
+        self.names = []
+        self.titles = []
+
+
 class StatusMapping(Configuration):
+
+    # TODO: Obsolete?
+
     dfo_category_id = ConfigDescriptor(
         Integer,
         doc='Position category id'

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2020 University of Oslo, Norway
+# Copyright 2020-2022 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,389 +19,483 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
 Mapper for DFØ-SAP.
+
+Input data structure
+--------------------
+The employee_data object should follow the format returned by
+py:func:`.datasource.parse_employee`, supplemented by a assignments dict with
+assignments data from py:func:`.datasource.parse_assignment`.
+
+py:func:`.datasource.prepare_employee_data` can be used to construct this data
+structure from raw DFØ employee/assignment data.
+
+::
+
+    {
+        'id': <normalized employee id>,
+        '…': <normalized person fields…>,
+        'assignments': {
+            <assignment-id>: {<normalized assignment-data…>},
+            …
+        }
+    }
+
+
+Future changes
+--------------
+These mappers are curerntly not configurable.  We might want to implement:
+
+- An init for each individual mapper type with options, custom mappings.
+- Init + Config for the py:class:`.EmployeeMapper` to configure individual
+  mapper behavior.
+
+The alternative is to subclass and build custom mappers for custom behavior.
 """
 from __future__ import unicode_literals
 
 import re
 import collections
+import datetime
 import logging
 
-import six
-
-from Cerebrum.modules.hr_import import mapper as _base
-from Cerebrum.modules.hr_import.models import (HRPerson,
-                                               HRTitle,
-                                               HRAffiliation,
-                                               HRExternalID,
-                                               HRContactInfo)
+from Cerebrum.modules.hr_import.mapper import AbstractMapper, HrPerson
 from Cerebrum.modules.no.dfo import title_maps
-from Cerebrum.modules.no.dfo.datasource import assert_list, parse_dfo_date
-from Cerebrum.utils.phone import format as phone_number_format, \
-    parse as phone_number_parse, NumberParseException
+from Cerebrum.utils import phone as phone_utils
+from Cerebrum.utils.sorting import make_priority_lookup
+
 
 logger = logging.getLogger(__name__)
 
-IGNORE_FNR_REGEX = re.compile(r'.+00[012]00$')
-WORK_TITLE_NAME = re.compile(r'^\d+[-_ ](?P<name>.+)$')
 
-
-def parse_title_name(name):
-    """Parse name of title
-
-    Remove numbers from DFØ-SAP titles.
+class DfoPersonIds(object):
     """
-    match = re.match(WORK_TITLE_NAME, name)
+    Extract external ids from dfo employee data.
 
-    if not match:
-        logger.warning('Unexpected title format: %s', name)
-        return name
-
-    return match.group('name')
-
-
-def translate_keys(d, mapping):
+    >>> get_ids = DfoPersonIds()
+    >>> list(get_ids({
+    ...     'id': '01234567',
+    ...     'fnr': '17912099997',
+    ...     'annenId': [{'idType': '02', 'idLand': 'NO', 'idNr': '123'}]}))
+    [('DFO_PID', '01234567'),
+     ('NO_BIRTHNO', '17912099997'),
+     ('PASSNR', 'NO-123')]
     """
-    Filter and translate keys of a dict-like mapping.
 
-    :param d: A dict-like object to translate
-    :param mapping: A dict-like key translation table
+    # Ignore certain invalid (dummy) birthno/nin patterns
+    ignore_nin_pattern = re.compile(r'.+00[012]00$')
 
-    :rtype: dict
-    :returns: A modified copy of ``d``.
-
-    >>> translate_keys({'a': 1, 'b': 2, 'c': 3}, {'a': 'A', 'b': 'B'})
-    {'A': 1, 'B': 2}
-    """
-    return {mapping[k]: v for k, v in d.items() if k in mapping}
-
-
-def filter_elements(d):
-    """
-    Filter out empty keys and valies from a dict.
-
-    :param d: A dict-like object to filter
-
-    :rtype: dict
-    :returns: A modified copy of ``d``.
-
-    >>> filter_elements({'a': None, 'b': 0, 'c': False, '': 3, 'x': 'y'})
-    {'x': 'y'}
-    """
-    return {k: v for k, v in d.items() if k and v}
-
-
-def get_main_assignment(person_data, assignment_data):
-    """Extract data about a person's main assignment from ``assignment_data``
-
-    :param dict person_data: Person data from DFØ-SAP
-    :param dict assignment_data: Assignment data from DFØ-SAP
-    """
-    main_assignment_id = person_data.get('stillingId')
-    if not main_assignment_id:
+    def _normalize_nin(self, value):
+        """ Validate and normalize NIN. """
+        # NOTE: We may want to validate nin/fnr better (checksums etc...)
+        if value and not self.ignore_nin_pattern.match(value):
+            return value
         return None
-    return assignment_data[main_assignment_id]
+
+    def _normalize_passport(self, id_dict):
+        """ Validate and normalize a passport data structure. """
+        # NOTE: We may want to validate passport numbers better. Valid
+        # country code?  Check for non-empty values, digits?
+        issuer = id_dict['idLand'][:2]
+        passport = id_dict['idNr']
+        return '{}-{}'.format(issuer, passport)
+
+    def __call__(self, employee_data):
+        """
+        :param dict employee_data:
+            Normalized employee data.
+
+        :returns generator:
+            Valid Cerebrum (id_type, id_value) pairs
+        """
+        dfo_id = employee_data['id']
+        yield 'DFO_PID', dfo_id
+
+        nin = self._normalize_nin(employee_data.get('fnr'))
+        if nin:
+            yield 'NO_BIRTHNO', nin
+
+        for other_id in employee_data.get('annenId', []):
+            id_type = other_id.get('idType')
+
+            if id_type == '02':
+                # idType 02 is passport issuer and id
+                passport = self._normalize_passport(other_id)
+                if passport:
+                    yield 'PASSNR', passport
+                else:
+                    logger.warning('ignoring invalid annenId.idType=02 '
+                                   '(passport) data')
+                continue
+
+            logger.debug('ignoring unknown annenId.idType=%s', repr(id_type))
 
 
-def get_additional_assignment(person_data, assignment_id):
-    """Extract data about an additional assignment from ``person_data``
-
-    :type person_data: dict
-    :param person_data: Data from SAP
-    :type assignment_id: int
+class DfoContactInfo(object):
     """
-    # TODO: Is this really correct? Could an assignment with a given
-    # 'stillingId' occur multiple times with different time periods?
-    for assignment in assert_list(person_data.get('tilleggsstilling')):
-        if assignment['stillingId'] == assignment_id:
-            return assignment
-    return None
+    Extract contact info from dfo employee data.
 
+    >>> get_contacts = DfoContactInfo()
+    >>> list(get_contacts({
+    ...     'id': '01234567',
+    ...     'telefonnummer': '22 85 50 50'}))
+    [('PHONE', '+4722855050')]
+    """
 
-class MapperConfig(_base.MapperConfig):
-    pass
+    # employee_data key -> cerebrum contact_info_type
+    phone_key_map = collections.OrderedDict([
+        # ('tjenestetelefon', ?),
+        # ('privatTelefonnummer', ?),
+        ('telefonnummer', 'PHONE'),
+        ('mobilnummer', 'MOBILE'),
+        ('mobilPrivat', 'PRIVATEMOBILE'),
+        # ('privatTlfUtland', ?),
+    ])
 
-
-class EmployeeMapper(_base.AbstractMapper):
-    """A simple employee mapper class"""
-
-    ASSIGNMENT_RESIGNED_ID = 99999999
-
-    @classmethod
-    def parse_affiliations(cls, person_data, assignment_data, status_mapping):
-        """
-        Parse data from SAP and return affiliations
-
-        :rtype: set(HRAffiliation)
-        """
-        affiliations = set()
-        role_mapping = {
-            ('8', 50): ('ANSATT', 'bilag'),
-            ('9', 90): ('TILKNYTTET', 'ekst_partner'),
-            ('9', 91): ('TILKNYTTET', 'ekst_partner'),
-            ('9', 93): ('TILKNYTTET', 'emeritus'),
-            ('9', 94): ('TILKNYTTET', 'ekst_partner'),
-            ('9', 95): ('TILKNYTTET', 'gjesteforsker'),
-        }
-
-        # TODO:
-        #  Rewrite this once orgreg is ready.
-        for assignment_id, assignment in assignment_data.items():
-            if assignment_id == cls.ASSIGNMENT_RESIGNED_ID:
-                logger.info('ignoring assignment=%s, resigned',
-                            assignment_id)
-                continue
-
-            group = person_data.get('medarbeidergruppe')
-            sub_group = person_data.get('medarbeiderundergruppe')
-
+    def _normalize_phone(self, value):
+        """ parse and normalize a phone number. """
+        num = None
+        for region in (None, 'NO'):
             try:
-                stillingskat_id = assignment['category'][0]
-                affiliation = 'ANSATT'
-                status = status_mapping.get(stillingskat_id)
-            except IndexError:
-                stillingskat_id = status = None
-
-            is_main_assignment = assignment_id == person_data.get('stillingId')
-
-            if is_main_assignment:
-                precedence = (50, 50)
-                # TODO: should we look at the assignment['period']?
-                start_date = person_data['startdato']
-                end_date = person_data['sluttdato']
-
-                # If the person has one of the MG/MUG combinations present in
-                # role_mapping, then the main assignment should be handled as
-                # a special affiliation.
-                role = role_mapping.get((group, sub_group))
-                if role:
-                    affiliation, status = role
-
-                if not status:
-                    # extra log message for main aff (to log mg/mug)
-                    logger.warning('unknown main assignment=%s '
-                                   '(stillingskatId=%r, mg=%r, mug=%r)',
-                                   assignment_id, stillingskat_id, group,
-                                   sub_group)
-            else:
-                precedence = None
-                additional_assignment = get_additional_assignment(
-                    person_data,
-                    assignment_id
-                )
-                start_date = additional_assignment['startdato']
-                end_date = additional_assignment['sluttdato']
-
-            if not status:
-                logger.warning('ignoring assignment=%s, '
-                               'no matching aff (stillingskatId=%r)',
-                               assignment_id, stillingskat_id)
+                num = phone_utils.parse(value, region=region)
+                # TODO: Should *probably* call is_probable_number() here,
+                # to avoid some obviously invalid phone numbers.
+                #
+                # The `Cerebrum.utils.phone` module needs some work too, as we
+                # don't really have an abstraction for is_probable_number...
+                #
+                # Also, this _normalize_phone function should probably be
+                # implemented in `Cerebrum.utils.phone` directly -- it's pretty
+                # much the only thing we really need.
+                break
+            except phone_utils.NumberParseException:
                 continue
+        if num:
+            return phone_utils.format(num)
+        raise ValueError("Invalid phone number: " + repr(value))
 
-            ou_id = assignment.get('organisasjonId')
-            if ou_id is None:
-                logger.warning(
-                    'ignoring assignment=%s, missing organisasjonId',
-                    assignment_id)
+    def __call__(self, employee_data):
+        """
+        :param dict employee_data:
+            Normalized employee data
+
+        :returns generator:
+            Valid Cerebrum (contact_info_type, contact_info_value) pairs
+        """
+        dfo_id = employee_data['id']
+
+        # Phone numbers
+        for key, crb_type in self.phone_key_map.items():
+            value = employee_data.get(key)
+            if not value:
                 continue
-
-            affiliations.add(
-                HRAffiliation(**{
-                    'ou_id': format(ou_id, 'd'),
-                    'affiliation': affiliation,
-                    'status': status,
-                    'precedence': precedence,
-                    'start_date': start_date,
-                    'end_date': end_date
-                })
-            )
-
-        logger.info('mapped %d assignments to %d affiliations: %r',
-                    len(assignment_data), len(affiliations), affiliations)
-        return affiliations
-
-    @classmethod
-    def parse_contacts(cls, person_data):
-        """
-        Parse data from SAP and return contact information.
-
-        :type person_data: dict
-        :param person_data: Data from DFØ-SAP
-
-        :rtype: set(HRContactInfo)
-        """
-        # TODO: Do we have the correct mapping?
-        key_map = collections.OrderedDict([
-            # ('tjenestetelefon', 'PHONE'),
-            # ('privatTelefonnummer', ?),
-            ('telefonnummer', 'PHONE'),
-            ('mobilnummer', 'MOBILE'),
-            ('mobilPrivat', 'PRIVATEMOBILE'),
-            # ('privatTlfUtland', ?),
-        ])
-
-        numbers_to_add = filter_elements(translate_keys(person_data, key_map))
-        numbers_to_add = sorted(
-            [(k, v) for k, v in numbers_to_add.items()],
-            key=lambda (k, v): key_map.values().index(k))
-
-        normalized_numbers_to_add = []
-        for key, value in numbers_to_add:
             try:
-                numberojb = phone_number_parse(value)
-            except NumberParseException:
-                logger.info('Phone number %s is not on the E.164 format.'
-                            ' Trying again with +47', value)
-                try:
-                    numberojb = phone_number_parse(value, region='NO')
-                except NumberParseException:
-                    logger.info('Phone number not on the E.164 format.'
-                                ' Skipping phone number %s ', value)
-                    continue
-            logger.info('Found valid E.164 phone number: %s',
-                        phone_number_format(numberojb))
-            normalized_numbers_to_add.append((key,
-                                              phone_number_format(numberojb)))
+                phone = self._normalize_phone(value)
+                yield crb_type, phone
+            except ValueError:
+                logger.warning("invalid %s for id=%s", key, dfo_id)
 
-        numbers = set()
-        for pref, (key, value) in enumerate(normalized_numbers_to_add):
-            numbers.add(HRContactInfo(contact_type=key,
-                                      contact_pref=pref,
-                                      contact_value=value))
-        logger.info('found %d contacts: %r', len(numbers), numbers)
-        return numbers
+        # We don't have any other contact info types yet, but we should repeat
+        # this for email-addresses, websites, ...
 
-    @classmethod
-    def parse_external_ids(cls, person_id, person_data):
-        """
-        Parse data from DFØ-SAP and return external ids (i.e. passnr).
 
-        :rtype: set(HRExternalID)
-        """
-        external_ids = set()
-        external_ids.add(
-            HRExternalID(id_type='DFO_PID',
-                         external_id=six.text_type(person_id))
-        )
+class DfoTitles(object):
+    """
+    Extract and map potential employee titles from dfo employee data.
 
-        # TODO:
-        #  Also handle "eksternIdent", "brukerident" and "dfoBrukerident"?
-        fnr = person_data.get('fnr')
-        if fnr:
-            fnr_str = str(fnr)
-            if re.search(IGNORE_FNR_REGEX, fnr_str):
-                logger.info('Invalid FNR: %s, ignoring..', fnr_str)
-            else:
-                external_ids.add(
-                    HRExternalID(id_type='NO_BIRTHNO',
-                                 external_id=fnr_str)
-                )
+    Extracts employee title (tittel) and main assignment title
+    (stillingstittel), then translates these using the py:mod:`.title_maps`
+    module.
 
-        dfo_2_cerebrum = {
-            '02': (
-                'PASSNR',
-                (lambda d: '{}-{}'.format(d['idLand'][:2], d['idNr'])),
-            ),
-            # TODO: Are there other id-types?
-        }
+    NOTE: The title mapping module is hard-coded to use the titles specified in
+    a ``user_title_map`` module - usually placed adjacent to ``cereconf``.
 
-        for external_id in assert_list(person_data.get('annenId')):
-            if external_id['idType'] not in dfo_2_cerebrum:
-                continue
-            id_type, id_format = dfo_2_cerebrum[external_id['idType']]
-            try:
-                id_value = id_format(external_id)
-            except KeyError as e:
-                # this seems to happen when e.g. a passport number is removed;
-                # the annenId object (idType and idLand) remains, but the
-                # *value* (idNr) is removed
-                logger.warning('missing value in annenId type=%s: %s',
-                               external_id['idType'], e)
-                continue
-            external_ids.add(HRExternalID(id_type=id_type,
-                                          external_id=id_value))
-        logger.info('found %d ids: %r',
-                    len(external_ids), external_ids)
-        return external_ids
+    >>> get_titles = DfoTitles()
+    >>> list(get_titles({
+    ...     'id': '01234567',
+    ...     'tittel': 'Fung.fak.dir',
+    ...     'stillingId': '123',
+    ...     'assignments': {'123': {'stillingstittel': '0214 R'}}}))
+    [("PERSONALTITLE", "nb", "Fungerende fakultetsdirektør"),
+     ("PERSONALTITLE", "en", "Acting Faculty Director"),
+     ("WORKTITLE", "nb", "Rektor"),
+     ("WORKTITLE", "en", "Rector")]
+    """
 
-    @classmethod
-    def parse_titles(cls, person_data, main_assignment):
-        """
-        Parse data from DFØ-SAP and return person titles.
-
-        :rtype: set(HRTitle)
-        """
-        titles = set()
+    def __call__(self, employee_data):
+        main_id = employee_data['stillingId']
+        assignment = employee_data['assignments'].get(main_id)
 
         input_titles = (
-            ('PERSONALTITLE', person_data.get('tittel'),
+            ('PERSONALTITLE', employee_data.get('tittel'),
              title_maps.personal_titles),
-            ('WORKTITLE', (main_assignment or {}).get('stillingstittel'),
+            ('WORKTITLE', (assignment or {}).get('stillingstittel'),
              title_maps.job_titles),
         )
-
         for variant, raw_value, t_map in input_titles:
             if not raw_value:
                 continue
 
             localized = t_map.get(raw_value, {})
-
             if localized:
                 for lang, value in localized.items():
-                    titles.add(HRTitle(name_variant=variant,
-                                       name_language=lang, name=value))
+                    yield (variant, lang, value)
             else:
                 logger.warning('no translation for %s title %s',
                                variant, repr(raw_value))
-        return titles
+
+
+class DfoAffiliations(object):
+    """ Extract potential affiliations from dfo employee data.
+
+    We map *all* assignments to a potential affiliation (if any -- invalid or
+    unknown assignments are skipped).
+
+    We say potential, as the assignment may not be valid at the current date,
+    and the affiliated org unit may not be known.  It will be up to the import
+    routine to decide if any of the resulting affiliations can be used.
+
+    Note that this particular function *must* receive output from the employee
+    dataparser, as it needs *both* employee info, *and* additional info on each
+    assignment present on the employee object.
+    """
+
+    # A sequence of invalid assignment IDs.
+    #
+    # Any assignment with any of these IDs will simply be dropped, and not
+    # considered further.
+    IGNORE_ASSIGNMENT_IDS = (99999999,)
+
+    # Employee group/subgroup to affiliation map.
+    #
+    # Employees are placed in groups (medarbeidergruppe, MG) and subgroups
+    # (medarbeiderundergruppe, MUG).  If placed in any of the following
+    # group/subgroup pairs, we should not consider the main assignment
+    # category, but rather map to specific non-employee affiliations.
+    EMPLOYEE_GROUP_MAP = {
+        (8, 50): 'ANSATT/bilag',
+        (9, 90): 'TILKNYTTET/ekst_partner',
+        (9, 91): 'TILKNYTTET/ekst_partner',
+        (9, 93): 'TILKNYTTET/emeritus',
+        (9, 94): 'TILKNYTTET/ekst_partner',
+        (9, 95): 'TILKNYTTET/gjesteforsker',
+    }
+
+    # Assignment category map
+    #
+    # Any assignment category in this map should map directly to a specific
+    # employee affiliation.
+    #
+    # TODO: Do this *really* need to be configurable?  Or should we rather
+    # implement subclasses with the proper categories?
+    ASSIGNMENT_CATEGORY_MAP = {
+        # Administrativt personale:
+        50078118: "ANSATT/tekadm",
+
+        # Drifts- og teknisk pers./andre tilsatte
+        50078119: "ANSATT/tekadm",
+
+        # Undervisnings- og forsknings personale
+        50078120: "ANSATT/vitenskapelig",
+    }
+
+    @classmethod
+    def _get_category_aff(cls, assignment):
+        """
+        Find a suitable category from assignment data.
+
+        :type assignment: dict
+        :param assignment: an assignment dict
+        """
+        # Do we need to consider assignment category start/end dates? And if
+        # so, should grace/offsets be applied?  What does these dates even
+        # mean?
+        for category in assignment['stillingskat']:
+            if category['stillingskatId'] in cls.ASSIGNMENT_CATEGORY_MAP:
+                return cls.ASSIGNMENT_CATEGORY_MAP[category['stillingskatId']]
+        return None
+
+    def __call__(self, employee_data):
+        """
+        :param dict employee_data:
+            Normalized employee + assignment data
+
+        :returns generator:
+            Valid Cerebrum (contact_info_type, contact_info_value) pairs
+        """
+        main_id = employee_data['stillingId']
+        main_group = employee_data.get('medarbeidergruppe')
+        main_subgroup = employee_data.get('medarbeiderundergruppe')
+        main_start = employee_data['startdato']
+        main_end = employee_data['sluttdato']
+
+        # Let's deal with the main assignment first
+        sort_by_main = make_priority_lookup((main_id,))
+        assignment_ids = sorted(employee_data['assignments'], key=sort_by_main)
+
+        for assignment_id in assignment_ids:
+            if assignment_id in self.IGNORE_ASSIGNMENT_IDS:
+                logger.info('skipping ignored assignment-id=%s', assignment_id)
+                continue
+
+            assignment = employee_data['assignments'][assignment_id]
+
+            # Affiliation from category - "regular emplyee affs"
+            aff = self._get_category_aff(assignment)
+
+            if assignment_id == main_id:
+                # TODO: should we look at the assignment['period']?
+                start_date, end_date = main_start, main_end
+
+                # If the person has one of the MG/MUG combinations present in
+                # role mapping, then the main assignment should be handled as
+                # a special affiliation.
+                if (main_group, main_subgroup) in self.EMPLOYEE_GROUP_MAP:
+                    aff = self.EMPLOYEE_GROUP_MAP[(main_group, main_subgroup)]
+                elif not aff:
+                    # If this happens it's probably because the assignment
+                    # doesn't yet have a valid category.  There's really
+                    # nothing we can do at this point though - we don't know
+                    # which affiliation to assign to the employee.
+                    logger.warning(
+                        "Unknown main assignment: id=%r, mg=%r, mug=%r",
+                        assignment_id, main_group, main_subgroup)
+                    continue
+
+            else:
+                start_date = assignment['startdato']
+                end_date = assignment['sluttdato']
+
+                if not aff:
+                    # Same as for main assignment above - no valid
+                    # stillingskat.stillingskatId.
+                    logger.warning("Unknown secondary assignment: id=%r",
+                                   assignment_id)
+                    continue
+
+            if not aff:
+                # We've should have covered all bases here, but let's make
+                # entirely sure.
+                raise RuntimeError("no aff set - this shouldn't happen")
+
+            if not assignment.get('organisasjonId'):
+                logger.warning("Missing location for assignment: "
+                               "id=%r, aff=%r", assignment_id, aff)
+                continue
+
+            ou_ids = [
+                ('DFO_OU_ID', assignment['organisasjonId']),
+            ]
+
+            yield (aff, ou_ids, start_date, end_date)
+
+
+class EmployeeMapper(AbstractMapper):
+    """A simple employee mapper class"""
+
+    get_contact_info = DfoContactInfo()
+    get_person_ids = DfoPersonIds()
+    get_affiliations = DfoAffiliations()
+    get_titles = DfoTitles()
 
     @staticmethod
-    def create_hr_person(obj):
-        person_id = obj['id']
-        person_data = obj['employee']
+    def get_names(employee_data):
+        """
+        Get names for a given person.
 
-        return HRPerson(
-            hr_id=person_id,
-            first_name=person_data.get('fornavn'),
-            last_name=person_data.get('etternavn'),
-            birth_date=parse_dfo_date(person_data.get('fdato'),
-                                      allow_empty=True),
-            gender=person_data.get('kjonn'),
-            enable=person_data.get('eksternbruker', True),
+        :returns generator:
+            Valid Cerebrum (name_type, name_value) pairs
+        """
+        fn = employee_data.get('fornavn', '')
+        ln = employee_data.get('etternavn', '')
+        if fn:
+            yield ('FIRST', fn)
+        if ln:
+            yield ('LAST', ln)
+
+    @staticmethod
+    def get_gender(employee_data):
+        """
+        Get names of a given person.
+
+        :returns str:
+            "M", "F", or "X" if missing/unknown gender value.
+        """
+        gender = employee_data.get('kjonn')
+        if gender in ('M', 'F'):
+            return gender
+        logger.debug('unknown gender for id=%r: %r',
+                     employee_data['id'], gender)
+        return 'X'
+
+    def translate(self, reference, employee_data):
+
+        person = HrPerson(
+            hr_id=employee_data['id'],
+            birth_date=employee_data['fdato'],
+            gender=self.get_gender(employee_data),
+            # eksternbruker=False -> shouldn't get a user account, i.e. we
+            # don't need any information in Cerebrum.
+            # Note: This is a dangerous field - if misinterpreted, all employee
+            # roles could be removed.
+            enable=employee_data.get('eksternbruker', True),
         )
 
-    def update_hr_person(self, hr_person, obj):
-        person_data = obj['employee']
-        assignment_data = obj['assignments']
+        if employee_data['startdato']:
+            person.start_date = employee_data['startdato']
+        else:
+            logger.debug("no startdate registered for %s", person.hr_id)
 
-        try:
-            hr_person.startdate = person_data['startdato']
-        except KeyError:
-            logger.debug("no startdate registered for %s", hr_person.hr_id)
+        person.ids.extend(self.get_person_ids(employee_data))
+        person.contacts.extend(self.get_contact_info(employee_data))
+        person.names.extend(self.get_names(employee_data))
+        person.titles.extend(self.get_titles(employee_data))
+        person.affiliations.extend(self.get_affiliations(employee_data))
 
-        main_assignment = get_main_assignment(person_data, assignment_data)
-        hr_person.external_ids = self.parse_external_ids(hr_person.hr_id,
-                                                         person_data)
-        hr_person.contact_infos = self.parse_contacts(person_data)
-        hr_person.titles = self.parse_titles(person_data, main_assignment)
-        hr_person.affiliations = self.parse_affiliations(person_data,
-                                                         assignment_data,
-                                                         self.status_mapping)
+        return person
 
-    def translate(self, reference, obj, db_object):
-        """
-        Populate a HRPerson object with data fetched from SAP
+    def get_active_affiliations(self, hr_object, _today=None):
+        today = _today or datetime.date.today()
 
-        :type reference: str
-        :type obj: RemoteObject
-        :rtype: HRPerson
-        """
-        hr_person = self.create_hr_person(obj)
-        self.update_hr_person(hr_person, obj)
-        return hr_person
+        def _add_delta(dt, d):
+            # Add a timedelta, but ignore out of bounds results.  This is a bit
+            # hacky, but OverflowError means the result is so far into the past
+            # or the future that any offset we're adding isn't really relevant.
+            try:
+                return dt + d
+            except OverflowError:
+                return dt
 
-    def is_active(self, hr_object, is_active=None):
+        # TODO: What if we have *two* different ANSATT/<some-ou> affs from this
+        # function?  We should probably define some ordering and exclude
+        # "duplicated" aff-statuses by some criteria, e.g.:
+        #
+        # - keep whichever aff/status with the earliest start-date?
+        # - define some sort of status priority list, so that e.g.
+        #   ANSATT/vitenskapelig always trumps ANSATT/tekadm?
+        #
+        # Currently, if both ANSATT/vitenskapelig@x and ANSATT/tekadm@x is
+        # passed to the AffiliationSync, the first one listed will be
+        # INSERTed/UPDATEed, and the second will UPDATE the first with a new
+        # status.
+        #
+        # This is also probably behaviour that should be implemented in the
+        # *importer*?
+
+        for aff, ou, start_date, end_date in hr_object.affiliations:
+            if start_date:
+                start_limit = _add_delta(start_date, self.start_offset)
+                if today < start_limit:
+                    continue
+
+            if end_date:
+                end_limit = _add_delta(end_date, self.end_offset)
+                if today > end_limit:
+                    continue
+
+            yield aff, ou
+
+    def is_active(self, hr_object):
         if not hr_object.enable:
-            logger.info('hr object disabled')
             return False
-        return hr_object.has_active_affiliations(start_grace=self.start_grace,
-                                                 end_grace=self.end_grace)
+
+        return any(self.get_active_affiliations(hr_object))

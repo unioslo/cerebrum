@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2020 University of Oslo, Norway
+# Copyright 2020-2022 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -30,12 +30,14 @@ from __future__ import unicode_literals
 import logging
 
 import requests
+import six
 from six.moves.urllib.parse import (
     quote_plus,
     urlparse,
     urljoin as _urljoin,
 )
 
+from Cerebrum.config import loader
 from Cerebrum.config.configuration import (Configuration,
                                            ConfigDescriptor,
                                            Namespace)
@@ -172,6 +174,15 @@ class SapClient(object):
         else:
             self.session = requests
 
+    def _is_api_response(self, response):
+        """
+        Check if response is actually from the DFØ API, and not a proxy.
+
+        This is typically needed for non-2xx responses that carry special
+        meaning in the API.
+        """
+        return "SAP" in response.headers.get('server', '')
+
     def call(self,
              method_name,
              url,
@@ -211,7 +222,7 @@ class SapClient(object):
         url = self.urls.get_employee(employee_id)
         headers = merge_dicts(self.headers, self.api_headers['employee'])
         response = self.get(url, headers=headers)
-        if "SAP" not in response.headers.get('server',''):
+        if not self._is_api_response(response):
             response.raise_for_status()
         if response.status_code == 404:
             return None
@@ -279,6 +290,11 @@ class SapClientConfig(Configuration):
 
 def get_client(config):
     """Get a SapClient from configuration"""
+    if isinstance(config, dict):
+        config = SapClientConfig(config)
+    elif isinstance(config, six.string_types):
+        config = SapClientConfig(loader.read_config(config))
+
     api_key_header = 'X-Gravitee-Api-Key'
 
     kwargs = {
