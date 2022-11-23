@@ -93,8 +93,14 @@ class DfoPersonIds(object):
 
     def _normalize_passport(self, id_dict):
         """ Validate and normalize a passport data structure. """
+        if not id_dict.get('idLand'):
+            logger.debug('invalid annenId.idType=02 (passport) - no idLand')
+            return None
+        if not id_dict.get('idNr'):
+            logger.debug('invalid annenId.idType=02 (passport) - no idNr')
+            return None
         # NOTE: We may want to validate passport numbers better. Valid
-        # country code?  Check for non-empty values, digits?
+        # country code? Valid travel id/passport number?
         issuer = id_dict['idLand'][:2]
         passport = id_dict['idNr']
         return '{}-{}'.format(issuer, passport)
