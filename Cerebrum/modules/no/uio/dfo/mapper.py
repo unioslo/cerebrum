@@ -30,8 +30,8 @@ logger = logging.getLogger(__name__)
 
 
 def get_main_assignment(employee_data):
-    main_id = employee_data['stillingId']
-    assignments = employee_data['assignments']
+    main_id = employee_data.get('stillingId')
+    assignments = employee_data.get('assignments') or {}
     return assignments.get(main_id)
 
 
