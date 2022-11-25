@@ -216,7 +216,6 @@ sbin_files = [
     ('consumers/consume-callback.py', 0755),
     ('consumers/consume-tasks.py', 0755),
     ('consumers/no/consumer_affiliations.py', 0755),
-    ('consumers/no/uio/consumer_sap.py', 0755),
     ('consumers/no/uio/consumer_enforce_forward_policy.py', 0755)
 ]
 
