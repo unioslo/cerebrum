@@ -46,7 +46,6 @@ import re
 import six
 
 from Cerebrum.Utils import Factory
-from Cerebrum.modules import Email
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
 from Cerebrum.modules.bofhd.bofhd_core_help import get_help_strings
@@ -56,6 +55,7 @@ from Cerebrum.modules.bofhd.cmd_param import (Command, FormatSuggestion,
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.help import merge_help_strings
 from Cerebrum.modules.bofhd.utils import BofhdUtils
+from Cerebrum.utils.email import legacy_validate_lp, legacy_validate_domain
 
 
 logger = logging.getLogger(__name__)
@@ -287,21 +287,17 @@ class BofhdContactCommands(BofhdCommandBase):
 
         # validate email
         if contact_type == self.const.contact_email:
-            # validate localpart and extract domain.
+            # validate localpart and extract domain
             if contact_value.count('@') != 1:
                 raise CerebrumError("Email address (%r) must be on form"
                                     "<localpart>@<domain>" % contact_value)
             localpart, domain = contact_value.split('@')
             domain = domain.lower()    # normalize domain-part
-            ea = Email.EmailAddress(self.db)
-            ed = Email.EmailDomain(self.db)
             try:
-                if not ea.validate_localpart(localpart):
-                    raise AttributeError('Invalid local part')
-                ed._validate_domain_name(domain)
-                #  If checks are okay, reassemble email with normalised domain
+                legacy_validate_lp(localpart)
+                legacy_validate_domain(domain)
                 contact_value = localpart + "@" + domain
-            except AttributeError as e:
+            except ValueError as e:
                 raise CerebrumError(e)
 
         # validate phone numbers

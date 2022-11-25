@@ -101,6 +101,66 @@ def is_email(address):
     return bool(re.match(pattern, address))
 
 
+def legacy_validate_lp(localpart):
+    """
+    Check if string is valid for use as localpart in an email address.
+
+    This is a subset (simplification) of RFC 2821 syntax, so e.g. quotes
+    (neither quotation marks nor backslash) or comments (in parentheses) are
+    not allowed.
+
+    Legacy function from Cerebrum.modules.Email.
+    """
+    # 64 characters should be enough for everybody.
+    # (RFC 2821 4.5.3.1)
+    if len(localpart) > 64:
+        raise ValueError("localpart too long: %d (max: 64)"
+                         % len(localpart))
+    # Only allow US-ASCII, and no SPC or DEL either.
+    invalid = re.findall(r'[^!-~]', localpart)
+    if invalid:
+        raise ValueError("invalid chars in localpart: " + repr(set(invalid)))
+    # No empty atoms
+    if localpart.count(".."):
+        raise ValueError("invalid atom in localpart (..)")
+    # No "specials" (RFC 2822 3.2.1)
+    specials = re.findall(r'[()<>[]:;@\\,]', localpart)
+    if specials:
+        raise ValueError("invalid chars in localpart: " + repr(set(specials)))
+
+
+def legacy_validate_domain(domain):
+    """
+    Check if string is valid for use as domain in an email address.
+
+    Legacy function from Cerebrum.modules.Email.
+    """
+    uber_hyphen = re.compile(r'--+')
+    valid_chars = re.compile(r'^[a-zA-Z\-0-9]+$')
+
+    # TODO/TDB: Doesn't check for:
+    # # 1. Blank domain - we should probably:
+    # if not domain or not domain.strip():
+    #     raise ValueError("Illegal name: %s; Empty value" % repr(domain))
+    # # 2. Empty/blank elements/labels - we should probably:
+    # if domain.startswith('.') or '..' in domain:
+    #     # domain *can* end with a single '.'
+    #     raise ValueError("Illegal name: %s; Element cannot be empty"
+    #                      % repr(domain))
+
+    for element in domain.split("."):
+        if element.startswith("-") or element.endswith("-"):
+            raise ValueError("Illegal name: %s;"
+                             " Element cannot start or end with '-'"
+                             % repr(domain))
+        if uber_hyphen.search(element):
+            raise ValueError("Illegal name: %s; More than one '-' in a row"
+                             % repr(domain))
+        if not valid_chars.search(element):
+            raise ValueError("Illegal name: %s; Invalid character(s)"
+                             % repr(domain))
+
+
 def get_charset(message, default='ascii'):
     """
     :type message: email.message.Message
