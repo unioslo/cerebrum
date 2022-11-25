@@ -228,8 +228,9 @@ class DfoTitles(object):
     """
 
     def __call__(self, employee_data):
-        main_id = employee_data['stillingId']
-        assignment = employee_data['assignments'].get(main_id)
+        main_id = employee_data.get('stillingId')
+        assignments = employee_data.get('assignments') or {}
+        assignment = assignments.get(main_id)
 
         input_titles = (
             ('PERSONALTITLE', employee_data.get('tittel'),
@@ -328,22 +329,23 @@ class DfoAffiliations(object):
         :returns generator:
             Valid Cerebrum (contact_info_type, contact_info_value) pairs
         """
-        main_id = employee_data['stillingId']
+        main_id = employee_data.get('stillingId')
         main_group = employee_data.get('medarbeidergruppe')
         main_subgroup = employee_data.get('medarbeiderundergruppe')
-        main_start = employee_data['startdato']
-        main_end = employee_data['sluttdato']
+        main_start = employee_data.get('startdato')
+        main_end = employee_data.get('sluttdato')
+        assignments = employee_data.get('assignments') or []
 
         # Let's deal with the main assignment first
         sort_by_main = make_priority_lookup((main_id,))
-        assignment_ids = sorted(employee_data['assignments'], key=sort_by_main)
+        assignment_ids = sorted(assignments, key=sort_by_main)
 
         for assignment_id in assignment_ids:
             if assignment_id in self.IGNORE_ASSIGNMENT_IDS:
                 logger.info('skipping ignored assignment-id=%s', assignment_id)
                 continue
 
-            assignment = employee_data['assignments'][assignment_id]
+            assignment = assignments[assignment_id]
 
             # Affiliation from category - "regular emplyee affs"
             aff = self._get_category_aff(assignment)
@@ -442,7 +444,7 @@ class EmployeeMapper(AbstractMapper):
 
         person = HrPerson(
             hr_id=employee_data['id'],
-            birth_date=employee_data['fdato'],
+            birth_date=employee_data.get('fdato'),
             gender=self.get_gender(employee_data),
             # eksternbruker=False -> shouldn't get a user account, i.e. we
             # don't need any information in Cerebrum.
@@ -451,7 +453,7 @@ class EmployeeMapper(AbstractMapper):
             enable=employee_data.get('eksternbruker', True),
         )
 
-        if employee_data['startdato']:
+        if employee_data.get('startdato'):
             person.start_date = employee_data['startdato']
         else:
             logger.debug("no startdate registered for %s", person.hr_id)
