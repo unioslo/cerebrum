@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2002-2019 University of Oslo, Norway
+# Copyright 2002-2022 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -374,7 +374,6 @@ setup(
         'Cerebrum/auth',
         'Cerebrum/export',
         'Cerebrum/extlib',
-        'Cerebrum/extlib/Plex',
         'Cerebrum/group',
         'Cerebrum/logutils',
         'Cerebrum/logutils/mp',

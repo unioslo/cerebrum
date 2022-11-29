@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2002-2021 University of Oslo, Norway
+# Copyright 2002-2022 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -33,12 +33,6 @@ Bundled and/or modified third party modules.
 
     - ``Cerebrum.modules.abcenterprise.Object2Cerebrum``
     - ``Cerebrum.modules.abcenterprise.ABCUtils``
-
-``Plex``
-    Somewhat modified copy of the generic lexer framework *Plex v1.1.5*, used
-    for parsing, modifying and validating SQL queries.  Used in
-    ``Cerebrum.database.translate`` and ``Cerebrum.database.lexer_plex``.  This
-    module is deprecated, and has already been replaced with *sqlparse*.
 
 ``records``
     This module contains the row objects from *records v0.5.3*.  Introduced to
