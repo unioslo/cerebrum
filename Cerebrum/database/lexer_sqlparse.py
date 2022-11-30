@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2020 University of Oslo, Norway
+# Copyright 2020-2022 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,6 +18,24 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
 Implementation of a sqlparse filter stack that translates Cerebrum statements.
+
+This module is used to:
+
+- Count/separate statements (can be used to prevent sql injection)
+- Translate Cerebrum macros (e.g. ``[:table ...]``, ``[:now]``, ...)
+- Translate paramformat from 'named' to whatever the database driver uses.
+
+History
+-------
+`_translate` was extracted from ``Cerebrum.database.Cursor._translate``, and
+moved into a ``Cerebrum.database.lexer_plex`` module.  This is the original
+lexer based around the third party lexer module ``Plex``.
+
+The refactor was done to accommodate other lexers than Cursor._translate,
+(i.e.  this module).  The original translate function can be seen in:
+
+    Commit: f8d149dbb21cdbf10724b60b6d1c613ebc951b5f
+    Date:   Tue Feb 11 11:42:09 2020 +0100
 """
 from __future__ import print_function, unicode_literals
 

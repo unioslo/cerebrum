@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2020 University of Oslo, Norway
+# Copyright 2020-2022 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -26,16 +26,10 @@ translating macros and paramstyle.
 from __future__ import print_function
 
 import logging
-import os
 import six
 
 from Cerebrum import Cache
-
-# TODO: Remove feature toggle for selecting translate() implementation.
-if os.environ.get('CEREBRUM_SQL_LEXER', '').lower() == 'plex':
-    from .lexer_plex import _translate
-else:
-    from .lexer_sqlparse import _translate
+from .lexer_sqlparse import _translate
 
 logger = logging.getLogger(__name__)
 
