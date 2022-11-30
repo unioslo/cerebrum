@@ -20,7 +20,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
 The groups it-uio-ms365-student, it-uio-ms365-ansatt, it-uio-ms365-betalende,
-and it-uio-ms365-andre  determine lisences in AzureAD. AzureAD cannot handle
+and it-uio-ms365-andre determine licences in AzureAD. AzureAD cannot handle
 cases where users are members of more than one of these groups at a time.
 
 This script updates memberships in these groups, and ensures orthogonality
@@ -38,15 +38,42 @@ from Cerebrum.utils.argutils import add_commit_args
 logger = logging.getLogger(__name__)
 
 
+def is_quarantined(db, entity_id):
+    """
+    Return whether an account, or a Person's primary account,
+    is quarantined or not.
+    """
+    co = Factory.get('Constants')(db)
+    en = Factory.get('Entity')(db)
+    ac = Factory.get('Account')(db)
+
+    en.find(entity_id)
+
+    if en.entity_type == co.entity_account:
+        ac.find(entity_id)
+    elif en.entity_type == co.entity_person:
+        pe = Factory.get('Person')(db)
+        pe.find(entity_id)
+        try:
+            ac.find(pe.get_primary_account())
+        except Cerebrum.Errors.NotFoundError:
+            return False
+    else:
+        return False
+
+    return bool(ac.get_entity_quarantine(only_active=True))
+
+
 def get_members(db, group_name, indirect_members=False,
-                filter_expired=True, filter_groups=False):
+                filter_expired=True, filter_groups=False,
+                filter_quarantined=False):
     """ Return, as a set, the member_ids of a given group """
     co = Factory.get('Constants')(db)
     gr = Factory.get('Group')(db)
     gr.find_by_name(group_name)
     if filter_groups:
         mems = {
-            m["member_id"]
+            m['member_id']
             for m in gr.search_members(group_id=gr.entity_id,
                                        indirect_members=indirect_members,
                                        member_filter_expired=filter_expired)
@@ -54,19 +81,20 @@ def get_members(db, group_name, indirect_members=False,
         }
     else:
         mems = {
-            m["member_id"]
+            m['member_id']
             for m in gr.search_members(group_id=gr.entity_id,
                                        indirect_members=indirect_members,
                                        member_filter_expired=filter_expired)
         }
-    gr.clear()
+    if filter_quarantined:
+        mems -= { m for m in mems if is_quarantined(db, m) }
 
     return mems
 
 
 def get_persons(db, members):
     """
-    If any of the entity_ids of members belongs to account objects, replace it
+    If any of the entity_ids of members belong to account objects, replace it
     in the output with the owner_id of this account.
     """
     ac = Factory.get('Account')(db)
@@ -87,7 +115,8 @@ def get_persons(db, members):
     return owners
 
 
-def sync_group(db, target_group, include_groups=None, exclude_groups=None):
+def sync_group(db, target_group, include_groups=None, exclude_groups=None,
+               exclude_quarantined=False):
     """
     Update members of target group, based on membership in other groups.
 
@@ -95,8 +124,10 @@ def sync_group(db, target_group, include_groups=None, exclude_groups=None):
     :param str target_group: Target group.
     :param list include_groups: Members from these groups are added to
     target group.
-    :param list exclude groups: Members from these groups are not added
+    :param list exclude_groups: Members from these groups are not added to
     target group, even if members of include_groups.
+    :param list exclude_quarantined: Members with quarantines are not added
+    to target group, even if members of include_groups.
     """
     logger.info("Syncing group %s", target_group)
 
@@ -107,7 +138,8 @@ def sync_group(db, target_group, include_groups=None, exclude_groups=None):
         for include_group in include_groups:
             include_group_members.update(get_members(db, include_group,
                                                      indirect_members=True,
-                                                     filter_groups=True))
+                                                     filter_groups=True,
+                                                     filter_quarantined=exclude_quarantined))
         logger.debug("Found %s members of %s", len(include_group_members),
                     include_groups)
 
@@ -167,13 +199,21 @@ def main():
     sync_group(db, "it-uio-ms365-andre",
                include_groups=["meta-ansatt-bilag-900000",
                                "meta-tilknyttet-900000"],
+               exclude_quarantined=True,
                exclude_groups=["it-uio-ms365-betalende-utflatet",
                                "it-uio-ms365-student",
                                "it-uio-ms365-ansatt"])
+    sync_group(db, "it-uio-ms365-quarantine",
+               include_groups=["meta-ansatt-bilag-900000",
+                               "meta-tilknyttet-900000"],
+               exclude_groups=["it-uio-ms365-betalende-utflatet",
+                               "it-uio-ms365-student",
+                               "it-uio-ms365-ansatt",
+                               "it-uio-ms365-andre"])
 
     if args.commit:
         db.commit()
-        logger.info("Commited changes")
+        logger.info("Committed changes")
     else:
         db.rollback()
         logger.info("Dryrun mode, rolling back changes")
