@@ -365,6 +365,65 @@ class AffiliationSync(_SourceSystemSync):
         return (to_add, to_update, to_remove)
 
 
+class AddressSync(_KeyValueSync):
+    """
+    Callable to update address info for an entity.
+
+    Similar to other key/value syncs, like ContactInfoSync, but note that the
+    *value* is a dict-like object with entity_address columns (and valid
+    arguments for ``EntityAddress.add_entity_address()``).
+    """
+
+    name = 'address'
+    type_cls = Constants._AddressCode
+
+    def __normalize_addr(self, addr_dict):
+        """ Normalize an address dict.
+
+        Since address dicts are un-hashable, we need to make them into a
+        tuple, for comparing in sets.
+        """
+        country = addr_dict.get('country') or None
+        if country:
+            country = self.const.get_constant(self.const._CountryCode,
+                                              country)
+        return (
+            ('address_text', addr_dict.get('address_text')),
+            ('p_o_box', addr_dict.get('p_o_box')),
+            ('postal_number', addr_dict.get('postal_number')),
+            ('city', addr_dict.get('city')),
+            ('country', country),
+        )
+
+    def __call__(self, entity, pairs):
+        # normalize values
+        pairs = tuple(
+            (addr_type, self.__normalize_addr(addr_value))
+            for addr_type, addr_value in pairs
+        )
+        return super(AddressSync, self).__call__(entity, pairs)
+
+    def fetch_current(self, entity):
+        for row in entity.get_entity_address(source=self.source_system):
+            addr_t = self.__normalize_addr(dict(row))
+            yield (row['address_type'], addr_t)
+
+    def apply_changes(self, entity, values, to_add, to_update, to_remove):
+        changes = (to_add | to_remove | to_update)
+        if not changes:
+            return
+
+        for address_type in (to_remove | to_update):
+            entity.delete_entity_address(source_type=self.source_system,
+                                         a_type=address_type)
+
+        for address_type in (to_update | to_add):
+            addr_info = dict(values[address_type])
+            entity.add_entity_address(source=self.source_system,
+                                      type=address_type,
+                                      **addr_info)
+
+
 class NameLanguageSync(_BaseSync):
     """
     Callable to update localized names for an entity.
