@@ -439,7 +439,7 @@ class EmployeeDatasource(AbstractDatasource):
         employee_id = reference
         employee = self._get_employee(employee_id)
         if not employee:
-            return {'id': employee_id}
+            return {'id': normalize_id(employee_id)}
 
         assignment_ids = set(get_assignment_ids(employee))
         assignments = employee['assignments'] = {}
