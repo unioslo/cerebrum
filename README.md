@@ -9,7 +9,6 @@ Requirements
 * Python 2.7
 * PostgreSQL Database
 
-
 Dependencies
 -------------
 
@@ -22,8 +21,7 @@ Dependencies
 * mx (egenix-mx-base) (yum install python-egenix-mx-base / pip install egenix-mx-base)
 * ssl (backport)
 
-Optional dependencies
-^^^^^^^^^^^^^^^^^^^^^
+### Optional dependencies
 
 Some dependencies are optional, depending on what features you want to use:
 
@@ -35,10 +33,10 @@ Some dependencies are optional, depending on what features you want to use:
 Mailing lists
 -------------
 
-* `cerebrum-commits@usit.uio.no` - all commit logs
-* `cerebrum-developers@usit.uio.no` - the Cerebrum developers
+* [`cerebrum-commits@usit.uio.no`](https://sympa.uio.no/usit.uio.no/info/cerebrum-commits) - all commit logs
+* [`cerebrum-developers@usit.uio.no`](https://sympa.uio.no/usit.uio.no/info/cerebrum-developers) - the Cerebrum developers
 
-Report bugs and misfeatures to `cerebrum-developers@usit.uio.no`.
+Report bugs and misfeatures to [`cerebrum-developers@usit.uio.no`](mailto:cerebrum-developers@usit.uio.no).
 
 License
 -------
@@ -48,19 +46,17 @@ Cerebrum is licensed using GNU Public License version 2 and later.
 Fetching the source
 -------------------
 
-The latest source is available from [Stash](https://bitbucket.usit.uio.no/projects/CRB/repos/cerebrum/).
+The latest source is available from [github.uio.no](https://https://github.uio.no/IT-CEREBRUM/cerebrum) (access restricted) and [github.com](https://github.com/unioslo/cerebrum) (sporadically updated).
 
 Documentation
 -------------
 
 This is a brief summary of the currently existing documentation for Cerebrum:
 
-* README.md - this document
-* INSTALL.md - describes the installation procedure
-* design/adminprotocol.html - describes communication between the administration server and its clients
-* design/cerebrum-core.dia - diagram showing the core databasetables in cerebrum. Can be displayed with [Dia](https://wiki.gnome.org/Apps/Dia/)
-* design/entity_usage.txt - describes how to modify data in the database
+* `README.md` - this document
+* `INSTALL.md` - describes the installation procedure
+* `design/adminprotocol.html` - describes communication between the administration server and its clients
+* `design/cerebrum-core.dia` - diagram showing the core databasetables in cerebrum. Can be displayed with [Dia](https://wiki.gnome.org/Apps/Dia/)
+* `design/entity_usage.txt` - describes how to modify data in the database
 
 The documentation for the core api can be read using pydoc.
-
-EOF
