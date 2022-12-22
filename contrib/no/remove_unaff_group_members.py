@@ -95,7 +95,15 @@ def remove_persons(database, logger, posix_user2gid, grace_period):
             # Skip groups of the wrong type
             if group_type[gid] not in group_type_remove_members:
                 continue
-            logger.info("Remove account %i from group %i", mid, gid)
+
+            group.clear()
+            group.find(gid)
+            gname = group.get_name(const.group_namespace)
+            account.clear()
+            account.find(mid)
+            uname = account.get_name(const.account_namespace)
+            logger.info("Remove account %s from group %s", uname, gname)
+
             persons_affected.add(mid)
             groups_affected.add(gid)
             group.remove_member_from_group(mid, gid)
