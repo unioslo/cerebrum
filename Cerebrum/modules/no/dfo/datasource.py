@@ -442,6 +442,10 @@ class EmployeeDatasource(AbstractDatasource):
             return {'id': normalize_id(employee_id)}
 
         assignment_ids = set(get_assignment_ids(employee))
+
+        # TODO: Temporary hack - exclude assignment 99999999
+        assignment_ids.discard(99999999)
+
         assignments = employee['assignments'] = {}
         for assignment_id in assignment_ids:
             assignment = self._get_assignment(employee_id, assignment_id)
