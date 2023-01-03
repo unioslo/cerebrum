@@ -999,10 +999,6 @@ class OrgLDIF(object):
         entry['eduPersonAffiliation'] = attr_unique(self.select_list(
             self.eduPersonAff_selector, person_id, p_affiliations))
 
-        entry['eduPersonUniqueID'] = "@".join(
-            (str(person_id), self.config.domain_name)
-            )
-
         # For now, the scoped affiliations are just a mirror of the above
         # with realm tacked on
         entry['eduPersonScopedAffiliation'] = list(
