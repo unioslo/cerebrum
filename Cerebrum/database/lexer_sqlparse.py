@@ -36,6 +36,18 @@ The refactor was done to accommodate other lexers than Cursor._translate,
 
     Commit: f8d149dbb21cdbf10724b60b6d1c613ebc951b5f
     Date:   Tue Feb 11 11:42:09 2020 +0100
+
+TODO
+----
+
+1. We may want to just join together the :class:`.IdentifyMacroFilter` and the
+:class:`.ProcessMacroFilter` preprocessors.  The latter cannot work without the
+first.  The first has no use by itself, and is only extracted out into its own
+class as a separation-of-concerns thing.
+
+2. We should get rid of the :class:`._FindWhitespaceErrors` preprocessor.  This
+class fixes some formatting errors in Cerebrum queries, but they should all
+have been identified and fixed by now.
 """
 from __future__ import print_function, unicode_literals
 
@@ -89,11 +101,9 @@ class IdentifyMacroFilter(object):
                 yield ttype, value
 
 
-class ProcessMacroFilter(object):
+class ProcessMacroFilter(IdentifyMacroFilter):
     """
-    A sqlparse preprocessor filter that translates macros.
-
-    .. note:: Requires a IdentifyMacroFilter to run first!
+    A sqlparse preprocessor filter that finds and translates macros.
 
     This filter resolves all Macro tokens using the given `translate_macro`
     callback.
@@ -118,7 +128,7 @@ class ProcessMacroFilter(object):
         yield MacroToken, result
 
     def process(self, stream):
-        for ttype, value in stream:
+        for ttype, value in super(ProcessMacroFilter, self).process(stream):
             if ttype == MacroToken:
                 name, params = parse_macro(value)
                 for tt, val in self._process_macro(name, params):
@@ -128,8 +138,23 @@ class ProcessMacroFilter(object):
 
 
 class _FindWhitespaceErrors(object):
+    """
+    Temporary macro whitespace logger/fixer.
+
+    When moving from Plex, it turned out that some of our queries were
+    inproperly formatted, with missing whitespace characters around our macros.
+
+    E.g.: ``SELECT * FROM[:table name=foo schema=cerebrum]WHERE[:now] < date;``
+
+    This processor can identify and add missing whitespace chars between pairs
+    of (Keyword, MacroToken) or (MacroToken, Keyword) tokens.
+    """
 
     def __init__(self, log=False, fix=False):
+        """
+        :param bool log: Log queries with missing whitespace chars
+        :param bool fix: Try to fix queries with missing whitespace chars
+        """
         self.log = log
         self.fix = fix
 
@@ -173,14 +198,16 @@ class TranslatePlaceholderFilter(object):
     .. warning::
         This filter is stateful - it keeps a reference to a paramstyles object!
     """
-
     def __init__(self, param_register):
+        """
+        :type param_register: Cerebrum.database.paramstyles.Base
+        """
         self.params = param_register
 
     def process(self, stream):
         for ttype, value in stream:
             if ttype == tokens.Name.Placeholder:
-                if not value[0] == ':':
+                if not value or value[0] != ':':
                     raise ValueError("invalid placeholder style: '%s'" %
                                      (value,))
                 name = value[1:]
@@ -203,9 +230,6 @@ def get_sqlparse_stack(params_register, get_macro):
         parse a single statement!
     """
     stack = FilterStack()
-
-    # Translate macros from Name to MacroToken -- must come first
-    stack.preprocess.append(IdentifyMacroFilter())
 
     # Translate identified MacroToken values into valid SQL
     stack.preprocess.append(ProcessMacroFilter(get_macro))
