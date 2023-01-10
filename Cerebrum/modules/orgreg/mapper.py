@@ -179,6 +179,7 @@ class OrgregMapper(OrgUnitMapper):
         """
         yield ('ORGREG_OU_ID', six.text_type(ou_data['ouId']))
         yield ('DFO_OU_ID', get_external_key(ou_data, 'dfo_sap', 'dfo_org_id'))
+        yield ('NO_SKO', self.get_location_code(ou_data))
 
     def get_names(self, ou_data):
         """

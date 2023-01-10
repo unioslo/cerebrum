@@ -154,9 +154,9 @@ class XML2Cerebrum:
                         id_collection.append(int(dbperson.entity_id))
                 except Errors.NotFoundError:
                     # Same as before
-                    self.logger.debug("New ID from file for source %s (type: %s"
-                                      " value %s)",
-                                      self.source_system, kind, id_on_file)
+                    self.logger.debug(
+                        "New ID from file for source %s (type: %s value %s)",
+                        self.source_system, kind, id_on_file)
 
         # Now that we are done with the IDs, we can run some checks and report
         # on the inconsistencies
@@ -178,11 +178,11 @@ class XML2Cerebrum:
 
             # IVR 2007-08-21 We cannot allow automatic ansatt# changes
             if not self.match_sap_ids(xmlperson, dbperson):
-                self.logger.error("SAP ID on file does not match SAP ID in "
-                                  "Cerebrum for file ids %s. This is an error. "
-                                  "Person is "
-                                  "ignored. This has to be corrected manually.",
-                                  list(xmlperson.iterids()))
+                self.logger.error(
+                    "SAP ID on file does not match SAP ID in Cerebrum for "
+                    "file ids %s. This is an error. Person is "
+                    "ignored. This has to be corrected manually.",
+                    list(xmlperson.iterids()))
                 return False
         else:
             self.logger.debug(
@@ -468,9 +468,12 @@ class XML2Cerebrum:
         const = self.constants
 
         # We need sko, acronym, short_name, display_name, sort_name and parent.
-        sko = xmlou.get_id(xmlou.NO_SKO)
+        raw_sko = xmlou.get_id(xmlou.NO_SKO)
+        sko_t = tuple(raw_sko[0:3])
+        sko_s = "{:02d}{:02d}{:02d}".format(*sko_t)
+
         try:
-            ou.find_stedkode(sko[0], sko[1], sko[2],
+            ou.find_stedkode(sko_t[0], sko_t[1], sko_t[2],
                              cereconf.DEFAULT_INSTITUSJONSNR)
         except Errors.NotFoundError:
             pass
@@ -483,14 +486,15 @@ class XML2Cerebrum:
             if old_ou_cache and int(ou.entity_id) in old_ou_cache:
                 del old_ou_cache[int(ou.entity_id)]
                 for r in ou.get_entity_quarantine():
-                    if (r['quarantine_type'] == const.quarantine_ou_notvalid or
-                            r['quarantine_type'] == const.quarantine_ou_remove):
-                        ou.delete_entity_quarantine(r['quarantine_type'])
+                    q_type = r['quarantine_type']
+                    if (q_type == const.quarantine_ou_notvalid or
+                            q_type == const.quarantine_ou_remove):
+                        ou.delete_entity_quarantine(q_type)
 
         # Do not touch name information for an OU that has been expired. It
         # may not conform to all of our requirements.
         if not self.__ou_is_expired(xmlou):
-            ou.populate(sko[0], sko[1], sko[2],
+            ou.populate(sko_t[0], sko_t[1], sko_t[2],
                         institusjon=cereconf.DEFAULT_INSTITUSJONSNR)
         else:
             self.logger.debug("OU ids=%s is expired. Its names will not be "
@@ -498,6 +502,7 @@ class XML2Cerebrum:
 
         # custom orgreg import fields
         external_ids = []
+        external_ids.append((self.constants.externalid_location_code, sko_s))
         if hasattr(self.constants, 'externalid_dfo_ou_id'):
             external_ids.append((self.constants.externalid_dfo_ou_id,
                                  xmlou.get_id(xmlou.NO_DFO)))
