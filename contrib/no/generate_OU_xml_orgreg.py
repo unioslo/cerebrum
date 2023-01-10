@@ -257,7 +257,8 @@ def transform_name(ou_json, _type):
 # Convert contact fields to Communication args
 CONTACT_TO_COMM = {
     "phone": {"type": "Telefon1", "pri": "1"},
-    "fax": {"type": "Telefax", "pri": "0"}
+    "fax": {"type": "Telefax", "pri": "0"},
+    "email": {"type": "E-post adresse", "pri": "0"},
 }
 
 
