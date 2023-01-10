@@ -304,6 +304,28 @@ class ConstantsHigherEdu(Constants.Constants):
         'User name (external system)',
     )
 
+    # External ID to represent location code (stedkode)
+    #
+    # This external id should exist in parallell to
+    # :mod:`Cerebrum.modules.no.Stedkode`, and eventually replace it.
+    #
+    # Location codes consists of an institution id, and a six-digit
+    # institution specific id, AAUUGG, where:
+    #
+    # - AA is a department/faculty
+    # - UU is a subdepartment/institute
+    # - and GG is a group within that subdepartment.
+    #
+    # This external id should only store the last six digits, i.e. *not* the
+    # institution id, which should be set in
+    # ``cereconf.DEFAULT_INSTITUSJONSNR``.
+    #
+    externalid_location_code = _EntityExternalIdCode(
+        'NO_SKO',
+        Constants.Constants.entity_ou,
+        "An org unit legacy location code (stedkode)",
+    )
+
     #
     # OU-structure perspectives
     #
