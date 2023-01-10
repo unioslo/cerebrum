@@ -467,13 +467,14 @@ class Database(object):
         'client_encoding') or 'UTF-8'
     # The default character set encoding to use.
 
-    def __init__(self, do_connect=True, *db_params, **db_kws):
+    def __init__(self, do_connect=True, app_hint=None, *db_params, **db_kws):
         if self.__class__ is Database:
             raise NotImplementedError(
                 "Can't instantiate abstract class <Database>.")
 
         self._db = None
         self._cursor = None
+        self._app_hint = app_hint
 
         self._connect_data = {}
 
