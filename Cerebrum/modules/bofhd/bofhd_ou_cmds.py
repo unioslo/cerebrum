@@ -21,7 +21,6 @@
 from __future__ import unicode_literals
 
 import logging
-import re
 
 import six
 
@@ -348,11 +347,19 @@ class OuCommands(BofhdCommandBase):
                     'from_ou': from_ou_str.format(it_contact['from_ou_id'])
                 })
 
-        for a in ou.get_entity_address():
-            if a['country'] is not None:
-                a['country'] = ', ' + a['country']
-            else:
+        for row in ou.get_entity_address():
+            a = dict(row)
+            # TODO: This "breaks" our structured output, should reconsider...
+            #
+            # If we are to pre-format fields like this, we should really just
+            # return an additinal formatted address line for the format
+            # suggestion, rather than messing with partially formatted fields
+            # prefixed with ', '
+            if a['country'] is None:
                 a['country'] = ''
+            else:
+                a['country'] = ', ' + six.text_type(
+                    self.const.Country(a['country']))
 
             if a['p_o_box'] is not None:
                 a['p_o_box'] = "PO box %s, " % a['p_o_box']
