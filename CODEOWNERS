@@ -1,0 +1,10 @@
+# Code owners (default reviewers) for the project.
+#
+# Ideally we *just* want to add the Team group, but that doesn't really work the
+# way we want.  When *one* person from the group reviews any change, no other
+# reviews are requested.
+#
+# Because of this, we also add a couple of code owners/default reviewers
+# explicitly.
+
+*   @ae @axl @csn @elg @eilifb @fhl @hj @jbr @jokim @mgjerde @tvl @IT-CEREBRUM/vcs-cerebrum
