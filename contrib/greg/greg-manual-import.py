@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2021 University of Oslo, Norway
+# Copyright 2021-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -31,7 +31,6 @@ from __future__ import (
     unicode_literals,
 )
 import argparse
-import functools
 import logging
 
 import Cerebrum.logutils
@@ -39,7 +38,7 @@ import Cerebrum.logutils.options
 from Cerebrum.Utils import Factory
 from Cerebrum.database.ctx import db_context
 from Cerebrum.modules.greg.client import get_client
-from Cerebrum.modules.greg.importer import GregImporter
+from Cerebrum.modules.greg.importer import get_import_class
 from Cerebrum.utils.argutils import add_commit_args
 
 logger = logging.getLogger(__name__)
@@ -81,13 +80,11 @@ def main(inargs=None):
     logger.info("start %s", parser.prog)
     logger.debug("args: %r", args)
 
-    # we don't really need the full TaskImportConfig here, but it's easier to
-    # re-use the existing config.
     client = get_client(args.config)
-    get_import = functools.partial(GregImporter, client=client)
+    import_class = get_import_class()
 
     with db_context(get_db(), not args.commit) as db:
-        greg_import = get_import(db)
+        greg_import = import_class(db, client=client)
 
         logger.info('handle reference=%r', args.reference)
         greg_import.handle_reference(args.reference)

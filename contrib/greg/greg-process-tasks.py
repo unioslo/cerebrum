@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2021 University of Oslo, Norway
+# Copyright 2021-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -20,29 +20,18 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ Process tasks on the greg import queues.  """
 import argparse
-import functools
 import logging
 
 import Cerebrum.logutils
 import Cerebrum.logutils.options
 import Cerebrum.Errors
 from Cerebrum.modules.greg.client import get_client
-from Cerebrum.modules.greg.importer import GregImporter
+from Cerebrum.modules.greg.importer import get_import_class
 from Cerebrum.modules.greg.tasks import GregImportTasks
 from Cerebrum.modules.tasks.queue_processor import QueueProcessor
 from Cerebrum.utils.argutils import add_commit_args
 
 logger = logging.getLogger(__name__)
-
-
-def task_callback(db, task, client):
-    """ Callback for the GregImportTasks queue handler. """
-    greg_id = task.key
-    logger.info('Updating greg_id=%s', greg_id)
-    importer = GregImporter(db, client=client)
-    importer.handle_reference(greg_id)
-    logger.info('Updated greg_id=%s', greg_id)
-    return []
 
 
 def main(inargs=None):
@@ -75,12 +64,11 @@ def main(inargs=None):
 
     dryrun = not args.commit
     client = get_client(args.config)
-    callback = functools.partial(task_callback, client=client)
+    import_class = get_import_class()
+    queue_handler = GregImportTasks(client=client, import_class=import_class)
 
     # The QueueProcessor gets db and does commit/rollback according to dryrun
-    proc = QueueProcessor(GregImportTasks(callback),
-                          limit=args.limit,
-                          dryrun=dryrun)
+    proc = QueueProcessor(queue_handler, limit=args.limit, dryrun=dryrun)
 
     tasks = proc.select_tasks()
     for task in tasks:

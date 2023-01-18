@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2021 University of Oslo, Norway
+# Copyright 2021-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,7 +19,6 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
 Tasks related to the Greg guest import.
-
 """
 import logging
 
@@ -33,11 +32,31 @@ logger = logging.getLogger(__name__)
 
 
 class GregImportTasks(queue_handler.QueueHandler):
-    """ This object defines the 'greg-guest' tasks queue. """
+    """ This object defines the 'greg-person' task queues. """
 
     queue = 'greg-person'
     manual_sub = 'manual'
     max_attempts = 20
+
+    def __init__(self, client, import_class):
+        self._client = client
+        self._import_class = import_class
+
+    def _callback(self, db, task):
+        greg_id = task.key
+        logger.info('Updating greg_id=%s', greg_id)
+        importer = self._import_class(db, client=self._client)
+        importer.handle_reference(greg_id)
+        logger.info('Updated greg_id=%s', greg_id)
+
+        # TODO: Should we have the importer return potential new tasks?  If so,
+        # we could rely on the default *handle_task* implementation for
+        # re-queueing.
+        #
+        # *Or* should the import itself add potential tasks to the queue?  It
+        # kind of depends on whether we want the option to run the importer
+        # *without* adding new tasks to the queue...
+        return []
 
     @classmethod
     def create_manual_task(cls, reference, sub=manual_sub, nbf=None):
