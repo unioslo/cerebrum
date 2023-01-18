@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2021 University of Oslo, Norway
+# Copyright 2021-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -29,7 +29,10 @@ from Cerebrum.modules.tasks import task_queue
 logger = logging.getLogger(__name__)
 
 
-delay_on_error = backoff.Backoff(
+# Default backoff for errors/retries in QueueHandler.  This backoff yields
+# time deltas 03:45, 07:30, 15:00, 30:00, 1:00:00, ... - before truncating at
+# 12:00:00 after 10 attempts.  This should be a good backoff for most tasks.
+default_retry_delay = backoff.Backoff(
     backoff.Exponential(2),
     backoff.Factor(datetime.timedelta(hours=1) / 16),
     backoff.Truncate(datetime.timedelta(hours=12)),
@@ -60,6 +63,9 @@ class QueueHandler(object):
     # when to give up on a task
     max_attempts = 20
 
+    # next delay (timedelta) after *n* failed attempts
+    get_retry_delay = default_retry_delay
+
     def __init__(self, callback):
         self._callback = callback
 
@@ -69,7 +75,7 @@ class QueueHandler(object):
         retry.queue = self.queue
         retry.sub = self.retry_sub or ""
         retry.attempts = task.attempts + 1
-        retry.nbf = now() + delay_on_error(task.attempts + 1)
+        retry.nbf = now() + self.get_retry_delay(task.attempts + 1)
         retry.reason = 'retry: failed_at={} error={}'.format(now(), error)
         return retry
 
