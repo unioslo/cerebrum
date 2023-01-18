@@ -79,9 +79,9 @@ class GregImporter(object):
         'GREG_PID',
     )
 
-    CONSENT_GROUPS = {
-        'greg-publish': sync_greg_consent,
-    }
+    # Map consent name to
+    # `Cerebrum.modules.import_utils.group.GroupMembershipSetter`
+    CONSENT_GROUPS = {}
 
     mapper = GregMapper()
 
