@@ -73,7 +73,7 @@ class QueueHandler(object):
         """ Create a retry task from a failed task. """
         retry = task_models.copy_task(task)
         retry.queue = self.queue
-        retry.sub = self.retry_sub or ""
+        retry.sub = self.retry_sub or task.sub
         retry.attempts = task.attempts + 1
         retry.nbf = now() + self.get_retry_delay(task.attempts + 1)
         retry.reason = 'retry: failed_at={} error={}'.format(now(), error)
