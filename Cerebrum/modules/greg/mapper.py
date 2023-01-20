@@ -24,14 +24,6 @@ This module contains utils for extracting Cerebrum data from Greg objects.
 
 Import/update utils should use a py:class:`.GregMapper` to extract relevant
 Cerebrum data from a (sanitized) Greg object.
-
-Future changes
---------------
-The Greg mappers are not configurable.  If diverging business logic is required
-in the future, we may opt to either:
-
-- Subclass GregMapper
-- Add a mapper config, which we feed to the GregMapper on init.
 """
 from __future__ import (
     absolute_import,
@@ -286,6 +278,11 @@ class GregConsents(object):
     Extract consent data from greg person data.
     """
 
+    # Map Greg consent type to internal import consent name.
+    #
+    # TODO: Do we really nedd to map this, or could this maybe just be a
+    # passlist of known consent types?
+    #
     # TODO: Is this a generic consent? Or should this be moved to
     # `Cerebrum.modules.no.uio.greg_import`?
     type_map = {
@@ -353,10 +350,9 @@ class GregRoles(object):
 
     # Greg role name -> AFFILIATION/status
     type_map = {
-        'emeritus': 'TILKNYTTET/emeritus',
-        'external-consultant': 'TILKNYTTET/ekst_partner',
-        'external-partner': 'TILKNYTTET/ekst_partner',
-        'guest-researcher': 'TILKNYTTET/gjesteforsker',
+        # example:
+        #
+        # 'emeritus': 'TILKNYTTET/emeritus',
     }
 
     get_orgunit_ids = GregOrgunitIds()
