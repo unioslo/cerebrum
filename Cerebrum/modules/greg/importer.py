@@ -45,7 +45,6 @@ from Cerebrum.modules.import_utils.syncs import (
 from Cerebrum.utils import date_compat
 from Cerebrum.utils.module import resolve
 
-from .consent import sync_greg_consent
 from .datasource import GregDatasource
 from .mapper import GregMapper
 
