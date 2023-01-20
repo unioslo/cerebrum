@@ -286,11 +286,16 @@ class GregConsents(object):
     Extract consent data from greg person data.
     """
 
+    # TODO: Is this a generic consent? Or should this be moved to
+    # `Cerebrum.modules.no.uio.greg_import`?
     type_map = {
         'publish': 'greg-publish',
     }
 
     # Consent value (choice) to bool (is-consent)
+    #
+    # TODO: We may want to map these value by type?
+    #       E.g.: {'publish': {'yes': True, 'no': False}}
     value_map = {
         'yes': True,
         'no': False,
@@ -324,23 +329,23 @@ class GregConsents(object):
                 consents.discard(greg_type)
             seen.add(greg_type)
 
-            if greg_value not in self.value_map:
+            if greg_value in self.value_map:
+                is_consent = self.value_map[greg_value]
+                logger.debug('found consent %s=%r (%s=%r) for greg_id=%s',
+                             crb_type, is_consent, greg_type, greg_value,
+                             greg_id)
+            else:
                 # invalid consent value (choice), discard consent
                 is_consent = False
                 logger.warning('invalid consent %s value (%s=%r) for'
                                ' greg_id=%s',
                                crb_type, greg_type, greg_value, greg_id)
-            else:
-                is_consent = self.value_map[greg_value]
-                logger.debug('found consent %s=%r (%s=%r) for greg_id=%s',
-                             crb_type, is_consent, greg_type, greg_value,
-                             greg_id)
             if is_consent:
                 consents.add(greg_type)
             else:
                 consents.discard(greg_type)
 
-        return tuple(self.type_map[c] for c in consents)
+        return tuple(self.type_map[c] for c in sorted(consents))
 
 
 class GregRoles(object):
