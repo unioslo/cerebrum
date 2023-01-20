@@ -111,7 +111,116 @@ def get_names(greg_data):
         yield ('LAST', ln)
 
 
-class GregPersonIds(object):
+class _GregIdentityMapper(object):
+    """
+    Extract identity values from greg person data.
+
+    Both external ids and contact info is extracted from this dataset.  This is
+    the common functionality shared by both.
+    """
+
+    # Map of source + type (or just type) to a cerebrum type.  If a `(source,
+    # type)` exists in type_map, it will be chosen over just `type`.
+    type_map = {
+        # # external id examples
+        #
+        # ('foo', 'migration_id'): 'FOO_ID',
+        # 'norwegian_national_id_number': 'NO_BIRTHNO',
+        # 'passport_number': 'PASSNR',
+
+        # # contact info examples
+        # ('feide', 'email'): 'EMAIL',
+        # 'private_mobile': 'PRIVATEMOBILE',
+    }
+
+    # Validate and/or normalize values from Greg by type.  To invalidate a
+    # value, the callback should simply raise an exception (or return an empty
+    # value).
+    normalize_map = {
+        # # contact info examples
+        # ('feide', 'email'): (lambda v: str(v)),
+        # 'private_mobile': (lambda v: str(v)),
+    }
+
+    # Values of identities.verified to accept.  If empty, identities.verified
+    # won't be checked.
+    #
+    # TODO: We may want to set this by *type* - i.e. maybe we want to accept
+    # 'passport_number' regardless of its verified value, and we *only* want to
+    # accept 'norwegian_national_id_number' if `verified == 'automatic'`
+    verified_values = set()
+
+    # Include the greg object id value as this cerebrum type.
+    greg_id_type = None
+
+    def __call__(self, greg_data):
+        """
+        :param dict greg_data:
+            Sanitized greg person data (e.g. from `datasource.parse_person`)
+
+        :returns generator:
+            Valid Cerebrum (crb_type, crb_value) pairs
+        """
+        greg_id = greg_data['id']
+
+        if self.greg_id_type:
+            yield self.greg_id_type, greg_id
+
+        for id_obj in greg_data.get('identities', ()):
+            id_type = id_obj['type']
+            id_source = id_obj['source']
+            id_verified = id_obj['verified']
+            raw_value = id_obj['value']
+
+            # map and filter id source/type to external id type
+            if id_source and (id_source, id_type) in self.type_map:
+                crb_type = self.type_map[(id_source, id_type)]
+            elif id_type in self.type_map:
+                crb_type = self.type_map[id_type]
+            else:
+                # unknown id type
+                continue
+
+            # map and filter verified values
+            if (self.verified_values
+                    and id_verified not in self.verified_values):
+                logger.debug(
+                    'ignoring unverified source=%r type=%r for greg_id=%r',
+                    id_source, id_type, greg_id)
+                continue
+
+            # normalize and filter value
+            try:
+                if (id_source, id_type) in self.normalize_map:
+                    value = self.normalize_map[id_source, id_type](raw_value)
+                elif id_type in self.normalize_map:
+                    value = self.normalize_map[id_type](raw_value)
+                else:
+                    value = raw_value
+            except Exception as e:
+                logger.warning(
+                    "invalid source=%r type=%r for greg_id=%r: %s",
+                    id_source, id_type, greg_id, str(e))
+                continue
+
+            if not value:
+                logger.warning(
+                    "invalid source=%r type=%r for greg_id=%r: empty value",
+                    id_source, id_type, greg_id)
+                continue
+
+            # TODO/TBD:
+            #   Greg *can* have multiple values of a given type, from different
+            #   sources.  How should this be handled?  Should we look for
+            #   duplicates, and alternatively raise an error if there are
+            #   multiple different values of a given type?
+            #
+            #   Currently, we'll just crash and burn during import if we
+            #   encounter duplicate crb_type with differing values
+            yield crb_type, value
+
+
+class GregPersonIds(_GregIdentityMapper):
     """ Extract external ids from greg person data.
 
     >>> person = {
@@ -126,19 +235,16 @@ class GregPersonIds(object):
     [('GREG_PID', '1'), ('PASSNR', 'NO-123')]
     """
 
-    # identities.type value -> cerebrum external_id
     type_map = {
         'norwegian_national_id_number': 'NO_BIRTHNO',
         'passport_number': 'PASSNR',
     }
 
-    # known identities.type that shouldn't be considered
-    ignore_types = set((
-        'feide_id',
-        'feide_email',
-        'private_email',
-        'private_mobile',
-    ))
+    # TODO/TBD:
+    #   Values should already be verified by Greg, so we should be able
+    #   to trust them.  Still, we might want to validate/normalize
+    #   certain values here as well.
+    normalize_map = {}
 
     # values of identities.verified to accept
     verified_values = set((
@@ -146,44 +252,10 @@ class GregPersonIds(object):
         'manual',
     ))
 
-    # id -> cerebrum external_id
     greg_id_type = 'GREG_PID'
 
-    def __call__(self, greg_data):
-        """
-        :param dict greg_data:
-            Sanitized greg person data (e.g. from `datasource.parse_person`)
 
-        :returns generator:
-            Valid Cerebrum (id_type, id_value) pairs
-        """
-        greg_id = greg_data['id']
-
-        if self.greg_id_type:
-            yield self.greg_id_type, greg_id
-
-        for id_obj in greg_data.get('identities', ()):
-            if id_obj['type'] in self.ignore_types:
-                continue
-            if id_obj['type'] not in self.type_map:
-                logger.debug('ignoring unknown id_type=%r for greg_id=%s',
-                             id_obj['type'], greg_id)
-                continue
-            crb_type = self.type_map[id_obj['type']]
-            if id_obj['verified'] not in self.verified_values:
-                logger.debug('ignoring unverified id_type=%r for greg_id=%s',
-                             id_obj['type'], greg_id)
-                continue
-
-            value = id_obj['value']
-            # TODO/TBD:
-            #   Values should already be verified by Greg, so we should be able
-            #   to trust them.  Still, we might want to validate/normalize
-            #   values (e.g.  valid fnr, passport number) here as well.
-            yield crb_type, value
-
-
-class GregContactInfo(object):
+class GregContactInfo(_GregIdentityMapper):
     """ Extract contanct info from greg person data.
 
     >>> person = {
@@ -198,44 +270,15 @@ class GregContactInfo(object):
     [('PRIVATEMOBILE', '20123456')]
     """
 
-    # identities.type value -> cerebrum contact_info_type
     type_map = {
         'private_mobile': 'PRIVATEMOBILE',
     }
 
-    # known identities.type that shouldn't be considered
-    ignore_types = set((
-        'feide_id',
-        'feide_email',
-        'norwegian_national_id_number',
-        'passport_number',
-        'private_email',
-    ))
-
-    def __call__(self, greg_data):
-        """
-        :param dict greg_data:
-            Sanitized greg person data (e.g. from `datasource.parse_person`)
-
-        :returns generator:
-            Valid Cerebrum (contact_info_type, contact_info_value) pairs
-        """
-        greg_id = int(greg_data['id'])
-        for id_obj in greg_data.get('identities', ()):
-            if id_obj['type'] in self.ignore_types:
-                continue
-            if id_obj['type'] not in self.type_map:
-                logger.debug('ignoring unknown id_type=%r for greg_id=%s',
-                             id_obj['type'], greg_id)
-                continue
-
-            crb_type = self.type_map[id_obj['type']]
-            value = id_obj['value']
-            # TODO/TBD:
-            #   Values should already be verified by Greg, so we should be able
-            #   to trust them.  Still, we might want to validate/normalize
-            #   values here as well.
-            yield crb_type, value
+    # TODO/TBD:
+    #   Values should already be verified by Greg, so we should be able
+    #   to trust them.  Still, we might want to validate/normalize
+    #   certain values here as well.
+    normalize_map = {}
 
 
 class GregConsents(object):
