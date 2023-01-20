@@ -351,6 +351,7 @@ class GregConsents(object):
 class GregRoles(object):
     """ Extract affiliations from greg person roles. """
 
+    # Greg role name -> AFFILIATION/status
     type_map = {
         'emeritus': 'TILKNYTTET/emeritus',
         'external-consultant': 'TILKNYTTET/ekst_partner',
@@ -358,22 +359,27 @@ class GregRoles(object):
         'guest-researcher': 'TILKNYTTET/gjesteforsker',
     }
 
-    def __call__(self, greg_data, _today=None):
+    get_orgunit_ids = GregOrgunitIds()
+
+    def __call__(self, greg_data, filter_active_at=None):
         """
         :param dict greg_data:
             Sanitized greg person data (e.g. from `datasource.parse_person`)
 
-        :returns generator:
-            yields (affiliation, orgunit) tuples.
+        :param datetime.date filter_active_at:
+            Only include roles that are active at the given date.
 
-            - Affiliation is an AFFILIATION/status string
-            - orgunit is the role orgunit value.
+            If not given, the default behaviour is to include all past and
+            future roles.
+
+        :returns generator:
+            yields (affiliation, org-ids, start-date, end-date) tuples.
+
+            - affiliation is an AFFILIATION/status string
+            - org-ids is a sequence of orgunit (id-type, id-value) pairs
+            - start-/end-date are datetime.date objects
         """
         greg_id = int(greg_data['id'])
-
-        # TODO: We may want to allow expired roles here, and filter them out in
-        # the is_active check, and ignore them when updating person affs.
-        today = _today or datetime.date.today()
 
         for role_obj in greg_data.get('roles', ()):
             if role_obj['type'] not in self.type_map:
@@ -381,20 +387,23 @@ class GregRoles(object):
                     'ignoring unknown role type=%r, id=%r for greg_id=%s',
                     role_obj['type'], role_obj['id'], greg_id)
                 continue
-            if role_obj['start_date'] > today:
+            if filter_active_at and filter_active_at < role_obj['start_date']:
                 logger.debug(
                     'ignoring future role type=%r, id=%r for greg_id=%s',
                     role_obj['type'], role_obj['id'], greg_id)
                 continue
-            if role_obj['end_date'] < today:
+            if filter_active_at and filter_active_at > role_obj['end_date']:
                 logger.debug(
-                    'ignoring expired role type=%r id=%r for greg_id=%s',
+                    'ignoring expired role type=%r, id=%r for greg_id=%s',
                     role_obj['type'], role_obj['id'], greg_id)
                 continue
 
-            crb_type = self.type_map[role_obj['type']]
-            orgunit = role_obj['orgunit']
-            yield crb_type, orgunit
+            yield (
+                self.type_map[role_obj['type']],
+                tuple(self.get_orgunit_ids(role_obj['orgunit'])),
+                role_obj['start_date'],
+                role_obj['end_date'],
+            )
 
 
 class GregMapper(object):
@@ -404,7 +413,6 @@ class GregMapper(object):
     get_person_ids = GregPersonIds()
     get_affiliations = GregRoles()
     get_consents = GregConsents()
-    get_orgunit_ids = GregOrgunitIds()
 
     @classmethod
     def get_names(cls, greg_data):
@@ -433,7 +441,7 @@ class GregMapper(object):
                            greg_id)
             return False
 
-        if not list(self.get_affiliations(greg_data, _today=today)):
+        if not list(self.get_affiliations(greg_data, filter_active_at=today)):
             logger.info('no active roles for greg_id=%s', greg_id)
             return False
 

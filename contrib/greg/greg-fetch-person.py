@@ -112,7 +112,11 @@ def main(inargs=None):
         'name': dict(mapper.get_names(greg_person)),
         'contact_info': dict(mapper.get_contact_info(greg_person)),
         'external_id': dict(mapper.get_person_ids(greg_person)),
-        'affiliation': dict(mapper.get_affiliations(greg_person)),
+        'affiliation': {
+            aff: {'at-ou': ou, 'aff-begin': str(start), 'aff-end': str(end)}
+            for aff, ou, start, end
+            in mapper.get_affiliations(greg_person)
+        },
     }
 
     print('Person object:')

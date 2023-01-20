@@ -67,6 +67,15 @@ def get_import_class(cereconf=cereconf):
     return cls
 
 
+def _is_deceased(person_obj, _today=None):
+    """ helper - check if a Person object is deceased. """
+    today = _today or datetime.date.today()
+    return (
+        person_obj
+        and person_obj.deceased_date
+        and date_compat.get_date(person_obj.deceased_date) < today)
+
+
 class GregImporter(object):
 
     REQUIRED_PERSON_ID = (
@@ -112,10 +121,11 @@ class GregImporter(object):
             raise ValueError('invalid person: no external_ids')
         return search(self.db, criterias, required=False)
 
-    def get_ou(self, greg_orgunit):
+    def get_ou(self, orgunit_ids):
         """ Find matching ou from a Greg orgunit dict. """
         search = OuMatcher()
-        criterias = tuple(self.mapper.get_orgunit_ids(greg_orgunit))
+        criterias = tuple((id_type, id_value)
+                          for id_type, id_value in orgunit_ids)
         if not criterias:
             raise ValueError('invalid orgunit: no external_ids')
         return search(self.db, criterias, required=True)
@@ -143,11 +153,7 @@ class GregImporter(object):
         """
         greg_id = greg_person['id']
 
-        is_deceased = (
-            person_obj
-            and person_obj.deceased_date
-            and (date_compat.get_date(person_obj.deceased_date)
-                 < datetime.date.today()))
+        is_deceased = _is_deceased(person_obj)
         if is_deceased:
             logger.warning('person_id=%s is marked as deceased',
                            person_obj.entity_id)
@@ -215,20 +221,23 @@ class GregImporter(object):
         self._sync_affs(person_obj, ())
         self._sync_consents(person_obj, ())
 
-    def update(self, greg_person, person_obj):
+    def update(self, greg_person, person_obj, _today=None):
         """ Update the Person object using employee_data. """
         if not greg_person:
             raise ValueError('update() called without greg person data!')
         if person_obj is None or not person_obj.entity_id:
             raise ValueError('update() called without cerebrum person!')
 
+        today = _today or datetime.date.today()
+
         self._sync_name(person_obj, self.mapper.get_names(greg_person))
         self._sync_ids(person_obj, self.mapper.get_person_ids(greg_person))
         self._sync_cinfo(person_obj, self.mapper.get_contact_info(greg_person))
         affs = (
-            (aff_status, self.get_ou(ou_data).entity_id)
-            for aff_status, ou_data
-            in self.mapper.get_affiliations(greg_person)
+            (aff_status, self.get_ou(org_ids).entity_id)
+            for aff_status, org_ids, start_date, end_date
+            in self.mapper.get_affiliations(greg_person,
+                                            filter_active_at=today)
         )
         self._sync_affs(person_obj, affs)
         self._sync_consents(person_obj, self.mapper.get_consents(greg_person))
