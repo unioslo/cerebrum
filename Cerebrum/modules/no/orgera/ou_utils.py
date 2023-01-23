@@ -179,8 +179,6 @@ def get_ou_by_sko(db, sko):
     """
     Fetch an OU object by stedkode
     """
-    if len(sko) != 6 or not sko.isdigit():
-        raise ValueError('Invalid stedkode: %s' % repr(sko))
 
     ou = Factory.get('OU')(db)
     ou.find_sko(sko)
