@@ -81,8 +81,12 @@ class EntityMatcher(object):
         if not criterias:
             raise ValueError('No search criterias given')
         dbobj = Factory.get(self.factory_type)(db)
-        id_pairs = tuple((dbobj.const.EntityExternalId(t), v)
-                         for t, v in criterias)
+
+        def get_id_type(id_type):
+            return dbobj.const.get_constant(dbobj.const.EntityExternalId,
+                                            id_type)
+
+        id_pairs = tuple((get_id_type(t), v) for t, v in criterias)
         pretty_types = tuple(sorted([six.text_type(t[0]) for t in id_pairs]))
 
         try:
