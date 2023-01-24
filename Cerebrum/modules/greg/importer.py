@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2021 University of Oslo, Norway
+# Copyright 2021-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,7 +17,9 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" Greg person import/update.  """
+"""
+Greg person import/update.
+"""
 from __future__ import (
     absolute_import,
     division,
@@ -26,6 +28,8 @@ from __future__ import (
 )
 import logging
 import datetime
+
+import cereconf
 
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.import_utils.matcher import (
@@ -39,12 +43,28 @@ from Cerebrum.modules.import_utils.syncs import (
     PersonNameSync,
 )
 from Cerebrum.utils import date_compat
+from Cerebrum.utils.module import resolve
 
-from .consent import sync_greg_consent
 from .datasource import GregDatasource
 from .mapper import GregMapper
 
 logger = logging.getLogger(__name__)
+
+
+def get_import_class(cereconf=cereconf):
+    """
+    Get preferred import class from config module/object *cereconf*.
+
+    TODO: Or should we re-factor the greg client config into a full greg
+    config, with import class and everything?
+    """
+    import_spec = getattr(cereconf, 'GREG_IMPORT', None)
+    if import_spec:
+        cls = resolve(import_spec)
+    else:
+        cls = GregImporter
+    logger.info("greg import class=%s", repr(cls))
+    return cls
 
 
 class GregImporter(object):
@@ -58,9 +78,9 @@ class GregImporter(object):
         'GREG_PID',
     )
 
-    CONSENT_GROUPS = {
-        'greg-publish': sync_greg_consent,
-    }
+    # Map consent name to
+    # `Cerebrum.modules.import_utils.group.GroupMembershipSetter`
+    CONSENT_GROUPS = {}
 
     mapper = GregMapper()
 

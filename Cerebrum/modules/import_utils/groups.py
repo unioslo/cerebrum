@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2021 University of Oslo, Norway
+# Copyright 2021-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,24 +18,13 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
-Greg consent functionality.
+Sync group membership for a given entity.
 """
 import logging
-
-from Cerebrum.group.template import GroupTemplate
 
 logger = logging.getLogger(__name__)
 
 
-GREG_CONSENT_GROUP = GroupTemplate(
-    group_name='greg-aktivt-samtykke',
-    group_description='Guests who consents to electronic publication',
-    group_type='internal-group',
-    group_visibility='A',
-)
-
-
-# TODO: Should this be a 'generic' import_utils class?
 class GroupMembershipSetter(object):
     """
     Set membership for a single entity in a given group.
@@ -60,9 +49,8 @@ class GroupMembershipSetter(object):
             connection/transaction to use, and should return the
             Cerebrum.Group.Group object to update.
 
-            Would typically be a
-            py:class:`Cerebrum.group.template.GroupTemplate` or similar
-            callable object.
+            Would typically be a :class:`Cerebrum.group.template.GroupTemplate`
+            or similar callable object.
         """
         self.get_group = get_group
 
@@ -73,6 +61,15 @@ class GroupMembershipSetter(object):
         )
 
     def __call__(self, db, entity_id, set_member):
+        """
+        Ensure entity_id is or isn't a member of this group.
+
+        :type db: Cerebrum.database.Database
+        :param int entity_id: member id to sync
+        :param bool set_member: if entity_id should be a member
+
+        :returns bool: True if membership was changed
+        """
         group = self.get_group(db)
         is_member = group.has_member(entity_id)
 
@@ -80,10 +77,12 @@ class GroupMembershipSetter(object):
             logger.info('adding entity_id=%d to group %s (%d)',
                         entity_id, group.group_name, group.entity_id)
             group.add_member(entity_id)
-        elif not set_member and is_member:
+            return True
+
+        if not set_member and is_member:
             logger.info('removing entity_id=%d from group %s (%d)',
                         entity_id, group.group_name, group.entity_id)
             group.remove_member(entity_id)
+            return True
 
-
-sync_greg_consent = GroupMembershipSetter(GREG_CONSENT_GROUP)
+        return False

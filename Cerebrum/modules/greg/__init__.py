@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2021 University of Oslo, Norway
+# Copyright 2021-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -43,7 +43,11 @@ created/modified/deleted.
 Configuration
 -------------
 
-cereconf.CLASS_CONSTANTS
+``cereconf.CLASS_CONSTANTS``
     Must include ``Cerebrum.modules.greg.constants/GregConstants``, to provide
     Greg-related constants.
+
+``cereconf.GREG_IMPORT``
+    Can be used to override the default
+    ``Cerebrum.modules.greg.importer/GregImporter`` class in scripts.
 """
