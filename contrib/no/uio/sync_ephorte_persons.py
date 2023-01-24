@@ -32,6 +32,7 @@ import sys
 import time
 import functools
 import argparse
+import logging
 from collections import defaultdict
 
 from six import text_type
@@ -207,15 +208,8 @@ def update_person_info(pe, client):
     first_name = pe.get_name(co.system_cached, co.name_first)
     last_name = pe.get_name(co.system_cached, co.name_last)
     full_name = pe.get_name(co.system_cached, co.name_full)
-
-    try:
-        user_id = get_user_id(pe)
-        initials = get_username(pe)
-    except Errors.NotFoundError:
-        logger.warn(
-            'Skipping person_id:%d: Does not appear to have a primary account',
-            pe.entity_id)
-        return
+    user_id = get_user_id(pe)
+    uname = get_username(pe)
 
     try:
         email_address = get_email_address(pe)
@@ -234,11 +228,11 @@ def update_person_info(pe, client):
     street_address, zip_code, city = get_person_address(pe, co)
 
     logger.info('Ensuring existence of %s: %s', user_id, text_type((
-        first_name, None, initials, last_name, full_name, initials,
+        first_name, None, last_name, full_name, uname,
         email_address, telephone, mobile, street_address, zip_code, city)))
     try:
         client.ensure_user(user_id, first_name, None, last_name, full_name,
-                           initials, email_address, telephone, mobile,
+                           uname, email_address, telephone, mobile,
                            street_address, zip_code, city)
         return True
     except EphorteWSError as e:
@@ -350,6 +344,7 @@ def fullsync_account(client, selection_spread, account_name):
 
 def select_persons_for_update(selection_spread):
     """Yield persons satisfying criteria.
+    eg: persons with ephorte_person spread
 
     :type selection_spread: Spread
     :param selection_spread: The spread to filter by
@@ -359,9 +354,22 @@ def select_persons_for_update(selection_spread):
     """
     pe = Factory.get('Person')(db)
     for p in pe.list_all_with_spread(selection_spread):
-        pers = Factory.get('Person')(db)
-        pers.find(p['entity_id'])
-        yield pers
+        pe.clear()
+        try:
+            pe.find(p['entity_id'])
+        except NotFoundError:
+            logger.warn('NotFoundError raised for entity_id %s in spread list', p['entity_id'])
+            continue
+
+        try:
+            get_user_id(pe)
+        except Errors.NotFoundError:
+            logger.info(
+                'person_id:%s does not have a primary account, skipping',
+                p['entity_id'])
+            continue
+
+        yield pe
 
 
 def select_events_by_person(clh, config, change_types, selection_spread):
@@ -451,21 +459,19 @@ def fullsync_roles_and_perms(client, selection_spread):
     :param selection_spread: A person must have this spread to be synced
     """
     for person in select_persons_for_update(selection_spread):
-        if sanity_check_person(person_id=person.entity_id,
-                               selection_spread=selection_spread):
-            try:
-                update_person_roles(person, client, remove_superfluous=True)
-            except:
-                logger.warn(
-                    'Failed to update roles for person_id:%s',
-                    person.entity_id, exc_info=True)
+        try:
+            update_person_roles(person, client, remove_superfluous=True)
+        except:
+            logger.warn(
+                'Failed to update roles for person_id:%s',
+                person.entity_id, exc_info=True)
 
-            try:
-                update_person_perms(person, client, remove_superfluous=True)
-            except:
-                logger.warn(
-                    'Failed to update permissions for person_id:%s',
-                    person.entity_id, exc_info=True)
+        try:
+            update_person_perms(person, client, remove_superfluous=True)
+        except:
+            logger.warn(
+                'Failed to update permissions for person_id:%s',
+                person.entity_id, exc_info=True)
 
 
 def quicksync_roles_and_perms(client, selection_spread, config, commit):
@@ -641,8 +647,6 @@ def report_perms(client, selection_spread, fil):
     """Generate perms report"""
     first = True
     for person in select_persons_for_update(selection_spread):
-        if not sanity_check_person(person.entity_id, selection_spread):
-            continue
         tmp = report_person_perms(person, client)
         if tmp:
             if first:
