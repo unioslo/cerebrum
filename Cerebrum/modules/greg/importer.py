@@ -32,6 +32,7 @@ import datetime
 import cereconf
 
 from Cerebrum.Utils import Factory
+from Cerebrum.modules.import_utils.groups import GroupMembershipSetter
 from Cerebrum.modules.import_utils.matcher import (
     OuMatcher,
     PersonMatcher,
@@ -87,8 +88,7 @@ class GregImporter(object):
         'GREG_PID',
     )
 
-    # Map consent name to
-    # `Cerebrum.modules.import_utils.group.GroupMembershipSetter`
+    # Map consent name to `Cerebrum.group.template.GroupTemplate`
     CONSENT_GROUPS = {}
 
     mapper = GregMapper()
@@ -105,7 +105,7 @@ class GregImporter(object):
         self._sync_name = PersonNameSync(db, source_system, (co.name_first,
                                                              co.name_last))
 
-    def _sync_consents(self, person_obj, consents):
+    def _sync_consent_groups(self, person_obj, consents):
         """
         Sync consents from greg to personal group memberships in Cerebrum.
 
@@ -113,21 +113,20 @@ class GregImporter(object):
         :param consents: collection of (mapped) consent values for this person
 
         :returns tuple:
-            Returns a pair of tuples -- added consents, removed consents
-
-            TODO: would it be better to return the group names, maybe?
-            Probably...
+            Returns a pair of tuples -- added to groups, removed from groups
         """
         added = []
         removed = []
 
-        for consent, update_group in self.CONSENT_GROUPS.items():
+        for consent, group_template in self.CONSENT_GROUPS.items():
             is_consent = consent in consents
+            group_name = group_template.group_name
+            update_group = GroupMembershipSetter(group_template)
             if update_group(self.db, person_obj.entity_id, is_consent):
                 if is_consent:
-                    added.append(consent)
+                    added.append(group_name)
                 else:
-                    removed.append(consent)
+                    removed.append(group_name)
 
         return (tuple(added), tuple(removed))
 
@@ -243,7 +242,7 @@ class GregImporter(object):
 
         changes['contact-info'] = self._sync_cinfo(person_obj, ())
         changes['affiliation'] = self._sync_affs(person_obj, ())
-        changes['consent'] = self._sync_consents(person_obj, ())
+        changes['consent-group'] = self._sync_consent_groups(person_obj, ())
 
         return changes
 
@@ -279,8 +278,9 @@ class GregImporter(object):
         )
         changes['affiliation'] = self._sync_affs(person_obj, affs)
 
-        # 'consent' -> added, removed
+        # 'consent-group' -> added, removed
         consents = self.mapper.get_consents(greg_person)
-        changes['consent'] = self._sync_consents(person_obj, consents)
+        changes['consent-group'] = self._sync_consent_groups(person_obj,
+                                                             consents)
 
         return changes
