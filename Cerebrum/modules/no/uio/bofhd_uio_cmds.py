@@ -720,7 +720,8 @@ class BofhdExtension(BofhdCommonMethods):
 
     def _group_add_entity(self, operator, src_entity, dest_group):
         group_d = self._get_group(dest_group)
-        self._raise_PermissionDenied_if_not_manual_group(group_d)
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            self._raise_PermissionDenied_if_not_manual_group(group_d)
         if operator:
             self.ba.can_alter_group(operator.get_entity_id(), group_d)
         src_name = self._get_name_from_object(src_entity)
@@ -1232,7 +1233,8 @@ class BofhdExtension(BofhdCommonMethods):
     def group_def(self, operator, accountname, groupname):
         account = self._get_account(accountname, actype="PosixUser")
         grp = self._get_group(groupname, grtype="PosixGroup")
-        self._raise_PermissionDenied_if_not_manual_group(grp)
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            self._raise_PermissionDenied_if_not_manual_group(grp)
         if self._is_perishable_manual_group(grp):
             grp.set_default_expire_date()
             grp.write_db()
@@ -1256,7 +1258,8 @@ class BofhdExtension(BofhdCommonMethods):
     def group_delete(self, operator, groupname, force=False):
 
         grp = self._get_group(groupname)
-        self._raise_PermissionDenied_if_not_manual_group(grp)
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            self._raise_PermissionDenied_if_not_manual_group(grp)
         if force:
             # Force deletes the group directly. Expire date etc is not used.
             self.ba.can_force_delete_group(operator.get_entity_id(), grp)
@@ -1439,7 +1442,8 @@ class BofhdExtension(BofhdCommonMethods):
 
     def _group_remove_entity(self, operator, member, group):
         member_name = self._get_name_from_object(member)
-        self._raise_PermissionDenied_if_not_manual_group(group)
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            self._raise_PermissionDenied_if_not_manual_group(group)
         if not group.has_member(member.entity_id):
             return ("%s isn't a member of %s" %
                     (member_name, group.group_name))
@@ -1724,7 +1728,8 @@ class BofhdExtension(BofhdCommonMethods):
             )
             group.write_db()
         # Promote to PosixGroup
-        self._raise_PermissionDenied_if_not_manual_group(group)
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            self._raise_PermissionDenied_if_not_manual_group(group)
         pg = Utils.Factory.get('PosixGroup')(self.db)
         pg.populate(parent=group)
         try:
@@ -1771,7 +1776,8 @@ class BofhdExtension(BofhdCommonMethods):
             raise CerebrumError("%s is already a PosixGroup" % group)
 
         group = self._get_group(group)
-        self._raise_PermissionDenied_if_not_manual_group(group)
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            self._raise_PermissionDenied_if_not_manual_group(group)
         if self._is_perishable_manual_group(group):
             group.set_default_expire_date()
             group.write_db()
@@ -1800,7 +1806,8 @@ class BofhdExtension(BofhdCommonMethods):
                     ("Assigned as primary group for posix user(s). "
                      "Use 'group list %s'") % grp.group_name)
             raise
-        self._raise_PermissionDenied_if_not_manual_group(grp)
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            self._raise_PermissionDenied_if_not_manual_group(grp)
         if self._is_perishable_manual_group(grp):
             grp.set_default_expire_date()
             grp.write_db()
@@ -1878,12 +1885,9 @@ class BofhdExtension(BofhdCommonMethods):
 
     def group_set_type(self, operator, group, group_type):
         grp = self._get_group(group)
-        self._raise_PermissionDenied_if_not_manual_group(grp)
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            self._raise_PermissionDenied_if_not_manual_group(grp)
         group_type = self._get_constant(self.const.GroupType, group_type)
-        if str(group_type) not in cereconf.MANUAL_GROUP_TYPES:
-            raise PermissionDenied('Only manual groups may be maintained in '
-                                   'bofh. Destination group type is ',
-                                   group_type)
         self.ba.can_set_group_type(operator.get_entity_id(), grp, group_type)
         if self._is_perishable_manual_group(grp):
             grp.set_default_expire_date()
@@ -1906,7 +1910,8 @@ class BofhdExtension(BofhdCommonMethods):
 
     def group_set_description(self, operator, group, description):
         grp = self._get_group(group)
-        self._raise_PermissionDenied_if_not_manual_group(grp)
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            self._raise_PermissionDenied_if_not_manual_group(grp)
         self.ba.can_alter_group(operator.get_entity_id(), grp)
         if self._is_perishable_manual_group(grp):
             grp.set_default_expire_date()
@@ -1978,7 +1983,8 @@ class BofhdExtension(BofhdCommonMethods):
             raise PermissionDenied(
                 "Not allowed to change expire date for group")
 
-        self._raise_PermissionDenied_if_not_manual_group(grp)
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            self._raise_PermissionDenied_if_not_manual_group(grp)
 
         # TODO: Make new, non-mx generic date parsers in bofhd_utils.
         #       We'd probably need new help texts for the new parsers too.
@@ -2057,7 +2063,8 @@ class BofhdExtension(BofhdCommonMethods):
     def group_set_visibility(self, operator, group, visibility):
         grp = self._get_group(group)
         self.ba.can_delete_group(operator.get_entity_id(), grp)
-        self._raise_PermissionDenied_if_not_manual_group(grp)
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            self._raise_PermissionDenied_if_not_manual_group(grp)
         if self._is_perishable_manual_group(grp):
             grp.set_default_expire_date()
         grp.visibility = self._get_constant(self.const.GroupVisibility,
