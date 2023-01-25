@@ -24,14 +24,6 @@ This module contains utils for extracting Cerebrum data from Greg objects.
 
 Import/update utils should use a py:class:`.GregMapper` to extract relevant
 Cerebrum data from a (sanitized) Greg object.
-
-Future changes
---------------
-The Greg mappers are not configurable.  If diverging business logic is required
-in the future, we may opt to either:
-
-- Subclass GregMapper
-- Add a mapper config, which we feed to the GregMapper on init.
 """
 from __future__ import (
     absolute_import,
@@ -111,7 +103,116 @@ def get_names(greg_data):
         yield ('LAST', ln)
 
 
-class GregPersonIds(object):
+class _GregIdentityMapper(object):
+    """
+    Extract identity values from greg person data.
+
+    Both external ids and contact info is extracted from this dataset.  This is
+    the common functionality shared by both.
+    """
+
+    # Map of source + type (or just type) to a cerebrum type.  If a `(source,
+    # type)` exists in type_map, it will be chosen over just `type`.
+    type_map = {
+        # # external id examples
+        #
+        # ('foo', 'migration_id'): 'FOO_ID',
+        # 'norwegian_national_id_number': 'NO_BIRTHNO',
+        # 'passport_number': 'PASSNR',
+
+        # # contact info examples
+        # ('feide', 'email'): 'EMAIL',
+        # 'private_mobile': 'PRIVATEMOBILE',
+    }
+
+    # Validate and/or normalize values from Greg by type.  To invalidate a
+    # value, the callback should simply raise an exception (or return an empty
+    # value).
+    normalize_map = {
+        # # contact info examples
+        # ('feide', 'email'): (lambda v: str(v)),
+        # 'private_mobile': (lambda v: str(v)),
+    }
+
+    # Values of identities.verified to accept.  If empty, identities.verified
+    # won't be checked.
+    #
+    # TODO: We may want to set this by *type* - i.e. maybe we want to accept
+    # 'passport_number' regardless of its verified value, and we *only* want to
+    # accept 'norwegian_national_id_number' if `verified == 'automatic'`
+    verified_values = set()
+
+    # Include the greg object id value as this cerebrum type.
+    greg_id_type = None
+
+    def __call__(self, greg_data):
+        """
+        :param dict greg_data:
+            Sanitized greg person data (e.g. from `datasource.parse_person`)
+
+        :returns generator:
+            Valid Cerebrum (crb_type, crb_value) pairs
+        """
+        greg_id = greg_data['id']
+
+        if self.greg_id_type:
+            yield self.greg_id_type, greg_id
+
+        for id_obj in greg_data.get('identities', ()):
+            id_type = id_obj['type']
+            id_source = id_obj['source']
+            id_verified = id_obj['verified']
+            raw_value = id_obj['value']
+
+            # map and filter id source/type to external id type
+            if id_source and (id_source, id_type) in self.type_map:
+                crb_type = self.type_map[(id_source, id_type)]
+            elif id_type in self.type_map:
+                crb_type = self.type_map[id_type]
+            else:
+                # unknown id type
+                continue
+
+            # map and filter verified values
+            if (self.verified_values
+                    and id_verified not in self.verified_values):
+                logger.debug(
+                    'ignoring unverified source=%r type=%r for greg_id=%r',
+                    id_source, id_type, greg_id)
+                continue
+
+            # normalize and filter value
+            try:
+                if (id_source, id_type) in self.normalize_map:
+                    value = self.normalize_map[id_source, id_type](raw_value)
+                elif id_type in self.normalize_map:
+                    value = self.normalize_map[id_type](raw_value)
+                else:
+                    value = raw_value
+            except Exception as e:
+                logger.warning(
+                    "invalid source=%r type=%r for greg_id=%r: %s",
+                    id_source, id_type, greg_id, str(e))
+                continue
+
+            if not value:
+                logger.warning(
+                    "invalid source=%r type=%r for greg_id=%r: empty value",
+                    id_source, id_type, greg_id)
+                continue
+
+            # TODO/TBD:
+            #   Greg *can* have multiple values of a given type, from different
+            #   sources.  How should this be handled?  Should we look for
+            #   duplicates, and alternatively raise an error if there are
+            #   multiple different values of a given type?
+            #
+            #   Currently, we'll just crash and burn during import if we
+            #   encounter duplicate crb_type with differing values
+            yield crb_type, value
+
+
+class GregPersonIds(_GregIdentityMapper):
     """ Extract external ids from greg person data.
 
     >>> person = {
@@ -126,19 +227,16 @@ class GregPersonIds(object):
     [('GREG_PID', '1'), ('PASSNR', 'NO-123')]
     """
 
-    # identities.type value -> cerebrum external_id
     type_map = {
         'norwegian_national_id_number': 'NO_BIRTHNO',
         'passport_number': 'PASSNR',
     }
 
-    # known identities.type that shouldn't be considered
-    ignore_types = set((
-        'feide_id',
-        'feide_email',
-        'private_email',
-        'private_mobile',
-    ))
+    # TODO/TBD:
+    #   Values should already be verified by Greg, so we should be able
+    #   to trust them.  Still, we might want to validate/normalize
+    #   certain values here as well.
+    normalize_map = {}
 
     # values of identities.verified to accept
     verified_values = set((
@@ -146,44 +244,10 @@ class GregPersonIds(object):
         'manual',
     ))
 
-    # id -> cerebrum external_id
     greg_id_type = 'GREG_PID'
 
-    def __call__(self, greg_data):
-        """
-        :param dict greg_data:
-            Sanitized greg person data (e.g. from `datasource.parse_person`)
 
-        :returns generator:
-            Valid Cerebrum (id_type, id_value) pairs
-        """
-        greg_id = greg_data['id']
-
-        if self.greg_id_type:
-            yield self.greg_id_type, greg_id
-
-        for id_obj in greg_data.get('identities', ()):
-            if id_obj['type'] in self.ignore_types:
-                continue
-            if id_obj['type'] not in self.type_map:
-                logger.debug('ignoring unknown id_type=%r for greg_id=%s',
-                             id_obj['type'], greg_id)
-                continue
-            crb_type = self.type_map[id_obj['type']]
-            if id_obj['verified'] not in self.verified_values:
-                logger.debug('ignoring unverified id_type=%r for greg_id=%s',
-                             id_obj['type'], greg_id)
-                continue
-
-            value = id_obj['value']
-            # TODO/TBD:
-            #   Values should already be verified by Greg, so we should be able
-            #   to trust them.  Still, we might want to validate/normalize
-            #   values (e.g.  valid fnr, passport number) here as well.
-            yield crb_type, value
-
-
-class GregContactInfo(object):
+class GregContactInfo(_GregIdentityMapper):
     """ Extract contanct info from greg person data.
 
     >>> person = {
@@ -198,44 +262,15 @@ class GregContactInfo(object):
     [('PRIVATEMOBILE', '20123456')]
     """
 
-    # identities.type value -> cerebrum contact_info_type
     type_map = {
         'private_mobile': 'PRIVATEMOBILE',
     }
 
-    # known identities.type that shouldn't be considered
-    ignore_types = set((
-        'feide_id',
-        'feide_email',
-        'norwegian_national_id_number',
-        'passport_number',
-        'private_email',
-    ))
-
-    def __call__(self, greg_data):
-        """
-        :param dict greg_data:
-            Sanitized greg person data (e.g. from `datasource.parse_person`)
-
-        :returns generator:
-            Valid Cerebrum (contact_info_type, contact_info_value) pairs
-        """
-        greg_id = int(greg_data['id'])
-        for id_obj in greg_data.get('identities', ()):
-            if id_obj['type'] in self.ignore_types:
-                continue
-            if id_obj['type'] not in self.type_map:
-                logger.debug('ignoring unknown id_type=%r for greg_id=%s',
-                             id_obj['type'], greg_id)
-                continue
-
-            crb_type = self.type_map[id_obj['type']]
-            value = id_obj['value']
-            # TODO/TBD:
-            #   Values should already be verified by Greg, so we should be able
-            #   to trust them.  Still, we might want to validate/normalize
-            #   values here as well.
-            yield crb_type, value
+    # TODO/TBD:
+    #   Values should already be verified by Greg, so we should be able
+    #   to trust them.  Still, we might want to validate/normalize
+    #   certain values here as well.
+    normalize_map = {}
 
 
 class GregConsents(object):
@@ -243,11 +278,21 @@ class GregConsents(object):
     Extract consent data from greg person data.
     """
 
+    # Map Greg consent type to internal import consent name.
+    #
+    # TODO: Do we really nedd to map this, or could this maybe just be a
+    # passlist of known consent types?
+    #
+    # TODO: Is this a generic consent? Or should this be moved to
+    # `Cerebrum.modules.no.uio.greg_import`?
     type_map = {
         'publish': 'greg-publish',
     }
 
     # Consent value (choice) to bool (is-consent)
+    #
+    # TODO: We may want to map these value by type?
+    #       E.g.: {'publish': {'yes': True, 'no': False}}
     value_map = {
         'yes': True,
         'no': False,
@@ -281,51 +326,56 @@ class GregConsents(object):
                 consents.discard(greg_type)
             seen.add(greg_type)
 
-            if greg_value not in self.value_map:
+            if greg_value in self.value_map:
+                is_consent = self.value_map[greg_value]
+                logger.debug('found consent %s=%r (%s=%r) for greg_id=%s',
+                             crb_type, is_consent, greg_type, greg_value,
+                             greg_id)
+            else:
                 # invalid consent value (choice), discard consent
                 is_consent = False
                 logger.warning('invalid consent %s value (%s=%r) for'
                                ' greg_id=%s',
                                crb_type, greg_type, greg_value, greg_id)
-            else:
-                is_consent = self.value_map[greg_value]
-                logger.debug('found consent %s=%r (%s=%r) for greg_id=%s',
-                             crb_type, is_consent, greg_type, greg_value,
-                             greg_id)
             if is_consent:
                 consents.add(greg_type)
             else:
                 consents.discard(greg_type)
 
-        return tuple(self.type_map[c] for c in consents)
+        return tuple(self.type_map[c] for c in sorted(consents))
 
 
 class GregRoles(object):
     """ Extract affiliations from greg person roles. """
 
+    # Greg role name -> AFFILIATION/status
     type_map = {
-        'emeritus': 'TILKNYTTET/emeritus',
-        'external-consultant': 'TILKNYTTET/ekst_partner',
-        'external-partner': 'TILKNYTTET/ekst_partner',
-        'guest-researcher': 'TILKNYTTET/gjesteforsker',
+        # example:
+        #
+        # 'emeritus': 'TILKNYTTET/emeritus',
     }
 
-    def __call__(self, greg_data, _today=None):
+    get_orgunit_ids = GregOrgunitIds()
+
+    def __call__(self, greg_data, filter_active_at=None):
         """
         :param dict greg_data:
             Sanitized greg person data (e.g. from `datasource.parse_person`)
 
-        :returns generator:
-            yields (affiliation, orgunit) tuples.
+        :param datetime.date filter_active_at:
+            Only include roles that are active at the given date.
 
-            - Affiliation is an AFFILIATION/status string
-            - orgunit is the role orgunit value.
+            If not given, the default behaviour is to include all past and
+            future roles.
+
+        :returns generator:
+            yields (affiliation, org-ids, start-date, end-date) tuples.
+
+            - affiliation is an AFFILIATION/status string
+            - org-ids is a sequence of orgunit (id-type, id-value) pairs
+            - start-/end-date are datetime.date objects
         """
         greg_id = int(greg_data['id'])
-
-        # TODO: We may want to allow expired roles here, and filter them out in
-        # the is_active check, and ignore them when updating person affs.
-        today = _today or datetime.date.today()
 
         for role_obj in greg_data.get('roles', ()):
             if role_obj['type'] not in self.type_map:
@@ -333,20 +383,23 @@ class GregRoles(object):
                     'ignoring unknown role type=%r, id=%r for greg_id=%s',
                     role_obj['type'], role_obj['id'], greg_id)
                 continue
-            if role_obj['start_date'] > today:
+            if filter_active_at and filter_active_at < role_obj['start_date']:
                 logger.debug(
                     'ignoring future role type=%r, id=%r for greg_id=%s',
                     role_obj['type'], role_obj['id'], greg_id)
                 continue
-            if role_obj['end_date'] < today:
+            if filter_active_at and filter_active_at > role_obj['end_date']:
                 logger.debug(
-                    'ignoring expired role type=%r id=%r for greg_id=%s',
+                    'ignoring expired role type=%r, id=%r for greg_id=%s',
                     role_obj['type'], role_obj['id'], greg_id)
                 continue
 
-            crb_type = self.type_map[role_obj['type']]
-            orgunit = role_obj['orgunit']
-            yield crb_type, orgunit
+            yield (
+                self.type_map[role_obj['type']],
+                tuple(self.get_orgunit_ids(role_obj['orgunit'])),
+                role_obj['start_date'],
+                role_obj['end_date'],
+            )
 
 
 class GregMapper(object):
@@ -356,7 +409,6 @@ class GregMapper(object):
     get_person_ids = GregPersonIds()
     get_affiliations = GregRoles()
     get_consents = GregConsents()
-    get_orgunit_ids = GregOrgunitIds()
 
     @classmethod
     def get_names(cls, greg_data):
@@ -385,7 +437,7 @@ class GregMapper(object):
                            greg_id)
             return False
 
-        if not list(self.get_affiliations(greg_data, _today=today)):
+        if not list(self.get_affiliations(greg_data, filter_active_at=today)):
             logger.info('no active roles for greg_id=%s', greg_id)
             return False
 

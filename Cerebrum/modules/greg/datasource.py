@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2021 University of Oslo, Norway
+# Copyright 2021-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -183,7 +183,7 @@ def _parse_person_id(d):
     return {
         'id': normalize_id(d['id']),
         'person': normalize_id(d['person']),
-        # 'source': normalize_text(d['source']),
+        'source': normalize_text(d['source'], allow_empty=True),
         'type': normalize_text(d['type']),
         'value': normalize_text(d['value'], allow_empty=True),
         'verified': normalize_text(d['verified'], allow_empty=True),

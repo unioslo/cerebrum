@@ -36,8 +36,29 @@ GREG_CONSENT_GROUP = GroupTemplate(
 sync_greg_consent = GroupMembershipSetter(GREG_CONSENT_GROUP)
 
 
-class UioGregMapper(mapper.GregMapper):
-    pass
+class _UioGregOrgunitIds(mapper.GregOrgunitIds):
+
+    type_map = {
+        ('orgreg', 'orgreg_id'): 'ORGREG_OU_ID',
+        ('sapuio', 'legacy_stedkode'): 'NO_SKO',
+    }
+
+
+class _UioGregRoles(mapper.GregRoles):
+
+    type_map = {
+        'emeritus': 'TILKNYTTET/emeritus',
+        'external-consultant': 'TILKNYTTET/ekst_partner',
+        'external-partner': 'TILKNYTTET/ekst_partner',
+        'guest-researcher': 'TILKNYTTET/gjesteforsker',
+    }
+
+    get_orgunit_ids = _UioGregOrgunitIds()
+
+
+class _UioGregMapper(mapper.GregMapper):
+
+    get_affiliations = _UioGregRoles()
 
 
 class UioGregImporter(importer.GregImporter):
@@ -46,4 +67,4 @@ class UioGregImporter(importer.GregImporter):
         'greg-publish': sync_greg_consent,
     }
 
-    mapper = UioGregMapper()
+    mapper = _UioGregMapper()
