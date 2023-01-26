@@ -202,10 +202,11 @@ class EmployeeImportBase(AbstractImport):
         """Update person in Cerebrum with the latest affiliations"""
         today = _today or datetime.date.today()
         aff_tuples = []
-        for aff, ou_idents, start, end in hr_person.affiliations:
-            # TODO: Apply grace here?
-            if start and start > today or end and end < today:
-                continue
+
+        # TODO: This is slightly wrong - we shouldn't rely on a dfo-specific
+        # mapper function here...
+        for aff, ou_idents in self._mapper.get_active_affiliations(hr_person,
+                                                                   _today=today):
             ou = self._get_ou(ou_idents)
             if not ou:
                 raise NonExistentOuError("invalid ou: " + repr(ou_idents))
