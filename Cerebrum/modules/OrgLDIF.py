@@ -999,8 +999,13 @@ class OrgLDIF(object):
         entry['eduPersonAffiliation'] = attr_unique(self.select_list(
             self.eduPersonAff_selector, person_id, p_affiliations))
 
+        # For now, searches every person and finds export_id, can maybe be done in a more effecient and cached way?
+
+        self.person.clear()
+        self.person.find(person_id)
+        export_id = self.person.export_id
         entry['eduPersonUniqueID'] = "@".join(
-            (str(person_id), self.config.domain_name)
+            (export_id, self.config.domain_name)
             )
 
         # For now, the scoped affiliations are just a mirror of the above
