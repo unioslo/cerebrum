@@ -24,7 +24,7 @@ from Cerebrum.modules.hr_import.importer import get_next_retry
 from Cerebrum.modules.tasks import queue_handler
 from Cerebrum.modules.tasks import task_models
 from Cerebrum.modules.tasks import task_queue
-from Cerebrum.utils.date import now
+from Cerebrum.utils import date as date_utils
 from .datasource import parse_message
 
 logger = logging.getLogger(__name__)
@@ -64,6 +64,7 @@ class EmployeeTasks(queue_handler.QueueHandler):
     @classmethod
     def create_manual_task(cls, reference, sub=None, nbf=None):
         """ Create a manual task. """
+        now = date_utils.now()
         payload = task_models.Payload(
             fmt='dfo-event',
             version=1,
@@ -72,9 +73,9 @@ class EmployeeTasks(queue_handler.QueueHandler):
             queue=cls.queue,
             sub=cls.manual_sub if sub is None else sub,
             key=reference,
-            nbf=nbf,
+            nbf=nbf or now,
             attempts=0,
-            reason='manual: on={when}'.format(when=now()),
+            reason='manual: on={when}'.format(when=now),
             payload=payload,
         )
 
@@ -108,18 +109,20 @@ class AssignmentTasks(queue_handler.QueueHandler):
             task_db.push_task(task_models.merge_tasks(task, old_task))
 
     @classmethod
-    def create_manual_task(cls, reference):
+    def create_manual_task(cls, reference, sub=None, nbf=None):
         """ Create a manual task. """
+        now = date_utils.now()
         payload = task_models.Payload(
             fmt='dfo-event',
             version=1,
             data={'id': reference, 'uri': 'dfo:stillinger'})
         return task_models.Task(
             queue=cls.queue,
-            sub=cls.manual_sub,
+            sub=sub or cls.manual_sub,
             key=reference,
             attempts=0,
-            reason='manual: on={when}'.format(when=now()),
+            nbf=nbf or now,
+            reason='manual: on={when}'.format(when=now),
             payload=payload,
         )
 
@@ -142,7 +145,9 @@ def get_tasks(event):
         logger.error('Invalid event: %s', repr(event), exc_info=True)
         return
 
-    is_delayed = fields['nbf'] and fields['nbf'] > now()
+    now = date_utils.now()
+
+    is_delayed = fields['nbf'] and fields['nbf'] > now
     sub = None
 
     if fields['uri'] == 'dfo:ansatte':
@@ -163,12 +168,12 @@ def get_tasks(event):
         queue=queue,
         sub=sub,
         key=fields['id'],
-        nbf=fields['nbf'],
+        nbf=fields['nbf'] or now,
         reason='event: ex={ex} rk={rk} tag={ct} on={when}'.format(
             ex=event.method.exchange,
             rk=event.method.routing_key,
             ct=event.method.consumer_tag,
-            when=str(now()),
+            when=str(now),
         ),
         attempts=0,
         # NOTE: Rememeber to bump the version if *any* changes are made to this
