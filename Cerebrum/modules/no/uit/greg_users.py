@@ -112,7 +112,7 @@ def get_creator(db):
     """ Get default creator for new accounts. """
     creator = Factory.get("Account")(db)
     creator.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
-    return int(creator.entity_id)
+    return creator
 
 
 def get_posix_group(db):
@@ -186,21 +186,11 @@ def get_person_name(person):
     """ Get the full name of a given person. """
     const = person.const
     try:
-        first = person.get_name(const.system_cached, const.name_first)
+        return person.get_name(const.system_cached, const.name_full)
     except Errors.NotFoundError:
-        # This can happen if the person has no first name and no
-        # authoritative system has set an explicit name_first variant.
-        first = ""
-
-    try:
-        last = person.get_name(const.system_cached, const.name_last)
-    except Errors.NotFoundError:
-        # See above.  In such a case, name_last won't be set either,
-        # but name_full will exist.
-        last = person.get_name(const.system_cached, const.name_full)
-        assert last.count(' ') == 0
-
-    return " ".join((first, last)).strip()
+        logger.warning("No authoritative full name for person id=%r",
+                       person.entity_id)
+        return ""
 
 
 def get_greg_affiliations(person):
@@ -309,7 +299,7 @@ def populate_account_affiliations(account, affiliations):
             to_add.append((aff, ou_id))
 
     for aff, ou_id in to_add:
-        logger.info("Adding aff to account %s (id=%s): %s @ %s",
+        logger.info("Adding aff to account %s (id=%s): %s @ ou id=%s",
                     repr(account.account_name), repr(account.entity_id),
                     aff, ou_id)
         account.set_account_type(ou_id, aff)
@@ -320,20 +310,18 @@ def populate_account_affiliations(account, affiliations):
     return tuple(to_add)
 
 
-def create_account(owner, _today=None):
+def create_account(owner, default_expire_date):
+    """ Create a new posix account. """
     db = owner._db
     const = owner.const
-    today = _today or datetime.date.today()
 
     creator_id = int(get_creator(db).entity_id)
     dfg_id = int(get_posix_group(db).entity_id)
     logger.info("Creating account for person id=%r", owner.entity_id)
 
-    full_name = get_person_name(owner)
-    greg_id = get_greg_id(owner)
-
     account = Factory.get('PosixUser')(db)
     uname = account.suggest_unames(owner)[0]
+    full_name = get_person_name(owner)
 
     account.populate(
         name=uname,
@@ -341,7 +329,7 @@ def create_account(owner, _today=None):
         owner_type=const.entity_person,
         np_type=None,
         creator_id=creator_id,
-        expire_date=today,
+        expire_date=default_expire_date,
         posix_uid=account.get_free_uid(),
         gid_id=dfg_id,
         gecos=transliterate.for_posix(full_name),
@@ -350,15 +338,8 @@ def create_account(owner, _today=None):
 
     password = account.make_passwd(uname)
     account.set_password(password)
-    write_result = account.write_db()
+    account.write_db()
 
-    logger.info("Created account %r (id=%r) for person id=%r greg_id=%r",
-                account.account_name, account.entity_id, owner.entity_id,
-                greg_id)
-    logger.debug("Account id=%r, write_db() -> %r",
-                 account.entity_id, write_result)
-
-    # register new account as posix
     return account
 
 
@@ -438,6 +419,9 @@ def calculate_greg_spreads(const, affiliations):
 
     # Check if the affiliations from System-X qualifies for exchange_mailbox
     # spread
+    #
+    # TODO: Move _needs_exchange logic here when we figure out how it *should*
+    # work?
     if (const.spread_uit_ad_account in spreads
             and _needs_exchange(affiliations)):
         spreads.add(const.spread_uit_exchange)
@@ -463,7 +447,7 @@ def update_greg_person(db, person_id, new_expire_date, _today=None):
     person = Factory.get("Person")(db)
     account = Factory.get("Account")(db)
 
-    logger.info("Processing person_id: %r", person_id)
+    logger.info("Processing person id=%r", person_id)
 
     try:
         person.find(person_id)
@@ -499,7 +483,7 @@ def update_greg_person(db, person_id, new_expire_date, _today=None):
         return None
 
     if need_new_account:
-        account = create_account(person)
+        account = create_account(person, default_expire_date=today)
         account_id = account.entity_id
         current_expire_date = date_compat.get_date(account.expire_date)
     else:
@@ -520,6 +504,11 @@ def update_greg_person(db, person_id, new_expire_date, _today=None):
         # ensure posix account
         promote_posix(account)
 
+    logger.info("%s account %r (id=%r) for person id=%r greg_id=%r",
+                "Created" if need_new_account else "Found",
+                account.account_name, account.entity_id,
+                person.entity_id, greg_id)
+
     #
     # expire date
     #
@@ -528,6 +517,10 @@ def update_greg_person(db, person_id, new_expire_date, _today=None):
     # for UiT that checks for deceased-date and terminates (sets updated
     # expire-date) for accounts?  That should be fairly simple and
     # straight-forward...
+    logger.debug("Dates for account %r (id=%r): "
+                 "deceased=%s current-expire=%s new-expire=%s",
+                 account.account_name, account.entity_id,
+                 deceased_date, current_expire_date, new_expire_date)
     new_deceased = False
     if deceased_date:
         new_expire_date = deceased_date
@@ -540,8 +533,10 @@ def update_greg_person(db, person_id, new_expire_date, _today=None):
     if ((new_expire_date and (new_expire_date > today)
          and (new_expire_date > current_expire_date))
             or new_deceased):
-        # If new expire is later than current expire
-        # then update expire
+        # If new expire is later than current expire then update expire
+        logger.info("Updating expire-date for account %r (id=%r): %s -> %s",
+                    account.account_name, account.entity_id,
+                    current_expire_date, new_expire_date)
         account.expire_date = new_expire_date
         account.write_db()
 
