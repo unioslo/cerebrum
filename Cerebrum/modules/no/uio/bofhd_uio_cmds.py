@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2002-2021 University of Oslo, Norway
+# Copyright 2002-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -24,8 +24,6 @@ import errno
 import imaplib
 import re
 import select
-import socket
-import ssl
 import warnings
 
 from mx import DateTime
