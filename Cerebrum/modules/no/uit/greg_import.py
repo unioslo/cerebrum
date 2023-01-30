@@ -34,40 +34,27 @@ logger = logging.getLogger(__name__)
 class _UitGregOrgunitIds(mapper.GregOrgunitIds):
 
     # Maps Ou identifiers in Greg (.roles[].orgunit.identifiers[])
-    #
-    # TODO: Which identifiers will exist at UiT?
-    #
-    # For now, we'll be able to test import of a single person by adding valid
-    # GREG_OU_ID values on relevant org units in Cerebrum...
 
     type_map = {
-        # TODO: It looks like UiT will have a orgreg/orgreg-id which is useful
-        # if we ever move the OU import for UiT over to Orgreg.  For now
-        # though, UiT doesn't use `Cerebrum.modules.orgreg`, and thus don't
-        # have this id-type.
-        # ('orgreg', 'orgreg_id'): 'ORGREG_OU_ID',
-
-        # TODO: We should probably have a location code, but what will this be
-        # named in greg-uit-*?  Probably 'legacy_stedkode', but from which
-        # source system?
-        # ('orgreg', 'legacy_stedkode'): 'NO_SKO',
+        # UiT doesn't use `Cerebrum.modules.orgreg`, for now...
+        # # ('orgreg', 'orgreg_id'): 'ORGREG_OU_ID',
+        ('sirk', 'legacy_stedkode'): 'NO_SKO',
     }
 
 
 class _UitGregContactInfo(mapper.GregContactInfo):
 
     type_map = {
-        'private_mobile': 'PRIVATEMOBILE',
         'private_email': 'EMAIL',
+        'private_mobile': 'PRIVATEMOBILE',
     }
 
 
 class _UitGregPersonIds(mapper.GregPersonIds):
 
     type_map = {
-        # We include the primary identifier from System-X.
-        # This will help match old Cerebrum/System-X guests with new
-        # Cerebrum/Greg entries.
+        # We include the primary identifier from System-X.  This will help
+        # match old Cerebrum/System-X guests with new Cerebrum/Greg guests.
         ('system-x', 'migration_id'): 'SYS_X_ID',
 
         'norwegian_national_id_number': 'NO_BIRTHNO',
