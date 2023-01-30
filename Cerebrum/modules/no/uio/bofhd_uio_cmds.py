@@ -2289,6 +2289,44 @@ class BofhdExtension(BofhdCommonMethods):
         return result
 
     #
+    # group accounts <groupname>
+    #
+    all_commands["group_accounts"] = Command(
+        ("group", "accounts"),
+        GroupName(),
+        fs=FormatSuggestion(
+            "%8i %30s %25s",
+            ("acc_id", "acc_name", "group_name"),
+            hdr="%8s %30s %30s" % ("id", "name", "is owned by group_name"),
+        ),
+    )
+
+    def group_accounts(self, operator, groupname):
+        """Lists all accounts the given group owns."""
+        gr = self._get_group(groupname)
+        acc_type = self.const.entity_account
+        accs = [a["account_id"] for a in gr.get_owned_accounts()]
+        if len(accs) > cereconf.BOFHD_MAX_MATCHES and not self.ba.is_superuser(
+            operator.get_entity_id()
+        ):
+            raise CerebrumError(
+                "More than %d (%d) matches, contact superuser"
+                "to get a listing for %r"
+                % (cereconf.BOFHD_MAX_MATCHES, len(accs), groupname)
+            )
+        result = []
+        for acc in accs:
+            acc_name = self._get_entity_name(acc, acc_type)
+            result.append(
+                {
+                    "acc_id": acc,
+                    "acc_name": acc_name,
+                    "group_name": groupname,
+                }
+            )
+        return result
+
+    #
     # misc affiliations
     #
     all_commands['misc_affiliations'] = Command(
