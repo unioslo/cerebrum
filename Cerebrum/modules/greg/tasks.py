@@ -24,6 +24,7 @@ import logging
 
 from Cerebrum.modules.tasks import queue_handler
 from Cerebrum.modules.tasks import task_models
+from Cerebrum.utils import date as date_utils
 
 from .datasource import parse_message
 
@@ -80,7 +81,7 @@ def get_tasks(event):
 
     :rtype: generator
     :returns:
-        zero or more :py:class:`Cerebrum.modules.task.task_models.Task`
+        zero or more :class:`Cerebrum.modules.task.task_models.Task`
         objects
     """
     try:
@@ -108,5 +109,7 @@ def get_tasks(event):
             rk=event.method.routing_key,
             ct=event.method.consumer_tag,
         ),
+        # Explicit defaults, to ensure we replace old values
         attempts=0,
+        nbf=date_utils.now(),
     )
