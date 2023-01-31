@@ -46,7 +46,7 @@ from Cerebrum.modules.tasks import queue_handler
 from Cerebrum.modules.no.uit import POSIX_GROUP_NAME
 from Cerebrum.modules.no.uit.Account import UsernamePolicy
 from Cerebrum.utils import transliterate
-from Cerebrum.utils.date import parse_date
+from Cerebrum.utils import date as date_utils
 
 logger = logging.getLogger(__name__)
 
@@ -64,46 +64,81 @@ class UitGregUserUpdateHandler(queue_handler.QueueHandler):
     """
 
     queue = 'greg-user-update'
+    manual_sub = 'manual'
     max_attempts = 10
     get_retry_delay = delay_on_error
+
+    payload_format = 'greg-expire-date'
+    payload_version = 1
 
     def __init__(self):
         pass
 
-    def handle_task(self, db, task):
-        id_type, _, id_value = task.key.partition(":")
-        if id_type != "entity-id":
-            raise ValueError("Invalid task key: " + repr(task.key))
-
-        entity_id = int(id_value)
-        expire_date = task.payload.data.get('expire_date')
-        if expire_date:
-            expire_date = parse_date(expire_date)
-        else:
-            expire_date = None
-        update_greg_person(db, entity_id, expire_date)
-
     @classmethod
-    def new_task(cls, entity_id, affiliations=None, expire_date=None):
-        key = "entity-id:{}".format(int(entity_id))
+    def _create_payload(cls, expire_date=None):
+        """ Create a task payload with the given expire date. """
         if expire_date:
             expire_date = expire_date.isoformat()
         else:
             expire_date = None
+        return task_models.Payload(
+            fmt=cls.payload_format,
+            version=cls.payload_version,
+            data={'expire_date': expire_date},
+        )
+
+    @classmethod
+    def _extract_payload(cls, payload):
+        """ Extract expire-date from a task payload. """
+        if not payload:
+            raise ValueError("No payload")
+        if payload.format != cls.payload_format:
+            raise ValueError("Wrong payload format: %r (expected %r)"
+                             % (payload.format, cls.payload_format))
+        if payload.version != cls.payload_version:
+            raise ValueError("Wrong payload version: %r (expected %r)"
+                             % (payload.version, cls.payload_version))
+
+        if payload.data['expire_date']:
+            return date_utils.parse_date(payload.data['expire_date'])
+        return None
+
+    @classmethod
+    def create_task(cls, person_id, expire_date=None, sub="", reason=""):
+        """ Helper - create a new greg-user-update task. """
+        key = "id:{}".format(int(person_id))
         return task_models.Task(
             queue=cls.queue,
-            sub="",
+            sub=sub,
             key=key,
+            nbf=date_utils.now(),
             attempts=0,
-            nbf=None,
-            payload=task_models.Payload(
-                fmt='greg-person-update',
-                version=1,
-                data={
-                    'expire_date': expire_date,
-                },
-            ),
+            reason=reason,
+            payload=cls._create_payload(expire_date),
         )
+
+    @classmethod
+    def create_manual_task(cls, person_id, expire_date=None):
+        """ Create a manual task. """
+        return cls.create_task(person_id, expire_date=expire_date,
+                               sub=cls.manual_sub, reason="manually added")
+
+    def handle_task(self, db, task):
+        # task key to person-id
+        id_type, _, id_value = task.key.partition(":")
+        if id_type != "id":
+            raise ValueError("Invalid task key: " + repr(task.key))
+        entity_id = int(id_value)
+
+        # task payload to expire-date
+        try:
+            expire_date = self._extract_payload(task.payload)
+        except Exception as e:
+            logger.warning("Invalid payload in task %s: %s", task, e)
+            expire_date = None
+
+        # create or update user account for the given person
+        update_greg_person(db, entity_id, expire_date)
 
 
 def get_creator(db):
