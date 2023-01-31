@@ -162,31 +162,6 @@ def get_ou_by_id(db, ou_id):
     return ou
 
 
-def get_location_code(ou):
-    """ Get location code (stedkode) for a given OU. """
-    # TODO: Maybe make this a generic function somewhere?  It'll probably be
-    # useful elsewhere as we move from mod_stedkode to entity_external_id for
-    # this value.
-    ou_id = ou.entity_id
-
-    sko_values = set()
-    for row in ou.get_external_id(id_type=ou.const.externalid_location_code):
-        sko_values.add(row['external_id'])
-
-    if len(sko_values) < 1:
-        logger.warning("No location code for ou_id=%s", repr(ou_id))
-        return None
-
-    if len(sko_values) > 1:
-        # TODO: Should maybe select the best match based on source system
-        # (SYSTEM_LOOKUP_ORDER?) and return that?
-        logger.warning("Multiple location codes for ou_id=%s (%s)",
-                       repr(ou_id), repr(sko_values))
-        return None
-
-    return sko_values.pop()
-
-
 def get_greg_id(person):
     """ Get greg-id for a given person object, if it exists. """
     const = person.const
@@ -208,10 +183,7 @@ def get_candidate_accounts(person):
         if UsernamePolicy.is_valid_sito_name(row['name']):
             # Sito account
             continue
-        yield (
-            int(row['account_id']),
-            date_compat.get_date(row['expire_date']),
-        )
+        yield int(row['account_id'])
 
 
 def get_person_name(person):
@@ -238,7 +210,7 @@ def get_greg_affiliations(person):
         ou_id = int(row['ou_id'])
 
         try:
-            ou = get_ou_by_id(db, ou_id)
+            get_ou_by_id(db, ou_id)
         except Errors.NotFoundError:
             logger.debug("Ignoring aff for person id=%s to ou_id=%s (missing)",
                          person_id, ou_id)
@@ -248,13 +220,7 @@ def get_greg_affiliations(person):
                          person_id, ou_id)
             continue
 
-        location_code = get_location_code(ou)
-        if not location_code:
-            logger.debug("Ignoring aff for person id=%s to ou_id=%s "
-                         "(no location code)", person_id, ou_id)
-            continue
-
-        yield status, ou_id, location_code
+        yield status, ou_id
 
 
 def promote_posix(account):
@@ -265,9 +231,10 @@ def promote_posix(account):
 
     try:
         pu.find(int(account.entity_id))
-        logger.debug("Account id=%r is already a PosixUser",
-                     account.entity_id)
-        return False
+        logger.debug("Account %s (id=%s) is already a posix user (uid=%s)",
+                     repr(account.account_name), repr(account.entity_id),
+                     repr(pu.posix_uid))
+        return pu
     except Errors.NotFoundError:
         # Missing posix promote
         pu.clear()
@@ -275,20 +242,11 @@ def promote_posix(account):
     uid = pu.get_free_uid()
     shell = co.posix_shell_bash
     group_id = int(get_posix_group(db).entity_id)
-    try:
-        pu.populate(uid, group_id, None, shell, parent=account)
-        pu.write_db()
-    except Exception:
-        # TODO: This should probably not be handled here...
-        logger.error("Unable to posix promote account %s (id=%s)",
-                     repr(account.account_name), repr(account.entity_id),
-                     exc_info=True)
-        return False
-
-    # only gets here if posix user created successfully
+    pu.populate(uid, group_id, None, shell, parent=account)
+    pu.write_db()
     logger.info("Promoted account %s (id=%s) to posix (uid=%s)",
                 repr(account.account_name), repr(account.entity_id), repr(uid))
-    return True
+    return pu
 
 
 def populate_account_affiliations(account, affiliations):
@@ -296,38 +254,17 @@ def populate_account_affiliations(account, affiliations):
     Assert that the account has the given affiliations.
 
     :type account: Cerebrum.Account.Account
-    :param affiliations: sequence of aff tuples (aff-status, ou-id, sko)
+    :param affiliations: sequence of aff tuples (aff-status, ou-id)
     """
-    db = account._db
-    current_account_affs = []
-    current_person_affs = tuple((affst.affiliation, ou_id)
-                                for affst, ou_id, _ in affiliations)
+    current_person_affs = tuple(
+        (affst.affiliation, ou_id)
+        for affst, ou_id in affiliations)
 
-    for row in account.list_accounts_by_type(account_id=int(account.entity_id),
-                                             filter_expired=False):
-        # TODO: We should probably just remove any invalid account-aff here?
-        #
-        # TODO: Alternatively, if we don't want to clean up, we don't really
-        # need to look up the ou_id here, as any not-found/expired shouldn't
-        # occur in the person_affs tuple anyway?  And if it does we wouldn't
-        # want to add it?
-        try:
-            get_ou_by_id(db, row['ou_id'])
-        except Errors.NotFoundError:
-            logger.debug("Ignoring account aff for account %s (id=%s) "
-                         " to ou_id=%s (missing)",
-                         repr(account.account_name), repr(account.entity_id),
-                         repr(row['ou_id']))
-            continue
-        except EntityExpiredError:
-            logger.debug("Ignoring account aff for account %s (id=%s) "
-                         " to ou_id=%s (expired)",
-                         repr(account.account_name), repr(account.entity_id),
-                         repr(row['ou_id']))
-            continue
-
-        current_account_affs.append((int(row['affiliation']),
-                                     int(row['ou_id'])))
+    current_account_affs = tuple(
+        (int(row['affiliation']), int(row['ou_id']))
+        for row in account.list_accounts_by_type(
+            account_id=int(account.entity_id),
+            filter_expired=False))
 
     to_add = []
     for aff, ou_id in current_person_affs:
@@ -379,32 +316,6 @@ def create_account(owner, default_expire_date):
     return account
 
 
-def _needs_exchange(affiliations):
-    """ Check if collection of affiliations qualifies for exchange. """
-    could_have_exchange = False
-    location_codes = tuple(aff[2] for aff in affiliations)
-
-    for code in location_codes:
-        # No external codes should have exchange spread, except GENØK (999510)
-        # and AK (999620) and KUNN (999410) and NorgesUniv (921000)
-        if (code[0:2] != '99'
-                or code[0:6] in ('999510', '999620', '999410', '921000')):
-            could_have_exchange = True
-
-    # Run through exchange employee filter
-    # TODO: This is weird: Ask UiT how this is supposed to work?
-    #       This will never happen...
-    #       `and not could_have_exchange` -> `could_have_exchange = False`
-    for code in location_codes:
-        for skofilter in cereconf.EMPLOYEE_FILTER_EXCHANGE_SKO:
-            if (skofilter == code[0:len(skofilter)]
-                    and not could_have_exchange):
-                logger.info("Skipping exchange spread for sko=%r", code)
-                return False
-
-    return could_have_exchange
-
-
 #
 # TODO: Update spread map
 #
@@ -436,30 +347,17 @@ def calculate_greg_spreads(const, affiliations):
     Get selection of spreads to add from affiliations.
 
     :type const: Cerebrum.Constants.ConstantsBase
-    :param affiliations: sequence of aff tuples (aff-status, ou-id, sko)
+    :param affiliations: sequence of aff tuples (aff-status, ou-id)
     """
     spreads = set((const.spread_uit_ldap_system,))
 
-    aff_statuses = tuple(affst for affst, _, _ in affiliations)
-
-    for status in aff_statuses:
-        # One of the things in the affiliation list is MANUELL/gjest_u_konto
-        # No spreads (other than the *one* everybody gets...
-        if status == const.affiliation_manuell_gjest_u_konto:
-            return spreads
-
-    for status in aff_statuses:
-        aff_string = six.text_type(status)
+    for aff_status, _ in affiliations:
+        aff_string = six.text_type(aff_status)
         for spread in SPREAD_MAP.get(aff_string, ()):
             spreads.add(const.get_constant(const.Spread, spread))
 
-    # Check if the affiliations from System-X qualifies for exchange_mailbox
-    # spread
-    #
-    # TODO: Move _needs_exchange logic here when we figure out how it *should*
-    # work?
-    if (const.spread_uit_ad_account in spreads
-            and _needs_exchange(affiliations)):
+    # Exchange-spread follows AD-spread.
+    if const.spread_uit_ad_account in spreads:
         spreads.add(const.spread_uit_exchange)
 
     return spreads
@@ -478,17 +376,17 @@ def update_greg_person(db, person_id, new_expire_date, _today=None):
         override the current date (e.g. in tests for exprire checks, etc...)
     """
     today = _today or datetime.date.today()
-
     const = Factory.get("Constants")(db)
     person = Factory.get("Person")(db)
     account = Factory.get("Account")(db)
 
     logger.info("Processing person id=%r", person_id)
-
     try:
         person.find(person_id)
     except Errors.NotFoundError:
         logger.error("Invalid person id=%r", person_id)
+        # We return None here to mark execution as a success.  There's nothing
+        # we can do for a non-existing person.
         return None
 
     greg_id = get_greg_id(person)
@@ -496,72 +394,74 @@ def update_greg_person(db, person_id, new_expire_date, _today=None):
         logger.debug("Person id=%r has greg-id=%r", person_id, greg_id)
     else:
         logger.error("No greg-id for person id=%r", person_id)
+        # We return None here to mark execution as a success.  There's nothing
+        # we can do for a person that has never had any info from Greg.
         return None
 
-    # sequence of (aff-status, ou-id, location-code) tuples from greg
+    # sequence of (aff-status, ou-id) tuples from greg
     current_affs = tuple(get_greg_affiliations(person))
-    if not current_affs:
-        logger.error("No valid greg affiliations for person id=%r", person_id)
-        return None
 
-    # Check if person is deceased - set new_expire_date if this is the case
+    # Check if person is deceased in Cerebrum
     deceased_date = date_compat.get_date(person.deceased_date)
 
     # sequence of account_id, expire_date for this person
     # that *could* be used as guest/greg/system-x account
     # (account-id, expire_date) pairs
     accounts = tuple(get_candidate_accounts(person))
-    need_new_account = len(accounts) < 1
+    if len(accounts) > 1:
+        raise RuntimeError("Too many accounts for person id=%r: %r",
+                           person_id, accounts)
 
-    # TODO: OK to ignore deceased persons without user accounts?
-    # Check with UiT...
-    if need_new_account and deceased_date:
-        logger.warning("Person id=%r is deceased, nothing to do", person_id)
+    if len(accounts) < 1 and deceased_date:
+        # Deceased owner, and no accounts - there's nothing more to do
+        logger.warning("Person id=%r is deceased w/ no accounts: ignoring",
+                       person_id)
+        return None
+
+    if len(accounts) < 1 and not current_affs:
+        logger.warning("Person id=%r has no affs and no accounts: ignoring",
+                       person_id)
+        # Inactive owner, and no accounts - there's nothing more to do
         return None
 
     #
     # create or find account
     #
-    if need_new_account:
+    if len(accounts) < 1:
         account = create_account(person, default_expire_date=today)
         account_id = account.entity_id
         current_expire_date = date_compat.get_date(account.expire_date)
+        new_account = True
     else:
-        # TODO: Should we try harder to find an existing account with guest
-        # roles that looks like they come from Greg if there are more than one?
-        #
-        # - maybe prioritize accounts that have already been posix-promoted?
-        # - maybe use a trait on person -> target_id=account to identify
-        # previous greg account?
-        account_id, current_expire_date = accounts[0]
+        account_id = accounts[0]
         account.find(account_id)
-
-        if not current_expire_date:
-            # Safeguard - set an expire date if we find an account without
-            # expire date...
+        if account.expire_date:
+            current_expire_date = date_compat.get_date(account.expire_date)
+        else:
+            # Set an initial expire date if we somehow find an account
+            # without...
             account.expire_date = current_expire_date = today
             account.write_db()
-        # ensure posix account
         promote_posix(account)
+        new_account = False
 
     logger.info("%s account %r (id=%r) for person id=%r",
-                "Created" if need_new_account else "Found",
+                "Created" if new_account else "Found",
                 account.account_name, account.entity_id,
                 person.entity_id)
 
     #
     # update expire date
     #
-    # TODO: One caveat here - if a person is deceased, we won't neccessarily
-    # have any updates from Greg that triggers this logic...  Maybe add a job
-    # for UiT that checks for deceased-date and terminates (sets updated
-    # expire-date) for accounts?  That should be fairly simple and
-    # straight-forward...
     logger.debug("Dates for account %r (id=%r): "
                  "deceased=%s current-expire=%s new-expire=%s",
                  account.account_name, account.entity_id,
                  deceased_date, current_expire_date, new_expire_date)
 
+    # Note: If a person is deceased, we won't neccessarily have any updates
+    # from Greg that triggers this logic...  Either a manual task must be added
+    # to update the user account, *or* the user account must be expired
+    # manually.
     new_deceased = False
     if deceased_date:
         new_expire_date = deceased_date
@@ -570,82 +470,47 @@ def update_greg_person(db, person_id, new_expire_date, _today=None):
                            person_id, new_expire_date)
             new_deceased = True
 
-    # TODO: OK to ignore missing new_expire_date?  Check with UiT...
+    # Expire date is updated if:
+    #
+    # 1. Person is deceased, and the user account *isn't* expired
+    # 2. We get a new expire date in the future, *and* the expire date is
+    #    further into the future than the current expire date
+    #
     if ((new_expire_date and (new_expire_date > today)
          and (new_expire_date > current_expire_date))
             or new_deceased):
-        # If new expire is later than current expire then update expire
         logger.info("Updating expire-date for account %r (id=%r): %s -> %s",
                     account.account_name, account.entity_id,
                     current_expire_date, new_expire_date)
         account.expire_date = new_expire_date
         account.write_db()
 
-    # account types
     populate_account_affiliations(account, current_affs)
 
-    # get all person affiliations. Need em to calculate correct spread
-    #
-    # TODO: Figure out how to calculate this properly?
-    #
-    # 1. Multiple affs - what if a person has both
-    #    affiliation_manuell_gjest_u_konto and another aff?
-    #
-    # 2. Why even have info on guest *without* account?
-    #
-    # 3. Will Greg even have any roles that maps to this aff?
-    #
-    # For now, assume if the guest have *any* affs of this type, we should
-    # abort...
+    if new_expire_date:
+        need_spreads = calculate_greg_spreads(const, current_affs)
+    else:
+        # Without an expire-date to work with, we don't want to add any spreads
+        # or deal with spread-expire.
+        need_spreads = set()
 
-    # make sure all spreads defined in sysX is set
-
-    # everybody gets this one:
+    # Ensure spreads added by this logic has an expire date
     #
-    # TODO: select spreads from role?  To replace spreads from system-x...
-    need_spreads = calculate_greg_spreads(const, current_affs)
-
-    # Set spread expire date
-    # Use new_expire_date in order to guarantee that SystemX specific spreads
-    # get SystemX specific expiry_dates
+    # Note: We set expire date here for spreads that may already be in
+    # place from other systems, not only the spreads that we end up adding!
+    # This has two consequences - we may *prolong* spread expire for
+    # existing spreads, but we may also end up *shortening* spread expire!
+    #
+    # TODO: Maybe only set expire date if it *adds* an expire date, or
+    # *prolongs* a current expire date?
     for spread in need_spreads:
-        # TODO: Set expire date for spreads?
-        #
-        # Note: We set expire date here for spreads that may already be in
-        # place from other systems, not only the spreads that we end up adding!
-        # This has two consequences - we may *prolong* spread expire for
-        # existing spreads, but we may also end up *shortening* spread expire!
-        #
-        # TODO: Maybe only set expire date if it *adds* an expire date, or
-        # *prolongs* a current expire date?
         account.set_spread_expire(entity_id=int(account.entity_id),
                                   spread=spread,
                                   expire_date=new_expire_date)
 
-    # TODO: Fix sync? Should we ever *remove* any spreads? Should we select a
-    # set of "managed" spreads?
     current_spreads = set(const.get_constant(const.Spread, row['spread'])
                           for row in account.get_spread())
     spreads_to_add = need_spreads - current_spreads
     for spread in spreads_to_add:
         account.add_spread(spread)
         account.set_home_dir(spread)
-
-    # check quarantine
-    #
-    # TODO: Should we ever *add* any quarantines?  E.g. if greg-data is
-    # removed?  Could bundle a quarantine-flag in the task when removing greg
-    # data from person?  Ask UiT about this quarantine...
-    #
-    # TODO: We should probably remove any system-x quarantines on new, enabled
-    # users here...  Check with UiT?
-    quarantines_to_remove = set((
-        const.quarantine_sys_x_approved,
-    ))
-
-    for row in list(account.get_entity_quarantine()):
-        q_type = const.get_constant(const.Quarantine, row['quarantine_type'])
-        if q_type in quarantines_to_remove:
-            logger.info("Removing quarantine %s from account %r (id=%r)",
-                        q_type, account.account_name, account.entity_id)
-            account.delete_entity_quarantine(q_type)
