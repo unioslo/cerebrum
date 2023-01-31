@@ -237,6 +237,10 @@ class GregClientConfig(Configuration):
     auth
         API auth secret (api key/header value) to access Greg.  See
         py:class:`Cerebrum.config.secrets.Secrets` for details.
+
+    auth_header
+        API auth header to place the auth secret in.  Defaults to
+        X-Gravitee-Api-Key.
     """
     url = ConfigDescriptor(
         String,
@@ -247,6 +251,12 @@ class GregClientConfig(Configuration):
     auth = ConfigDescriptor(
         Secret,
         doc='Auth token for the Greg API',
+    )
+
+    auth_header = ConfigDescriptor(
+        String,
+        default='X-Gravitee-Api-Key',
+        doc='Auth token header value',
     )
 
 
@@ -267,7 +277,7 @@ def get_client(config):
 
     config.validate()
 
-    api_key_header = 'X-Gravitee-Api-Key'
+    api_key_header = config.auth_header
     api_key_value = get_secret_from_string(config.auth)
 
     kwargs = {
