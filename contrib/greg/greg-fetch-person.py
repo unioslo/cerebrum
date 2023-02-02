@@ -40,7 +40,7 @@ import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum.modules.greg import datasource
 from Cerebrum.modules.greg.client import get_client
-from Cerebrum.modules.greg.mapper import GregMapper
+from Cerebrum.modules.greg.importer import get_import_class
 from Cerebrum.utils import json
 
 logger = logging.getLogger(__name__)
@@ -96,7 +96,7 @@ def main(inargs=None):
     client = get_client(args.config)
 
     raw_person = client.get_person(args.reference)
-    mapper = GregMapper()
+    mapper = get_import_class().mapper
 
     if args.raw:
         print(pformat(raw_person))
