@@ -34,6 +34,8 @@ from __future__ import (
 import datetime
 import logging
 
+import six
+
 
 logger = logging.getLogger(__name__)
 
@@ -353,6 +355,7 @@ class GregRoles(object):
         # example:
         #
         # 'emeritus': 'TILKNYTTET/emeritus',
+        # 'phd': ('ANSATT/vitenskapelig', 'STUDENT/drgrad')
     }
 
     get_orgunit_ids = GregOrgunitIds()
@@ -378,6 +381,7 @@ class GregRoles(object):
         greg_id = int(greg_data['id'])
 
         for role_obj in greg_data.get('roles', ()):
+
             if role_obj['type'] not in self.type_map:
                 logger.debug(
                     'ignoring unknown role type=%r, id=%r for greg_id=%s',
@@ -394,12 +398,26 @@ class GregRoles(object):
                     role_obj['type'], role_obj['id'], greg_id)
                 continue
 
-            yield (
-                self.type_map[role_obj['type']],
-                tuple(self.get_orgunit_ids(role_obj['orgunit'])),
-                role_obj['start_date'],
-                role_obj['end_date'],
-            )
+            affiliations = self.type_map[role_obj['type']]
+            if not affiliations:
+                logger.warning('unmapped role type=%r, id=%r for greg_id=%r',
+                               role_obj['type'], role_obj['id'], greg_id)
+            if isinstance(affiliations, six.string_types):
+                affiliations = [affiliations]
+
+            org_unit_ids = tuple(self.get_orgunit_ids(role_obj['orgunit']))
+            if not org_unit_ids:
+                logger.warning('no orgunit ids in role type=%r, id=%r '
+                               'for greg_id=%r',
+                               role_obj['type'], role_obj['id'], greg_id)
+
+            for affiliation in affiliations:
+                yield (
+                    affiliation,
+                    org_unit_ids,
+                    role_obj['start_date'],
+                    role_obj['end_date'],
+                )
 
 
 class GregMapper(object):
