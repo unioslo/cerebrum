@@ -474,9 +474,6 @@ def update_greg_person(db, person_id, new_expire_date, _today=None):
         need_spreads = set()
 
     # Ensure spreads added by this logic has an expire date
-    sync_spread_expire(account,
-                       {spread: new_expire_date for spread in need_spreads})
-
     current_spreads = set(const.get_constant(const.Spread, row['spread'])
                           for row in account.get_spread())
     spreads_to_add = need_spreads - current_spreads
@@ -485,3 +482,9 @@ def update_greg_person(db, person_id, new_expire_date, _today=None):
                     account.account_name, account.entity_id, spread)
         account.add_spread(spread)
         account.set_home_dir(spread)
+
+    # This is odd - but `add_spread()` always sets spread_expire to today on
+    # accounts - we need to update spread_expire after they've been added for
+    # the new expire date to take effect
+    sync_spread_expire(account,
+                       {spread: new_expire_date for spread in need_spreads})
