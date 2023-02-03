@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2022 University of Oslo, Norway
+# Copyright 2022-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -354,10 +354,11 @@ class BofhdTaskCommands(BofhdCommonMethods):
                     'Not before:    %s',
                     'Issued at:     %s',
                     'Reason:        %s',
+                    'Payload:       %s',
                     '',
                 )),
              ('task_id', 'attempts', format_time('nbf'), format_time('iat'),
-              'reason')),
+              'reason', 'payload')),
             # Allow for a special 'limit' sentinel value.  This value should
             # never appear when using this format
             ("...\nLimited to %d results", ('limit',)),
