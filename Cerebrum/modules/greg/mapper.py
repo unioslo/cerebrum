@@ -82,9 +82,6 @@ class GregOrgunitIds(object):
                                      id_obj['value'])
             if (source, name) in self.type_map:
                 yield self.type_map[source, name], value
-            else:
-                logger.debug('ignoring unknown org unit id (%s, %s) '
-                             'for greg_id=%s', source, name, greg_id)
 
 
 def get_names(greg_data):

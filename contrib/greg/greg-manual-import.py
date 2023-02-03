@@ -39,6 +39,7 @@ from Cerebrum.Utils import Factory
 from Cerebrum.database.ctx import db_context
 from Cerebrum.modules.greg.client import get_client
 from Cerebrum.modules.greg.importer import get_import_class
+from Cerebrum.modules.import_utils import syncs
 from Cerebrum.utils.argutils import add_commit_args
 
 logger = logging.getLogger(__name__)
@@ -66,6 +67,11 @@ def main(inargs=None):
         help='Greg client config (see Cerebrum.modules.greg.client)',
     )
     parser.add_argument(
+        '-d', '--debug',
+        action='store_true',
+        help='Debugging mode (show values during import)',
+    )
+    parser.add_argument(
         'reference',
         help='A Greg person id to import',
     )
@@ -76,6 +82,9 @@ def main(inargs=None):
     args = parser.parse_args(inargs)
     default_preset = 'tee' if args.commit else 'console'
     Cerebrum.logutils.autoconf(default_preset, args)
+
+    if args.debug:
+        syncs.enable_debug_log()
 
     logger.info("start %s", parser.prog)
     logger.debug("args: %r", args)

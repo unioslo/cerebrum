@@ -237,7 +237,7 @@ class GregImporter(object):
         # us to cross-reference persons *created* by greg with persons that may
         # appear in other source systems.
         #
-        greg_ids = self.mapper.get_person_ids(greg_person)
+        greg_ids = tuple(self.mapper.get_person_ids(greg_person))
         changes['external-id'] = self._sync_ids(person_obj, greg_ids)
 
         changes['contact-info'] = self._sync_cinfo(person_obj, ())
@@ -258,15 +258,15 @@ class GregImporter(object):
         changes = {}
 
         # 'person-name' -> added, updated, removed
-        greg_names = self.mapper.get_names(greg_person)
+        greg_names = tuple(self.mapper.get_names(greg_person))
         changes['person-name'] = self._sync_name(person_obj, greg_names)
 
         # 'external-id' -> added, updated, removed
-        greg_ids = self.mapper.get_person_ids(greg_person)
+        greg_ids = tuple(self.mapper.get_person_ids(greg_person))
         changes['external-id'] = self._sync_ids(person_obj, greg_ids)
 
         # 'contact-info' -> added, updated, removed
-        greg_cinfo = self.mapper.get_contact_info(greg_person)
+        greg_cinfo = tuple(self.mapper.get_contact_info(greg_person))
         changes['contact-info'] = self._sync_cinfo(person_obj, greg_cinfo)
 
         # 'affiliation' -> added, kept, removed
@@ -279,7 +279,7 @@ class GregImporter(object):
         changes['affiliation'] = self._sync_affs(person_obj, affs)
 
         # 'consent-group' -> added, removed
-        consents = self.mapper.get_consents(greg_person)
+        consents = tuple(self.mapper.get_consents(greg_person))
         changes['consent-group'] = self._sync_consent_groups(person_obj,
                                                              consents)
 
