@@ -44,13 +44,6 @@ from Cerebrum.utils.date import parse_date
 logger = logging.getLogger(__name__)
 
 
-def date_type(value):
-    if value:
-        return parse_date(value)
-    else:
-        return None
-
-
 def _get_account_owner_id(account):
     entity_type = account.const.EntityType(account.owner_type)
     if entity_type == account.const.entity_person:
@@ -59,57 +52,44 @@ def _get_account_owner_id(account):
                       + six.text_type(entity_type))
 
 
-def _get_person_by_id(db, person_id):
-    pe = Factory.get("Person")(db)
-    try:
-        pe.find(person_id)
-        return pe.entity_id
-    except NotFoundError:
-        pass
-    raise LookupError("Invalid person-id: " + repr(person_id))
-
-
-def _get_person_by_account_id(db, account_id):
-    ac = Factory.get("Account")(db)
-    try:
-        ac.find(account_id)
-        return _get_account_owner_id(ac)
-    except NotFoundError:
-        pass
-    raise LookupError("Invalid account-id: " + repr(account_id))
-
-
-def _get_person_by_account_name(db, account_name):
-    ac = Factory.get("Account")(db)
-    try:
-        ac.find_by_name(account_name)
-        return _get_account_owner_id(ac)
-    except NotFoundError:
-        pass
-    raise LookupError("Invalid account name: " + repr(account_name))
-
-
-def _get_person_by_greg_id(db, greg_id):
-    pe = Factory.get("Person")(db)
-    try:
-        pe.find_by_external_id(id_type=pe.const.externalid_greg_pid,
-                               external_id=greg_id)
-        return pe.entity_id
-    except NotFoundError:
-        pass
-    raise LookupError("Invalid greg-id: " + repr(greg_id))
-
-
 def find_person_id(db, args):
-    if args.person_id is not None:
-        return _get_person_by_id(db, args.person_id)
-    if args.account_id is not None:
-        return _get_person_by_account_id(db, args.account_id)
-    if args.account_name:
-        return _get_person_by_account_name(db, args.account_name)
-    if args.greg_id:
-        return _get_person_by_greg_id(db, args.greg_id)
+    pe = Factory.get("Person")(db)
+    ac = Factory.get("Account")(db)
 
+    if args.person_id is not None:
+        try:
+            pe.find(args.person_id)
+            return pe.entity_id
+        except NotFoundError:
+            pass
+        raise LookupError("Invalid person id: " + repr(args.person_id))
+
+    if args.account_id is not None:
+        try:
+            ac.find(args.account_id)
+            return _get_account_owner_id(ac)
+        except NotFoundError:
+            pass
+        raise LookupError("Invalid account id: " + repr(args.account_id))
+
+    if args.account_name:
+        try:
+            ac.find_by_name(args.account_name)
+            return _get_account_owner_id(ac)
+        except NotFoundError:
+            pass
+        raise LookupError("Invalid account name: " + repr(args.account_name))
+
+    if args.greg_id:
+        try:
+            pe.find_by_external_id(id_type=pe.const.externalid_greg_pid,
+                                   external_id=args.greg_id)
+            return pe.entity_id
+        except NotFoundError:
+            pass
+        raise LookupError("Invalid greg id: " + repr(args.greg_id))
+
+    # Should not be possible to readh
     raise RuntimeError("No person identifier in args: " + repr(args))
 
 
@@ -122,7 +102,7 @@ def main(inargs=None):
     )
     parser.add_argument(
         "--expire-date",
-        type=date_type,
+        type=parse_date,
         help="An expire-date to set/use",
         metavar="<iso-8601 date>",
     )

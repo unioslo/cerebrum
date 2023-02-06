@@ -25,8 +25,8 @@ import logging
 
 from Cerebrum.modules.greg import mapper
 from Cerebrum.modules.greg import importer
-# from Cerebrum.modules.tasks import task_queue
-# from .greg_users import UitGregUserUpdateHandler
+from Cerebrum.modules.tasks import task_queue
+from .greg_users import UitGregUserUpdateHandler
 
 logger = logging.getLogger(__name__)
 
@@ -77,18 +77,33 @@ class _UitGregConsents(mapper.GregConsents):
 
 class _UitGregRoles(mapper.GregRoles):
 
-    # TODO: What roles will UiT have?
-    #
-    # These roles are the default greg-uio-* roles, which seems to be the only
-    # ones registered in greg-uit-test.  We've matched them with some valid
-    # affs for now, just for testing purposes.  This mapping *must* be updated
-    # with real roles and proper affs.
-
     type_map = {
-        'emeritus': 'TILKNYTTET/emeritus',
-        'external-consultant': 'MANUELL/gjest',
-        'external-partner': 'MANUELL/gjest',
-        'guest-researcher': 'TILKNYTTET/fagperson',
+        # GF - Gjesteforsker
+        'GF': 'MANUELL/gjesteforsker',
+
+        # EM - Emeriti
+        'EM': 'TILKNYTTET/emeritus',
+
+        # EP - Ekstern Phd
+        'EP': ('ANSATT/vitenskapelig', 'STUDENT/drgrad'),
+
+        # IP - Innleid personell (vikar, "fast ansatt")
+        'IP': 'ANSATT/tekadm',
+
+        # OT - Oppdragstaker (konsulent, "timelønn/honorar")
+        'OT': 'MANUELL/gjest',
+
+        # EV - Eksamensvakt
+        'EV': 'MANUELL/gjest',
+
+        # ES - Ekstern SRU (styre, råd, utvalg)
+        'ES': 'MANUELL/gjest',
+
+        # ST - Student
+        'ST': 'STUDENT/aktiv',
+
+        # LB - Leieboer
+        'LB': 'MANUELL/gjest',
     }
 
     get_orgunit_ids = _UitGregOrgunitIds()
@@ -169,19 +184,18 @@ class UitGregImporter(importer.GregImporter):
         expire_date = calculate_expire_date(affs)
         logger.debug("Person id=%r (greg-id=%r): account should expire at=%r",
                      person_id, greg_id, expire_date)
-        # TODO: Create and push task when the greg_users module is ready...
-        #
-        # task = UitGregUserUpdateHandler.new_task(int(person_obj.entity_id),
-        #                                          expire_date=expire_date)
-        # qdb = task_queue.TaskQueue(self.db)
-        # qdb.push_task(task)
+        task = UitGregUserUpdateHandler.create_task(int(person_obj.entity_id),
+                                                    expire_date=expire_date)
+        qdb = task_queue.TaskQueue(self.db)
+        qdb.push_task(task)
 
     def remove(self, greg_person, person_obj):
         changes = super(UitGregImporter, self).remove(greg_person, person_obj)
         self._trigger_user_update(greg_person, person_obj)
         return changes
 
-    def update(self, greg_person, person_obj):
-        changes = super(UitGregImporter, self).update(greg_person, person_obj)
+    def update(self, greg_person, person_obj, _today=None):
+        changes = super(UitGregImporter, self).update(greg_person, person_obj,
+                                                      _today=_today)
         self._trigger_user_update(greg_person, person_obj)
         return changes

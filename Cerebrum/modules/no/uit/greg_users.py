@@ -32,8 +32,6 @@ The user maintenance is mostly a re-implementation of functions from
 import datetime
 import logging
 
-import six
-
 import cereconf
 
 from Cerebrum import Errors
@@ -41,6 +39,7 @@ from Cerebrum.Utils import Factory
 from Cerebrum.utils import backoff
 from Cerebrum.utils import date_compat
 from Cerebrum.modules.entity_expire.entity_expire import EntityExpiredError
+from Cerebrum.modules.spread_expire import sync_spread_expire
 from Cerebrum.modules.tasks import task_models
 from Cerebrum.modules.tasks import queue_handler
 from Cerebrum.modules.no.uit import POSIX_GROUP_NAME
@@ -316,32 +315,6 @@ def create_account(owner, default_expire_date):
     return account
 
 
-#
-# TODO: Update spread map
-#
-# This assumes that the Greg roles maps one-to-one with affiliations - if two
-# or more roles map to the *same* affiliation in Cerebrum, but needs
-# *different* spreads, then we'll need to re-work this mapping and
-# `calculate_greg_spreads`.
-#
-# If this is the case, we'll also need additional information from Greg on
-# which roles the owner has.
-#
-SPREAD_MAP = {
-    'TILKNYTTET/emeritus': ('people@ldap', 'system@ldap'),
-    'MANUELL/gjest': ('people@ldap', 'system@ldap', 'cristin@uit'),
-    'TILKNYTTET/fagperson': ('AD_account',),
-}
-# spread_list = [
-#     co.spread_uit_ldap_people,
-#     co.spread_uit_fronter_account,
-#     co.spread_uit_ldap_system,
-#     co.spread_uit_ad_account,
-#     co.spread_uit_cristin,
-#     co.spread_uit_exchange,
-# ]
-
-
 def calculate_greg_spreads(const, affiliations):
     """
     Get selection of spreads to add from affiliations.
@@ -349,16 +322,22 @@ def calculate_greg_spreads(const, affiliations):
     :type const: Cerebrum.Constants.ConstantsBase
     :param affiliations: sequence of aff tuples (aff-status, ou-id)
     """
-    spreads = set((const.spread_uit_ldap_system,))
+    # Currently, all active user accounts @ UiT should have the same spreads.
+    spreads = set((
+        const.spread_uit_ad_account,
+        const.spread_uit_exchange,
+        const.spread_uit_ldap_people,
+        const.spread_uit_ldap_system,
+    ))
 
-    for aff_status, _ in affiliations:
-        aff_string = six.text_type(aff_status)
-        for spread in SPREAD_MAP.get(aff_string, ()):
-            spreads.add(const.get_constant(const.Spread, spread))
+    # for aff_status, _ in affiliations:
+    #     aff_string = six.text_type(aff_status)
+    #     for spread in SPREAD_MAP.get(aff_string, ()):
+    #         spreads.add(const.get_constant(const.Spread, spread))
 
-    # Exchange-spread follows AD-spread.
-    if const.spread_uit_ad_account in spreads:
-        spreads.add(const.spread_uit_exchange)
+    # # Exchange-spread follows AD-spread.
+    # if const.spread_uit_ad_account in spreads:
+    #     spreads.add(const.spread_uit_exchange)
 
     return spreads
 
@@ -495,22 +474,17 @@ def update_greg_person(db, person_id, new_expire_date, _today=None):
         need_spreads = set()
 
     # Ensure spreads added by this logic has an expire date
-    #
-    # Note: We set expire date here for spreads that may already be in
-    # place from other systems, not only the spreads that we end up adding!
-    # This has two consequences - we may *prolong* spread expire for
-    # existing spreads, but we may also end up *shortening* spread expire!
-    #
-    # TODO: Maybe only set expire date if it *adds* an expire date, or
-    # *prolongs* a current expire date?
-    for spread in need_spreads:
-        account.set_spread_expire(entity_id=int(account.entity_id),
-                                  spread=spread,
-                                  expire_date=new_expire_date)
-
     current_spreads = set(const.get_constant(const.Spread, row['spread'])
                           for row in account.get_spread())
     spreads_to_add = need_spreads - current_spreads
     for spread in spreads_to_add:
+        logger.info("Adding spread to account %s (id=%r): %s",
+                    account.account_name, account.entity_id, spread)
         account.add_spread(spread)
         account.set_home_dir(spread)
+
+    # This is odd - but `add_spread()` always sets spread_expire to today on
+    # accounts - we need to update spread_expire after they've been added for
+    # the new expire date to take effect
+    sync_spread_expire(account,
+                       {spread: new_expire_date for spread in need_spreads})
