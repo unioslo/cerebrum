@@ -27,10 +27,11 @@ should then process these tasks regularly.
 
 The user maintenance is mostly a re-implementation of functions from
 `contrib/no/uit/process_systemx.py`.
-
 """
 import datetime
 import logging
+
+import six
 
 import cereconf
 
@@ -55,6 +56,25 @@ delay_on_error = backoff.Backoff(
     backoff.Factor(datetime.timedelta(hours=1) / 8),
     backoff.Truncate(datetime.timedelta(hours=12)),
 )
+
+
+class GregUpdateIssue(Exception):
+    """
+    Issue updating account.
+
+    This typically means that the user account *shouldn't* be updated.  This
+    error can be ignored when executing tasks, but is an actual error if called
+    manually by a user.
+    """
+
+
+class GregUpdateError(Exception):
+    """
+    Fatal error updating account.
+
+    This means that something went horribly wrong, and requires manual
+    intervention.  This needs to be dealt with by a human being.
+    """
 
 
 class UitGregUserUpdateHandler(queue_handler.QueueHandler):
@@ -136,8 +156,16 @@ class UitGregUserUpdateHandler(queue_handler.QueueHandler):
             logger.warning("Invalid payload in task %s: %s", task, e)
             expire_date = None
 
-        # create or update user account for the given person
-        update_greg_person(db, entity_id, expire_date)
+        try:
+            # create or update user account for the given person
+            update_greg_person(db, entity_id, expire_date)
+        except GregUpdateIssue as e:
+            logger.warning("update ignored for person id=%r: %s",
+                           entity_id, six.text_type(e))
+        except GregUpdateError as e:
+            logger.error("update failed for person id=%r: %s",
+                         entity_id, six.text_type(e))
+            raise
 
 
 def get_creator(db):
@@ -233,7 +261,7 @@ def promote_posix(account):
         logger.debug("Account %s (id=%s) is already a posix user (uid=%s)",
                      repr(account.account_name), repr(account.entity_id),
                      repr(pu.posix_uid))
-        return pu
+        return pu, False
     except Errors.NotFoundError:
         # Missing posix promote
         pu.clear()
@@ -245,7 +273,7 @@ def promote_posix(account):
     pu.write_db()
     logger.info("Promoted account %s (id=%s) to posix (uid=%s)",
                 repr(account.account_name), repr(account.entity_id), repr(uid))
-    return pu
+    return pu, True
 
 
 def populate_account_affiliations(account, affiliations):
@@ -353,6 +381,27 @@ def update_greg_person(db, person_id, new_expire_date, _today=None):
         expire date for the greg account / greg data
     :param date _today:
         override the current date (e.g. in tests for exprire checks, etc...)
+
+    .. note::
+       On *personal accounts*: This function will select a user account that
+       belongs to the given person, *and* isn't considered an Admin account or
+       a SITO account according to naming policy.
+
+       If no such account exists (and the person *should have* an account), a
+       new account will be created.
+
+       If multiple matching accounts exists, this is considered an error, and
+       requires manual intervention (i.e. joining the accounts, deleting one of
+       the accounts).
+
+    .. note::
+       On *expire_date*: This is only used to prolong the current expire date
+       for the current user account owned by *person_id*.  If no expire date is
+       given, the account expire date won't be touched.
+
+       If the expire date is never updated (here, or in other user maintenance
+       scripts), the account will eventualy expire.  This is how UiT terminates
+       user accounts.
     """
     today = _today or datetime.date.today()
     const = Factory.get("Constants")(db)
@@ -363,19 +412,13 @@ def update_greg_person(db, person_id, new_expire_date, _today=None):
     try:
         person.find(person_id)
     except Errors.NotFoundError:
-        logger.error("Invalid person id=%r", person_id)
-        # We return None here to mark execution as a success.  There's nothing
-        # we can do for a non-existing person.
-        return None
+        raise GregUpdateIssue("no matching person: " + repr(person_id))
 
     greg_id = get_greg_id(person)
     if greg_id:
         logger.debug("Person id=%r has greg-id=%r", person_id, greg_id)
     else:
-        logger.error("No greg-id for person id=%r", person_id)
-        # We return None here to mark execution as a success.  There's nothing
-        # we can do for a person that has never had any info from Greg.
-        return None
+        raise GregUpdateIssue("no greg-id for person: " + repr(person_id))
 
     # sequence of (aff-status, ou-id) tuples from greg
     current_affs = tuple(get_greg_affiliations(person))
@@ -383,36 +426,32 @@ def update_greg_person(db, person_id, new_expire_date, _today=None):
     # Check if person is deceased in Cerebrum
     deceased_date = date_compat.get_date(person.deceased_date)
 
-    # sequence of account_id, expire_date for this person
-    # that *could* be used as guest/greg/system-x account
-    # (account-id, expire_date) pairs
-    accounts = tuple(get_candidate_accounts(person))
+    # account ids for this person that *could* be used as guest/greg/system-x
+    accounts = set(get_candidate_accounts(person))
     if len(accounts) > 1:
-        raise RuntimeError("Too many accounts for person id=%r: %r",
-                           person_id, accounts)
+        raise GregUpdateError("too many accounts for person: "
+                              + repr(person_id))
 
     if len(accounts) < 1 and deceased_date:
-        # Deceased owner, and no accounts - there's nothing more to do
-        logger.warning("Person id=%r is deceased w/ no accounts: ignoring",
-                       person_id)
-        return None
+        raise GregUpdateIssue("person has no accounts, deceased: "
+                              + repr(person_id))
 
     if len(accounts) < 1 and not current_affs:
-        logger.warning("Person id=%r has no affs and no accounts: ignoring",
-                       person_id)
-        # Inactive owner, and no accounts - there's nothing more to do
-        return None
+        raise GregUpdateIssue("person has no accounts, unaffiliated: "
+                              + repr(person_id))
 
     #
-    # create or find account
+    # create or find account and start update
     #
+    changes = {}
     if len(accounts) < 1:
         account = create_account(person, default_expire_date=today)
         account_id = account.entity_id
         current_expire_date = date_compat.get_date(account.expire_date)
         new_account = True
+        changes['posix-promote'] = True
     else:
-        account_id = accounts[0]
+        account_id = accounts.pop()
         account.find(account_id)
         if account.expire_date:
             current_expire_date = date_compat.get_date(account.expire_date)
@@ -421,9 +460,13 @@ def update_greg_person(db, person_id, new_expire_date, _today=None):
             # without...
             account.expire_date = current_expire_date = today
             account.write_db()
-        promote_posix(account)
+            changes['expire_date'] = (None, current_expire_date)
+            logger.warning("No expire date for %r (id=%r), setting default",
+                           account.account_name, account.entity_id)
+        _, changes['posix-promote'] = promote_posix(account)
         new_account = False
 
+    changes['create'] = new_account
     logger.info("%s account %r (id=%r) for person id=%r",
                 "Created" if new_account else "Found",
                 account.account_name, account.entity_id,
@@ -458,13 +501,15 @@ def update_greg_person(db, person_id, new_expire_date, _today=None):
     if ((new_expire_date and (new_expire_date > today)
          and (new_expire_date > current_expire_date))
             or new_deceased):
-        logger.info("Updating expire-date for account %r (id=%r): %s -> %s",
-                    account.account_name, account.entity_id,
-                    current_expire_date, new_expire_date)
         account.expire_date = new_expire_date
         account.write_db()
+        logger.info("New expire-date for account %r (id=%r): %s -> %s",
+                    account.account_name, account.entity_id,
+                    current_expire_date, new_expire_date)
+        changes['expire-date'] = (current_expire_date, new_expire_date)
 
-    populate_account_affiliations(account, current_affs)
+    changes['account-type'] = populate_account_affiliations(account,
+                                                            current_affs)
 
     if new_expire_date:
         need_spreads = calculate_greg_spreads(const, current_affs)
@@ -482,9 +527,14 @@ def update_greg_person(db, person_id, new_expire_date, _today=None):
                     account.account_name, account.entity_id, spread)
         account.add_spread(spread)
         account.set_home_dir(spread)
+    changes['spread'] = tuple(sorted(spreads_to_add))
 
     # This is odd - but `add_spread()` always sets spread_expire to today on
     # accounts - we need to update spread_expire after they've been added for
     # the new expire date to take effect
-    sync_spread_expire(account,
-                       {spread: new_expire_date for spread in need_spreads})
+    spread_exp = sync_spread_expire(account, {spread: new_expire_date
+                                              for spread in need_spreads})
+
+    changes['spread-expire'] = tuple(sorted(spread_exp.items()))
+
+    return account, changes

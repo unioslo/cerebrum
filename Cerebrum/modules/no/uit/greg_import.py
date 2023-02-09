@@ -109,6 +109,33 @@ class _UitGregRoles(mapper.GregRoles):
     get_orgunit_ids = _UitGregOrgunitIds()
 
 
+class _UitGregSpreads(mapper.GregRoles):
+    """
+    Get personal spreads from roles.
+
+    We (ab)use the GregRoles mapper in order to map/filter spreads from roles.
+    This mapper will yield tuples of:
+
+        (spread, empty ou-id tuple, start date, end date)
+    """
+    type_map = {
+        'GF': ('CIM_person',),
+        'EM': ('CIM_person',),
+        'EP': ('CIM_person',),
+        'IP': ('CIM_person',),
+        # 'OT': (),
+        # 'EV': (),
+        # 'ES': (),
+        # 'ST': (),
+        'LB': ('CIM_person',),
+    }
+
+    def get_orgunit_ids(self, orgunit):
+        # mock generator - never yields any results
+        if False:
+            yield (None, None)
+
+
 class _UitGregMapper(mapper.GregMapper):
 
     get_contact_info = _UitGregContactInfo()
@@ -169,25 +196,59 @@ class UitGregImporter(importer.GregImporter):
 
     mapper = _UitGregMapper()
 
-    def _trigger_user_update(self, greg_person, person_obj):
-        """ Queue a user update for the given person. """
+    def _trigger_user_update(self, greg_person, person_obj, _today=None):
+        """
+        Queue a user update for the given person.
+        """
         greg_id = greg_person.get('id')
-        person_id = person_obj.entity_id
+        person_id = int(person_obj.entity_id)
 
+        # We calculate a suitable expire-date for the person, based on the
+        # current Greg roles.
         affs = list(self.mapper.get_affiliations(greg_person))
-
-        # We need to embed a potential expire_date to extend the current
-        # expire_date when creating/reviving/updating users at UiT.
-        #
-        # If no expire_date can be found in affs, we won't prolong the
-        # expire_date of any account in the user update...
-        expire_date = calculate_expire_date(affs)
+        expire_date = calculate_expire_date(affs, _today=_today)
         logger.debug("Person id=%r (greg-id=%r): account should expire at=%r",
                      person_id, greg_id, expire_date)
-        task = UitGregUserUpdateHandler.create_task(int(person_obj.entity_id),
+
+        task = UitGregUserUpdateHandler.create_task(person_id,
                                                     expire_date=expire_date)
         qdb = task_queue.TaskQueue(self.db)
         qdb.push_task(task)
+
+    def _sync_person_spreads(self, greg_person, person_obj, _today=None):
+        """ Sync person spreads from Greg data. """
+        today = _today or datetime.date.today()
+        greg_spreads = {}
+        get_spreads = _UitGregSpreads()
+
+        # Collect spreads and a potential expire-date (in case we want to use
+        # spread_expire for these)
+        for s, _, _, end_date in get_spreads(greg_person,
+                                             filter_active_at=today):
+            spread = self.const.get_constant(self.const.Spread, s)
+            if spread not in greg_spreads or greg_spreads[spread] < end_date:
+                greg_spreads[spread] = end_date
+
+        logger.debug("person id=%r should have spreads %s",
+                     person_obj.entity_id, repr(list(greg_spreads)))
+
+        # NOTE: The CIM-spread is handled by the PAGA/employee import which
+        # will add/remove this spread.  There is a risk that spreads added by
+        # this method will get removed by the PAGA import.
+        #
+        # It's not really possible to decide if a person should have the
+        # CIM-spread without looking at information from *both* PAGA and Greg
+        # at the same time.
+        #
+        # Spread expire would be the obvious solution, but it doesn't currently
+        # work with personal spreads (only account spreads).  UiT wants us to
+        # *add* the spread if it looks like the user needs it, but never remove
+        # them...
+        current_spreads = set(
+            self.const.get_constant(self.const.Spread, row['spread'])
+            for row in person_obj.get_spread())
+        for spread in (set(greg_spreads) - current_spreads):
+            person_obj.add_spread(spread)
 
     def remove(self, greg_person, person_obj):
         changes = super(UitGregImporter, self).remove(greg_person, person_obj)
@@ -197,5 +258,6 @@ class UitGregImporter(importer.GregImporter):
     def update(self, greg_person, person_obj, _today=None):
         changes = super(UitGregImporter, self).update(greg_person, person_obj,
                                                       _today=_today)
-        self._trigger_user_update(greg_person, person_obj)
+        self._sync_person_spreads(greg_person, person_obj, _today=_today)
+        self._trigger_user_update(greg_person, person_obj, _today=_today)
         return changes

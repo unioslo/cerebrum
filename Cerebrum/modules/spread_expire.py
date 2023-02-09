@@ -361,3 +361,5 @@ def sync_spread_expire(entity, spread_expire_map):
                     "spread=%s (%s -> %s)",
                     entity_id, spread, current.get(spread), expire_date)
         expire_db.set(entity_id, spread, expire_date)
+
+    return update
