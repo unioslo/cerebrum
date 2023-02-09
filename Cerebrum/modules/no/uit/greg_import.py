@@ -197,21 +197,20 @@ class UitGregImporter(importer.GregImporter):
     mapper = _UitGregMapper()
 
     def _trigger_user_update(self, greg_person, person_obj, _today=None):
-        """ Queue a user update for the given person. """
+        """
+        Queue a user update for the given person.
+        """
         greg_id = greg_person.get('id')
-        person_id = person_obj.entity_id
+        person_id = int(person_obj.entity_id)
 
+        # We calculate a suitable expire-date for the person, based on the
+        # current Greg roles.
         affs = list(self.mapper.get_affiliations(greg_person))
-
-        # We need to embed a potential expire_date to extend the current
-        # expire_date when creating/reviving/updating users at UiT.
-        #
-        # If no expire_date can be found in affs, we won't prolong the
-        # expire_date of any account in the user update...
         expire_date = calculate_expire_date(affs, _today=_today)
         logger.debug("Person id=%r (greg-id=%r): account should expire at=%r",
                      person_id, greg_id, expire_date)
-        task = UitGregUserUpdateHandler.create_task(int(person_obj.entity_id),
+
+        task = UitGregUserUpdateHandler.create_task(person_id,
                                                     expire_date=expire_date)
         qdb = task_queue.TaskQueue(self.db)
         qdb.push_task(task)
