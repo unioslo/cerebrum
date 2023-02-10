@@ -1981,7 +1981,9 @@ class BofhdExtension(BofhdCommonMethods):
             raise PermissionDenied(
                 "Not allowed to change expire date for group")
 
-        if not self.ba.is_superuser(operator.get_entity_id()):
+        is_superuser = self.ba.is_superuser(operator.get_entity_id())
+
+        if not is_superuser:
             self._raise_PermissionDenied_if_not_manual_group(grp)
 
         # TODO: Make new, non-mx generic date parsers in bofhd_utils.
@@ -1990,10 +1992,12 @@ class BofhdExtension(BofhdCommonMethods):
             try:
                 expire = parse_date(expire)
             except ValueError:
-                raise CerebrumError('Invalid date: ' + repr(expire))
+                if is_superuser:
+                    expire = None
+                else:
+                    raise CerebrumError('Invalid date: ' + repr(expire))
 
         max_delta = datetime.timedelta(days=366)
-        is_superuser = self.ba.is_superuser(operator.get_entity_id())
         delta = (expire - datetime.date.today()) if expire else None
 
         if (delta and delta > max_delta and not is_superuser):
@@ -2008,7 +2012,11 @@ class BofhdExtension(BofhdCommonMethods):
             # no expire given - set default expire if configured to do so
             grp.set_default_expire_date()
         else:
-            raise CerebrumError('Missing expire date')
+            # no expire given for automatic group - set to None if superuser
+            if is_superuser:
+                grp.expire_date = None
+            else:
+                raise CerebrumError('Missing expire date')
 
         grp.write_db()
         return (
