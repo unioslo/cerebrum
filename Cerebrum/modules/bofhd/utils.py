@@ -257,19 +257,12 @@ class BofhdUtils(object):
         def get_target_ou_by_stedkode(stedkode):
             ou = Factory.get("OU")(self.db)
 
-            if len(stedkode) != 6 or not stedkode.isdigit():
-                raise CerebrumError("Expected a six-digit stedkode.")
-
             try:
-                ou.find_stedkode(
-                    stedkode[0:2],
-                    stedkode[2:4],
-                    stedkode[4:6],
-                    cereconf.DEFAULT_INSTITUSJONSNR
-                )
+                ou.find_sko(stedkode)
+            except ValueError:
+                raise CerebrumError("Expected a six-digit stedkode")
             except Errors.NotFoundError:
-                raise CerebrumError("Stedkode %s was not found." % stedkode)
-
+                raise CerebrumError("Could not find Organizational Unit with stedkode=%s" % stedkode)
             return ou
 
         #
