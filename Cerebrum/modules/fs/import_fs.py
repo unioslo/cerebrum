@@ -84,6 +84,10 @@ class FsImporter(object):
         self.commit = commit
         self.source = source
 
+        self.disregard_grace_for_affs = [
+            int(self.co.human2constant(x)) for x in
+            cereconf.FS_EXCLUDE_AFFILIATIONS_FROM_GRACE]
+
     def init_reservation_group(self):
         """ get callbacks to add/remove members in reservation group """
         group_name = cereconf.FS_GROUP_NAME
@@ -361,7 +365,7 @@ class FsImporter(object):
                                         aff_status)
             if self.include_delete:
                 key_a = "%s:%s:%s" % (person.entity_id, ou, int(aff))
-                if key_a in self.old_aff:
+                if key_a in self.old_aff and int(aff_status) not in self.disregard_grace_for_affs:
                     self.old_aff[key_a] = False
 
         self._register_cellphone(person, person_info)
@@ -606,10 +610,6 @@ class FsImporter(object):
         they are.
         """
 
-        disregard_grace_for_affs = [
-            int(self.co.human2constant(x)) for x in
-            cereconf.FS_EXCLUDE_AFFILIATIONS_FROM_GRACE]
-
         logger.info("Removing old FS affiliations")
         stats = defaultdict(lambda: 0)
         person = Factory.get("Person")(self.db)
@@ -617,6 +617,7 @@ class FsImporter(object):
         for k in self.old_aff:
             if not self.old_aff[k]:
                 # Aff still present in import files
+                #TODO: Checking if an affiliation is valid might still be important even if it exists in important files?
                 continue
 
             person_id, ou_id, aff_id = (int(val) for val in k.split(':'))
@@ -646,7 +647,7 @@ class FsImporter(object):
             grace_days = cereconf.FS_STUDENT_REMOVE_AFF_GRACE_DAYS
             if (get_date(aff['last_date'])
                     > (date.today() - timedelta(days=grace_days)) and
-                    int(aff['status']) not in disregard_grace_for_affs):
+                    int(aff['status']) not in self.disregard_grace_for_affs):
                 logger.debug("Sparing aff (%s) for person_id=%r at ou_id=%r,"
                              " grace-period in effect",aff_id, person_id, ou_id)
                 stats['grace'] += 1

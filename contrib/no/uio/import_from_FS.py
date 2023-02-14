@@ -227,13 +227,6 @@ class ImportFromFsUio(ImportFromFs):
             f.write(
                 xml.xmlify_dbrow(d, xml.conv_colnames(cols), 'drgrad') + "\n")
 
-        # Fagpersoner
-        cols, fagpersoner = self._ext_cols(
-            self.fs.undervisning.list_fagperson_semester())
-        for p in fagpersoner:
-            f.write(
-                xml.xmlify_dbrow(
-                    p, xml.conv_colnames(cols), 'fagperson') + "\n")
 
         # Studenter med opptak, privatister (=opptak i studiepgraommet
         # privatist) og Alumni
