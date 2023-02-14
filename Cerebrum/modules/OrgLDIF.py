@@ -534,6 +534,7 @@ class OrgLDIF(object):
         self.init_person_cache()
         self.init_person_affiliations()
         self.init_person_names()
+        self.init_export_ids()
         self.init_person_titles()
         self.init_person_addresses()
         self.init_person_aliases()
@@ -626,6 +627,16 @@ class OrgLDIF(object):
             person_id = int(row['person_id'])
             person_names[person_id][int(row['name_variant'])] = row['name']
         timer("...personal names done.")
+
+    def init_export_ids(self):
+        # Set self.export_ids = dict {person_id: {export_id: id}}
+        timer = make_timer(logger, "Fetching export ids...")
+        self.export_ids = export_ids = defaultdict()
+        for row in self.person.list_persons():
+            person_id = int(row['person_id'])
+            export_id = str(row["export_id"])
+            export_ids[person_id] = export_id
+        timer("... export ids done.")
 
     def init_person_titles(self):
         # Set self.person_titles = dict {person_id: [(language,title),...]}
@@ -992,21 +1003,18 @@ class OrgLDIF(object):
         if primary_ou_dn:
             entry['eduPersonPrimaryOrgUnitDN'] = (primary_ou_dn,)
 
+        export_id = self.export_ids[person_id]
+        if export_id and export_id is not None:                
+            entry['eduPersonUniqueID'] = "@".join(                                
+                (export_id, self.config.domain_name)
+            )
+
         edu_ous = self._calculate_edu_ous(
             primary_ou_dn,
             [self.ou2DN.get(aff[2]) for aff in p_affiliations])
         entry['eduPersonOrgUnitDN'] = attr_unique(filter(None, edu_ous))
         entry['eduPersonAffiliation'] = attr_unique(self.select_list(
             self.eduPersonAff_selector, person_id, p_affiliations))
-
-        # For now, searches every person and finds export_id, can maybe be done in a more effecient and cached way?
-
-        self.person.clear()
-        self.person.find(person_id)
-        export_id = self.person.export_id
-        entry['eduPersonUniqueID'] = "@".join(
-            (export_id, self.config.domain_name)
-            )
 
         # For now, the scoped affiliations are just a mirror of the above
         # with realm tacked on
