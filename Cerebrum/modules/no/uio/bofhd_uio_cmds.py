@@ -41,6 +41,7 @@ from Cerebrum.modules.AccountPolicy import AccountPolicy
 from Cerebrum.modules.apikeys import bofhd_apikey_cmds
 from Cerebrum.modules.audit import bofhd_history_cmds
 from Cerebrum.modules.bofhd import bofhd_core_help
+from Cerebrum.modules.bofhd import bofhd_external_id
 from Cerebrum.modules.bofhd import bofhd_ou_cmds
 from Cerebrum.modules.bofhd import parsers
 from Cerebrum.modules.bofhd.auth import (AuthConstants,
@@ -6567,6 +6568,10 @@ class BofhdRequestCommands(bofhd_requests_cmds.BofhdExtension):
 
 class CreateUnpersonalCommands(bofhd_user_create_unpersonal.BofhdExtension):
     authz = bofhd_auth.CreateUnpersonalAuth
+
+
+class ExtidCommands(bofhd_external_id.BofhdExtidCommands):
+    authz = bofhd_auth.ExtidAuth
 
 
 class HistoryCommands(bofhd_history_cmds.BofhdHistoryCmds):

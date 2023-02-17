@@ -32,6 +32,7 @@ from Cerebrum.modules.bofhd.bofhd_contact_info import BofhdContactAuth
 from Cerebrum.modules.bofhd_requests.bofhd_requests_auth import RequestsAuth
 from Cerebrum.modules.bofhd.bofhd_email import BofhdEmailAuth
 from Cerebrum.modules.bofhd import bofhd_access
+from Cerebrum.modules.bofhd import bofhd_external_id
 from Cerebrum.modules.bofhd import bofhd_ou_cmds
 from Cerebrum.modules.bofhd.errors import PermissionDenied
 from Cerebrum.modules.bofhd import bofhd_user_create_unpersonal
@@ -384,6 +385,10 @@ class AccessAuth(UioAuth, bofhd_access.BofhdAccessAuth):
 
 
 class ApiKeyAuth(UioAuth, bofhd_apikey_cmds.BofhdApiKeyAuth):
+    pass
+
+
+class ExtidAuth(UioAuth, bofhd_external_id.BofhdExtidAuth):
     pass
 
 
