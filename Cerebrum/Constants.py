@@ -101,6 +101,8 @@ class SynchronizedDatabase(Database_class):
     _db_proxy_lock = threading.RLock()
 
     def __init__(self, *args, **kwargs):
+        if 'app_hint' not in kwargs:
+            kwargs['app_hint'] = 'const'
         super(SynchronizedDatabase, self).__init__(*args, **kwargs)
 
     def execute(self, operation, parameters=()):

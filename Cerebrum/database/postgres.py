@@ -287,7 +287,13 @@ class PsycoPG2(PostgreSQLBase):
         else:
             self.encoding = client_encoding
 
-        app_name = _format_pg_app_name(os.path.basename(sys.argv[0]))
+        script_name = os.path.basename(sys.argv[0])
+        if self._app_hint:
+            app_name = _format_pg_app_name('{} - {}'.format(self._app_hint,
+                                                            script_name))
+        else:
+            app_name = _format_pg_app_name(script_name)
+
         super(PsycoPG2, self).connect(dsn_string, application_name=app_name)
 
         self._db.set_isolation_level(1)  # read-committed
