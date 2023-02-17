@@ -112,16 +112,13 @@ def split_address(address):
         A tuple with the localpart and domain strings
     """
     if address.count('@') == 0:
-        raise CerebrumError("Email address (%r) must include domain" % address)
+        raise CerebrumError("Email address (%r) must include domain"
+                            % (address,))
     try:
         local, domain = address.split('@')
     except ValueError:
-        raise CerebrumError("Email address (%r) must contain only one @" %
-                            address)
-    if (address != address.lower()
-            and domain not in cereconf.LDAP['rewrite_email_domain']):
-        raise CerebrumError("Email address (%r) can't contain upper case "
-                            "letters" % address)
+        raise CerebrumError("Email address (%r) must contain only one @"
+                            % (address,))
     return local, domain
 
 
@@ -414,7 +411,10 @@ class BofhdEmailBase(BofhdCommandBase):
         lp, dom = split_address(addr)
         if not with_checks:
             return lp, dom
-
+        if (addr != addr.lower()
+                and dom not in cereconf.LDAP['rewrite_email_domain']):
+            raise CerebrumError("Email address (%r) can't contain upper case "
+                                "letters" % (addr,))
         ea = Email.EmailAddress(self.db)
         if not ea.validate_localpart(lp):
             raise CerebrumError("Invalid localpart '{}'".format(lp))
@@ -1166,7 +1166,7 @@ class BofhdEmailCommands(BofhdEmailBase):
         except Errors.NotFoundError:
             pass
 
-        # Deleteing and recreate the email address, creates the 
+        # Deleteing and recreate the email address, creates the
         # required events for Exchange integration.
         ea = Email.EmailAddress(self.db)
         ea.find_by_address(address)
@@ -1296,11 +1296,11 @@ class BofhdEmailCommands(BofhdEmailBase):
 
         Requires primary address.
         """
-
         # Allow us to delete an address, even if it is malformed.
         lp, dom = self._split_email_address(address, with_checks=False)
         ed = self._get_email_domain_from_str(dom)
         et, acc = self._get_email_target_and_account(address)
+
         self.ba.can_email_forward_create(operator.get_entity_id(), domain=ed)
         epat = Email.EmailPrimaryAddressTarget(self.db)
         try:
