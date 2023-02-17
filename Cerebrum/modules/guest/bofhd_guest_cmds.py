@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2012-2018 University of Oslo, Norway
+# Copyright 2012-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -24,11 +24,15 @@ The guest commands in this module creates guest accounts.
 Guests created by these bofhd-commands are non-personal, owned by a group. A
 trait associates the guest with an existing personal account.
 """
-
-from __future__ import print_function
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    # TODO: unicode_literals,
+)
+import datetime
 import functools
-
-from mx import DateTime
+import logging
 
 import cereconf
 import guestconfig
@@ -45,8 +49,11 @@ from Cerebrum.modules.bofhd.cmd_param import (AccountName,
                                               PersonName)
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.guest.bofhd_guest_auth import BofhdAuth
+from Cerebrum.utils import date_compat
 from Cerebrum.utils.sms import SMSSender
 from Cerebrum.utils.username import suggest_usernames
+
+logger = logging.getLogger(__name__)
 
 
 def format_date(field):
@@ -191,8 +198,8 @@ class BofhdExtension(BofhdCommonMethods):
 
         @rtype: dict
         @return: A dictionary with relevant information about a guest user.
-                 Keys: 'username': <string>, 'created': <DateTime>,
-                       'expires': <DateTime>, 'name': <string>,
+                 Keys: 'username': <string>, 'created': <datetime>,
+                       'expires': <date>, 'name': <string>,
                        'responsible': <int>, 'status': <string>,
                        'contact': <string>'
 
@@ -211,12 +218,13 @@ class BofhdExtension(BofhdCommonMethods):
                                 account.account_name)
         # Get quarantine date
         try:
-            end_date = account.get_entity_quarantine(
-                self.const.quarantine_guest_old)[0]['start_date']
+            end_date = date_compat.get_date(
+                account.get_entity_quarantine(
+                    account.const.quarantine_guest_old)[0]['start_date'])
         except IndexError:
-            self.logger.warn('No quarantine for guest user %s',
-                             account.account_name)
-            end_date = account.expire_date
+            self.logger.warn('No quarantine for guest user %s (%d)',
+                             account.account_name, account.entity_id)
+            end_date = date_compat.get_date(account.expire_date)
 
         # Get contact info
         mobile = None
@@ -227,9 +235,10 @@ class BofhdExtension(BofhdCommonMethods):
         except IndexError:
             pass
         # Get account state
-        status = 'active'
-        if end_date < DateTime.now():
+        if end_date and end_date < datetime.date.today():
             status = 'expired'
+        else:
+            status = 'active'
 
         return {
             'username': account.account_name,
@@ -302,7 +311,7 @@ class BofhdExtension(BofhdCommonMethods):
         else:
             responsible = operator.get_entity_id()
 
-        end_date = DateTime.now() + days
+        end_date = datetime.date.today() + datetime.timedelta(days=days)
 
         # Check the maximum number of guest accounts per user
         # TODO: or should we check per person instead?
@@ -330,12 +339,17 @@ class BofhdExtension(BofhdCommonMethods):
         # In case a superuser has set a specific account as the responsible,
         # the event should be logged for both operator and responsible:
         if operator.get_entity_id() != responsible:
-            ac._db.log_change(operator.get_entity_id(), ac.clconst.guest_create,
-                              ac.entity_id, change_params={
-                                  'owner': responsible,
-                                  'mobile': mobile,
-                                  'name': '%s %s' % (fname, lname)},
-                              change_by=operator.get_entity_id())
+            ac._db.log_change(
+                operator.get_entity_id(),
+                ac.clconst.guest_create,
+                ac.entity_id,
+                change_params={
+                    'owner': responsible,
+                    'mobile': mobile,
+                    'name': '%s %s' % (fname, lname),
+                },
+                change_by=operator.get_entity_id(),
+            )
 
         # Set the password
         password = ac.make_passwd(ac.account_name)
@@ -463,22 +477,24 @@ class BofhdExtension(BofhdCommonMethods):
         self.ba.can_remove_personal_guest(operator.get_entity_id(),
                                           guest=account)
 
+        today = datetime.date.today()
         # Deactivate the account (expedite quarantine) and adjust expire_date
         try:
-            end_date = account.get_entity_quarantine(
-                self.const.quarantine_guest_old)[0]['start_date']
-            if end_date < DateTime.now():
-                raise CerebrumError("Account '%s' is already deactivated" %
-                                    account.account_name)
+            end_date = date_compat.get_date(
+                account.get_entity_quarantine(
+                    self.const.quarantine_guest_old)[0]['start_date'])
+            if end_date and end_date < today:
+                raise CerebrumError("Account '%s' is already deactivated"
+                                    % account.account_name)
             account.delete_entity_quarantine(self.const.quarantine_guest_old)
         except IndexError:
-            self.logger.warn('Guest %s didn\'t have expire quarantine, '
-                             'deactivated anyway.', account.account_name)
+            self.logger.warn("Guest %s didn't have expire quarantine, "
+                             "deactivated anyway.", account.account_name)
         account.add_entity_quarantine(qtype=self.const.quarantine_guest_old,
                                       creator=operator.get_entity_id(),
                                       description='New guest account',
-                                      start=DateTime.now())
-        account.expire_date = DateTime.now()
+                                      start=today)
+        account.expire_date = today
         account.write_db()
         return 'Ok, %s quarantined, will be removed' % account.account_name
 
