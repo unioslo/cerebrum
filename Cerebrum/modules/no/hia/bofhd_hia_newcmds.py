@@ -1,6 +1,6 @@
 # encoding: utf-8
 #
-# Copyright 2006-2021 University of Oslo, Norway
+# Copyright 2006-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -20,7 +20,7 @@
 """
 Bofhd commands for UiA
 """
-from mx import DateTime
+import datetime
 from six import text_type
 
 import cereconf
@@ -52,6 +52,7 @@ from Cerebrum.modules.bofhd import bofhd_user_create_unpersonal
 from Cerebrum.modules.no.hia import bofhd_uia_auth
 from Cerebrum.modules.no.uio import bofhd_uio_cmds
 from Cerebrum.modules.trait import bofhd_trait_cmds
+from Cerebrum.utils import date_compat
 
 
 def format_day(field):
@@ -66,12 +67,11 @@ def date_to_string(date):
     Custom-made for our purposes, since the standard XMLRPC-libraries
     restrict formatting to years after 1899, and we see years prior to
     that.
-
     """
-    if not date:
-        return "<not set>"
-
-    return "%04i-%02i-%02i" % (date.year, date.month, date.day)
+    date = date_compat.get_date(date)
+    if date:
+        return date.isoformat()
+    return "<not set>"
 
 
 # Helper methods from bofhd_uio_cmds
@@ -857,21 +857,31 @@ class BofhdExtension(BofhdCommonMethods):
                     self.const.AuthoritativeSystem(row['source_system'])),
             })
 
-        # TODO: Return more info about account
+        # Quarantine status
         quarantined = None
-        now = DateTime.now()
+        today = datetime.date.today()
         for q in account.get_entity_quarantine():
-            if q['start_date'] <= now:
-                if q['end_date'] is not None and q['end_date'] < now:
-                    quarantined = 'expired'
-                elif (q['disable_until'] is not None and
-                      q['disable_until'] > now):
-                    quarantined = 'disabled'
-                else:
-                    quarantined = 'active'
-                    break
-            else:
+            # TODO: If user has multiple quarantines, in a combination of
+            # pending, expired, disabled - the status will be a random one of
+            # those?
+            start_date = date_compat.get_date(q['start_date'])
+            if start_date > today:
                 quarantined = 'pending'
+                continue
+
+            end_date = date_compat.get_date(q['end_date'])
+            if end_date and end_date < today:
+                quarantined = 'expired'
+                continue
+
+            disable_until = date_compat.get_date(q['disable_until'])
+            if disable_until and disable_until > today:
+                quarantined = 'disabled'
+                continue
+
+            quarantined = 'active'
+            break
+
         if quarantined:
             ret.append({'quarantined': quarantined})
 
