@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2006-2022 University of Oslo, Norway
+# Copyright 2006-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,7 +18,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ NIH bofhd commands. """
-import mx.DateTime
+import datetime
 
 from Cerebrum import Utils
 from Cerebrum import Errors
@@ -294,7 +294,7 @@ class BofhdExtension(BofhdCommonMethods):
         self.ba.can_delete_user(operator.get_entity_id(), account)
         if account.is_deleted():
             raise CerebrumError("User is already deleted")
-        account.expire_date = mx.DateTime.now()
+        account.expire_date = datetime.date.today()
         for s in account.get_spread():
             account.delete_spread(int(s['spread']))
         account.write_db()
