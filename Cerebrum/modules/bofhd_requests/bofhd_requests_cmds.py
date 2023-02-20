@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2019 University of Oslo, Norway
+# Copyright 2019-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,7 +17,19 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""
+Commands for managing bofhd requests.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+import textwrap
+
 import six
+
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
 from Cerebrum.modules.bofhd.bofhd_utils import format_time
 from Cerebrum.modules.bofhd_requests.request import BofhdRequests
@@ -27,11 +39,12 @@ from Cerebrum.modules import Email
 from Cerebrum import Errors
 from Cerebrum.modules.bofhd.cmd_param import (
     Command,
-    DateTimeString,
     FormatSuggestion,
-    Id,
     SimpleString,
 )
+from Cerebrum.modules.bofhd import parsers
+from Cerebrum.modules.bofhd.bofhd_core_help import get_help_strings
+from Cerebrum.modules.bofhd.help import merge_help_strings
 
 
 class BofhdExtension(BofhdCommandBase):
@@ -40,20 +53,29 @@ class BofhdExtension(BofhdCommandBase):
     hidden_commands = {}
     authz = RequestsAuth
 
+    @classmethod
+    def get_help_strings(cls):
+        """ Help texts for bofhd request commands. """
+        return merge_help_strings(
+            get_help_strings(),
+            (HELP_GRP, HELP_CMD, HELP_ARG),
+        )
+
     #
     # misc change_request <request-id> <datetime>
     #
     all_commands['misc_change_request'] = Command(
         ("misc", "change_request"),
-        Id(help_ref="id:request_id"),
-        DateTimeString())
+        SimpleString(help_ref='br-id'),
+        SimpleString(help_ref='br-run-at'),
+    )
 
-    def misc_change_request(self, operator, request_id, datetime):
+    def misc_change_request(self, operator, request_id, _run_at):
         if not request_id:
             raise CerebrumError('Request id required')
-        if not datetime:
+        if not _run_at:
             raise CerebrumError('Date required')
-        datetime = self._parse_date(datetime)
+        run_at = parsers.parse_datetime(_run_at)
         br = BofhdRequests(self.db, self.const)
         old_req = br.get_requests(request_id=request_id)
         if not old_req:
@@ -64,12 +86,14 @@ class BofhdExtension(BofhdCommandBase):
         # If you are allowed to cancel a request, you can change it :)
         self.ba.can_cancel_request(operator.get_entity_id(), request_id)
         br.delete_request(request_id=request_id)
-        br.add_request(operator.get_entity_id(),
-                       datetime,
-                       old_req['operation'],
-                       old_req['entity_id'],
-                       old_req['destination_id'],
-                       old_req['state_data'])
+        br.add_request(
+            operator=operator.get_entity_id(),
+            when=run_at,
+            op_code=old_req['operation'],
+            entity_id=old_req['entity_id'],
+            destination_id=old_req['destination_id'],
+            state_data=old_req['state_data'],
+        )
         return "OK, altered request %s" % request_id
 
     #
@@ -80,7 +104,8 @@ class BofhdExtension(BofhdCommandBase):
         fs=FormatSuggestion(
             "%-20s %s", ("code_str", "description"),
             hdr="%-20s %s" % ("Code", "Description")
-        ))
+        ),
+    )
 
     def misc_list_bofhd_request_types(self, operator):
         br = BofhdRequests(self.db, self.const)
@@ -94,11 +119,12 @@ class BofhdExtension(BofhdCommandBase):
         return result
 
     #
-    # misc cancel_request
+    # misc cancel_request <request-id>
     #
     all_commands['misc_cancel_request'] = Command(
         ("misc", "cancel_request"),
-        SimpleString(help_ref='id:request_id'))
+        SimpleString(help_ref='br-id'),
+    )
 
     def misc_cancel_request(self, operator, req):
         if req.isdigit():
@@ -113,14 +139,12 @@ class BofhdExtension(BofhdCommandBase):
         return "OK, %d canceled" % req_id
 
     #
-    # misc list_requests
+    # misc list_requests [search-type] [search-value]
     #
     all_commands['misc_list_requests'] = Command(
         ("misc", "list_requests"),
-        SimpleString(help_ref='string_bofh_request_search_by',
-                     default='requestee'),
-        SimpleString(help_ref='string_bofh_request_target',
-                     default='<me>'),
+        SimpleString(help_ref='br-search-type', default='requestee'),
+        SimpleString(help_ref='br-search-value', default='<me>'),
         fs=FormatSuggestion(
             "%-7i %-10s %-16s %-16s %-10s %-20s %s",
             ("id", "requestee", format_time("when"), "op", "entity",
@@ -128,7 +152,8 @@ class BofhdExtension(BofhdCommandBase):
             hdr="%-7s %-10s %-16s %-16s %-10s %-20s %s" % (
                 "Id", "Requestee", "When", "Op", "Entity", "Destination",
                 "Arguments")
-        ))
+        ),
+    )
 
     def misc_list_requests(self, operator, search_by, destination):
         br = BofhdRequests(self.db, self.const)
@@ -194,13 +219,101 @@ class BofhdExtension(BofhdCommandBase):
             else:
                 requestee = self._get_entity_name(r['requestee_id'],
                                                   self.const.entity_account)
-            ret.append({'when': r['run_at'],
-                        'requestee': requestee,
-                        'op': six.text_type(op),
-                        'entity': ent_name,
-                        'destination': dest,
-                        'args': r['state_data'],
-                        'id': r['request_id']
-                        })
-        ret.sort(lambda a, b: cmp(a['id'], b['id']))
+            ret.append({
+                'when': r['run_at'],
+                'requestee': requestee,
+                'op': six.text_type(op),
+                'entity': ent_name,
+                'destination': dest,
+                'args': r['state_data'],
+                'id': r['request_id']
+            })
+        ret.sort(key=lambda r: r.get('id'))
         return ret
+
+
+#
+# Help texts
+#
+
+HELP_GRP = {
+    'misc': "Various commands",
+}
+HELP_CMD = {
+    'misc': {
+        'misc_cancel_request': 'Cancel a pending request',
+        'misc_change_request': 'Change execution time for a pending request',
+        'misc_list_bofhd_request_types': (
+            "List the various types of operations that can be done via "
+            "bofhd-requests"
+        ),
+        'misc_list_requests': "View pending jobs",
+    },
+}
+HELP_ARG = {
+    "br-id": [
+        "br-id",
+        "Enter Request Id",
+        textwrap.dedent(
+            """
+            Enter the Request Id of a pending request.
+
+            Use `misc list_request` to see pending requests and their ids.
+            """
+        ).lstrip(),
+    ],
+    "br-run-at": [
+        "br-run-at",
+        "Enter a date or time",
+        textwrap.dedent(
+            """
+            Enter a datetime for when to run the request.
+
+            Formats:
+
+            {datetime}
+            """
+        ).format(
+            datetime=parsers.parse_datetime_help_blurb,
+        ).lstrip(),
+    ],
+    'br-search-type': [
+        'br-search-type',
+        'Enter search type',
+        textwrap.dedent(
+            """
+            Enter the operation that you want to search for.
+
+            Valid search types:
+
+             - requestee <username>:
+                search by operator/user that requested the operation.
+
+             - operation <type>:
+                search by type of operation (e.g. move_user, move_user_now,
+                move_student, move_request, delete_user, ...).  Use misc
+                list_bofhd_request_types to list valid types.
+
+             - disk <path>:
+                search by target disk for the operatopn.
+
+             - account <username>:
+                search by user affected by the operation
+            """
+        ).lstrip(),
+    ],
+    'br-search-value': [
+        'br-search-value',
+        'Enter search value',
+        textwrap.dedent(
+            """
+            Enter a search value for the given br-search-type.
+
+             - requestee: <username>
+             - operation: <type>
+             - disk: <path>
+             - account: <username>
+            """
+        ).lstrip(),
+    ],
+}
