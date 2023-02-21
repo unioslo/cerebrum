@@ -41,7 +41,11 @@ from Cerebrum.modules.bofhd.bofhd_contact_info import BofhdContactCommands
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.bofhd_core_help import get_help_strings
 from Cerebrum.modules.bofhd.bofhd_user_create import BofhdUserCreateMethod
-from Cerebrum.modules.bofhd.bofhd_utils import copy_func, copy_command
+from Cerebrum.modules.bofhd.bofhd_utils import (
+    copy_func,
+    copy_command,
+    get_quarantine_status,
+)
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.help import merge_help_strings
 from Cerebrum.modules.bofhd_requests.request import BofhdRequests
@@ -858,30 +862,7 @@ class BofhdExtension(BofhdCommonMethods):
             })
 
         # Quarantine status
-        quarantined = None
-        today = datetime.date.today()
-        for q in account.get_entity_quarantine():
-            # TODO: If user has multiple quarantines, in a combination of
-            # pending, expired, disabled - the status will be a random one of
-            # those?
-            start_date = date_compat.get_date(q['start_date'])
-            if start_date > today:
-                quarantined = 'pending'
-                continue
-
-            end_date = date_compat.get_date(q['end_date'])
-            if end_date and end_date < today:
-                quarantined = 'expired'
-                continue
-
-            disable_until = date_compat.get_date(q['disable_until'])
-            if disable_until and disable_until > today:
-                quarantined = 'disabled'
-                continue
-
-            quarantined = 'active'
-            break
-
+        quarantined = get_quarantine_status(account)
         if quarantined:
             ret.append({'quarantined': quarantined})
 

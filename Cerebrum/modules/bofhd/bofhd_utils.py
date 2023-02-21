@@ -1,6 +1,6 @@
 # encoding: utf-8
 #
-# Copyright 2016-2018 University of Oslo, Norway
+# Copyright 2016-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,6 +18,10 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ Util functions for building a BofhdCommandAPI/BofhdExtension. """
+import datetime
+
+from Cerebrum.utils import date_compat
+from Cerebrum.utils.sorting import make_priority_lookup
 
 
 def copy_func(src_cls, methods=[]):
@@ -189,3 +193,44 @@ def format_time(field):
     """
     fmt = "yyyy-MM-dd HH:mm"            # 16 characters wide
     return ':'.join((field, "date", fmt))
+
+
+def get_quarantine_status(entity, _today=None):
+    """
+    Get quarantine status for an entity.
+
+    This function returns a single, human readable value that shows whether an
+    entity is quarantined, and if that quarantine is active.
+
+    :returns:
+        Returns the most relevant ("most locked"?) quarantine status, if any:
+
+         - "active" - entity has a quarantine that currently applies
+         - "disabled" - entity has a quarantine that is temporarily disabled
+         - "pending" - entity has a quarantine that hasn't started yet
+         - "expired" - entity has a quarantine that has ended
+         - None - entity has no quarantines at all
+    """
+    today = _today or datetime.date.today()
+    # Sort key to prioritize the most relevant quarantine status:
+    #   active > disabled > pending > expired
+    key = make_priority_lookup(('active', 'disabled', 'pending', 'expired'))
+    statuses = set()
+    for row in entity.get_entity_quarantine():
+        start_date = date_compat.get_date(row['start_date'])
+        end_date = date_compat.get_date(row['end_date'])
+        disable_until = date_compat.get_date(row['disable_until'])
+        if end_date and end_date < today:
+            statuses.add('expired')
+            continue
+        if start_date and start_date > today:
+            statuses.add('pending')
+            continue
+        if disable_until and disable_until > today:
+            statuses.add('disabled')
+            continue
+        statuses.add('active')
+    ordered = tuple(sorted(statuses, key=key))
+    if ordered:
+        return ordered[0]
+    return None

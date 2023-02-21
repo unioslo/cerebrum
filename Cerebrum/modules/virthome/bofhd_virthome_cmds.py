@@ -45,6 +45,7 @@ from Cerebrum.group.GroupRoles import GroupRoles
 from Cerebrum.modules.audit import bofhd_history_cmds
 from Cerebrum.modules.bofhd import parsers
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
+from Cerebrum.modules.bofhd.bofhd_utils import get_quarantine_status
 from Cerebrum.modules.bofhd.cmd_param import (
     AccountName,
     Command,
@@ -905,41 +906,6 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         self.ba.can_view_requests(operator.get_entity_id())
         return self.__get_request(confirmation_key)
 
-    def __quarantine_to_string(self, eq):
-        """
-        Return a human-readable representation of ``eq``'s quarantines.
-
-        :type eq: EntityQuarantine subclass of some sort
-        :param eq:
-            An entity for which we want to fetch quarantine information.
-            This entity must be associated with suitable database rows,
-            i.e. it must have the `entity_id` attribute set.
-
-        :return:
-            A string describing the quaratine for the entity in question
-            or an empty string.
-        """
-        today = datetime.date.today()
-        quarantined = "<not set>"
-        for q in eq.get_entity_quarantine():
-            # TODO: If user has multiple quarantines, in a combination of
-            # pending, expired, disabled - the status will be a random one of
-            # those?
-            start_date = date_compat.get_date(q['start_date'])
-            if start_date and start_date <= today:
-                end_date = date_compat.get_date(q['end_date'])
-                disable_until = date_compat.get_date(q['disable_until'])
-                if end_date and end_date < today:
-                    quarantined = "expired"
-                elif disable_until and disable_until > today:
-                    quarantined = "disabled"
-                else:
-                    return "active"
-            else:
-                quarantined = "pending"
-
-        return quarantined
-
     #
     # user info
     #
@@ -1012,7 +978,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
                           for x in account.get_traits()),
             "expire": account.expire_date,
             "entity_id": account.entity_id,
-            "quarantine": self.__quarantine_to_string(account),
+            "quarantine": get_quarantine_status(account) or "<not set>",
             "confirmation": pending,
             "moderator": self.vhutils.list_groups_moderated(account),
             "owner": self.vhutils.list_groups_admined(account),
