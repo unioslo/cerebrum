@@ -4628,8 +4628,9 @@ class BofhdExtension(BofhdCommonMethods):
         spreads = (int(self.const.Spread(s)) for s in
                    cereconf.BOFHD_NEW_USER_SPREADS)
         disk = {'disk_id': disk_id,
-                'home_spread': self.const.spread_uio_nis_user,
                 'home': home}
+        if cereconf.DEFAULT_HOME_SPREAD:
+            disk['home_spread'] = int(self.const.Spread(cereconf.DEFAULT_HOME_SPREAD)),
         try:
             account = account_policy.create_personal_account(
                 owner,
