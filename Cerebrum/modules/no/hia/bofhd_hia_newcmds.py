@@ -207,6 +207,8 @@ class BofhdExtension(BofhdCommonMethods):
     def __init__(self, *args, **kwargs):
         super(BofhdExtension, self).__init__(*args, **kwargs)
         self.external_id_mappings['fnr'] = self.const.externalid_fodselsnr
+        self.external_id_mappings['passnr'] = self.const.externalid_pass_number
+
 
     @classmethod
     def get_help_strings(cls):
