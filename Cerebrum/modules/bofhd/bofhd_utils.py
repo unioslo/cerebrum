@@ -19,6 +19,9 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ Util functions for building a BofhdCommandAPI/BofhdExtension. """
 import datetime
+import warnings
+
+import six
 
 from Cerebrum.utils import date_compat
 from Cerebrum.utils.sorting import make_priority_lookup
@@ -176,6 +179,27 @@ def copy(src_cls, src_attr, dest_attr, commands=[]):
             src_cls, src_attr, dest_attr, commands=commands)(
                 copy_func(src_cls, methods=commands)(dest_cls))
     return wrapper
+
+
+def date_to_string(date):
+    """
+    Takes a date-like object and formats as string.
+    """
+    date = date_compat.get_date(date)
+    if date:
+        return date.isoformat()
+    return "<not set>"
+
+
+def exc_to_text(e):
+    """ Get an error text from an exception. """
+    try:
+        text = six.text_type(e)
+    except UnicodeError:
+        text = bytes(e).decode('utf-8', 'replace')
+        warnings.warn("Non-unicode data in exception {!r}".format(e),
+                      UnicodeWarning)
+    return text
 
 
 def get_dt_formatter(name='date', fmt='yyyy-MM-dd'):

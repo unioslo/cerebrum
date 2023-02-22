@@ -20,7 +20,6 @@
 """
 Bofhd commands for UiA
 """
-import datetime
 from six import text_type
 
 import cereconf
@@ -44,6 +43,8 @@ from Cerebrum.modules.bofhd.bofhd_user_create import BofhdUserCreateMethod
 from Cerebrum.modules.bofhd.bofhd_utils import (
     copy_func,
     copy_command,
+    date_to_string,
+    default_format_day,
     get_quarantine_status,
 )
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
@@ -56,26 +57,9 @@ from Cerebrum.modules.bofhd import bofhd_user_create_unpersonal
 from Cerebrum.modules.no.hia import bofhd_uia_auth
 from Cerebrum.modules.no.uio import bofhd_uio_cmds
 from Cerebrum.modules.trait import bofhd_trait_cmds
-from Cerebrum.utils import date_compat
 
 
-def format_day(field):
-    fmt = "yyyy-MM-dd"                  # 10 characters wide
-    return ":".join((field, "date", fmt))
-
-
-def date_to_string(date):
-    """Takes a DateTime-object and formats a standard ISO-datestring
-    from it.
-
-    Custom-made for our purposes, since the standard XMLRPC-libraries
-    restrict formatting to years after 1899, and we see years prior to
-    that.
-    """
-    date = date_compat.get_date(date)
-    if date:
-        return date.isoformat()
-    return "<not set>"
+format_day = default_format_day  # 10 characters wide
 
 
 # Helper methods from bofhd_uio_cmds

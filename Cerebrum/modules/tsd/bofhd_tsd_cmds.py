@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2013-2021 University of Oslo, Norway
+# Copyright 2013-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -53,7 +53,12 @@ from Cerebrum.modules.bofhd import cmd_param as cmd
 from Cerebrum.modules.bofhd import bofhd_contact_info
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.bofhd_user_create import BofhdUserCreateMethod
-from Cerebrum.modules.bofhd.bofhd_utils import copy_func, copy_command
+from Cerebrum.modules.bofhd.bofhd_utils import (
+    copy_command,
+    copy_func,
+    date_to_string,
+    default_format_day,
+)
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.dns import IPv6Subnet
 from Cerebrum.modules.dns import Subnet
@@ -71,21 +76,7 @@ from Cerebrum.modules.tsd import bofhd_auth
 from Cerebrum.modules.tsd import bofhd_help
 
 
-def format_day(field):
-    return field + ":date:yyyy-MM-dd"
-
-
-def date_to_string(date):
-    """Takes a DateTime-object and formats a standard ISO-datestring
-    from it.
-
-    Custom-made for our purposes, since the standard XMLRPC-libraries
-    restrict formatting to years after 1899, and we see years prior to
-    that.
-    """
-    if not date:
-        return "<not set>"
-    return "%04i-%02i-%02i" % (date.year, date.month, date.day)
+format_day = default_format_day  # 10 characters wide
 
 
 class ProjectID(cmd.Parameter):
