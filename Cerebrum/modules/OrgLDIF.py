@@ -634,7 +634,7 @@ class OrgLDIF(object):
         self.export_ids = export_ids = defaultdict()
         for row in self.person.list_persons():
             person_id = int(row['person_id'])
-            export_id = str(row["export_id"])
+            export_id = row["export_id"]
             export_ids[person_id] = export_id
         timer("... export ids done.")
 
@@ -1003,8 +1003,8 @@ class OrgLDIF(object):
         if primary_ou_dn:
             entry['eduPersonPrimaryOrgUnitDN'] = (primary_ou_dn,)
 
-        export_id = self.export_ids[person_id]
-        if export_id and export_id is not None:                
+        export_id = self.export_ids.get(person_id)
+        if export_id:                
             entry['eduPersonUniqueID'] = "@".join(                                
                 (export_id, self.config.domain_name)
             )
