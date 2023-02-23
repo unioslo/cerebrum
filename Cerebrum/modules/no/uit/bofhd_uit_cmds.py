@@ -35,10 +35,9 @@ TODO
 ----
 Remove any commands from the BofhdExtension that is not actually in use at UiT.
 """
-
+import datetime
 import re
 
-from mx import DateTime
 from six import text_type
 
 import cereconf
@@ -525,13 +524,11 @@ class BofhdExtension(_UitBofhdMixin, bofhd_uio_cmds.BofhdExtension):
         account = self._get_account(accountname)
         self.ba.can_show_history(operator.get_entity_id(), account)
         ret = []
-        timedelta = "%s" % (DateTime.mxDateTime.now() -
-                            DateTime.DateTimeDelta(7))
-        timeperiod = timedelta.split(" ")
-
+        start_date_str = (datetime.date.today()
+                          - datetime.timedelta(days=7)).isoformat()
         for r in self.db.get_log_events(0,
                                         subject_entity=account.entity_id,
-                                        sdate=timeperiod[0]):
+                                        sdate=start_date_str):
             ret.append(self._format_changelog_entry(r))
 
         ret_val = ""
