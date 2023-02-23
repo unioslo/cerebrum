@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2014-2018 University of Oslo, Norway
+# Copyright 2014-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,7 +17,8 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" Email commands and email utils for BofhdExtensions.
+"""
+Email commands and email utils for BofhdExtensions.
 
 Please don't blame me for the WTF-ness in this file. It's mostly from
 bofhd_uio_cmds.
@@ -34,11 +35,16 @@ module.
 This could look a lot better if we re-factored the helper methods, and made
 some sort of callback system, where each email target type could register how
 to handle addresses and targets of that type.
-
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    # TODO: unicode_literals,
+)
+import datetime
 import re
 
-from mx import DateTime
 from six import text_type
 
 import cereconf
@@ -50,6 +56,7 @@ from Cerebrum.modules import Email
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
 from Cerebrum.modules.bofhd.bofhd_core_help import get_help_strings
+from Cerebrum.modules.bofhd.bofhd_utils import default_format_day
 from Cerebrum.modules.bofhd.cmd_param import (
     AccountName,
     Affiliation,
@@ -69,13 +76,11 @@ from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.help import merge_help_strings
 from Cerebrum.modules.bofhd_requests.request import BofhdRequests
 from Cerebrum.utils import json
+from Cerebrum.utils import date as date_utils
 from Cerebrum.utils import email as email_utils
 
 
-def format_day(field):
-    """ Format day, for FormatSuggestion. """
-    fmt = "yyyy-MM-dd"  # 10 characters wide
-    return ":".join((field, "date", fmt))
+format_day = default_format_day  # 10 characters wide
 
 
 def check_email_address(address):
@@ -589,7 +594,7 @@ class BofhdEmailBase(BofhdCommandBase):
             except Errors.NotFoundError:
                 return False
 
-        def I_am_sympa(address, check_suffix_prefix=True):
+        def i_am_sympa(address, check_suffix_prefix=True):
             try:
                 ea.clear()
                 ea.find_by_address(address)
@@ -608,7 +613,7 @@ class BofhdEmailBase(BofhdCommandBase):
         not_sympa_error = CerebrumError("%s is not a Sympa list" % listname)
         # Simplest case -- listname is actually a sympa ML directly. It does
         # not matter whether it has a funky prefix/suffix.
-        if I_am_sympa(listname) and has_primary_to_me(listname):
+        if i_am_sympa(listname) and has_primary_to_me(listname):
             return listname
 
         # However, if listname does not have a prefix/suffix AND it is not a
@@ -965,7 +970,7 @@ def parse_rt_pipe(pipestring):
         Returns a tuple with the (action, queue, host) values in the command,
         or None if the string does not match.
     """
-    p = '^\\' + format_rt_pipe('(\S+)', '(\S+)', '(\S+)') + '$'
+    p = '^\\' + format_rt_pipe(r'(\S+)', r'(\S+)', r'(\S+)') + '$'
     try:
         return re.match(p, pipestring).groups()
     except AttributeError:
@@ -1166,7 +1171,7 @@ class BofhdEmailCommands(BofhdEmailBase):
         except Errors.NotFoundError:
             pass
 
-        # Deleteing and recreate the email address, creates the 
+        # Deleteing and recreate the email address, creates the
         # required events for Exchange integration.
         ea = Email.EmailAddress(self.db)
         ea.find_by_address(address)
@@ -1649,7 +1654,8 @@ class BofhdEmailCommands(BofhdEmailBase):
         info = {}
         etf = Email.EmailTargetFilter(self.db)
         for f in etf.list_email_target_filter(target_id=target.entity_id):
-            filters.append(str(EmailConstants._EmailTargetFilterCode(f['filter'])))
+            filters.append(
+                str(EmailConstants._EmailTargetFilterCode(f['filter'])))
         if len(filters) > 0:
             info["filters"] = ", ".join([x for x in filters]),
         else:
@@ -3648,10 +3654,14 @@ class BofhdSympaCommands(BofhdEmailBase):
         # LDAP. The postmasters are nagging for that delay. All questions
         # should be directed to them (this is similar to delaying a delete
         # request).
-        br.add_request(operator.get_entity_id(),
-                       DateTime.now() + DateTime.DateTimeDelta(0, 0, 30),
-                       self.const.bofh_sympa_create, list_id, ea.entity_id,
-                       state_data=json.dumps(state))
+        br.add_request(
+            operator=operator.get_entity_id(),
+            when=date_utils.now() + datetime.timedelta(minutes=30),
+            op_code=self.const.bofh_sympa_create,
+            entity_id=list_id,
+            destination_id=ea.entity_id,
+            state_data=json.dumps(state),
+        )
         return {'listname': listname}
 
     #
@@ -3733,14 +3743,17 @@ class BofhdSympaCommands(BofhdEmailBase):
         br = BofhdRequests(self.db, self.const)
         state = {'run_host': run_host,
                  'listname': listname}
-        br.add_request(operator.get_entity_id(),
-                       # IVR 2008-08-04 +1 hour to allow changes to spread to
-                       # LDAP. This way we'll have a nice SMTP-error, rather
-                       # than a confusing error burp from sympa.
-                       DateTime.now() + DateTime.DateTimeDelta(0, 1),
-                       self.const.bofh_sympa_remove,
-                       list_id, None, state_data=json.dumps(state))
-
+        br.add_request(
+            operator=operator.get_entity_id(),
+            # IVR 2008-08-04 +1 hour to allow changes to spread to
+            # LDAP. This way we'll have a nice SMTP-error, rather
+            # than a confusing error burp from sympa.
+            when=date_utils.now() + datetime.timedelta(hours=1),
+            op_code=self.const.bofh_sympa_remove,
+            entity_id=list_id,
+            destination_id=None,
+            state_data=json.dumps(state),
+        )
         return {'listname': listname, 'request': True}
 
     #
