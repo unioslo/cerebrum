@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
 #
-# Copyright 2009-2021 University of Oslo, Norway
+# Copyright 2009-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -25,7 +25,6 @@ generic functionality. Push institution-specific extensions to
 modules/no/<institution>/bofhd_<institution>_cmds.py.
 """
 import six
-from mx import DateTime
 
 import cereconf
 
@@ -769,12 +768,6 @@ class BofhdCommandBase(object):
             return "notfound:%r" % entity_id
         # NOTREACHED
         assert False
-
-    def _ticks_to_date(self, ticks):
-        """ Ticks to timestamp. """
-        if ticks is None:
-            return None
-        return DateTime.DateTimeFromTicks(ticks)
 
     def _is_manual_group(self, gr):
         """Checks if group_type corresponds to one of the manual group types

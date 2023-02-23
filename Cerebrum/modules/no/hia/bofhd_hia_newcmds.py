@@ -57,6 +57,7 @@ from Cerebrum.modules.bofhd import bofhd_user_create_unpersonal
 from Cerebrum.modules.no.hia import bofhd_uia_auth
 from Cerebrum.modules.no.uio import bofhd_uio_cmds
 from Cerebrum.modules.trait import bofhd_trait_cmds
+from Cerebrum.utils import date_compat
 
 
 format_day = default_format_day  # 10 characters wide
@@ -575,6 +576,9 @@ class BofhdExtension(BofhdCommonMethods):
                               DB_driver='cx_Oracle')
         fs = FS(db)
 
+        # parse date value from fs
+        fs_date = date_compat.get_date
+
         har_opptak = set()
         for row in fs.student.get_studierett(fodselsdato, pnum):
             har_opptak.add(row['studieprogramkode'])
@@ -582,9 +586,9 @@ class BofhdExtension(BofhdCommonMethods):
                 'studprogkode': row['studieprogramkode'],
                 'studierettstatkode': row['studierettstatkode'],
                 'status': row['studentstatkode'],
-                'dato_studierett_tildelt': self._ticks_to_date(
+                'dato_studierett_tildelt': fs_date(
                     row['dato_studierett_tildelt']),
-                'dato_studierett_gyldig_til': self._ticks_to_date(
+                'dato_studierett_gyldig_til': fs_date(
                     row['dato_studierett_gyldig_til']),
                 'privatist': row['status_privatist'],
             })
@@ -597,7 +601,7 @@ class BofhdExtension(BofhdCommonMethods):
             ret.append({
                 'ekskode': row['emnekode'],
                 'programmer': ",".join(programmer),
-                'dato': self._ticks_to_date(row['dato_opprettet']),
+                'dato': fs_date(row['dato_opprettet']),
             })
 
         for row in fs.student.get_utdanningsplan(fodselsdato, pnum):
@@ -605,16 +609,15 @@ class BofhdExtension(BofhdCommonMethods):
                 'studieprogramkode': row['studieprogramkode'],
                 'terminkode_bekreft': row['terminkode_bekreft'],
                 'arstall_bekreft': row['arstall_bekreft'],
-                'dato_bekreftet': self._ticks_to_date(row['dato_bekreftet']),
+                'dato_bekreftet': fs_date(row['dato_bekreftet']),
             })
 
         for row in fs.student.get_semreg(fodselsdato, pnum):
             ret.append({
                 'regformkode': row['regformkode'],
                 'betformkode': row['betformkode'],
-                'dato_betaling': self._ticks_to_date(row['dato_betaling']),
-                'dato_regform_endret': self._ticks_to_date(
-                    row['dato_regform_endret']),
+                'dato_betaling': fs_date(row['dato_betaling']),
+                'dato_regform_endret': fs_date(row['dato_regform_endret']),
             })
 
         for row in fs.student.get_student_kull(fodselsdato, pnum):
