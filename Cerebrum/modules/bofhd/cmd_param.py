@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright 2002-2018 University of Oslo, Norway
+# Copyright 2002-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,9 +17,21 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""
+Bofhd command parameters and format suggestions
 
+Command parameters are data structures that describes input parameters for
+commands.
 
-from __future__ import print_function
+Format suggestions is a data structure that suggests how to format and display
+structured results from bofhd commands.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+)
+
 
 class Parameter(object):
     """Defines some properties for an attribute.  If any arguments in
@@ -299,8 +311,10 @@ class Command(object):
 
 
 class FormatSuggestion(object):
-    """FormatSuggestion is used by the client to determine how to
-    format a return value from a command."""
+    """
+    FormatSuggestion is used by the client to determine how to format a return
+    value from a command.
+    """
 
     def __init__(self, string, vars=None, hdr=None):
         """For description of the parameters, see get_format().  The
@@ -421,6 +435,84 @@ class FormatSuggestion(object):
                         continue
                     lines.append(fmt % positions)
         return '\n'.join(lines)
+
+
+def get_format_suggestion_table(*args, **kwargs):
+    """
+    Helper to build format suggestion tables.
+
+    Each argument is a tuple describing a table column:
+       (<field>, <header>, <size>, <type (d or s)>, <left-align>)
+
+    Can optionally include a limiter message.  Use this if the result list can
+    contain a final sentinel object to indicate that a max results limit has
+    been reached.
+
+    Example:
+
+    ::
+
+        # result table format suggestion
+        fs = get_format_suggestion_table(
+            ("foo_type", "Type", 16, "s", True),
+            ("foo_value", "Value", 8, "d", False),
+            (format_time("foo_dt"), "Datetime", 16, "s", False),
+            limit_key='limit',
+        )
+
+        # results from command
+        rows = [
+            {"foo_type": "abcd", "foo_value": 10, "foo_date": now()},
+            {"foo_type": "xyz", "foo_value": 403, "foo_date": now()},
+            # We've truncated the result to two rows, but there are more
+            # rows available:
+            {'limit': 2},
+        ]
+
+        # would display as:
+        #       Type       |  Value   |     Datetime
+        # ---------------- + -------- + ----------------
+        # abcd             |       10 | 2023-03-04 14:30
+        # xyz              |      403 | 2023-03-04 14:30
+        # ...
+        # Limited to 2 results
+    """
+    # This is ugly code, but makes the format suggestion definitions
+    # prettier and less prone to errors.
+    limit_key = kwargs.pop("limit_key", None)
+
+    field_names = []
+    headers = []
+    separators = []
+    placeholders = []
+    for t in args:
+        field, header, size, fmt, align = (t[0], t[1], int(t[2]), t[3],
+                                           "-" if bool(t[4]) else "")
+
+        # Sanity checks
+        assert size > 0
+        assert fmt in ("s", "d")
+        assert field and field != limit_key
+        assert header and len(header) <= size
+
+        field_names.append(field)
+        headers.append(format(header, "^" + str(size)))
+        separators.append("-" * size)
+        placeholders.append("%{}{}{}".format(align, size, fmt))
+
+    header = "\n".join((" | ".join(headers), " + ".join(separators)))
+    row = " | ".join(placeholders)
+
+    formats = (row, tuple(field_names))
+    if limit_key:
+        # Include a special sentinel "row" informing that there are more
+        # entries, and that the results has been truncated
+        formats = [
+            formats,
+            ("...\nLimited to %d results", (limit_key,))
+        ]
+
+    return FormatSuggestion(formats, hdr=header)
 
 
 if __name__ == '__main__':

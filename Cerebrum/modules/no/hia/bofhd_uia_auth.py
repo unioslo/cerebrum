@@ -101,6 +101,7 @@ class ContactAuth(UiaAuth, BofhdContactAuth):
     def can_add_contact_info(self, operator,
                              entity=None,
                              contact_type=None,
+                             source_system=None,
                              query_run_any=False):
         # Superusers can see and run command
         if self.is_superuser(operator):

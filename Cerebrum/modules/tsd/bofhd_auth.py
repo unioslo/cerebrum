@@ -429,6 +429,7 @@ class ContactAuth(TsdBofhdAuth, bofhd_contact_info.BofhdContactAuth):
     def can_add_contact_info(self, operator,
                              entity=None,
                              contact_type=None,
+                             source_system=None,
                              query_run_any=False):
         if query_run_any:
             return True

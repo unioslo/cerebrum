@@ -105,8 +105,12 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
 from Cerebrum.modules.bofhd.bofhd_core_help import get_help_strings
-from Cerebrum.modules.bofhd.cmd_param import (Command, FormatSuggestion,
-                                              SimpleString)
+from Cerebrum.modules.bofhd.cmd_param import (
+    Command,
+    FormatSuggestion,
+    SimpleString,
+    get_format_suggestion_table,
+)
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.help import merge_help_strings
 from Cerebrum.modules.bofhd.utils import BofhdUtils
@@ -144,51 +148,6 @@ def _get_entity_type(const, value, user_input=False, optional=False):
     """ Get an entity type constant. """
     return _get_constant(const, _EntityTypeCode, value,
                          "entity type" if user_input else None, optional)
-
-
-def _get_format_suggestion_table(*args, **kwargs):
-    """
-    Get format suggestion for a simple table.
-
-    Each argument is a tuple describing a table column:
-       (<field>, <header>, <size>, <type (d or s)>, <left-align>)
-    """
-    # This is ugly code, but makes the format suggestion definitions
-    # later prettier and less prone to errors.
-    limit_key = kwargs.pop("limit_key", None)
-
-    field_names = []
-    headers = []
-    separators = []
-    placeholders = []
-    for t in args:
-        field, header, size, fmt, align = (t[0], t[1], int(t[2]), t[3],
-                                           "-" if bool(t[4]) else "")
-
-        # Sanity checks
-        assert size > 0
-        assert fmt in ("s", "d")
-        assert field and field != limit_key
-        assert header and len(header) <= size
-
-        field_names.append(field)
-        headers.append(format(header, "^" + str(size)))
-        separators.append("-" * size)
-        placeholders.append("%{}{}{}".format(align, size, fmt))
-
-    header = "\n".join((" | ".join(headers), " + ".join(separators)))
-    row = " | ".join(placeholders)
-
-    formats = (row, tuple(field_names))
-    if limit_key:
-        # Include a special sentinel "row" informing that there are more
-        # entries, and that the results has been truncated
-        formats = [
-            formats,
-            ("...\nLimited to %d results", (limit_key,))
-        ]
-
-    return FormatSuggestion(formats, hdr=header)
 
 
 class BofhdExtidAuth(BofhdAuth):
@@ -570,7 +529,7 @@ class BofhdExtidCommands(BofhdCommandBase):
                 "No support for external id in %s"
                 % self._format_match(entity, search_string))
 
-    _list_extid_types_fs = _get_format_suggestion_table(
+    _list_extid_types_fs = get_format_suggestion_table(
         ("entity_id", "Entity Id", 12, "d", False),
         ("entity_type", "Entity Type", 12, "s", True),
         ("id_source", "Id Source", 12, "s", True),
@@ -578,7 +537,7 @@ class BofhdExtidCommands(BofhdCommandBase):
         limit_key="limit",
     )
 
-    _list_extid_values_fs = _get_format_suggestion_table(
+    _list_extid_values_fs = get_format_suggestion_table(
         ("entity_id", "Entity Id", 12, "d", False),
         ("entity_type", "Entity Type", 12, "s", True),
         ("id_source", "Id Source", 12, "s", True),
