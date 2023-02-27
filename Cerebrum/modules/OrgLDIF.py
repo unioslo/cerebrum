@@ -534,6 +534,7 @@ class OrgLDIF(object):
         self.init_person_cache()
         self.init_person_affiliations()
         self.init_person_names()
+        self.init_export_ids()
         self.init_person_titles()
         self.init_person_addresses()
         self.init_person_aliases()
@@ -626,6 +627,16 @@ class OrgLDIF(object):
             person_id = int(row['person_id'])
             person_names[person_id][int(row['name_variant'])] = row['name']
         timer("...personal names done.")
+
+    def init_export_ids(self):
+        # Set self.export_ids = dict {person_id: {export_id: id}}
+        timer = make_timer(logger, "Fetching export ids...")
+        self.export_ids = export_ids = defaultdict()
+        for row in self.person.list_persons():
+            person_id = int(row['person_id'])
+            export_id = row["export_id"]
+            export_ids[person_id] = export_id
+        timer("... export ids done.")
 
     def init_person_titles(self):
         # Set self.person_titles = dict {person_id: [(language,title),...]}
@@ -991,6 +1002,12 @@ class OrgLDIF(object):
             entry['eduPersonOrgDN'] = (self.org_dn,)
         if primary_ou_dn:
             entry['eduPersonPrimaryOrgUnitDN'] = (primary_ou_dn,)
+
+        export_id = self.export_ids.get(person_id)
+        if export_id:                
+            entry['eduPersonUniqueID'] = "@".join(                                
+                (export_id, self.config.domain_name)
+            )
 
         edu_ous = self._calculate_edu_ous(
             primary_ou_dn,

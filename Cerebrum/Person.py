@@ -1208,7 +1208,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
             where = 'WHERE ' + argument_to_sql(person_id, 'person_id',
                                                binds, int)
         return self.query("""
-        SELECT person_id, birth_date
+        SELECT person_id, birth_date, export_id
         FROM [:table schema=cerebrum name=person_info]
         """ + where, binds)
 
