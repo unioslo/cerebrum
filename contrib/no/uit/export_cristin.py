@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding:utf-8 -*-
 #
-# Copyright 2003-2019 University of Oslo, Norway
+# Copyright 2003-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -50,9 +50,13 @@ rows.
 sted.xml format is noe specified anywhere (but it will be :)). For now, this
 file is ignored and no <URL> elements are generated in frida.xml (in
 violation of the FRIDA.dtd).
-
 """
-from __future__ import unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import argparse
 import logging
@@ -65,6 +69,7 @@ import six
 
 import cereconf
 import Cerebrum.logutils
+import Cerebrum.logutils.options
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
@@ -1034,7 +1039,7 @@ def output_assignments(writer, sequence, ou_cache, blockname, elemname, attrs):
             if key == "place":
                 continue
             value = item[key]
-            # FIXME: DateTime hack. SIGTHTBABW
+            # FIXME: datetime hack. SIGTHTBABW
             if hasattr(value, "strftime"):
                 value = value.strftime("%Y-%m-%d")
             output_element(writer, value, xmlelement)

@@ -159,7 +159,7 @@ class MockClient(GatewayClient):
         """See .Gateway.GatewayClient."""
         return self._vlans
 
-    def create_project(self, pid):
+    def create_project(self, pid, expire_date=None):
         """See .Gateway.GatewayClient."""
         self.logger.info("Creating project: %s", pid)
         try:
@@ -169,7 +169,7 @@ class MockClient(GatewayClient):
         else:
             raise Err("Project %s exists" % pid)
 
-        p = {'frozen': None, 'expires': DateTime.now()+10,
+        p = {'frozen': None, 'expires': expire_date or DateTime.now()+10,
              'name': pid, 'created': DateTime.now(), }
         self._projects.append(p)
         return p
@@ -181,6 +181,15 @@ class MockClient(GatewayClient):
         # TODO: everything related to project
         del self._projects[idx]
         return
+
+    def expire_project(self, pid, expire_date=None):
+        """See .Gateway.GatewayClient."""
+        self.logger.info("Setting expire date %s on project: %s",
+                         pid, expire_date)
+        if self.dryrun:
+            return True
+        idx = self._get_project_idx(pid)
+        self._projects[idx]['expires'] = expire_date
 
     def freeze_project(self, pid, when=None):
         """See .Gateway.GatewayClient."""
@@ -201,7 +210,7 @@ class MockClient(GatewayClient):
         return self._projects[idx]
 
     # User methods
-    def create_user(self, pid, username, uid, realname=None):
+    def create_user(self, pid, username, uid, realname=None, expire_date=None):
         """See .Gateway.GatewayClient."""
         self.logger.info("Creating user: %s", username)
         self._get_project_idx(pid)
@@ -213,7 +222,7 @@ class MockClient(GatewayClient):
             raise Err("User %s exists in project %s" % (username, pid))
 
         n = {'username': username, 'created': DateTime.now(),
-             'frozen': None, 'expires': DateTime.now()+10,
+             'frozen': None, 'expires': expire_date or DateTime.now()+10,
              'project': pid, 'groups': []}
         self._users.append(n)
         return n

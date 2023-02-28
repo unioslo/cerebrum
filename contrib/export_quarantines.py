@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2015-2021 University of Oslo, Norway
+# Copyright 2015-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,6 +19,12 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """Utilities/script to export quarantines to file."""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    # TODO: unicode_literals,
+)
 import argparse
 import datetime
 import json
@@ -36,7 +42,7 @@ logger = logging.getLogger(__name__)
 
 
 class JsonEncoder(json.JSONEncoder):
-    """ mx.DateTime-aware json encoder. """
+    """ datetime-aware json encoder. """
     def default(self, obj):
         if isinstance(obj, datetime.date):
             return to_mx_format(obj)
@@ -87,8 +93,6 @@ def codes_to_human(db, quarantines):
 
 def write_report(stream, quarantines):
     """Dump a list of quarantines to JSON-file.
-
-    Objects of type mx.DateTime.DateTimeType are serialized by calling str().
 
     :param list quarantines: quarantine database rows to report.
     :param file outfile: file-like object to write to

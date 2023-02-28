@@ -1,4 +1,29 @@
-from __future__ import absolute_import, print_function
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# Copyright 2018-2023 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+""" Populate mod_auditlog from mod_changelog. """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+)
 
 import Queue
 import argparse
@@ -7,9 +32,6 @@ import functools
 import logging
 import threading
 
-import pytz
-# import six
-
 import cereconf
 
 import Cerebrum.logutils
@@ -17,55 +39,17 @@ import Cerebrum.logutils.options
 from Cerebrum import Cache
 from Cerebrum.Constants import _CerebrumCode, SynchronizedDatabase
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
-# from Cerebrum.Entity import Entity, EntityName
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.audit import auditdb
 from Cerebrum.modules.audit import auditlog
 from Cerebrum.modules.audit import record
+from Cerebrum.utils import date_compat
 from Cerebrum.utils import json
 
 
 DEFAULT_LOG_PRESET = 'cronjob'
 logger = logging.getLogger(__name__)
-
-
 ENTITY_TYPE_NAMESPACE = getattr(cereconf, 'ENTITY_TYPE_NAMESPACE', dict())
-
-
-def _get_mx_dst(mx_datetime):
-    """ Figure out if DST is in effect on a given mx.DateTime object. """
-    # We need to know this when the naive datetime hits an ambiguous time:
-    # - in CET the clock strikes 02:05 twice when turning back the clocks.
-    # - in CET the clock never strikes 02:05 when turing the clocks ahead.
-    #
-    # This doesn't really work though -- the mx.DateTime.tz and mx.DateTime.dst
-    # value seems like it guesses CEST when given an ambiguous naive datetime
-    # value.
-    return bool(mx_datetime.dst)
-
-
-def _get_mx_timezone(mx_datetime):
-    """ Translate mx.DateTime time zone name to something standardized. """
-    timezone = mx_datetime.tz
-    if timezone == 'CEST':
-        # CEST is just CET with summer time
-        return 'CET'
-    return timezone
-
-
-def mx_to_datetime(mx_datetime):
-    """ Transform an mx.DateTime object to a localized python datetime. """
-    # A few notes:
-    # - changelog tstamp is a naive, local timestamp
-    # - when converted to an mx.DateTime by the database driver, timezone and
-    # summertime (.tz, .dst) is set according to system settings
-    # - as long as timezone settings are (and always have been) correct on
-    # database host and localhost, this should work somewhat OK
-    default_is_dst = _get_mx_dst(mx_datetime)
-    tz_candidate = _get_mx_timezone(mx_datetime)
-    naive = mx_datetime.pydatetime()
-    tz = pytz.timezone(tz_candidate)
-    return tz.localize(naive, is_dst=default_is_dst)
 
 
 #
@@ -222,7 +206,7 @@ class ChangeLogMigrator(DatabaseAccessor):
         def int_or_none(v):
             return v if v is None else int(v)
 
-        timestamp = mx_to_datetime(row['tstamp'])
+        timestamp = date_compat.get_datetime_tz(row['tstamp'])
         change_id = int(row['change_id'])
 
         if row['change_by'] is None:
