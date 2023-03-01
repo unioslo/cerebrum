@@ -3725,13 +3725,20 @@ class BofhdExtension(BofhdCommonMethods):
 
         # Show contact info, if permission checks are implemented
         if hasattr(self.ba, 'can_get_contact_info'):
+            # Hacky - not all deployments have all contact types...
+            wants = set(
+                getattr(self.const, attr)
+                for attr in (
+                    'contact_phone',
+                    'contact_voip_extension',
+                    'contact_mobile_phone',
+                    'contact_phone_private',
+                    'contact_private_mobile',
+                ) if hasattr(self.const, attr))
+
             for row in person.get_contact_info():
                 contact_type = self.const.ContactInfo(row['contact_type'])
-                if contact_type not in (self.const.contact_phone,
-                                        self.const.contact_voip_extension,
-                                        self.const.contact_mobile_phone,
-                                        self.const.contact_phone_private,
-                                        self.const.contact_private_mobile):
+                if contact_type not in wants:
                     continue
                 try:
                     if self.ba.can_get_contact_info(
