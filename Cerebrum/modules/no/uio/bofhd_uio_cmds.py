@@ -24,9 +24,7 @@ import errno
 import imaplib
 import re
 import select
-import warnings
 
-from mx import DateTime
 from six import string_types, text_type
 
 import cereconf
@@ -50,7 +48,14 @@ from Cerebrum.modules.bofhd.auth import (AuthConstants,
                                          BofhdAuthRole)
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.bofhd_user_create import BofhdUserCreateMethod
-from Cerebrum.modules.bofhd.bofhd_utils import copy_func, format_time
+from Cerebrum.modules.bofhd.bofhd_utils import (
+    copy_func,
+    date_to_string,
+    default_format_day,
+    format_time,
+    exc_to_text,
+    get_quarantine_status,
+)
 from Cerebrum.modules.bofhd.cmd_param import (
     AccountName,
     AccountPassword,
@@ -110,43 +115,12 @@ from Cerebrum.modules.pwcheck.history import (
     check_password_history,
 )
 from Cerebrum.modules.trait import bofhd_trait_cmds
-from Cerebrum.utils.date import parse_date
 from Cerebrum.utils import date_compat
 from Cerebrum.utils.email import mail_template, sendmail
 from Cerebrum.utils import json
 
 
-# TBD: It would probably be cleaner if our time formats were specified
-# in a non-Java-SimpleDateTime-specific way.
-def format_day(field):
-    fmt = "yyyy-MM-dd"                  # 10 characters wide
-    return ":".join((field, "date", fmt))
-
-
-def date_to_string(date):
-    """Takes a DateTime-object and formats a standard ISO-datestring
-    from it.
-
-    Custom-made for our purposes, since the standard XMLRPC-libraries
-    restrict formatting to years after 1899, and we see years prior to
-    that.
-
-    """
-    if not date:
-        return "<not set>"
-
-    return "%04i-%02i-%02i" % (date.year, date.month, date.day)
-
-
-def exc_to_text(e):
-    """ Get an error text from an exception. """
-    try:
-        text = text_type(e)
-    except UnicodeError:
-        text = bytes(e).decode('utf-8', 'replace')
-        warnings.warn("Non-unicode data in exception {!r}".format(e),
-                      UnicodeWarning)
-    return text
+format_day = default_format_day  # 10 characters wide
 
 
 class TimeoutException(Exception):
@@ -159,8 +133,11 @@ class ConnectException(Exception):
 
 @copy_func(
     BofhdUserCreateMethod,
-    methods=['_user_create_set_account_type', '_user_create_basic',
-             '_user_password']
+    methods=[
+        '_user_create_basic',
+        '_user_create_set_account_type',
+        '_user_password',
+    ]
 )
 class BofhdExtension(BofhdCommonMethods):
 
@@ -171,24 +148,6 @@ class BofhdExtension(BofhdCommonMethods):
 
     authz = bofhd_auth.UioAuth
     external_id_mappings = {}
-
-    # This little class is used to store connections to the LDAP servers, and
-    # the LDAP modules needed. The reason for doing things like this instead
-    # instead of importing the LDAP module for the entire bofhd_uio_cmds,
-    # are amongst others:
-    # 1. bofhd_uio_cmds is partially used at other institutions in some form,
-    #    they might not have any need for, or wish, to install the LDAP module.
-    # 2. If we import the module on a per-function basis, we'll loose options
-    #    set in the module.
-    # 3. It looks better to define a little class, than a dict of dicts, in
-    #    order to organize the variables in a somewhat sane way.
-    #
-    # We need to connect to LDAP in order to populate entries with the
-    # 'mailPause' attribute. This attribute will be heavily used by the
-    # postmasters, as they convert to murder. When we populate entries
-    # with the 'mailPause' attribute directly, the postmasters will experience
-    # a 3x reduction in waiting time.
-    #
 
     def __init__(self, *args, **kwargs):
         super(BofhdExtension, self).__init__(*args, **kwargs)
@@ -202,6 +161,7 @@ class BofhdExtension(BofhdCommonMethods):
         self.language_codes = ['nb', 'nn', 'en']
 
         # TODO: Wait until needed / fix on import?
+        # TODO: Is this still needed?
         self.fixup_imaplib()
 
     @property
@@ -996,10 +956,11 @@ class BofhdExtension(BofhdCommonMethods):
             dl_group.demote_distribution()
         except Errors.NotFoundError:
             return "No Exchange group %s found" % groupname
+
         if self._get_boolean(expire_group):
             # set expire in 90 dates for the remaining Cerebrum-group
-            new_expire_date = DateTime.now() + DateTime.DateTimeDelta(90, 0, 0)
-            dl_group.expire_date = new_expire_date
+            dl_group.expire_date = (datetime.date.today()
+                                    + datetime.timedelta(days=90))
             dl_group.write_db()
         return "Exchange group data removed for %s" % groupname
 
@@ -1304,14 +1265,16 @@ class BofhdExtension(BofhdCommonMethods):
             # Set the groups expire date to today.
 
             # If expire date exists and today is same or past expire date
-            if grp.expire_date and grp.expire_date <= self._today():
+            expire_date = date_compat.get_date(grp.expire_date)
+            today = datetime.date.today()
+            if expire_date and expire_date <= today:
                 raise CerebrumError('Group already expired')
             else:
-                grp.expire_date = self._today()
+                grp.expire_date = today
                 grp.write_db()
                 return u'OK, set expire-date for {0} to {1}'.format(
                     groupname,
-                    self._today().strftime('%Y-%m-%d'))
+                    today.isoformat())
 
     def _assert_group_deletable(self, grp):
         """
@@ -1573,7 +1536,7 @@ class BofhdExtension(BofhdCommonMethods):
         """List direct members of group"""
         group = self._get_group(groupname)
         ret = []
-        now = DateTime.now()
+        today = datetime.date.today()
         members = list(group.search_members(group_id=group.entity_id,
                                             indirect_members=False,
                                             member_filter_expired=False))
@@ -1601,7 +1564,7 @@ class BofhdExtension(BofhdCommonMethods):
                 except Errors.NotFoundError:
                     full_name = ''
                 user_name = x['member_name']
-                expire_date = ac.expire_date
+                expire_date = date_compat.get_date(ac.expire_date)
                 ac.clear()
                 pe.clear()
 
@@ -1614,7 +1577,7 @@ class BofhdExtension(BofhdCommonMethods):
                 'user_name': user_name,
                 'expired': None,
             })
-            if expire_date and expire_date < now:
+            if expire_date and expire_date < today:
                 item["expired"] = "expired"
             ret.append(item)
 
@@ -1964,6 +1927,8 @@ class BofhdExtension(BofhdCommonMethods):
     all_commands['group_set_expire'] = Command(
         ("group", "set_expire"),
         GroupName(),
+        # TODO: We should update the help text to include info from
+        # parsers.parse_date_help_blurb
         Date(optional=True),
         perm_filter='can_delete_group',
         # TODO: Update brukerinfo to handle data structure return value
@@ -1973,7 +1938,7 @@ class BofhdExtension(BofhdCommonMethods):
         # ),
     )
 
-    def group_set_expire(self, operator, group, expire=None):
+    def group_set_expire(self, operator, group, _expire=None):
         grp = self._get_group(group)
 
         try:
@@ -1987,16 +1952,9 @@ class BofhdExtension(BofhdCommonMethods):
         if not is_superuser:
             self._raise_PermissionDenied_if_not_manual_group(grp)
 
-        # TODO: Make new, non-mx generic date parsers in bofhd_utils.
-        #       We'd probably need new help texts for the new parsers too.
-        if expire:
-            try:
-                expire = parse_date(expire)
-            except ValueError:
-                if is_superuser:
-                    expire = None
-                else:
-                    raise CerebrumError('Invalid date: ' + repr(expire))
+        expire = parsers.parse_date(_expire, optional=True)
+        if not expire and not is_superuser:
+            raise CerebrumError('Invalid date: ' + repr(_expire))
 
         max_delta = datetime.timedelta(days=366)
         delta = (expire - datetime.date.today()) if expire else None
@@ -3264,8 +3222,11 @@ class BofhdExtension(BofhdCommonMethods):
     all_commands['person_set_bdate'] = Command(
         ("person", "set_bdate"),
         PersonId(help_ref="id:target:person"),
+        # TODO: We should update the help text to include info from
+        # parsers.parse_date_help_blurb
         Date(help_ref='date_birth'),
-        perm_filter='can_set_person_info')
+        perm_filter='can_set_person_info',
+    )
 
     def person_set_bdate(self, operator, person_id, bdate):
         try:
@@ -3274,8 +3235,8 @@ class BofhdExtension(BofhdCommonMethods):
             raise CerebrumError("Unexpectedly found more than one person")
         self.ba.can_set_person_info(operator.get_entity_id(),
                                     person=person)
-        bdate = self._parse_date(bdate)
-        if bdate > self._today():
+        bdate = parsers.parse_date(bdate)
+        if bdate > datetime.date.today():
             raise CerebrumError("Please check the date of birth, "
                                 "cannot register date_of_birth > now")
         person.birth_date = bdate
@@ -3438,14 +3399,11 @@ class BofhdExtension(BofhdCommonMethods):
         self.ba.can_create_person(operator.get_entity_id(), ou, aff)
         person = Utils.Factory.get('Person')(self.db)
         person.clear()
-        # TBD: The current implementation of ._parse_date() should
-        # handle None input just fine; if that implementation is
-        # correct, this test can be removed.
-        if bdate is not None:
-            bdate = self._parse_date(bdate)
-            if bdate > self._today():
-                raise CerebrumError("Please check the date of birth, "
-                                    "cannot register date_of_birth > now")
+
+        bdate = parsers.parse_date(bdate, optional=True)
+        if bdate and bdate > datetime.date.today():
+            raise CerebrumError("Please check the date of birth, "
+                                "cannot register date_of_birth > now")
         if person_id:
             id_type, id = self._map_person_id(person_id)
         else:
@@ -3565,7 +3523,8 @@ class BofhdExtension(BofhdCommonMethods):
             else:
                 raise CerebrumError("Unknown search type (%s)" % search_type)
         elif search_type == 'date':
-            matches = person.find_persons_by_bdate(self._parse_date(value))
+            date_of_birth = parsers.parse_date(value)
+            matches = person.find_persons_by_bdate(date_of_birth)
         elif search_type == 'stedkode':
             ou = self._get_ou(stedkode=value)
             matches = person.list_affiliations(ou_id=ou.entity_id,
@@ -4164,12 +4123,19 @@ class BofhdExtension(BofhdCommonMethods):
         EntityType(default="account"),
         Id(),
         QuarantineType(),
+        # TODO: We should update the help text to include info from
+        # parsers.parse_date_help_blurb
+        # TODO: Wouldn't it be better to ask for number of days to postpone
+        # quarantine?
         Date(),
-        perm_filter='can_disable_quarantine')
+        perm_filter='can_disable_quarantine',
+    )
 
     def quarantine_disable(self, operator, entity_type, id, qtype, date):
         entity = self._get_entity(entity_type, id)
-        date = self._parse_date(date)
+        # Note: Giving an *empty* date resets disable_until, i.e. re-enables a
+        # previously disabled quarantine.
+        date = parsers.parse_date(date, optional=True)
         qconst = self._get_constant(self.const.Quarantine, qtype, "quarantine")
         self.ba.can_disable_quarantine(operator.get_entity_id(), entity, qtype)
 
@@ -4177,11 +4143,14 @@ class BofhdExtension(BofhdCommonMethods):
             raise CerebrumError("%s does not have a quarantine of type %s" % (
                 self._get_name_from_object(entity), text_type(qtype)))
 
-        limit = getattr(cereconf, 'BOFHD_QUARANTINE_DISABLE_LIMIT', None)
-        if limit:
-            if date > DateTime.today() + DateTime.RelativeDateTime(days=limit):
-                return "Quarantines can only be disabled for %d days" % limit
-        if date and date < DateTime.today():
+        limit_days = getattr(cereconf, 'BOFHD_QUARANTINE_DISABLE_LIMIT', None)
+        if date and limit_days:
+            limit = datetime.timedelta(days=int(limit_days))
+            if date > datetime.date.today() + limit:
+                # TODO: This should be a bofhd.errors.CerebrumError
+                return ("Quarantines can only be disabled for %d days"
+                        % limit.days)
+        if date and date < datetime.date.today():
             raise CerebrumError("Date can't be in the past")
         entity.disable_entity_quarantine(qconst, date)
         if not date:
@@ -4252,18 +4221,19 @@ class BofhdExtension(BofhdCommonMethods):
         Id(repeat=True),
         QuarantineType(),
         SimpleString(help_ref="string_why"),
+        # TODO: We should update the help text to include info from
+        # parsers.parse_date_help_blurb
         SimpleString(help_ref="quarantine_start_date", default="today",
                      optional=True),
-        perm_filter='can_set_quarantine')
+        perm_filter='can_set_quarantine',
+    )
 
     def quarantine_set(self, operator, entity_type, id, qtype, why,
                        start_date=None):
-        if not start_date or start_date == 'today':
-            start_date = self._today()
-        else:
-            start_date = self._parse_date(start_date)
         entity = self._get_entity(entity_type, id)
         qconst = self._get_constant(self.const.Quarantine, qtype, "quarantine")
+        start_date = (parsers.parse_date(start_date, optional=True)
+                      or datetime.date.today())
         self.ba.can_set_quarantine(operator.get_entity_id(), entity, qconst)
         rows = entity.get_entity_quarantine(qtype=qconst)
         if rows:
@@ -4538,12 +4508,12 @@ class BofhdExtension(BofhdCommonMethods):
         account = self.Account_class(self.db)
         for r in account.list_accounts_by_owner_id(person.entity_id):
             account = self._get_account(r['account_id'], idtype='id')
-            if account.expire_date:
-                exp = account.expire_date.strftime('%Y-%m-%d')
+            expire_date = date_compat.get_date(account.expire_date)
+            if expire_date:
+                exp = expire_date.isoformat()
             else:
                 exp = '<not set>'
-            existing_accounts.append('%-10s %s' % (account.account_name,
-                                                   exp))
+            existing_accounts.append('%-10s %s' % (account.account_name, exp))
         if existing_accounts:
             existing_accounts = 'Existing accounts:\n%-10s %s\n%s\n' % (
                 'uname', 'expire', '\n'.join(existing_accounts))
@@ -4815,6 +4785,9 @@ class BofhdExtension(BofhdCommonMethods):
 
     #
     # user set_disk_quota
+    # TODO: Why don't we use the disk_quota module here?
+    # TODO: We should probably just remove the disk quota module and all
+    #       related functionality
     #
     all_commands['user_set_disk_quota'] = Command(
         ("user", "set_disk_quota"),
@@ -5031,20 +5004,7 @@ class BofhdExtension(BofhdCommonMethods):
             ret['gecos'] = account.gecos
             ret['shell'] = text_type(self.const.PosixShell(account.shell))
         # TODO: Return more info about account
-        quarantined = None
-        now = DateTime.now()
-        for q in account.get_entity_quarantine():
-            if q['start_date'] <= now:
-                if (q['end_date'] is not None and q['end_date'] < now):
-                    quarantined = 'expired'
-                elif (q['disable_until'] is not None and
-                      q['disable_until'] > now):
-                    quarantined = 'disabled'
-                else:
-                    quarantined = 'active'
-                    break
-            else:
-                quarantined = 'pending'
+        quarantined = get_quarantine_status(account)
         if quarantined:
             ret['quarantined'] = quarantined
         return ret
@@ -5223,6 +5183,7 @@ class BofhdExtension(BofhdCommonMethods):
         if account.is_expired():
             raise CerebrumError(account_error("account is expired"))
         br = BofhdRequests(self.db, self.const)
+        batch_time_str = br.batch_time.strftime("%Y-%m-%dT%H:%M:%S")
         spread = int(self.const.spread_uio_nis_user)
         if move_type in ("immediate", "batch", "student", "student_immediate",
                          "request", "give"):
@@ -5291,8 +5252,8 @@ class BofhdExtension(BofhdCommonMethods):
                 br.add_request(operator.get_entity_id(), br.batch_time,
                                self.const.bofh_move_user,
                                account.entity_id, disk_id, state_data=spread)
-                message += ("Move queued for execution at %s." %
-                            self._date_human_readable(br.batch_time))
+                message += ("Move queued for execution at %s."
+                            % (batch_time_str,))
                 # mail user about the awaiting move operation
                 new_homedir = disk.path + '/' + account.account_name
                 try:
@@ -5326,8 +5287,8 @@ class BofhdExtension(BofhdCommonMethods):
                 br.add_request(operator.get_entity_id(), br.batch_time,
                                self.const.bofh_move_student,
                                account.entity_id, None, state_data=spread)
-                return ("student-move queued for execution at %s" %
-                        self._date_human_readable(br.batch_time))
+                return ("student-move queued for execution at %s"
+                        % (batch_time_str,))
             elif move_type == "student_immediate":
                 br.add_request(operator.get_entity_id(), br.now,
                                self.const.bofh_move_student,
@@ -5345,8 +5306,8 @@ class BofhdExtension(BofhdCommonMethods):
                                self.const.bofh_move_user,
                                account.entity_id, r[0]['destination_id'],
                                state_data=spread)
-                return ("move queued for execution at %s" %
-                        self._date_human_readable(br.batch_time))
+                return ("move queued for execution at %s"
+                        % (batch_time_str,))
             elif move_type == "cancel":
                 # TBD: Should superuser delete other request types as well?
                 count = 0
@@ -5844,17 +5805,23 @@ class BofhdExtension(BofhdCommonMethods):
     all_commands['user_set_expire'] = Command(
         ('user', 'set_expire'),
         AccountName(help_ref='account_name_id_uid'),
+        # TODO: We should update the help text to include info from
+        # parsers.parse_date_help_blurb
         Date(),
-        perm_filter='can_delete_user')
+        # TODO: isn't this now just is_superuser?
+        perm_filter='can_delete_user',
+    )
 
     def user_set_expire(self, operator, accountname, date):
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied("Currently limited to superusers")
         account = self._get_account(accountname)
         # self.ba.can_delete_user(operator.get_entity_id(), account)
-        account.expire_date = self._parse_date(date)
+        expire_date = parsers.parse_date(date, optional=True)
+        account.expire_date = expire_date
         account.write_db()
-        return "OK, set expire-date for %s to %s" % (accountname, date)
+        return "OK, set expire-date for %s to %s" % (accountname,
+                                                     str(expire_date))
 
     #
     # user set_np_type
@@ -6302,13 +6269,6 @@ class BofhdExtension(BofhdCommonMethods):
                                         types=[self.clconst.posix_demote]):
             uid = json.loads(r['change_params'])['uid']
         return uid
-
-    def _date_human_readable(self, date):
-        "Convert date to something human-readable."
-
-        if hasattr(date, "strftime"):
-            return text_type(date.strftime("%Y-%m-%dT%H:%M:%S"))
-        return text_type(date)
 
 
 class ContactCommands(BofhdContactCommands):

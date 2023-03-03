@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2020 University of Oslo, Norway
+# Copyright 2020-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -20,7 +20,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """This is a bofhd module for commands required by WOFH/brukerinfo."""
 
-import mx.DateTime
+import datetime
 from six import text_type
 
 from Cerebrum import Errors
@@ -29,6 +29,7 @@ from Cerebrum.group.memberships import GroupMemberships
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.cmd_param import (Command, AccountName)
+from Cerebrum.utils import date_compat
 
 
 class BofhdWofhCommands(BofhdCommonMethods):
@@ -100,8 +101,8 @@ class BofhdWofhCommands(BofhdCommonMethods):
         # Get all OUs where the operator is employed.
         ou_ids = []
         for aff in person.get_affiliations():
-            if (self.const.PersonAffiliation(aff['affiliation']) ==
-                    self.const.affiliation_ansatt):
+            if (self.const.PersonAffiliation(aff['affiliation'])
+                    == self.const.affiliation_ansatt):
                 ou_ids.append(aff['ou_id'])
 
         guests = []
@@ -118,8 +119,9 @@ class BofhdWofhCommands(BofhdCommonMethods):
                 guest = {}
                 guest['unit'] = stedkode
                 # Check if deleted_date is
-                if (aff['deleted_date'] and
-                        aff['deleted_date'] < mx.DateTime.today() - 30):
+                deleted_date = date_compat.get_date(aff['deleted_date'])
+                cutoff = datetime.date.today() - datetime.timedelta(days=30)
+                if (deleted_date and deleted_date < cutoff):
                     # Skip old deleted affiliations
                     continue
 
@@ -136,11 +138,12 @@ class BofhdWofhCommands(BofhdCommonMethods):
                 except Errors.NotFoundError:
                     guest['uname'] = ''
 
-                if aff['deleted_date']:
-                    guest['deleted_date'] = aff['deleted_date'].date
+                if deleted_date:
+                    guest['deleted_date'] = deleted_date.isoformat()
                 else:
                     guest['deleted_date'] = ''
-                guest['create_date'] = aff['create_date'].date
+                create_date = date_compat.get_date(aff['create_date'])
+                guest['create_date'] = create_date.isoformat()
                 names = person.get_names(variant=self.const.name_full)
                 if names and len(names) > 0:
                     guest['name'] = names[0]['name']
@@ -154,11 +157,12 @@ class BofhdWofhCommands(BofhdCommonMethods):
                 else:
                     counter = 0
                     for present in guests:
-                        if guest['uname'] == present['uname'] and guest['unit'] == present['unit']:
+                        if (guest['uname'] == present['uname']
+                                and guest['unit'] == present['unit']):
                             if guest['create_date'] > present['create_date']:
                                 guests[counter] = guest
                             break
                         counter += 1
                     if counter == len(guests):
-                        guests.append(guest)  
+                        guests.append(guest)
         return guests

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-
-# Copyright 2019 University of Oslo, Norway
+#
+# Copyright 2019-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,33 +17,43 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-import time
+"""
+BofhdRequests database abstraction.
+"""
+import datetime
 
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd.errors import CerebrumError
 from Cerebrum import Errors
-from mx import DateTime
+from Cerebrum.utils import date_compat
+from Cerebrum.utils import date as date_utils
 
 __version__ = "1.0"
 
 
+def _get_batch_time(now):
+    """
+    Get time for batch commands.
+
+    - If we are past 22:00 this day, schedule for tomorrow evening
+    - Otherwise, schedule this evening at 22:00
+    """
+    midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    if (now - midnight) > datetime.timedelta(hours=22):
+        return midnight + datetime.timedelta(days=1, hours=22)
+    else:
+        return midnight + datetime.timedelta(hours=22)
+
+
 class BofhdRequests(object):
+
     def __init__(self, db, const):
         self._db = db
         self.co = const
 
-        midnight = DateTime.today()
-        now = DateTime.now()
-        # if we are past 22:00 this day, schedule for tomorrow evening
-        if (now - midnight) > DateTime.TimeDeltaFrom(hours=22):
-            self.batch_time = midnight + DateTime.TimeDeltaFrom(days=1,
-                                                                hours=22)
-        # ... otherwise, schedule for this day
-        else:
-            self.batch_time = midnight + DateTime.TimeDeltaFrom(hours=22)
-
-        self.now = now
+        self.now = now = date_utils.now()
+        self.batch_time = _get_batch_time(now)
 
         # "None" means _no_ conflicts, there can even be several of
         # that op pending.  All other ops implicitly conflict with
@@ -122,15 +132,22 @@ class BofhdRequests(object):
             'entity_id': entity_id,
             'destination_id': destination_id,
             'state_data': state_data,
-            'request_id': reqid
-            }
+            'request_id': reqid,
+        }
 
-        self._db.execute("""
-        INSERT INTO [:table schema=cerebrum name=bofhd_request] (%(tcols)s)
-        VALUES (%(binds)s)""" % {
-            'tcols': ", ".join(cols.keys()),
-            'binds': ", ".join([":%s" % t for t in cols.keys()])},
-                         cols)
+        order = tuple(sorted(cols.keys()))
+        self._db.execute(
+            """
+            INSERT INTO [:table schema=cerebrum name=bofhd_request]
+              ({tcols})
+            VALUES
+              ({binds})
+            """.format(
+                tcols=", ".join(order),
+                binds=", ".join(":{}".format(t) for t in order),
+            ),
+            cols,
+        )
         return reqid
 
     def delay_request(self, request_id, minutes=10):
@@ -138,18 +155,19 @@ class BofhdRequests(object):
             # Note: the semantics of time objects is DB driver
             # dependent, and not standardised in PEP 249.
             # PgSQL will convert to ticks when forced into int().
-            t = int(r['run_at'])
-            # don't use self.now, it's a DateTime object.
-            now = time.time()
-            if t < now:
-                t = now
-            when = self._db.TimestampFromTicks(int(t + minutes*60))
-            self._db.execute("""
+            run_at = date_compat.get_datetime_tz(r['run_at'])
+            if run_at < self.now:
+                run_at = self.now
+            new_run_at = run_at + datetime.timedelta(minutes=minutes)
+            self._db.execute(
+                """
                 UPDATE [:table schema=cerebrum name=bofhd_request]
-                SET run_at=:when WHERE request_id=:id""",
-                             {'when': when, 'id': request_id})
+                SET run_at=:when
+                WHERE request_id=:id
+                """,
+                {'when': new_run_at, 'id': request_id})
             return
-        raise Errors.NotFoundError("No such request %d" % request_id)
+        raise Errors.NotFoundError("No such request: " + repr(request_id))
 
     def delete_request(self, entity_id=None, request_id=None,
                        operator_id=None, operation=None):
@@ -163,9 +181,14 @@ class BofhdRequests(object):
         if operation is not None:
             cols['operation'] = int(operation)
         self._db.execute(
-            """DELETE FROM [:table schema=cerebrum name=bofhd_request]
-            WHERE %s""" % " AND "
-            .join(["%s=:%s" % (x, x) for x in cols.keys()]), cols)
+            """
+            DELETE FROM [:table schema=cerebrum name=bofhd_request]
+            WHERE {}
+            """.format(
+                " AND ".join("{0}=:{0}".format(x) for x in cols.keys())
+            ),
+            cols,
+        )
 
     def get_requests(self, request_id=None, operator_id=None, entity_id=None,
                      operation=None, destination_id=None, given=False,
@@ -183,24 +206,28 @@ class BofhdRequests(object):
             cols['destination_id'] = int(destination_id)
         where = ["%s = :%s" % (x, x) for x in cols.keys()]
         if only_runnable:
-            cols['now'] = DateTime.now()
+            cols['now'] = date_utils.now()
             where.append("run_at <= :now")
         qry = """
         SELECT request_id, requestee_id, run_at, operation, entity_id,
                destination_id, state_data
         FROM [:table schema=cerebrum name=bofhd_request]
-        WHERE """
-        ret = self._db.query(qry + " AND ".join(where), cols)
+        WHERE {}
+        """
+        ret = self._db.query(qry.format(" AND ".join(where)), cols)
         if given:
             group = Factory.get('Group')(self._db)
             tmp = [str(x["group_id"])
                    for x in group.search(member_id=operator_id,
                                          indirect_members=True)]
-            extra_where = ""
             if len(tmp) > 0:
                 extra_where = "AND destination_id IN (%s)" % ", ".join(tmp)
-            ret.extend(self._db.query(qry + "operation=:op %s" % extra_where,
-                                      {'op': int(self.co.bofh_move_give)}))
+            else:
+                extra_where = ""
+            ret.extend(
+                self._db.query(
+                    qry.format("operation=:op " + extra_where),
+                    {'op': int(self.co.bofh_move_give)}))
         return ret
 
     def get_operations(self):

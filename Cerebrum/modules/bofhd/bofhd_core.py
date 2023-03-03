@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
 #
-# Copyright 2009-2021 University of Oslo, Norway
+# Copyright 2009-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -24,20 +24,18 @@ bofhd instances at all installations. This file should only include such
 generic functionality. Push institution-specific extensions to
 modules/no/<institution>/bofhd_<institution>_cmds.py.
 """
-import time
-
 import six
-from mx import DateTime
 
 import cereconf
 
 from Cerebrum import Entity
 from Cerebrum import Errors
 from Cerebrum.group.GroupRoles import GroupRoles
-from Cerebrum.Constants import _CerebrumCode
+from Cerebrum.Constants import _CerebrumCode, _GroupTypeCode
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
 from Cerebrum.modules.bofhd import cmd_param as cmd
+from Cerebrum.modules.bofhd import parsers
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.utils import BofhdUtils
 from Cerebrum.modules.bofhd.auth import (BofhdAuthOpSet, BofhdAuthOpTarget)
@@ -218,7 +216,7 @@ class BofhdCommandBase(object):
                         authz = getattr(self.ba, command.perm_filter)
                         if not authz(ident, query_run_any=True):
                             continue
-                    except:
+                    except Exception:
                         self.logger.error("perm_filter issue in %r (%r)",
                                           command.perm_filter,
                                           key,
@@ -379,8 +377,8 @@ class BofhdCommandBase(object):
                         pass
         elif arg.find("-") != -1:
             # Find persons by birth date
-            ret = person.find_persons_by_bdate(self._parse_date(arg))
-
+            date_of_birth = parsers.parse_date(arg)
+            ret = person.find_persons_by_bdate(date_of_birth)
         else:
             raise CerebrumError("Unable to parse person id %r" % arg)
         return ret
@@ -771,83 +769,6 @@ class BofhdCommandBase(object):
         # NOTREACHED
         assert False
 
-    def _parse_date(self, date):
-        """Convert a written date into DateTime object.  Possible
-        syntaxes are:
-
-            YYYY-MM-DD       (2005-04-03)
-            YYYY-MM-DDTHH:MM (2005-04-03T02:01)
-            THH:MM           (T02:01)
-
-        Time of day defaults to midnight.  If date is unspecified, the
-        resulting time is between now and 24 hour into future.
-
-        """
-        if not date:
-            # TBD: Is this correct behaviour?  mx.DateTime.DateTime
-            # objects allow comparison to None, although that is
-            # hardly what we expect/want.
-            return None
-        if isinstance(date, DateTime.DateTimeType):
-            # Why not just return date?  Answer: We do some sanity
-            # checks below.
-            date = date.Format("%Y-%m-%dT%H:%M")
-        if date.count('T') == 1:
-            date, time = date.split('T')
-            try:
-                hour, min = [int(x) for x in time.split(':')]
-            except ValueError:
-                raise CerebrumError("Time of day must be on format HH:MM")
-            if date == '':
-                now = DateTime.now()
-                target = DateTime.Date(now.year, now.month, now.day, hour, min)
-                if target < now:
-                    target += DateTime.DateTimeDelta(1)
-                date = target.Format("%Y-%m-%d")
-        else:
-            hour = min = 0
-        try:
-            y, m, d = [int(x) for x in date.split('-')]
-        except ValueError:
-            raise CerebrumError("Dates must be on format YYYY-MM-DD")
-        # TODO: this should be a proper delta, but rather than using
-        # pgSQL specific code, wait until Python has standardised on a
-        # Date-type.
-        if y > 2050:
-            raise CerebrumError("Too far into the future: %r" % date)
-        if y < 1800:
-            raise CerebrumError("Too long ago: %r" % date)
-        try:
-            return DateTime.Date(y, m, d, hour, min)
-        except:
-            raise CerebrumError("Illegal date: %r" % date)
-
-    def _parse_date_from_to(self, date):
-        """ Parse two dates, separated by '--'. """
-        date_start = self._today()
-        date_end = None
-        if date:
-            tmp = date.split("--")
-            if len(tmp) == 2:
-                if tmp[0]:  # string could start with '--'
-                    date_start = self._parse_date(tmp[0])
-                date_end = self._parse_date(tmp[1])
-            elif len(tmp) == 1:
-                date_end = self._parse_date(date)
-            else:
-                raise CerebrumError("Incorrect date specification: %r" % date)
-        return (date_start, date_end)
-
-    def _today(self):
-        """ Get today. """
-        return self._parse_date("%d-%d-%d" % time.localtime()[:3])
-
-    def _ticks_to_date(self, ticks):
-        """ Ticks to timestamp. """
-        if ticks is None:
-            return None
-        return DateTime.DateTimeFromTicks(ticks)
-
     def _is_manual_group(self, gr):
         """Checks if group_type corresponds to one of the manual group types
 
@@ -856,8 +777,8 @@ class BofhdCommandBase(object):
                    - group_type_internal
                    - group_type_personal
         """
-        return six.text_type(self.const.human2constant(
-            gr.group_type)) in cereconf.MANUAL_GROUP_TYPES
+        group_type = self.const.get_constant(_GroupTypeCode, gr.group_type)
+        return six.text_type(group_type) in cereconf.MANUAL_GROUP_TYPES
 
     def _is_perishable_manual_group(self, gr):
         """Checks if group_type corresponds to one of the manual group types
@@ -866,16 +787,18 @@ class BofhdCommandBase(object):
         These are: - group_type_manual
                    - group_type_unknown
         """
-        return six.text_type(self.const.human2constant(
-            gr.group_type)) in cereconf.PERISHABLE_MANUAL_GROUP_TYPES
+        group_type = self.const.get_constant(_GroupTypeCode, gr.group_type)
+        return (six.text_type(group_type)
+                in cereconf.PERISHABLE_MANUAL_GROUP_TYPES)
 
-    def _raise_PermissionDenied_if_not_manual_group(self, gr):
+    def _raise_PermissionDenied_if_not_manual_group(self, gr):  # noqa: N802
         if not self._is_manual_group(gr):
+            group_type = self.const.get_constant(_GroupTypeCode, gr.group_type)
             raise PermissionDenied(
-                "Only manual groups may be maintained in bofh. Group {0} has "
-                "group_type {1}".format(
+                "Only manual groups may be maintained in bofh. "
+                "Group {0} has group_type {1}".format(
                     gr.group_name,
-                    six.text_type(self.const.GroupType(gr.group_type))))
+                    six.text_type(group_type)))
 
 
 class BofhdCommonMethods(BofhdCommandBase):
@@ -965,8 +888,10 @@ class BofhdCommonMethods(BofhdCommandBase):
         if len(duplicate_test) > 0:
             raise CerebrumError("Group name is already in use")
 
-        # Only superuser is allowed to create new group without specifying group admin
-        if not self.ba.is_superuser(operator.get_entity_id()) and not admin_group:
+        # Only superuser is allowed to create new group without specifying
+        # group admin
+        if (not admin_group
+                and not self.ba.is_superuser(operator.get_entity_id())):
             raise PermissionDenied("Must specify admin group(s)")
 
         # Populate group

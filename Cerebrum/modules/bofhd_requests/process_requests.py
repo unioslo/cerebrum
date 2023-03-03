@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2003-2019 University of Oslo, Norway
+# Copyright 2003-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,8 +18,6 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-import mx
 import os
 import time
 import errno
@@ -28,15 +26,17 @@ import logging
 from contextlib import closing
 from collections import Mapping
 
+import cereconf
+
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd_requests.request import BofhdRequests
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.uio import AutoStud
 from Cerebrum.modules.no.uio.AutoStud.Util import AutostudError
+from Cerebrum.utils import date_compat
+from Cerebrum.utils import date as date_utils
 
-
-import cereconf
 
 logger = logging.getLogger(__name__)
 default_lockdir = getattr(cereconf, 'BOFHD_REQUEST_LOCK_DIR', None)
@@ -171,6 +171,7 @@ class RequestProcessor(object):
         }
 
     def process_requests(self, operations_map, op_types, max_requests):
+        max_runtime = date_utils.to_seconds(minutes=30)
         with closing(RequestLockHandler()) as reqlock:
             br = BofhdRequests(self.db, self.co)
             for t in op_types:
@@ -186,9 +187,10 @@ class RequestProcessor(object):
                         reqid = r['request_id']
                         logger.debug("Req: %s %d at %s, state %r",
                                      op, reqid, r['run_at'], r['state_data'])
-                        if time.time() - start_time > 30 * 60:
+                        if (time.time() - start_time) > max_runtime:
                             break
-                        if r['run_at'] > mx.DateTime.now():
+                        run_at = date_compat.get_datetime_tz(r['run_at'])
+                        if run_at > date_utils.now():
                             continue
                         # Moving users only at ok times
                         if (op is self.co.bofh_move_user
@@ -249,12 +251,14 @@ class MoveStudentProcessor(object):
             for account_id, request_id, requestee_id in tmp_stud:
                 logger.debug("Sending %s to pending disk" % repr(account_id))
                 self.br.delete_request(request_id=request_id)
-                self.br.add_request(requestee_id,
-                                    self.br.batch_time,
-                                    self.co.bofh_move_user,
-                                    account_id,
-                                    disk.entity_id,
-                                    state_data=int(self.default_spread))
+                self.br.add_request(
+                    operator=requestee_id,
+                    when=self.br.batch_time,
+                    op_code=self.co.bofh_move_user,
+                    entity_id=account_id,
+                    destination_id=disk.entity_id,
+                    state_data=int(self.default_spread),
+                )
                 self.db.commit()
 
     def set_fnr2move_student(self, rows):
@@ -330,9 +334,14 @@ class MoveStudentProcessor(object):
                 del (self.fnr2move_student[fnr])
                 for disk, spread in disks:
                     self.br.delete_request(request_id=request_id)
-                    self.br.add_request(requestee_id, self.br.batch_time,
-                                   self.co.bofh_move_user,
-                                   account_id, disk, state_data=spread)
+                    self.br.add_request(
+                        operator=requestee_id,
+                        when=self.br.batch_time,
+                        op_code=self.co.bofh_move_user,
+                        entity_id=account_id,
+                        destination_id=disk,
+                        state_data=spread,
+                    )
                     self.db.commit()
 
     def determine_disks(self, account, request_id, profile, fnr):

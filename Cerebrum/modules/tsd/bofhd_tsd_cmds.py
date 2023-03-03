@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2013-2021 University of Oslo, Norway
+# Copyright 2013-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -30,13 +30,18 @@ tasks, i.e. the superusers in TSD, and one is for the end users. End users are
 communicating with bofhd through a web site, so that bofhd should only be
 reachable from the web host.
 """
-from __future__ import unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
+import datetime
 import json
 from functools import partial
 
 import six
-from mx import DateTime
 
 import cereconf
 
@@ -51,9 +56,15 @@ from Cerebrum.modules.bofhd import bofhd_access
 from Cerebrum.modules.bofhd import bofhd_ou_cmds
 from Cerebrum.modules.bofhd import cmd_param as cmd
 from Cerebrum.modules.bofhd import bofhd_contact_info
+from Cerebrum.modules.bofhd import parsers
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.bofhd_user_create import BofhdUserCreateMethod
-from Cerebrum.modules.bofhd.bofhd_utils import copy_func, copy_command
+from Cerebrum.modules.bofhd.bofhd_utils import (
+    copy_command,
+    copy_func,
+    date_to_string,
+    default_format_day,
+)
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.dns import IPv6Subnet
 from Cerebrum.modules.dns import Subnet
@@ -69,23 +80,11 @@ from Cerebrum.modules.trait import bofhd_trait_cmds
 from Cerebrum.modules.tsd import Gateway
 from Cerebrum.modules.tsd import bofhd_auth
 from Cerebrum.modules.tsd import bofhd_help
+from Cerebrum.utils import date_compat
+from Cerebrum.utils import date as date_utils
 
 
-def format_day(field):
-    return field + ":date:yyyy-MM-dd"
-
-
-def date_to_string(date):
-    """Takes a DateTime-object and formats a standard ISO-datestring
-    from it.
-
-    Custom-made for our purposes, since the standard XMLRPC-libraries
-    restrict formatting to years after 1899, and we see years prior to
-    that.
-    """
-    if not date:
-        return "<not set>"
-    return "%04i-%02i-%02i" % (date.year, date.month, date.day)
+format_day = default_format_day  # 10 characters wide
 
 
 class ProjectID(cmd.Parameter):
@@ -891,17 +890,17 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             If given, sets what VLAN the project's subnet should be set in.
         """
         self.ba.can_create_project(operator.get_entity_id())
-        start = self._parse_date(startdate)
-        end = self._parse_date(enddate)
 
-        if end < DateTime.now():
+        today = datetime.date.today()
+        start = parsers.parse_date(startdate)
+        end = parsers.parse_date(enddate)
+        if end < today:
             raise CerebrumError("End date of project has passed: %s"
-                                % six.text_type(end).split()[0])
+                                % six.text_type(end))
         elif end < start:
             raise CerebrumError(
                 "Project can not end before it has begun: from %s to %s" %
-                (six.text_type(start).split()[0],
-                 six.text_type(end).split()[0]))
+                (six.text_type(start), six.text_type(end)))
 
         try:
             meta = json.loads(meta)
@@ -932,7 +931,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         # Storing start date
         ou.add_entity_quarantine(qtype=self.const.quarantine_project_start,
                                  creator=operator.get_entity_id(),
-                                 start=DateTime.now(),
+                                 start=today,
                                  end=start,
                                  description='Initial start set by superuser')
         # Storing end date
@@ -1095,11 +1094,11 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             raise PermissionDenied("Only superusers can change start date")
 
         qtype = self.const.quarantine_project_start
-        quarantine_end_date = self._parse_date(startdate)
+        quarantine_end_date = parsers.parse_date(startdate)
 
         # The quarantine needs to be removed before it could be added again
         for row in project.get_entity_quarantine(qtype):
-            old_start_date = row['end_date']
+            old_start_date = date_compat.get_date(row['end_date'])
             project.delete_entity_quarantine(qtype)
             project.write_db()
             break
@@ -1108,7 +1107,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
 
         # if start_date is in the future, we need to make sure that the
         # quarantine applies from today
-        today = DateTime.today()
+        today = datetime.date.today()
         if quarantine_end_date > today:
             quarantine_start_date = today
         else:
@@ -1145,7 +1144,8 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         project = self._get_project(projectid)
         self.ba.can_set_project_end_date(operator.get_entity_id(), project)
         qtype = self.const.quarantine_project_end
-        end = self._parse_date(enddate)
+        today = datetime.date.today()
+        end = parsers.parse_date(enddate)
         # The quarantine needs to be removed before it could be added again
         for row in project.get_entity_quarantine(qtype):
             project.delete_entity_quarantine(qtype)
@@ -1156,7 +1156,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
                                       start=end)
         project.write_db()
         # If set in the past, the project is now frozen
-        if end < DateTime.now():
+        if end < today:
             # TODO
             # self.gateway.freeze_project(projectid)
             pass
@@ -1363,7 +1363,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         """Freeze a project."""
         project = self._get_project(projectid)
         self.ba.can_freeze_project(operator.get_entity_id(), project)
-        when = DateTime.now()
+        today = datetime.date.today()
 
         # The quarantine needs to be removed before it could be added again
         qtype = self.const.quarantine_frozen
@@ -1373,7 +1373,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         project.add_entity_quarantine(qtype=qtype,
                                       creator=operator.get_entity_id(),
                                       description='Project freeze',
-                                      start=when)
+                                      start=today)
         project.write_db()
         success_msg = 'Project {projectid} is now frozen'.format(
             projectid=projectid)
@@ -1394,7 +1394,8 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             account.clear()
             account.find(account_row['account_id'])
             if account.has_autofreeze_quarantine:
-                if when != account.autofreeze_quarantine_start:
+                if today != date_compat.get_date(
+                        account.autofreeze_quarantine_start):
                     # autofreeze quarantine exists for this account
                     # but its start_date is not the same as the one for the
                     # project's freeze quarantine.
@@ -1409,21 +1410,20 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             account.add_autofreeze_quarantine(
                 creator=operator.get_entity_id(),
                 description='Auto set due to project-freeze',
-                start=when)
+                start=today)
             try:
                 # N.B. If project_freeze ever supports freeze start-date in the
                 # future, the following check prevents bofhd from updating
                 # the gateway with project.freeze start-date in the future when
                 # there is an active quarantine on this account
-                quars = account.get_entity_quarantine(
-                    filter_disable_until=True)
-                if quars:
-                    quars.sort(key=lambda v: v['start_date'])
-                if not quars or when < quars[0]['start_date']:
+                start_dates = [date_compat.get_date(r['start_date'])
+                               for r in account.get_entity_quarantine(
+                                   filter_disable_until=True)]
+                if not start_dates or today < min(start_dates):
                     # no quarantines or freeze.date < lowest startdate
                     self.gateway.freeze_user(projectid,
                                              account.account_name,
-                                             when)
+                                             today)
                 # else: update_user_freeze.py will make the right decisions
             except Gateway.GatewayException as e:
                 self.logger.warn("From GW: %s", e)
@@ -1718,7 +1718,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             ent = EntityTrait.EntityTrait(self.db)
             ent.find(entity_id)
         ent.populate_trait(trait_type, target_id=project.entity_id,
-                           date=DateTime.now())
+                           date=date_utils.now())
         ent.write_db()
         return 'Entity affiliated with project: {project_id}'.format(
             project_id=project.get_project_id())
@@ -1909,10 +1909,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             account = self.Account_class(self.db)
             for r in account.list_accounts_by_owner_id(person.entity_id):
                 account = self._get_account(r['account_id'], idtype='id')
-                if account.expire_date:
-                    exp = date_to_string(account.expire_date)
-                else:
-                    exp = '<not set>'
+                exp = date_to_string(account.expire_date)
                 existing_accounts.append("%-10s %s" % (account.account_name,
                                                        exp))
             if existing_accounts:
@@ -2309,7 +2306,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         # Connect group to project:
         gr.populate_trait(code=self.const.trait_project_group,
                           target_id=ou.entity_id,
-                          date=DateTime.now())
+                          date=date_utils.now())
         gr.write_db()
 
         if not tuple(ou.get_entity_quarantine(only_active=True)):

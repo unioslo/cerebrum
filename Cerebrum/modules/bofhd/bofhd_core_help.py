@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2013-2021 University of Oslo, Norway
+# Copyright 2013-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,8 +17,8 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-#
-"""This is the core help text for bofhd, which is mostly used by jbofh.
+"""
+This is the core help text for bofhd, which is mostly used by jbofh.
 
 Please do not copy this file, but instead make imports from it. This is to
 avoid that all help text is duplicated all over.
@@ -27,10 +27,13 @@ All help text in this file should be general enough to suit most Cerebrum
 instances. If some instances needs a different explanation for a given command
 or argument, the certain text variable should be overridden in a file in the
 directory of the given instance.
-
 """
-
-from __future__ import print_function, unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 group_help = {
     'disk': "Disk related commands",
@@ -130,10 +133,6 @@ command_help = {
     'misc': {
         'misc_affiliations':
             'List all known affiliations',
-        'misc_cancel_request':
-            'Cancel a pending request',
-        'misc_change_request':
-            'Change execution time for a pending request',
         'misc_check_password':
             'Test the quality of a given password',
         'misc_clear_passwords':
@@ -148,15 +147,10 @@ command_help = {
             'Register a new host',
         'misc_hrem':
             'Remove a host',
-        'misc_list_bofhd_request_types':
-            'List the various types of operations that can be done via '
-            'bofhd-requests',
         'misc_list_passwords':
             'View/print all the password altered this session',
         'misc_reload':
             'Re-read server config file (use with care)',
-        'misc_list_requests':
-            'View pending jobs',
         'misc_samba_mount':
             'Maps disk to logon-server (for use with Samba)',
         'misc_verify_password':
@@ -257,7 +251,7 @@ command_help = {
         'user_reserve_personal':
             'Reserve a user name in the database for a person',
         'user_restore': 'Restore a deactivated user',
-        'user_restore_unpersonal':'Restore a deactivated unpersonal user',
+        'user_restore_unpersonal': 'Restore a deactivated unpersonal user',
         'user_set_disk_quota': 'Temporary override users disk quota',
         'user_set_disk_status': 'Set homedir status for user',
         'user_set_expire': 'Set expire date for an account',
@@ -450,9 +444,6 @@ arg_help = {
          """],
     'id:op_target':
         ['op_target_id', 'Enter op_target_id'],
-    'id:request_id':
-        ['request_id', 'Enter request_id',
-         "'misc list_requests' returns legal values"],
     'include_lms':
         ['lms-group y/n', 'Include lms-groups',
          'Include all the groups, including lms(fronter)-groups'],
@@ -578,17 +569,6 @@ arg_help = {
     'string_attribute':
         ['attr', 'Enter attribute',
          "Experts only.  See the documentation for details"],
-    'string_bofh_request_target':
-        ['target', 'Enter target',
-         'Enter a target id corresponding to the previously specified type'],
-    'string_bofh_request_search_by':
-        ['search_by', 'Enter type to search by',
-         """Enter the operation that you want to search for.  Legal values:
-         'requestee' username : the user that requested the operation
-         'operation' type : the type of operation (move_user, move_user_now,
-                            move_student, move_request, delete_user etc.)
-         'disk' path: a disk used as target
-         'account' username: the user affected by the operation"""],
     'string_description':
         ['description', 'Enter description'],
     'string_dl_desc':

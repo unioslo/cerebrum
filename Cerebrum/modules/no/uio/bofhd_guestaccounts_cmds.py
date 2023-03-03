@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2002-2018 University of Oslo, Norway
+# Copyright 2002-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,7 +17,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-from mx import DateTime
+import datetime
 
 import cereconf
 
@@ -29,20 +29,18 @@ from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.bofhd_utils import copy_func
-
-from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as uio_base
+from Cerebrum.modules.bofhd.parsers import parse_legacy_date_range
+from Cerebrum.modules.no.uio.bofhd_uio_cmds import (
+    BofhdExtension as BofhdUioCommands,
+)
 from Cerebrum.modules.no.uio.bofhd_guestaccounts_utils import (
     GuestUtils, GuestAccountException)
 
 
-uio_helpers = [
-    '_get_shell',
-]
-
-
 @copy_func(
-    uio_base,
-    methods=uio_helpers)
+    BofhdUioCommands,
+    methods=['_get_shell'],
+)
 class BofhdExtension(BofhdCommonMethods):
 
     all_commands = {}
@@ -200,18 +198,17 @@ class BofhdExtension(BofhdCommonMethods):
     def user_request_guest(self, operator, nr, date, groupname, comment):
         """ Request a number of guest users for a certain time. """
         # date checking
-        start_date, end_date = self._parse_date_from_to(date)
-        today = DateTime.today()
+        start_date, end_date = parse_legacy_date_range(date)
+        today = datetime.date.today()
         if start_date < today:
             raise CerebrumError("Start date shouldn't be in the past")
-        # end_date in allowed interval?
         if end_date < start_date:
             raise CerebrumError("End date can't be earlier than start_date")
-        max_date = start_date + DateTime.RelativeDateTime(
+        max_date = start_date + datetime.timedelta(
             days=cereconf.GUESTS_MAX_PERIOD)
         if end_date > max_date:
-            raise CerebrumError("End date can't be later than %s" %
-                                max_date.date)
+            raise CerebrumError("End date can't be later than %s" % max_date)
+
         if not nr.isdigit():
             raise CerebrumError(
                 "'Number of accounts' requested must be a number;"

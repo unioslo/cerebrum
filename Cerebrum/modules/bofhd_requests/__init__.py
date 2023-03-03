@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-
-# Copyright 2019 University of Oslo, Norway
+#
+# Copyright 2019-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,3 +17,13 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""
+Bofhd Requests are delayed/queued maintenance tasks for entities.
+
+Historically, the BofhdRequests were tasks that were too expensive to run in a
+bofhd command.  This was expanded to include other expensive tasks, or tasks
+that had a high failure rate (i.e. because we rely on external systems being
+up).
+
+Use the :mod:`Cerebrum.modules.tasks` for similar behaviour.
+"""

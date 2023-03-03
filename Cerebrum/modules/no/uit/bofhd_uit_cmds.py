@@ -35,10 +35,9 @@ TODO
 ----
 Remove any commands from the BofhdExtension that is not actually in use at UiT.
 """
-
+import datetime
 import re
 
-from mx import DateTime
 from six import text_type
 
 import cereconf
@@ -65,6 +64,11 @@ from Cerebrum.modules.bofhd import bofhd_user_create_unpersonal
 from Cerebrum.modules.bofhd import parsers
 from Cerebrum.modules.bofhd.bofhd_contact_info import BofhdContactCommands
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
+from Cerebrum.modules.bofhd.bofhd_utils import (
+    date_to_string,
+    default_format_day,
+    exc_to_text,
+)
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.help import merge_help_strings
 from Cerebrum.modules.bofhd_requests import bofhd_requests_cmds
@@ -81,9 +85,7 @@ from Cerebrum.modules.tasks import bofhd_task_cmds
 from Cerebrum.modules.trait import bofhd_trait_cmds
 
 
-format_day = bofhd_uio_cmds.format_day
-date_to_string = bofhd_uio_cmds.date_to_string
-exc_to_text = bofhd_uio_cmds.exc_to_text
+format_day = default_format_day  # 10 characters wide
 
 
 class _UitBofhdMixin(BofhdCommandBase):
@@ -522,13 +524,11 @@ class BofhdExtension(_UitBofhdMixin, bofhd_uio_cmds.BofhdExtension):
         account = self._get_account(accountname)
         self.ba.can_show_history(operator.get_entity_id(), account)
         ret = []
-        timedelta = "%s" % (DateTime.mxDateTime.now() -
-                            DateTime.DateTimeDelta(7))
-        timeperiod = timedelta.split(" ")
-
+        start_date_str = (datetime.date.today()
+                          - datetime.timedelta(days=7)).isoformat()
         for r in self.db.get_log_events(0,
                                         subject_entity=account.entity_id,
-                                        sdate=timeperiod[0]):
+                                        sdate=start_date_str):
             ret.append(self._format_changelog_entry(r))
 
         ret_val = ""
