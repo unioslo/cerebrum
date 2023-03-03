@@ -26,14 +26,15 @@ from Cerebrum.Errors import NotFoundError
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.apikeys import bofhd_apikey_cmds
 from Cerebrum.modules.audit import bofhd_history_cmds
-from Cerebrum.modules.bofhd import bofhd_user_create_unpersonal
+from Cerebrum.modules.bofhd import bofhd_access
+from Cerebrum.modules.bofhd import bofhd_external_id
 from Cerebrum.modules.bofhd import bofhd_ou_cmds
+from Cerebrum.modules.bofhd import bofhd_user_create_unpersonal
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.bofhd_contact_info import BofhdContactAuth
-from Cerebrum.modules.bofhd_requests.bofhd_requests_auth import RequestsAuth
 from Cerebrum.modules.bofhd.bofhd_email import BofhdEmailAuth
-from Cerebrum.modules.bofhd import bofhd_access
 from Cerebrum.modules.bofhd.errors import PermissionDenied
+from Cerebrum.modules.bofhd_requests.bofhd_requests_auth import RequestsAuth
 from Cerebrum.modules.job_runner.bofhd_job_runner import BofhdJobRunnerAuth
 from Cerebrum.modules.tasks import bofhd_task_cmds
 from Cerebrum.modules.trait import bofhd_trait_cmds
@@ -371,6 +372,10 @@ class ApiKeyAuth(UitAuth, bofhd_apikey_cmds.BofhdApiKeyAuth):
 
 class CreateUnpersonalAuth(UitAuth,
                            bofhd_user_create_unpersonal.BofhdUnpersonalAuth):
+    pass
+
+
+class ExtidAuth(UitAuth, bofhd_external_id.BofhdExtidAuth):
     pass
 
 

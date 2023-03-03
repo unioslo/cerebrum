@@ -60,6 +60,7 @@ from Cerebrum.modules.bofhd.cmd_param import (
 )
 from Cerebrum.modules.bofhd import bofhd_access
 from Cerebrum.modules.bofhd import bofhd_email
+from Cerebrum.modules.bofhd import bofhd_external_id
 from Cerebrum.modules.bofhd import bofhd_user_create_unpersonal
 from Cerebrum.modules.bofhd import parsers
 from Cerebrum.modules.bofhd.bofhd_contact_info import BofhdContactCommands
@@ -1048,6 +1049,10 @@ class BofhdRequestCommands(bofhd_requests_cmds.BofhdExtension):
 
 class CreateUnpersonalCommands(bofhd_user_create_unpersonal.BofhdExtension):
     authz = bofhd_auth.CreateUnpersonalAuth
+
+
+class ExtidCommands(bofhd_external_id.BofhdExtidCommands):
+    authz = bofhd_auth.ExtidAuth
 
 
 class HistoryCommands(bofhd_history_cmds.BofhdHistoryCmds):
