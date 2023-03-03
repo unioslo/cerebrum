@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2015-2018 University of Oslo, Norway
+# Copyright 2015-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -22,34 +22,44 @@
 This script is used to set / remove user auto-freeze on users that are
 members of projects that have been frozen.
 """
-from __future__ import unicode_literals
-
-import six
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+import argparse
+import logging
 
 import cereconf
 
+import Cerebrum.logutils
+import Cerebrum.logutils.options
 from Cerebrum.Utils import Factory
+from Cerebrum.utils import date_compat
 
-logger = Factory.get_logger('cronjob')
+logger = logging.getLogger(__name__)
 
 
 def auto_freeze_project_accounts(db,
                                  account_ids,
-                                 auto_freeze_datetime,
+                                 auto_freeze_date,
                                  default_creator_id):
     """
-    Sets quarantine with type auto_frozen and with start_date
-    = `auto_freeze_datetime` to all
-    accounts corresponding to the given `account_ids`
+    Sets quarantine on project accounts.
+
+    Sets quarantine with type auto_frozen and start_date = `auto_freeze_date`
+    to all accounts corresponding to the given `account_ids`
 
     All accounts will be processed as following:
-        - if an account doesn't have an auto_frozen quarantine from before
-          a new one will be created
-        - if an account has an auto_frozen quarantine from before but its
-          start_date is not the same as `auto_freeze_datetime`,
-          the account's auto_frozen quarantine will be removed
-          before a new one is added
-        - no changes will be made to the account in all other cases
+
+     - if an account doesn't have an auto_frozen quarantine from before
+       a new one will be created
+     - if an account has an auto_frozen quarantine from before but its
+       start_date is not the same as `auto_freeze_date`,
+       the account's auto_frozen quarantine will be removed
+       before a new one is added
+     - no changes will be made to the account in all other cases
 
     :type db: Cerebrum.database.Database
     :param db: The database connection-object
@@ -57,8 +67,8 @@ def auto_freeze_project_accounts(db,
     :type account_ids: list
     :param project: The list of account ids for the accounts to be auto-frozen
 
-    :type auto_freeze_datetime: mx.DateTime or None
-    :param auto_freeze_datetime: The start_time for all new quarantines
+    :type auto_freeze_date: datetime.date
+    :param auto_freeze_date: The start_time for all new quarantines
 
     :type default_creator_id: int or long
     :param default_creator_id: the entity_id of the "creator" account
@@ -71,7 +81,9 @@ def auto_freeze_project_accounts(db,
                      account.account_name,
                      account.entity_id)
         if account.has_autofreeze_quarantine:
-            if auto_freeze_datetime != account.autofreeze_quarantine_start:
+            account_freeze_date = date_compat.get_date(
+                account.autofreeze_quarantine_start)
+            if auto_freeze_date != account_freeze_date:
                 # autofreeze quarantine exists for this account
                 # but its start_date is not the same as the one for the
                 # project's freeze quarantine.
@@ -96,7 +108,7 @@ def auto_freeze_project_accounts(db,
         account.add_autofreeze_quarantine(
             creator=default_creator_id,
             description='Auto set due to project-freeze',
-            start=auto_freeze_datetime
+            start=auto_freeze_date
         )
         logger.info(
             'Added auto freeze quarantine to Account %s (entity_id=%d)',
@@ -178,6 +190,8 @@ def update_user_freeze(db, dryrun):
                     project.entity_id)
                 continue  # no accounts found
             if project.has_freeze_quarantine:
+                freeze_start = date_compat.get_date(
+                    project.freeze_quarantine_start)
                 # auto-freeze all accounts affiliated with this project
                 logger.debug(
                     'Auto-freezing accounts for project %s (entity_id=%d)',
@@ -185,7 +199,7 @@ def update_user_freeze(db, dryrun):
                     project.entity_id)
                 auto_freeze_project_accounts(db,
                                              ou2accounts[project_row['ou_id']],
-                                             project.freeze_quarantine_start,
+                                             freeze_start,
                                              default_creator_id)
             else:
                 # remove all auto_frozen-quarantines from all accounts
@@ -201,18 +215,15 @@ def update_user_freeze(db, dryrun):
             db.rollback()
         else:
             db.commit()
-    except Exception as e:
-        logger.critical('Unexpected exception: {e}'.format(six.text_type(e)),
-                        exc_info=True)
+    except Exception:
+        logger.critical('Unexpected exception', exc_info=True)
         db.rollback()
         raise
 
 
-def main(args=None):
+def main(inargs=None):
     """
     """
-    import argparse
-
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         '-d', '--dryrun',
@@ -222,12 +233,14 @@ def main(args=None):
         help='Do not actually remove the groups '
         '(default: All matching groups will be removed)'
     )
-    logger.info('START %s', parser.prog)
-    args = parser.parse_args(args)
+    Cerebrum.logutils.options.install_subparser(parser)
+    args = parser.parse_args(inargs)
+    Cerebrum.logutils.autoconf('cronjob', args)
+    logger.info('Start %s', parser.prog)
     db = Factory.get('Database')()
     db.cl_init(change_program='update_user_freeze.py')
     update_user_freeze(db, args.dryrun)
-    logger.info('DONE %s', parser.prog)
+    logger.info('Done %s', parser.prog)
 
 
 if __name__ == '__main__':

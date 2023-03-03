@@ -25,20 +25,26 @@ Specifically, XML input file with information about OUs is processed and
 stored in suitable form in Cerebrum. Presently, this job can accept OU data
 from LT, SAP, FS and ORGREG.
 """
-from __future__ import print_function, unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
+import datetime
 import getopt
 import sys
 from smtplib import SMTPRecipientsRefused, SMTPException
 
 import six
-import mx.DateTime
 
 import cereconf
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.email import sendmail
 from Cerebrum.modules.xmlutils.system2parser import system2parser
 from Cerebrum.modules.xmlutils.object2cerebrum import XML2Cerebrum
+from Cerebrum.utils import date_compat
 
 
 logger = Factory.get_logger("cronjob")
@@ -192,7 +198,7 @@ def rec_make_ou(my_sko, ou, existing_ou_mappings, org_units,
     existing_ou_mappings[my_ouid] = parent_ouid
 
 
-def import_org_units(sources, target_system, cer_ou_tab, dryrun):
+def import_org_units(sources, target_system, cer_ou_tab, dryrun, _today=None):
     """
     Scan the sources and import all the OUs into Cerebrum.
 
@@ -212,7 +218,7 @@ def import_org_units(sources, target_system, cer_ou_tab, dryrun):
         Cerebrum at the start of this script.
         This is used to delete obsolete OUs from Cerebrum.
     """
-
+    today = _today or datetime.date.today()
     ou = OU_class(db)
     # These are used to help build OU structure information
     stedkode2ou = dict()
@@ -237,12 +243,14 @@ def import_org_units(sources, target_system, cer_ou_tab, dryrun):
                              ids, names)
                 continue
 
-            if (xmlou.start_date and xmlou.start_date > mx.DateTime.now()):
+            start_date = date_compat.get_date(xmlou.start_date)
+            if start_date and start_date > today:
                 logger.info("OU sko=%r is not active yet and will therefore "
                             "be ignored for the time being.", formatted_sko)
                 continue
 
-            if (xmlou.end_date and xmlou.end_date < mx.DateTime.now()):
+            end_date = date_compat.get_date(xmlou.end_date)
+            if end_date and end_date < today:
                 logger.info("OU sko=%r is expired and some of its information "
                             "will no longer be maintained", formatted_sko)
             else:
@@ -299,7 +307,7 @@ def get_cere_ou_table():
     return sted_tab
 
 
-def set_quaran(cer_ou_tab, dryrun):
+def set_quaran(cer_ou_tab, dryrun, _today=None):
     """
     Set quarantine on OUs that are no longer in the data source.
 
@@ -315,8 +323,8 @@ def set_quaran(cer_ou_tab, dryrun):
         *ou_id* -> *sko* mapping, containing the OUs that should be removed
         from Cerebrum.
     """
+    today = _today or datetime.date.today()
     ous = OU_class(db)
-    today = mx.DateTime.today()
     acc = Factory.get("Account")(db)
     acc.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
     for k in cer_ou_tab.keys():
@@ -380,7 +388,7 @@ def send_notify_email(new_cere_ous, to_email_addrs):
     subject = 'New OUs added to Cerebrum'
     body = '%(num)d OUs added to Cerebrum on %(time)s\n\n' % {
         'num': len(new_cere_ous),
-        'time': mx.DateTime.now().strftime(),
+        'time': datetime.datetime.now().ctime(),
     }
 
     for ou_id in new_cere_ous.keys():

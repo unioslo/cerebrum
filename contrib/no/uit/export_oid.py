@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2002-2019 University of Oslo, Norway
+# Copyright 2002-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -23,12 +23,15 @@ This script creates an xml file that the UiT portal reads.
 
 kbj005 2015.02.12: Copied from Leetah.
 """
-from __future__ import unicode_literals
-
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import argparse
 import csv
 import datetime
-import io
 import logging
 import os
 import sys
@@ -91,8 +94,6 @@ class AffCache(object):
         fnr = person['fnr']
 
         for t in person.get('tils', ()):
-            # TODO: the 'today' default value is leftover logic from
-            # mx.DateTime.DateFrom()
             dato_fra = parse_date(t.get("dato_fra")) or today
             earliest = (dato_fra -
                         datetime.timedelta(days=cereconf.PAGA_EARLYDAYS))
@@ -159,6 +160,7 @@ class AffCache(object):
             }
 
             self._aff_to_stilling_map[aux_key] = aux_val
+
 
 FIELD_STEDKODE_FROM = 0
 FIELD_STEDKODE_TO = 1
