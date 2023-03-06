@@ -679,7 +679,7 @@ class BofhdExtension(BofhdCommonMethods):
 
     def _group_add_entity(self, operator, src_entity, dest_group):
         group_d = self._get_group(dest_group)
-        if not self.ba.is_superuser(operator.get_entity_id()):
+        if not operator or not self.ba.is_superuser(operator.get_entity_id()):
             self._raise_PermissionDenied_if_not_manual_group(group_d)
         if operator:
             self.ba.can_alter_group(operator.get_entity_id(), group_d)
@@ -1659,14 +1659,16 @@ class BofhdExtension(BofhdCommonMethods):
     # group personal <uname>+
     #
     all_commands['group_personal'] = Command(
-        ("group", "personal"), AccountName(repeat=True),
+        ("group", "personal"),
+        AccountName(repeat=True),
         fs=FormatSuggestion(
             "Personal group created and made primary, POSIX gid: %i\n"
             "The user may have to wait a minute, then restart bofh to access\n"
             "the 'group add' command",
             ("group_id",)
         ),
-        perm_filter='can_create_personal_group')
+        perm_filter='can_create_personal_group',
+    )
 
     def group_personal(self, operator, uname):
         """This is a separate command for convenience and consistency.
