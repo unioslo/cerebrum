@@ -157,47 +157,57 @@ def process(manager, message, phone_types, affiliations, too_old,
 
         ac.clear()
         ac.find(row['entity_id'])
-        logger.debug('Found user %s', ac.account_name)
+        account_ident = "%s (%d)" % (ac.account_name, ac.entity_id)
+        logger.debug('Found user %s', account_ident)
 
         # increase attempt counter for this account
         if min_attempts:
             attempt = inc_attempt(manager.db, ac, row, commit)
+
         date = date_compat.get_datetime_tz(row['date'])
+        if not date:
+            logger.warn(
+                "Giving up on trait %s for account %s: missing date",
+                text_type(manager.trait), account_ident)
+            manager.remove_trait(ac, commit)
+            continue
+
         cutoff = date_utils.now() - datetime.timedelta(days=too_old)
         is_too_old = date < cutoff
 
         # remove trait if older than too_old days and min_attempts is not set
         if is_too_old and not min_attempts:
-            logger.warn('Too old trait %s for entity_id=%s, giving up',
-                        text_type(manager.trait), row['entity_id'])
+            logger.warn(
+                "Giving up on trait %s for account %s: trait too old",
+                text_type(manager.trait), account_ident)
             manager.remove_trait(ac, commit)
             continue
 
         # remove trait if more than min_attempts attempts have been made and
         # trait is too old
-        if min_attempts and is_too_old and min_attempts < attempt:
-            logger.warn(
-                'Too old trait and too many attempts (%r) for '
-                'entity_id=%r, giving up',
-                attempt, row['entity_id'])
+        if is_too_old and min_attempts and min_attempts < attempt:
+            logger.warn("Giving up on trait %s for account %s: "
+                        "trait too old + too many attempts (%d)",
+                        text_type(manager.trait), account_ident, attempt)
             manager.remove_trait(ac, commit)
             continue
 
         if ac.owner_type != manager.co.entity_person:
-            logger.info('Tagged new user %r not personal, skipping',
-                        ac.account_name)
+            logger.info("Skipping account %s: not personal account",
+                        account_ident)
             # TODO: remove trait?
             continue
         if ac.is_expired():
-            logger.debug('New user %r is expired, skipping', ac.account_name)
+            logger.info("Skipping account %s: account is expired",
+                        account_ident)
             # TODO: remove trait?
             continue
 
         if list(ac.get_entity_quarantine(only_active=True,
                                          filter_disable_until=False)):
             # Skipping sms until all quarantines are removed.
-            logger.warn('Tagged new user %r with quarantine, skipping',
-                        ac.account_name)
+            logger.warn("Skipping account %s: account is quarantined",
+                        account_ident)
             continue
 
         # Apply custom filters that deem if this user should be processed
@@ -210,10 +220,11 @@ def process(manager, message, phone_types, affiliations, too_old,
                 result = filter_func(ac)
 
             if result:
+                logger.info("Giving up on trait %s for account %s: "
+                            "filtered out by function %s",
+                            text_type(manager.trait), account_ident,
+                            filter_name)
                 manager.remove_trait(ac, commit)
-                logger.info(
-                    'New user filtered out by %r function, '
-                    'removing trait %r', filter_name, row)
                 return True
             return False
 
@@ -227,8 +238,8 @@ def process(manager, message, phone_types, affiliations, too_old,
                 affs.append(a['affiliation'])
                 affs.append(a['status'])
             if not any(a in affs for a in affiliations):
-                logger.debug('No required person affiliation for %r, skipping',
-                             ac.account_name)
+                logger.info("Skipping account %s: no valid affiliations",
+                            account_ident)
                 # TODO: Doesn't remove trait, in case the person gets it later
                 # on.
                 #       Should the trait be removed?
@@ -242,19 +253,20 @@ def process(manager, message, phone_types, affiliations, too_old,
             # removed.
             tr = ac.get_trait(manager.co.trait_sms_welcome)
             date = date_compat.get_datetime_tz((tr or {}).get('date'))
-            cutoff = date_utils.now() - datetime.timedelta(days=300)
-            if date and date > cutoff:
-                logger.debug(
-                    'User %r already texted last %d days, removing trait',
-                    ac.account_name, 300)
+            repeat_limit = datetime.timedelta(days=300)
+            if date and date > date_utils.now() - repeat_limit:
+                logger.info("Giving up on trait %s for account %s: "
+                            "already texted in the last %d days",
+                            text_type(manager.trait), account_ident,
+                            repeat_limit.days)
                 manager.remove_trait(ac, commit)
                 continue
 
         # get phone number
         phone = get_phone_number(pe=pe, phone_types=phone_types)
         if not phone:
-            logger.debug('User %r had no phone number, skipping for now',
-                         ac.account_name)
+            logger.info("Skipping account %s: no valid phone numbers",
+                        account_ident)
             continue
 
         # get email
@@ -285,9 +297,7 @@ def process(manager, message, phone_types, affiliations, too_old,
             'email': u(email),
         }
         if not send_sms(phone, msg, commit):
-            logger.warn('Could not send SMS to %r (%r)',
-                        ac.account_name,
-                        phone)
+            logger.warn("Could not send SMS to %s (%r)", account_ident, phone)
             continue
 
         # sms sent, now update the traits
@@ -298,7 +308,8 @@ def process(manager, message, phone_types, affiliations, too_old,
             manager.db.commit()
         else:
             manager.db.rollback()
-        logger.debug('Traits updated for %r', ac.account_name)
+        logger.info("Notified account %s: trait %s removed",
+                    account_ident, text_type(manager.trait))
     if not commit:
         logger.debug('Changes rolled back')
     logger.info('send_welcome_sms done')
