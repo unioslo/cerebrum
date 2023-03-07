@@ -1,6 +1,6 @@
 # coding: utf-8
 #
-# Copyright 2017-2022 University of Oslo, Norway
+# Copyright 2017-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,11 +19,18 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 # Copyright 2002-2015 University of Oslo, Norway
 """
-This module contains mx.DateTime compatibility functions for Cerebrum.
+This module contains egenix-mx-base compatibility functions for Cerebrum.
 
 This module is temporary, and is only in place to aid the transition from
-mx.DateTime to the datetime standard library module.
+egenix-mx-base datetime and timedelta objects to the datetime module from the
+standard library.
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    # TODO: unicode_literals,
+)
 import datetime
 
 from . import date
@@ -34,13 +41,13 @@ _MX_ATTRS = ('pydate', 'pydatetime', 'pytime', 'hour', 'minute', 'second')
 
 
 def is_mx_datetime(obj):
-    """ Check if object is an mx.DateTime.DateTime-like object. """
+    """ Check if object is a mx-like (egenix-mx-base) datetime object. """
     return (obj and isinstance(obj, object)
             and all(hasattr(obj, attr) for attr in _MX_ATTRS))
 
 
 def is_mx_date(obj):
-    """ Check if mx.DateTime.DateTime with date-like precision. """
+    """ Check if object is a mx-like datetime with date-like precision. """
     if is_mx_datetime(obj):
         return obj.hour == obj.minute == 0 and obj.second == 0.0
     else:
@@ -48,7 +55,7 @@ def is_mx_date(obj):
 
 
 def is_mx_delta(obj):
-    """ Check if object is an mx.DateTime.TimeDelta. """
+    """ Check if object is a mx-like timedelta object. """
     return (obj and isinstance(obj, object)
             and hasattr(obj, 'pytimedelta'))
 
@@ -88,8 +95,8 @@ def get_datetime_naive(dtobj, allow_none=True, tz=date.TIMEZONE):
     """
     Get a naive datetime.datetime object from a datetime-like object.
 
-    Typical usecase for this method is to convert database mx.DateTime objects
-    to naive datetime objects:
+    Typical usecase for this method is to convert mx-like objecsts from the
+    database to naive datetime objects:
 
         if get_datetime_naive(row['tstamp']) > cutoff_dt:
             do_something()
@@ -130,8 +137,8 @@ def get_datetime_tz(dtobj, allow_none=True, tz=date.TIMEZONE):
     """
     Get a tz-aware datetime.datetime object from a datetime-like object.
 
-    Typical usecase for this method is to convert database mx.DateTime objects
-    to tz-aware datetime objects:
+    Typical usecase for this method is to convert mx-like objects from the
+    database to tz-aware datetime objects:
 
         if get_datetime_tz(row['tstamp']) > cutoff_dt:
             do_something()
