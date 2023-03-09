@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2003-2018 University of Oslo, Norway
+# Copyright 2003-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,15 +17,23 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-from __future__ import with_statement, unicode_literals
+"""
+Utils for generating UNIX/NIS user and group database files.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import logging
 import operator
 import sys
 from contextlib import closing
 
-import mx.DateTime
+import six
+
 from Cerebrum import Errors
 from Cerebrum import QuarantineHandler
 from Cerebrum.Entity import EntityName
@@ -38,7 +45,7 @@ from Cerebrum.modules.posix.UserExporter import UserExporter
 from Cerebrum.utils import transliterate
 from Cerebrum.utils.atomicfile import SimilarSizeWriter
 from Cerebrum.utils.funcwrap import memoize
-from six import text_type
+from Cerebrum.utils import date as date_utils
 
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
@@ -78,7 +85,7 @@ class NoDisk(NISMapError):
 
 def join(fields, sep=':'):
     for f in fields:
-        if not isinstance(f, text_type):
+        if not isinstance(f, six.text_type):
             raise ValueError("Type of '%r' is not text." % f)
         if f.find(sep) != -1:
             raise ValueError("Separator '%s' present in string '%s'" %
@@ -148,9 +155,9 @@ class Passwd(object):
             home = '/'
 
         posix_gid = self.gid2posix_gid[row['gid']]
-        return [uname, passwd, text_type(row['posix_uid']),
-                text_type(posix_gid), gecos,
-                text_type(home), shell]
+        return [uname, passwd, six.text_type(row['posix_uid']),
+                six.text_type(posix_gid), gecos,
+                six.text_type(home), shell]
 
     def generate_passwd(self):
         """Data generating method. returns a list of lists which looks like
@@ -209,7 +216,7 @@ class NISGroupUtil(object):
 
     def __init__(self, namespace, member_type, group_spread, member_spread,
                  tmp_group_prefix='x'):
-        self._namecachedtime = mx.DateTime.now()
+        self._namecachedtime = date_utils.now()
         self._member_spread = member_spread
         self._group_spread = group_spread
         self._member_type = member_type
@@ -237,11 +244,11 @@ class NISGroupUtil(object):
         entity_id (group or account) since we cached entity names.
         """
         try:
-            events = list(db.get_log_events(
-                types=(clconst.group_create, clconst.account_create),
-                subject_entity=entity_id,
-                sdate=self._namecachedtime))
-            return bool(events)
+            for _ in db.get_log_events(
+                    types=(clconst.group_create, clconst.account_create),
+                    subject_entity=entity_id,
+                    sdate=self._namecachedtime):
+                return True
         except Exception:
             logger.debug("Checking change log failed: %s", sys.exc_value)
         return False
@@ -331,7 +338,7 @@ class NISGroupUtil(object):
         # Direct user members of the top level groups
         logger.info('Processing all direct user members of top groups')
         for user_row in self._group.search_members(
-                (i for i in self._exported_groups.keys()),
+                self._exported_groups.keys(),
                 member_type=self._member_type,
                 member_spread=self._member_spread):
             # Add user names to top level group id
@@ -340,10 +347,10 @@ class NISGroupUtil(object):
 
         # All sub groups of the top groups
         logger.info('Processing all direct group members of top groups')
-        sub_groups = [i for i in self._group.search_members(
-            [i for i in self._exported_groups],
-            member_spread=self._group_spread,
-            member_type=co.entity_group)]
+        sub_groups = self._group.search_members(
+                self._exported_groups.keys(),
+                member_spread=self._group_spread,
+                member_type=co.entity_group)
         for group_row in sub_groups:
             # Add subgroup names to top level group id
             collector[group_row['group_id']]['groups'].add(
@@ -354,7 +361,7 @@ class NISGroupUtil(object):
         if include_persons:
             logger.info('Processing all direct person members of top groups')
             for person_row in self._group.search_members(
-                    (i for i in self._exported_groups.keys()),
+                    self._exported_groups.keys(),
                     member_type=co.entity_person):
                 if person_row['member_id'] in self._person2primary_account:
                     # add user name of person to top level group id

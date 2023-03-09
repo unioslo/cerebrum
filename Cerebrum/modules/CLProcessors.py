@@ -1,7 +1,6 @@
-#! /usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2006-2019 University of Oslo, Norway
+# Copyright 2006-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -38,19 +37,24 @@ NO_AFFILIATION
     which is the string that should be used as the name for grouping those
     events that cannot be related to any affiliation.
 """
-from __future__ import print_function
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    # TODO: unicode_literals,
+)
 
 import collections
+import datetime
 import json
 import logging
 import textwrap
-
-import mx.DateTime
 
 import cereconf
 
 from Cerebrum.Utils import Factory
 from Cerebrum.Errors import NotFoundError
+from Cerebrum.utils import date_compat
 
 
 logger = logging.getLogger(__name__)
@@ -151,12 +155,8 @@ class EventProcessor(object):
         into 'self._entity_ids', where they later can be counted and
         extracted for further purposes.
 
-        @param start_date: Earliest date for events to include
-        @type start_date: mx.DateTime
-
-        @param end_date: Latest date for events to include
-        @type end_date: mx.DateTime
-
+        :param start_date: Earliest date for events to include
+        :param end_date: Latest date for events to include
         """
         event_rows = self.db.get_log_events_date(sdate=start_date,
                                                  edate=end_date,
@@ -434,7 +434,8 @@ class CreatePersonProcessor(EventProcessor):
         account = Factory.get('Account')(self.db)
         print("")
         if not self._persons_by_source_system:
-            print("No new persons from source system: " + str(self._source_system))
+            print("No new persons from source system: "
+                  + str(self._source_system))
             return
 
         for source, persons in self._persons_by_source_system.iteritems():
@@ -516,12 +517,8 @@ class ModifyAccountProcessor(EventProcessor):
         been modified so that their expire_date has been changed to a
         time in the future, so we override the super-class'es method.
 
-        @param start_date: Earliest date for events to include
-        @type start_date: mx.DateTime
-
-        @param end_date: Latest date for events to include
-        @type end_date: mx.DateTime
-
+        :param start_date: Earliest date for events to include
+        :param end_date: Latest date for events to include
         """
         account = Factory.get('Account')(self.db)
         event_rows = self.db.get_log_events_date(sdate=start_date,
@@ -539,9 +536,10 @@ class ModifyAccountProcessor(EventProcessor):
                 else:
                     account.clear()
                     account.find(row["subject_entity"])
+                    expire_date = date_compat.get_date(account.expire_date)
 
-                    if (account.expire_date is None
-                            or account.expire_date > mx.DateTime.now()):
+                    if (expire_date is None
+                            or expire_date > datetime.date.today()):
                         # Account set to expire at some point in the
                         # future or not at all; include it!
                         self._entity_ids.append(row["subject_entity"])
