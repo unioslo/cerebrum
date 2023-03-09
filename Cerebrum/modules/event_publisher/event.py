@@ -1,6 +1,6 @@
 # encoding: utf-8
 #
-# Copyright 2017-2022 University of Oslo, Norway
+# Copyright 2017-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,7 +18,12 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ An abstract event that can be stored in the database. """
-from __future__ import absolute_import
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    # TODO: unicode_literals,
+)
 
 import datetime
 import itertools
@@ -120,7 +125,7 @@ class DateTimeDescriptor(object):
     When setting the datetime, this method will try to localize it with the
     default_timezone in the following ways:
 
-    - mx.DateTime.DateTimeType: Naive datetime, assume in default_timezone
+    - mx-like datetime object: Naive datetime, assume in default_timezone
     - datetime.datetime: Assume in default_timezone if naive
     - integer: Assume timestamp in UTC
 

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2018-2022 University of Oslo, Norway
+# Copyright 2018-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,13 +17,20 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" Database access to audit records.
+"""
+Database access to audit records.
 
 Audit records should mostly be read or appended to the database.  In the future
 there may be cleanup scripts that clear out non-critical personal information
 from audit record params, and delete really old audit records, subject to data
 retention.
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    # TODO: unicode_literals,
+)
 import datetime
 import json
 
@@ -44,7 +51,7 @@ def _serialize_datetime(dt):
 
 
 def _serialize_mx_datetime(dt):
-    """ Convert mx.DateTime-like objects to string. """
+    """ Convert mx-like objects to string. """
     if date_compat.is_mx_date(dt):
         return _serialize_datetime(dt.pydate())
     elif dt:
@@ -59,7 +66,6 @@ def serialize_params(value):
     if isinstance(value, datetime.date):
         return _serialize_datetime(value)
     elif date_compat.is_mx_datetime(value):
-        # Looks like an mx.DateTime
         return _serialize_mx_datetime(value)
     elif isinstance(value, (list, tuple, set)):
         return [serialize_params(p) for p in value]

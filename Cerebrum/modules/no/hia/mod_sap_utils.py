@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003-2017 University of Oslo, Norway
+# Copyright 2003-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,8 +17,8 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-""" Module with utilities for dealing with SAP-specific data files.
+"""
+Module with utilities for dealing with SAP-specific data files.
 
 The public interface is two methods only -- `make_person_iterator` and
 `make_employment_iterator`. The rest is meant for internal usage only.
@@ -29,7 +28,14 @@ SAP data.
 
 TODO: This module should be profiled.
 
+TODO: All datetime objects in this module *should* be datetime.date values.
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    # TODO: unicode_literals,
+)
 
 import re
 import sys
@@ -259,10 +265,7 @@ class _SAPTupleBase(object):
       >>> x = SAPEmploymentTuple(<some tuple>)
       >>> x[5]
       20100228
-      >>> x.start_date
-      <mx.DateTime.DateTime object for '2010-02-28 00:00:00.00'>
-      >>> x['start_date'']
-      <mx.DateTime.DateTime object for '2010-02-28 00:00:00.00'>
+      >>> x.start_date == x['start_date']
 
     Both kinds of index/key refer to the same element, but positional access
     yields raw value, whereas accessing the attribute by name provides the
@@ -290,7 +293,7 @@ class _SAPTupleBase(object):
             try:
                 value = transformation(*[tpl[index] for index in indices])
                 setattr(self, slot_name, value)
-            except:
+            except Exception:
                 if logger is not None:
                     logger.info("Failed to set value %s for attribute %s in "
                                 "tuple (%s): %s. Assuming None",

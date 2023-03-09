@@ -17,6 +17,12 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""
+XML-RPC utilities for bofhd.
+
+This module deals with serializing and de-serializing
+XML-RPC data in bofhd.
+"""
 from __future__ import (
     absolute_import,
     division,
@@ -92,7 +98,7 @@ def native_to_xmlrpc(obj):
         # Why don't we return the object as-is?
         return xmlrpclib.DateTime(tuple(int(i) for i in obj.tuple()))
     elif date_compat.is_mx_datetime(obj):
-        # mx.DateTime -> naive datetime -> xmlrpc
+        # mx-like -> naive datetime -> xmlrpc
         return xmlrpclib.DateTime(date_compat.get_datetime_naive(obj))
     else:
         raise ValueError("Unrecognized parameter type: '{!r}' {!r}".format(

@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2016-2017 University of Oslo, Norway
+# Copyright 2016-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,20 +17,29 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" Implementation of SCIM messages.
-
-https://tools.ietf.org/html/draft-hunt-idevent-scim-00#section-2.2
 """
-from __future__ import absolute_import
+Implementation of SCIM messages.
+
+See `<https://tools.ietf.org/html/draft-hunt-idevent-scim-00#section-2.2>`_ for
+more info.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    # TODO: unicode_literals,
+)
 
 import calendar
 import datetime
 import uuid
 import six
 
-from Cerebrum.config.configuration import (Configuration,
-                                           ConfigDescriptor,
-                                           Namespace)
+from Cerebrum.config.configuration import (
+    Configuration,
+    ConfigDescriptor,
+    Namespace,
+)
 from Cerebrum.config.settings import String
 
 
@@ -182,8 +190,8 @@ class EventScimFormatter(ScimFormatter):
                 event_uri,
                 dict())['object'] = [self.get_url(o) for o in event.objects]
         if event.scheduled is not None:
-            # assume datetime.datetime, although mx.DateTime will also work
-            # .strftime('%s') is not official and it will not work in Windows
+            # assume datetime.datetime, although mx-like datetime objects will
+            # also work
             payload['nbf'] = self.make_timestamp(event.scheduled)
         payload['resourceType'] = self.get_entity_type(event.subject)
         return payload

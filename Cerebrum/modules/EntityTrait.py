@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2005-2022 University of Oslo, Norway
+# Copyright 2005-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,6 +17,17 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""
+Trait mixin for Cerebrum.Entity.
+
+See Cerebrum.modules.trait for more info.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    # TODO: unicode_literals,
+)
 from Cerebrum.Entity import Entity
 from Cerebrum.Constants import _ChangeTypeCode, _get_code
 from Cerebrum import Errors
@@ -227,7 +238,7 @@ class EntityTrait(Entity):
           Filter the result by specific entity_id(s) associated with the trait.
 
         @type date:
-          1) NotSet OR 2) an mx.DateTime object.
+          1) NotSet OR 2) an date/datetime/mx-like object.
         @param date:
           Filter the result by a specific date.
 

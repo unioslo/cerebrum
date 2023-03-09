@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright 2018 University of Oslo, Norway
+#
+# Copyright 2018-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -32,7 +33,12 @@ However, one might need to collect data from other databases, possibly using a
 different driver; how could this best be implemented? Currently, the function
 can be told what Database subclass to use in the DB_driver keyword argument.
 """
-from __future__ import with_statement, print_function
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    # TODO: unicode_literals,
+)
 
 import logging
 import os
@@ -76,8 +82,9 @@ else:
     debug_log = False
 
 
-# mx.DateTime feature toggle.
-# If CEREBRUM_NOMX is set, we disable the mx.DateTime conversions.
+# Feature toggle to return egenix-mx-base datetime objects.
+#
+# If CEREBRUM_NOMX is set, we disable the conversions to/from mx-like objects.
 ENABLE_MXDB = not bool(int(os.environ.get('CEREBRUM_NOMX') or 0))
 
 
@@ -150,7 +157,7 @@ class OraPgLock(Lock):
 
 
 def _pretty_sql(sql, maxlen=None):
-    pretty_sql = ' '.join(l.strip() for l in sql.split('\n')).strip()
+    pretty_sql = ' '.join(line.strip() for line in sql.split('\n')).strip()
     if maxlen:
         pretty_sql = pretty_sql[:maxlen] + ('...' if pretty_sql[maxlen:]
                                             else '')
