@@ -206,12 +206,6 @@ CLASS_EMAILLDAP = ['Cerebrum.modules.EmailLDAP/EmailLDAP']
 CLASS_POSIX_USER = ['Cerebrum.modules.PosixUser/PosixUser']
 CLASS_POSIX_GROUP = ['Cerebrum.modules.PosixGroup/PosixGroup']
 
-# Hpc module
-CLASS_MACHINE = ['Cerebrum.modules.Hpc/Machine']
-CLASS_PROJECT = ['Cerebrum.modules.Hpc/Project']
-CLASS_ALLOCATION = ['Cerebrum.modules.Hpc/Allocation']
-CLASS_ALLOCATION_PERIOD = ['Cerebrum.modules.Hpc/AllocationPeriod']
-
 # OUs that have no parent, typically the ones at the top of any
 # OU-tree. Note that OU ids are strings, and therefore any ids listed
 # here need to be strings too.

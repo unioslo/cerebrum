@@ -239,9 +239,6 @@ class Factory(object):
                       'PosixUser': 'CLASS_POSIX_USER',
                       'PosixGroup': 'CLASS_POSIX_GROUP',
                       'DistributionGroup': 'CLASS_DISTRIBUTION_GROUP',
-                      'Project': 'CLASS_PROJECT',
-                      'Allocation': 'CLASS_ALLOCATION',
-                      'AllocationPeriod': 'CLASS_ALLOCATION_PERIOD',
                       'LMSImport': 'CLASS_LMS_IMPORT',
                       'LMSExport': 'CLASS_LMS_EXPORT', }
 
