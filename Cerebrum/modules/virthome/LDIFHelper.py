@@ -1,6 +1,6 @@
-#!/usr/bin/env python
 # -*- encoding: utf-8 -*-
-# Copyright 2007-2018 University of Oslo, Norway
+#
+# Copyright 2007-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,8 +17,16 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" LDIFHelper contains an object that select users+groups for export, and
-generate structured data for LDIFutils """
+"""
+LDIFHelper contains an object that select users+groups for export, and
+generate structured data for LDIFutils
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    # TODO: unicode_literals,
+)
 
 from Cerebrum.Utils import Factory
 from Cerebrum.export.auth import AuthExporter
@@ -29,9 +37,10 @@ class LDIFHelper(object):
     """ Utility class for common functionality in LDIF exports. """
 
     def __init__(self, logger):
-        """ Fetches all users and groups with the required spreads to qualify
-        for LDAP export. """
-
+        """
+        Fetches all users and groups with the required spreads to qualify
+        for LDAP export.
+        """
         self.db = Factory.get("Database")()
         self.const = Factory.get("Constants")(self.db)
         self.logger = logger
@@ -52,16 +61,16 @@ class LDIFHelper(object):
         return ",".join(("cn=" + gname, ldapconf("GROUP", "dn")))
 
     def _load_groups(self):
-        """Cache a dict with group_id -> group_name for all LDAP-exportable
-        groups.
+        """
+        Cache a dict with id -> name for all LDAP-exportable groups
 
         See L{_load_users} for a related method.
 
-        @rtype: dict (int -> dict-like object)
-        @return:
-          A dict mapping group_id to group info for all groups with
-          LDAP-exportable spreads. The latter is controlled by
-          cereconf.LDAP_GROUP.
+        :rtype: dict (int -> dict-like object)
+        :return:
+            A dict mapping group_id to group info for all groups with
+            LDAP-exportable spreads. The latter is controlled by
+            cereconf.LDAP_GROUP.
         """
 
         group = Factory.get("Group")(self.db)

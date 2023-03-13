@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
 #
-# Copyright 2013-2021 University of Oslo, Norway
+# Copyright 2013-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -29,30 +29,33 @@ TODO: This is the new home for all virthome-related bofh-commands. All changes
 should be done here, and called from bofhd_virthome_cmds. This class should
 stay genereic enough to be used outside of bofhd.
 """
-import sys
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    # TODO: unicode_literals,
+)
+
 import re
+import sys
+
 import six
+from mx.DateTime import DateTimeDelta
 
 import cereconf
-from Cerebrum.group.GroupRoles import GroupRoles
-from Cerebrum.Utils import Factory
+
 from Cerebrum.Errors import CerebrumError, NotFoundError
+from Cerebrum.Utils import Factory
+from Cerebrum.group.GroupRoles import GroupRoles
+from Cerebrum.modules.bofhd.auth import BofhdAuthOpTarget, BofhdAuthRole
+from Cerebrum.modules.virthome import VirtAccount
 
-from mx.DateTime import DateTimeDelta
-from Cerebrum.modules.bofhd.auth import BofhdAuthOpSet, BofhdAuthOpTarget, BofhdAuthRole
-from Cerebrum.modules.virthome.bofhd_auth import BofhdVirtHomeAuth
-from Cerebrum.modules.virthome.VirtAccount import BaseVirtHomeAccount, FEDAccount, VirtAccount
 
+class VirthomeBase(object):
+    """
+    Common business logic for virthome/webid.
 
-# TODO: Is this okay? Should we just have one class in stead? There's no real
-#       reason to keep two classes...
-#       They have been split up here in order to separate between methods that
-#       should be visible (imported) in other modules. All the methods in
-#       VirthomeUtils should only be used here. However, they DO need to be
-#       visible elsewhere until all functionality have been migrated from
-#       bofhd_virthome_cmds. It'll be easy to merge the classes later. I hope.
-class VirthomeBase:
-    """ The outer access layer: Methods here are workflows such as creating
+    The outer access layer: Methods here are workflows such as creating
     accounts, creating groups, disabling groups, creating events...
     This is the only class that _should_ be imported (visible) to other
     modules.
@@ -74,38 +77,27 @@ class VirthomeBase:
 
         self.vhutils = VirthomeUtils(db)
 
+    def group_create(self, group_name, description, creator, owner,
+                     url=None, forward=None):
+        """
+        This method creates a new VirtHome group.
 
-    # TODO: Should owners be restricted to the FEDAccount class? How about the
-    # Webapp-account, or other su accs?
-    def group_create(self, group_name, description, creator, owner, url=None, forward=None):
-        """ This method creates a new VirtHome group.
         NOTE: Some group name formats are reserved for specific applications!
         This method WILL allow creation of reserved group names.
 
-        @type group_name: str
-        @param group_name: The name of the new group
-
-        @type description: str
-        @param description: The group description
-
-        @type creator: self.account_class
-        @param creator: The account object of the creator of this group.
-
-        @type owner: self.account_class
-        @param owner: The account object of the owner of this group.
-
-        @type url: str
-        @param url: A url resource associated with the group
-
-        @type forward: str
-        @param forward: A url resource to an external app that uses this group
+        :param str group_name: the name of the new group
+        :param str description: the group description
+        :param Account creator: the creator of this group
+        :param Account owner: the owner of this group
+        :param str url: url associated with the group
+        :param str forward: url to an external app that uses this group
         """
         gr = self.group_class(self.db)
 
         if self.vhutils.group_exists(group_name):
             raise CerebrumError("Group name '%s' already exists" % group_name)
 
-        # TBD: Verify owner.np_type is FEDaccount? Must it be?
+        # TODO/TBD: Verify owner.np_type is FEDaccount? Must it be?
 
         try:
             gr.populate(creator.entity_id, group_name, description)
@@ -126,28 +118,34 @@ class VirthomeBase:
         roles.add_admin_to_group(owner.entity_id, gr.entity_id)
         return gr
 
-
     def group_invite_user(self, inviter, group, email, timeout=3):
-        """ This method sets up an event that will allow a user to join a
-        group.
+        """
+        This method sets up an event that will allow a user to join a group.
 
-        @type inviter: self.account_class
-        @param inviter: The account that is setting up the invitation
+        :type inviter: self.account_class
+        :param inviter: The account that is setting up the invitation
 
-        @type group: self.group_class
-        @param group_name: The group that should be joined
+        :type group: self.group_class
+        :param group_name: The group that should be joined
 
-        @type email: str
-        @param : The email adrress of the user that is invited
+        :type email: str
+        :param : The email adrress of the user that is invited
 
-        @type timeout: int
-        @param timeout: The number of days until the confirmation key expires.
+        :type timeout: int
+        :param timeout: The number of days until the confirmation key expires.
 
-        @rtype: dict
-        @return: A dictionary with the following keys:
-                'confirmation_key': <str> The code that is used to confirm the invitation
-                'match_user': <str> A username, if a user exists with that email-address
-                'match_user_email': An e-mailaddress. Not sure why?
+        :rtype: dict
+        :return:
+            A dictionary with the following keys:
+
+             confirmation_key
+                <str> The code that is used to confirm the invitation
+
+             match_user <str>
+                A username, if a user exists with that email-address
+
+             match_user_email
+                An e-mailaddress. Not sure why?
         """
         ac = self.account_class(self.db)
 
@@ -160,36 +158,38 @@ class VirthomeBase:
         if (timeout > cereconf.MAX_INVITE_PERIOD):
             raise CerebrumError("Timeout too long (%d)" % timeout.day)
 
-        ret = {'confirmation_key': self.vhutils.setup_event_request(
-                                       group.entity_id,
-                                       self.clconst.va_group_invitation,
-                                       params={'inviter_id': inviter.entity_id,
-                                               'group_id': group.entity_id,
-                                               'invitee_mail': email,
-                                               'timeout': timeout.day,},
-                                       change_by=inviter.entity_id)}
+        ret = {
+            'confirmation_key': self.vhutils.setup_event_request(
+                group.entity_id,
+                self.clconst.va_group_invitation,
+                params={
+                    'inviter_id': inviter.entity_id,
+                    'group_id': group.entity_id,
+                    'invitee_mail': email,
+                    'timeout': timeout.day,
+                },
+                change_by=inviter.entity_id,
+            )}
 
         # check if e-mail matches a valid username
         try:
             ac.find_by_name(email)
             ret['match_user'] = ac.account_name
-            if ac.np_type in (self.co.fedaccount_type, self.co.virtaccount_type):
+            if ac.np_type in (self.co.fedaccount_type,
+                              self.co.virtaccount_type):
                 ret['match_user_email'] = ac.get_email_address()
         except NotFoundError:
             pass
 
         return ret
 
-
     def group_disable(self, group):
         """This method removes all members and auth data related to a group,
         effectively disabling it without actually 'nuking' it.
 
-        @type group_name: str
-        @param group_name: The name of the group that should be joined
+        :param Group group_name: the group that should be disabled
 
-        @rtype: str
-        @return: The name of the group that was disabled, nice for feedback.
+        :returns str: name of the group that was disabled
         """
         assert hasattr(group, 'entity_id')
 
@@ -210,7 +210,7 @@ class VirthomeBase:
         return group.group_name
 
 
-class VirthomeUtils:
+class VirthomeUtils(object):
     """ Helper methods related to virthome """
 
     def __init__(self, db):
@@ -222,18 +222,16 @@ class VirthomeUtils:
         self.account_class = Factory.get('Account')
 
         # Or compile on each call to
-        self.url_whitelist = [re.compile(r) for r in cereconf.FORWARD_URL_WHITELIST]
-
-
+        self.url_whitelist = [re.compile(r)
+                              for r in cereconf.FORWARD_URL_WHITELIST]
 
     def group_exists(self, name):
-        """ This method simply tests if a group name exists in the database
+        """
+        This method simply tests if a group name exists in the database
 
-        @type name: str
-        @param name: Name of the group to look for
+        :param str name: Name of the group to look for
 
-        @rtype: bool
-        @return: True if the group exists, otherwise False
+        :returns bool: True if the group exists, otherwise False
         """
         group = self.group_class(self.db)
         try:
@@ -243,16 +241,18 @@ class VirthomeUtils:
             pass
         return False
 
-
     def list_group_members(self, group, indirect_members=False):
-        """ This methid lists members of a group. It does NOT include operators
-        or moderators, unless they are also members.
+        """
+        This methid lists members of a group.
 
-        @type group: Cerebrum.Group
-        @param group: The group to list members of
+        It does NOT include operators or moderators, unless they are also
+        members.
 
-        @type indirect: bool
-        @param indirect: If we should include indirect members
+        :type group: Cerebrum.Group
+        :param group: The group to list members of
+
+        :type indirect: bool
+        :param indirect: If we should include indirect members
         """
         ac = self.account_class(self.db)
         gr = self.group_class(self.db)
@@ -278,34 +278,43 @@ class VirthomeUtils:
                 gr.clear()
                 gr.find(x['member_id'])
                 member_name = gr.group_name
-            result.append({'member_id': x['member_id'],
-                           'member_type': str(member_type),
-                           'member_name': member_name,
-                           'owner_name': owner_name,
-                           'email_address': email_address,})
+            result.append({
+                'member_id': x['member_id'],
+                'member_type': str(member_type),
+                'member_name': member_name,
+                'owner_name': owner_name,
+                'email_address': email_address,
+            })
 
         result.sort(lambda x, y: cmp(x['member_name'], y['member_name']))
         return result
 
+    def list_group_memberships(self, account, indirect_members=False,
+                               realm=None):
+        """
+        This method lists groups that an account is member of.
 
-    def list_group_memberships(self, account, indirect_members=False, realm=None):
-        """ This method lists groups that an account is member of.
+        :type account: Cerebrum.Account
+        :param account:
+            The account we're looking up memberships for
 
-        @type account: Cerebrum.Account
-        @param account: The account we're looking up memberships for
+        :type indirect_members: bool
+        :param indirect_members:
+            Whether indirect members should be included
 
-        @type indirect_members: bool
-        @param indirect_members: Whether indirect members
+        :type realm: str or NoneType
+        :param realm:
+            Filter groups by realm.
 
-        @type realm: str or NoneType
-        @param realm: Filter groups by realm. A realm of 'webid.uio.no' will
-                      only return groups on the format '*@webid.uio.no'. No
-                      filtering for empty string or None.
+            A realm of 'webid.uio.no' will only return groups on the format
+            '*@webid.uio.no'. No filtering for empty string or None.
 
-        @rtype: list
-        @return: A list with dictionaries, one dict per group membership.
-                 Contain keys 'group_id', 'name', 'description', 'visibility',
-                 'creator_id', 'created_at', 'expire_date'
+        :rtype: list
+        :return:
+            A list with dictionaries, one dict per group membership.
+
+            Contain keys 'group_id', 'name', 'description', 'visibility',
+            'creator_id', 'created_at', 'expire_date'
         """
         gr = self.group_class(self.db)
         assert hasattr(account, 'entity_id')
@@ -326,9 +335,9 @@ class VirthomeUtils:
             result.append(tmp)
         return result
 
-
     def get_trait_val(self, entity, trait_const, val='strval'):
-        """Get the trait value of type L{val} of L{entity} that is of type
+        """
+        Get the trait value of type L{val} of L{entity} that is of type
         L{trait_const}.
 
         @type entity: Cerebrum.Entity
@@ -350,17 +359,16 @@ class VirthomeUtils:
             pass
         return None
 
-
     def whitelist_url(self, url):
-        """ This is a 'last stand' for forward urls. The URL must match at
-        least one of the whitelist regular expressions if we're to store it as
-        a forward url.
+        """
+        This is a 'last stand' for forward urls.
 
-        @type url: str
-        @param url: The URL to whitelist
+        The URL must match at least one of the whitelist regular expressions if
+        we're to store it as a forward url.
 
-        @rtype: str
-        @return: The whitelisted url, or None if the L{url} didn't pass.
+        :param str url: The URL to whitelist
+
+        :returns str : The whitelisted url, or None if the L{url} didn't pass.
         """
         if not url:
             return None
@@ -371,121 +379,135 @@ class VirthomeUtils:
 
         return None
 
-
     # Changelog/event/invitation related methods
 
-    def setup_event_request(self, issuer_id, event_type, params=None, change_by=None ):
-        """ Perform the necessary magic when creating a pending confirmation
-        event (i.e. create a changelog entry with the event).
-
-        @type issuer_id: int
-        @param issuer_id: The C{entity_id} of the event creator/inviter
-
-        @type event_type: Constants._ChangeTypeCode
-        @param event_type: The changelog type that should be used to store this event.
-
-        @type params: obj
-        @param params: An object containing other arbitrary information that
-                       relates to the L{event_type}.
-
-        @rtype: str
-        @return: The confirmation key, or ID, of the newly created event.
+    def setup_event_request(self, issuer_id, event_type, params=None,
+                            change_by=None):
         """
-        return self.db.log_pending_change(issuer_id, event_type, None,
-                                          change_params=params,
-                                          # From CIS, we don't have the
-                                          # change_by parameter set up, should
-                                          # set this in the request
-                                          change_by=change_by)
+        Perform the necessary magic when creating a pending confirmation event.
 
+        This method will create the required changelog entry with the event.
+
+        :type issuer_id: int
+        :param issuer_id:
+            The C{entity_id} of the event creator/inviter
+
+        :type event_type: Constants._ChangeTypeCode
+        :param event_type:
+            The changelog type that should be used to store this event.
+
+        :type params: obj
+        :param params:
+            An object containing other arbitrary information that relates to
+            the L{event_type}.
+
+        :rtype: str
+        :return:
+            The confirmation key, or ID, of the newly created event.
+        """
+        return self.db.log_pending_change(
+            subject_entity=issuer_id,
+            change_type_id=event_type,
+            destination_entity=None,
+            change_params=params,
+            # From CIS, we don't have the
+            # change_by parameter set up, should
+            # set this in the request
+            change_by=change_by,
+        )
 
     # Account related methods
 
     def account_exists(self, account_name):
-        """Check that L{account_name} is available in Cerebrum/Virthome. Names
-        are case sensitive, but there should not exist two accounts with same
-        name in lowercase, due to LDAP, so we have to check this too.
+        """
+        Check that L{account_name} is available in Cerebrum/Virthome.
+
+        Names are case sensitive, but there should not exist two accounts with
+        same name in lowercase, due to LDAP, so we have to check this too.
 
         (The combination if this call and account.write_db() is in no way
         atomic, but checking for availability lets us produce more meaningful
         error messages in (hopefully) most cases).
 
-        @type account_name: str
-        @param account_name: The account name to check
+        :param str account_name: The account name to check
 
-        @rtype: bool
-        @return: True if account_name is available for use, False otherwise.
+        :returns bool:
+            True if account_name is available for use, False otherwise.
         """
         # Does not matter which one.
         ac = self.account_class(self.db)
         return not ac.uname_is_available(account_name)
 
-
     def assign_default_user_spreads(self, account):
-        """Assign all the default spreads for freshly created users.
-
-        @type account: Cerebrum.Account
-        @param account: The account object that should receive default spreads
         """
+        Assign all the default spreads for freshly created users.
 
+        :type account: Cerebrum.Account
+        :param account: The account object that should receive default spreads
+        """
         for spread in getattr(cereconf, "BOFHD_NEW_USER_SPREADS", ()):
             tmp = self.co.human2constant(spread, self.co.Spread)
             if not account.has_spread(tmp):
                 account.add_spread(tmp)
 
-
     def create_account(self, account_type, account_name, email, expire_date,
-            human_first_name, human_last_name, with_confirmation=True):
-        """Create an account of the specified type.
+                       human_first_name, human_last_name,
+                       with_confirmation=True):
+        """
+        Create an account of the specified type.
 
         This is a convenience function to avoid duplicating some of the work.
 
-        @type account_type: subclass of BaseVirtHomeAccount
-        @param account_type: The account class type to use.
+        :type account_type: subclass of BaseVirtHomeAccount
+        :param account_type: The account class type to use.
 
-        @type account_name: str
-        @param account_name: Account name to give the new account
+        :type account_name: str
+        :param account_name: Account name to give the new account
 
-        @type email: str
-        @param email: The email address of the account owner
+        :type email: str
+        :param email: The email address of the account owner
 
-        @type expire_date: mx.DateTime.DateTime
-        @param expire_date: The expire date for the account
+        :type expire_date: mx.DateTime.DateTime
+        :param expire_date: The expire date for the account
 
-        @type human_first_name: str
-        @param human_first_name: The first name(s) of the account owner
+        :type human_first_name: str
+        :param human_first_name: The first name(s) of the account owner
 
-        @type human_last_name: str
-        @param human_last_name: The last name(s) of the account owner
+        :type human_last_name: str
+        :param human_last_name: The last name(s) of the account owner
 
-        @type with_confirmation: bool
-        @param with_confirmation: Controls whether a confirmation request
-                                  should be issued for this account. In some
-                                  situations it makes no sense to confirm
-                                  anything.
-                                  NOTE: The caller must dispatch any
-                                  confirmation mail. This controls whether a
-                                  confirmation event/code should be created and
-                                  returned.
-        @rtype: list [ BaseVirtHomeAccount, str ]
-        @return: The newly created account, and the confirmation key needed to
-                 confirm the given email address.
-                 NOTE: If with_confirmation was False, the confirmation key
-                 will be empty.
+        :type with_confirmation: bool
+        :param with_confirmation:
+            Controls whether a confirmation request should be issued for this
+            account.
+
+            In some situations it makes no sense to confirm anything.
+
+            NOTE: The caller must dispatch any confirmation mail. This controls
+            whether a confirmation event/code should be created and returned.
+
+        :rtype: tuple <BaseVirtHomeAccount, str>
+        :return:
+            The newly created account, and the confirmation key needed to
+            confirm the given email address.
+
+            NOTE: If with_confirmation was False, the confirmation key will be
+            empty.
         """
-
-        assert issubclass(account_type, BaseVirtHomeAccount)
+        assert issubclass(account_type, VirtAccount.BaseVirtHomeAccount)
 
         # Creation can still fail later, but hopefully this captures most
         # situations and produces a sensible account_name.
         if self.account_exists(account_name):
-            raise CerebrumError("Account '%s' already exists" % account_name)
+            raise CerebrumError("Account '%s' already exists"
+                                % (account_name,))
 
         account = account_type(self.db)
         account.populate(email, account_name, human_first_name,
-                human_last_name, expire_date)
+                         human_last_name, expire_date)
         account.write_db()
-        account.populate_trait(self.co.trait_user_retained, numval=0) # Never exported to ldap
+        # Never exported to ldap:
+        account.populate_trait(self.co.trait_user_retained, numval=0)
         account.write_db()
 
         self.assign_default_user_spreads(account)
@@ -498,50 +520,63 @@ class VirthomeUtils:
 
         return account, magic_key
 
-
     def create_fedaccount(self, account_name, email, expire_date=None,
-            human_first_name=None, human_last_name=None):
-        """Simple shortcut to create a FEDAccount. This is create_account with
-        default values:
+                          human_first_name=None, human_last_name=None):
+        """
+        Simple shortcut to create a FEDAccount.
+
+        This is create_account with default values:
+
             account_type=FEDAccount
             with_confirmation=False
 
-        @type account_name: str
-        @param account_name: Desired FEDAccount name. If unavailable, we'll
-                             encounter an error.
+        :type account_name: str
+        :param account_name:
+            Desired FEDAccount name. If unavailable, we'll encounter an error.
 
-        @type email: str
-        @param email: The FEDAccount owner's e-mail address.
+        :type email: str
+        :param email:
+            The FEDAccount owner's e-mail address.
 
-        @type expire_date: mx.DateTime.DateTime
-        @param expire_date: Expiration date for the FEDAccount we are about to
-                            create.
+        :type expire_date: mx.DateTime.DateTime
+        :param expire_date:
+            Expiration date for the FEDAccount we are about to create.
 
-        @type human_first_name: str
-        @param human_first_name: The first name(s) of the account owner
+        :type human_first_name: str
+        :param human_first_name:
+            The first name(s) of the account owner
 
-        @type human_last_name: str
-        @param human_last_name: The last name(s) of the account owner
+        :type human_last_name: str
+        :param human_last_name:
+            The last name(s) of the account owner
 
-        @rtype: int
-        @return: The entity id of the new account
+        :rtype: int
+        :return:
+            The entity id of the new account
         """
         account, confirmation_key = self.create_account(
-                FEDAccount, account_name, email, expire_date,
-                human_first_name, human_last_name, with_confirmation=False)
+            VirtAccount.FEDAccount,
+            account_name,
+            email,
+            expire_date,
+            human_first_name,
+            human_last_name,
+            with_confirmation=False,
+        )
         return account.entity_id
-
 
     # BofhdAuth-related methods
 
     def find_or_create_op_target(self, entity_id, target_type):
-        """ Finds an op-target of type L{target_type} that points to
-        L{entity_id}. If no targets exist, one will be created.
+        """
+        Find or create an auth target for a given entity.
+
+        Finds an op-target of type L{target_type} that points to L{entity_id}.
+        If no targets exist, one will be created.
         """
         aot = BofhdAuthOpTarget(self.db)
-
-        op_targets = [t for t in aot.list(entity_id=entity_id,
-                                          target_type=target_type)]
+        op_targets = list(aot.list(entity_id=entity_id,
+                                   target_type=target_type))
 
         # No target exists, create one
         if not op_targets:
@@ -549,24 +584,29 @@ class VirthomeUtils:
             aot.write_db()
             return aot
 
-        assert len(op_targets) == 1 # This method will never create more than one
-        assert op_targets[0]['attr'] is None # ... and never populates attr
+        # This method will never create more than one:
+        assert len(op_targets) == 1
+
+        # ... and never populates attr:
+        assert op_targets[0]['attr'] is None
 
         # Target exists, return it
         aot.find(op_targets[0]['op_target_id'])
         return aot
 
-
     def remove_auth_targets(self, entity_id, target_type=None):
-        """ This method will remove authorization targets of type
-        L{target_type} that points to the L{entity_id}. If L{target_type} is
-        None, all targets regardless of type will be removed.
+        """
+        Remove auth target for a given entity.
 
-        @type entity_id: int
-        @param entity_id: The entity_id of an object.
+        This method will remove authorization targets of type L{target_type}
+        that points to the L{entity_id}.  If L{target_type} is None, all
+        targets regardless of type will be removed.
 
-        @type target_type: str
-        @param target_type: The target type of the authorization target
+        :type entity_id: int
+        :param entity_id: The entity_id of an object.
+
+        :type target_type: str
+        :param target_type: The target type of the authorization target
         """
         ar = BofhdAuthRole(self.db)
         aot = BofhdAuthOpTarget(self.db)
@@ -582,21 +622,24 @@ class VirthomeUtils:
                                target['op_target_id'])
             aot.delete()
 
-
     def remove_auth_roles(self, entity_id):
-        """ This method will remove all authorization roles that has been given
+        """
+        Remove auth roles for a given entity.
+
+        This method will remove all authorization roles that has been given
         to an entity. It will also remove any remaining authorization targets
         that no longer have auth roles pointing to it as a result.
 
-        @type entity_id: int
-        @param entity_id: The entity_id of an object.
+        :type entity_id: int
+        :param entity_id: The entity_id of an object.
         """
         ar = BofhdAuthRole(self.db)
         aot = BofhdAuthOpTarget(self.db)
 
         # Remove all auth-roles the entity have over other targets
         for target in ar.list(entity_ids=entity_id):
-            ar.revoke_auth(entity_id, target['op_set_id'], target['op_target_id'])
+            ar.revoke_auth(entity_id, target['op_set_id'],
+                           target['op_target_id'])
 
             # Remove auth-target if there aren't any more auth-roles pointing
             # to it
@@ -607,10 +650,11 @@ class VirthomeUtils:
                 aot.delete()
 
     def list_group_admins(self, group):
-        """ List admins of C{group}.
+        """
+        List admins of C{group}.
 
-        @type group: Cerebrum.Group
-        @param group: A populated group object to list 'admins' for.
+        :type group: Cerebrum.Group
+        :param group: A populated group object to list 'admins' for.
 
         @rtype: list
         @return: A list of dictionaries with keys:
@@ -637,15 +681,18 @@ class VirthomeUtils:
         return ret
 
     def list_group_moderators(self, group):
-        """ List moderators of C{group}.
+        """
+        List moderators of C{group}.
 
-        @type group: Cerebrum.Group
-        @param group: A populated group object to list 'admins' for.
+        :type group: Cerebrum.Group
+        :param group: A populated group object to list 'admins' for.
 
-        @rtype: list
-        @return: A list of dictionaries with keys:
-                 ['account_id', 'account_name', 'owner_name', 'email_address',
-                  'group_id', 'group_name', 'description']
+        :rtype: list
+        :return:
+            A list of dictionaries with keys:
+
+            ['account_id', 'account_name', 'owner_name', 'email_address',
+             'group_id', 'group_name', 'description']
         """
         ret = []
         ac = self.account_class(self.db)
@@ -667,15 +714,18 @@ class VirthomeUtils:
         return ret
 
     def list_groups_admined(self, account):
-        """ List groups that C{account} is an admin for
+        """
+        List groups that C{account} is an admin for
 
-        @type account: Cerebrum.Account
-        @param account: A populated account object to list 'groups' for.
+        :type account: Cerebrum.Account
+        :param account: A populated account object to list 'groups' for.
 
-        @rtype: list
-        @return: A list of dictionaries with keys:
-                 ['group_id', 'group_name', 'url', 'description',
-                  'account_id', 'account_name']
+        :rtype: list
+        :return:
+            A list of dictionaries with keys:
+
+            ['group_id', 'group_name', 'url', 'description', 'account_id',
+             'account_name']
         """
         ret = []
         gr = self.group_class(self.db)
@@ -695,15 +745,18 @@ class VirthomeUtils:
         return ret
 
     def list_groups_moderated(self, account):
-        """ List groups moderated by C{account}
+        """
+        List groups moderated by C{account}
 
-        @type account: Cerebrum.Account
-        @param account: A populated account object to list 'groups' for.
+        :type account: Cerebrum.Account
+        :param account: A populated account object to list 'groups' for.
 
-        @rtype: list
-        @return: A list of dictionaries with keys:
-                 ['group_id', 'group_name', 'url', 'description',
-                  'account_id', 'account_name']
+        :rtype: list
+        :return:
+            A list of dictionaries with keys:
+
+            ['group_id', 'group_name', 'url', 'description', 'account_id',
+             'account_name']
         """
         ret = []
         gr = self.group_class(self.db)
@@ -725,27 +778,30 @@ class VirthomeUtils:
     # Realm-related functions
 
     def in_realm(self, name, realm, strict=True):
-        """ Simple test - is the given L{name} in the realm L{realm}
+        """
+        Check if the given L{name} is in the realm L{realm}
 
-        @type name: str
-        @param name: The name (account name group name)
+        :type name: str
+        :param name: The name (account name group name)
 
-        @type realm: str
-        @param realm: The realm, e.g. 'webid.uio.no'
+        :type realm: str
+        :param realm: The realm, e.g. 'webid.uio.no'
 
-        @type strict: bool
-        @param strict: If false, we consider 'some.sub.realm' as being in the realm
-                      'realm'. Otherwise, the realm must be an exact match.
+        :type strict: bool
+        :param strict:
+            If False, we consider 'some.sub.realm' as being in the realm
+            'realm'. Otherwise, the realm must be an exact match.
 
-        @rtype: bool
-        @return: True if the name is within the realm, false if not.
+        :rtype: bool
+        :return: True if the name is within the realm, false if not.
         """
         assert isinstance(name, (str, six.text_type)), 'Invalid name'
         assert not self.illegal_realm(realm), 'Invalid realm'
 
-        # We know the realm only contains :alnum: and periods. Should be safe to do:
-        regex_realm = realm.replace('.', '\.')
-        regex = re.compile('^(.+)@((.+\.)?%s)$' % regex_realm)
+        # We know the realm only contains :alnum: and periods.
+        # Should be safe to do:
+        regex_realm = realm.replace('.', r'\.')
+        regex = re.compile(r'^(.+)@((.+\.)?%s)$' % regex_realm)
         # Groups: 1: <name>, 2: <matched realm> (3: <subrealm.>)
 
         match = regex.match(name)
@@ -760,11 +816,12 @@ class VirthomeUtils:
         return match.group(2) == realm
 
     def illegal_realm(self, realm):
-        """ Simple test to see if a realm is an acceptable realm name
+        """
+        Simple test to see if a realm is an acceptable realm name
 
-        @rtype: bool
-        @return: If the given realm name is an illegal realm name
+        :rtype: bool
+        :return: If the given realm name is an illegal realm name
         """
         assert isinstance(realm, (str, six.text_type))
-        legal = re.compile('^[0-9a-z]+(\.[0-9a-z]+)*$')
+        legal = re.compile(r'^[0-9a-z]+(\.[0-9a-z]+)*$')
         return not bool(legal.match(realm))
