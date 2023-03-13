@@ -427,7 +427,6 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         webapp is the issuer_id in this case. The true account target is in
         event['subject_entity'].
         """
-
         assert event["change_type_id"] == self.clconst.va_reset_expire_date
         account_id = event["subject_entity"]
         target = self._get_account(account_id)
@@ -435,13 +434,13 @@ class BofhdVirthomeCommands(BofhdCommandBase):
                                   self.const.fedaccount_type):
             raise CerebrumError("Expiration date setting is limited to "
                                 "VA/FA only.")
-
         target.extend_expire_date()
         target.write_db()
-
-        return {'action': event.get('change_type'),
-                'username': target.account_name,
-                'date': target.expire_date.strftime('%Y-%m-%d'), }
+        return {
+            'action': event.get('change_type'),
+            'username': target.account_name,
+            'date': target.expire_date.strftime('%Y-%m-%d'),
+        }
 
     def __process_request_confirmation(self, issuer_id, magic_key, *rest):
         """
@@ -633,6 +632,8 @@ class BofhdVirthomeCommands(BofhdCommandBase):
             self.__check_password(None, password, account_name)
         else:
             raise CerebrumError("A VirtAccount must have a password")
+
+        expire_date = parsers.parse_date(expire_date, optional=True)
 
         # Create account without confirmation
         try:
@@ -1769,6 +1770,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
             raise CerebrumError("Illegal realm for '%s' (required: %s)" % (
                 account_name, cereconf.VIRTHOME_REALM))
 
+        expire_date = parsers.parse_date(expire_date, optional=True)
         account = self.virtaccount_class(self.db)
         try:
             account, confirmation_key = self.vhutils.create_account(
@@ -1850,6 +1852,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
             "confirmation_key": <str> Empty string.
         """
         self.ba.can_create_fedaccount(operator.get_entity_id())
+        expire_date = parsers.parse_date(expire_date, optional=True)
         account_id = self.vhutils.create_fedaccount(
                 account_name, email, expire_date, human_first_name,
                 human_last_name)

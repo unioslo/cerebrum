@@ -36,11 +36,11 @@ from __future__ import (
     # TODO: unicode_literals,
 )
 
+import datetime
 import re
 import sys
 
 import six
-from mx.DateTime import DateTimeDelta
 
 import cereconf
 
@@ -49,6 +49,7 @@ from Cerebrum.Utils import Factory
 from Cerebrum.group.GroupRoles import GroupRoles
 from Cerebrum.modules.bofhd.auth import BofhdAuthOpTarget, BofhdAuthRole
 from Cerebrum.modules.virthome import VirtAccount
+from Cerebrum.utils import date_compat
 
 
 class VirthomeBase(object):
@@ -152,11 +153,13 @@ class VirthomeBase(object):
         assert hasattr(inviter, 'entity_id')
         assert hasattr(group, 'entity_id')
 
-        timeout = DateTimeDelta(int(timeout))
-        if timeout.day < 1:
-            raise CerebrumError('Timeout too short (%d)' % timeout.day)
-        if (timeout > cereconf.MAX_INVITE_PERIOD):
-            raise CerebrumError("Timeout too long (%d)" % timeout.day)
+        timeout = datetime.timedelta(days=int(timeout))
+        max_timeout = date_compat.get_timedelta(cereconf.MAX_INVITE_PERIOD)
+
+        if timeout.days < 1:
+            raise CerebrumError('Timeout too short (%d)' % timeout.days)
+        if (timeout > max_timeout):
+            raise CerebrumError("Timeout too long (%d)" % timeout.days)
 
         ret = {
             'confirmation_key': self.vhutils.setup_event_request(
@@ -166,7 +169,7 @@ class VirthomeBase(object):
                     'inviter_id': inviter.entity_id,
                     'group_id': group.entity_id,
                     'invitee_mail': email,
-                    'timeout': timeout.day,
+                    'timeout': timeout.days,
                 },
                 change_by=inviter.entity_id,
             )}
@@ -461,23 +464,17 @@ class VirthomeUtils(object):
         :type account_type: subclass of BaseVirtHomeAccount
         :param account_type: The account class type to use.
 
-        :type account_name: str
-        :param account_name: Account name to give the new account
+        :param str account_name: Account name to give the new account
 
-        :type email: str
-        :param email: The email address of the account owner
+        :param str email: The email address of the account owner
 
-        :type expire_date: mx.DateTime.DateTime
         :param expire_date: The expire date for the account
 
-        :type human_first_name: str
-        :param human_first_name: The first name(s) of the account owner
+        :param str human_first_name: The first name(s) of the account owner
 
-        :type human_last_name: str
-        :param human_last_name: The last name(s) of the account owner
+        :param str human_last_name: The last name(s) of the account owner
 
-        :type with_confirmation: bool
-        :param with_confirmation:
+        :param bool with_confirmation:
             Controls whether a confirmation request should be issued for this
             account.
 
@@ -502,6 +499,7 @@ class VirthomeUtils(object):
             raise CerebrumError("Account '%s' already exists"
                                 % (account_name,))
 
+        expire_date = date_compat.get_date(expire_date)
         account = account_type(self.db)
         account.populate(email, account_name, human_first_name,
                          human_last_name, expire_date)
@@ -530,30 +528,26 @@ class VirthomeUtils(object):
             account_type=FEDAccount
             with_confirmation=False
 
-        :type account_name: str
-        :param account_name:
+        :param str account_name:
             Desired FEDAccount name. If unavailable, we'll encounter an error.
 
-        :type email: str
-        :param email:
+        :param str email:
             The FEDAccount owner's e-mail address.
 
-        :type expire_date: mx.DateTime.DateTime
         :param expire_date:
             Expiration date for the FEDAccount we are about to create.
 
-        :type human_first_name: str
-        :param human_first_name:
+        :param str human_first_name:
             The first name(s) of the account owner
 
-        :type human_last_name: str
-        :param human_last_name:
+        :param str human_last_name:
             The last name(s) of the account owner
 
         :rtype: int
         :return:
             The entity id of the new account
         """
+        expire_date = date_compat.get_date(expire_date)
         account, confirmation_key = self.create_account(
             VirtAccount.FEDAccount,
             account_name,

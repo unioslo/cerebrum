@@ -31,9 +31,8 @@ from __future__ import (
     print_function,
     # TODO: unicode_literals,
 )
+import datetime
 import string
-
-import mx.DateTime
 
 import cereconf
 
@@ -41,6 +40,7 @@ from Cerebrum import Utils
 from Cerebrum.Account import Account
 from Cerebrum.Entity import EntityName
 from Cerebrum.modules.EntityTrait import EntityTrait
+from Cerebrum.utils import date_compat
 
 
 class BaseVirtHomeAccount(Account, EntityTrait):
@@ -49,7 +49,7 @@ class BaseVirtHomeAccount(Account, EntityTrait):
     """
 
     # By default FA/VA persist in VH for 1 year until expiration kicks in.
-    DEFAULT_ACCOUNT_LIFETIME = mx.DateTime.DateTimeDelta(365)
+    DEFAULT_ACCOUNT_LIFETIME = datetime.timedelta(days=365)
 
     # IVR 2009-04-11 FIXME: This uglyness is due to the fact that Account
     # inherits from AccountType and AccountHome. In VirtHome we need neither
@@ -126,26 +126,22 @@ class BaseVirtHomeAccount(Account, EntityTrait):
         The caller is responsible for populating VirtAccount owner's human
         name elsewhere, if the name at all exists.
 
-        @type email: basestring
-        @param email:
+        :param str email:
           E-mail address associated with this VirtAccount. This is the only
           communication channel with whoever/whatever really owns a
           VirtAccount.
 
-        @type account_name: basestring
-        @param account_name:
+        :param str account_name:
           Account name for this VirtAccount structured as <name>@<realm>. The
           <realm> is fixed -- cereconf.VIRTACCOUNT_REALM. <name> cannot
           contain '@' and it cannot be empty. Account names are obviously
           unique (within the virthome realm). This can be used as an id.
 
-        @type expire_date: mx.DateTime.DateTime
-        @param expire_date:
+        :param expire_date:
           Expiration date for the account (an expired account is no longer
           considered available for any external services). If nothing is
           specified a default of now (creation date) + 1 year is used.
         """
-
         # IVR 2009-04-11 FIXME: We need to check that at the very least the
         # email is in a valid format.
         if not email or not email.strip():
@@ -154,6 +150,8 @@ class BaseVirtHomeAccount(Account, EntityTrait):
         # Double check that the username is available
         if not self.uname_is_available(account_name):
             raise ValueError("Username already taken")
+
+        expire_date = date_compat.get_date(expire_date)
 
         Account.populate(self,
                          account_name,
@@ -335,11 +333,10 @@ class BaseVirtHomeAccount(Account, EntityTrait):
         If no expire date is specified, set expire date to
         DEFAULT_ACCOUNT_LIFETIME days from today.
         """
+        date = date_compat.get_date(date)
         if date is None:
-            self.expire_date = (mx.DateTime.now()
-                                + self.DEFAULT_ACCOUNT_LIFETIME)
-        else:
-            self.expire_date = date
+            date = datetime.date.today() + self.DEFAULT_ACCOUNT_LIFETIME
+        self.expire_date = date
 
 
 class VirtAccount(BaseVirtHomeAccount):
