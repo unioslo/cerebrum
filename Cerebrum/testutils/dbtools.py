@@ -176,7 +176,7 @@ class DatabaseTools(object):
         @param account_dict: A dictionary with values for:
              - account_name: str (mandatory)
              - password: str or None (optional)
-             - expire_date: mx.DateTime.DateTime or None (optional)
+             - expire_date: datetime.date or or None (optional)
 
         @type person_owner_id: int, NoneType
         @param person_owner_id: The entity_id of person to set as account
@@ -238,7 +238,7 @@ class DatabaseTools(object):
 
         @type person_dict: dict
         @param person_dict: A dictionary with values for:
-             - birth_date: mx.DateTime.DateTime (mandatory)
+             - birth_date: datetime.date (mandatory)
              - gender: Cerebrum.Constants.GenderCode, str, NoneType (optional)
 
         @rtype: int
