@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 #
-# Copyright 2007-2019 University of Oslo, Norway
+# Copyright 2007-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -23,6 +23,12 @@ Generate ldif files to populate VirtHome's LDAP tree.
 
 This script can generate both user- and group LDIF files.
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    # TODO: unicode_literals,
+)
 import argparse
 import logging
 

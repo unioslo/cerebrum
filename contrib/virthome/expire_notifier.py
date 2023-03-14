@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2010-2021 University of Oslo, Norway
+# Copyright 2010-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -73,6 +73,12 @@ cereconf
         }
 
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    # TODO: unicode_literals,
+)
 import argparse
 import datetime
 import logging

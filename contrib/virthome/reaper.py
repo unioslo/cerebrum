@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 #
-# Copyright 2010-2021 University of Oslo, Norway
+# Copyright 2010-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,7 +18,8 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""Undo certain operations in Cerebrum.
+"""
+Undo certain operations in Cerebrum.
 
 This script scans the database for some entries and changes, and removes said
 entries/changes, subject to certain constraints.
@@ -28,6 +29,12 @@ Cerebrum that have not been confirmed within a specified period of time.
 
 The code should be generic enough to be used on any installation.
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    # TODO: unicode_literals,
+)
 import argparse
 import datetime
 import logging
@@ -37,15 +44,15 @@ import six
 import cereconf
 
 import Cerebrum.logutils
-from Cerebrum.Utils import Factory
-from Cerebrum.utils import json
 from Cerebrum import Entity
 from Cerebrum import Errors
+from Cerebrum.Utils import Factory
 from Cerebrum.modules.EntityTrait import EntityTrait
-from Cerebrum.modules.bofhd.auth import BofhdAuthRole
 from Cerebrum.modules.bofhd.auth import BofhdAuthOpTarget
+from Cerebrum.modules.bofhd.auth import BofhdAuthRole
+from Cerebrum.utils import date as date_utils
 from Cerebrum.utils import date_compat
-from Cerebrum.utils.date import now
+from Cerebrum.utils import json
 
 
 logger = logging.getLogger(__name__)
@@ -285,7 +292,7 @@ def delete_unconfirmed_accounts(account_np_type, db):
     account = Factory.get("Account")(db)
     for row in db.get_log_events(types=clconst.va_pending_create):
         tstamp = date_compat.get_datetime_tz(row["tstamp"])
-        if now() - tstamp <= grace_period:
+        if date_utils.now() - tstamp <= grace_period:
             continue
 
         account_id = int(row["subject_entity"])
@@ -363,7 +370,7 @@ def delete_stale_events(cl_events, db):
             if params['timeout'] is not None:
                 timeout = datetime.timedelta(days=int(params['timeout']))
                 logger.debug('Timeout set to %s for %s',
-                             (now() + timeout).strftime('%Y-%m-%d'),
+                             (date_utils.now() + timeout).strftime('%Y-%m-%d'),
                              event['change_id'])
 
                 if timeout > max_invite_period:
@@ -373,7 +380,7 @@ def delete_stale_events(cl_events, db):
                     timeout = max_invite_period
         except KeyError:
             pass
-        if now() - tstamp <= timeout:
+        if date_utils.now() - tstamp <= timeout:
             continue
 
         logger.debug("Deleting stale event %s (@%s) for entity %s (id=%s)",

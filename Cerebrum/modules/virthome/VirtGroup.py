@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 #
-# Copyright 2009 University of Oslo, Norway
+# Copyright 2009-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,34 +17,32 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-
-"""The VirtGroup module presents an API to the data about groups available in
-VirtHome.
-
-This module mimicks some of the functionality of Cerebrum/Group.py and relies
-on Cerebrum/{Entity.py,Group.py} and a few others.
 """
+WebID group class.
 
+The VirtGroup module presents an API to the data about groups available in
+VirtHome.  This module mimicks some of the functionality of Cerebrum/Group.py
+and relies on ``Cerebrum.Entity``, ``Cerebrum.Group``, and a few others.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    # TODO: unicode_literals,
+)
 import string
 import urlparse
 
-from mx.DateTime import now
-from mx.DateTime import DateTimeDelta
-
 import cereconf
 
-from Cerebrum import Group
-from Cerebrum.Entity import EntityName
-from Cerebrum.Group import Group as Group_class
+import Cerebrum.Group
 from Cerebrum.Entity import EntityContactInfo
 from Cerebrum.modules.EntityTrait import EntityTrait
 
 
-
-
-class VirtGroup(Group_class, EntityContactInfo, EntityTrait):
-    """VirtGroup extension of VirtHome.
+class VirtGroup(Cerebrum.Group.Group, EntityContactInfo, EntityTrait):
+    """
+    VirtGroup extension of VirtHome.
 
     This class tailors Cerebrum.Group:Group to VirtHome's needs.
 
@@ -54,17 +51,9 @@ class VirtGroup(Group_class, EntityContactInfo, EntityTrait):
     VA/FA?)
     """
 
-    DEFAULT_GROUP_LIFETIME = DateTimeDelta(180)
-    
-
-
     def __init__(self, *rest, **kw):
-        self.__super.__init__(*rest, **kw)
-
+        super(VirtGroup, self).__init__(*rest, **kw)
         self.legal_chars = set(string.letters + string.digits + " .@-")
-    # end __init__
-    
-    
 
     def populate(self, creator_id, name, description):
         """Populate a VirtGroup's instance, subject to some constraints."""
@@ -72,24 +61,20 @@ class VirtGroup(Group_class, EntityContactInfo, EntityTrait):
         assert not self.illegal_name(name), "Invalid group name %s" % (name,)
         assert description.strip()
 
-        self.__super.populate(
+        super(VirtGroup, self).populate(
             creator_id=creator_id,
             visibility=self.const.group_visibility_all,
             name=name,
             description=description,
             group_type=self.const.group_type_unknown,
         )
-        #self.expire_date = now() + self.DEFAULT_GROUP_LIFETIME
-    # end populate
-
-
 
     def set_group_resource(self, url):
-        """Unconditionally reassign a new URL to this group.
+        """
+        Unconditionally reassign a new URL to this group.
 
         If URL is None (or ''), we'll remove whatever URL was in the database.
         """
-
         # Check the URL's validity before doing anything to the database.
         self.verify_group_url(url)
         resources = self.get_contact_info(self.const.system_virthome,
@@ -110,28 +95,23 @@ class VirtGroup(Group_class, EntityContactInfo, EntityTrait):
             self.add_contact_info(self.const.system_virthome,
                                   self.const.virthome_group_url,
                                   url)
-    # end set_group_resource
-
-    
 
     def verify_group_url(self, url):
-        """Check that the URL at least looks sane.
+        """
+        Check that the URL at least looks sane.
 
         We allow empty/None values here.
         """
         if not url:
             return True
-        
+
         resource = urlparse.urlparse(url)
         if resource.scheme not in ("http", "https", "ftp",):
             raise ValueError("Invalid url for group <%s>: <%s>" %
                              (self.group_name, url))
 
         return True
-    # end verify_group_url
 
-
-    
     def illegal_name(self, name):
         """Return a string with error message if groupname is illegal"""
 
@@ -143,7 +123,7 @@ class VirtGroup(Group_class, EntityContactInfo, EntityTrait):
 
         if any(x not in self.legal_chars for x in name):
             return "Illegal character in group name"
-        
+
         if name.count("@") != 1:
             return "Group name is missing a realm"
 
@@ -152,6 +132,3 @@ class VirtGroup(Group_class, EntityContactInfo, EntityTrait):
             return "Wrong realm <%s> for VirtGroup <%s>"
 
         return False
-    # end illegal_name
-# end VirtGroup
-
