@@ -1,6 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright 2015-2018 University of Oslo, Norway
+#
+# Copyright 2015-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,11 +17,13 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""
+Mixin for letting persons approve or deny a proposition.
 
-"""Mixin for letting persons approve or deny a proposition.
+This module stores various opt-in (consents) or opt-out (reservation) settings
+for a given person.
 
-The main reason for this module is for when the person needs to give an opt-in
-or opt-out of some feature, the main examples being:
+Typical settings are:
 
     * For legal matters, an opt-in may be required before exporting personal
       data to some external system.
@@ -29,8 +31,9 @@ or opt-out of some feature, the main examples being:
 
 Usage
 ======
+1. Add ``"Cerebrum.modules.consent.ConsentConstants/Constants"`` to
+   ``cereconf.CLASS_CONSTANTS``
 
-1. Add Cerebrum.modules.Consent/Constants to CLASS_CONSTANTS
 2. For each consent in question, add a constant with type
    EntityConsentCode::
 
@@ -39,18 +42,20 @@ Usage
                 'myconsent',
                 description="My consent",
                 consent_type=Constants.consent_opt_in,
-                entity_type=Constants.entity_person)
+                entity_type=Constants.entity_person,
+            )
 
-3. Add Cerebrum.modules.Consent.EntityConsentMixin to CLASS_ENTITY (or
-   subclasses thereof)
-4. Use the api
+3. Add ``"Cerebrum.modules.consent.Consent/EntityConsentMixin"`` to
+   ``cereconf.CLASS_ENTITY`` (or subclasses thereof)
+
+4. Use the `API`_.
 
 Here, consent type is either consent_opt_in or consent_opt_out. When a consent
 is set, a check against entity_type is done.
 
+
 API
 ====
-
 The API is contained in EntityConsentMixin:
 
 Whenever the user agrees to some proposition, the corresponding consent code
@@ -59,7 +64,7 @@ is used to set a consent::
     person.find(xxx)
     person.set_consent(co.myconsentcode, "Given consent in Brukerinfo", None)
 
-set_consent can also be used to update consents, or only one of the two
+``set_consent`` can also be used to update consents, or only one of the two
 fields. A consent can also be removed with::
 
     person.remove_consent(co.myconsentcode)
@@ -67,20 +72,30 @@ fields. A consent can also be removed with::
 Neither set_consent() nor remove_consent() has any effect until write_db()
 is called.
 
-Change logging
-===============
-
-Three events exist: consent_approve, consent_decline, and consent_remove.
-The first two corresponds to new or updated consents with opt-in or opt-out
-respectively. The last is sent when consent is removed.
+Changelog
+==========
+Three changelog events exist: consent_approve, consent_decline, and
+consent_remove.  The first two corresponds to new or updated consents with
+opt-in or opt-out respectively. The last is sent when consent is removed.
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    # TODO: unicode_literals,
+)
 import six
 
 from Cerebrum.Entity import Entity
 from Cerebrum.Errors import PolicyException
 from Cerebrum.Utils import NotSet, argument_to_sql
-from ConsentConstants import (CLConstants, Constants, _EntityConsentCode,
-                              _ConsentTypeCode)
+
+from .ConsentConstants import (
+    CLConstants,
+    Constants,
+    _ConsentTypeCode,
+    _EntityConsentCode,
+)
 
 __version__ = "1.0"
 
@@ -264,54 +279,13 @@ class EntityConsentMixin(Entity):
         super(EntityConsentMixin, self).clear()
         self.__consents = {}
 
-    def list_consents(self, consent_code=None, entity_type=None,
-                      consent_type=None, entity_id=None,
-                      filter_expired=True):
-        """List all entities filtered by argument.
-
-        Note: consent_code, entity_type, consent_type and entity_id can also be
-        a tuple, set or list of the type specified below.
-
-        :type consent_code: Constants.EntityConsent
-        :param consent_code: The consent code(s) corresponding to proposition.
-
-        :type entity_type: Constants.EntityType
-        :param entity_type: Filter for entity_type(s) (part of consent code).
-
-        :type consent_type: Constants.ConsentType
-        :param consent_type: The type(s) of consents to list.
-
-        :type entity_id: int
-        :param entity_id: List consents for given entity(ies).
-
-        :type filter_expired: Bool
-        :param filter_expired: Iff true, remove expired consents.
-
-        :returns: List of db rows.
+    def list_consents(self, **kwargs):
         """
-        filters = set()
-        args = {}
-        if consent_code:
-            filters.add(
-                argument_to_sql(consent_code, 'consent_code', args, int))
-        if entity_type:
-            filters.add(
-                argument_to_sql(entity_type, 'entity_type', args, int))
-        if consent_type:
-            filters.add(
-                argument_to_sql(consent_type, 'consent_type', args, int))
-        if entity_id:
-            filters.add(
-                argument_to_sql(entity_id, 'entity_id', args))
-        if filter_expired:
-            filters.add('(expiry is null or expiry < [:now])')
-        sql = """SELECT entity_consent.*
-        FROM [:table schema=cerebrum name=entity_consent]
-        INNER JOIN [:table schema=cerebrum name=entity_consent_code]
-        ON consent_code = code"""
-        if filters:
-            sql += " WHERE " + " AND ".join(filters)
-        return self.query(sql, args)
+        List all entities filtered by argument.
+
+        See :func:`.sql_select_consents` for more info.
+        """
+        return sql_select_consents(self._db, **kwargs)
 
     def get_consent_status(self, consent_code):
         """Returns a row for self and consent_code, or None.
@@ -322,7 +296,7 @@ class EntityConsentMixin(Entity):
         :returns: Db row or None
         """
         ret = self.list_consents(consent_code=consent_code,
-                                 entity_id=self.entity_id)
+                                 entity_id=int(self.entity_id))
         if ret:
             return ret[0]
 
@@ -339,41 +313,23 @@ class EntityConsentMixin(Entity):
         :type description: string, NotSet or None (=Null)
         :param description: Description.
 
-        :type expiry: mx.DateTime, NotSet or None (=Null)
+        :type expiry: datetime.datetime, NotSet or None (=Null)
         :param description: expiry.
         """
         consent_code = assert_consent_code(consent_code)
-        if not isinstance(consent_code, _EntityConsentCode):
-            consent_code = _EntityConsentCode(consent_code)
-        if consent_code.consent_type == Constants.consent_opt_in:
-            change = CLConstants.consent_approve
-        else:
-            change = CLConstants.consent_decline
         if consent_code.entity_type != self.entity_type:
-            # raise PolicyException("Consent {type} not compatible"
-            #                       " with {etype}".format(
-            #                            type=consent_code,
-            #                            etype=self.entity_type))
-            raise PolicyException("Consent %(type)s not compatible"
-                                  " with %(etype)s" % {
-                                      'type': consent_code,
-                                      'etype': self.entity_type})
+            raise PolicyException(
+                "Consent %(type)s not compatible with %(etype)s"
+                % {'type': consent_code, 'etype': self.entity_type})
         code = int(consent_code)
         if code not in self.__consents:
-            self.__consents[code] = {
-                'consent_code': consent_code
-            }
+            self.__consents[code] = {'consent_code': consent_code}
         elif 'deleted' in self.__consents[code]:
             del self.__consents[code]['deleted']
         if description is not NotSet:
             self.__consents[code]['description'] = description
         if expiry is not NotSet:
             self.__consents[code]['expiry'] = expiry
-        change_params = self.__consents[code].copy()
-        change_params['consent_code'] = code
-        change_params['consent_string'] = str(consent_code)
-        self._db.log_change(self.entity_id, change, None,
-                            change_params=change_params)
 
     def remove_consent(self, consent_code):
         """Removes a consent of given type"""
@@ -382,10 +338,6 @@ class EntityConsentMixin(Entity):
             self.__consents[code]['deleted'] = True
         else:
             self.__consents[code] = {'deleted': True}
-        self._db.log_change(self.entity_id, CLConstants.consent_remove, None,
-                            change_params={
-                                'consent_code': code,
-                                'consent_string': str(consent_code)})
 
     def write_db(self):
         """Write changes to database."""
@@ -398,7 +350,7 @@ class EntityConsentMixin(Entity):
         for c, obj in self.__consents.items():
             code = assert_consent_code(c)
             if 'deleted' in obj:
-                sql_delete_consent(self._db, self.entity_id, code)
+                sql_delete_consent(self._db, int(self.entity_id), code)
             elif c in consents:
                 kwargs = {}
                 if 'description' in obj:
