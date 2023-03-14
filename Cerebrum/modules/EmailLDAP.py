@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright 2003-2019 University of Oslo, Norway
+#
+# Copyright 2003-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,10 +18,13 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """Generates a mail tree for LDAP."""
-
-from __future__ import unicode_literals
-
-import mx
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+import datetime
 
 from collections import defaultdict
 
@@ -31,6 +35,18 @@ from Cerebrum.Utils import Factory, mark_update
 from Cerebrum.modules import Email
 from Cerebrum.modules import EmailConstants
 from Cerebrum.modules.bofhd_requests.request import BofhdRequests
+from Cerebrum.utils import date as date_utils
+from Cerebrum.utils import date_compat
+
+
+def _is_near_future(_when):
+    near_future = date_utils.now() + datetime.timedelta(minutes=15)
+    when = date_compat.get_datetime_tz(_when)
+    if not when:
+        # This might seem odd, but this preserves old behaviour
+        # (None < mx-like)
+        return True
+    return when < near_future
 
 
 class EmailLDAP(DatabaseAccessor):
@@ -214,11 +230,10 @@ class EmailLDAP(DatabaseAccessor):
     def read_pending_moves(self):
         br = BofhdRequests(self._db, self.const)
         # We define near future as 15 minutes from now.
-        near_future = mx.DateTime.now() + mx.DateTime.DateTimeDelta(0, 0, 15)
         for op in (self.const.bofh_email_create,
                    self.const.bofh_email_convert):
             for r in br.get_requests(operation=op):
-                if r['run_at'] < near_future:
+                if _is_near_future(r['run_at']):
                     self.pending[int(r['entity_id'])] = True
 
     def get_multi_target(self, group_id, ignore_missing=False):
@@ -307,4 +322,3 @@ class EmailLDAP(DatabaseAccessor):
         # attribute should be populated, cat it to the string in this hash
         # with a '\n' between them.
         pass
-
