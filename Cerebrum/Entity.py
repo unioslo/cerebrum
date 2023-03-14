@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2002-2021 University of Oslo, Norway
+# Copyright 2002-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -24,7 +24,12 @@ This module contains the base class for all database objects in Cerebrum, along
 with mixins for this base class that provides common functionality, like the
 ability to assign quarantines and spreads.
 """
-from __future__ import unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import collections
 
@@ -1327,7 +1332,7 @@ class EntityQuarantine(Entity):
         :type qtype: QuarantineCode or int
         :param qype: The quarantine to be disabled
 
-        :type until: mx.DateTime
+        :type until: datetime.date or mx-like datetime
         :param until: Disable quarantine until this point in time
         """
         binds = {'entity_id': self.entity_id,

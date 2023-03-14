@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2013-2018 University of Oslo, Norway
+# Copyright 2013-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,13 +17,19 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""Account mixin for the TSD project.
+"""
+Account mixin for the TSD project.
 
 Accounts in TSD needs to be controlled. The most important issue is that one
 account is only allowed to be a part of one single project, which is why we
 should refuse account_types from different OUs for a single account.
 """
-from __future__ import unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import base64
 import os
@@ -66,10 +72,10 @@ class AccountTSDMixin(Account.Account):
         """
         autofreeze_quarantine_start-property - getter
 
-        :rtype: mx.DateTime or None
+        :rtype: mx-like datetime object or None
         :return: Return the start_date of the autofreeze quarantine
             (Note: None will be returned in a case of no autofreeze-quarantines
-            for the Account. Hence mx.DateTime return value is a proof that
+            for the Account. Hence any other return value is a proof that
             the Account has at least one autofreeze-quarantine, while return
             value None is not a proof of the opposite
         """
@@ -182,7 +188,7 @@ class AccountTSDMixin(Account.Account):
         """
         # Round upwards to nearest full byte by adding 7 to the number of bits.
         # This makes sure that it's always rounded upwards if not modulo 0 to 8
-        int_bytes = (length + 7) / 8
+        int_bytes = (length + 7) // 8
         ret = six.binary_type()
         while len(ret) < int_bytes:
             ret += os.urandom(int_bytes - len(ret))
@@ -307,5 +313,5 @@ class AccountTSDMixin(Account.Account):
                     # Same name, two different persons
                     return False
             return True
-        except:
+        except Exception:
             return False

@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright 2002-2018 University of Oslo, Norway
+#
+# Copyright 2002-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -16,16 +17,28 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""Default Cerebrum installation settings.  Overrides go in cereconf.py."""
-from __future__ import unicode_literals
+"""
+Default Cerebrum installation settings.
+
+Overrides go in a ``cereconf`` module, which should import default
+values from this moule.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 from os.path import join as pj
 from sys import prefix
 
 
-# Default timezone. This value *must* match the timezone configuration of the
-# SQL server. The value is used to convert naive, local datetimes from the
-# database (mx.DateTime) into proper localized datetime values.
+# Default timezone.
+#
+# This value *must* match the timezone configuration of the SQL server, as it
+# is used to convert naive, local datetimes from the database into proper
+# localized datetime values.
 TIMEZONE = 'Europe/Oslo'
 
 # Files containing the authentication data needed for database access
