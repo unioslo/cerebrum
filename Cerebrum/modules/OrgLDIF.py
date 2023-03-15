@@ -1005,7 +1005,7 @@ class OrgLDIF(object):
 
         export_id = self.export_ids.get(person_id)
         if export_id:                
-            entry['eduPersonUniqueID'] = "@".join(                                
+            entry['eduPersonUniqueId'] = "@".join(                                
                 (export_id, self.config.domain_name)
             )
 
