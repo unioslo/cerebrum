@@ -70,8 +70,7 @@ Create a datasource with a alternating foo attribute:
     infinite_source = datasource()
     another_item = infinite_source.next()
 """
-from mx.DateTime import DateTimeDelta
-from mx.DateTime import now
+import datetime
 
 
 # When used with filter(expired_filter, items), will return expired items
@@ -84,8 +83,8 @@ def expired_filter(data):
 
     Example: filter(expired_filter, BasicGroupSource(limit=3))
     """
-    return ((data.get('expire_date') is not None)
-            and (data.get('expire_date') < now()))
+    return (data.get('expire_date') is not None
+            and data.get('expire_date') < datetime.date.today())
 
 
 def nonexpired_filter(data):
@@ -97,8 +96,8 @@ def nonexpired_filter(data):
 
     Example: filter(nonexpired_filter, BasicGroupSource(limit=3))
     """
-    return ((data.get('expire_date') is None)
-            or (data.get('expire_date') >= now()))
+    return (data.get('expire_date') is None
+            or data.get('expire_date') >= datetime.date.today())
 
 
 class BaseDataSource(object):
@@ -317,8 +316,11 @@ class ExpireDateMixin(object):
     """ A mixin for providing expire dates. """
 
     expire_attr = 'expire_date'
-    expire_dates = [None, now() - DateTimeDelta(10),
-                    now() + DateTimeDelta(10)]
+    expire_dates = (
+        None,
+        datetime.date.today() - datetime.timedelta(days=10),
+        datetime.date.today() + datetime.timedelta(days=10),
+    )
 
     def __init__(self):
         parent = super(ExpireDateMixin, self)
@@ -333,7 +335,7 @@ class ExpireDateMixin(object):
         @type ident: str
         @param ident: The 'ident' or 'id of an item
 
-        @rtype: mx.DateTime.DateTime or NoneType
+        @rtype: datetime.date or NoneType
         @return: An expire date or None
 
         """
@@ -359,8 +361,11 @@ class EntityMixin(object):
 
 class BasicPersonSource(BaseDataSource):
 
-    birth_dates = [now(), now() - DateTimeDelta(365*100),
-                   now() - DateTimeDelta(356 * 20)]
+    birth_dates = (
+        datetime.date.today(),
+        datetime.date.today() - datetime.timedelta(days=365*100),
+        datetime.date.today() - datetime.timedelta(days=365*20),
+    )
 
     genders = ['M', 'F', None]
 
@@ -396,9 +401,8 @@ class BasicPersonSource(BaseDataSource):
         @type ident: str
         @param ident: The 'ident' or 'id of an item
 
-        @rtype: mx.DateTime.DateTime or NoneType
+        @rtype: datetime.date
         @return: One of the values in self.birth_dates
-
         """
         if ident in getattr(self, 'items'):
             return getattr(self, 'items')[ident][self.expire_attr]

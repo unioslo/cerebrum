@@ -1,42 +1,70 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-""" Basic tests for Cerebrum.Entity.EntityQuarantine. """
+# encoding: utf-8
+#
+# Copyright 2016-2023 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""
+Basic tests for ``Cerebrum.Entity.EntityQuarantine``
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+import datetime
+
 import pytest
-from mx import DateTime as dt
+
+from Cerebrum.utils import date_compat
 
 
-similar_date = lambda a, b: (a.day == b.day
-                             and a.month == b.month
-                             and a.year == b.year)
+today = datetime.date.today()
+tomorrow = today + datetime.timedelta(days=1)
+yesterday = today - datetime.timedelta(days=1)
 
 
 @pytest.fixture
-def Entity(entity_module):
+def entity_cls(entity_module):
     return getattr(entity_module, 'EntityQuarantine')
 
 
 @pytest.fixture
-def Quarantine(constant_module):
+def quarantine_cls(constant_module):
     return getattr(constant_module, '_QuarantineCode')
 
 
 @pytest.fixture
-def quar_x(Quarantine):
-    code = Quarantine('d50ecaee9ada9ec4', description='x', duration=None)
+def quar_x(quarantine_cls):
+    code = quarantine_cls('d50ecaee9ada9ec4', description='x', duration=None)
     code.insert()
     return code
 
 
 @pytest.fixture
-def quar_y(Quarantine):
-    code = Quarantine('930badececa00f15', description='y', duration=10)
+def quar_y(quarantine_cls):
+    code = quarantine_cls('930badececa00f15', description='y', duration=10)
     code.insert()
     return code
 
 
 @pytest.fixture
-def entity_obj(Entity, database):
-    return Entity(database)
+def entity_obj(entity_cls, database):
+    return entity_cls(database)
 
 
 @pytest.fixture
@@ -48,30 +76,28 @@ def entity(entity_obj, entity_type):
 
 def test_quarantine(entity, initial_account, quar_x, quar_y):
     entity.add_entity_quarantine(quar_x, initial_account.entity_id,
-                                 start=dt.now() - 1)
+                                 start=yesterday)
     assert len(entity.get_entity_quarantine()) == 1
-
-    start, end = dt.now() - 2, dt.now() + 2
+    start, end = yesterday, tomorrow
     desc = "because"
-    created = dt.now()
     entity.add_entity_quarantine(quar_y, initial_account.entity_id,
-                                 start=start,
-                                 end=end,
+                                 start=start, end=end,
                                  description=desc)
-    quar = entity.get_entity_quarantine(qtype=quar_y)
-    assert len(quar) == 1
-    assert quar[0]['quarantine_type'] == quar_y
-    assert quar[0]['description'] == desc
-    assert quar[0]['disable_until'] is None
-    assert similar_date(quar[0]['start_date'], start)
-    assert similar_date(quar[0]['end_date'], end)
-    assert similar_date(quar[0]['create_date'], created)
+    rows = entity.get_entity_quarantine(qtype=quar_y)
+    assert len(rows) == 1
+    row = rows[0]
+    assert row['quarantine_type'] == quar_y
+    assert row['description'] == desc
+    assert row['disable_until'] is None
+    assert date_compat.get_date(row['start_date']) == start
+    assert date_compat.get_date(row['end_date']) == end
+    assert date_compat.get_date(row['create_date']) == today
 
 
 def test_get_quarantine(entity, initial_account, quar_x, quar_y):
     entity.add_entity_quarantine(quar_x,
                                  initial_account.entity_id,
-                                 start=dt.now() + 1)
+                                 start=tomorrow)
 
     quars = entity.get_entity_quarantine()
     assert len(quars) == 1
@@ -80,8 +106,8 @@ def test_get_quarantine(entity, initial_account, quar_x, quar_y):
 
     entity.add_entity_quarantine(quar_y,
                                  initial_account.entity_id,
-                                 start=dt.now() - 1)
-    entity.disable_entity_quarantine(quar_y, dt.now() + 1)
+                                 start=yesterday)
+    entity.disable_entity_quarantine(quar_y, tomorrow)
 
     quars = entity.get_entity_quarantine()
     assert len(quars) == 2
