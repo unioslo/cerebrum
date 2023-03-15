@@ -57,6 +57,7 @@ import hashlib
 import os
 
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
+from Cerebrum.utils import date_compat
 
 __version__ = "1.1"
 
@@ -165,8 +166,8 @@ class PasswordHistoryMixin(ClearPasswordHistoryMixin):
         """
         Check if this account have used a similar password before.
 
-        Note that this check can be pretty expensive, as it needs to brute force
-        different password combinations.
+        Note that this check can be pretty expensive, as it needs to brute
+        force different password combinations.
 
         :param str password: The plaintext password.
 
@@ -252,11 +253,14 @@ class PasswordHistory(DatabaseAccessor):
             salt = os.urandom(pbkdf2_params['salt_size'])
             keylen = pbkdf2_params['desired_key_len']
             csum = encode_for_history(algo, rounds, salt, password, keylen)
+
         if _when is not None:
             col_when = ", set_at"
             val_when = ", :when"
         else:
             col_when = val_when = ""
+        when = date_compat.get_datetime_naive(_when)
+
         self.execute(
             """
             INSERT INTO [:table schema=cerebrum name=password_history]
@@ -266,7 +270,7 @@ class PasswordHistory(DatabaseAccessor):
             {
                 'e_id': entity_id,
                 'hash': csum,
-                'when': _when,
+                'when': when,
             },
         )
 
@@ -340,6 +344,7 @@ class PasswordHistory(DatabaseAccessor):
         # - has spread
         # - has expire_date in the future/not set
         # - newest entry in password_history is older than <date>
+        when = date_compat.get_datetime_naive(date, allow_none=False)
         return self.query(
             """
             SELECT account_id
@@ -355,7 +360,7 @@ class PasswordHistory(DatabaseAccessor):
             GROUP BY ai.account_id
             HAVING MAX(set_at) < :date
             """,
-            {'date': date},
+            {'date': when},
         )
 
     def find_no_history_accounts(self):

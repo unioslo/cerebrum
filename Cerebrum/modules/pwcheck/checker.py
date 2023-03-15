@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2016-2017 University of Oslo, Norway
+# Copyright 2016-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,18 +17,24 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-"""This module contains common tools for password checks."""
-
-import cereconf
+"""
+This module contains common tools for password checks.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import collections
 import gettext
 import os
-import string
 import sys
 
 import six
+
+import cereconf
 
 
 locale_dir = getattr(cereconf,
@@ -135,7 +140,8 @@ def check_password(password, account=None, structured=False, checkers=None):
     fallback_lang = "en"
     for style, checks in checkers_dict.items():
         for check_name, check_args in checks:
-            for lang in getattr(cereconf, 'GETTEXT_LANGUAGE_IDS', (fallback_lang,)):
+            for lang in getattr(cereconf, 'GETTEXT_LANGUAGE_IDS',
+                                (fallback_lang,)):
                 # load the language
                 gettext.translation(gettext_domain,
                                     localedir=locale_dir,
@@ -146,7 +152,8 @@ def check_password(password, account=None, structured=False, checkers=None):
                 # bail fast if we're not returning a structure
                 if not structured and err and pwstyle == style:
                     cls = exception_classes.get(style, PasswordNotGoodEnough)
-                    # use only the first message we received when raising exceptions
+                    # use only the first message we received when raising
+                    # exceptions
                     raise cls(err[0])
                 if err:
                     errors[(style, check_name)][lang] = err

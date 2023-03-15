@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003-2018 University of Oslo, Norway
+# Copyright 2003-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -32,12 +31,16 @@ structure of the dictionary checks, please see:
 > commit 9a01d8b6ac93513a57ac8d6393de842939582f51
 > Mon Jul 20 14:12:55 2015 +0200
 """
-from __future__ import unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import io
 import os
 import re
-import string
 
 import cereconf
 
@@ -53,29 +56,30 @@ def additional_words():
         yield w
 
 
-def look(FH, key, dictn, fold):
-    """Quick port of look.pl (distributed with perl 4)
+def look(fh, key, dictn, fold):
+    """
+    Quick port of look.pl (distributed with perl 4)
 
     http://cpansearch.perl.org/src/ZEFRAM/Perl4-CoreLibs-0.003/lib/look.pl
     """
     # TODO: Speedup could be gained for by remembering where in
     # the file we ended up last time
-    blksize = os.statvfs(FH.name)[0]
+    blksize = os.statvfs(fh.name)[0]
     if blksize < 1 or blksize > 65536:
         blksize = 8192
     if dictn:
         key = re.sub(r'[^\w\s]', '', key)
     if fold:
         key = key.lower()
-    max = int(os.path.getsize(FH.name) / blksize)
+    max = int(os.path.getsize(fh.name) // blksize)
     min = 0
     # "binary search" for a file position somewhere before our word
     while (max - min > 1):
-        mid = int((max + min) / 2)
-        FH.seek(mid * blksize, 0)
+        mid = int((max + min) // 2)
+        fh.seek(mid * blksize, 0)
         if mid:
-            line = FH.readline()
-        line = FH.readline()
+            line = fh.readline()
+        line = fh.readline()
         line.strip()
         if dictn:
             line = re.sub(r'[^\w\s]', '', line)
@@ -86,11 +90,11 @@ def look(FH, key, dictn, fold):
         else:
             max = mid
     min = min * blksize
-    FH.seek(min, 0)
+    fh.seek(min, 0)
     if min:
-        FH.readline()
+        fh.readline()
     while 1:
-        line = FH.readline()
+        line = fh.readline()
         if len(line) == 0:
             break
         line = line.strip()
@@ -100,8 +104,8 @@ def look(FH, key, dictn, fold):
             line = line.lower()
         if line >= key:
             break
-        min = FH.tell()
-    FH.seek(min, 0)
+        min = fh.tell()
+    fh.seek(min, 0)
     return min
 
 
@@ -206,7 +210,7 @@ def check_two_word_combinations(dictionaries, word, file_encoding='utf-8'):
         if m:
             oneup = m.group(1)
         npass = cword.translate(l33t_speak)
-        npass = re.sub('/[\?\!\.]$', '', npass)
+        npass = re.sub(r'/[\?\!\.]$', '', npass)
         if re.search(r'.+[A-Z].*[A-Z]', word):
             return None
         if re.search(r'^..[a-z]+$', word):

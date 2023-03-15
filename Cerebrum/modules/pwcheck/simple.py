@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003-2019 University of Oslo, Norway
+# Copyright 2003-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,7 +17,8 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""This module contains simple password checks.
+"""
+This module contains simple password checks.
 
 The CheckSimpleMixin class is an adoption of the old PasswordChecker class, and
 used to check simple password constraints.
@@ -31,13 +31,18 @@ structure of the dictionary checks, please see:
 > commit 9a01d8b6ac93513a57ac8d6393de842939582f51
 > Mon Jul 20 14:12:55 2015 +0200
 """
-from __future__ import unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
-import re
 import operator
+import re
 import string
 
-from six import text_type
+import six
 
 from Cerebrum.Errors import NotFoundError
 from Cerebrum.Utils import Factory
@@ -280,11 +285,13 @@ class CheckSimpleEntropyCalculator(PasswordChecker):
         Returns a (character groups used,
         min. amount of characters for each of those groups)-tuple
         """
-        counters = {text_type(string.ascii_lowercase): 0,
-                    text_type(string.ascii_uppercase): 0,
-                    text_type(string.digits): 0,
-                    # here we define ' ' as a punctuation character
-                    text_type(string.punctuation) + ' ': 0}
+        counters = {
+            six.text_type(string.ascii_lowercase): 0,
+            six.text_type(string.ascii_uppercase): 0,
+            six.text_type(string.digits): 0,
+            # here we define ' ' as a punctuation character
+            six.text_type(string.punctuation) + ' ': 0,
+        }
         for character in seq:
             for group in counters.keys():
                 if character in group:
@@ -437,20 +444,21 @@ class CheckCharacterSequence(PasswordChecker):
         # TODO: 'kbd' should probably try a number of typical layouts.
         # Rows may be of different lengths, but the same symbol CANNOT occur
         # more than once.
-        keyboard_rows = (u"qwertyuiop[]",
-                         u"qwertyuiopå",  # norwegian
-                         u"asdfghjkl;'",
-                         u"asdfghjkløæ",  # norwegian
-                         u"zxcvbnm,./",
-                         u"zxcvbnm,.-",   # norwegian
-                         u"!@#$%^&*()_+|~",
-                         u"§!\"#$%&/()=?",
-                         u"-1234567890=\`",
-                         u"å,.pyfgcrl'",  # dvorak
-                         u"å;:pyfgcrl'",  # dvorak
-                         u"aoeuidhtns-<",  # dvorak
-                         u"øæqjkxbmwvz",  # dvorak
-                         )
+        keyboard_rows = (
+            "qwertyuiop[]",
+            "qwertyuiopå",  # norwegian
+            "asdfghjkl;'",
+            "asdfghjkløæ",  # norwegian
+            "zxcvbnm,./",
+            "zxcvbnm,.-",   # norwegian
+            "!@#$%^&*()_+|~",
+            "§!\"#$%&/()=?",
+            r"-1234567890=\`",
+            "å,.pyfgcrl'",  # dvorak
+            "å;:pyfgcrl'",  # dvorak
+            "aoeuidhtns-<",  # dvorak
+            "øæqjkxbmwvz",  # dvorak
+        )
 
         for row in keyboard_rows:
             mapper = dict([(key, val+1) for val, key in enumerate(row)])
@@ -493,7 +501,7 @@ class CheckRepeatedPattern(PasswordChecker):
 
 
 @pwchecker('exact_username')
-class CheckUsername(PasswordChecker):
+class CheckUsernameExact(PasswordChecker):
     """Check for use of the username in the password."""
 
     def __init__(self):
@@ -541,7 +549,7 @@ class CheckUsername(PasswordChecker):
 
 
 @pwchecker('exact_owner_name')
-class CheckOwnerNameMixin(PasswordChecker):
+class CheckOwnerNameExactMixin(PasswordChecker):
     """Check for use of the account owners name in the password."""
 
     def __init__(self, initial_chars=None, min_length=0):
@@ -657,7 +665,7 @@ class CheckOwnerNameMixin(PasswordChecker):
 
         # Join all possible sequences of length
         def all_chunks(x):
-            tmp = u''.join(x)
+            tmp = ''.join(x)
             if len(tmp) > seqlen:
                 for i in range(len(tmp) - seqlen):
                     yield tmp[i:i+seqlen]
