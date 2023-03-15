@@ -104,7 +104,9 @@ def main(inargs=None):
 
     logger.info('Deleting all entries in password_history before: %s',
                 exp_date)
-    ph.del_exp_history(exp_date)
+    deleted = [r['entity_id'] for r in ph.delete_set_before(exp_date)]
+    logger.info("Deleted %d password history records for %d accounts",
+                len(deleted), len(set(deleted)))
 
     if args.commit:
         logger.info('Committing changes')

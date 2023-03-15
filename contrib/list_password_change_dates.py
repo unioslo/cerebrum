@@ -35,7 +35,6 @@ import Cerebrum.logutils.options
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.pwcheck.history import PasswordHistory
-from Cerebrum.utils import date_compat
 
 
 logger = logging.getLogger(__name__)
@@ -51,21 +50,10 @@ def read_account_names(filename):
             yield account_name
 
 
-def get_last_ts(db, entity_id):
-    """ Get most recent password change date for a given entity_id. """
-    ph = PasswordHistory(db)
-    last_ts = None
-    for row in ph.get_history(entity_id):
-        ts = date_compat.get_datetime_naive(row['set_at'])
-        if not last_ts or ts and ts > last_ts:
-            last_ts = ts
-            continue
-    return last_ts
-
-
 def print_change_dates(accounts):
     db = Factory.get('Database')()
     ac = Factory.get('Account')(db)
+    ph = PasswordHistory(db)
 
     for account_name in accounts:
         ac.clear()
@@ -76,7 +64,7 @@ def print_change_dates(accounts):
             logger.error("No such account: %s", repr(account_name))
             continue
 
-        last_ts = get_last_ts(db, ac.entity_id)
+        last_ts = ph.get_most_recent_set_at(ac.entity_id)
         date_str = str(last_ts) if last_ts else 'NEVER'
         print("{}\t{}".format(account_name, date_str))
 
