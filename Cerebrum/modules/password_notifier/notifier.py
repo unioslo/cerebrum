@@ -61,7 +61,6 @@ import logging
 import os
 import smtplib
 import textwrap
-import warnings
 from functools import partial
 
 import six
@@ -152,23 +151,17 @@ class PasswordNotifier(object):
     can query information about passwords notifications.
     """
 
-    def __init__(self, db=None, logger=None, dryrun=False, *rest, **kw):
+    def __init__(self, db=None, dryrun=False, *rest, **kw):
         """ Constructs a PasswordNotifier.
 
         :param Cerebrum.database.Database db:
             Database object to use. If `None`, this object will fetch a new db
             connection with `Factory.get('Database')`. This is the default.
 
-        :param logging.Logger logger:
-            Logger object to use. If `None`, this object will fetch a new
-            logger with `Factory.get_logger('crontab')`. This is the default.
-
         :param bool dryrun:
             If this object should refrain from doing changes, and only print
             debug info. Default is `False`.
         """
-        if logger is not None:
-            warnings.warn("passing logger is deprecated", DeprecationWarning)
         self.db = db or Utils.Factory.get("Database")()
         self.dryrun = bool(dryrun)
 
@@ -709,23 +702,9 @@ class PasswordNotifier(object):
 class EmailPasswordNotifier(PasswordNotifier):
     """ Send password notifications by E-mail. """
 
-    def __init__(self, db=None, logger=None, dryrun=False, *rest, **kw):
-        """ Constructs a PasswordNotifier that notifies by E-mail.
-
-        :param Cerebrum.database.Database db:
-            Database object to use. If `None`, this object will fetch a new db
-            connection with `Factory.get('Database')`. This is the default.
-
-        :param logging.Logger logger:
-            Logger object to use. If `None`, this object will fetch a new
-            logger with `Factory.get_logger('crontab')`. This is the default.
-
-        :param bool dryrun:
-            If this object should refrain from doing changes, and only print
-            debug info. Default is `False`.
-        """
-        super(EmailPasswordNotifier,
-              self).__init__(db, logger, dryrun, rest, kw)
+    def __init__(self, *rest, **kw):
+        """ Constructs a PasswordNotifier that notifies by E-mail. """
+        super(EmailPasswordNotifier, self).__init__(*rest, **kw)
 
         self.mail_info = []
         for fn in self.config.templates:
@@ -799,30 +778,16 @@ class EmailPasswordNotifier(PasswordNotifier):
 class SMSPasswordNotifier(PasswordNotifier):
     """ Send password notifications by SMS. """
 
-    def __init__(self, db=None, logger=None, dryrun=False, *rest, **kw):
-        """ Constructs a PasswordNotifier that notifies by SMS.
+    def __init__(self, *rest, **kw):
+        """ Constructs a PasswordNotifier that notifies by SMS. """
+        super(SMSPasswordNotifier, self).__init__(*rest, **kw)
 
-        :param Cerebrum.database.Database db:
-            Database object to use. If `None`, this object will fetch a new db
-            connection with `Factory.get('Database')`. This is the default.
-
-        :param logging.Logger logger:
-            Logger object to use. If `None`, this object will fetch a new
-            logger with `Factory.get_logger('crontab')`. This is the default.
-
-        :param bool dryrun:
-            If this object should refrain from doing changes, and only print
-            debug info. Default is `False`.
-        """
-        super(SMSPasswordNotifier, self).__init__(db, logger, dryrun, rest, kw)
-
-        from os import path
-        with io.open(path.join(cereconf.TEMPLATE_DIR,
-                               'warn_before_splat_sms.template'),
+        with io.open(os.path.join(cereconf.TEMPLATE_DIR,
+                                  'warn_before_splat_sms.template'),
                      'r', encoding='UTF-8') as f:
             self.template = f.read()
 
-        self.person = Utils.Factory.get('Person')(db)
+        self.person = Utils.Factory.get('Person')(self.db)
 
     def get_deadline(self, account):
         """ Calculates the deadline for password change.

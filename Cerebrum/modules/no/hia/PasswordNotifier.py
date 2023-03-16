@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-# Copyright 2004-2018 University of Oslo, Norway
+#
+# Copyright 2004-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,8 +17,12 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-from __future__ import unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 from Cerebrum.modules.password_notifier.notifier import EmailPasswordNotifier
 from Cerebrum.modules.password_notifier.notifier import _send_mail
 
@@ -34,21 +37,9 @@ class UiaPasswordNotifier(EmailPasswordNotifier):
         'list_to': None,
     }
 
-    def __init__(self, db=None, logger=None, dryrun=None, *rest, **kw):
-        """
-        Constructs a UiaPasswordNotifier.
-
-        @type db: Cerebrum.database.Database or NoneType
-        @keyword db: Database object (default use Factory)
-
-        @type logger: logging.logger
-        @keyword logger: logger object (default Factory.get_logger('crontab'))
-
-        @type dryrun: boolean
-        @keyword dryrun: Refrain from side effects?
-        """
-        super(UiaPasswordNotifier, self).__init__(db, logger, dryrun,
-                                                  *rest, **kw)
+    def __init__(self, *rest, **kw):
+        """ Constructs a UiaPasswordNotifier. """
+        super(UiaPasswordNotifier, self).__init__(*rest, **kw)
         self.reminded_users = list()
 
     def inc_num_notifications(self, account):
