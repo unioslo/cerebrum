@@ -389,8 +389,7 @@ class PasswordNotifier(object):
 
     def get_account_affiliation_mapping(self, account):
         """
-        Returns the affiliation_mappings value for the given account,
-        based on the affiliations of the account's owner.
+        Get best config[affiliation_mappings] mapping for a given account.
 
         :return dict or None (if no matching mapping is found in the config)
         """
@@ -421,22 +420,31 @@ class PasswordNotifier(object):
                     return aff_mapping
         return None
 
-    def remind_ok(self, account):
-        """Returns true if it is time to remind"""
-        n = self.get_num_notifications(account)
-
+    def _get_reminder_delays(self, account):
+        """ Get a tuple of reminder delays for a given account. """
         try:
+            # TODO: This is the only use of get_account_affiliation_mapping ...
             a_mapping = self.get_account_affiliation_mapping(account)
         except Errors.NotFoundError:
             a_mapping = None
 
         if a_mapping is not None:
+            # delays from config[affiliation_mappings]
             reminder_delay_values = a_mapping['warn_before_expiration_days']
         else:
+            # delays from config[reminder_delay_values]
             reminder_delay_values = self.config.reminder_delay_values
 
-        if 0 < n <= len(reminder_delay_values):
-            delay = datetime.timedelta(days=reminder_delay_values[n-1])
+        return tuple(datetime.timedelta(days=n)
+                     for n in reminder_delay_values)
+
+    def remind_ok(self, account):
+        """Returns true if it is time to remind"""
+        n = self.get_num_notifications(account)
+        reminder_delays = self._get_reminder_delays(account)
+
+        if 0 < n <= len(reminder_delays):
+            delay = reminder_delays[n-1]
             last_notified = date_compat.get_date(
                 self.get_notification_time(account))
             if not last_notified:
@@ -708,11 +716,8 @@ class EmailPasswordNotifier(PasswordNotifier):
 
         self.mail_info = []
         for fn in self.config.templates:
-            with io.open(os.path.join(cereconf.TEMPLATE_DIR,
-                                      'no_NO',
-                                      'email',
-                                      fn),
-                         'r', encoding='UTF-8') as fp:
+            filename = os.path.join(cereconf.TEMPLATE_DIR, 'no_NO/email', fn)
+            with io.open(filename, 'r', encoding='UTF-8') as fp:
                 msg = email.message_from_file(fp)
             self.mail_info.append({
                 'Subject': msg['Subject'],
@@ -781,12 +786,10 @@ class SMSPasswordNotifier(PasswordNotifier):
     def __init__(self, *rest, **kw):
         """ Constructs a PasswordNotifier that notifies by SMS. """
         super(SMSPasswordNotifier, self).__init__(*rest, **kw)
-
-        with io.open(os.path.join(cereconf.TEMPLATE_DIR,
-                                  'warn_before_splat_sms.template'),
-                     'r', encoding='UTF-8') as f:
+        filename = os.path.join(cereconf.TEMPLATE_DIR,
+                                'warn_before_splat_sms.template')
+        with io.open(filename, 'r', encoding='UTF-8') as f:
             self.template = f.read()
-
         self.person = Utils.Factory.get('Person')(self.db)
 
     def get_deadline(self, account):
@@ -810,27 +813,18 @@ class SMSPasswordNotifier(PasswordNotifier):
 
     def remind_ok(self, account):
         """Returns true if it is time to remind"""
-        try:
-            a_mapping = self.get_account_affiliation_mapping(account)
-        except Errors.NotFoundError:
-            a_mapping = None
-
-        if a_mapping is not None:
-            reminder_delay_values = a_mapping['warn_before_expiration_days']
-        else:
-            reminder_delay_values = self.config.reminder_delay_values
+        reminder_delays = self._get_reminder_delays(account)
 
         last_notified = date_compat.get_date(
             self.get_notification_time(account))
         if (last_notified == self.today or
                 (self.get_num_notifications(account) >=
-                 len(reminder_delay_values))):
+                 len(reminder_delays))):
             return False
 
-        for days_before in reminder_delay_values:
+        for days_before in reminder_delays:
             deadline = self.get_deadline(account)
-            if (deadline
-                    - datetime.timedelta(days=days_before)) == self.today:
+            if (deadline - days_before) == self.today:
                 return True
         return False
 
