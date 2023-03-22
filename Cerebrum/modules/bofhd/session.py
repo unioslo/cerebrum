@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 # Copyright 2015-2023 University of Oslo, Norway
@@ -20,10 +19,8 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ Session handling for bofhd.
 
-
 Configuration
 -------------
-
 This module actively uses the cereconf variables:
 
 BOFHD_SHORT_TIMEOUT
@@ -36,17 +33,14 @@ BOFHD_SHORT_TIMEOUT_HOSTS
    shoudl be an iterable of strings. Each string is a subnet (CIDR-notation) or
    a single IP-address.
 
-
 History
 -------
-
 This class used to be a part of the bofhd server script itself. It was
 moved to a separate module after:
 
     commit 57e594433f24efbbe5175e4b4800092c0603edcf
     Merge: 70ca8e7 6c71d5e
     Date:   Fri Jan 30 12:20:40 2015 +0100
-
 """
 from __future__ import (
     absolute_import,
@@ -57,6 +51,7 @@ from __future__ import (
 
 import hashlib
 import datetime
+import logging
 import json
 import os
 import random
@@ -76,6 +71,8 @@ from Cerebrum.utils import date as date_utils
 # This regex is too permissive for IP-addresses, but that does not matter,
 # since we use a library function that traps non-sensical values.
 _subnet_rex = re.compile(r"((\d+)\.(\d+)\.(\d+)\.(\d+))\/(\d+)")
+
+logger = logging.getLogger(__name__)
 
 
 def ip_to_long(ip_address):
@@ -148,16 +145,16 @@ def _get_short_timeout():
 def _get_short_timeout_hosts():
     """ Build a list of hosts, where shorter session expiry is in place.
 
-    This static method populates with _short_timeout_hosts with a list of
+    This static method populates with timeout_short_hosts with a list of
     IP address pairs. Each pair represents an IP range. All bofhd *clients*
     connecting from addresses within this range will be timed out much
-    faster than the standard L{_auth_timeout}. The specific timeout value
+    faster than the standard L{timeout_auth}. The specific timeout value
     is assigned here as well.
 
     This method has been made static for performance reasons.
 
     Caveat: It is probably a very bad idea to put a lot of IP addresses
-    into BOFHD_SHORT_TIMEOUT_HOSTS. L{_short_timeout_hosts} is traversed
+    into BOFHD_SHORT_TIMEOUT_HOSTS. L{timeout_short_hosts} is traversed
     to generate SQL once for every command received by bofhd.
 
     """
@@ -192,32 +189,31 @@ class BofhdSession(object):
     * If a certain time passes from the last time the client authenticated with
       a username and password, the session is invalidated.
 
-      The authentication timeout is controlled by the _auth_timeout attribute.
+      The authentication timeout is controlled by the timeout_auth attribute.
 
     * The session tracks the last time an action was performed. If a certain
       time passes from the last action (the client is idle), the session is
       also invalidated.
 
-      The idle timeout is controlled by attributes _seen_timeout and
-      _short_timeout. The _short_timeout attribute applies to hosts in the
-      _short_timeout_hosts attribute, and is intended for web clients and other
+      The idle timeout is controlled by attributes timeout_seen and
+      timeout_short . The timeout_short attribute applies to hosts in the
+      timeout_short_hosts attribute, and is intended for web clients and other
       clients that should not keep an idle session for too long.
 
     """
-
-    _auth_timeout = datetime.timedelta(days=7)
+    timeout_auth = datetime.timedelta(days=7)
     """ In seconds, how long a session should live after authentication. """
 
-    _seen_timeout = datetime.timedelta(days=1)
+    timeout_seen = datetime.timedelta(days=1)
     """ In seconds, how long a session should 'idle'. """
 
-    _short_timeout = _get_short_timeout()
+    timeout_short = _get_short_timeout()
     """ In seconds, how long a session should 'idle' for certain clients. """
 
-    _short_timeout_hosts = _get_short_timeout_hosts()
+    timeout_short_hosts = _get_short_timeout_hosts()
     """ Which clients should have the shorter timeout setting. """
 
-    def __init__(self, database, logger, session_id=None, remote_address=None):
+    def __init__(self, database, session_id=None, remote_address=None):
         """ Create a new session.
 
         :param Database database: A database connection.
@@ -226,7 +222,6 @@ class BofhdSession(object):
 
         """
         self._db = database
-        self.logger = logger
         if session_id is not None and not isinstance(session_id,
                                                      six.string_types):
             raise errors.CerebrumError(
@@ -237,51 +232,17 @@ class BofhdSession(object):
         self._owner_id = None
         self.remote_address = remote_address
 
-    @classmethod
-    def _log_short_timeouts(cls, logger):
-        """ Log the short timeout settings.
-
-        Logs the settings to the specified logger with level 'DEBUG'.
-        """
-        if cls._short_timeout is not None:
-            logger.debug("Short-lived sessions expire after %s",
-                         cls._short_timeout)
-        if cls._short_timeout_hosts:
-            for ip, low, high in cls._short_timeout_hosts:
-                logger.debug("Sessions from IP %s [%s, %s] will be "
-                             "short-lived", ip, low, high)
-
-    def _get_timeout_timestamp(self, now, key):
-        """
-        Get the current timeout threshold for this session.
-
-        :param str key: Which threshold to get (auth, seen or short).
-
-        :returns datetime.datetime:
-            Returns the threshold timestamp for when this session is
-            invalidated, according to the _<key>_timeout class attribute.
-
-            Sessions and session data with a start time *before* this return
-            value are condsidered *too old* to use.
-        """
-        try:
-            delta = getattr(self, '_%s_timeout' % key)
-        except AttributeError:
-            raise RuntimeError("Invalid timeout setting: " + repr(key))
-
-        return now - delta
-
     def _remove_old_sessions(self):
         """ Remove timed out sessions.
 
         We remove any authenticated session-ids that was authenticated more
-        than _auth_timeout seconds ago, or hasn't been used in the last
-        _seen_timeout seconds.
+        than timeout_auth seconds ago, or hasn't been used in the last
+        timeout_seen seconds.
         """
         now = date_utils.now()
         thresholds = {
-            'auth': self._get_timeout_timestamp(now, 'auth'),
-            'seen': self._get_timeout_timestamp(now, 'seen'),
+            'auth': now - self.timeout_auth,
+            'seen': now - self.timeout_seen,
         }
 
         # Clear any session_state data tied to the sessions
@@ -315,27 +276,24 @@ class BofhdSession(object):
             """,
             thresholds)
 
-        # Clear sessions for _short_timeout_hosts.
-        last_seen_before = self._get_timeout_timestamp(now, 'short')
-        self.remove_short_timeout_sessions(last_seen_before)
+        # Clear sessions for timeout_short_hosts.
+        self.remove_short_timeout_sessions()
 
-    def remove_short_timeout_sessions(self, last_seen_before=None):
+    def remove_short_timeout_sessions(self):
         """ Remove bofhd sessions with a shorter timeout value.
 
         For some clients, it is desireable to remove sessions much faster than
-        the standard _auth_timeout value.
+        the standard timeout_auth value.
 
         """
-        if not self._short_timeout_hosts:
+        if not self.timeout_short_hosts:
             return
-        if not last_seen_before:
-            last_seen_before = self._get_timeout_timestamp(date_utils.now(),
-                                                           'short')
+        last_seen_before = date_utils.now() - self.timeout_short
         sql = []
         params = {}
         # 'index' is needed to number free variables in the SQL query.
         for index, (ip, ip_start, ip_stop) in enumerate(
-                self._short_timeout_hosts):
+                self.timeout_short_hosts):
             sql.append("(:start%d <= bs.ip_address AND "
                        " bs.ip_address <= :stop%d)" % (index, index))
             params["start%d" % index] = ip_start
@@ -451,8 +409,8 @@ class BofhdSession(object):
             not_expired_clause = ('AND auth_time >= :auth '
                                   'AND last_seen >= :seen')
             binds.update({
-                'auth': self._get_timeout_timestamp(now, 'auth'),
-                'seen': self._get_timeout_timestamp(now, 'seen'),
+                'auth': now - self.timeout_auth,
+                'seen': now - self.timeout_seen,
             })
 
         try:
@@ -535,9 +493,9 @@ class BofhdSession(object):
                 r['state_data'] = json.loads(r['state_data'])
             except Exception:
                 r['state_data'] = None
-                self.logger.warn('Invalid state data for session id:'
-                                 ' {session_id}. Cleaning state'.format(
-                                     session_id=self.get_session_id()))
+                logger.warn(
+                    'Invalid state data for session id: %s. Cleaning state',
+                    repr(self.get_session_id()))
                 self.clear_state()
             results.append(r)
         return results
@@ -605,9 +563,9 @@ class BofhdSession(object):
                 "Failed to reassign session. Try to login again?")
 
         self._owner_id = self.get_owner_id()
-        self.logger.info("Changed session=%s entity %s (id=%s) -> %s (id=%s)",
-                         self._id,
-                         self._fetch_account(old_session_owner).account_name,
-                         old_session_owner,
-                         self._fetch_account(self._entity_id).account_name,
-                         self._entity_id)
+        logger.info("Changed session=%s entity %s (id=%s) -> %s (id=%s)",
+                    self._id,
+                    self._fetch_account(old_session_owner).account_name,
+                    old_session_owner,
+                    self._fetch_account(self._entity_id).account_name,
+                    self._entity_id)
