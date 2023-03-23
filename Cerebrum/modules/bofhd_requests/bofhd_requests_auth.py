@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2019 University of Oslo, Norway
+# Copyright 2019-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,11 +17,19 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""Bofhd_requests specific auth methods"""
+"""
+Bofhd_requests specific auth methods.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 from Cerebrum.modules.bofhd.auth import BofhdAuth
-from Cerebrum.modules.bofhd_requests.request import BofhdRequests
 from Cerebrum.modules.bofhd.errors import PermissionDenied
+from .request import BofhdRequests
 
 
 class RequestsAuth(BofhdAuth):
@@ -29,8 +37,10 @@ class RequestsAuth(BofhdAuth):
     def can_cancel_request(self, operator, req_id, query_run_any=False):
         if query_run_any:
             return True
+
         if self.is_superuser(operator):
             return True
+
         br = BofhdRequests(self._db, self.const)
         for r in br.get_requests(request_id=req_id):
             if r['requestee_id'] and int(r['requestee_id']) == operator:

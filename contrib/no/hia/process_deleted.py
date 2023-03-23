@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-# Copyright 2005-2017 University of Oslo, Norway
+#
+# Copyright 2005-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -24,9 +24,6 @@ account-deletion requests registered in Cerebrum.
 When an account is deleted a delete request is registered in
 'bofhd_requests'. The following is done by this script:
 
-
-
-
 nis  : write "deleted" file
        <uname>:<crypt>:<uid>:<gid>:<gecos>:<home>:<shell>
        for both nis and nisans, account@nis/nisans removed
@@ -36,20 +33,19 @@ other spreads: removed
 
 TODO: this script must be more robust and pretty (but first we make it work)
 """
-
-
 import argparse
-import time
 import os
 import string
-from datetime import datetime, date
+import time
 
 import cereconf
+
 from Cerebrum import Errors
-from Cerebrum.modules import Email
 from Cerebrum.Utils import Factory
-from Cerebrum.utils import date_compat
+from Cerebrum.modules import Email
 from Cerebrum.modules.bofhd_requests.request import BofhdRequests
+from Cerebrum.utils import date as date_utils
+from Cerebrum.utils import date_compat
 
 
 logger = Factory.get_logger("cronjob")
@@ -63,8 +59,8 @@ start_time = None
 
 def process_delete_requests():
     br = BofhdRequests(db, const)
-    now = datetime.now()
-    today = date.today()
+    now = date_utils.now()
+    today = now.date()
     del_file = []
     group = Factory.get('Group')(db)
     account = Factory.get('Account')(db)
@@ -82,16 +78,17 @@ def process_delete_requests():
             continue
         if not keep_running():
             break
-        if r['run_at'] and date_compat.get_datetime_naive(r['run_at']) > now:
+        run_at = date_compat.get_datetime_tz(r['run_at'])
+        if run_at and run_at > now:
             continue
         try:
             account.clear()
             account.find(r['entity_id'])
         except Errors.NotFoundError:
-            logger.error('Could not find account %s' % r['entity_id'])
+            logger.error('Could not find account %s', r['entity_id'])
             continue
         if account.is_deleted():
-            logger.warn("%s is already deleted" % account.account_name)
+            logger.warn("%s is already deleted", account.account_name)
             br.delete_request(request_id=r['request_id'])
             db.commit()
             continue

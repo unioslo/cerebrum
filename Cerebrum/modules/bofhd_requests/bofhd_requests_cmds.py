@@ -30,21 +30,21 @@ import textwrap
 
 import six
 
-from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
-from Cerebrum.modules.bofhd.bofhd_utils import format_time
-from Cerebrum.modules.bofhd_requests.request import BofhdRequests
-from Cerebrum.modules.bofhd_requests.bofhd_requests_auth import RequestsAuth
-from Cerebrum.modules.bofhd.errors import CerebrumError
-from Cerebrum.modules import Email
 from Cerebrum import Errors
+from Cerebrum.modules import Email
+from Cerebrum.modules.bofhd import parsers
+from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
+from Cerebrum.modules.bofhd.bofhd_core_help import get_help_strings
+from Cerebrum.modules.bofhd.bofhd_utils import format_time
 from Cerebrum.modules.bofhd.cmd_param import (
     Command,
     FormatSuggestion,
     SimpleString,
 )
-from Cerebrum.modules.bofhd import parsers
-from Cerebrum.modules.bofhd.bofhd_core_help import get_help_strings
+from Cerebrum.modules.bofhd.errors import CerebrumError
 from Cerebrum.modules.bofhd.help import merge_help_strings
+from .bofhd_requests_auth import RequestsAuth
+from .request import BofhdRequests
 
 
 class BofhdExtension(BofhdCommandBase):
