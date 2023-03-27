@@ -29,7 +29,7 @@ from Cerebrum.utils import date_compat
 from Cerebrum.utils import date as date_utils
 
 # TODO: Move to __init__
-__version__ = "1.0"
+__version__ = "1.1"
 
 
 def _get_batch_time(now):
