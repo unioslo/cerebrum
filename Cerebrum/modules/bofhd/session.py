@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2015-2018 University of Oslo, Norway
+# Copyright 2015-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -20,10 +19,8 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ Session handling for bofhd.
 
-
 Configuration
 -------------
-
 This module actively uses the cereconf variables:
 
 BOFHD_SHORT_TIMEOUT
@@ -36,39 +33,46 @@ BOFHD_SHORT_TIMEOUT_HOSTS
    shoudl be an iterable of strings. Each string is a subnet (CIDR-notation) or
    a single IP-address.
 
-
 History
 -------
-
 This class used to be a part of the bofhd server script itself. It was
 moved to a separate module after:
 
     commit 57e594433f24efbbe5175e4b4800092c0603edcf
     Merge: 70ca8e7 6c71d5e
     Date:   Fri Jan 30 12:20:40 2015 +0100
-
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    # TODO: unicode_literals,
+)
 
-import json
-import re
-import struct
-import socket
-import types
-import time
 import hashlib
-import random
+import datetime
+import logging
+import json
 import os
+import random
+import re
+import socket
+import struct
+
+import six
 
 import cereconf
 
 from Cerebrum import Utils
 from Cerebrum.Errors import NotFoundError
 from Cerebrum.modules.bofhd import errors
-
+from Cerebrum.utils import date as date_utils
 
 # This regex is too permissive for IP-addresses, but that does not matter,
 # since we use a library function that traps non-sensical values.
 _subnet_rex = re.compile(r"((\d+)\.(\d+)\.(\d+)\.(\d+))\/(\d+)")
+
+logger = logging.getLogger(__name__)
 
 
 def ip_to_long(ip_address):
@@ -100,7 +104,7 @@ def ip_subnet_slash_to_range(subnet):
 
     """
     def netmask_to_intrep(netmask):
-        return pow(2L, 32) - pow(2L, 32-int(netmask))
+        return pow(2, 32) - pow(2, 32 - int(netmask))
 
     match = _subnet_rex.search(subnet)
     if not match:
@@ -114,7 +118,7 @@ def ip_subnet_slash_to_range(subnet):
 
     tmp = ip_to_long(subnet)
     start = tmp & netmask_to_intrep(netmask)
-    stop = tmp | (pow(2L, 32) - 1 - netmask_to_intrep(netmask))
+    stop = tmp | (pow(2, 32) - 1 - netmask_to_intrep(netmask))
     return start, stop
 
 
@@ -126,12 +130,14 @@ def _get_short_timeout():
     L{_get_short_timeout_hosts}.
 
     """
+    min_timeout = datetime.timedelta(minutes=1)
+    max_timeout = datetime.timedelta(days=1)
     if hasattr(cereconf, "BOFHD_SHORT_TIMEOUT"):
-        timeout = int(cereconf.BOFHD_SHORT_TIMEOUT)
-        if not (60 <= timeout <= 3600*24):
+        timeout = datetime.timedelta(seconds=int(cereconf.BOFHD_SHORT_TIMEOUT))
+        if not (min_timeout <= timeout <= max_timeout):
             raise ValueError(
-                u'Bogus BOFHD_SHORT_TIMEOUT timeout: {:d}s'.format(
-                    cereconf.BOFHD_SHORT_TIMEOUT))
+                'Bogus BOFHD_SHORT_TIMEOUT timeout: '
+                + repr(cereconf.BOFHD_SHORT_TIMEOUT))
         return timeout
     return None
 
@@ -139,16 +145,16 @@ def _get_short_timeout():
 def _get_short_timeout_hosts():
     """ Build a list of hosts, where shorter session expiry is in place.
 
-    This static method populates with _short_timeout_hosts with a list of
+    This static method populates with timeout_short_hosts with a list of
     IP address pairs. Each pair represents an IP range. All bofhd *clients*
     connecting from addresses within this range will be timed out much
-    faster than the standard L{_auth_timeout}. The specific timeout value
+    faster than the standard L{timeout_auth}. The specific timeout value
     is assigned here as well.
 
     This method has been made static for performance reasons.
 
     Caveat: It is probably a very bad idea to put a lot of IP addresses
-    into BOFHD_SHORT_TIMEOUT_HOSTS. L{_short_timeout_hosts} is traversed
+    into BOFHD_SHORT_TIMEOUT_HOSTS. L{timeout_short_hosts} is traversed
     to generate SQL once for every command received by bofhd.
 
     """
@@ -183,32 +189,31 @@ class BofhdSession(object):
     * If a certain time passes from the last time the client authenticated with
       a username and password, the session is invalidated.
 
-      The authentication timeout is controlled by the _auth_timeout attribute.
+      The authentication timeout is controlled by the timeout_auth attribute.
 
     * The session tracks the last time an action was performed. If a certain
       time passes from the last action (the client is idle), the session is
       also invalidated.
 
-      The idle timeout is controlled by attributes _seen_timeout and
-      _short_timeout. The _short_timeout attribute applies to hosts in the
-      _short_timeout_hosts attribute, and is intended for web clients and other
+      The idle timeout is controlled by attributes timeout_seen and
+      timeout_short . The timeout_short attribute applies to hosts in the
+      timeout_short_hosts attribute, and is intended for web clients and other
       clients that should not keep an idle session for too long.
 
     """
-
-    _auth_timeout = 3600*24*7
+    timeout_auth = datetime.timedelta(days=7)
     """ In seconds, how long a session should live after authentication. """
 
-    _seen_timeout = 3600*24
+    timeout_seen = datetime.timedelta(days=1)
     """ In seconds, how long a session should 'idle'. """
 
-    _short_timeout = _get_short_timeout()
+    timeout_short = _get_short_timeout()
     """ In seconds, how long a session should 'idle' for certain clients. """
 
-    _short_timeout_hosts = _get_short_timeout_hosts()
+    timeout_short_hosts = _get_short_timeout_hosts()
     """ Which clients should have the shorter timeout setting. """
 
-    def __init__(self, database, logger, session_id=None, remote_address=None):
+    def __init__(self, database, session_id=None, remote_address=None):
         """ Create a new session.
 
         :param Database database: A database connection.
@@ -217,56 +222,28 @@ class BofhdSession(object):
 
         """
         self._db = database
-        self.logger = logger
-        if not isinstance(session_id, (types.NoneType, str, unicode)):
+        if session_id is not None and not isinstance(session_id,
+                                                     six.string_types):
             raise errors.CerebrumError(
-                "Wrong session id type: %s, expected str or None" %
-                type(session_id))
+                "Wrong session id type: %s, expected str or None"
+                % type(session_id))
         self._id = str(session_id)
         self._entity_id = None
         self._owner_id = None
         self.remote_address = remote_address
 
-    @classmethod
-    def _log_short_timeouts(cls, logger):
-        u""" Log the short timeout settings.
-
-        Logs the settings to the specified logger with level 'DEBUG'.
-        """
-        if cls._short_timeout is not None:
-            logger.debug("Short-lived sessions expire after %ds",
-                         cls._short_timeout)
-        if cls._short_timeout_hosts:
-            for ip, low, high in cls._short_timeout_hosts:
-                logger.debug("Sessions from IP %s [%s, %s] will be "
-                             "short-lived", ip, low, high)
-
-    def _get_timeout_timestamp(self, key):
-        """ Get the current timeout threshold for this session.
-
-        :param str key: Which threshold to get (auth, seen or short).
-
-        :return:
-            Returns the threshold timestamp for when this session is
-            invalidated, according to the _<key>_timeout class attribute.
-
-        """
-        try:
-            seconds = getattr(self, '_%s_timeout' % key)
-        except AttributeError:
-            raise RuntimeError("Invalid timeout setting '%s'" % key)
-        ticks = int(time.time() - seconds)
-        return self._db.TimestampFromTicks(ticks)
-
     def _remove_old_sessions(self):
         """ Remove timed out sessions.
 
         We remove any authenticated session-ids that was authenticated more
-        than _auth_timeout seconds ago, or hasn't been used in the last
-        _seen_timeout seconds.
+        than timeout_auth seconds ago, or hasn't been used in the last
+        timeout_seen seconds.
         """
-        thresholds = dict(((key, self._get_timeout_timestamp(key)) for key in
-                           ('auth', 'seen')))
+        now = date_utils.now()
+        thresholds = {
+            'auth': now - self.timeout_auth,
+            'seen': now - self.timeout_seen,
+        }
 
         # Clear any session_state data tied to the sessions
         self._db.execute(
@@ -285,7 +262,8 @@ class BofhdSession(object):
                 )
             )
             """,
-            thresholds)
+            thresholds,
+        )
 
         # Clear the actual sessions.
         self._db.execute(
@@ -298,23 +276,24 @@ class BofhdSession(object):
             """,
             thresholds)
 
-        # Clear sessions for _short_timeout_hosts.
+        # Clear sessions for timeout_short_hosts.
         self.remove_short_timeout_sessions()
 
     def remove_short_timeout_sessions(self):
         """ Remove bofhd sessions with a shorter timeout value.
 
         For some clients, it is desireable to remove sessions much faster than
-        the standard _auth_timeout value.
+        the standard timeout_auth value.
 
         """
-        if not self._short_timeout_hosts:
+        if not self.timeout_short_hosts:
             return
+        last_seen_before = date_utils.now() - self.timeout_short
         sql = []
         params = {}
         # 'index' is needed to number free variables in the SQL query.
         for index, (ip, ip_start, ip_stop) in enumerate(
-                self._short_timeout_hosts):
+                self.timeout_short_hosts):
             sql.append("(:start%d <= bs.ip_address AND "
                        " bs.ip_address <= :stop%d)" % (index, index))
             params["start%d" % index] = ip_start
@@ -322,22 +301,23 @@ class BofhdSession(object):
 
         # first nuke all the associated session states
         stmt = """
-        DELETE FROM [:table schema=cerebrum name=bofhd_session_state] bss
-        WHERE EXISTS (SELECT 1
-                      FROM [:table schema=cerebrum name=bofhd_session] bs
-                      WHERE bss.session_id = bs.session_id
-                      AND (%s)
-                      AND bs.last_seen < :last_seen
-                      )
+          DELETE FROM [:table schema=cerebrum name=bofhd_session_state] bss
+          WHERE EXISTS (
+            SELECT 1
+            FROM [:table schema=cerebrum name=bofhd_session] bs
+            WHERE bss.session_id = bs.session_id
+            AND (%s)
+            AND bs.last_seen < :last_seen
+          )
         """ % ' OR '.join(sql)
-        params["last_seen"] = self._get_timeout_timestamp('short')
+        params["last_seen"] = last_seen_before
 
         self._db.execute(stmt, params)
 
         # then nuke all the sessions
         stmt = """
-        DELETE FROM [:table schema=cerebrum name=bofhd_session] bs
-        WHERE bs.last_seen < :last_seen AND (%s)
+          DELETE FROM [:table schema=cerebrum name=bofhd_session] bs
+          WHERE bs.last_seen < :last_seen AND (%s)
         """ % ' AND '.join(sql)
         self._db.execute(stmt, params)
 
@@ -370,14 +350,19 @@ class BofhdSession(object):
             r = random.Random().random()
         m = hashlib.md5("%s-ok%s" % (entity_id, r))
         session_id = m.hexdigest()
-        self._db.execute("""
-        INSERT INTO [:table schema=cerebrum name=bofhd_session]
-          (session_id, account_id, auth_time, last_seen, ip_address)
-        VALUES (:session_id, :account_id, [:now], [:now], :ip_address)""", {
-            'session_id': session_id,
-            'account_id': entity_id,
-            'ip_address': ip_to_long(ip_address),
-            })
+        self._db.execute(
+            """
+              INSERT INTO [:table schema=cerebrum name=bofhd_session]
+                (session_id, account_id, auth_time, last_seen, ip_address)
+              VALUES
+                (:session_id, :account_id, [:now], [:now], :ip_address)
+            """,
+            {
+                'session_id': session_id,
+                'account_id': entity_id,
+                'ip_address': ip_to_long(ip_address),
+            },
+        )
         self._entity_id = entity_id
         self._id = session_id
         return self.get_session_id()
@@ -420,23 +405,33 @@ class BofhdSession(object):
 
         not_expired_clause = ''
         if include_expired is False:
+            now = date_utils.now()
             not_expired_clause = ('AND auth_time >= :auth '
                                   'AND last_seen >= :seen')
-            binds['auth'] = self._get_timeout_timestamp('auth')
-            binds['seen'] = self._get_timeout_timestamp('seen')
+            binds.update({
+                'auth': now - self.timeout_auth,
+                'seen': now - self.timeout_seen,
+            })
 
         try:
-            self._entity_id = self._db.query_1("""
-            SELECT account_id
-            FROM [:table schema=cerebrum name=bofhd_session]
-            WHERE session_id=:session_id %s""" % not_expired_clause, binds)
-
+            self._entity_id = self._db.query_1(
+                """
+                  SELECT account_id
+                  FROM [:table schema=cerebrum name=bofhd_session]
+                  WHERE session_id=:session_id
+                  %s
+                """ % not_expired_clause,
+                binds,
+            )
             # Log that there was an activity from the client.
-            self._db.execute("""
-            UPDATE [:table schema=cerebrum name=bofhd_session]
-            SET last_seen=[:now]
-            WHERE session_id=:session_id""",
-                             {'session_id': self.get_session_id()})
+            self._db.execute(
+                """
+                  UPDATE [:table schema=cerebrum name=bofhd_session]
+                  SET last_seen=[:now]
+                  WHERE session_id=:session_id
+                """,
+                {'session_id': self.get_session_id()},
+            )
         except NotFoundError:
             raise errors.SessionExpiredError(
                 "Authentication failure: session expired. "
@@ -460,14 +455,18 @@ class BofhdSession(object):
         # TODO: assert that there is space for state_data
         return self._db.execute(
             """
-            INSERT INTO [:table schema=cerebrum name=bofhd_session_state]
-            (session_id, state_type, entity_id, state_data, set_time)
-            VALUES (:session_id, :state_type, :entity_id, :state_data, [:now])
+              INSERT INTO [:table schema=cerebrum name=bofhd_session_state]
+                (session_id, state_type, entity_id, state_data, set_time)
+              VALUES
+                (:session_id, :state_type, :entity_id, :state_data, [:now])
             """,
-            {'session_id': self.get_session_id(),
-             'state_type': state_type,
-             'entity_id': entity_id,
-             'state_data': json.dumps(state_data, ensure_ascii=False)})
+            {
+                'session_id': self.get_session_id(),
+                'state_type': state_type,
+                'entity_id': entity_id,
+                'state_data': json.dumps(state_data, ensure_ascii=False),
+            },
+        )
 
     def get_state(self, state_type=None):
         """Retrieve all state tuples for ``session_id``."""
@@ -494,9 +493,9 @@ class BofhdSession(object):
                 r['state_data'] = json.loads(r['state_data'])
             except Exception:
                 r['state_data'] = None
-                self.logger.warn('Invalid state data for session id:'
-                                 ' {session_id}. Cleaning state'.format(
-                                     session_id=self.get_session_id()))
+                logger.warn(
+                    'Invalid state data for session id: %s. Cleaning state',
+                    repr(self.get_session_id()))
                 self.clear_state()
             results.append(r)
         return results
@@ -507,8 +506,10 @@ class BofhdSession(object):
         Session state data mainly constists of cached passwords for the
         misc_list_passwords command.
         """
-        sql = """DELETE FROM [:table schema=cerebrum name=bofhd_session_state]
-                 WHERE session_id=:session_id"""
+        sql = """
+          DELETE FROM [:table schema=cerebrum name=bofhd_session_state]
+          WHERE session_id=:session_id
+        """
         binds = {'session_id': self.get_session_id()}
         if state_types:
             sql += " AND " + Utils.argument_to_sql(
@@ -516,12 +517,13 @@ class BofhdSession(object):
 
         self._db.execute(sql, binds)
         self._remove_old_sessions()
-    # end clear_state
 
     def clear_session(self):
         """ Remove session. """
-        sql = """DELETE FROM [:table schema=cerebrum name=bofhd_session]
-                 WHERE session_id=:session_id"""
+        sql = """
+          DELETE FROM [:table schema=cerebrum name=bofhd_session]
+          WHERE session_id=:session_id
+        """
         binds = {'session_id': self.get_session_id()}
         self.clear_state()
         self._db.execute(sql, binds)
@@ -545,20 +547,25 @@ class BofhdSession(object):
         try:
             # Change the session owner
             # Log that there was an activity from the client.
-            self._db.execute("""
-            UPDATE [:table schema=cerebrum name=bofhd_session]
-            SET last_seen=[:now], account_id=:account_id
-            WHERE session_id=:session_id""",
-                             {'account_id': target_id,
-                              'session_id': self._id})
+            self._db.execute(
+                """
+                  UPDATE [:table schema=cerebrum name=bofhd_session]
+                  SET last_seen=[:now], account_id=:account_id
+                  WHERE session_id=:session_id
+                """,
+                {
+                    'account_id': target_id,
+                    'session_id': self._id,
+                },
+            )
         except NotFoundError:
             raise errors.SessionExpiredError(
                 "Failed to reassign session. Try to login again?")
 
         self._owner_id = self.get_owner_id()
-        self.logger.info("Changed session=%s entity %s (id=%s) -> %s (id=%s)",
-                         self._id,
-                         self._fetch_account(old_session_owner).account_name,
-                         old_session_owner,
-                         self._fetch_account(self._entity_id).account_name,
-                         self._entity_id)
+        logger.info("Changed session=%s entity %s (id=%s) -> %s (id=%s)",
+                    self._id,
+                    self._fetch_account(old_session_owner).account_name,
+                    old_session_owner,
+                    self._fetch_account(self._entity_id).account_name,
+                    self._entity_id)

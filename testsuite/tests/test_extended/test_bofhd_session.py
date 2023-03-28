@@ -58,8 +58,8 @@ def session_module(cereconf):
 
 
 @pytest.fixture
-def session(session_module, database, logger):
-    return session_module.BofhdSession(database, logger)
+def session(session_module, database):
+    return session_module.BofhdSession(database)
 
 
 def test_ip_to_long(session_module):
@@ -89,7 +89,8 @@ def test_ip_subnet_slash_to_range_small(session_module):
 
 
 def test_conf_short_timeout(session_module):
-    assert session_module._get_short_timeout() == BOFHD_SHORT_TIMEOUT
+    short_timeout = session_module._get_short_timeout()
+    assert short_timeout.total_seconds() == BOFHD_SHORT_TIMEOUT
 
 
 def test_conf_short_timeout_hosts(session_module):

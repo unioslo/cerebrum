@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-# Copyright 2002-2016 University of Oslo, Norway
+#
+# Copyright 2002-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,9 +18,8 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-# $Id$
-""" Server used by clients that wants to access the cerebrum database.
+"""
+Server used by clients that wants to access the cerebrum database.
 
 Work in progress, current implementation, expect big changes
 
@@ -38,22 +37,27 @@ DB_AUTH_DIR
 
     TODO: Server certificate
     TODO: Database connection -- general file, but also needed by bofhd
-
 """
-import cereconf
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    # TODO: unicode_literals,
+)
 
-import operator
 import os
 import thread
 import threading
+
+import cereconf
 
 from Cerebrum import Errors
 from Cerebrum import Utils
 from Cerebrum import https
 
-import Cerebrum.modules.bofhd.server as bofhd_server
-import Cerebrum.modules.bofhd.session as bofhd_session
-import Cerebrum.modules.bofhd.config as bofhd_config
+from Cerebrum.modules.bofhd import config as bofhd_config
+from Cerebrum.modules.bofhd import server as bofhd_server
+from Cerebrum.modules.bofhd import session as bofhd_session
 
 # An installation *may* have many instances of bofhd running in parallel. If
 # this is the case, make sure that all of the instances get their own
@@ -67,6 +71,7 @@ def thread_name():
     """ Get current thread name. """
     # FIXME: Used in log messages, fix log format to get this automatically
     return threading.currentThread().getName()
+
 
 _db_pool_lock = thread.allocate_lock()
 
@@ -106,7 +111,7 @@ class ProxyDBConnection(object):
                     logger.debug("  Close " + p)
                     # self.active_connections[p].close()
                     self.free_pool.append(self.active_connections[p])
-                    del(self.active_connections[p])
+                    del self.active_connections[p]
             if not self.free_pool:
                 obj = self._obj_class()
             else:
@@ -157,19 +162,19 @@ def test_help(config, target):
         newcmd = inst.get_commands(some_superuser)
         for k in newcmd.keys():
             if inst is not server.cmd2instance[k]:
-                print "Skipping:", k
+                print("Skipping:", k)
                 continue
             commands[k] = newcmd[k]
 
     # Action
     if target == '' or target == 'all' or target == 'general':
-        print server.cmdhelp.get_general_help(commands)
+        print(server.cmdhelp.get_general_help(commands))
     elif target == 'check':
         server.help.check_consistency(commands)
     elif target.find(":") >= 0:
-        print server.cmdhelp.get_cmd_help(commands, *target.split(":"))
+        print(server.cmdhelp.get_cmd_help(commands, *target.split(":")))
     else:
-        print server.cmdhelp.get_group_help(commands, target)
+        print(server.cmdhelp.get_group_help(commands, target))
 
 
 def auth_dir(filename):
@@ -282,7 +287,15 @@ if __name__ == '__main__':
     logger.debug("Done caching constants")
 
     # Log short timeout values
-    bofhd_session.BofhdSession._log_short_timeouts(logger)
+    logger.info("Session lifetime: %s (or inactive for %s)",
+                bofhd_session.BofhdSession.timeout_auth,
+                bofhd_session.BofhdSession.timeout_seen)
+    if bofhd_session.BofhdSession.timeout_short_hosts:
+        short_ips = tuple(
+            t[0] for t in bofhd_session.BofhdSession.timeout_short_hosts)
+        logger.info("Short-lived sessions expire after %s (from: %s)",
+                    bofhd_session.BofhdSession.timeout_short,
+                    short_ips)
 
     server = cls(**server_args)
     server.serve_forever()
