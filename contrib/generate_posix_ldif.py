@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2002-2019 University of Oslo, Norway
+# Copyright 2002-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -21,12 +21,17 @@
 """
 Write user and group information to an LDIF file.
 """
-from __future__ import unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import argparse
 import logging
 
-from six import text_type
+import six
 
 import cereconf
 import Cerebrum.logutils
@@ -43,39 +48,39 @@ def main(inargs=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         '--user-file',
-        type=text_type,
+        type=six.text_type,
         dest='user_file',
         metavar='PATH',
         help='output file for users')
     parser.add_argument(
         '--user-spread',
-        type=text_type,
+        type=six.text_type,
         action='append',
         dest='user_spread',
         metavar='NAME',
         help='selection spread(s) for users')
     parser.add_argument(
         '--filegroup-file',
-        type=text_type,
+        type=six.text_type,
         dest='filegroup_file',
         metavar='PATH',
         help='output file for file groups')
     parser.add_argument(
         '--filegroup-spread',
-        type=text_type,
+        type=six.text_type,
         action='append',
         dest='filegroup_spread',
         metavar='NAME',
         help='selection spread(s) for file groups')
     parser.add_argument(
         '--netgroup-file',
-        type=text_type,
+        type=six.text_type,
         dest='netgroup_file',
         metavar='PATH',
         help='output file for net groups')
     parser.add_argument(
         '--netgroup-spread',
-        type=text_type,
+        type=six.text_type,
         action='append',
         dest='netgroup_spread',
         metavar='NAME',
@@ -102,7 +107,6 @@ def main(inargs=None):
     fd = None
     if args.all:
         fd = ldif_outfile('POSIX')
-        fd.write("\n")
         if cereconf.LDAP_POSIX.get('dn'):
             fd.write(container_entry_string('POSIX'))
 
@@ -131,4 +135,4 @@ def main(inargs=None):
 
 
 if __name__ == '__main__':
-        main()
+    main()
