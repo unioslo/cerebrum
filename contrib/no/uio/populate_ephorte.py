@@ -105,7 +105,7 @@ class PopulateEphorte(object):
     select_affiliations = (
         ('DFO_SAP', 'ANSATT'),
         ('DFO_SAP', 'TILKNYTTET/ekst_partner'),
-        ('DFO_SAP', 'TILKNYTTET/innkjoper'),
+        ('GREG', 'TILKNYTTET/ekst_partner'),
     )
 
     def __init__(self, ewsclient):
