@@ -27,3 +27,6 @@ up).
 
 Use the :mod:`Cerebrum.modules.tasks` for similar behaviour.
 """
+
+# bofhd_requests sqlmodule version (see makedb.py / mod_bofhd_requests.sql)
+__version__ = "1.1"

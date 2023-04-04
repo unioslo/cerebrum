@@ -51,6 +51,7 @@ targets = {
     ),
     'bofhd': ('bofhd_1_1', 'bofhd_1_2', 'bofhd_1_3', 'bofhd_1_4', 'bofhd_1_5'),
     'bofhd_auth': ('bofhd_auth_1_1', 'bofhd_auth_1_2',),
+    'bofhd_requests': ('bofhd_requests_1_1',),
     'changelog': ('changelog_1_2', 'changelog_1_3', 'changelog_1_4',
                   'changelog_1_5'),
     'email': ('email_1_0', 'email_1_1', 'email_1_2', 'email_1_3', 'email_1_4',
@@ -1022,6 +1023,16 @@ def migrate_to_bofhd_auth_1_2():
     db.commit()
 
 
+def migrate_to_bofhd_requests_1_1():
+    print("\ndone.")
+    assert_db_version("1.0", component='bofhd_requests')
+    makedb('bofhd_requests_1_1', 'pre')
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo("sqlmodule_bofhd_requests", "1.1")
+    print("Migration to bofhd_requests 1.1 completed successfully")
+    db.commit()
+
+
 def migrate_to_changelog_1_2():
     print("\ndone.")
     assert_db_version("1.1", component='changelog')
@@ -1065,7 +1076,7 @@ def fix_change_params(params):
         return dict((fix_change_params(k), fix_change_params(v)) for k, v in
                     d.items())
 
-    def fix_array(l):
+    def fix_array(l):  # noqa: E741
         return list(map(fix_change_params, l))
 
     if isinstance(params, bytes):
@@ -1090,7 +1101,7 @@ def get_change_type(cl, code):
 def fix_changerows(process, qin, qout, mn, mx):
     print('started process {}: from: {}, to: {}'.format(process, mn, mx))
     try:
-        import cPickle as pickle
+        import cPickle as pickle  # noqa: N813
     except ImportError:
         import pickle
     from Cerebrum.modules.ChangeLog import _params_to_db

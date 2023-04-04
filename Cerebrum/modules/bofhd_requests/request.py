@@ -28,8 +28,6 @@ from Cerebrum import Errors
 from Cerebrum.utils import date_compat
 from Cerebrum.utils import date as date_utils
 
-__version__ = "1.0"
-
 
 def _get_batch_time(now):
     """
@@ -38,12 +36,23 @@ def _get_batch_time(now):
     - If we are past 22:00 this day, schedule for tomorrow evening
     - Otherwise, schedule this evening at 22:00
     """
-    midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    batch_time = datetime.time(22)
 
-    if (now - midnight) > datetime.timedelta(hours=22):
-        return midnight + datetime.timedelta(days=1, hours=22)
-    else:
-        return midnight + datetime.timedelta(hours=22)
+    # We use get_datetime_tz to
+    #  1. validate the value
+    #  2. make sure it's in our local tz
+    now = date_compat.get_datetime_tz(now, allow_none=False)
+
+    curr_time = now.time()
+    today = now.date()
+    tomorrow = today + datetime.timedelta(days=1)
+
+    batch_dt = datetime.datetime.combine(
+        tomorrow if curr_time > batch_time else today,
+        batch_time,
+    )
+    # We lost the (local) tzinfo from splitting and combining the date and time
+    return date_utils.apply_timezone(batch_dt)
 
 
 class BofhdRequests(object):
@@ -59,54 +68,83 @@ class BofhdRequests(object):
         # that op pending.  All other ops implicitly conflict with
         # themselves, so there can only be one of each op.
         self.conflicts = {
-            int(const.bofh_move_user): [const.bofh_move_student,
-                                        const.bofh_move_user_now,
-                                        const.bofh_move_request,
-                                        const.bofh_delete_user],
-            int(const.bofh_move_student): [const.bofh_move_user,
-                                           const.bofh_move_user_now,
-                                           const.bofh_move_request,
-                                           const.bofh_delete_user],
-            int(const.bofh_move_user_now): [const.bofh_move_student,
-                                            const.bofh_move_user,
-                                            const.bofh_move_request,
-                                            const.bofh_delete_user],
-            int(const.bofh_move_request): [const.bofh_move_user,
-                                           const.bofh_move_user_now,
-                                           const.bofh_move_student,
-                                           const.bofh_delete_user],
+            int(const.bofh_move_user): [
+                const.bofh_move_student,
+                const.bofh_move_user_now,
+                const.bofh_move_request,
+                const.bofh_delete_user,
+            ],
+            int(const.bofh_move_student): [
+                const.bofh_move_user,
+                const.bofh_move_user_now,
+                const.bofh_move_request,
+                const.bofh_delete_user,
+            ],
+            int(const.bofh_move_user_now): [
+                const.bofh_move_student,
+                const.bofh_move_user,
+                const.bofh_move_request,
+                const.bofh_delete_user,
+            ],
+            int(const.bofh_move_request): [
+                const.bofh_move_user,
+                const.bofh_move_user_now,
+                const.bofh_move_student,
+                const.bofh_delete_user,
+            ],
             int(const.bofh_move_give): None,
-            int(const.bofh_archive_user): [const.bofh_move_user,
-                                           const.bofh_move_user_now,
-                                           const.bofh_move_student,
-                                           const.bofh_delete_user],
-            int(const.bofh_delete_user): [const.bofh_move_user,
-                                          const.bofh_move_user_now,
-                                          const.bofh_move_student,
-                                          const.bofh_email_create],
-            int(const.bofh_email_create): [const.bofh_email_delete,
-                                           const.bofh_delete_user],
-            int(const.bofh_email_delete): [const.bofh_email_create],
-            int(const.bofh_email_convert): [const.bofh_email_delete],
-            int(const.bofh_sympa_create): [const.bofh_sympa_remove],
-            int(const.bofh_sympa_remove): [const.bofh_sympa_create],
+            int(const.bofh_archive_user): [
+                const.bofh_move_user,
+                const.bofh_move_user_now,
+                const.bofh_move_student,
+                const.bofh_delete_user,
+            ],
+            int(const.bofh_delete_user): [
+                const.bofh_move_user,
+                const.bofh_move_user_now,
+                const.bofh_move_student,
+                const.bofh_email_create,
+            ],
+            int(const.bofh_email_create): [
+                const.bofh_email_delete,
+                const.bofh_delete_user,
+            ],
+            int(const.bofh_email_delete): [
+                const.bofh_email_create,
+            ],
+            int(const.bofh_email_convert): [
+                const.bofh_email_delete,
+            ],
+            int(const.bofh_sympa_create): [
+                const.bofh_sympa_remove,
+            ],
+            int(const.bofh_sympa_remove): [
+                const.bofh_sympa_create,
+            ],
             int(const.bofh_quarantine_refresh): None,
-            int(const.bofh_email_restore): [const.bofh_email_create],
-            int(const.bofh_homedir_restore): [const.bofh_move_user,
-                                              const.bofh_move_user_now,
-                                              const.bofh_move_student,
-                                              const.bofh_delete_user]
-            }
+            int(const.bofh_email_restore): [
+                const.bofh_email_create,
+            ],
+            int(const.bofh_homedir_restore): [
+                const.bofh_move_user,
+                const.bofh_move_user_now,
+                const.bofh_move_student,
+                const.bofh_delete_user,
+            ],
+        }
 
     def get_conflicts(self, op):
-        """Returns a list of conflicting operation types.  op can be
-        an integer or a constant."""
+        """
+        Returns a list of conflicting operation types.
 
+        :param op: operation type constant, or constant int value
+        """
         conflicts = self.conflicts[int(op)]
 
         if conflicts is None:
             conflicts = []
         else:
+            conflicts = list(conflicts)
             conflicts.append(op)
         # Make sure all elements in the returned list are integers
         return [int(c) for c in conflicts]
@@ -120,9 +158,9 @@ class BofhdRequests(object):
             # No need to check for conflicts when no entity is given
             for r in self.get_requests(entity_id=entity_id):
                 if int(r['operation']) in conflicts:
-                    raise CerebrumError("Conflicting request exists (%s)" %
-                                        self.co.BofhdRequestOp(r['operation']).
-                                        description)
+                    conflict_op = self.co.BofhdRequestOp(r['operation'])
+                    raise CerebrumError("Conflicting request exists (%s)"
+                                        % (conflict_op.description,))
 
         reqid = int(self._db.nextval('request_id_seq'))
         cols = {
@@ -138,10 +176,10 @@ class BofhdRequests(object):
         order = tuple(sorted(cols.keys()))
         self._db.execute(
             """
-            INSERT INTO [:table schema=cerebrum name=bofhd_request]
-              ({tcols})
-            VALUES
-              ({binds})
+              INSERT INTO [:table schema=cerebrum name=bofhd_request]
+                ({tcols})
+              VALUES
+                ({binds})
             """.format(
                 tcols=", ".join(order),
                 binds=", ".join(":{}".format(t) for t in order),
@@ -156,16 +194,20 @@ class BofhdRequests(object):
             # dependent, and not standardised in PEP 249.
             # PgSQL will convert to ticks when forced into int().
             run_at = date_compat.get_datetime_tz(r['run_at'])
-            if run_at < self.now:
+            if not run_at or run_at < self.now:
                 run_at = self.now
             new_run_at = run_at + datetime.timedelta(minutes=minutes)
             self._db.execute(
                 """
-                UPDATE [:table schema=cerebrum name=bofhd_request]
-                SET run_at=:when
-                WHERE request_id=:id
+                  UPDATE [:table schema=cerebrum name=bofhd_request]
+                  SET run_at=:when
+                  WHERE request_id=:id
                 """,
-                {'when': new_run_at, 'id': request_id})
+                {
+                    'when': new_run_at,
+                    'id': request_id,
+                },
+            )
             return
         raise Errors.NotFoundError("No such request: " + repr(request_id))
 
@@ -182,8 +224,8 @@ class BofhdRequests(object):
             cols['operation'] = int(operation)
         self._db.execute(
             """
-            DELETE FROM [:table schema=cerebrum name=bofhd_request]
-            WHERE {}
+              DELETE FROM [:table schema=cerebrum name=bofhd_request]
+              WHERE {}
             """.format(
                 " AND ".join("{0}=:{0}".format(x) for x in cols.keys())
             ),
@@ -208,11 +250,12 @@ class BofhdRequests(object):
         if only_runnable:
             cols['now'] = date_utils.now()
             where.append("run_at <= :now")
+
         qry = """
-        SELECT request_id, requestee_id, run_at, operation, entity_id,
-               destination_id, state_data
-        FROM [:table schema=cerebrum name=bofhd_request]
-        WHERE {}
+          SELECT request_id, requestee_id, run_at, operation, entity_id,
+                 destination_id, state_data
+          FROM [:table schema=cerebrum name=bofhd_request]
+          WHERE {}
         """
         ret = self._db.query(qry.format(" AND ".join(where)), cols)
         if given:
@@ -231,13 +274,13 @@ class BofhdRequests(object):
         return ret
 
     def get_operations(self):
-        """Retrieves the various types/operations that it is possible
+        """
+        Retrieves the various types/operations that it is possible
         to generate bofhd-requests for.
-
         """
         qry = """
-        SELECT code, code_str, description
-        FROM [:table schema=cerebrum name=bofhd_request_code]
-        ORDER BY code_str
+          SELECT code, code_str, description
+          FROM [:table schema=cerebrum name=bofhd_request_code]
+          ORDER BY code_str
         """
         return self._db.query(qry)

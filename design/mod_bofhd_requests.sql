@@ -25,7 +25,7 @@ category:metainfo;
 name=bofhd_requests;
 
 category:metainfo;
-version=1.0;
+version=1.1;
 
 /* bofhd request operation types */
 category:code;
@@ -79,7 +79,7 @@ CREATE TABLE bofhd_request
     NUMERIC(12,0),
 
   run_at
-    TIMESTAMP
+    TIMESTAMP WITH TIME ZONE
     NULL,
 
   operation

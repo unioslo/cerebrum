@@ -357,7 +357,7 @@ def check_schema_versions(db, strict=False):
         'ad_email': 'Cerebrum.modules.no.uit.ad_email',
         'apikeys': 'Cerebrum.modules.apikeys',
         'auditlog': 'Cerebrum.modules.audit',
-        'bofhd_requests': 'Cerebrum.modules.bofhd_requests.request',
+        'bofhd_requests': 'Cerebrum.modules.bofhd_requests',
         'changelog': 'Cerebrum.modules.ChangeLog',
         'disk_quota': 'Cerebrum.modules.disk_quota',
         'dns': 'Cerebrum.modules.dns',

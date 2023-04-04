@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-# Copyright 2003-2017 University of Oslo, Norway
+#
+# Copyright 2003-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -51,7 +51,7 @@ def dependency_pending(dep_id, local_db=db, local_co=const):
         return False
     br = BofhdRequests(local_db, local_co)
     for dr in br.get_requests(request_id=dep_id):
-        logger.debug("waiting for request %d" % int(dep_id))
+        logger.debug("waiting for request %d", int(dep_id))
         return True
     return False
 

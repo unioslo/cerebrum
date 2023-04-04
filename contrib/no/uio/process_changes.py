@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-# Copyright 2003 University of Oslo, Norway
+#
+# Copyright 2003-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,50 +18,53 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
 """
-This script should be run regularly.  It processes the changelog,
-and performs a number of tasks:
+This script processes the changelog, and performs a number of tasks:
 
 - when a user has been created: create users homedir
 - when a guest user's home has been archived: make a new home directory
+- when a quarantine is modified: schedule quarantine refresh bofhd requests
 
-TBD: If this script is only going to be used for creating users, it
-should probably be renamed.  There are already other scrits, like
-nt-sync that process the changelog themselves.  We need to
-determine wheter it is a good idea to have multiple small scripts
-doing this, or if there is an advantage into merging all of them
-into a bigger script, perhaps with some plugin-like structure for
-subscribing to certain event types.
+It should be run regularly.
 
+TBD: There are already other scripts that process the changelog themselves.  We
+need to determine wheter it is a good idea to have multiple small scripts doing
+this, or if there is an advantage into merging all of them into a bigger
+script, perhaps with some plugin-like structure for subscribing to certain
+event types.
 """
-from __future__ import print_function, unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
+import getopt
 import os
 import sys
-import getopt
 
-from six import text_type
+import six
 
 import cereconf
 
-from Cerebrum.modules import CLHandler
-from Cerebrum.Utils import Factory
-from Cerebrum.utils import json
 from Cerebrum import Errors
 from Cerebrum.Entity import EntityQuarantine
+from Cerebrum.Utils import Factory
+from Cerebrum.modules import CLHandler
 from Cerebrum.modules import PosixGroup
 from Cerebrum.modules.bofhd_requests.request import BofhdRequests
+from Cerebrum.utils import date_compat
+from Cerebrum.utils import json
+
 
 logger = Factory.get_logger("cronjob")
+
 db = Factory.get('Database')()
 db.cl_init(change_program="process_changes")
 cl_const = Factory.get('CLConstants')(db)
 const = Factory.get('Constants')(db)
-posix_user = Factory.get('PosixUser')(db)
-posix_group = PosixGroup.PosixGroup(db)
-host = Factory.get('Host')(db)
-disk = Factory.get('Disk')(db)
+
 debug_hostlist = None
 
 DEBUG = False
@@ -84,27 +87,42 @@ class EvtHandler(object):
 
     evt_key = 'uio_ch'
 
+    def __init__(self, db):
+        self.db = db
+
     def get_triggers(self):
-        """This method returns a list of strings representing the
-        events in the changelog that we want callbacks for.  The
-        string should be the name of a constant in CLConstants, and
-        the corresponding callback method should be named
-        notify_<string>
+        """
+        Get changelog triggers for this handler.
+
+        This method returns a list of strings representing the events in the
+        changelog that we want callbacks for.  The string should be the name of
+        a constant in CLConstants, and the corresponding callback method should
+        be named notify_<string>
         """
         raise NotImplementedError
 
     def notify_example(self, evt, params):
-        """Callbackmethod called when an event of type
-        CLConstants.example is found in the changelog.  evt is a
-        db_row from the changelog.  params is a depickled
-        change_params.  The method should return True uppon success."""
+        """
+        Example callback for a trigger named *example*.
+
+        Callback method called when an event of type CLConstants.example is
+        found in the changelog.
+
+        :param evt: a database row from the changelog
+        :param params: deserialized change_params from the changelog event
+
+        :returns bool: the method should return True upon success
+        """
 
         raise NotImplementedError
 
 
 class MakeUser(EvtHandler):
-    # TODO: change if we decide to allow different homedirs for same user
-    home_spread = const.spread_uio_nis_user
+
+    def __init__(self, db):
+        super(MakeUser, self).__init__(db)
+        # TODO: change if we decide to allow different homedirs for same user
+        self.home_spread = const.spread_uio_nis_user
 
     def get_triggers(self):
         return ("account_home_added", "homedir_update")
@@ -120,7 +138,8 @@ class MakeUser(EvtHandler):
             except Errors.NotFoundError:
                 # A reserved user or similar that don't get a homedir
                 return True
-            # posix_user was set by get_make_user_data
+            posix_user = Factory.get('PosixUser')(self.db)
+            posix_user.find(evt['subject_entity'])
             home = posix_user.get_home(self.home_spread)
             posix_user.set_homedir(current_id=home['homedir_id'],
                                    status=status)
@@ -154,24 +173,29 @@ class MakeUser(EvtHandler):
         return True
 
     def _get_make_user_data(self, entity_id):
-        posix_user.clear()
+        posix_user = Factory.get('PosixUser')(self.db)
         posix_user.find(entity_id)
-        posix_group.clear()
+
+        posix_group = PosixGroup.PosixGroup(self.db)
         posix_group.find(posix_user.gid_id)
-        disk.clear()
+
         home = posix_user.get_home(self.home_spread)
         homedir = posix_user.get_posix_home(self.home_spread)
-        disk.find(home['disk_id'])
-        host.clear()
-        host.find(disk.host_id)
 
-        return {'uname': posix_user.account_name,
-                'uid': text_type(posix_user.posix_uid),
-                'gid': text_type(posix_group.posix_gid),
-                'gecos': posix_user.get_gecos(),
-                'host': host.name,
-                'home': home,
-                'homedir': homedir}
+        disk = Factory.get('Disk')(self.db)
+        disk.find(home['disk_id'])
+
+        host = Factory.get('Host')(self.db)
+        host.find(disk.host_id)
+        return {
+            'uname': posix_user.account_name,
+            'uid': six.text_type(posix_user.posix_uid),
+            'gid': six.text_type(posix_group.posix_gid),
+            'gecos': posix_user.get_gecos(),
+            'host': host.name,
+            'home': home,
+            'homedir': homedir,
+        }
 
     def _make_user(self, entity_id):
         try:
@@ -198,7 +222,7 @@ class MakeUser(EvtHandler):
         if DEBUG:
             args.append('--debug')
         cmd = SSH_CEREBELLUM + [" ".join(args), ]
-        logger.debug("Doing: %s", text_type(cmd))
+        logger.debug("Doing: %s", cmd)
         if debug_hostlist is None or info['host'] in debug_hostlist:
             errnum = os.spawnv(os.P_WAIT, cmd[0], cmd)
         else:
@@ -215,7 +239,8 @@ class Quarantine2Request(EvtHandler):
     start_date, end_date and disable_until dates.
     """
 
-    def __init__(self):
+    def __init__(self, db):
+        super(Quarantine2Request, self).__init__(db)
         self.br = BofhdRequests(db, const)
         self.eq = EntityQuarantine(db)
 
@@ -239,14 +264,17 @@ class Quarantine2Request(EvtHandler):
         qdata = self._get_quarantine(evt['subject_entity'], params['q_type'])
         if not qdata:
             return True
-        for when in ('start_date', 'end_date', 'disable_until'):
-            if qdata[when] is not None:
-                self.br.add_request(None,
-                                    qdata[when],
-                                    const.bofh_quarantine_refresh,
-                                    evt['subject_entity'],
-                                    None,
-                                    state_data=int(params['q_type']))
+        for when_col in ('start_date', 'end_date', 'disable_until'):
+            when = date_compat.get_date(qdata[when_col])
+            if when is not None:
+                self.br.add_request(
+                    operator=None,
+                    when=when,
+                    op_code=const.bofh_quarantine_refresh,
+                    entity_id=evt['subject_entity'],
+                    destination_id=None,
+                    state_data=int(params['q_type']),
+                )
             db.commit()
         return True
 
@@ -255,15 +283,26 @@ class Quarantine2Request(EvtHandler):
         qdata = self._get_quarantine(evt['subject_entity'], params['q_type'])
         if not qdata:
             return True
-        if qdata['disable_until']:
-            self.br.add_request(None, qdata['disable_until'],
-                                const.bofh_quarantine_refresh,
-                                evt['subject_entity'], None,
-                                state_data=int(params['q_type']))
 
-        self.br.add_request(None, self.br.now, const.bofh_quarantine_refresh,
-                            evt['subject_entity'], None,
-                            state_data=int(params['q_type']))
+        when = date_compat.get_date(qdata['disable_until'])
+        if when:
+            self.br.add_request(
+                operator=None,
+                when=when,
+                op_code=const.bofh_quarantine_refresh,
+                entity_id=evt['subject_entity'],
+                destination_id=None,
+                state_data=int(params['q_type']),
+            )
+
+        self.br.add_request(
+            operator=None,
+            when=self.br.now,
+            op_code=const.bofh_quarantine_refresh,
+            entity_id=evt['subject_entity'],
+            destination_id=None,
+            state_data=int(params['q_type']),
+        )
         db.commit()
         return True
 
@@ -275,9 +314,14 @@ class Quarantine2Request(EvtHandler):
                 operation=int(const.bofh_quarantine_refresh)):
             if int(row['state_data']) == int(params['q_type']):
                 self.br.delete_request(request_id=row['request_id'])
-        self.br.add_request(None, self.br.now, const.bofh_quarantine_refresh,
-                            evt['subject_entity'], None,
-                            state_data=int(params['q_type']))
+        self.br.add_request(
+            operator=None,
+            when=self.br.now,
+            op_code=const.bofh_quarantine_refresh,
+            entity_id=evt['subject_entity'],
+            destination_id=None,
+            state_data=int(params['q_type']),
+        )
         db.commit()
         return True
 
@@ -310,7 +354,8 @@ def process_changelog(evt_key, classes):
 
 
 def process_changes():
-    classes = (MakeUser(), Quarantine2Request())
+    # TODO: Make db here, rather than globally
+    classes = (MakeUser(db), Quarantine2Request(db))
     keys = dict([(c.evt_key, None) for c in classes]).keys()
     for k in keys:
         process_changelog(k, filter(lambda c: c.evt_key == k, classes))
