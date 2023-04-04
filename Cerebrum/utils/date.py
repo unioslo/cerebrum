@@ -61,7 +61,17 @@ TIMEZONE
     to specify which timezone to use. This cereconf-value sets the default
     timezone for these functions.
 
+    Naive datetime objects are assumed to be in this TIMEZONE, so this value
+    should reflect the locale of the host.
+
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    # TODO: unicode_literals,
+)
+import calendar
 import datetime
 
 import aniso8601
@@ -72,14 +82,9 @@ import cereconf
 # Read-only tzinfo copy of ``cereconf.TIMEZONE``
 TIMEZONE = pytz.timezone(cereconf.TIMEZONE)
 
-
-# TODO: Use tzlocal for default TIMEZONE?
-# try:
-#     import cereconf
-#     TIMEZONE = pytz.timezone(cereconf.TIMEZONE)
-# except ImportError:
-#     from tzlocal import get_localzone
-#     TIMEZONE = get_localzone()
+# This is just for convenience - other modules should generally not need to
+# deal with pytz directly.
+UTC = pytz.UTC
 
 
 SECONDS_PER_MIN = 60
@@ -105,7 +110,7 @@ def utcnow():
     :return datetime:
         Returns a timezone-aware datetime object, with the current time in UTC.
     """
-    return apply_timezone(datetime.datetime.utcnow(), tz=pytz.UTC)
+    return apply_timezone(datetime.datetime.utcnow(), tz=UTC)
 
 
 def now(tz=TIMEZONE):
@@ -162,6 +167,10 @@ def strip_timezone(aware):
         raise ValueError("datetime does not have tzinfo")
     return aware.replace(tzinfo=None)
 
+
+#
+# Strict ISO-8601 parsers
+#
 
 def parse_datetime_tz(rawstr):
     """
@@ -235,10 +244,62 @@ def parse_date(dtstr):
 def parse_time(dtstr):
     """
     Parse an ISO8601 time string.
+
     :param dtstr: An ISO8601 formatted time string
+
     :return: A time object.
     """
     return aniso8601.parse_time(str(dtstr))
+
+
+#
+# tz-aware timestamp utils
+#
+
+def from_timestamp(timestamp, tz=TIMEZONE):
+    """
+    Create a tz-aware datetime from timestamp.
+
+    This creates a UTC datetime object, and then converts that time to the
+    wanted *tz*.
+
+    :param float timestamp: a timestamp
+    :param tz: localize utc datetime result to this timezone
+
+    :returns datetime.datetime: tz-aware datetime
+    """
+    utc_dt = datetime.datetime.fromtimestamp(float(timestamp), UTC)
+    return to_timezone(utc_dt, tz=tz)
+
+
+def to_timestamp(dt, default_timezone=TIMEZONE):
+    """
+    Create a timestamp from a datetime object.
+
+    This converts the given datetime to UTC, and then converts that time
+    to a timestamp.
+
+    :param datetime.datetime dt: a datetime object
+    :param default_timezone: default tz for naive datetime objects
+
+    :returns float: timestamp
+    """
+    if not dt.tzinfo:
+        # Naive datetime, assume in default_timezone
+        dt = apply_timezone(dt, tz=default_timezone)
+
+    # Workaround for missing (tz-aware) timestamp functions in PY2
+    # (most timestamp related functions in the standard library are bound to
+    # local time in some way)
+    #
+    # 1. Convert datetime to utc timetuple:
+    utc_dt = to_timezone(dt, UTC)
+    gm_tuple = utc_dt.timetuple()
+    # 2. Use `calendar.timegm` to convert utc timetuple to utc timestamp
+    ss = float(calendar.timegm(gm_tuple))
+    # 3. Extract microseconds, which are missing from the timetuple struct:
+    us = float(utc_dt.microsecond / 1000000)
+    return ss + us
 
 
 # python -m Cerebrum.utils.date
@@ -248,33 +309,49 @@ def main(inargs=None):
     import argparse
 
     parser = argparse.ArgumentParser(
-        description="parse dates using utils in this module")
+        description="parse dates using utils in this module",
+    )
     parser.add_argument(
         '-t', '--timezone',
         default=TIMEZONE,
         type=pytz.timezone,
-        help="use custom timezone (default: cereconf.TIMEZONE=%(default)s)")
+        help="use custom timezone (default: cereconf.TIMEZONE=%(default)s)",
+    )
     parser.add_argument(
         'datetime',
         nargs='*',
         default=[],
-        help="iso8601 date to parse")
+        help="timestamp or iso8601 date to parse",
+    )
     args = parser.parse_args(inargs)
 
     print("timezone:    {0!s}".format(args.timezone))
     print("now:         {0!s}".format(now(tz=args.timezone)))
     print("utcnow:      {0!s}".format(utcnow()))
+    print("timestamp:   {0!s}".format(to_timestamp(utcnow())))
+
+    def print_datetime(dt, prefix="    "):
+        print(prefix, "iso:  {}".format(dt.isoformat()), sep="")
+        print(prefix, "ts:   {}".format(to_timestamp(dt)), sep="")
+        print(prefix, "repr: {}".format(repr(dt)), sep="")
 
     for num, d in enumerate(args.datetime, 1):
+        try:
+            d = float(d)
+            parse = from_timestamp
+        except ValueError:
+            parse = parse_datetime
+
         print("\ndate #{0:d}: {1!r}".format(num, d))
 
-        foo = parse_datetime(d)
-        print("  parse_datetime: {0!s}".format(foo))
-        print("                  {0!r}".format(foo))
+        name = parse.__name__
+        foo = parse(d)
+        print("  {}: {}".format(name, repr(d)))
+        print_datetime(foo)
 
         bar = to_timezone(foo, tz=args.timezone)
-        print("  to_timezone:    {0!s}".format(bar))
-        print("                  {0!r}".format(bar))
+        print("  to_timezone: {}".format(args.timezone))
+        print_datetime(bar)
 
 
 if __name__ == '__main__':

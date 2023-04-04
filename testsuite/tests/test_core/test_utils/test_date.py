@@ -68,3 +68,49 @@ def test_parse_datetime(value):
     default_timezone = pytz.UTC
     dt = date.parse_datetime(value, default_timezone=default_timezone)
     assert dt.tzinfo is not None
+
+
+UTC_TZ = pytz.UTC
+LOCAL_TZ = pytz.timezone("Europe/Oslo")
+
+epoch_naive = datetime.datetime(1970, 1, 1, 0)
+epoch_aware_utc = UTC_TZ.localize(epoch_naive)
+epoch_aware_local = epoch_aware_utc.astimezone(LOCAL_TZ)
+
+
+def test_to_timestamp_naive():
+    # Naive datetime values are assumed to be in the ``default_timezone``,
+    # which is usually what you want.  This means that e.g.
+    # ``to_timestamp(datetime.datetime.now())`` gives a correct timestamp.
+    assert date.to_timestamp(epoch_naive, default_timezone=UTC_TZ) == 0.0
+
+    # our chosen LOCAL_TZ was at epoch one hour behind:
+    assert date.to_timestamp(epoch_naive, default_timezone=LOCAL_TZ) == -3600.0
+
+
+@pytest.mark.parametrize("aware", (epoch_aware_utc, epoch_aware_local))
+def test_to_timestamp_aware(aware):
+    # The ``default_timezone`` is ignored for tz-aware datetime objects.
+    assert date.to_timestamp(aware, default_timezone=LOCAL_TZ) == 0.0
+
+
+@pytest.mark.parametrize("tz", (UTC_TZ, LOCAL_TZ))
+def test_from_timestamp(tz):
+    # Get tz-aware datetime in UTC
+    aware = date.from_timestamp(0, tz=tz)
+
+    # Should be the same time as our tz-aware epoch ...
+    assert aware == epoch_aware_utc
+    # .. and in our chosen time zone
+    assert aware.tzinfo.zone == tz.zone
+
+
+def test_timestamp_cycle():
+    utc = date.utcnow()
+    utc_ts = date.to_timestamp(utc)
+    assert date.from_timestamp(utc_ts) == utc
+
+    # in local tz from cereconf!
+    aware = date.now()
+    aware_ts = date.to_timestamp(aware)
+    assert date.from_timestamp(aware_ts) == aware
