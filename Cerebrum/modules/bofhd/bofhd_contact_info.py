@@ -326,6 +326,8 @@ CMD_HELP = {
             'add contact information to an entity',
         'entity_contactinfo_remove':
             'remove contact information from an entity',
+        'entity_contactinfo_search':
+            'find entities with a given contact info value',
     },
 }
 
