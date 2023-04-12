@@ -32,6 +32,7 @@ from Cerebrum.Entity import Entity
 from Cerebrum.Constants import _ChangeTypeCode, _get_code
 from Cerebrum import Errors
 from Cerebrum.Utils import NotSet
+from Cerebrum.utils.date_compat import get_datetime_naive
 from Cerebrum.modules.trait.constants import _EntityTraitCode
 
 
@@ -190,6 +191,7 @@ class EntityTrait(Entity):
                     {
                         'entity_id': self.entity_id,
                     }):
+                row['date'] = get_datetime_naive(row['date'])
                 self.__traits[_EntityTraitCode(row['code'])] = dict(row)
         return self.__traits
 

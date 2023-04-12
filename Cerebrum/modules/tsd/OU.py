@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2013-2018 University of Oslo, Norway
+# Copyright 2013-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -26,20 +26,25 @@ project ID stored as an external ID. When a project has finished, we will
 delete all details about the project, except the project's OU and its external
 ID and acronym, to avoid reuse of the project ID and name for later projects.
 """
-from __future__ import unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import re
 import itertools
 
 import six
-
-from mx import DateTime
+import datetime
 
 import cereconf
 
 from Cerebrum import Errors
 from Cerebrum.OU import OU
 from Cerebrum.Utils import Factory
+from Cerebrum.utils.date import parse_date
 from Cerebrum.modules.dns import (Subnet, IPv6Subnet, HostInfo, DnsOwner,
                                   Utils, IPv6Number, AAAARecord, IPNumber,
                                   ARecord, IntegrityHelper)
@@ -460,7 +465,7 @@ class OUAffiliateMixin(OU):
         trait.find(entity.entity_id)
         trait.populate_trait(trait_code,
                              target_id=self.entity_id,
-                             date=DateTime.now())
+                             date=datetime.datetime.now())
         trait.write_db()
 
 
@@ -669,9 +674,10 @@ class TsdDefaultEntityMixin(TsdProjectMixin, OUAffiliateMixin):
         shell = (self.const.human2constant(six.text_type(shell),
                                            self.const.PosixShell) or
                  self.const.posix_shell_bash)
-        bdate = (DateTime.Parser.DateFromString(bdate, formats=('ymd1', ))
-                 if bdate and not isinstance(bdate, DateTime.DateTimeType)
+        bdate = (parse_date(bdate)
+                 if bdate and not isinstance(bdate, datetime.date)
                  else bdate)
+        print(isinstance(bdate, datetime.date))
         aff, status = self.const.get_affiliation(affiliation)
 
         # TODO: Should this not be in Account.illegal_name?

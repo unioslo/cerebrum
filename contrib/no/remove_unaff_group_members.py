@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2019 University of Oslo, Norway
+# Copyright 2019-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -29,6 +29,12 @@ This is done in the following steps:
       alone.
 
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import argparse
 import datetime
@@ -37,6 +43,7 @@ import logging
 from Cerebrum import logutils
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.argutils import add_commit_args
+from Cerebrum.utils.date_compat import get_date
 
 
 def remove_persons(database, logger, posix_user2gid, grace_period):
@@ -136,9 +143,7 @@ def cache_person_affs(database):
         pid = int(row['person_id'])
         if pid not in person_affs:
             person_affs[pid] = set()
-        delete_date = row['deleted_date']
-        if delete_date is not None:
-            delete_date = delete_date.pydate()
+        delete_date = get_date(row['deleted_date'])
         person_affs[pid].add(delete_date)
     return person_affs
 
