@@ -34,6 +34,8 @@ import os
 import time
 from contextlib import closing
 
+import six
+
 import cereconf
 
 from Cerebrum import Errors
@@ -218,25 +220,30 @@ class RequestProcessor(object):
         with closing(RequestLockHandler()) as reqlock:
             br = BofhdRequests(self.db, self.co)
             for t in op_types:
+                logger.info("Processing operation type %r", t)
                 for op in self.op_type_map[t]:
-                    if op not in operations_map:
-                        logger.info('Unable to process operation %r', op)
+                    op_key = six.text_type(op)
+                    logger.info("Processing operation %r (%r)", op_key, op)
+                    if op_key not in operations_map:
+                        logger.info('Unable to process operation %r (%r)',
+                                    op_key, op)
                         continue
-                    func, settings = operations_map[op]
+                    func, settings = operations_map[op_key]
                     delay = settings.get('delay', 0)
                     set_operator(self.db)
                     start_time = time.time()
                     for r in br.get_requests(operation=op, only_runnable=True):
                         reqid = r['request_id']
                         logger.debug("Req: %s %d at %s, state %r",
-                                     op, reqid, r['run_at'], r['state_data'])
+                                     op_key, reqid, r['run_at'],
+                                     r['state_data'])
                         if (time.time() - start_time) > max_runtime:
                             break
                         run_at = date_compat.get_datetime_tz(r['run_at'])
                         if run_at and run_at > date_utils.now():
                             continue
                         # Moving users only at ok times
-                        if (op is self.co.bofh_move_user
+                        if (op == self.co.bofh_move_user
                                 and not is_ok_batch_time()):
                             break
                         if not is_valid_request(br, reqid):
@@ -245,7 +252,7 @@ class RequestProcessor(object):
                             if max_requests <= 0:
                                 break
                             max_requests -= 1
-                            if func(r):
+                            if func(self.db, r):
                                 br.delete_request(request_id=reqid)
                                 self.db.commit()
                             else:
