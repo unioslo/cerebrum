@@ -4609,7 +4609,7 @@ class BofhdExtension(BofhdCommonMethods):
         disk = {'disk_id': disk_id,
                 'home': home}
         if cereconf.DEFAULT_HOME_SPREAD:
-            disk['home_spread'] = int(self.const.Spread(cereconf.DEFAULT_HOME_SPREAD)),
+            disk['home_spread'] = int(self.const.Spread(cereconf.DEFAULT_HOME_SPREAD))
         try:
             account = account_policy.create_personal_account(
                 owner,
