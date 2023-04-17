@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2009-2019 University of Oslo, Norway
+# Copyright 2009-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,17 +17,20 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""Pan-institutional 'user create_unpersonal' bofh daemon functionality.
+"""
+Pan-institutional 'user create_unpersonal' bofh daemon functionality.
 
 This module contains class, functions, etc. related to the command
 'user create_unpersonal'
 """
-from __future__ import unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    # TODO: unicode_literals,
+)
 
-import warnings
 import six
-
-import cereconf
 
 from Cerebrum.Errors import InvalidAccountCreationArgument
 from Cerebrum.Utils import Factory
@@ -36,8 +39,8 @@ from Cerebrum.modules.AccountPolicy import AccountPolicy
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
 from Cerebrum.modules.bofhd.bofhd_core_help import get_help_strings
-from Cerebrum.modules.bofhd.bofhd_utils import copy_func
 from Cerebrum.modules.bofhd.bofhd_user_create import BofhdUserCreateMethod
+from Cerebrum.modules.bofhd.bofhd_utils import copy_func
 from Cerebrum.modules.bofhd.cmd_param import (AccountName,
                                               EmailAddress,
                                               GroupName,
@@ -48,19 +51,9 @@ from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.help import merge_help_strings
 
 
-def exc_to_text(error):
-    """ Get an error text from an exception. """
-    try:
-        text = six.text_type(error)
-    except UnicodeError:
-        text = bytes(error).decode('utf-8', 'replace')
-        warnings.warn("Non-unicode data in exception {!r}".format(error),
-                      UnicodeWarning)
-    return text
-
-
 class BofhdUnpersonalAuth(BofhdAuth):
     """ Auth for user create command. """
+
     def can_create_user_unpersonal(self, operator, group=None, disk=None,
                                    query_run_any=False):
         """Check if operator could create an account with group owner.
@@ -92,15 +85,21 @@ CMD_HELP = {
 }
 
 CMD_ARGS = {
-    'unpersonal_account_type': ['account_type', 'Enter account type',
-                                'The type of unpersonal account.'],
+    'unpersonal_account_type': [
+        'account_type',
+        'Enter account type',
+        'The type of unpersonal account.',
+    ],
 }
 
 
 @copy_func(
     BofhdUserCreateMethod,
-    methods=['_user_create_set_account_type', '_user_create_basic',
-             '_user_password']
+    methods=[
+        '_user_create_set_account_type',
+        '_user_create_basic',
+        '_user_password',
+    ]
 )
 class BofhdExtension(BofhdCommandBase):
     """Class with 'user create_unpersonal' method."""
@@ -136,7 +135,8 @@ class BofhdExtension(BofhdCommandBase):
         EmailAddress(),
         SimpleString(help_ref="unpersonal_account_type"),
         fs=FormatSuggestion("Created account_id=%i", ("account_id",)),
-        perm_filter='can_create_user_unpersonal')
+        perm_filter='can_create_user_unpersonal',
+    )
 
     def user_create_unpersonal(self, operator,
                                account_name, group_name,

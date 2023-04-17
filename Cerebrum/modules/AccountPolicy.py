@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2019 University of Oslo, Norway
+# Copyright 2019-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,7 +17,15 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-from __future__ import unicode_literals
+"""
+Common utilities for creating new accounts.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    # TODO: unicode_literals,
+)
 import datetime
 
 import cereconf
@@ -25,9 +33,9 @@ import cereconf
 from Cerebrum.Errors import InvalidAccountCreationArgument, NotFoundError
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.disk_quota import DiskQuota
-from Cerebrum.utils.email import is_email
 from Cerebrum.modules.ou_disk_mapping import utils
 from Cerebrum.modules.ou_disk_mapping.dbal import OUDiskMapping
+from Cerebrum.utils.email import is_email
 
 
 def _set_account_type(account, person, affiliation, ou_id):
@@ -66,9 +74,9 @@ class AccountPolicy(object):
 
     def create_basic_account(self, creator_id, owner, uname, np_type=None):
         self.account.clear()
-        if not self.account.is_valid_new_uname:
-            raise InvalidAccountCreationArgument('Username already taken: %r'
-                                                 % uname)
+        if not self.account.is_valid_new_uname(uname):
+            raise InvalidAccountCreationArgument("Username already taken: "
+                                                 + repr(uname))
         self.account.populate(uname,
                               owner.entity_type,
                               owner.entity_id,
@@ -87,8 +95,8 @@ class AccountPolicy(object):
                                             uname,
                                             account_type)
         if not is_email(contact_address):
-            raise InvalidAccountCreationArgument('Invalid email address: %s',
-                                                 contact_address)
+            raise InvalidAccountCreationArgument("Invalid email address: "
+                                                 + repr(contact_address))
 
         # Unpersonal accounts shouldn't normally have a mail inbox, but they
         # get a forward target for the account, to be sent to those responsible
