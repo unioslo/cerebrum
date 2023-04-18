@@ -18,6 +18,13 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ NIH bofhd commands. """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    # TODO: unicode_literals,
+)
+
 import datetime
 
 from Cerebrum import Utils
@@ -25,11 +32,11 @@ from Cerebrum import Errors
 from Cerebrum import database
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
-
 from Cerebrum.modules.apikeys import bofhd_apikey_cmds
 from Cerebrum.modules.audit import bofhd_history_cmds
 from Cerebrum.modules.bofhd import bofhd_contact_info
 from Cerebrum.modules.bofhd import bofhd_email
+from Cerebrum.modules.bofhd import bofhd_group_roles
 from Cerebrum.modules.bofhd import bofhd_ou_cmds
 from Cerebrum.modules.bofhd import cmd_param
 from Cerebrum.modules.bofhd.auth import BofhdAuth
@@ -114,10 +121,6 @@ uio_commands = [
     'group_remove_entity',
     'group_search',
     'group_set_description',
-    'group_add_admin',
-    'group_remove_admin',
-    'group_add_moderator',
-    'group_remove_moderator',
     'misc_affiliations',
     'misc_check_password',
     'misc_clear_passwords',
@@ -400,6 +403,14 @@ class _ApiKeyAuth(NihAuth, bofhd_apikey_cmds.BofhdApiKeyAuth):
 
 class ApiKeyCommands(bofhd_apikey_cmds.BofhdApiKeyCommands):
     authz = _ApiKeyAuth
+
+
+class _GroupRoleAuth(NihAuth, bofhd_group_roles.BofhdGroupRoleAuth):
+    pass
+
+
+class GroupRoleCommands(bofhd_group_roles.BofhdGroupRoleCommands):
+    authz = _GroupRoleAuth
 
 
 class _HistoryAuth(NihAuth, bofhd_history_cmds.BofhdHistoryAuth):

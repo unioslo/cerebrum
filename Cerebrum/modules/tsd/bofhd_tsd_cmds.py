@@ -48,14 +48,14 @@ import cereconf
 from Cerebrum import Errors
 from Cerebrum import Utils
 from Cerebrum.Utils import Factory
-from Cerebrum.utils.username import suggest_usernames
 from Cerebrum.modules import EntityTrait
 from Cerebrum.modules import dns
 from Cerebrum.modules.audit import bofhd_history_cmds
 from Cerebrum.modules.bofhd import bofhd_access
+from Cerebrum.modules.bofhd import bofhd_contact_info
+from Cerebrum.modules.bofhd import bofhd_group_roles
 from Cerebrum.modules.bofhd import bofhd_ou_cmds
 from Cerebrum.modules.bofhd import cmd_param as cmd
-from Cerebrum.modules.bofhd import bofhd_contact_info
 from Cerebrum.modules.bofhd import parsers
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.bofhd_user_create import BofhdUserCreateMethod
@@ -80,8 +80,9 @@ from Cerebrum.modules.trait import bofhd_trait_cmds
 from Cerebrum.modules.tsd import Gateway
 from Cerebrum.modules.tsd import bofhd_auth
 from Cerebrum.modules.tsd import bofhd_help
-from Cerebrum.utils import date_compat
 from Cerebrum.utils import date as date_utils
+from Cerebrum.utils import date_compat
+from Cerebrum.utils.username import suggest_usernames
 
 
 format_day = default_format_day  # 10 characters wide
@@ -789,10 +790,6 @@ admin_uio_helpers = [
 
 admin_copy_uio = [
     'entity_history',
-    'group_add_admin',
-    'group_add_moderator',
-    'group_remove_admin',
-    'group_remove_moderator',
     'group_delete',
     'group_demote_posix',
     'group_info',
@@ -2564,6 +2561,10 @@ class ContactCommands(bofhd_contact_info.BofhdContactCommands):
 
 class AccessCommands(bofhd_access.BofhdAccessCommands):
     authz = bofhd_auth.AccessAuth
+
+
+class GroupRoleCommands(bofhd_group_roles.BofhdGroupRoleCommands):
+    authz = bofhd_auth.GroupRoleAuth
 
 
 class HistoryCommands(bofhd_history_cmds.BofhdHistoryCmds):

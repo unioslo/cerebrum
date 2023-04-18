@@ -68,9 +68,6 @@ command_help = {
     'group': {
         'group_multi_add': 'Let an account, person or group join a group',
         'group_add': 'Let an account join a group',
-        'group_add_admin': 'Set an account or group to be admin of a group',
-        'group_add_moderator':
-            'Set an account or group to be moderator of a group',
         'group_create': 'Create a new Cerebrum group',
         'group_rename': 'Rename a group. Don\'t use unless you\'re aware '
             'of the consequences! Stateless integrations would after a '
@@ -113,8 +110,6 @@ command_help = {
             'delete',
         'group_multi_remove': 'Remove member(s) from a given group',
         'group_remove': 'Remove member accounts from a given group',
-        'group_remove_admin': 'Remove an admin from a group',
-        'group_remove_moderator': 'Remove a moderator from a group',
         'group_request': 'Send in request for a new Cerebrum group',
         'group_search': 'Search for a group using various criteria',
         'group_set_description': 'Set description for a group',
@@ -286,11 +281,6 @@ arg_help = {
     'address_type':
         ['address_type', 'Enter address type',
          'The name of the address type, e.g. POST/PRIVPOST/STREET'],
-    'admin_name':
-        ['admin_name', 'Enter name of the admin (group assumed)',
-         'Enter the type and name of the admin, like type:name. The possible '
-         'types are account and group, if no type is entered, it is assumed '
-         'to be a group.'],
     'affiliation':
         ['affiliation', 'Enter affiliation',
          """A persons affiliation defines the current role of that person within

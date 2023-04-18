@@ -28,6 +28,7 @@ from Cerebrum.modules.apikeys import bofhd_apikey_cmds
 from Cerebrum.modules.audit import bofhd_history_cmds
 from Cerebrum.modules.bofhd import bofhd_access
 from Cerebrum.modules.bofhd import bofhd_external_id
+from Cerebrum.modules.bofhd import bofhd_group_roles
 from Cerebrum.modules.bofhd import bofhd_ou_cmds
 from Cerebrum.modules.bofhd import bofhd_user_create_unpersonal
 from Cerebrum.modules.bofhd.auth import BofhdAuth
@@ -376,6 +377,10 @@ class CreateUnpersonalAuth(UitAuth,
 
 
 class ExtidAuth(UitAuth, bofhd_external_id.BofhdExtidAuth):
+    pass
+
+
+class GroupRoleAuth(UitAuth, bofhd_group_roles.BofhdGroupRoleAuth):
     pass
 
 

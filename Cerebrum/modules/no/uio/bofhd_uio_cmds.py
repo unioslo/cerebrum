@@ -40,6 +40,7 @@ from Cerebrum.modules.apikeys import bofhd_apikey_cmds
 from Cerebrum.modules.audit import bofhd_history_cmds
 from Cerebrum.modules.bofhd import bofhd_core_help
 from Cerebrum.modules.bofhd import bofhd_external_id
+from Cerebrum.modules.bofhd import bofhd_group_roles
 from Cerebrum.modules.bofhd import bofhd_ou_cmds
 from Cerebrum.modules.bofhd import parsers
 from Cerebrum.modules.bofhd.auth import (AuthConstants,
@@ -513,120 +514,6 @@ class BofhdExtension(BofhdCommonMethods):
     def group_add(self, operator, src_name, dest_group):
         return self._group_add(operator, src_name, dest_group,
                                member_type="account")
-
-    #
-    # group add_admin
-    #
-    all_commands['group_add_admin'] = Command(
-        ("group", "add_admin"),
-        Id(help_ref="admin_name"),
-        GroupName(help_ref="group_name"),
-        perm_filter='can_add_group_admin')
-
-    def group_add_admin(self, operator, admin, dest_group):
-        group = self._get_group(dest_group)
-        self.ba.can_add_group_admin(operator.get_entity_id(), group)
-
-        admin = admin.split(":", 1)
-        if len(admin) == 1 or admin[0] == "group":
-            admin_gr = self._get_group(admin[-1])
-            if admin_gr.group_type == self.const.group_type_personal:
-                raise CerebrumError(
-                    'Group {group} cannot be admin since it is a personal '
-                    'file group'.format(group=admin_gr))
-            admin_id = admin_gr.entity_id
-        elif admin[0] == "account":
-            admin_id = self._get_account(admin[-1]).entity_id
-        roles = GroupRoles(self.db)
-        try:
-            roles.add_admin_to_group(admin_id, group.entity_id)
-        except self.db.IntegrityError:
-            return "{admin} already set as admin for {group}".format(
-                admin=admin[-1], group=dest_group)
-        return "OK, added {admin} as admin for {group}".format(
-            admin=admin[-1], group=dest_group)
-
-    #
-    # group remove_admin
-    #
-    all_commands['group_remove_admin'] = Command(
-        ("group", "remove_admin"),
-        Id(help_ref="admin_name"),
-        GroupName(help_ref="group_name"),
-        perm_filter='can_add_group_admin')
-
-    def group_remove_admin(self, operator, admin, dest_group):
-        group = self._get_group(dest_group)
-        self.ba.can_add_group_admin(operator.get_entity_id(), group)
-
-        admin = admin.split(":", 1)
-        if len(admin) == 1 or admin[0] == "group":
-            admin_id = self._get_group(admin[-1]).entity_id
-        elif admin[0] == "account":
-            admin_id = self._get_account(admin[-1]).entity_id
-        roles = GroupRoles(self.db)
-        if roles.remove_admin_from_group(admin_id, group.entity_id):
-            return "OK, removed {admin} as admin for {group}".format(
-                admin=admin[-1], group=dest_group)
-        return "{admin} was not moderator for {group}".format(
-            admin=admin[-1], group=dest_group)
-
-    #
-    # group add_moderator
-    #
-    all_commands['group_add_moderator'] = Command(
-        ("group", "add_moderator"),
-        Id(help_ref="moderator_name"),
-        GroupName(help_ref="group_name"),
-        perm_filter='can_add_group_moderator')
-
-    def group_add_moderator(self, operator, moderator, dest_group):
-        group = self._get_group(dest_group)
-        self.ba.can_add_group_moderator(operator.get_entity_id(), group)
-
-        moderator = moderator.split(":", 1)
-        if len(moderator) == 1 or moderator[0] == "group":
-            moderator_gr = self._get_group(moderator[-1])
-            if moderator_gr.group_type == self.const.group_type_personal:
-                raise CerebrumError(
-                    'Group {group} cannot be moderator since it is a personal '
-                    'file group'.format(group=moderator_gr))
-            moderator_id = moderator_gr.entity_id
-        elif moderator[0] == "account":
-            moderator_id = self._get_account(moderator[-1]).entity_id
-        roles = GroupRoles(self.db)
-        try:
-            roles.add_moderator_to_group(moderator_id, group.entity_id)
-        except self.db.IntegrityError:
-            return "{moderator} already set as moderator for {group}".format(
-                moderator=moderator[-1], group=dest_group)
-        return "OK, added {moderator} as moderator for {group}".format(
-            moderator=moderator[-1], group=dest_group)
-
-    #
-    # group remove_moderator
-    #
-    all_commands['group_remove_moderator'] = Command(
-        ("group", "remove_moderator"),
-        Id(help_ref="moderator_name"),
-        GroupName(help_ref="group_name"),
-        perm_filter='can_add_group_moderator')
-
-    def group_remove_moderator(self, operator, moderator, dest_group):
-        group = self._get_group(dest_group)
-        self.ba.can_add_group_moderator(operator.get_entity_id(), group)
-
-        moderator = moderator.split(":", 1)
-        if len(moderator) == 1 or moderator[0] == "group":
-            moderator_id = self._get_group(moderator[-1]).entity_id
-        elif moderator[0] == "account":
-            moderator_id = self._get_account(moderator[-1]).entity_id
-        roles = GroupRoles(self.db)
-        if roles.remove_moderator_from_group(moderator_id, group.entity_id):
-            return "OK, removed {moderator} as moderator for {group}".format(
-                moderator=moderator[-1], group=dest_group)
-        return "{moderator} was not moderator for {group}".format(
-            moderator=moderator[-1], group=dest_group)
 
     #
     # group padd - add person to group
@@ -4609,7 +4496,8 @@ class BofhdExtension(BofhdCommonMethods):
         disk = {'disk_id': disk_id,
                 'home': home}
         if cereconf.DEFAULT_HOME_SPREAD:
-            disk['home_spread'] = int(self.const.Spread(cereconf.DEFAULT_HOME_SPREAD))
+            disk['home_spread'] = int(
+                self.const.Spread(cereconf.DEFAULT_HOME_SPREAD))
         try:
             account = account_policy.create_personal_account(
                 owner,
@@ -6542,6 +6430,10 @@ class CreateUnpersonalCommands(bofhd_user_create_unpersonal.BofhdExtension):
 
 class ExtidCommands(bofhd_external_id.BofhdExtidCommands):
     authz = bofhd_auth.ExtidAuth
+
+
+class GroupRoleCommands(bofhd_group_roles.BofhdGroupRoleCommands):
+    authz = bofhd_auth.GroupRoleAuth
 
 
 class HistoryCommands(bofhd_history_cmds.BofhdHistoryCmds):

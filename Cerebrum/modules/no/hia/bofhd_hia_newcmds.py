@@ -20,10 +20,16 @@
 """
 Bofhd commands for UiA
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    # TODO: unicode_literals,
+)
+
 from six import text_type
 
 import cereconf
-
 from Cerebrum import Errors
 from Cerebrum import database
 from Cerebrum.group.GroupRoles import GroupRoles
@@ -33,6 +39,7 @@ from Cerebrum.modules import Note
 from Cerebrum.modules.apikeys import bofhd_apikey_cmds
 from Cerebrum.modules.audit import bofhd_history_cmds
 from Cerebrum.modules.bofhd import bofhd_email
+from Cerebrum.modules.bofhd import bofhd_group_roles
 from Cerebrum.modules.bofhd import bofhd_ou_cmds
 from Cerebrum.modules.bofhd import cmd_param
 from Cerebrum.modules.bofhd.bofhd_access import BofhdAccessCommands
@@ -114,10 +121,6 @@ copy_uio = [
     'group_set_description',
     'group_set_expire',
     'group_set_visibility',
-    'group_add_admin',
-    'group_remove_admin',
-    'group_add_moderator',
-    'group_remove_moderator',
     'misc_affiliations',
     'misc_check_password',
     'misc_clear_passwords',
@@ -197,7 +200,6 @@ class BofhdExtension(BofhdCommonMethods):
         super(BofhdExtension, self).__init__(*args, **kwargs)
         self.external_id_mappings['fnr'] = self.const.externalid_fodselsnr
         self.external_id_mappings['passnr'] = self.const.externalid_pass_number
-
 
     @classmethod
     def get_help_strings(cls):
@@ -1452,6 +1454,10 @@ class ApiKeyCommands(bofhd_apikey_cmds.BofhdApiKeyCommands):
 
 class CreateUnpersonalCommands(bofhd_user_create_unpersonal.BofhdExtension):
     authz = bofhd_uia_auth.CreateUnpersonalAuth
+
+
+class GroupRoleCommands(bofhd_group_roles.BofhdGroupRoleCommands):
+    authz = bofhd_uia_auth.GroupRoleAuth
 
 
 class HistoryCommands(bofhd_history_cmds.BofhdHistoryCmds):
