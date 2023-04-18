@@ -47,7 +47,7 @@ targets = {
         'rel_0_9_10', 'rel_0_9_11', 'rel_0_9_12', 'rel_0_9_13',
         'rel_0_9_14', 'rel_0_9_15', 'rel_0_9_16', 'rel_0_9_17',
         'rel_0_9_18', 'rel_0_9_19', 'rel_0_9_20', 'rel_0_9_21',
-        'rel_0_9_22',
+        'rel_0_9_22', 'rel_0_9_23',
     ),
     'bofhd': ('bofhd_1_1', 'bofhd_1_2', 'bofhd_1_3', 'bofhd_1_4', 'bofhd_1_5'),
     'bofhd_auth': ('bofhd_auth_1_1', 'bofhd_auth_1_2',),
@@ -942,6 +942,16 @@ def migrate_to_rel_0_9_22():
     meta = Metainfo.Metainfo(db)
     meta.set_metainfo(Metainfo.SCHEMA_VERSION_KEY, "0.9.22")
     print("Migration to 0.9.22 completed successfully")
+    db.commit()
+
+def migrate_to_rel_0_9_23():
+    """Migrate from 0.9.22 database to the 0.9.23 database schema."""
+    assert_db_version("0.9.22")
+    makedb('0_9_23', 'pre')
+    print("\ndone.")
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo(Metainfo.SCHEMA_VERSION_KEY, (0, 9, 23))
+    print("Migration to 0.9.23 completed successfully")
     db.commit()
 
 

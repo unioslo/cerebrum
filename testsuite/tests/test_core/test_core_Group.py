@@ -204,8 +204,9 @@ def test_search_result(gr, groups):
     assert len(rows) == len(groups)
 
     for row in rows:
+        row_dict = dict(row)
         for attr_name in attributes:
-            assert attr_name in dict(row)
+            assert attr_name in row_dict
 
 
 def test_search_member_id(gr, groups):
