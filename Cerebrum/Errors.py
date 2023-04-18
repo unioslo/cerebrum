@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright 2002-2018 University of Oslo, Norway
+#
+# Copyright 2002-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -16,6 +17,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
 """Generic and specific exception classes for Cerebrum."""
 
 
@@ -127,7 +129,7 @@ class PolicyException(CerebrumError):
 
 
 class InvalidAccountCreationArgument(CerebrumError):
-    """An invalid argument was passed to account creation method"""
+    """Invalid account argument"""
 
 
 class CerebrumRPCException(CerebrumError):
@@ -139,6 +141,7 @@ def _test():
     import doctest
     import Errors
     return doctest.testmod(Errors)
+
 
 if __name__ == "__main__":
     _test()
