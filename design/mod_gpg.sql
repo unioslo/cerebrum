@@ -25,7 +25,7 @@ category:metainfo;
 name=gpg;
 
 category:metainfo;
-version=1.0;
+version=1.1;
 
 category:drop;
 DROP TABLE entity_gpg_data;
@@ -56,7 +56,7 @@ CREATE TABLE entity_gpg_data
     NOT NULL,
 
   created
-    TIMESTAMP
+    TIMESTAMP WITH TIME ZONE
     DEFAULT [:now]
     NOT NULL,
 

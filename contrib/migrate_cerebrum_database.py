@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-# Copyright 2002-2021 University of Oslo, Norway
+#
+# Copyright 2002-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,8 +18,12 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-from __future__ import print_function
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    # TODO: unicode_literals,
+)
 
 import cPickle
 import getopt
@@ -60,6 +64,7 @@ targets = {
     'entity_expire': ('entity_expire_1_0',),
     'ephorte': ('ephorte_1_1', 'ephorte_1_2'),
     'eventlog': ('eventlog_1_1', ),
+    'gpg': ('gpg_1_1',),
     'stedkode': ('stedkode_1_1', ),
     'posixuser': ('posixuser_1_0', 'posixuser_1_1', ),
     'dns': ('dns_1_0', 'dns_1_1', 'dns_1_2', 'dns_1_3', 'dns_1_4', 'dns_1_5'),
@@ -944,6 +949,7 @@ def migrate_to_rel_0_9_22():
     print("Migration to 0.9.22 completed successfully")
     db.commit()
 
+
 def migrate_to_rel_0_9_23():
     """Migrate from 0.9.22 database to the 0.9.23 database schema."""
     assert_db_version("0.9.22")
@@ -1187,7 +1193,7 @@ def migrate_to_changelog_1_4():
             yield iterable[i:min(i + n, length)]
 
     tasks = []
-    per_thread = (len(ids) / workers) + 10
+    per_thread = (len(ids) // workers) + 10
     for chunk in chunks(ids, n=per_thread):
         tasks.append((min(chunk), max(chunk)))
 
@@ -1656,16 +1662,6 @@ def migrate_to_email_1_6():
     print("Migration to email 1.6 completed successfully")
 
 
-def migrate_to_feide_service_1_1():
-    assert_db_version("1.0", component="feide_service")
-    print("Removing UNIQUE constraint and changing to char(128)")
-    makedb("feide_service_1_1", "pre")
-    meta = Metainfo.Metainfo(db)
-    meta.set_metainfo("sqlmodule_feide_service", "1.1")
-    db.commit()
-    print("Migration to feide_service 1.1 completed successfully")
-
-
 def migrate_to_ephorte_1_1():
     print("\ndone.")
     assert_db_version("1.0", component='ephorte')
@@ -1708,6 +1704,25 @@ def migrate_to_ephorte_1_2():
     meta.set_metainfo("sqlmodule_ephorte", "1.2")
     print("Migration to ephorte 1.2 completed successfully")
     db.commit()
+
+
+def migrate_to_feide_service_1_1():
+    assert_db_version("1.0", component="feide_service")
+    print("Removing UNIQUE constraint and changing to char(128)")
+    makedb("feide_service_1_1", "pre")
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo("sqlmodule_feide_service", "1.1")
+    db.commit()
+    print("Migration to feide_service 1.1 completed successfully")
+
+
+def migrate_to_gpg_1_1():
+    assert_db_version("1.0", component="gpg")
+    makedb("gpg_1_1", "pre")
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo("sqlmodule_gpg", "1.1")
+    db.commit()
+    print("Migration to gpg 1.1 completed successfully")
 
 
 def migrate_to_note_1_1():
