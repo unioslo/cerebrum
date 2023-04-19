@@ -41,7 +41,7 @@ from Cerebrum.Utils import NotSet, argument_to_sql
 from Cerebrum.database import query_utils
 from Cerebrum.utils import date_compat
 
-__version__ = "1.1"
+__version__ = "1.2"
 
 # Task ordering in query results
 DEFAULT_ORDER = ('entity_id', 'create_date', 'note_id')
