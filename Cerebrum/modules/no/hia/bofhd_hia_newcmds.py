@@ -198,7 +198,6 @@ class BofhdExtension(BofhdCommonMethods):
         self.external_id_mappings['fnr'] = self.const.externalid_fodselsnr
         self.external_id_mappings['passnr'] = self.const.externalid_pass_number
 
-
     @classmethod
     def get_help_strings(cls):
         return merge_help_strings(get_help_strings(),
@@ -266,13 +265,9 @@ class BofhdExtension(BofhdCommonMethods):
 
             for n in enote.get_notes():
                 info_list.append({
-                    'note_id':
-                    n['note_id'],
-                    'note_subject':
-                    n['subject'] if len(n['subject']) > 0 else '<not set>',
-                    'note_description':
-                    n['description'] if len(n['description']) > 0
-                    else '<not set>'
+                    'note_id': n['note_id'],
+                    'note_subject': n['subject'] or '<not set>',
+                    'note_description': n['description'] or '<not set>',
                 })
         except Exception:
             pass
