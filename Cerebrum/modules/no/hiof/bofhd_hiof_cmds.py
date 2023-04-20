@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2007-2021 University of Oslo, Norway
+# Copyright 2007-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,10 +18,16 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ HiOF bohfd module. """
-from six import text_type
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    # TODO: unicode_literals,
+)
+
+import six
 
 import cereconf
-
 from Cerebrum import Utils
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
@@ -29,6 +35,7 @@ from Cerebrum.modules.apikeys import bofhd_apikey_cmds
 from Cerebrum.modules.audit import bofhd_history_cmds
 from Cerebrum.modules.bofhd import bofhd_access
 from Cerebrum.modules.bofhd import bofhd_contact_info
+from Cerebrum.modules.bofhd import bofhd_group_roles
 from Cerebrum.modules.bofhd import bofhd_ou_cmds
 from Cerebrum.modules.bofhd import cmd_param
 from Cerebrum.modules.bofhd.auth import BofhdAuth
@@ -40,7 +47,7 @@ from Cerebrum.modules.bofhd.help import merge_help_strings
 from Cerebrum.modules.bofhd_requests.request import BofhdRequests
 from Cerebrum.modules.bofhd_requests import bofhd_requests_auth
 from Cerebrum.modules.bofhd_requests import bofhd_requests_cmds
-from Cerebrum.modules.bofhd.bofhd_utils import copy_func, copy_command
+from Cerebrum.modules.bofhd.bofhd_utils import copy_func
 from Cerebrum.modules.no.uio import bofhd_uio_cmds
 from Cerebrum.modules.trait import bofhd_trait_cmds
 
@@ -83,26 +90,12 @@ class HiofAuth(BofhdAuth):
                                                      query_run_any)
 
 
-uio_helpers = ['_viewable_external_ids']
-
-uio_commands = [
-    'group_add_admin',
-    'group_remove_admin',
-    'group_add_moderator',
-    'group_remove_moderator',
-]
-
-
-@copy_command(
-    bofhd_uio_cmds.BofhdExtension,
-    'all_commands', 'all_commands',
-    commands=uio_commands)
 @copy_func(
     bofhd_uio_cmds.BofhdExtension,
-    methods=uio_helpers + uio_commands)
-@copy_func(
-    bofhd_uio_cmds.BofhdExtension,
-    methods=['_user_create_set_account_type']
+    methods=[
+        '_user_create_set_account_type',
+        '_viewable_external_ids',
+    ]
 )
 class BofhdExtension(BofhdCommonMethods):
 
@@ -164,7 +157,7 @@ class BofhdExtension(BofhdCommonMethods):
                            self.const.bofh_ad_attrs_remove,
                            account.entity_id,
                            None,
-                           state_data=text_type(spread))
+                           state_data=six.text_type(spread))
             return "OK, added remove AD attributes request for %s" % uname
         else:
             return "No AD attributes to remove for user %s" % uname
@@ -199,7 +192,7 @@ class BofhdExtension(BofhdCommonMethods):
             spread = self._get_constant(self.const.Spread, spread, 'spread')
             for attr_type, attr_val in attr_map.items():
                 ret.append({
-                    'spread': text_type(spread),
+                    'spread': six.text_type(spread),
                     'ad_attr': attr_type,
                     'ad_val': attr_val,
                 })
@@ -282,7 +275,8 @@ class BofhdExtension(BofhdCommonMethods):
                 for aff in person.get_affiliations():
                     ou = self._get_ou(ou_id=aff['ou_id'])
                     name = "%s@%s" % (
-                        text_type(self.const.PersonAffStatus(aff['status'])),
+                        six.text_type(
+                            self.const.PersonAffStatus(aff['status'])),
                         self._format_ou_name(ou))
                     map.append(
                         (("%s", name),
@@ -428,6 +422,14 @@ class _ApiKeyAuth(HiofAuth, bofhd_apikey_cmds.BofhdApiKeyAuth):
 
 class ApiKeyCommands(bofhd_apikey_cmds.BofhdApiKeyCommands):
     authz = _ApiKeyAuth
+
+
+class _GroupRoleAuth(HiofAuth, bofhd_group_roles.BofhdGroupRoleAuth):
+    pass
+
+
+class GroupRoleCommands(bofhd_group_roles.BofhdGroupRoleCommands):
+    authz = _GroupRoleAuth
 
 
 class _HistoryAuth(HiofAuth, bofhd_history_cmds.BofhdHistoryAuth):

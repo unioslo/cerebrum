@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2013-2021 University of Oslo, Norway
+# Copyright 2013-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -32,12 +32,13 @@ In TSD, you have the user groups:
 from Cerebrum import Constants
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.audit import bofhd_history_cmds
+from Cerebrum.modules.bofhd import bofhd_access
 from Cerebrum.modules.bofhd import bofhd_contact_info
+from Cerebrum.modules.bofhd import bofhd_group_roles
 from Cerebrum.modules.bofhd import bofhd_ou_cmds
 from Cerebrum.modules.bofhd.auth import BofhdAuth
-from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.bofhd_constants import _AuthRoleOpCode
-from Cerebrum.modules.bofhd import bofhd_access
+from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.trait import bofhd_trait_cmds
 
 
@@ -459,6 +460,10 @@ class AccessAuth(TsdBofhdAuth, bofhd_access.BofhdAccessAuth):
         if query_run_any:
             return True
         raise PermissionDenied("Restricted to superusers")
+
+
+class GroupRoleAuth(TsdBofhdAuth, bofhd_group_roles.BofhdGroupRoleAuth):
+    pass
 
 
 class HistoryAuth(TsdBofhdAuth, bofhd_history_cmds.BofhdHistoryAuth):

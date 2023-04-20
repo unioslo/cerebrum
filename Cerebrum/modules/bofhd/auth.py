@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003-2020 University of Oslo, Norway
+# Copyright 2003-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -26,7 +26,7 @@ Cerebrum service that needs access control.
 This authorization module is quite fine grained, making it a bit complex.
 
 Summary
-=======
+========
 
 How the access control works:
 
@@ -1339,46 +1339,6 @@ class BofhdAuth(DatabaseAccessor):
             return False
         raise PermissionDenied("Only superuser can set group_type")
 
-    def can_add_group_admin(self, operator, group=None, query_run_any=False):
-        # You can do whatever you want if you are a superuser
-        if self.is_superuser(operator):
-            return True
-        # You can see the command if you are an admin
-        if query_run_any:
-            return (self._is_admin(operator) or
-                    self._has_operation_perm_somewhere(
-                        operator, self.const.auth_add_group_admin))
-        # You can add an admin if you are an admin of the group
-        if self._is_admin(operator, group.entity_id):
-            return True
-        # TODO: Decide if we want to keep special permissions for groups
-        #  through opsets
-        if self._has_target_permissions(operator,
-                                        self.const.auth_add_group_admin,
-                                        self.const.auth_target_type_group,
-                                        group.entity_id, group.entity_id):
-            return True
-        raise PermissionDenied("Not allowed to add admin to group")
-
-    def can_add_group_moderator(self,
-                                operator,
-                                group=None,
-                                query_run_any=False):
-        # You can do whatever you want if you are a superuser
-        if self.is_superuser(operator):
-            return True
-        try:
-            return self.can_add_group_admin(operator, group, query_run_any)
-        except PermissionDenied:
-            pass
-        # You can see the command if you are an admin or mod of something
-        if query_run_any:
-            return self._is_admin_or_moderator(operator)
-        # You can add a mod if you are a mod or admin of the group
-        if self._is_admin_or_moderator(operator, group.entity_id):
-            return True
-        raise PermissionDenied("Not allowed to add moderator to group")
-
     def can_create_personal_group(self, operator, account=None,
                                   query_run_any=False):
         if query_run_any or self.is_superuser(operator):
@@ -2465,11 +2425,12 @@ class BofhdAuth(DatabaseAccessor):
             return True
 
         if entity.entity_type == self.const.entity_person:
-            return self._can_get_person_external_id(operator,
-                                                    entity,
-                                                    extid_type,
-                                                    source_sys,
-                                                    query_run_any=query_run_any)
+            return self._can_get_person_external_id(
+                operator,
+                entity,
+                extid_type,
+                source_sys,
+                query_run_any=query_run_any)
 
         raise PermissionDenied("You don't have permission to view external "
                                "ids for entity {}".format(entity.entity_id))
@@ -2495,8 +2456,8 @@ class BofhdAuth(DatabaseAccessor):
 
         ext_id_const = int(self.const.EntityExternalId(extid_type))
         for id_ in cereconf.BOFHD_VISIBLE_EXTERNAL_IDS:
-            if (ext_id_const ==
-                    self.const.human2constant(id_, self.const.EntityExternalId)):
+            if (ext_id_const == self.const.human2constant(
+                    id_, self.const.EntityExternalId)):
                 return True
 
         operation_attr = str("{}:{}".format(
@@ -2515,13 +2476,84 @@ class BofhdAuth(DatabaseAccessor):
                                    person.entity_id))
 
     def _is_admin(self, entity_id, group_id=None):
+        """
+        Check if a given user is a group administrator.
+
+        Can be used to check if a given user account is admin for a *specific*
+        group, or if the account is admin for *any* group.
+
+        :param int entity_id: account-id of a user account
+        :param int group_id: check if admin for this specific group
+
+        :returns bool: if the given account is an admin
+        """
         admin_ids = self._get_users_auth_entities(entity_id)
         return self._group_roles.is_admin(admin_ids, group_id)
 
     def _is_moderator(self, entity_id, group_id=None):
+        """
+        Check if a given user is a group moderator.
+
+        Can be used to check if a given user account is moderator for a
+        *specific* group, or if the account is moderator for *any* group.
+
+        :param int entity_id: account-id of a user account
+        :param int group_id: check if admin for this specific group
+
+        :returns bool: if the given account is an admin
+        """
         moderator_ids = self._get_users_auth_entities(entity_id)
         return self._group_roles.is_moderator(moderator_ids, group_id)
 
     def _is_admin_or_moderator(self, entity_id, group_id=None):
+        """
+        Convenience method -- check if admin *or* moderator.
+
+        This is usually the method to use when checking if a given user account
+        has *moderator privileges*.
+
+        Same arguments and return value as ``_is_admin``/``_is_moderator``.
+        """
         return (self._is_admin(entity_id, group_id)
                 or self._is_moderator(entity_id, group_id))
+
+    def can_administrate_group(self, operator,
+                               group=None, query_run_any=False):
+        """
+        Generic group administrator access check.
+        """
+        if self.is_superuser(operator):
+            return True
+
+        if query_run_any:
+            return self._is_admin(operator)
+
+        # You can add an admin if you are an admin of the group
+        if self._is_admin(operator, int(group.entity_id)):
+            return True
+
+        raise PermissionDenied("No access to administrate group")
+
+    def can_moderate_group(self, operator,
+                           group=None, query_run_any=False):
+        """
+        Generic group moderator access check.
+
+        TODO: What about `can_alter_group`?
+        """
+        # If you can administrate, you can also moderate
+        try:
+            if self.can_administrate_group(operator=operator, group=group,
+                                           query_run_any=query_run_any):
+                return True
+        except PermissionDenied:
+            pass
+
+        # You can see the command if you are a moderator of *any* group
+        if query_run_any:
+            return self._is_moderator(operator)
+
+        if self._is_moderator(operator, int(group.entity_id)):
+            return True
+
+        raise PermissionDenied("No access to moderate group")

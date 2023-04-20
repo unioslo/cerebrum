@@ -35,6 +35,13 @@ TODO
 ----
 Remove any commands from the BofhdExtension that is not actually in use at UiT.
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    # TODO: unicode_literals,
+)
+
 import datetime
 import re
 
@@ -46,6 +53,7 @@ from Cerebrum import Utils
 from Cerebrum import database
 from Cerebrum.modules import Email
 from Cerebrum.modules.apikeys import bofhd_apikey_cmds
+from Cerebrum.modules.bofhd import bofhd_group_roles
 from Cerebrum.modules.audit import bofhd_history_cmds
 from Cerebrum.modules.bofhd import bofhd_ou_cmds
 from Cerebrum.modules.bofhd.cmd_param import (
@@ -1053,6 +1061,10 @@ class CreateUnpersonalCommands(bofhd_user_create_unpersonal.BofhdExtension):
 
 class ExtidCommands(bofhd_external_id.BofhdExtidCommands):
     authz = bofhd_auth.ExtidAuth
+
+
+class GroupRoleCommands(bofhd_group_roles.BofhdGroupRoleCommands):
+    authz = bofhd_auth.GroupRoleAuth
 
 
 class HistoryCommands(bofhd_history_cmds.BofhdHistoryCmds):
