@@ -215,11 +215,10 @@ def merge_affs_and_phones(co, valid_affiliations, phones):
 
 def welcome_sms_received_date(ac, co):
     traits = ac.get_traits()
-    if co.trait_sms_welcome in traits:
-        # The 'date' value of traits are naive datetime objects, *not* dates!
-        return date_compat.get_datetime_tz(
-            traits[co.trait_sms_welcome]['date'])
-    return None
+    raw_date = traits.get(co.trait_sms_welcome, {}).get('date')
+    # The 'date' value of traits are naive datetime objects,
+    # *not* an actual date, so we need:
+    return date_compat.get_date(raw_date)
 
 
 def any_valid_phones(ac, phone_table):
@@ -249,7 +248,9 @@ def format_phone_table(co, phone_table):
     today = datetime.date.today()
     last_week = today - datetime.timedelta(days=7)
     table = []
-    for i, entry in enumerate(sorted(phone_table)):
+    for i, entry in enumerate(sorted(phone_table,
+                                     key=(lambda d: (d.get('ssys'),
+                                                     d.get('status'))))):
         ssys = entry['ssys']
         ssys_s = '{0: <8}'.format(six.text_type(co.AuthoritativeSystem(ssys)))
         status = entry['status']
