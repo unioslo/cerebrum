@@ -49,19 +49,24 @@ but have to be on their own lines.
 TODO: Describe the format of the SQL definitions, or add a reference to where
 that is located.
 """
-from __future__ import print_function
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    # TODO: unicode_literals,
+)
 
 import getopt
 import os
 import sys
 import traceback
 
+import cereconf
+
 import Cerebrum
 from Cerebrum import Metainfo
 from Cerebrum.database import sql_parser
 from Cerebrum.Utils import Factory, dyn_import
-
-import cereconf
 
 all_ok = True
 
