@@ -360,7 +360,7 @@ class PersonSetOTPSecret(Resource):
         'secret',
         type=validator.String(),
         required=True,
-        location=['form', 'json'],
+        location=('form', 'json'),
         help='OTP secret',
     )
 
