@@ -244,15 +244,13 @@ def join_consents(old_person, new_person):
     """
     if not hasattr(new_person, 'list_consents'):
         return
-    old_consents = old_person.list_consents(
-        entity_id=old_person.entity_id, filter_expired=False)
+    old_consents = old_person.list_consents(entity_id=old_person.entity_id)
     if not old_consents:
         return
     for old_consent in old_consents:
         new_consent = new_person.list_consents(
             entity_id=new_person.entity_id,
-            consent_code=old_consent['consent_code'],
-            filter_expired=False)
+            consent_code=old_consent['consent_code'])
 
         if new_consent:
             new_consent = new_consent[0]

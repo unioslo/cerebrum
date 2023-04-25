@@ -124,15 +124,13 @@ def get_change_type(consent_code):
     return change
 
 
-def sql_insert_consent(db, entity_id, consent_code,
-                       description=None, expire=None):
+def sql_insert_consent(db, entity_id, consent_code, description=None):
     """ Insert a consent row in the database.
 
     :param db: a database-like connection or cursor
     :param int entity_id: The entity_id to add ocnsent to
     :param consent_code: The _EntityConsentCode to set
     :param description: A description for the consent
-    :param expire: An expire datetime for the consent
     """
     if not isinstance(consent_code, _EntityConsentCode):
         raise ValueError("consent_code must be EntityConsentCode")
@@ -162,15 +160,13 @@ def sql_insert_consent(db, entity_id, consent_code,
         )
 
 
-def sql_update_consent(db, entity_id, consent_code,
-                       description=NotSet, expire=NotSet):
+def sql_update_consent(db, entity_id, consent_code, description=NotSet):
     """ Update a consent row in the database.
 
     :param db: a database-like connection or cursor
     :param int entity_id: The entity_id to add ocnsent to
     :param consent_code: The _EntityConsentCode to set
     :param description: A description for the consent
-    :param expire: An expire datetime for the consent
     """
     if not isinstance(consent_code, _EntityConsentCode):
         raise ValueError("consent_code must be EntityConsentCode")
@@ -283,8 +279,6 @@ class EntityConsentMixin(Entity):
 
         See :func:`.sql_select_consents` for more info.
         """
-        # No longer supported:
-        kwargs.pop('filter_expired', None)
         return sql_select_consents(self._db, **kwargs)
 
     def get_consent_status(self, consent_code):
@@ -304,8 +298,8 @@ class EntityConsentMixin(Entity):
         """Set/update consent status for self and this consent_code.
 
         For description param, NotSet yields null in new consents,
-        and no change in existing database entries. (Be careful in the event
-        of expired consents.) None will always beget a null.
+        and no change in existing database entries.  None will always beget a
+        null.
 
         :type consent_code: Constants.EntityConsent
         :param consent_code: Corresponding consent
@@ -340,8 +334,7 @@ class EntityConsentMixin(Entity):
         if not self.__consents:
             return
         consents = [int(x['consent_code'])
-                    for x in self.list_consents(entity_id=self.entity_id,
-                                                filter_expired=False)]
+                    for x in self.list_consents(entity_id=int(self.entity_id))]
         for c, obj in self.__consents.items():
             code = assert_consent_code(c)
             if 'deleted' in obj:

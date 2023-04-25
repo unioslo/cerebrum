@@ -213,8 +213,7 @@ class BofhdExtension(BofhdCommonMethods):
         self.ba.can_show_consent_info(operator.get_entity_id(), entity)
 
         consents = []
-        for row in entity.list_consents(entity_id=entity.entity_id,
-                                        filter_expired=False):
+        for row in entity.list_consents(entity_id=entity.entity_id):
             consent, consent_type = self._get_consent(int(row['consent_code']))
             consents.append({
                 'consent_name': six.text_type(consent),
