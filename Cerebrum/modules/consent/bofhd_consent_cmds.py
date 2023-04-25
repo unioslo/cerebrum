@@ -1,7 +1,6 @@
-#!/usr/bin/env python2
 # encoding: utf-8
 #
-# Copyright 2015-2018 University of Oslo, Norway
+# Copyright 2015-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,6 +18,13 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ This is a bofhd module for setting consent. """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+
 import six
 
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
@@ -97,7 +103,7 @@ class BofhdExtension(BofhdCommonMethods):
                 six.text_type(entity_type))
 
     def _get_consent(self, consent_ident):
-        u""" Get consent constant from constant strval or intval.
+        """ Get consent constant from constant strval or intval.
 
         :type consent_ident: int, str, Cerebrum.Constant.ConstantCode
         :param consent_ident: Something to lookup a consent constant by
@@ -127,7 +133,8 @@ class BofhdExtension(BofhdCommonMethods):
             "OK: Set consent '%s' (%s) for %s '%s' (entity_id=%s)",
             ('consent_name', 'consent_type', 'entity_type', 'entity_name',
              'entity_id')),
-        perm_filter='can_set_consent')
+        perm_filter='can_set_consent',
+    )
 
     def consent_set(self, operator, entity_ident, consent_ident):
         """ Set a consent for an entity. """
@@ -159,7 +166,8 @@ class BofhdExtension(BofhdCommonMethods):
             "OK: Removed consent '%s' (%s) for %s '%s' (entity_id=%s)",
             ('consent_name', 'consent_type', 'entity_type', 'entity_name',
              'entity_id')),
-        perm_filter='can_unset_consent')
+        perm_filter='can_unset_consent',
+    )
 
     def consent_unset(self, operator, entity_ident, consent_ident):
         """ Remove a previously set consent. """
@@ -195,10 +203,11 @@ class BofhdExtension(BofhdCommonMethods):
              'consent_description'),
             hdr='%-15s %-8s %-17s %-17s %s' % (
                 'Name', 'Type', 'Set at', 'Expires at', 'Description')),
-        perm_filter='can_show_consent_info')
+        perm_filter='can_show_consent_info',
+    )
 
     def consent_info(self, operator, ident):
-        u""" View all set consents for a given entity. """
+        """ View all set consents for a given entity. """
         entity = self.util.get_target(ident, restrict_to=[])
         self.check_consent_support(entity)
         self.ba.can_show_consent_info(operator.get_entity_id(), entity)
@@ -210,8 +219,9 @@ class BofhdExtension(BofhdCommonMethods):
             consents.append({
                 'consent_name': six.text_type(consent),
                 'consent_type': six.text_type(consent_type),
-                'consent_time_set': row['time_set'],
-                'consent_time_expire': row['expiry'],
+                'consent_time_set': row['set_at'],
+                # note: expire is no longer supported in consents
+                'consent_time_expire': None,
                 'consent_description': row['description'], })
         if not consents:
             name = self._get_entity_name(entity.entity_id, entity.entity_type)
@@ -231,7 +241,8 @@ class BofhdExtension(BofhdCommonMethods):
             '%-15s  %-8s  %s',
             ('consent_name', 'consent_type', 'consent_description'),
             hdr='%-16s %-9s %s' % ('Name', 'Type', 'Description')),
-        perm_filter='can_list_consents')
+        perm_filter='can_list_consents',
+    )
 
     def consent_list(self, operator):
         """ List all consent types. """
