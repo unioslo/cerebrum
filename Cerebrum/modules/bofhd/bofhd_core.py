@@ -420,26 +420,23 @@ class BofhdCommandBase(object):
 
         Either ou_id or stedkode must be provided.
 
-        @type ou_id: int or None
-        @param ou_id:
-          ou_id (entity_id) if not None.
-
-        @type stedkode: string (DDDDDD, where D is a digit)
-        @param stedkode:
-          Stedkode for OU if not None.
+        :param int ou_id: entity id of the org unit
+        :param str stedkode: a six digit location code (stedkode)
         """
         ou = self.OU_class(self.db)
-        try:
-            if ou_id is not None:
-                ou.find(ou_id)
-            else:
+        if ou_id is None:
+            try:
                 ou.find_sko(stedkode)
-            return ou
-        except Errors.NotFoundError:
-            raise CerebrumError("Unknown OU (%s)" %
-                                (ou_id and ("id=%r" % ou_id) or
-                                 ("sko=%r" % stedkode)))
-        raise Errors.UnreachableCodeError("_get_ou")
+            except ValueError:
+                raise CerebrumError("Invalid stedkode: " + repr(stedkode))
+            except Errors.NotFoundError:
+                raise CerebrumError("Unknown OU (sko=%s)" % repr(stedkode))
+        else:
+            try:
+                ou.find(ou_id)
+            except Errors.NotFoundError:
+                raise CerebrumError("Unknown OU (ou_id=%s)" % repr(ou_id))
+        return ou
 
     def _get_disk(self, path, host_id=None, raise_not_found=True):
         disk = Factory.get('Disk')(self.db)
