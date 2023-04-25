@@ -1581,7 +1581,7 @@ class BofhdExtension(BofhdCommonMethods):
         if (len(members) > cereconf.BOFHD_MAX_MATCHES and
                 not self.ba.is_superuser(operator.get_entity_id())):
             raise CerebrumError("More than %d (%d) matches. Contact superuser "
-                                "to get a listing for %r." %
+                                "to get a listing for %r" %
                                 (cereconf.BOFHD_MAX_MATCHES, len(members),
                                  groupname))
         ac = self.Account_class(self.db)
@@ -1676,7 +1676,7 @@ class BofhdExtension(BofhdCommonMethods):
                                                 indirect_members=True))
         if (len(all_members) > cereconf.BOFHD_MAX_MATCHES and
                 not self.ba.is_superuser(operator.get_entity_id())):
-            raise CerebrumError("More than %d (%d) matches, contact superuser"
+            raise CerebrumError("More than %d (%d) matches, contact superuser "
                                 "to get a listing for %r" %
                                 (cereconf.BOFHD_MAX_MATCHES, len(all_members),
                                  groupname))
@@ -2234,7 +2234,7 @@ class BofhdExtension(BofhdCommonMethods):
                 len(admins) > cereconf.BOFHD_MAX_MATCHES and
                 not self.ba.is_superuser(operator.get_entity_id())
         ):
-            raise CerebrumError('More than %d (%d) matches, contact superuser'
+            raise CerebrumError('More than %d (%d) matches, contact superuser '
                                 'to get a listing for %r' %
                                 (cereconf.BOFHD_MAX_MATCHES, len(admins),
                                  groupname))
@@ -2272,7 +2272,7 @@ class BofhdExtension(BofhdCommonMethods):
                 len(mods) > cereconf.BOFHD_MAX_MATCHES and
                 not self.ba.is_superuser(operator.get_entity_id())
         ):
-            raise CerebrumError('More than %d (%d) matches, contact superuser'
+            raise CerebrumError('More than %d (%d) matches, contact superuser '
                                 'to get a listing for %r' %
                                 (cereconf.BOFHD_MAX_MATCHES, len(mods),
                                  groupname))
@@ -2295,9 +2295,9 @@ class BofhdExtension(BofhdCommonMethods):
         ("group", "accounts"),
         GroupName(),
         fs=FormatSuggestion(
-            "%8i %30s %25s",
-            ("acc_id", "acc_name", "group_name"),
-            hdr="%8s %30s %30s" % ("id", "name", "is owned by group_name"),
+            "%-8i %-30s %-25s",
+            ("account_id", "account_name", "group_name"),
+            hdr="%-8s %-30s %-25s" % ("id", "name", "group name"),
         ),
     )
 
@@ -2306,22 +2306,24 @@ class BofhdExtension(BofhdCommonMethods):
         gr = self._get_group(groupname)
         acc_type = self.const.entity_account
         accs = [a["account_id"] for a in gr.get_owned_accounts()]
-        if len(accs) > cereconf.BOFHD_MAX_MATCHES and not self.ba.is_superuser(
-            operator.get_entity_id()
-        ):
+
+        if (len(accs) > cereconf.BOFHD_MAX_MATCHES
+                and not self.ba.is_superuser(operator.get_entity_id())):
             raise CerebrumError(
-                "More than %d (%d) matches, contact superuser"
+                "More than %d (%d) matches, contact superuser "
                 "to get a listing for %r"
-                % (cereconf.BOFHD_MAX_MATCHES, len(accs), groupname)
+                % (cereconf.BOFHD_MAX_MATCHES, len(accs), gr.group_name)
             )
+
         result = []
         for acc in accs:
             acc_name = self._get_entity_name(acc, acc_type)
             result.append(
                 {
-                    "acc_id": acc,
-                    "acc_name": acc_name,
-                    "group_name": groupname,
+                    "account_id": acc,
+                    "account_name": acc_name,
+                    "group_id": gr.entity_id,
+                    "group_name": gr.group_name,
                 }
             )
         return result
