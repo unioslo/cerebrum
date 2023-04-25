@@ -268,13 +268,9 @@ class BofhdExtension(BofhdCommonMethods):
 
             for n in enote.get_notes():
                 info_list.append({
-                    'note_id':
-                    n['note_id'],
-                    'note_subject':
-                    n['subject'] if len(n['subject']) > 0 else '<not set>',
-                    'note_description':
-                    n['description'] if len(n['description']) > 0
-                    else '<not set>'
+                    'note_id': n['note_id'],
+                    'note_subject': n['subject'] or '<not set>',
+                    'note_description': n['description'] or '<not set>',
                 })
         except Exception:
             pass

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2013-2018, University of Oslo, Norway
+# Copyright 2013-2023, University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,16 +18,22 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """Commands for BOFHD EntityNote functionality."""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 from Cerebrum.modules import Note
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
+from Cerebrum.modules.bofhd.bofhd_utils import format_time
 from Cerebrum.modules.bofhd.cmd_param import (Command,
                                               FormatSuggestion,
                                               Id,
                                               SimpleString)
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
-from Cerebrum.modules.bofhd.bofhd_utils import format_time
 
 
 class EntityNoteBofhdAuth(BofhdAuth):
@@ -100,13 +106,16 @@ class BofhdExtension(BofhdCommonMethods):
         ('note', 'show'),
         Id(help_ref='id:target:entity'),
         fs=FormatSuggestion([
+            # stats
             ("%d note(s) found for %s:\n", ("notes_total", "entity_target")),
+            # notes
             ("Note #%d added by %s on %s:\n"
              "%s: %s\n",
              ("note_id", "creator", format_time("create_date"),
               "subject", "description"))
         ]),
-        perm_filter='can_show_notes')
+        perm_filter='can_show_notes',
+    )
 
     def note_show(self, operator, entity_target):
         self.ba.can_show_notes(operator.get_entity_id())
@@ -120,25 +129,23 @@ class BofhdExtension(BofhdCommonMethods):
         notes = enote.get_notes()
         result = []
 
-        if len(notes) is 0:
-            return "No notes were found for %s" % (entity_target)
-        else:
-            result.append({
-                'notes_total': len(notes),
-                'entity_target': entity_target,
-            })
+        if not len(notes):
+            raise CerebrumError("No notes were found for %s"
+                                % (entity_target))
+        # add stats
+        result.append({
+            'notes_total': len(notes),
+            'entity_target': entity_target,
+        })
 
+        # add notes
         for note_row in notes:
-            note = {}
-
-            for key, value in note_row.items():
-                note[key] = value
-
-                if key in ('subject', 'description') and len(value) is 0:
-                    note[key] = '<not set>'
+            note = dict(note_row)
+            for k in ('subject', 'description'):
+                note[k] = note[k] or '<not set>'
 
             # translate creator_id to username
-            acc = self._get_account(note_row['creator_id'], idtype='id')
+            acc = self._get_account(note['creator_id'], idtype='id')
             note['creator'] = acc.account_name
             result.append(note)
 
@@ -152,17 +159,18 @@ class BofhdExtension(BofhdCommonMethods):
         Id(help_ref='id:target:entity'),
         SimpleString(help_ref='note_subject'),
         SimpleString(help_ref='note_description'),
-        perm_filter='can_add_notes')
+        perm_filter='can_add_notes',
+    )
 
     def note_add(self, operator, entity_target, subject, description):
         self.ba.can_add_notes(operator.get_entity_id())
 
         if len(subject) > 70:
             raise CerebrumError(
-                u"Subject field cannot be longer than 70 characters")
+                "Subject field cannot be longer than 70 characters")
         if len(description) > 1024:
             raise CerebrumError(
-                u"Description field cannot be longer than 1024 characters")
+                "Description field cannot be longer than 1024 characters")
 
         entity = self.util.get_target(entity_target, restrict_to=[])
         enote = Note.EntityNote(self.db)
@@ -179,7 +187,8 @@ class BofhdExtension(BofhdCommonMethods):
         ('note', 'remove'),
         Id(help_ref='id:target:entity'),
         SimpleString(help_ref='note_id'),
-        perm_filter='can_remove_notes')
+        perm_filter='can_remove_notes',
+    )
 
     def note_remove(self, operator, entity_target, note_id):
         self.ba.can_remove_notes(operator.get_entity_id())
@@ -194,8 +203,9 @@ class BofhdExtension(BofhdCommonMethods):
         for note_row in enote.get_notes():
             if int(note_row['note_id']) is int(note_id):
                 enote.delete_note(note_id)
-                return "Note #%s associated with entity %s was removed" % (
-                    note_id, entity_target)
+                return (
+                    "Note #%s associated with entity %s was removed"
+                    % (note_id, entity_target))
 
-        raise CerebrumError("Note #%s is not associated with entity %s" %
-                            (note_id, entity_target))
+        raise CerebrumError("Note #%s is not associated with entity %s"
+                            % (note_id, entity_target))

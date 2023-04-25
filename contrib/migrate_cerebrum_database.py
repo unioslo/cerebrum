@@ -74,7 +74,7 @@ targets = {
     'task_queue': ('task_queue_1_1',),
     'entity_trait': ('entity_trait_1_1',),
     'hostpolicy': ('hostpolicy_1_1',),
-    'note': ('note_1_1',),
+    'note': ('note_1_1', 'note_1_2'),
     'job_runner': ('job_runner_1_1',),
 }
 
@@ -1731,6 +1731,15 @@ def migrate_to_note_1_1():
     meta = Metainfo.Metainfo(db)
     meta.set_metainfo('sqlmodule_note', '1.1')
     print('Migration to note 1.1 completed successfully')
+    db.commit()
+
+
+def migrate_to_note_1_2():
+    assert_db_version('1.1', component='note')
+    makedb('note_1_2', 'pre')
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo('sqlmodule_note', '1.2')
+    print('Migration to note 1.2 completed successfully')
     db.commit()
 
 

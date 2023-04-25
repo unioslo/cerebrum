@@ -1,6 +1,6 @@
 /* encoding: utf-8
  *
- * Copyright 2013-2019 University of Oslo, Norway
+ * Copyright 2013-2023 University of Oslo, Norway
  *
  * This file is part of Cerebrum.
  *
@@ -25,7 +25,7 @@ category:metainfo;
 name=note;
 
 category:metainfo;
-version=1.1;
+version=1.2;
 
 
 category:drop;
@@ -48,7 +48,7 @@ CREATE TABLE entity_note
     CONSTRAINT note_id_pk PRIMARY KEY,
 
   create_date
-    TIMESTAMP
+    TIMESTAMP WITH TIME ZONE
     DEFAULT [:now]
     NOT NULL,
 
