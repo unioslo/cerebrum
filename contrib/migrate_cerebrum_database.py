@@ -64,6 +64,7 @@ targets = {
     'entity_expire': ('entity_expire_1_0',),
     'ephorte': ('ephorte_1_1', 'ephorte_1_2'),
     'eventlog': ('eventlog_1_1', ),
+    'events': ('events_1_1', ),
     'gpg': ('gpg_1_1',),
     'stedkode': ('stedkode_1_1', ),
     'posixuser': ('posixuser_1_0', 'posixuser_1_1', ),
@@ -1279,6 +1280,15 @@ def migrate_to_eventlog_1_1():
     meta = Metainfo.Metainfo(db)
     meta.set_metainfo("sqlmodule_eventlog", "1.1")
     print("Migration to eventlog 1.1 completed successfully")
+    db.commit()
+
+
+def migrate_to_events_1_1():
+    assert_db_version("1.0", component='events')
+    makedb('events_1_1', 'pre')
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo("sqlmodule_events", "1.1")
+    print("Migration to events 1.1 completed successfully")
     db.commit()
 
 
