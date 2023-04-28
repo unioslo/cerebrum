@@ -215,8 +215,6 @@ sbin_files = [
     ('servers/cis/SoapPostmasterServer.py', 0755),
     ('consumers/consume-callback.py', 0755),
     ('consumers/consume-tasks.py', 0755),
-    ('consumers/no/consumer_affiliations.py', 0755),
-    ('consumers/no/uio/consumer_enforce_forward_policy.py', 0755)
 ]
 
 data_files = [
@@ -389,7 +387,6 @@ setup(
         'Cerebrum/modules/entity_expire',
         'Cerebrum/modules/event',
         'Cerebrum/modules/event/clients',
-        'Cerebrum/modules/event_consumer',
         'Cerebrum/modules/event_publisher',
         'Cerebrum/modules/exchange',
         'Cerebrum/modules/feide',
