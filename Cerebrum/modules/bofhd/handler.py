@@ -495,6 +495,12 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
         if len(group) == 0:
             ret = self.server.cmdhelp.get_general_help(commands)
         elif group[0] == 'arg_help':
+            if len(group) < 2:
+                raise CerebrumError(
+                    "Missing argument (usage: help arg_help <arg>)")
+            if len(group) > 2:
+                raise CerebrumError(
+                    "Too many arguments (usage: help arg_help <arg>)")
             ret = self.server.cmdhelp.get_arg_help(group[1])
         elif len(group) == 1:
             ret = self.server.cmdhelp.get_group_help(commands, *group)
