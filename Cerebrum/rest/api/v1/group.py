@@ -223,7 +223,7 @@ class GroupResource(Resource):
         'visibility',
         choices=GroupVisibility._rev_map.keys(),
         required=True,
-        location=['form', 'json'],
+        location=('form', 'json'),
         case_sensitive=False,
         nullable=False,
         help='{error_msg}',
@@ -231,7 +231,7 @@ class GroupResource(Resource):
     new_group_parser.add_argument(
         'description',
         type=validator.String(min_len=0, max_len=512),
-        location=['form', 'json'],
+        location=('form', 'json'),
         nullable=True,
         help='{error_msg}',
     )
@@ -517,7 +517,7 @@ class GroupMemberListResource(Resource):
     group_members_parser.add_argument(
         'members',
         type=validator.Integer(min_val=0),
-        location=['form', 'json'],
+        location=('form', 'json'),
         nullable=False,
         required=False,
         default=[],
