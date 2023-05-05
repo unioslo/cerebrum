@@ -127,7 +127,6 @@ class CLConstants(Cerebrum.Constants.CLConstants):
         '%(subject)s gives consent',
         (
             "type=%(string:consent_string)s",
-            "expiry=%(timestamp:expiry)s",
             "description=%(string:description)s",
         ),
     )
@@ -138,7 +137,6 @@ class CLConstants(Cerebrum.Constants.CLConstants):
         '%(subject)s declines consent',
         (
             "type=%(string:consent_string)s",
-            "expiry=%(timestamp:expiry)s",
             "description=%(string:description)s",
         ),
     )

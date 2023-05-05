@@ -25,7 +25,7 @@ category:metainfo;
 name=consent;
 
 category:metainfo;
-version=1.0;
+version=1.1;
 
 
 category:drop;
@@ -101,15 +101,10 @@ CREATE TABLE entity_consent
     CONSTRAINT entity_consent_consent_code_fk
       REFERENCES entity_consent_code(code),
 
-  time_set
-    TIMESTAMP
+  set_at
+    TIMESTAMP WITH TIME ZONE
     NOT NULL
     DEFAULT [:now],
-
-  expiry
-    TIMESTAMP
-    NULL
-    DEFAULT NULL,
 
   description
     CHAR VARYING(512),

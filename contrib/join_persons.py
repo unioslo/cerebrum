@@ -244,33 +244,24 @@ def join_consents(old_person, new_person):
     """
     if not hasattr(new_person, 'list_consents'):
         return
-    old_consents = old_person.list_consents(
-        entity_id=old_person.entity_id, filter_expired=False)
+    old_consents = old_person.list_consents(entity_id=old_person.entity_id)
     if not old_consents:
         return
     for old_consent in old_consents:
         new_consent = new_person.list_consents(
             entity_id=new_person.entity_id,
-            consent_code=old_consent['consent_code'],
-            filter_expired=False)
+            consent_code=old_consent['consent_code'])
 
         if new_consent:
             new_consent = new_consent[0]
-
-        replace_expired = (new_consent and new_consent['expiry'] and
-                           not old_consent['expiry'])
-        old_expires_later = (new_consent and old_consent['expiry'] and
-                             new_consent['expiry'] and
-                             (old_consent['expiry'] > new_consent['expiry']))
-        keep = not new_consent or replace_expired or old_expires_later
+        keep = not new_consent
         logger.info(
             'consent: old person has consent. '
             'joining with new? %s consent=%s', keep, dict(old_consent))
         if keep:
             new_person.set_consent(
                 consent_code=old_consent['consent_code'],
-                description=old_consent['description'],
-                expiry=old_consent['expiry'])
+                description=old_consent['description'])
         old_person.remove_consent(consent_code=old_consent['consent_code'])
     old_person.write_db()
     new_person.write_db()
