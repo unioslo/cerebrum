@@ -1,6 +1,5 @@
-/* encoding: utf-8
- *
- * Copyright 2013-2019 University of Oslo, Norway
+/*
+ * Copyright 2023 University of Oslo, Norway
  *
  * This file is part of Cerebrum.
  *
@@ -17,29 +16,11 @@
  * You should have received a copy of the GNU General Public License
  * along with Cerebrum; if not, write to the Free Software Foundation,
  * Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
- *
- *
- * Tables used by Cerebrum.modules.job_runner
  */
-category:metainfo;
-name=job_runner;
 
-category:metainfo;
-version=1.2;
+/* SQL script for migrating mod_job_runner from 1.1 to 1.2 */
 
-
-category:main;
-CREATE TABLE job_ran
-(
-  id
-    TEXT
-    CONSTRAINT job_ran_pk PRIMARY KEY,
-
-  timestamp
-    TIMESTAMP WITH TIME ZONE
-    NOT NULL
-);
-
-
-category:drop;
-DROP TABLE job_ran;
+category:pre;
+ALTER TABLE job_ran
+  ALTER COLUMN timestamp
+    TYPE TIMESTAMP WITH TIME ZONE;

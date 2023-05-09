@@ -24,6 +24,8 @@ import signal
 import time
 
 from Cerebrum import Errors
+from Cerebrum.utils import date as date_utils
+from Cerebrum.utils import date_compat
 from .job_config import reload_job_config
 
 
@@ -45,12 +47,13 @@ class DbQueueHandler(object):
             Return a dictionary that maps job names/ids to timestamps.
         """
         ret = {}
-        for r in self.db.query(
+        for row in self.db.query(
                 """
-                SELECT id, timestamp
-                FROM [:table schema=cerebrum name=job_ran]
+                  SELECT id, timestamp
+                  FROM [:table schema=cerebrum name=job_ran]
                 """):
-            ret[r['id']] = r['timestamp'].ticks()
+            last_run = date_compat.get_datetime_tz(row['timestamp'])
+            ret[row['id']] = date_utils.to_timestamp(last_run)
         self.logger.debug("get_last_run: %r", ret)
         return ret
 
@@ -62,29 +65,41 @@ class DbQueueHandler(object):
         :param int timestamp:
             The timestamp when the job ran
         """
-        timestamp = self.db.TimestampFromTicks(int(timestamp))
-        self.logger.debug("update_last_run(%r, %r)" % (job, timestamp))
+        if isinstance(timestamp, (int, float)):
+            last_run = date_utils.from_timestamp(timestamp)
+        else:
+            last_run = date_compat.get_datetime_tz(timestamp, allow_none=False)
+
+        self.logger.debug("update_last_run(%s, %s)", repr(job), repr(last_run))
 
         try:
             self.db.query_1(
                 """
-                SELECT 'yes' AS yes
-                FROM [:table schema=cerebrum name=job_ran]
-                WHERE id=:id""",
-                {'id': job})
+                  SELECT 'yes' AS yes
+                  FROM [:table schema=cerebrum name=job_ran]
+                  WHERE id=:id
+                """,
+                {'id': job},
+            )
         except Errors.NotFoundError:
             self.db.execute(
                 """
-                INSERT INTO [:table schema=cerebrum name=job_ran]
-                (id, timestamp)
-                VALUES (:id, :timestamp)""",
-                {'id': job, 'timestamp': timestamp})
+                  INSERT INTO [:table schema=cerebrum name=job_ran]
+                    (id, timestamp)
+                  VALUES
+                    (:id, :timestamp)
+                """,
+                {'id': job, 'timestamp': last_run},
+            )
         else:
             self.db.execute(
-                """UPDATE [:table schema=cerebrum name=job_ran]
-                SET timestamp=:timestamp
-                WHERE id=:id""",
-                {'id': job, 'timestamp': timestamp})
+                """
+                  UPDATE [:table schema=cerebrum name=job_ran]
+                  SET timestamp=:timestamp
+                  WHERE id=:id
+                """,
+                {'id': job, 'timestamp': last_run},
+            )
 
         self.db.commit()
 

@@ -49,6 +49,8 @@ from .times import fmt_time
 
 import cereconf
 
+# mod_job_runner version
+__version__ = '1.2'
 
 logger = logging.getLogger(__name__)
 runner_cw = threading.Condition()
