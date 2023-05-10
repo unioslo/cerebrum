@@ -58,7 +58,8 @@ class Manager(utils.Manager):
 
 
 # Inject our queue implementation:
-Manager.register('queue', Queue)
+# manager names must be bytestrings in PY2
+Manager.register(str('queue'), Queue)
 
 
 def unlock_all_events():
