@@ -25,12 +25,13 @@ from __future__ import (
     # TODO: unicode_literals,
 )
 
-import datetime
 import itertools
-import pytz
 
-import cereconf
-from Cerebrum.utils.date_compat import is_mx_datetime
+import six
+
+from Cerebrum.utils import date as date_utils
+from Cerebrum.utils import date_compat
+from Cerebrum.utils import reprutils
 
 
 class _VerbSingleton(type):
@@ -47,10 +48,15 @@ class _VerbSingleton(type):
         return cls.verbs.get(verb)
 
 
-class EventType(_VerbSingleton('EventTypeSingleton', (object,), {})):
+@six.add_metaclass(_VerbSingleton)
+class EventType(reprutils.ReprFieldMixin):
     """Holds an event type."""
 
-    __slots__ = ['verb', 'description', ]
+    __slots__ = ('verb', 'description')
+
+    repr_id = False
+    repr_module = False
+    repr_fields = ('verb',)
 
     def __init__(self, verb, description):
         """ Initialize EventType.
@@ -60,9 +66,6 @@ class EventType(_VerbSingleton('EventTypeSingleton', (object,), {})):
         """
         self.verb = verb
         self.description = description
-
-    def __repr__(self):
-        return '<{0.__class__.__name__!s} {0.verb}>'.format(self)
 
     def __eq__(self, other):
         """Equality."""
@@ -95,7 +98,7 @@ class EntityRef(object):
     that other systems can use.
     """
 
-    __slots__ = ['ident', 'entity_type', 'entity_id', ]
+    __slots__ = ('ident', 'entity_type', 'entity_id')
 
     def __init__(self, entity_id, entity_type, ident):
         self.entity_id = int(entity_id)
@@ -116,24 +119,26 @@ class EntityRef(object):
         return {
             'ident': self.ident,
             'entity_id': self.entity_id,
-            'entity_type': self.entity_type, }
+            'entity_type': self.entity_type,
+        }
 
 
-class DateTimeDescriptor(object):
+class DateTimeDescriptor(reprutils.ReprEvalMixin):
     """ Datetime descriptor that handles timezones.
 
-    When setting the datetime, this method will try to localize it with the
-    default_timezone in the following ways:
+    When setting the datetime, this method will try to localize it in the
+    following ways:
 
-    - mx-like datetime object: Naive datetime, assume in default_timezone
-    - datetime.datetime: Assume in default_timezone if naive
+    - date or naive datetime-like: assume in local tz (see get_datetime_tz)
+    - tz-aware datetime.datetime: Convert to local timezone
     - integer: Assume timestamp in UTC
 
     The returned object will always be a localized datetime.datetime
-
     """
 
-    default_timezone = pytz.timezone(cereconf.TIMEZONE)
+    repr_id = False
+    repr_module = False
+    repr_args = ('slot',)
 
     def __init__(self, slot):
         """ Creates a new datetime descriptor.
@@ -142,9 +147,6 @@ class DateTimeDescriptor(object):
             The attribute name where the actual value is stored.
         """
         self.slot = slot
-
-    def __repr__(self):
-        return '{0.__class__.__name__}({0.slot!r})'.format(self)
 
     def __get__(self, obj, cls=None):
         if not obj:
@@ -157,19 +159,9 @@ class DateTimeDescriptor(object):
             return
 
         if isinstance(value, (int, long, )):
-            # UTC timestamp
-            value = pytz.utc.localize(
-                datetime.datetime.fromtimestamp(value))
-        elif is_mx_datetime(value):
-            # Naive datetime in default_timezone
-            value = self.default_timezone.localize(value.pydatetime())
-        elif isinstance(value, datetime.datetime):
-            if value.tzinfo is None:
-                value = self.default_timezone.localize(value)
+            value = date_utils.from_timestamp(value)
         else:
-            raise TypeError('Invalid datetime {0} ({1})'.format(type(value),
-                                                                repr(value)))
-
+            value = date_compat.get_datetime_tz(value)
         setattr(obj, self.slot, value)
 
     def __delete__(self, obj):
@@ -177,16 +169,19 @@ class DateTimeDescriptor(object):
             delattr(obj, self.slot)
 
 
-class Event(object):
-    """ Event abstraction.
+class Event(reprutils.ReprFieldMixin):
+    """
+    Event abstraction.
 
     Contains all the neccessary data to serialize an event.
     """
 
-    DEFAULT_TIMEZONE = 'Europe/Oslo'
+    __slots__ = ('event_type', 'subject', 'objects', 'context', 'attributes',
+                 '_timestamp', '_scheduled')
 
-    __slots__ = ['event_type', 'subject', 'objects', 'context', 'attributes',
-                 '_timestamp', '_scheduled', ]
+    repr_id = False
+    repr_module = False
+    repr_fields = ('event_type', 'subject')
 
     timestamp = DateTimeDescriptor('_timestamp')
     scheduled = DateTimeDescriptor('_scheduled')
@@ -214,11 +209,6 @@ class Event(object):
         self.objects = set(objects or [])
         self.context = set(context or [])
         self.attributes = set(attributes or [])
-
-    def __repr__(self):
-        return ('<{0.__class__.__name__}'
-                ' event={0.event_type!r}'
-                ' subject={0.subject!r}>').format(self)
 
     def mergeable(self, other):
         """Can this event be merged with other."""

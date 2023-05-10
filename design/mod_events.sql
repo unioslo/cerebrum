@@ -1,6 +1,6 @@
 /* encoding: utf-8
  *
- * Copyright 2017-2019 University of Oslo, Norway
+ * Copyright 2017-2023 University of Oslo, Norway
  *
  * This file is part of Cerebrum.
  *
@@ -25,7 +25,7 @@ category:metainfo;
 name=events;
 
 category:metainfo;
-version=1.0;
+version=1.1;
 
 
 /* event_id sequence */
@@ -67,19 +67,19 @@ CREATE TABLE events
 
   /* Event creation time */
   timestamp
-    TIMESTAMP
+    TIMESTAMP WITH TIME ZONE
     DEFAULT [:now]
     NOT NULL,
 
   /* Event scheduling time */
   /* TODO: DEFAULT [:now] NOT NULL ? */
   schedule
-    TIMESTAMP,
+    TIMESTAMP WITH TIME ZONE,
 
   /* Event lock time, indicates that a worker has started processing
    * the event */
   taken_time
-    TIMESTAMP,
+    TIMESTAMP WITH TIME ZONE,
 
   /* Number of times the event has been locked for processing. */
   failed
