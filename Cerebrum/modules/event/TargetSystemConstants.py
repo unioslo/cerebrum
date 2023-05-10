@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright 2014 University of Oslo, Norway
+#
+# Copyright 2014-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -16,17 +17,29 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-"""This is kind of the definition of target system codes. This is
-used by the event-handler framework.
 """
+Target system codes for events.
 
-from Cerebrum import Constants
+This module contains the constant type that defines a target system for the
+``Cerebrum.modules.EventLog``.
 
-class _TargetSystemCode(Constants._CerebrumCode):
-    "Mappings stored in the target_system_code table"
-    _lookup_table = '[:table schema=cerebrum name=target_system_code]'
+TODO: Should probably be moved to a ``Cerebrum.modules.eventlog`` submodule.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+
+import Cerebrum.Constants
 
 
-class TargetSystemConstants(Constants.Constants):
+class _TargetSystemCode(Cerebrum.Constants._CerebrumCode):
+    """Mappings stored in the target_system_code table"""
+
+    _lookup_table = "[:table schema=cerebrum name=target_system_code]"
+
+
+class TargetSystemConstants(Cerebrum.Constants.Constants):
     TargetSystem = _TargetSystemCode

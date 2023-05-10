@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2017 University of Oslo, Norway
+# Copyright 2017-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,24 +17,37 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" MQ-publishing event_log consumer.
+"""
+MQ-publishing event_log consumer.
 
 This consumer implementation takes any message published to the event_log, and
 re-publishes it using the specified AMQP client implementation/configuration.
-
 """
-# import json
+
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import datetime
+import json
 import time
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
+from Cerebrum.modules.amqp.config import get_connection_params
+from Cerebrum.modules.amqp.publisher import BlockingClient
 from Cerebrum.modules.event import evhandlers
 from Cerebrum.modules.event.errors import EventExecutionException
 from Cerebrum.utils.funcwrap import memoize
 
-from .eventdb import EventsAccessor, from_row
-from . import EVENT_CHANNEL, get_client, get_formatter
+from . import eventdb
+from . import scim
+
+
+# Hard coded value from the SQL NOTIFY trigger
+EVENT_CHANNEL = 'event_publisher'
 
 
 class EventConsumer(evhandlers.DBConsumer):
@@ -48,18 +60,17 @@ class EventConsumer(evhandlers.DBConsumer):
     @property
     @memoize
     def event_db(self):
-        return EventsAccessor(self.db)
+        return eventdb.EventsAccessor(self.db)
 
     @property
     @memoize
-    def publisher(self):
-        """ Message Queue client. """
-        return get_client(self.publisher_config)
+    def connection_params(self):
+        return get_connection_params(self.publisher_config.connection)
 
     @property
     @memoize
     def formatter(self):
-        return get_formatter(self.formatter_config)
+        return scim.EventScimFormatter(self.formatter_config)
 
     def _lock_event(self, event_id):
         """ acquire lock on the event. """
@@ -88,22 +99,29 @@ class EventConsumer(evhandlers.DBConsumer):
 
     def handle_event(self, event):
         """ Publish event using message queue client. """
-
-        self.logger.debug("Trying to publish {!r}".format(event))
-
+        self.logger.debug("Trying to publish %s", repr(event))
         message = self.formatter(event)
-
-        routing_key = self.formatter.get_key(event.event_type, event.subject)
+        routing_key = (self.formatter.get_key(event.event_type, event.subject)
+                       or "unknown")
 
         # Publish message
         try:
-            with self.publisher as client:
-                client.publish(routing_key, message)
-                self.logger.info('Message published (msg jti={0})'
-                                 ''.format(message['jti']))
+            json_body = json.dumps(message)
+
+            with BlockingClient(self.connection_params) as client:
+                client.declare_exchange(self.publisher_config.exchange)
+                client.publish(
+                    exchange_name=self.publisher_config.exchange.name,
+                    routing_key=routing_key,
+                    message=json_body,
+                    content_type="application/json")
         except Exception:
-            self.logger.warning('unable to publish event', exc_info=True)
+            self.logger.warning("Unable to publish event (msg jti=%s)",
+                                message.get('jti'), exc_info=True)
             raise EventExecutionException('unable to publish event')
+        else:
+            self.logger.info("Message published (msg jti=%s)",
+                             message.get('jti'))
 
 
 class EventListener(evhandlers.DBListener):
@@ -117,13 +135,14 @@ class EventListener(evhandlers.DBListener):
         try:
             self.__event_db
         except AttributeError:
-            self.__event_db = EventsAccessor(self.db)
+            self.__event_db = eventdb.EventsAccessor(self.db)
         return self.__event_db
 
     def _build_event(self, notification):
         db_row = self.event_db.get_event(int(notification.payload))
         return evhandlers.EventItem(
-            notification.channel, int(db_row['event_id']), from_row(db_row))
+            notification.channel, int(db_row['event_id']),
+            eventdb.from_row(db_row))
 
 
 class EventCollector(evhandlers.DBProducer):
@@ -137,13 +156,14 @@ class EventCollector(evhandlers.DBProducer):
         _now = datetime.datetime.utcnow
         start = _now()
         tmp_db = Factory.get('Database')(client_encoding='UTF-8')
-        event_db = EventsAccessor(tmp_db)
+        event_db = eventdb.EventsAccessor(tmp_db)
         for db_row in event_db.get_unprocessed(
                 self.config['failed_limit'],
                 self.config['failed_delay'],
                 self.config['unpropagated_delay']):
             event = evhandlers.EventItem(
-                EVENT_CHANNEL, int(db_row['event_id']), from_row(db_row))
+                EVENT_CHANNEL, int(db_row['event_id']),
+                eventdb.from_row(db_row))
             self.push(event)
         tmp_db.close()
 

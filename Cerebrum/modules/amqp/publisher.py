@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2020 University of Oslo, Norway
+# Copyright 2020-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -38,15 +38,25 @@ A minimal example to connect to a RabbitMQ server running default config:
     client.publish('exchange', 'routing.key', 'message!')
 
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+
+import logging
+
 import pika
 import pika.exceptions
+
+logger = logging.getLogger(__name__)
 
 
 class BlockingClient(object):
     """
     A blocking pika connection wrapper.
     """
-
     # This "client" currently only supports publishing.  Consider moving
     # it to another module (.client?) if other ops are added.
 
@@ -54,6 +64,14 @@ class BlockingClient(object):
         self._channel = None
         self._connection = None
         self.connection_params = connection_params
+
+    def __enter__(self):
+        if self.closed:
+            self.open()
+        return self
+
+    def __exit__(self, exc_type, exc, trace):
+        self.close()
 
     @property
     def connection(self):
@@ -64,7 +82,7 @@ class BlockingClient(object):
     def channel(self):
         """ Pika channel - created on request. """
         if not self.connection:
-            raise RuntimeError('Connection already open')
+            raise RuntimeError('Connection not open')
         if not self._channel:
             self._channel = c = self.connection.channel()
             # TODO: Should this be configurable?
@@ -87,53 +105,27 @@ class BlockingClient(object):
         except pika.exceptions.ConnectionClosed:
             pass
         self._connection = None
+        self._channel = None
 
     def publish(self,
-                exchange,
+                exchange_name,
                 routing_key,
                 message,
                 content_type='text/plain',
                 delivery_mode=2):
         props = pika.BasicProperties(content_type=content_type,
                                      delivery_mode=delivery_mode)
-        try:
-            self.channel.basic_publish(exchange, routing_key, message, props)
-        except pika.exceptions.NackError:
-            return False
-        else:
-            return True
+        self.channel.basic_publish(exchange_name, routing_key, message, props)
 
+    def declare_exchange(self, exchange):
+        """
+        Assert that a given exchange exists.
 
-class Publisher(object):
-    """
-    A message publisher context.
-
-    Example:
-        conn = get_connection_params(config.Connection())
-
-        with Publisher(conn) as publish:
-            if publish('my_exchange', 'example.key', 'hello, world!'):
-                print('success!')
-            else:
-                print('oops, no ack!')
-
-    """
-
-    def __init__(self, connection_params):
-        self._client = BlockingClient(connection_params)
-
-    def __enter__(self):
-        if self._client.closed:
-            self._client.open()
-        return self
-
-    def __exit__(self, exc_type, exc, trace):
-        self._client.close()
-
-    def __call__(self, *args, **kwargs):
-        try:
-            self._client.publish(*args, **kwargs)
-        except pika.exceptions.NackError:
-            return False
-        else:
-            return True
+        :type exchange: Cerebrum.modules.amqp.config.Exchange
+        """
+        self.channel.exchange_declare(
+            exchange=exchange.name,
+            exchange_type=exchange.exchange_type,
+            durable=exchange.durable)
+        logger.info('exchange: %r, type=%r, durable=%r',
+                    exchange.name, exchange.exchange_type, exchange.durable)

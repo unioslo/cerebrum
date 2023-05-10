@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003-2017 University of Oslo, Norway
+# Copyright 2003-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -26,13 +26,16 @@ import cereconf
 import getpass
 
 from Cerebrum import Utils
-from Cerebrum.modules.event_publisher.amqp_publisher import AMQP091Publisher
+from Cerebrum.modules.amqp.config import get_connection_params
+from Cerebrum.modules.amqp.publisher import BlockingClient
 from Cerebrum.modules.event_publisher.scim import ScimFormatter
 from Cerebrum.modules.event_publisher.config import load_publisher_config
 from Cerebrum.modules.event_publisher.config import load_formatter_config
 from Cerebrum.modules.synctools.clients import get_ad_ldapclient
 from Cerebrum.modules.synctools.clients import load_ad_ldap_config
-from Cerebrum.modules.synctools.base_data_fetchers import get_account_id_by_username
+from Cerebrum.modules.synctools.base_data_fetchers import (
+    get_account_id_by_username,
+)
 from Cerebrum.modules.synctools.ad_ldap import mappers
 from Cerebrum.modules.synctools.ad_ldap import functions
 
@@ -211,9 +214,14 @@ if args.send:
                                                 str(ad_acc_spread),
                                                 str(ad_grp_spread))
                    for event in events]
-    c = AMQP091Publisher(publisher_config)
-    c.open()
-    logger.info('Sending events...')
-    for scim_event in scim_events:
-        c.publish(scim_event['routing_key'], scim_event['payload'])
-    c.close()
+    conn_params = get_connection_params(publisher_config.connection)
+
+    with BlockingClient(conn_params) as c:
+        c.declare_exchange(publisher_config.exchange)
+        logger.info('Sending events...')
+        for scim_event in scim_events:
+            c.publish(
+                exchange_name=publisher_config.exchange.name,
+                routing_key=scim_events['routing_key'] or "unknown",
+                message=scim_event['payload'],
+                content_type="application/json")

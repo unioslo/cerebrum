@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2015-2018 University of Oslo, Norway
+# Copyright 2015-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,11 +17,18 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" Basic event daemon process handler.
-
-The ProcessHandler is a simple class that helps spawning processes and threads.
 """
-from __future__ import print_function
+Basic event daemon process handler.
+
+The :class:`.ProcessHandler` is a simple class for spawning and managing
+processes from :mod:`.processes`.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    # TODO: unicode_literals,
+)
 import os
 import ctypes
 import logging
@@ -34,12 +41,15 @@ from Cerebrum.utils.funcwrap import memoize
 
 
 class Manager(managers.BaseManager):
-    """ A SIGHUP-able shared resource manager.
+    """
+    A SIGHUP-able shared resource manager.
 
     This Manager will start a SIGHUP-able subprocess to manage queues and other
     resources. On SIGHUP, the manager process will send a SIGHUP to its parent
     process.
 
+    This manager should be used with the :class:`.ProcessHandler`, which uses
+    SIGHUP to stop subprocesses.
     """
 
     @property
@@ -100,7 +110,23 @@ Manager.register('LogQueue', mp.threads.SizedQueue)
 
 
 class ProcessHandler(object):
-    """ Simple tool for starting a list of processes. """
+    """
+    Simple tool for managing procesess.
+
+    This class joins together processes from :mod:`.processes` in the following
+    ways:
+
+    Run trigger
+        The handler has a shared *run trigger* to use with
+        :class:`.processes.ProcessLoopMixin` processes.  The handler sets up a
+        SIGHUP signal handler to toggle the *run trigger*, which should then
+        *stop* these processes.
+
+    Logging
+        The handler sets up a *log queue*/*log channel* for use with
+        :class:`.processes.ProcessLoggingMixin` processes.  The handler starts
+        up a logger thread that processes log records from these processes.
+    """
 
     join_timeout = 30
     """ Timeout for process and thread joins. """
@@ -245,7 +271,11 @@ class ProcessHandler(object):
 
 
 def is_target_system_const(self, target_system):
-    """ Check if a `TargetSystemCode` exists in the database. """
+    """
+    Check if a `TargetSystemCode` exists in the database.
+
+    TODO: This should *probably* be moved to the ``EventToTargetUtils`` module.
+    """
     from Cerebrum.Utils import Factory
     from .EventToTargetUtils import EventToTargetUtils
     db = Factory.get('Database')()
@@ -258,7 +288,11 @@ def is_target_system_const(self, target_system):
 
 
 def update_system_mappings(process, target_system, change_types):
-    """ Update the target mappings for system. """
+    """
+    Update the target mappings for system.
+
+    TODO: This should *probably* be moved to the ``EventToTargetUtils`` module.
+    """
     from Cerebrum.Utils import Factory
     from .EventToTargetUtils import EventToTargetUtils
 
