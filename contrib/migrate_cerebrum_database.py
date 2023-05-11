@@ -77,7 +77,7 @@ targets = {
     'entity_trait': ('entity_trait_1_1',),
     'hostpolicy': ('hostpolicy_1_1',),
     'note': ('note_1_1', 'note_1_2'),
-    'job_runner': ('job_runner_1_1',),
+    'job_runner': ('job_runner_1_1', 'job_runner_1_2'),
 }
 
 # Global variables
@@ -1959,6 +1959,15 @@ def migrate_to_job_runner_1_1():
     meta.set_metainfo("sqlmodule_job_runner", "1.1")
     print("Migration to job_runner 1.1 completed successfully")
     db.commit()
+
+
+def migrate_to_job_runner_1_2():
+    assert_db_version("1.1", component="job_runner")
+    makedb("job_runner_1_2", "pre")
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo("sqlmodule_job_runner", "1.2")
+    db.commit()
+    print("Migration to job_runner 1.2 completed successfully")
 
 
 def migrate_to_spread_expire_1_1():
