@@ -24,4 +24,4 @@ This sub-package contains all the neccessary parts needed to store temporary
 events in the database, and to publish them to a Message Broker.
 """
 
-__version__ = '1.0'
+__version__ = '1.1'
