@@ -46,7 +46,7 @@ Cerebrum is licensed using GNU Public License version 2 and later.
 Fetching the source
 -------------------
 
-The latest source is available from [github.uio.no](https://https://github.uio.no/IT-CEREBRUM/cerebrum) (access restricted) and [github.com](https://github.com/unioslo/cerebrum) (sporadically updated).
+The latest source is available from [github.uio.no](https://github.uio.no/IT-CEREBRUM/cerebrum) (access restricted) and [github.com](https://github.com/unioslo/cerebrum) (sporadically updated).
 
 Documentation
 -------------
