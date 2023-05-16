@@ -104,6 +104,9 @@ class _UitGregRoles(mapper.GregRoles):
 
         # LB - Leieboer
         'LB': 'MANUELL/gjest',
+
+        # XS - Ekstern sensor
+        'XS': 'MANUELL/gjest',
     }
 
     get_orgunit_ids = _UitGregOrgunitIds()
@@ -128,6 +131,7 @@ class _UitGregSpreads(mapper.GregRoles):
         # 'ES': (),
         # 'ST': (),
         'LB': ('CIM_person',),
+        # 'XS': (),
     }
 
     def get_orgunit_ids(self, orgunit):
