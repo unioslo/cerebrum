@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2013-2021 University of Oslo, Norway
+# Copyright 2013-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -20,10 +20,21 @@
 """
 Simple changelog event broker to queue changes for targeted systems.
 
-This module implements the DBAL for mod_eventlog.
+This module implements a :mod:`Cerebrum.ChangeLog` that queues events for later
+processing.  It is also the DBAL for ``mod_eventlog``.
+
+See :mod:`Cerebrum.modules.event` for functionality related to processing
+events.
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import Cerebrum.ChangeLog
+from Cerebrum.Utils import argument_to_sql
 from Cerebrum.modules.ChangeLog import _params_to_db
 
 __version__ = '1.1'
@@ -55,8 +66,7 @@ class EventLog(Cerebrum.ChangeLog.ChangeLog):
                    change_params=None,
                    skip_event=False,
                    **kw):
-        """Register events that should be stored into the database.
-        """
+        """Register events that should be stored into the database. """
         # This is kind of hackish. We want to have the possibility not to
         # store some things in the ChangeLog.. When some kind of events
         # partially fail processing (i.e. new-mailbox fails after new-mailbox,
@@ -90,10 +100,16 @@ class EventLog(Cerebrum.ChangeLog.ChangeLog):
         # For each event to log..
         for e in self.events:
             # ..find out which systems should get the event..
-            targets = self.query("""
-                SELECT target_system
-                FROM event_to_target
-                WHERE event_type = :change_type_id""", e)
+            targets = self.query(
+                """
+                  SELECT target_system
+                  FROM event_to_target
+                  WHERE event_type = :change_type_id
+                """,
+                {
+                    'change_type_id': e['change_type_id'],
+                },
+            )
 
             # ..for each of them systems..
             for t in targets:
@@ -104,12 +120,17 @@ class EventLog(Cerebrum.ChangeLog.ChangeLog):
                 # ..store it for "simplicity"..
                 e.update({'eid': eid})
                 # ..and insert the event into the database..
-                self.execute("""
-                INSERT INTO [:table schema=cerebrum name=event_log]
-                   (event_id, event_type, target_system, subject_entity,
-                   dest_entity, change_params)
-                   VALUES (:eid, :change_type_id, :target_sys, :subject_entity,
-                   :destination_entity, :change_params)""", e)
+                self.execute(
+                    """
+                      INSERT INTO [:table schema=cerebrum name=event_log]
+                        (event_id, event_type, target_system, subject_entity,
+                         dest_entity, change_params)
+                      VALUES
+                        (:eid, :change_type_id, :target_sys, :subject_entity,
+                         :destination_entity, :change_params)
+                    """,
+                    e,
+                )
         self.events = []
 
     def remove_event(self, event_id, target_system=None):
@@ -128,11 +149,14 @@ class EventLog(Cerebrum.ChangeLog.ChangeLog):
         if target_system:
             params['target_system'] = int(target_system)
 
-        self.query_1("""
-            DELETE FROM [:table schema=cerebrum name=event_log]
-            WHERE {} RETURNING event_id""".format(
-                ' AND '.join(['{} = :{}'.format(k, k) for k in params])),
-            params)
+        self.query_1(
+            """
+              DELETE FROM [:table schema=cerebrum name=event_log]
+              WHERE {}
+              RETURNING event_id
+            """.format(' AND '.join('{0} = :{0}'.format(k) for k in params)),
+            params,
+        )
 
     def get_event(self, event_id, target_system=None):
         """Fetch information about an event
@@ -148,10 +172,13 @@ class EventLog(Cerebrum.ChangeLog.ChangeLog):
         if target_system:
             params['target_system'] = int(target_system)
 
-        return self.query_1("""
-            SELECT * FROM event_log
-            WHERE %s""" % ' AND '.join(
-            ['%s = :%s' % (k, k) for k in params]), params)
+        return self.query_1(
+            """
+              SELECT * FROM event_log
+              WHERE {}
+            """.format(' AND '.join('{0} = :{0}'.format(k) for k in params)),
+            params,
+        )
 
     def lock_event(self, event_id):
         """Lock an event for processing.
@@ -160,11 +187,17 @@ class EventLog(Cerebrum.ChangeLog.ChangeLog):
         :return int: the successfully locked event_id
         """
         return self.query_1(
-            """UPDATE event_log
-            SET taken_time = now()
-            WHERE event_id = :event_id
-            AND taken_time IS NULL RETURNING event_id""",
-            {'event_id': int(event_id)})
+            """
+              UPDATE event_log
+              SET taken_time = now()
+              WHERE event_id = :event_id
+              AND taken_time IS NULL
+              RETURNING event_id
+            """,
+            {
+                'event_id': int(event_id),
+            },
+        )
 
     def get_unprocessed_events(self, target_system, fail_limit=None,
                                failed_delay=None, unpropagated_delay=None,
@@ -215,9 +248,14 @@ class EventLog(Cerebrum.ChangeLog.ChangeLog):
         if not include_taken:
             where += ' AND taken_time IS NULL'
 
-        return self.query("""
-            SELECT * FROM event_log
-            WHERE {}""".format(where), args, fetchall=fetchall)
+        return self.query(
+            """
+              SELECT * FROM event_log
+              WHERE {}
+            """.format(where),
+            args,
+            fetchall=fetchall,
+        )
 
     def release_event(self, event_id, target_system=None, increment=True):
         """Release a locked/taken event. Releases typically happens
@@ -243,11 +281,17 @@ class EventLog(Cerebrum.ChangeLog.ChangeLog):
         if target_system:
             params['target_system'] = int(target_system)
         self.query_1(
-            """UPDATE event_log SET taken_time = NULL
-            {} WHERE {} RETURNING event_id""".format(
+            """
+              UPDATE event_log
+              SET taken_time = NULL {}
+              WHERE {}
+              RETURNING event_id
+            """.format(
                 inc,
-                ' AND '.join(['{} = :{}'.format(k, k) for k in params])),
-            params)
+                ' AND '.join('{0} = :{0}'.format(k) for k in params),
+            ),
+            params,
+        )
 
     ###
     # Utility functions
@@ -266,18 +310,36 @@ class EventLog(Cerebrum.ChangeLog.ChangeLog):
         :return: {t_failed, t_locked, total}
         """
         t_locked = self.query_1(
-            'SELECT count(*) FROM event_log WHERE taken_time IS NOT NULL'
-            ' AND target_system = :target_system',
-            {'target_system': int(target_system)})
+            """
+              SELECT count(*) FROM event_log
+              WHERE taken_time IS NOT NULL
+              AND target_system = :target_system
+            """,
+            {'target_system': int(target_system)},
+        )
         t_failed = self.query_1(
-            'SELECT count(*) FROM event_log WHERE failed >= :fail_limit'
-            ' AND target_system = :target_system',
-            {'target_system': int(target_system), 'fail_limit': fail_limit})
+            """
+              SELECT count(*) FROM event_log
+              WHERE failed >= :fail_limit
+              AND target_system = :target_system
+            """,
+            {
+                'target_system': int(target_system),
+                'fail_limit': fail_limit,
+            },
+        )
         total = self.query_1(
-            'SELECT count(*) FROM event_log WHERE'
-            ' target_system = :target_system',
-            {'target_system': int(target_system)})
-        return {'t_locked': t_locked, 't_failed': t_failed, 'total': total}
+            """
+              SELECT count(*) FROM event_log
+              WHERE target_system = :target_system
+            """,
+            {'target_system': int(target_system)},
+        )
+        return {
+            't_locked': t_locked,
+            't_failed': t_failed,
+            'total': total,
+        }
 
     def get_failed_and_locked_events(self, target_system, fail_limit=10,
                                      locked=True, fetchall=True):
@@ -296,19 +358,27 @@ class EventLog(Cerebrum.ChangeLog.ChangeLog):
         """
         # TODO: Expand me to allow choosing "precision" on the "locked" rows,
         # like selecting only those locked up until 10 hours ago, for example.
-        p = {'ts': int(target_system)}
-        q = ('SELECT event_id, event_type, taken_time, failed FROM event_log'
-             ' WHERE target_system = :ts')
-        tmp = []
-        if fail_limit:
-            tmp += ['failed >= :fail_limit']
-            p['fail_limit'] = fail_limit
-        if locked:
-            tmp += ['taken_time IS NOT NULL']
-        if tmp:
-            q += ' AND (' + ' OR '.join(tmp) + ')'
+        conds = ["target_system = :ts"]
+        binds = {'ts': int(target_system)}
 
-        return self.query(q, p, fetchall=fetchall)
+        or_conds = []
+        if fail_limit:
+            or_conds.append("failed >= :fail_limit")
+            binds['fail_limit'] = int(fail_limit)
+        if locked:
+            or_conds.append("taken_time IS NOT NULL")
+        if or_conds:
+            conds.append("({})".format(" OR ".join(or_conds)))
+
+        return self.query(
+            """
+              SELECT event_id, event_type, taken_time, failed
+              FROM event_log
+              WHERE {}
+            """.format(" AND ".join(conds)),
+            binds,
+            fetchall=fetchall,
+        )
 
     def reset_failed_count(self, event_id):
         """Reset the failed count on an event
@@ -319,9 +389,14 @@ class EventLog(Cerebrum.ChangeLog.ChangeLog):
         :return: Affected event id
         """
         self.query_1(
-            """UPDATE event_log SET failed = 0
-            WHERE event_id = :id RETURNING event_id""",
-            {'id': int(event_id)})
+            """
+              UPDATE event_log
+              SET failed = 0
+              WHERE event_id = :id
+              RETURNING event_id
+            """,
+            {'id': int(event_id)},
+        )
 
     def reset_failed_counts_for_target_system(self, target_system):
         """Reset the failed counts for all events to a target system where
@@ -333,9 +408,14 @@ class EventLog(Cerebrum.ChangeLog.ChangeLog):
         :return: Number of affected events
         """
         self.execute(
-            """UPDATE event_log SET failed = 0 WHERE target_system = :ts
-            AND failed > 0""",
-            {'ts': int(target_system)})
+            """
+              UPDATE event_log
+              SET failed = 0
+              WHERE target_system = :ts
+              AND failed > 0
+            """,
+            {'ts': int(target_system)},
+        )
         return self.rowcount
 
     def search_events(self, id=None, type=None, param=None,
@@ -362,59 +442,66 @@ class EventLog(Cerebrum.ChangeLog.ChangeLog):
         :rtype: list
         :return: A list of event ids.
         """
-        q = "SELECT event_id FROM event_log"
-        where = []
+        conds = []
         binds = {}
         if id:
-            where.append("(subject_entity = :id OR dest_entity = :id)")
+            conds.append("(subject_entity = :id OR dest_entity = :id)")
             binds['id'] = int(id)
         if type:
-            if isinstance(type, (list, tuple, set)):
-                where.append("event_type IN ({})".format(
-                    ", ".join(map(str, map(int, type)))))
-            else:
-                where.append("event_type = :type")
-                binds['type'] = int(type)
+            conds.append(argument_to_sql(type, 'event_type', binds, int))
         if target_system:
-            where.append("target_system = :target_system")
+            conds.append("target_system = :target_system")
             binds['target_system'] = int(target_system)
         if from_ts:
-            where.append("tstamp > :from_ts")
+            conds.append("tstamp > :from_ts")
             binds['from_ts'] = from_ts
         if to_ts:
-            where.append("tstamp < :to_ts")
+            conds.append("tstamp < :to_ts")
             binds['to_ts'] = to_ts
         if is_taken is False:
-            where.append("taken_time is null")
+            conds.append("taken_time is null")
         if is_taken is True:
-            where.append("taken_time is not null")
+            conds.append("taken_time is not null")
         if taken_before:
-            where.append("taken_time < :taken_before")
+            conds.append("taken_time < :taken_before")
             binds['taken_before'] = taken_before
         if taken_after:
-            where.append("taken_time > :taken_after")
+            conds.append("taken_time > :taken_after")
             binds['taken_after'] = taken_after
         if param:
-            where.append("change_params LIKE :param")
+            conds.append("change_params LIKE :param")
             binds['param'] = "%{}%".format(param)
-        if binds:
-            q += " WHERE " + ' AND '.join(where)
 
-        return self.query(q, binds, fetchall=True)
+        if conds:
+            where = " WHERE " + ' AND '.join(conds)
+        else:
+            where = ""
+
+        return self.query(
+            "SELECT event_id FROM event_log {}".format(where),
+            binds,
+            fetchall=True,
+        )
 
     def get_event_target_type(self, id):
         """Get the destination and subject entitys entity type.
 
         :param int id: The event id.
-        :rtype: dbrow
+        :rtype: dict
         :return: The entity type of the destination and subject entity.
         """
-        r = {}
         ev = self.get_event(id)
-        q = "SELECT entity_type FROM entity_info WHERE entity_id = :eid"
-        if ev['subject_entity']:
-            r['subject_type'] = self.query_1(q, {'eid': ev['subject_entity']})
-        if ev['dest_entity']:
-            r['dest_type'] = self.query_1(q, {'eid': ev['dest_entity']})
+        query = """
+          SELECT entity_type
+          FROM entity_info
+          WHERE entity_id = :eid
+        """
 
+        r = {}
+        if ev['subject_entity']:
+            r['subject_type'] = self.query_1(query,
+                                             {'eid': ev['subject_entity']})
+        if ev['dest_entity']:
+            r['dest_type'] = self.query_1(query,
+                                          {'eid': ev['dest_entity']})
         return r
