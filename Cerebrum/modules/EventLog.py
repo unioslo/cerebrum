@@ -37,7 +37,7 @@ import Cerebrum.ChangeLog
 from Cerebrum.Utils import argument_to_sql
 from Cerebrum.modules.ChangeLog import _params_to_db
 
-__version__ = '1.1'
+__version__ = '1.2'
 
 
 class EventLog(Cerebrum.ChangeLog.ChangeLog):
