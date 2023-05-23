@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2013-2021 University of Oslo, Norway
+# Copyright 2013-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,7 +18,12 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """Event-handler for Exchange events."""
-from __future__ import unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import cereconf
 
@@ -152,8 +157,8 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
         else:
             excclass = ExchangeClient.ExchangeClient
 
-        def j(*l):
-            return '\\'.join(l)
+        def j(*parts):
+            return '\\'.join(parts)
         auth_user = (j(self.config.client.auth_user_domain,
                        self.config.client.auth_user) if
                      self.config.client.auth_user_domain else
@@ -218,11 +223,10 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
                     'Callback %r failed for event %r (%r): %s',
                     callback, key, event, e)
 
-
-######
-# Mailbox related commands
-######
-# TODO: What about name changes?
+    #
+    # Mailbox related commands
+    #
+    # TODO: What about name changes?
 
     # We register spread:add as the event which should trigger this function
     @event_map('spread:add')
@@ -291,8 +295,9 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
                     self.logger.info(
                         'eid:%d: Publishing %s in address book...',
                         event['event_id'], uname)
-                    self.ut.log_event_receipt(event, 'exchange_per_e_reserv:set')
-                except (ExchangeException, ServerUnavailableException) as e:
+                    self.ut.log_event_receipt(event,
+                                              'exchange_per_e_reserv:set')
+                except (ExchangeException, ServerUnavailableException):
                     self.logger.warn(
                         'eid:%d: Could not publish %s in address book',
                         event['event_id'], uname)
@@ -307,7 +312,7 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
                 # TODO: Higher resolution? Should we do this for all addresses,
                 # and mangle the event to represent this?
                 self.ut.log_event_receipt(event, 'exchange_acc_addr:add')
-            except (ExchangeException, ServerUnavailableException) as e:
+            except (ExchangeException, ServerUnavailableException):
                 self.logger.warn(
                     'eid:%d: Could not add e-mail addresses for %s',
                     event['event_id'], uname)
@@ -317,7 +322,10 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
                     x = x.split('@')
                     info = self.ut.get_email_domain_info(
                         email_domain_name=x[1])
-                    mod_ev['change_params'] = {'dom_id': info['id'], 'lp': x[0]}
+                    mod_ev['change_params'] = {
+                        'dom_id': info['id'],
+                        'lp': x[0],
+                    }
                     etid, tra, sh, hq, sq = self.ut.get_email_target_info(
                         target_entity=event['subject_entity'])
                     mod_ev['subject_entity'] = etid
@@ -329,7 +337,7 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
             et_eid, tid, tt, hq, sq = self.ut.get_email_target_info(
                 target_entity=aid)
             try:
-                soft = (hq * sq) / 100
+                soft = (hq * sq) // 100
                 self.ec.set_mailbox_quota(uname, soft, hq)
                 self.logger.info('eid:%d: Set quota (%s, %s) on %s',
                                  event['event_id'], soft, hq, uname)
@@ -694,7 +702,8 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
         :param event: an event_log row to handle
 
         :raises ExchangeException:
-            If the visibility can't be set because of an Exchange related error.
+            If the visibility can't be set because of an Exchange related
+            error.
 
         :raises EventExecutionException:
             If the event could not be processed properly.
@@ -779,7 +788,7 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
         try:
             # Unordered events facilitates the need to use the values from
             # storage.
-            soft = (hq * sq) / 100
+            soft = (hq * sq) // 100
             hard = hq
 
             self.ec.set_mailbox_quota(name, soft, hard)
@@ -838,12 +847,14 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
 
     @event_map('email_forward_local_delivery:set')
     def set_local_delivery(self, event):
-        """Event handler method that sets the DeliverToMailboxAndForward option.
+        """Event handler method that sets the DeliverToMailboxAndForward
+        option.
 
         :param event: an event_log row to handle
 
         :raises ExchangeException:
-            If local delivery can't be set because of an Exchange related error.
+            If local delivery can't be set because of an Exchange related
+            error.
 
         :raises EventExecutionException:
             If the event could not be processed properly.
@@ -879,10 +890,10 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
                 'change_params': {'enabled': params['enabled']}}
         self.ut.log_event_receipt(rcpt, 'exchange_local_delivery:set')
 
+    #
+    # Generic functions
+    #
 
-####
-# Generic functions
-####
     @event_map('email_address:add')
     def add_address(self, event):
         """Event handler method used for adding e-mail addresses to
@@ -1096,9 +1107,9 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
             # If we can't handle the object type, silently discard it
             raise EntityTypeError
 
-#####
-# Group related commands
-#####
+    #
+    # Group related commands
+    #
 
     @event_map('spread:add')
     def create_group(self, event):
@@ -1318,9 +1329,9 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
                                  (event['event_id'], data['name']))
                 self.ut.log_event_receipt(event, 'dlgroup:delete')
 
-            except (ExchangeException, ServerUnavailableException) as e:
-                self.logger.warn('eid:%d: Couldn\'t remove group %s' %
-                                 (event['event_id'], data['name']))
+            except (ExchangeException, ServerUnavailableException):
+                self.logger.warn('eid:%d: Couldn\'t remove group %s',
+                                 event['event_id'], data['name'])
                 raise EventExecutionException
         else:
             try:
@@ -1330,8 +1341,8 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
                 self.ut.log_event_receipt(event, 'dlgroup:delete')
 
             except (ExchangeException, ServerUnavailableException) as e:
-                self.logger.warn('eid:%d: Couldn\'t remove roomlist %s: %s' %
-                                 (event['event_id'], data['name'], e))
+                self.logger.warn('eid:%d: Couldn\'t remove roomlist %s: %s',
+                                 event['event_id'], data['name'], e)
                 raise EventExecutionException
 
     @event_map('group_member:add')
@@ -1352,8 +1363,9 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
         :param event: an event_log row to handle
         """
         self.logger.debug4(
-            'Converting group_member:remove to exchange_group_member:remove for {}'.format(
-                event))
+            'Converting group_member:remove to exchange_group_member:remove'
+            ' for %s',
+            event)
         self.ut.log_event(event, 'exchange_group_member:remove')
 
     @event_map('dlgroup_hidden:modify')
