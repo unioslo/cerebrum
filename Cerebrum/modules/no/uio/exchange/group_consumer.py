@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2013-2021 University of Oslo, Norway
+# Copyright 2013-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,8 +18,12 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """Event-handler for Exchange events."""
-
-from __future__ import unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import os
 import traceback
@@ -146,8 +150,8 @@ class ExchangeGroupEventHandler(evhandlers.EventLogConsumer):
         else:
             excclass = ExchangeClient.ExchangeClient
 
-        def j(*l):
-            return '\\'.join(l)
+        def j(*parts):
+            return '\\'.join(parts)
         auth_user = (j(self.config.client.auth_user_domain,
                        self.config.client.auth_user) if
                      self.config.client.auth_user_domain else
@@ -196,7 +200,7 @@ class ExchangeGroupEventHandler(evhandlers.EventLogConsumer):
         return 'CB%s' % hex(os.getpid())[2:].upper()
 
     def handle_event(self, event):
-        u""" Call the appropriate handlers.
+        """ Call the appropriate handlers.
 
         :param event:
             The event to process.

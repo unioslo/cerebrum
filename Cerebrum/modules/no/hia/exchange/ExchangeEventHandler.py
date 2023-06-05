@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2013-2021 University of Oslo, Norway
+# Copyright 2013-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,7 +18,12 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """Event-handler for Exchange events."""
-from __future__ import unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import traceback
 from urllib2 import URLError
@@ -63,8 +68,8 @@ class ExchangeEventHandler(UIOExchangeEventHandler):
         else:
             excclass = UiaClient.ExchangeClient
 
-        def j(*l):
-            return '\\'.join(l)
+        def j(*parts):
+            return '\\'.join(parts)
         auth_user = (j(self.config.client.auth_user_domain,
                        self.config.client.auth_user) if
                      self.config.client.auth_user_domain else
@@ -152,7 +157,7 @@ class ExchangeEventHandler(UIOExchangeEventHandler):
             try:
                 self.ec.set_mailbox_address_policy(uname,
                                                    enabled=False)
-            except ExchangeException as e:
+            except ExchangeException:
                 self.logger.warn(
                     'eid:%d: Failed disabling address policy for %s',
                     event['event_id'], uname)
@@ -173,7 +178,7 @@ class ExchangeEventHandler(UIOExchangeEventHandler):
                     # TODO: Mangle the event som it represents this correctly??
                     self.ut.log_event_receipt(event,
                                               'exchange_per_e_reserv:set')
-                except ExchangeException as e:
+                except ExchangeException:
                     self.logger.warn(
                         'eid:%d: Could not publish %s in address book',
                         event['event_id'], uname)
@@ -188,7 +193,7 @@ class ExchangeEventHandler(UIOExchangeEventHandler):
                 # TODO: Higher resolution? Should we do this for all addresses,
                 # and mangle the event to represent this?
                 self.ut.log_event_receipt(event, 'exchange_acc_addr:add')
-            except ExchangeException as e:
+            except ExchangeException:
                 self.logger.warn(
                     'eid:%d: Could not add e-mail addresses for %s',
                     event['event_id'], uname)
@@ -198,7 +203,10 @@ class ExchangeEventHandler(UIOExchangeEventHandler):
                     x = x.split('@')
                     info = self.ut.get_email_domain_info(
                         email_domain_name=x[1])
-                    mod_ev['change_params'] = {'dom_id': info['id'], 'lp': x[0]}
+                    mod_ev['change_params'] = {
+                        'dom_id': info['id'],
+                        'lp': x[0],
+                    }
                     etid, tra, sh, hq, sq = self.ut.get_email_target_info(
                         target_entity=event['subject_entity'])
                     mod_ev['subject_entity'] = etid
@@ -213,7 +221,7 @@ class ExchangeEventHandler(UIOExchangeEventHandler):
                 self.logger.info('eid:%d: Defined primary address for %s',
                                  event['event_id'], uname)
                 self.ut.log_event_receipt(event, 'exchange_acc_primaddr:set')
-            except ExchangeException as e:
+            except ExchangeException:
                 self.logger.warn('eid:%d: Could not set primary address on %s',
                                  event['event_id'], uname)
                 # Creating a new event in case this fails
@@ -229,7 +237,7 @@ class ExchangeEventHandler(UIOExchangeEventHandler):
             et_eid, tid, tt, hq, sq = self.ut.get_email_target_info(
                 target_entity=aid)
             try:
-                soft = (hq * sq) / 100
+                soft = (hq * sq) // 100
                 self.ec.set_mailbox_quota(uname, soft, hq)
                 self.logger.info('eid:%d: Set quota (%s, %s) on %s',
                                  event['event_id'], soft, hq, uname)
