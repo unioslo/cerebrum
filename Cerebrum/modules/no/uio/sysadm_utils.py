@@ -87,7 +87,7 @@ def get_sysadm_accounts(db, suffix=SYSADM_SUFFIX_DRIFT):
     logger.debug('found %d accounts tagged with trait=%s',
                  len(sysadm_filter), co.trait_sysadm_account)
 
-    # filter acocunt list by personal accounts with name *-drift
+    # filter account list by personal accounts with name *-drift
     sysadm_accounts = {
         r['account_id']: r
         for r in ac.search(name=name_pattern,
@@ -243,6 +243,24 @@ def create_sysadm_account(db, target_account, suffix, creator_id):
         sysadm_account.write_db()
 
     return sysadm_account
+
+
+def is_sysadm_account(account):
+    try:
+        primary_account, suffix = account.account_name.split("-")
+    except ValueError:
+        return False
+
+    if not suffix:
+        return False
+
+    if suffix not in VALID_SYSADM_SUFFIXES:
+        return False
+
+    if account.const.trait_sysadm_account not in account.get_traits():
+        return False
+
+    return True
 
 
 def get_forward_to_address(target_account):
