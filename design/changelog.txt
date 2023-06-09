@@ -29,12 +29,6 @@ Event-listeners
   regular polling or over a socket or similar.  The process is not
   required to be running at all times.
 
-  Calling CLHandler.add_action_listener(self, key, type=None) will
-  register a program with CLH, and CLH will cause
-  self.update_event(change_id) to be called whenever a log_change of
-  the corresponding change_category has occoured.  This is done
-  through polling/socket.
-
   Calling CLHandler.get_events(key, type) will receive all events
   that were received since the last time it was called.
 
@@ -43,6 +37,3 @@ Event-listeners
   (must keep track of max change_id sendt for a given key, as well as
   any holes in the id_sequence.  holes older than X seconds are
   dropped).
-
-
-arch-tag: 17eaec90-e862-487e-a12b-efe08edf0dec
