@@ -70,6 +70,8 @@ from Cerebrum.modules.ad2.winrm import CommandTooLongException
 from Cerebrum.modules.ad2.winrm import PowershellException
 from Cerebrum.modules.gpg.data import GpgData
 from Cerebrum.QuarantineHandler import QuarantineHandler
+from Cerebrum.utils import date as date_utils
+from Cerebrum.utils import date_compat
 
 
 class BaseSync(object):
@@ -688,7 +690,9 @@ class BaseSync(object):
 
         stats = dict(seen=0, processed=0, skipped=0, failed=0)
         for row in events:
-            timestamp = int(row['tstamp'])
+            timestamp = int(
+                date_utils.to_timestamp(
+                    date_compat.get_datetime_tz(row['tstamp'])))
             handle_key = tuple((int(row['change_type_id']),
                                 row['subject_entity'],
                                 row['dest_entity']))
