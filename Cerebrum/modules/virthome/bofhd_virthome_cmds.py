@@ -213,6 +213,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         except Errors.NotFoundError:
             raise CerebrumError("No event associated with key %s" % magic_key)
 
+        event["tstamp"] = date_compat.get_datetime_tz(event["tstamp"])
         if event["change_params"]:
             event["change_params"] = json.loads(event["change_params"])
 
@@ -261,7 +262,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         # would we want to pollute change_log?)
         for row in self.db.get_log_events(subject_entity=account.entity_id,
                                           types=self.clconst.va_email_change,):
-            if row["tstamp"] < event["tstamp"]:
+            if date_compat.get_datetime_tz(row["tstamp"]) < event["tstamp"]:
                 self.db.remove_log_event(row["change_id"])
         # action e_account:pending_email
         # OK, e-mail changed, <old_email> -> <new_email>
@@ -1688,7 +1689,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
             request = self.__get_request(magic_key)
             params = request["change_params"]
             entry = {"invitee_mail": params["invitee_mail"],
-                     "timestamp": row["tstamp"].strftime("%F %T"), }
+                     "timestamp": request["tstamp"].strftime("%F %T"), }
             try:
                 inviter = self._get_account(params["inviter_id"])
                 inviter = inviter.account_name
