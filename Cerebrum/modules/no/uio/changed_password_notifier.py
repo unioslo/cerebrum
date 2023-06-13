@@ -23,7 +23,7 @@ A file containing two classes that is related to TaskQueue whenever a
 password is changed. NotifyChangePasswordMixin is a mixin class for setting a
 new password, the functionality within will check if user is a sysadm_account
 and add it to queue if that is the case. NotifyPasswordQueueHandler is used for
-handling tasks and inherits queue_handler
+handling tasks and inherits queue_handler.
 """
 from Cerebrum import Account
 from Cerebrum.Utils import Factory

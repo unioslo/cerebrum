@@ -73,6 +73,11 @@ def task_callback(db, task, dryrun):
                cereconf.SYSTEM_LOOKUP_ORDER)
     mobile = pe.sort_contact_info(spec, pe.get_contact_info())
 
+    # Task is handled when there is no registered phone number to receive sms
+    if not mobile:
+        logger.info("Could not find mobile phone number for %s", task.key)
+        return []
+
     person_in_systems = [int(af['source_system']) for af in
                              pe.list_affiliations(person_id=pe.entity_id)]
     mobile = filter(lambda x: x['source_system'] in person_in_systems,
