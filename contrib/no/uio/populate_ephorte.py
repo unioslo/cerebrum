@@ -6,7 +6,6 @@ It can also send an email report if Cerebrum and ePhorte disagrees about which
 organizational units should be active.
 """
 import argparse
-import itertools
 import datetime
 import six
 
@@ -14,8 +13,8 @@ import cereconf
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.utils.argutils import get_constant
-from Cerebrum.utils.date_compat import get_date
+from Cerebrum.utils import argutils
+from Cerebrum.utils import date_compat
 from Cerebrum.utils.email import mail_template as mail_template_util
 from Cerebrum.utils.funcwrap import memoize
 from Cerebrum.modules.no.uio.Ephorte import EphorteRole
@@ -103,7 +102,13 @@ def format_permission(perm):
 class PopulateEphorte(object):
     """ Ephorte sync client. """
 
-    def __init__(self, ewsclient, source_system):
+    select_affiliations = (
+        ('DFO_SAP', 'ANSATT'),
+        ('DFO_SAP', 'TILKNYTTET/ekst_partner'),
+        ('GREG', 'TILKNYTTET/ekst_partner'),
+    )
+
+    def __init__(self, ewsclient):
         "Pre-fetch information about OUs in ePhorte and Cerebrum."
 
         # Special sko, ignore:
@@ -114,7 +119,6 @@ class PopulateEphorte(object):
         self.ouid_2roleinfo = {}
         # ouid -> stedkode:
         self.ouid2sko = {}
-        self.source_system = source_system
 
         logger.info("Fetching OU info from Cerebrum")
         for row in ou.get_stedkoder():
@@ -258,61 +262,68 @@ class PopulateEphorte(object):
 
         return ret
 
+    def _select_affiliations(self):
+        # TODO: co/pe should be non-global
+        seen = set()
+        for source_str, aff_str in self.select_affiliations:
+            source = co.get_constant(co.AuthoritativeSystem, source_str)
+            aff, status = co.get_affiliation(aff_str)
+            for row in pe.list_affiliations(source_system=source,
+                                            affiliation=aff,
+                                            status=status):
+                t = (int(row['person_id']), int(row['ou_id']))
+                if t in seen:
+                    # No reaason to yield the same pair twice
+                    continue
+                yield t
+                seen.add(t)
+
     @memoize
     def map_person_to_ou(self):
         logger.info("Mapping person affiliations to ePhorte OU")
         # person -> {ou_id:1, ...}
         person_to_ou = {}
-        level2nPersons = {}
+        level2num_persons = {}
 
-        # Find where an employee has an ANSATT affiliation and check
+        # Find where person has a selected aff and check
         # if that ou is an ePhorte ou. If not try to map to nearest
         # ePhorte OU as specified in ephorte-sync-spec.rst
-        for row in itertools.chain(
-                pe.list_affiliations(
-                    source_system=self.source_system,
-                    affiliation=co.affiliation_ansatt),
-                pe.list_affiliations(
-                    source_system=self.source_system,
-                    affiliation=co.affiliation_tilknyttet,
-                    status=[co.affiliation_tilknyttet_ekst_partner,
-                            co.affiliation_tilknyttet_innkjoper])):
-
-            ephorte_ou_id, levels_climbed =\
-                self.resolve_to_ephorte_ou(int(row['ou_id']))
+        for person_id, ou_id in self._select_affiliations():
+            ephorte_ou_id, levels_climbed = self.resolve_to_ephorte_ou(ou_id)
 
             # No ePhorte OU found.
             if ephorte_ou_id is None:
-                sko = self.ouid2sko[int(row['ou_id'])]
-                tmp_msg = "Failed mapping '%s' to known ePhorte OU. " % sko
-                if self.find_person_info(row['person_id'])['uname']:
-                    tmp_msg += "Skipping affiliation %s@%s for user %s" % (
-                        co.affiliation_ansatt, sko,
-                        self.find_person_info(row['person_id'])['uname'])
+                sko = self.ouid2sko[ou_id]
+                if self.find_person_info(person_id)['uname']:
+                    obj_type = "account"
+                    obj_value = self.find_person_info(person_id)['uname']
                 else:
-                    tmp_msg += "Skipping affiliation %s@%s for person %s" % (
-                        co.affiliation_ansatt, sko, row['person_id'])
+                    obj_type = "person"
+                    obj_value = person_id
                 # ephorte support must deal with this and they should be
                 # informed
-                logger.warning(tmp_msg)
+                logger.warning("Failed mapping '%s' to known ePhorte OU. "
+                               "Skipping affiliation for %s %s",
+                               sko, obj_type, obj_value)
                 continue
 
-            if levels_climbed not in level2nPersons:
-                level2nPersons[levels_climbed] = 0
-            level2nPersons[levels_climbed] += 1
+            if levels_climbed not in level2num_persons:
+                level2num_persons[levels_climbed] = 0
+            level2num_persons[levels_climbed] += 1
 
-            person_to_ou.setdefault(
-                int(row['person_id']), {})[ephorte_ou_id] = 1
+            person_to_ou.setdefault(person_id, {})[ephorte_ou_id] = 1
 
-        for levels_climbed, nPersons in level2nPersons.items():
-            logger.info('Number of times where an ePhorte OU was found {} '
-                        'parent-levels above a persons affiliation OU: {}'
-                        .format(levels_climbed, nPersons))
+        for levels_climbed, num_persons in level2num_persons.items():
+            logger.info(
+                'Number of times where an ePhorte OU was found %s '
+                'parent-levels above a persons affiliation OU: %s',
+                levels_climbed, num_persons)
 
-        logger.info('(The maximum number of parent-OU-levels above a persons '
-                    'affiliation OU that will be looked up in search of an '
-                    'ePhorte OU: {})'.format(
-            MAX_OU_LEVELS_TO_CLIMB_IN_SEARCH_OF_EPHORTE_OU))
+        logger.info(
+            '(The maximum number of parent-OU-levels above a persons '
+            'affiliation OU that will be looked up in search of an '
+            'ePhorte OU: %s',
+            MAX_OU_LEVELS_TO_CLIMB_IN_SEARCH_OF_EPHORTE_OU)
 
         return person_to_ou
 
@@ -448,33 +459,33 @@ class PopulateEphorte(object):
         has_spread = set([int(row["entity_id"]) for row in
                           pe.list_all_with_spread(co.spread_ephorte_person)])
         victims = has_spread - should_have_spread
-        logger.info('{} persons should have ePhorte spread'.format(
-            len(should_have_spread)))
-        logger.info('{} persons have ePhorte spread'.format(
-            len(has_spread)))
-        logger.info('{} persons should lose ePhorte spread'.format(
-            len(victims)))
+        logger.info('%d persons should have ePhorte spread',
+                    len(should_have_spread))
+        logger.info('%d persons have ePhorte spread',
+                    len(has_spread))
+        logger.info('%d persons should lose ePhorte spread',
+                    len(victims))
         for person_id in victims:
             uname = self.find_person_info(person_id)['uname']
-            logger.info('Removing ePhorte data for person_id: {}, uname: {}'.
-                format(person_id, uname))
+            logger.info(
+                'Removing ePhorte data for person_id: %s, uname: %s',
+                person_id, uname)
             pe.clear()
             pe.find(person_id)
             for perm in ephorte_perm.list_permission(person_id=person_id):
                 perm = dict(perm)
-                perm["start_date"] = get_date(perm["start_date"])
-                perm["end_date"] = get_date(perm["end_date"])
-                logger.info('Removing permission: {}'.format(
-                    format_permission(dict(perm))))
+                perm["start_date"] = date_compat.get_date(perm["start_date"])
+                perm["end_date"] = date_compat.get_date(perm["end_date"])
+                logger.info('Removing permission: %s',
+                            format_permission(dict(perm)))
                 ephorte_perm.remove_permission(person_id=person_id,
                                                perm_type=perm['perm_type'],
                                                sko=perm['adm_enhet'])
             for role in ephorte_role.list_roles(person_id=person_id):
                 role = dict(role)
-                role["start_date"] = get_date(role["start_date"])
-                role["end_date"] = get_date(role["end_date"])
-                logger.info('Removing role: {}'.format(
-                    format_role(dict(role))))
+                role["start_date"] = date_compat.get_date(role["start_date"])
+                role["end_date"] = date_compat.get_date(role["end_date"])
+                logger.info('Removing role: %s', format_role(dict(role)))
                 ephorte_role.remove_role(person_id=person_id,
                                          role=role['role_type'],
                                          sko=role['adm_enhet'],
@@ -513,45 +524,45 @@ def send_mail(mailto, mail_template, substitute, debug=False):
         logger.info("Sending mail to: %s" % mailto)
 
 
-def _make_parser():
+def main(inargs=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "-r", "--populate-roles",
         action="store_true",
         default=False,
-        help=u"Populate auto roles")
+        help="Populate auto roles",
+    )
     parser.add_argument(
         "--depopulate",
         action="store_true",
         default=False,
-        help=u"Remove ePhorte spread/roles/perms for non-employees")
+        help="Remove ePhorte spread/roles/perms for non-employees",
+    )
     parser.add_argument(
         "--mail-warnings-to",
         action="store",
-        help=u"Send warnings to (email address)")
-    parser.add_argument(
-        "--commit",
-        action="store_true",
-        help=u"Commit to database")
+        help="Send warnings to (email address)",
+    )
     parser.add_argument(
         "--config",
         default='sync_ephorte.cfg',
-        help=u"Config file for ephorte communications (see sync_ephorte.py)")
+        help="Config file for ephorte communications (see sync_ephorte.py)",
+    )
     parser.add_argument(
         "--source-system",
         dest="source_system",
-        default='SAP',
-        choices=['SAP', 'DFO_SAP'],
-        help="Set source system")
-    return parser
+        default=None,
+        help="Set source system (obsolete)",
+    )
+    argutils.add_commit_args(parser)
 
-
-def main(args=None):
-    args = _make_parser().parse_args(args)
+    args = parser.parse_args(inargs)
     ephorte_ws_client, ecfg = make_ephorte_client(args.config)
-    source_system = get_constant(db, _make_parser(), co.AuthoritativeSystem,
-                                 args.source_system)
-    pop = PopulateEphorte(ephorte_ws_client, source_system)
+
+    if args.source_system:
+        logger.warn("--source-system is obsolete (set to %r, but ignored)",
+                    args.source_system)
+    pop = PopulateEphorte(ephorte_ws_client)
 
     if args.populate_roles:
         pop.populate_roles()
