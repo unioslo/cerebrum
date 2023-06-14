@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003-2016 University of Oslo, Norway
+# Copyright 2003-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -22,10 +22,10 @@
 
 import Cerebrum.ChangeLog
 from Cerebrum.Utils import argument_to_sql
-import Cerebrum.utils.json as json
+from Cerebrum.utils import json
 
 
-__version__ = "1.5"
+__version__ = "1.6"
 
 
 def _params_to_db(params, separators=(',', ':')):

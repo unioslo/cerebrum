@@ -57,7 +57,7 @@ targets = {
     'bofhd_auth': ('bofhd_auth_1_1', 'bofhd_auth_1_2',),
     'bofhd_requests': ('bofhd_requests_1_1',),
     'changelog': ('changelog_1_2', 'changelog_1_3', 'changelog_1_4',
-                  'changelog_1_5'),
+                  'changelog_1_5', 'changelog_1_6'),
     'consent': ('consent_1_1',),
     'email': ('email_1_0', 'email_1_1', 'email_1_2', 'email_1_3', 'email_1_4',
               'email_1_5', 'email_1_6'),
@@ -1250,6 +1250,15 @@ def migrate_to_changelog_1_5():
     db.execute(q)
 
     print("Migration to changelog 1.5 completed successfully")
+    db.commit()
+
+
+def migrate_to_changelog_1_6():
+    assert_db_version("1.5", component='changelog')
+    makedb('changelog_1_6', 'pre')
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo("sqlmodule_changelog", "1.6")
+    print("Migration to changelog 1.6 completed successfully")
     db.commit()
 
 
