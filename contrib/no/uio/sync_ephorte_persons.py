@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-# Copyright 2014-2015 University of Oslo, Norway
+#
+# Copyright 2014-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -23,16 +23,21 @@
 This piece of software ensures existence of user accounts in ePhorte,
 via the ePhorte web service.
 """
-from __future__ import print_function, unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 # TODO:
 # - Handle primary account changes
 
+import argparse
+import datetime
+import functools
 import sys
 import time
-import functools
-import argparse
-import logging
 from collections import defaultdict
 
 from six import text_type
@@ -45,8 +50,11 @@ from Cerebrum import Errors
 from Cerebrum.modules.no.uio.Ephorte import EphorteRole
 from Cerebrum.modules.no.uio.EphorteWS import EphorteWSError
 from Cerebrum.modules.no.uio.Ephorte import EphortePermission
-from Cerebrum.utils.funcwrap import memoize
+from Cerebrum.utils import date as date_utils
+from Cerebrum.utils import date_compat
 from Cerebrum.utils.context import entity
+from Cerebrum.utils.funcwrap import memoize
+
 
 cereconf  # Satisfy the linters.
 
@@ -390,7 +398,8 @@ def select_events_by_person(clh, config, change_types, selection_spread):
     :rtype: generator
     :return: A generator that yields (person_id, events)
     """
-    too_old = time.time() - int(config.changes_too_old_days) * 60 * 60 * 24
+    too_old = (date_utils.now()
+               - datetime.timedelta(days=int(config.changes_too_old_days)))
 
     logger.debug("Fetching unhandled events using change key: %s",
                  config.change_key)
@@ -400,7 +409,7 @@ def select_events_by_person(clh, config, change_types, selection_spread):
     events_by_person = defaultdict(list)
     for event in all_events:
         # Ignore too old changes
-        if int(event['tstamp']) < too_old:
+        if date_compat.get_datetime_tz(event['tstamp']) < too_old:
             logger.info("Skipping too old change_id: %s" % event['change_id'])
             clh.confirm_event(event)
             continue
