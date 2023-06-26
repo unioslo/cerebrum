@@ -46,6 +46,9 @@ import Cerebrum.logutils.options
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.import_utils.matcher import PersonMatcher
+from Cerebrum.modules.import_utils.syncs import (
+    ExternalIdSync,
+)
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.hia.mod_sap_utils import (make_person_iterator,
                                                    make_passnr_iterator)
@@ -256,22 +259,17 @@ def populate_external_ids(tpl):
     # This would allow us to update birthdays and gender information for
     # both new and existing people.
     person.populate(tpl.sap_birth_date, gender)
-    person.affect_external_id(const.system_sap,
-                              const.externalid_fodselsnr,
-                              const.externalid_sap_ansattnr,
-                              const.externalid_pass_number)
-    person.populate_external_id(const.system_sap,
-                                const.externalid_sap_ansattnr,
-                                tpl.sap_ansattnr)
-    if tpl.sap_fnr:
-        person.populate_external_id(const.system_sap,
-                                    const.externalid_fodselsnr,
-                                    tpl.sap_fnr)
-    if tpl.sap_passnr:
-        person.populate_external_id(const.system_sap,
-                                    const.externalid_pass_number,
-                                    tpl.sap_passnr)
     person.write_db()
+
+    extid_sync = ExternalIdSync(database, const.system_sap)
+    extid_values = [(const.externalid_sap_ansattnr, tpl.sap_ansattnr)]
+
+    if tpl.sap_fnr:
+        extid_values.append((const.externalid_fodselsnr, tpl.sap_fnr))
+    if tpl.sap_passnr:
+        extid_values.append((const.externalid_pass_number, tpl.sap_passnr))
+
+    extid_sync(person, extid_values)
     return person
 
 
