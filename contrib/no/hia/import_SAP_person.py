@@ -85,7 +85,7 @@ def locate_person(sap_id, fnr, passnr):
         try:
             person.clear()
             person.find_by_external_id(const.externalid_pass_number,
-                                       passnr, const.system_sap)
+                                       passnr)
             person_id_from_passnr = int(person.entity_id)
         except Errors.NotFoundError:
             logger.debug(u"No person matches passnr «%s»", passnr)
