@@ -503,7 +503,7 @@ def process_people(filename, use_fok, passnr_mapping):
         for p in make_person_iterator(
                 f, use_fok, logger):
             if not p.valid():
-                logger.info(
+                logger.debug(
                     "Ignoring person sap_id=%s, fnr=%s (invalid entry)",
                     p.sap_ansattnr, p.sap_fnr)
                 # TODO: remove some person data?
@@ -549,22 +549,55 @@ def process_people(filename, use_fok, passnr_mapping):
 
 
 def clean_person_data(processed_persons):
-    """Removes information from person objects.
+    """
+    Removes information from unprocessed person objects.
 
-    :param set processed_persons: Person ids which information should not be
-        removed from."""
+    :param set processed_persons:
+        A set of persons to *not* clear data from.
+
+        This should be all the persons that have been processed/identified from
+        the source files.
+    """
     person = Factory.get('Person')(database)
-    existing_persons = set(map(lambda x: x['person_id'],
-                               person.list_persons()))
-    for person_id in existing_persons - processed_persons:
+    source_system = person.const.system_sap
+    title_type = person.const.personal_title
+    title_lang = person.const.language_nb
+
+    clear_contact_info = set(
+        row['entity_id']
+        for row in person.list_contact_info(source_system=source_system)
+    ) - processed_persons
+
+    clear_addr_info = set(
+        row['entity_id']
+        for row in person.list_entity_addresses(source_system=source_system)
+    ) - processed_persons
+
+    clear_name_with_lang = set(
+        row['entity_id']
+        for row in person.search_name_with_language(name_variant=title_type,
+                                                    name_language=title_lang)
+    ) - processed_persons
+
+    # We join together and process person by person in order to reduce the
+    # number of person.find()/person.clear() to do
+    persons_to_clear = (clear_contact_info
+                        | clear_addr_info
+                        | clear_name_with_lang)
+
+    for person_id in persons_to_clear:
         logger.info('Clearing contact info, addresses and title '
                     'for person_id:{}'.format(person_id))
         person.clear()
         person.find(person_id)
-        person.populate_contact_info(const.system_sap)
-        person.populate_address(const.system_sap)
-        person.delete_name_with_language(name_variant=const.personal_title,
-                                         name_language=const.language_nb)
+        if person_id in clear_contact_info:
+            person.populate_contact_info(source_system)
+        if person_id in clear_addr_info:
+            person.populate_address(source_system)
+
+        if person_id in clear_name_with_lang:
+            person.delete_name_with_language(name_variant=title_type,
+                                             name_language=title_lang)
         person.write_db()
 
 
