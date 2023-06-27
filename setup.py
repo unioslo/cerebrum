@@ -434,7 +434,6 @@ setup(
         'Cerebrum/modules/abcenterprise',
         'Cerebrum/modules/process_entity',
         'Cerebrum/lib',
-        'Cerebrum/modules/LMS',
         'Cerebrum/modules/virthome',
         'Cerebrum/modules/cis',
         'Cerebrum/config',
