@@ -19,14 +19,19 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ Authentication context for a flask app."""
-from __future__ import unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
+import datetime
 import logging
 import sys
 from functools import wraps
 
 from flask import request, g
-from mx import DateTime
 from six import python_2_unicode_compatible
 from werkzeug.exceptions import Forbidden
 from werkzeug.exceptions import Unauthorized as _Unauthorized
@@ -34,6 +39,7 @@ from werkzeug.exceptions import Unauthorized as _Unauthorized
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory, read_password
 from Cerebrum.modules.apikeys.dbal import ApiMapping
+from Cerebrum.utils import date_compat
 from Cerebrum.utils.descriptors import lazy_property
 
 logger = logging.getLogger(__name__)
@@ -202,7 +208,8 @@ class Authentication(object):
         """ Check if account is OK. """
         if account is None:
             return False
-        if account.expire_date and account.expire_date < DateTime.now():
+        expire_date = date_compat.get_date(account.expire_date)
+        if expire_date and expire_date < datetime.date.today():
             return False
         # TODO: Check quarantined?
         # TODO: Should we be able to whitelist certain quarantines
