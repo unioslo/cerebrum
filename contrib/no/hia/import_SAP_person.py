@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2004-2021 University of Oslo, Norway
+# Copyright 2004-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,8 +18,8 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-"""This file is a DFØ-SAP extension of Cerebrum.
+"""
+This file is a DFØ-SAP extension of Cerebrum.
 
 It contains code which imports SAP-specific person/employee information into
 Cerebrum.
@@ -28,119 +28,93 @@ FIXME: I wonder if the ID lookup/population logic might fail in a subtle
 way, should an update process (touching IDs) run concurrently with this
 import.
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import argparse
 import io
-
-from Cerebrum import Errors
-from Cerebrum.Utils import Factory
-from Cerebrum.modules.no import fodselsnr
-from Cerebrum.modules.no.hia.mod_sap_utils import (make_person_iterator,
-                                                   make_passnr_iterator)
+import logging
 
 import cereconf
 
+import Cerebrum.logutils
+import Cerebrum.logutils.options
+from Cerebrum import Errors
+from Cerebrum.Utils import Factory
+from Cerebrum.modules.import_utils.matcher import PersonMatcher
+from Cerebrum.modules.import_utils.syncs import (
+    ExternalIdSync,
+)
+from Cerebrum.modules.no import fodselsnr
+from Cerebrum.modules.no.hia.mod_sap_utils import (make_person_iterator,
+                                                   make_passnr_iterator)
+from Cerebrum.utils import argutils
+
+
+logger = logging.getLogger(__name__)
+
 
 def locate_person(sap_id, fnr, passnr):
-    """Locate a person who owns both SAP_ID and FNR.
+    """
+    Locate a person from SAP-data.
 
-    NB! A situation where both IDs are set, but point to people with different
-    person_id's is considered an error.
+    :param str sap_id: employee id
+    :param str fnr: national id number, if available
+    :param str passnr: passport number, if available
 
-    @rtype: tuple (boolean, Person proxy)
-    @return:
+    :rtype: tuple <boolean, Person>
+    :returns:
       A tuple, where first item indicates whether id match triggered an error,
       and the second item is the Person associated with the id (or None, if no
       such association exists in Cerebrum)
     """
+    # A person-matcher with primary id set to sap_ansattnr.  If a duplicates
+    # are found, but one of the duplicates has *this* id, we'll use that person
+    # object...
+    search = PersonMatcher()
 
-    person = Factory.get("Person")(database)
-    logger.debug(u"Locating person with SAP_id = «%s» and FNR = «%s»",
-                 sap_id, fnr)
-
-    person_id_from_sap = None
-    person_id_from_fnr = None
-    person_id_from_passnr = None
-
-    try:
-        person.clear()
-        person.find_by_external_id(const.externalid_sap_ansattnr,
-                                   sap_id, const.system_sap)
-        person_id_from_sap = int(person.entity_id)
-    except Errors.NotFoundError:
-        logger.debug(u"No person matches SAP id «%s»", sap_id)
-
-    try:
-        person.clear()
-        person.find_by_external_id(const.externalid_fodselsnr,
-                                   fnr)
-        person_id_from_fnr = int(person.entity_id)
-    except Errors.NotFoundError:
-        logger.debug(u"No person matches FNR «%s»", fnr)
-    except Errors.TooManyRowsError:
-        logger.error("Multiple person match FNR <%s>", fnr)
-        return True, None
-
+    criterias = [(const.externalid_sap_ansattnr, sap_id)]
+    if fnr:
+        criterias.append((const.externalid_fodselsnr, fnr))
     if passnr:
-        try:
-            person.clear()
-            person.find_by_external_id(const.externalid_pass_number,
-                                       passnr)
-            person_id_from_passnr = int(person.entity_id)
-        except Errors.NotFoundError:
-            logger.debug(u"No person matches passnr «%s»", passnr)
+        criterias.append((const.externalid_pass_number, passnr))
 
-    # Now, we can compare person_id_from_*. If they are both set, they must
-    # point to the same person (otherwise, we'd have two IDs in the *same
-    # SAP entry* pointing to two different people in Cerebrum). However, we
-    # should also allow the possibility of only one ID being set.
-    person_ids = [person_id_from_sap,
-                  person_id_from_fnr,
-                  person_id_from_passnr]
-    person_ids = set(p_id for p_id in person_ids if p_id)
-    if len(person_ids) > 1:
-        logger.error("Aiee! IDs for logically the same person differ: "
-                     "(SAP id => person_id %s; FNR => person_id %s; "
-                     "PASSNR => person_id %s)",
-                     person_id_from_sap,
-                     person_id_from_fnr,
-                     person_id_from_passnr)
+    try:
+        person = search(database, criterias, required=True)
+        return False, person
+    except Errors.NotFoundError:
+        return False, None
+    except Errors.TooManyRowsError:
         return True, None
 
-    # Make sure, that person is associated with the corresponding db rows
-    if person_ids:
-        person.clear()
-        person.find(person_ids.pop())
-        return False, person
 
-    return False, None
-
-
-def match_external_ids(person, sap_id, fnr, passnr=None):
+def match_external_ids(person, sap_id, fnr, passnr):
     """
     Make sure that PERSON's external IDs in Cerebrum match SAP_ID and FNR.
     """
+    # TODO: We should change this slightly:
+    #
+    # Don't really need to check if the ids differ, however the extid syncer
+    # should validate if other person objects already owns any new/updated
+    # external ids...
 
-    cerebrum_sap_id = person.get_external_id(const.system_sap,
-                                             const.externalid_sap_ansattnr)
-    cerebrum_fnr = person.get_external_id(const.system_sap,
-                                          const.externalid_fodselsnr)
-    cerebrum_passnr = None
-    if passnr:
-        cerebrum_passnr = person.get_external_id(const.system_sap,
-                                                 const.externalid_pass_number)
-        cerebrum_passnr = str(cerebrum_passnr[0]["external_id"])
+    def get_id(id_type):
+        rows = person.get_external_id(const.system_sap, id_type)
+        if rows:
+            return rows[0]["external_id"]
+        return None
 
-    # There is at most one such ID, get_external_id returns a sequence, though
-    if cerebrum_sap_id:
-        cerebrum_sap_id = str(cerebrum_sap_id[0]["external_id"])
-
-    if cerebrum_fnr:
-        cerebrum_fnr = str(cerebrum_fnr[0]["external_id"])
+    cerebrum_sap_id = get_id(const.externalid_sap_ansattnr)
+    cerebrum_fnr = get_id(const.externalid_fodselsnr)
+    cerebrum_passnr = get_id(const.externalid_pass_number)
 
     if (cerebrum_sap_id and cerebrum_sap_id != sap_id):
         logger.error("SAP id in Cerebrum != SAP id in datafile "
-                     u"«%s» != «%s»", cerebrum_sap_id, sap_id)
+                     "«%s» != «%s»", cerebrum_sap_id, sap_id)
         return False
 
     # A mismatch in fnr only means that Cerebrum's data has to be updated.
@@ -163,7 +137,7 @@ def match_external_ids(person, sap_id, fnr, passnr=None):
                 fnr)
             return False
         logger.info("FNR in Cerebrum != FNR in datafile. Updating "
-                    u"«%s» -> «%s»", cerebrum_fnr, fnr)
+                    "«%s» -> «%s»", cerebrum_fnr, fnr)
 
     # A mismatch in passnr only means that Cerebrum's data has to be updated.
     if (cerebrum_passnr and cerebrum_passnr != passnr):
@@ -185,7 +159,7 @@ def match_external_ids(person, sap_id, fnr, passnr=None):
                 passnr)
             return False
         logger.info("PASSNR in Cerebrum != PASSNR in datafile. Updating "
-                    u"«%s» -> «%s»", cerebrum_passnr, passnr)
+                    "«%s» -> «%s»", cerebrum_passnr, passnr)
     return True
 
 
@@ -255,7 +229,8 @@ def populate_external_ids(tpl):
         # those in SAP dump. I.e. we select the external IDs from Cerebrum
         # and compare them to SAP_ID and FNR. They must either match
         # exactly or be absent.
-        if not match_external_ids(person, tpl.sap_ansattnr, tpl.sap_passnr):
+        if not match_external_ids(person, tpl.sap_ansattnr, tpl.sap_fnr,
+                                  tpl.sap_passnr):
             return None
     else:
         person = Factory.get("Person")(database)
@@ -284,20 +259,17 @@ def populate_external_ids(tpl):
     # This would allow us to update birthdays and gender information for
     # both new and existing people.
     person.populate(tpl.sap_birth_date, gender)
-    person.affect_external_id(const.system_sap,
-                              const.externalid_fodselsnr,
-                              const.externalid_sap_ansattnr,
-                              const.externalid_pass_number)
-    person.populate_external_id(const.system_sap,
-                                const.externalid_sap_ansattnr,
-                                tpl.sap_ansattnr)
-    person.populate_external_id(const.system_sap,
-                                const.externalid_fodselsnr,
-                                tpl.sap_fnr)
-    person.populate_external_id(const.system_sap,
-                                const.externalid_pass_number,
-                                tpl.sap_passnr)
     person.write_db()
+
+    extid_sync = ExternalIdSync(database, const.system_sap)
+    extid_values = [(const.externalid_sap_ansattnr, tpl.sap_ansattnr)]
+
+    if tpl.sap_fnr:
+        extid_values.append((const.externalid_fodselsnr, tpl.sap_fnr))
+    if tpl.sap_passnr:
+        extid_values.append((const.externalid_pass_number, tpl.sap_passnr))
+
+    extid_sync(person, extid_values)
     return person
 
 
@@ -318,7 +290,7 @@ def populate_names(person, fields):
             continue
 
         person.populate_name(name_type, name_value)
-        logger.debug(u"Populated name type %s with «%s»", name_type,
+        logger.debug("Populated name type %s with «%s»", name_type,
                      name_value)
 
     person.populate_name(const.name_first, fields.sap_first_name)
@@ -333,12 +305,12 @@ def populate_personal_title(person, fields):
                                       name_language=const.language_nb,
                                       name=source_title)
         logger.debug("Added %s '%s' for person id=%s",
-                     str(const.personal_title), source_title, person.entity_id)
+                     const.personal_title, source_title, person.entity_id)
     else:
         person.delete_name_with_language(name_variant=const.personal_title,
                                          name_language=const.language_nb)
         logger.debug("Removed %s for person id=%s",
-                     str(const.personal_title), person.entity_id)
+                     const.personal_title, person.entity_id)
 
 
 def _remove_communication(person, comm_type):
@@ -361,7 +333,7 @@ def populate_communication(person, fields):
             continue
 
         person.populate_contact_info(const.system_sap, comm_type, comm_value)
-        logger.debug(u"Populated comm type %s with «%s»", comm_type,
+        logger.debug("Populated comm type %s with «%s»", comm_type,
                      comm_value)
 
     # some communication types need extra care
@@ -374,7 +346,7 @@ def populate_communication(person, fields):
             _remove_communication(person, comm_type)
             continue
         person.populate_contact_info(const.system_sap, comm_type, comm_value)
-        logger.debug(u"Populated comm type %s with «%s»", comm_type,
+        logger.debug("Populated comm type %s with «%s»", comm_type,
                      comm_value)
 
 
@@ -425,7 +397,7 @@ def populate_office(person, fields):
         try:
             country = int(const.Country(address['country_street']))
         except Errors.NotFoundError:
-            logger.warn(u"Could not find country code for «%s», "
+            logger.warn("Could not find country code for «%s», "
                         "please define country in Constants.py",
                         address['country_street'])
         # TBD: should we return here if country is not correct, or is it okay
@@ -461,7 +433,7 @@ def populate_address(person, fields):
         try:
             country = int(const.Country(fields.sap_country))
         except Errors.NotFoundError:
-            logger.warn(u"Could not find country code for «%s», "
+            logger.warn("Could not find country code for «%s», "
                         "please define country in Constants.py",
                         fields.sap_country)
 
@@ -485,11 +457,12 @@ def add_person_to_group(person, fields):
     Check if person should be visible in catalogs like LDAP or not. If
     latter, add the person to a group specified in cereconf.
     """
-
     # Test if person should be visible in catalogs like LDAP
     if not fields.reserved_for_export():
         return
 
+    # TODO: This function never *removes* persons.  Should we not always sync
+    # this attribute based on the `fields.reserved_for_export()` result?
     group = Factory.get("Group")(database)
     # person should not be visible. Add person to group
     try:
@@ -528,7 +501,7 @@ def process_people(filename, use_fok, passnr_mapping):
         for p in make_person_iterator(
                 f, use_fok, logger):
             if not p.valid():
-                logger.info(
+                logger.debug(
                     "Ignoring person sap_id=%s, fnr=%s (invalid entry)",
                     p.sap_ansattnr, p.sap_fnr)
                 # TODO: remove some person data?
@@ -574,22 +547,55 @@ def process_people(filename, use_fok, passnr_mapping):
 
 
 def clean_person_data(processed_persons):
-    """Removes information from person objects.
+    """
+    Removes information from unprocessed person objects.
 
-    :param set processed_persons: Person ids which information should not be
-        removed from."""
+    :param set processed_persons:
+        A set of persons to *not* clear data from.
+
+        This should be all the persons that have been processed/identified from
+        the source files.
+    """
     person = Factory.get('Person')(database)
-    existing_persons = set(map(lambda x: x['person_id'],
-                               person.list_persons()))
-    for person_id in existing_persons - processed_persons:
+    source_system = person.const.system_sap
+    title_type = person.const.personal_title
+    title_lang = person.const.language_nb
+
+    clear_contact_info = set(
+        row['entity_id']
+        for row in person.list_contact_info(source_system=source_system)
+    ) - processed_persons
+
+    clear_addr_info = set(
+        row['entity_id']
+        for row in person.list_entity_addresses(source_system=source_system)
+    ) - processed_persons
+
+    clear_name_with_lang = set(
+        row['entity_id']
+        for row in person.search_name_with_language(name_variant=title_type,
+                                                    name_language=title_lang)
+    ) - processed_persons
+
+    # We join together and process person by person in order to reduce the
+    # number of person.find()/person.clear() to do
+    persons_to_clear = (clear_contact_info
+                        | clear_addr_info
+                        | clear_name_with_lang)
+
+    for person_id in persons_to_clear:
         logger.info('Clearing contact info, addresses and title '
                     'for person_id:{}'.format(person_id))
         person.clear()
         person.find(person_id)
-        person.populate_contact_info(const.system_sap)
-        person.populate_address(const.system_sap)
-        person.delete_name_with_language(name_variant=const.personal_title,
-                                         name_language=const.language_nb)
+        if person_id in clear_contact_info:
+            person.populate_contact_info(source_system)
+        if person_id in clear_addr_info:
+            person.populate_address(source_system)
+
+        if person_id in clear_name_with_lang:
+            person.delete_name_with_language(name_variant=title_type,
+                                             name_language=title_lang)
         person.write_db()
 
 
@@ -609,38 +615,42 @@ def create_passnr_mapping(passnr_file):
 
 
 def main():
-    global logger
-    logger = Factory.get_logger('cronjob')
+    global database, const
 
     parser = argparse.ArgumentParser(description=__doc__)
     required_args = parser.add_argument_group('required arguments')
-    required_args.add_argument('-p', '--person-file', dest='person_file',
-                               required=True,
-                               help='File containing person data-export '
-                                    'from SAP.')
-    parser.add_argument('--without-fok',
-                        action='store_false',
-                        default=True,
-                        dest='use_fok',
-                        help='Do not use forretningsområdekode for checking '
-                             'if a person should be imported. (default: use.)')
-    parser.add_argument('--passnr-file',
-                        help='Additional file with SAP ID -> PASSNR mapping '
-                             'that will be used if fnr is missing.')
-    parser.add_argument('-c', '--commit',
-                        dest='commit',
-                        default=False,
-                        action='store_true',
-                        help='Write changes to DB.')
+    required_args.add_argument(
+        '-p', '--person-file',
+        dest='person_file',
+        required=True,
+        help='File containing person data-export from SAP.',
+    )
+    parser.add_argument(
+        '--without-fok',
+        action='store_false',
+        default=True,
+        dest='use_fok',
+        help=(
+            'Do not use forretningsområdekode for checking '
+            'if a person should be imported. (default: use.)'
+        ),
+    )
+    parser.add_argument(
+        '--passnr-file',
+        help=(
+            'Additional file with SAP ID -> PASSNR mapping '
+            'that will be used if fnr is missing.'
+        ),
+    )
+    argutils.add_commit_args(parser)
+    Cerebrum.logutils.options.install_subparser(parser)
+
     args = parser.parse_args()
+    Cerebrum.logutils.autoconf('cronjob', args)
 
-    # Creating this locally costs about 20 seconds out of a 3 minute run.
-    global const
-    const = Factory.get("Constants")()
-
-    global database
     database = Factory.get("Database")()
     database.cl_init(change_program='import_SAP')
+    const = Factory.get("Constants")(database)
 
     passport_mapping = {}
     if args.passnr_file:
