@@ -433,7 +433,6 @@ setup(
         'Cerebrum/modules/xmlutils',
         'Cerebrum/modules/abcenterprise',
         'Cerebrum/lib',
-        'Cerebrum/modules/LMS',
         'Cerebrum/modules/virthome',
         'Cerebrum/modules/cis',
         'Cerebrum/config',
