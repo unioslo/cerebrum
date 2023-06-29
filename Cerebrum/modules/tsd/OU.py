@@ -677,7 +677,6 @@ class TsdDefaultEntityMixin(TsdProjectMixin, OUAffiliateMixin):
         bdate = (parse_date(bdate)
                  if bdate and not isinstance(bdate, datetime.date)
                  else bdate)
-        print(isinstance(bdate, datetime.date))
         aff, status = self.const.get_affiliation(affiliation)
 
         # TODO: Should this not be in Account.illegal_name?
