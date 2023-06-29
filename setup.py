@@ -431,7 +431,6 @@ setup(
         'Cerebrum/modules/tsd',
         'Cerebrum/modules/templates',
         'Cerebrum/modules/xmlutils',
-        'Cerebrum/lib',
         'Cerebrum/modules/virthome',
         'Cerebrum/modules/cis',
         'Cerebrum/config',
