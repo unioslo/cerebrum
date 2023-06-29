@@ -432,7 +432,6 @@ setup(
         'Cerebrum/modules/templates',
         'Cerebrum/modules/xmlutils',
         'Cerebrum/modules/abcenterprise',
-        'Cerebrum/modules/process_entity',
         'Cerebrum/lib',
         'Cerebrum/modules/LMS',
         'Cerebrum/modules/virthome',
