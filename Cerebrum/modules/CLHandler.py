@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003, 2015 University of Oslo, Norway
+# Copyright 2003-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,6 +17,13 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""
+Proccess and tag events from changelog.
+
+This module adds a data model for fetching and and processing changes from the
+changelog.  This is done by keeping a separate table that lists processed
+change ids.
+"""
 
 import itertools
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
@@ -29,13 +36,6 @@ class CLHandler(DatabaseAccessor):
 
     A key is used to keep track of which events was last reveived.
     """
-
-    def add_action_listener(remote_self, key, type=None):
-        """Register remote_self as a call-back class implementing the
-        method update_event(evt).  For use with a stand-alone
-        ELInterface process that provides realtime synchronization."""
-        # TODO: Implement this
-        pass
 
     def get_events(self, key, types):
         """Fetch all new events of type key.
@@ -73,22 +73,6 @@ class CLHandler(DatabaseAccessor):
         FROM [:table schema=cerebrum name=change_handler_data]
         WHERE evthdlr_key=:key
         ORDER BY first_id""", {'key': key})]
-
-    def ignore_events(self, key, time, types):
-        """Confirm all events with timestamp before given time.
-
-        Calls get_events, and confirm_event repeatedly.
-
-        :param key: Eventhandler key
-        :param time: the timestamp in question
-        :param types: Event types the export cares about
-        :returns: Iterator over unconfirmed events
-        """
-        for evt in self.get_events(key, types):
-            if evt['tstamp'] < time:
-                self.confirm_event(evt)
-            else:
-                yield evt
 
     def confirm_event(self, evt):
         "Confirm that a given event was received OK."
@@ -132,8 +116,8 @@ class CLHandler(DatabaseAccessor):
 
         # itertools.groupby iterates over sequences of X's or C's, making
         # isconf: True = C's, False = X's. The values is an iterator over the
-        # change_id's in the current sequence returned. Our example is returned:
-        # (each line one iteration in the outer for loop)
+        # change_id's in the current sequence returned. Our example is
+        # returned: (each line one iteration in the outer for loop)
         # [-]
         #    X
         #       CC-C--[--]-C-C-C    (remember [ and ] are treated as C)
@@ -169,7 +153,7 @@ class CLHandler(DatabaseAccessor):
                 ranges.append([start, end])
                 try:
                     start = max(values) + 1
-                except:
+                except Exception:
                     start = end + 2
         # If the last line is a C-line (might be the only line, too), we create
         # a range ending with the highest id returned.
