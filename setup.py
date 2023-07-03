@@ -211,7 +211,6 @@ sbin_files = [
     ('servers/event/exchange_daemon.py', 0755),
     ('servers/event/cim_daemon.py', 0755),
     ('servers/event/event_publisher.py', 0755),
-    ('servers/cis/SoapIndividuationServer.py', 0755),
     ('servers/cis/SoapPostmasterServer.py', 0755),
     ('consumers/consume-callback.py', 0755),
     ('consumers/consume-tasks.py', 0755),
