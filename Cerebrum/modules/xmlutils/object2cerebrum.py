@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2005-2016 University of Oslo, Norway
+# Copyright 2005-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -27,15 +27,14 @@ module (and its various incarnations (SAP, LT, etc.).
 from __future__ import unicode_literals
 import collections
 import cereconf
+import datetime
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-
 from Cerebrum.modules.xmlutils.xml2object import DataAddress, DataContact
 from Cerebrum.modules.xmlutils.xml2object import HRDataPerson
 from Cerebrum.modules.xmlutils.sapxml2object import SAPPerson
-
-from mx import DateTime
+from Cerebrum.utils import date_compat
 
 
 class XML2Cerebrum:
@@ -445,9 +444,8 @@ class XML2Cerebrum:
 
     def __ou_is_expired(self, xmlou):
         """Check if OU is expired compared to today's date."""
-
-        return xmlou.end_date and xmlou.end_date < DateTime.now()
-    # end __ou_is_expired
+        end_date = date_compat.get_date(xmlou.end_date)
+        return end_date and end_date < datetime.date.today()
 
     def store_ou(self, xmlou, old_ou_cache=None):
         """Store all information we can from xmlou.
