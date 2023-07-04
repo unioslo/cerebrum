@@ -25,7 +25,7 @@ inform users that gets a spread revoked.
 """
 import logging
 
-import mx.DateTime
+from datetime import date
 
 from Cerebrum import Errors
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
@@ -261,7 +261,7 @@ class EntitySpreadMixin(EntitySpread):
             entity_id = self.entity_id
 
         if expire_date is None:
-            expire_date = mx.DateTime.today()
+            expire_date = date.today()
         self._spread_expire_db.set(entity_id, spread, expire_date)
 
     def search_spread_expire(self, spread=None, expire_date=None,
