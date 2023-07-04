@@ -191,8 +191,9 @@ class EntityTrait(Entity):
                     {
                         'entity_id': self.entity_id,
                     }):
+                row = dict(row)
                 row['date'] = get_datetime_naive(row['date'])
-                self.__traits[_EntityTraitCode(row['code'])] = dict(row)
+                self.__traits[_EntityTraitCode(row['code'])] = row
         return self.__traits
 
     def get_trait(self, trait):
