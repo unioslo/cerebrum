@@ -69,7 +69,7 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules.EntityTrait import EntityTrait
 from Cerebrum.utils.argutils import codec_type, get_constant
 from Cerebrum.utils.funcwrap import memoize
-from cerebrum.modules.no.Stedkode import OuCache
+from Cerebrum.modules.no.Stedkode import OuCache
 
 logger = logging.getLogger(__name__)
 now = datetime.datetime.now
