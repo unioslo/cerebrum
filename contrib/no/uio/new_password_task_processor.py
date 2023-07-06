@@ -40,7 +40,6 @@ from Cerebrum.modules.tasks.queue_processor import QueueProcessor
 from Cerebrum.modules.no.uio.changed_password_notifier import ChangedPasswordQueueHandler
 
 logger = logging.getLogger(__name__)
-sms = SMSSender(logger=logger)
 
 def get_message(uname, time):
     with io.open(path.join(cereconf.TEMPLATE_DIR,
@@ -56,6 +55,7 @@ def send_sms(uname, task_iat, phone_number):
         time_format = "%d.%m.%Y %H:%M:%S"
         time = task_iat.strftime(time_format)
         message = get_message(uname, time)
+        sms = SMSSender()
         return sms(phone_number, message)
     except Exception as e:
         logger.warning("Failed during execution of sending message")
