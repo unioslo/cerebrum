@@ -230,9 +230,3 @@ den kanskje dokumenteres der?
 Provides a number of general utility functions/classes.  We should
 probably consider splitting it into smaller pieces.
 
-
-logging
-=======
-<her skal igorr's dok inn>
-
-..
