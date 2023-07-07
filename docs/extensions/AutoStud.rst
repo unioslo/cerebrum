@@ -2,6 +2,14 @@
 Automatic useradministration in Cerebrum
 =======================================================
 
+.. admonition:: Needs review
+
+   This is an old document, some of the instructions may be out of date.
+
+.. contents:: Contents
+.. section-numbering::
+
+
 Technical details
 ==================
 
@@ -68,4 +76,3 @@ simply press ``Ctrl-c Ctrl-p`` to load the DTD, and ``Ctrl-c Ctrl-o``
 to jump to next error.
 
 `DTD <studconfig_dtd.xml>`_
-

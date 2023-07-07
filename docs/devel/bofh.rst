@@ -1,10 +1,13 @@
-.. namespace:: develbofh
-
 =========================================
 Bofhd - development
 =========================================
 
+.. admonition:: Needs review
+
+   This is an old document, some of the instructions may be out of date.
+
 .. contents:: Contents
+.. section-numbering::
 
 
 Introduction
@@ -72,46 +75,6 @@ sometime in the hopefully near future:
 - Some of the more generic methods should be moved up.
 
 - The remaining commands should probably be split into smaller classes.
-
-Example
-========
-This example shows the ``Cerebrum/modules/no/bofhd_module_example.py``
-module:
-
-    .. include:: ../,ceresrc/Cerebrum/modules/no/bofhd_module_example.py
-       :literal:
-
-
-Explanation
-------------
-We'll briefly explain some parts of the above example.
-
-First note that we define the dict ``all_commands`` as an empty dict.
-This dict will map the name of a function, callable through
-``run_comand`` to a function in this module.
-
-The line ``all_commands['user_info']`` defines a ``Command`` that
-should result in a call to the ``user_info`` method.  The ``Command``
-constructor takes a tuple of the user-entered commands that should map
-to this method, and a list of class instances indicating the type of
-expected parameter.  It may also use the keyword-argument ``fs`` to
-define a ``FormatSuggestion`` which tells the client how it may format
-the return value of this method.  Please see the documentation on
-these classes for the full details.
-
-The ``get_help_strings`` method defines one group of commands,
-``user``, and help for one command in this group ``user_info``.  Since
-this function takes an ``account_name`` as argument, one arg_help is
-also defined.  The string ``account_name`` is not refered in the
-construction of the ``AccountName`` object, but if you look at its
-implementation, you will se that it is the default value for its
-``help_ref``.  If the default help string is not apropriate for the
-argument, an alternative ``help_ref`` may be specified in the
-``AccountName`` constructor.
-
-``get_format_suggestion`` simply uses the ``Command`` object
-constructed earlier to figure out which ``FormatSuggestion`` to return
-for a given method-name.
 
 
 Authorization
@@ -271,11 +234,6 @@ bofhd_get_format_suggestion(cmd)
    tells the command-line client how to format a response to a given
    command.  The data is returned by
    ``Cerebrum.modules.bofhd.cmd_param.FormatSuggestion.get_format``:
-
-   .. sysinclude::
-     :vardef: ext_fsug scripts/ext_doc.py --module ,ceresrc/Cerebrum/modules/bofhd/cmd_param.py --func_template scripts/func_doc.template
-
-   .. sysinclude:: %(ext_fsug)s --func FormatSuggestion:get_format
 
 bofhd_get_motd(client_id=None, client_version=None)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

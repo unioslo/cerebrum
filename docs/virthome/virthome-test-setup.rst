@@ -2,6 +2,10 @@
 Testoppsett for virthome-db
 =============================
 
+.. admonition:: Needs review
+
+   This is an old document, some of the instructions may be out of date.
+
 
 Følgende skritt må tas for å gå fra 0 til en fungerende
 VirtHome-database. "Fungerende" til testing, om ikke annet.

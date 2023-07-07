@@ -2,6 +2,10 @@
 Spesifikasjoner for kommandosettet til BOHFD til virthome
 =========================================================
 
+.. admonition:: Needs review
+
+   This is an old document, some of the instructions may be out of date.
+
 .. contents:: Innholdsfortegnelse
 
 

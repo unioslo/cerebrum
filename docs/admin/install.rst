@@ -2,11 +2,12 @@
 Cerebrum installation procedure
 ================================
 
-.. TODO: Dette er grov-porting av det gamle dokumentet til RST.  Må
-   gjennomgås
+.. admonition:: Needs review
 
-This document describes installation of Cerebrum from a source code
-distribution.
+   This is an old document, some of the instructions may be out of date.
+
+.. contents:: Contents
+.. section-numbering::
 
 
 Short version
