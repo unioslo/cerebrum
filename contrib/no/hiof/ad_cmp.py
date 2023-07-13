@@ -1,36 +1,69 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
+#
+# Copyright 2007-2023 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""
+Compare Active Directory LDAP dump to Cerebrum.
 
-'''
-For å dumpe data fra AD, gjør noe ala:
+Examples
+--------
+To dump data from AD, do something like:
+::
 
-DN="DC=w2k3test,DC=uio,DC=no"
-ATTRS="cn,displayName,memberOf,homeDirectory,sAMAccountName,homeDrive,givenName,sn,profilePath,mail"
+    DN="DC=w2k3test,DC=uio,DC=no"
+    ATTRS="cn,displayName,memberOf,homeDirectory,sAMAccountName,homeDrive,givenName,sn,profilePath,mail"
+    ldifde -d$DN -r "(&(objectClass=user)(objectCategory=user))" \\
+        -p Subtree -l $ATTRS -f userdump.ldp
 
-ldifde -d$DN -r "(&(objectClass=user)(objectCategory=user))" -p Subtree -l $ATTRS -f userdump.ldp
+To compare the dump with Cerebrum-data:
+::
 
-Sammenligning...
+    python ad_cmp.py --old userdump.ldp.old --new userdump.ldp.new \\
+        --old-dn $DN --new-dn $DN2 --attrs $ATTRS -c
 
-Usage: []
 
---old-dn dn : use with --new-dn if the servers DNs differs
+Options
+-------
+--old-dn dn
+    Use with --new-dn if the servers DNs differs
+
 --new-dn dn
+    Use with --old-dn if the servers DNs differs
 
---old fname : old dump file
---new fname : new dump file
+--old fname
+    old dump file
 
---attrs sAMAccountName,homeDirectory...
--c  : run comparison
+--new fname
+    new dump file
 
-Example:
-./ad_cmp.py --old userdump.ldp.old --new userdump.ldp.new --old-dn $DN --new-dn $DN2 --attrs $ATTRS -c
+--attrs
+    sAMAccountName,homeDirectory...
 
-'''
+-c
+    run comparison
+"""
 from __future__ import print_function
 
 import getopt
 import sys
 import re
+
 
 def parse_ldif(fname, filter_dn):
     ret = {}
@@ -48,6 +81,7 @@ def parse_ldif(fname, filter_dn):
             if m:
                 tmp.setdefault(m.group(1), []).append(m.group(2))
     return ret
+
 
 def run_comparison(old_dta, new_dta, attrs, ignore_case_attrs):
     """Compare attributes specified in attrs for AD data in old_dta
@@ -77,9 +111,13 @@ def run_comparison(old_dta, new_dta, attrs, ignore_case_attrs):
     if new_dta:
         print("The following entries were only in new: %s" % new_dta.keys())
 
+
 def main():
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'c', ['help', 'old-dn=', 'new-dn=', 'old=', 'new=', 'attrs=', 'ignore-case-attrs='])
+        opts, args = getopt.getopt(sys.argv[1:], 'c', ['help', 'old-dn=',
+                                                       'new-dn=', 'old=',
+                                                       'new=', 'attrs=',
+                                                       'ignore-case-attrs='])
     except getopt.GetoptError:
         usage(1)
 
@@ -108,9 +146,11 @@ def main():
                            parse_ldif(new_fname, new_dn),
                            attrs, ignore_case_attrs)
 
+
 def usage(exitcode=0):
     print(__doc__)
     sys.exit(exitcode)
+
 
 if __name__ == '__main__':
     main()

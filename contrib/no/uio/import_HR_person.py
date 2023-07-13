@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
-
-# Copyright 2005-2015 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+#
+# Copyright 2005-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,8 +18,8 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-"""This script loads the information from various HR DBs into Cerebrum.
+"""
+This script loads the information from various HR DBs into Cerebrum.
 
 Specifically, an XML input[1] with information about people, employments,
 contact information, etc. is processed and stored in a suitable form in
@@ -234,7 +234,8 @@ def determine_affiliations(xmlperson, source_system):
 
         (ou_id, affiliation, affiliation_status, main?).
 
-      All individual entries are of type int, the main? part being True or False
+      All individual entries are of type int, the main? part being True or
+      False
     """
 
     def str_pid():
@@ -249,38 +250,40 @@ def determine_affiliations(xmlperson, source_system):
         ret.add(value)
     # end adjoin_affiliation
 
-    kind2affstat = {DataEmployment.KATEGORI_OEVRIG:
-                    const.affiliation_status_ansatt_tekadm,
-                    DataEmployment.KATEGORI_VITENSKAPLIG:
-                    const.affiliation_status_ansatt_vit}
-    gjest2affstat = {'EMERITUS': const.affiliation_tilknyttet_emeritus,
-                     'PCVAKT': const.affiliation_tilknyttet_pcvakt,
-                     'UNIRAND': const.affiliation_tilknyttet_unirand,
-                     'GRP-LÆRER': const.affiliation_tilknyttet_grlaerer,
-                     'EF-STIP': const.affiliation_tilknyttet_ekst_stip,
-                     'BILAGSLØN': const.affiliation_tilknyttet_bilag,
-                     'EF-FORSKER': const.affiliation_tilknyttet_ekst_forsker,
-                     'SENIORFORS': const.affiliation_tilknyttet_ekst_forsker,
-                     'GJ-FORSKER': const.affiliation_tilknyttet_gjesteforsker,
-                     'SIVILARB': const.affiliation_tilknyttet_sivilarbeider,
-                     'EKST. PART': const.affiliation_tilknyttet_ekst_partner,
-                     'EKST-PART': const.affiliation_tilknyttet_ekst_partner,
-                     'ASSOSIERT':
-                     const.affiliation_tilknyttet_assosiert_person,
-                     'ST-POL FRI': const.affiliation_tilknyttet_studpol,
-                     'ST-POL UTV': const.affiliation_tilknyttet_studpol,
-                     'ST-POL-UTV': const.affiliation_tilknyttet_studpol,
-                     'ST-ORG FRI': const.affiliation_tilknyttet_studorg,
-                     'ST-ORG UTV': const.affiliation_tilknyttet_studorg,
-                     'INNKJØPER': const.affiliation_tilknyttet_innkjoper,
+    kind2affstat = {
+        DataEmployment.KATEGORI_OEVRIG:
+            const.affiliation_status_ansatt_tekadm,
+        DataEmployment.KATEGORI_VITENSKAPLIG:
+            const.affiliation_status_ansatt_vit,
+    }
+    gjest2affstat = {
+        'EMERITUS': const.affiliation_tilknyttet_emeritus,
+        'PCVAKT': const.affiliation_tilknyttet_pcvakt,
+        'UNIRAND': const.affiliation_tilknyttet_unirand,
+        'GRP-LÆRER': const.affiliation_tilknyttet_grlaerer,
+        'EF-STIP': const.affiliation_tilknyttet_ekst_stip,
+        'BILAGSLØN': const.affiliation_tilknyttet_bilag,
+        'EF-FORSKER': const.affiliation_tilknyttet_ekst_forsker,
+        'SENIORFORS': const.affiliation_tilknyttet_ekst_forsker,
+        'GJ-FORSKER': const.affiliation_tilknyttet_gjesteforsker,
+        'SIVILARB': const.affiliation_tilknyttet_sivilarbeider,
+        'EKST. PART': const.affiliation_tilknyttet_ekst_partner,
+        'EKST-PART': const.affiliation_tilknyttet_ekst_partner,
+        'ASSOSIERT': const.affiliation_tilknyttet_assosiert_person,
+        'ST-POL FRI': const.affiliation_tilknyttet_studpol,
+        'ST-POL UTV': const.affiliation_tilknyttet_studpol,
+        'ST-POL-UTV': const.affiliation_tilknyttet_studpol,
+        'ST-ORG FRI': const.affiliation_tilknyttet_studorg,
+        'ST-ORG UTV': const.affiliation_tilknyttet_studorg,
+        'INNKJØPER': const.affiliation_tilknyttet_innkjoper,
 
-                     # IVR 2007-07-11 These should be ignored
-                     # eventually, according to baardj
-                     'REGANSV': const.affiliation_tilknyttet_frida_reg,
-                     'REG-ANSV': const.affiliation_tilknyttet_frida_reg,
-                     'EKST. KONS': const.affiliation_tilknyttet_ekst_partner,
-                     'EKST-KONS': const.affiliation_tilknyttet_ekst_partner,
-                     }
+        # IVR 2007-07-11 These should be ignored
+        # eventually, according to baardj
+        'REGANSV': const.affiliation_tilknyttet_frida_reg,
+        'REG-ANSV': const.affiliation_tilknyttet_frida_reg,
+        'EKST. KONS': const.affiliation_tilknyttet_ekst_partner,
+        'EKST-KONS': const.affiliation_tilknyttet_ekst_partner,
+    }
 
     # These are role codes that we know about, but choose to
     # ignore. Everything not in gjest2affstat or this sequence is deemed to be
@@ -331,7 +334,7 @@ def determine_affiliations(xmlperson, source_system):
                            t.kind == DataEmployment.HOVEDSTILLING)
 
     #
-    # #2 -- Bilagslønnede
+    # #2 -- Bilagslonnede
     bilag = [x for x in xmlperson.iteremployment()
              if x.kind == DataEmployment.BILAG and
              x.is_active() and
@@ -497,7 +500,7 @@ def parse_data(parser, source_system, group, group_members, gen_groups,
             status, p_id = xml2db.store_person(xmlperson, work_titles,
                                                affiliations,
                                                traits)
-        except:
+        except Exception:
             etype, evalue, tb = sys.exc_info()
             logger.exception("Something went very wrong: etype=%s, value=%s. "
                              "Person id=%s will not be updated/inserted",
