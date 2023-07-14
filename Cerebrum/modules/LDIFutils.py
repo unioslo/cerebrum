@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2004-2020 University of Oslo, Norway
+# Copyright 2004-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -22,7 +22,12 @@ Various utilities for building LDIF files from Cerebrum data.
 
 Modify base64_attrs and needs_base64 to tune the output.
 """
-from __future__ import unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import binascii
 import logging
@@ -163,9 +168,12 @@ _attrval2iter = {
     list: iter,
     set: sorted,  # sorting but minimizes changes in the output file
     frozenset: sorted,
-    str: (lambda *args: args),
-    unicode: (lambda *args: args),
-    type(None): (lambda arg: ())}
+    type(None): (lambda arg: ()),
+}
+_attrval2iter.update({
+    cls: (lambda *args: args)
+    for cls in six.string_types
+})
 
 
 def container_entry(tree_name, attrs=None, module=cereconf):
@@ -286,7 +294,7 @@ def map_constants(constname, values, return_type=None):
         values = map(_decode_const, (constname,) * len(values), values)
         if return_type is not list and len(values) == 1:
             values = values[0]
-    if return_type is int and not isinstance(values, (int, long)):
+    if return_type is int and not isinstance(values, six.integer_types):
         raise _Errors.CerebrumError(
             'Expected 1 {0}: {1}'.format(constname, arg))
     return values
@@ -342,30 +350,31 @@ def normalize_string(s):
     return s
 
 
-def normalize_caseExactString(s):
+def normalize_caseExactString(s):  # noqa: N802
     """Normalize case-sensitive strings for comparison of LDAP values."""
     return _space_re.sub(' ', s).strip()
 
 
-def normalize_IA5String(s):
+def normalize_IA5String(s):  # noqa: N802
     """Normalize case-sensitive ASCII strings for comparison of LDAP values."""
     return _multi_space_re.sub(' ', s.translate(_normalize_trans)).strip()
 
 
 # Return true if the parameter is valid for the LDAP syntax printableString;
 # including telephone and fax numbers.
-verify_printableString = re.compile(r"[-a-zA-Z0-9'()+,.=/:? ]+\Z").match
+verify_printableString = re.compile(  # noqa: N816
+    r"[-a-zA-Z0-9'()+,.=/:? ]+\Z").match
 
 # Return true if the parameter is valid for the LDAP syntax IA5String (ASCII):
 # mail, dc, gecos, homeDirectory, loginShell, memberUid, memberNisNetgroup.
-verify_IA5String = re.compile("[\0-\x7e]*\\Z").match
+verify_IA5String = re.compile("[\0-\x7e]*\\Z").match  # noqa: N816
 
 # Return true if the parameter looks like an email address, i.e. contains
 # exactly one @ and at least one dot after the @
 verify_emailish = re.compile(r"[^@]+@[^@]+\.[^@]+").match
 
 
-class ldif_parser(object):
+class ldif_parser(object):  # noqa: N801
     """
     Use the python-ldap's ldif.LDIFParser(). Redirect handle routine
     to local routine. Input is file and following parameter are optionals:

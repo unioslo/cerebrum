@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
 #
-# Copyright 2010-2021 University of Oslo, Norway
+# Copyright 2010-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,7 +18,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """This module implements a bofhd extension for the voip module."""
-from six import text_type
+import six
 
 import cereconf
 
@@ -70,7 +70,7 @@ class BofhdVoipCommands(BofhdCommonMethods):
     def _human_repr2id(self, human_repr):
         """Just like the superclass, except mac addresses are trapped here."""
 
-        if (isinstance(human_repr, (str, unicode))
+        if (isinstance(human_repr, six.string_types)
                 and len(human_repr) == 17
                 and all(x.lower() in "0123456789abcdef: "
                         for x in human_repr)):
@@ -94,8 +94,8 @@ class BofhdVoipCommands(BofhdCommonMethods):
         return None
 
     def _is_numeric_id(self, value):
-        return (isinstance(value, (int, long)) or
-                isinstance(value, (str, unicode)) and value.isdigit())
+        return (isinstance(value, six.integer_types) or
+                isinstance(value, six.string_types) and value.isdigit())
 
     def _get_constant(self, designation, const_type):
         """Fetch a single constant based on some human designation.
@@ -109,7 +109,7 @@ class BofhdVoipCommands(BofhdCommonMethods):
         cnst = self.const.fetch_constants(const_type, designation)
         if len(cnst) == 0:
             raise CerebrumError("Unknown %s constant: %r" %
-                                (text_type(const_type), designation))
+                                (six.text_type(const_type), designation))
         return cnst[0]
 
     def _get_ou(self, designation):
@@ -125,11 +125,11 @@ class BofhdVoipCommands(BofhdCommonMethods):
         """
 
         id_type, value = self._human_repr2id(designation)
-        if text_type(value).isdigit():
+        if six.text_type(value).isdigit():
             for key in ("ou_id", "stedkode"):
                 try:
                     x = super(BofhdVoipCommands, self)._get_ou(
-                              **{key: text_type(value)})
+                              **{key: six.text_type(value)})
                     return x
                 except (Errors.NotFoundError, CerebrumError):
                     pass
@@ -322,8 +322,8 @@ class BofhdVoipCommands(BofhdCommonMethods):
         # Don't use _human_repr2id here, since it does not like ':' being part
         # of the identifier (which mac addresses definitely have)
         client = VoipClient(self.db)
-        if (isinstance(designation, (int, long))
-                or isinstance(designation, text_type)
+        if (isinstance(designation, six.integer_types)
+                or isinstance(designation, six.text_type)
                 and designation.isdigit()):
             try:
                 client.find(int(designation))
@@ -358,9 +358,9 @@ class BofhdVoipCommands(BofhdCommonMethods):
         exc = CerebrumError("No person found for designation %r" %
                             designation)
         id_type, value = self._human_repr2id(designation)
-        if text_type(value).isdigit():
+        if six.text_type(value).isdigit():
             try:
-                fnr = personnr_ok(text_type(value))
+                fnr = personnr_ok(six.text_type(value))
                 person.find_by_external_id(self.const.externalid_fodselsnr,
                                            fnr)
                 return person
@@ -370,7 +370,7 @@ class BofhdVoipCommands(BofhdCommonMethods):
         # account?
         try:
             account = Factory.get("Account")(self.db)
-            account.find_by_name(text_type(value))
+            account.find_by_name(six.text_type(value))
             if account.owner_type == self.const.entity_person:
                 return self._get_voip_person(account.owner_id)
         except Errors.NotFoundError:
@@ -432,7 +432,7 @@ class BofhdVoipCommands(BofhdCommonMethods):
         for cnst in self.const.fetch_constants(const_type):
             result.append({
                 "code": int(cnst),
-                "code_str": text_type(cnst),
+                "code_str": six.text_type(cnst),
                 "description": cnst.description,
             })
         return sorted(result, key=lambda r: r["code_str"])
@@ -443,7 +443,7 @@ class BofhdVoipCommands(BofhdCommonMethods):
 
         traits = list()
         for et in trait_sequence:
-            traits.append(text_type(self.const.EntityTrait(et)))
+            traits.append(six.text_type(self.const.EntityTrait(et)))
 
         return traits
 
@@ -521,7 +521,7 @@ class BofhdVoipCommands(BofhdCommonMethods):
         # Create a corresponding voip_address...
         self._get_or_create_voip_address(service.entity_id)
         return "OK, new voip_service (%s), entity_id=%s" % (
-            text_type(service_type),
+            six.text_type(service_type),
             service.entity_id)
 
     #
@@ -554,7 +554,7 @@ class BofhdVoipCommands(BofhdCommonMethods):
         service_type = self.const.VoipServiceTypeCode(service.service_type)
         answer = {
             "entity_id": service.entity_id,
-            "service_type": text_type(service_type),
+            "service_type": six.text_type(service_type),
             "description": service.description,
           }
         answer["location"] = self._typeset_ou(service.ou_id)
@@ -717,7 +717,7 @@ class BofhdVoipCommands(BofhdCommonMethods):
             answer.append({
                 "entity_id": entity_id,
                 "description": fold_description(description),
-                "service_type": text_type(service_type),
+                "service_type": six.text_type(service_type),
                 "ou": self._typeset_ou(ou_id),
             })
         return answer
@@ -749,7 +749,7 @@ class BofhdVoipCommands(BofhdCommonMethods):
         # Find the owner first...
         owner = self._get_voip_owner(owner_designation)
 
-        if isinstance(sip_enabled, (str, unicode)):
+        if isinstance(sip_enabled, six.string_types):
             sip_enabled = self._get_boolean(sip_enabled)
 
         # Does that mac_address point to something?
@@ -771,8 +771,9 @@ class BofhdVoipCommands(BofhdCommonMethods):
                  and not mac_address)
                 or (ct == self.const.voip_client_type_hardphone
                     and mac_address)):
-            raise CerebrumError("Hardphones must have mac; softphones must "
-                                "not: %s -> %s" % (text_type(ct), mac_address))
+            raise CerebrumError(
+                "Hardphones must have mac; softphones must not: %s -> %s"
+                % (six.text_type(ct), mac_address))
 
         # get/create an address for that owner already...
         address = self._get_or_create_voip_address(
@@ -784,7 +785,7 @@ class BofhdVoipCommands(BofhdCommonMethods):
         client.write_db()
         client.set_auth_data(self.const.voip_auth_sip_secret,
                              client.generate_sip_secret())
-        return "OK, created voipClient %s, id=%s" % (text_type(ct),
+        return "OK, created voipClient %s, id=%s" % (six.text_type(ct),
                                                      client.entity_id)
 
     #
@@ -1188,15 +1189,15 @@ class BofhdVoipCommands(BofhdCommonMethods):
         # find the clients
         client = VoipClient(self.db)
         client_ids = sorted(
-            [text_type(x["entity_id"])
+            [six.text_type(x["entity_id"])
              for x in client.search(voip_address_id=address.entity_id)])
 
         attrs = address.get_voip_attributes()
         result = {
             "entity_id": address.entity_id,
             "owner_entity_id": owner.entity_id,
-            "owner_entity_type":
-                text_type(self.const.EntityType(owner.entity_type)),
+            "owner_entity_type": six.text_type(
+                self.const.EntityType(owner.entity_type)),
             "cn": attrs["cn"],
             "sip_uri": attrs["voipSipUri"],
             "sip_primary_uri": attrs["voipSipPrimaryUri"],
@@ -1238,7 +1239,7 @@ class BofhdVoipCommands(BofhdCommonMethods):
         address.delete()
         return "OK, deleted voip_address id=%s (owned by %s id=%s)" % (
             address_id,
-            text_type(self.const.EntityType(owner.entity_type)),
+            six.text_type(self.const.EntityType(owner.entity_type)),
             owner.entity_id)
 
     #
@@ -1277,7 +1278,7 @@ class BofhdVoipCommands(BofhdCommonMethods):
             answer.append({
                 "entity_id": va.entity_id,
                 "owner_entity_id": va.owner_entity_id,
-                "owner_type": text_type(voip_attrs["owner_type"]),
+                "owner_type": six.text_type(voip_attrs["owner_type"]),
                 "cn": voip_attrs["cn"],
             })
         return answer

@@ -158,7 +158,7 @@ class DateTimeDescriptor(reprutils.ReprEvalMixin):
             self.__delete__(obj)
             return
 
-        if isinstance(value, (int, long, )):
+        if isinstance(value, six.integer_types):
             value = date_utils.from_timestamp(value)
         else:
             value = date_compat.get_datetime_tz(value)

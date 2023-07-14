@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright 2018 University of Oslo, Norway
+#
+# Copyright 2018-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -109,6 +110,19 @@ def safebytes(value):
 psycopg2.extensions.register_adapter(bytes, safebytes)
 
 
+# PY3:
+# We would *probably* be OK just using ints across the board, but let's keep
+# using long in PY2 just in case.
+try:
+    _long = long
+except NameError:
+    _long = int
+try:
+    _maxint = sys.maxint
+except AttributeError:
+    _maxint = None
+
+
 def numtype(value, cursor):
     """ psycopg2 type, DECIMAL/NUMBER -> float/int/long. """
     # The PsycoPG driver returns floats for all columns of type
@@ -121,14 +135,18 @@ def numtype(value, cursor):
         value = PG_TYPE_DECIMAL(value, cursor)
     else:
         value = PG_TYPE_NUMBER(value, cursor)
-    if value is not None:
-        if desc.scale > 0:
-            value = float(value)
-        else:
-            if value <= sys.maxint:
-                value = int(value)
-            else:
-                value = long(value)
+
+    if value is None:
+        pass
+    elif desc.scale and desc.scale > 0:
+        value = float(value)
+    elif _maxint and value <= _maxint:
+        # Only PY2; int if number can fit in int
+        value = int(value)
+    else:
+        # long in PY2, int in PY3
+        value = _long(value)
+
     return value
 
 

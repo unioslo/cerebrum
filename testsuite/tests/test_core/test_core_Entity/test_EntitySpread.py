@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """ Basic tests for Cerebrum.Entity.EntitySpread. """
 import pytest
@@ -140,7 +139,7 @@ def test_list_all_with_spread(entity_obj, entities):
 
 
 def test_list_entity_spreads(entity_obj, entities, entity_type):
-    expected = [(long(ent['entity_id']), long(int(spread)))
+    expected = [(int(ent['entity_id']), int(spread))
                 for ent in entities
                 for spread in ent['spreads']]
     entity_types = {ent['entity_type'] for ent in entities}

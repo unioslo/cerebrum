@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2011-2017 University of Oslo, Norway
+# Copyright 2011-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,7 +17,8 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""Module for communication and interaction with Active Directory.
+"""
+Module for communication and interaction with Active Directory.
 
 The module is working as a layer between the AD service and the AD
 synchronisations in Cerebrum. The main class, L{ADclient}, is an abstraction
@@ -36,22 +36,26 @@ talking with the domain controllers through Active Directory Web Service:
 
   Cerebrum -> Windows Member server (WinRM) -> AD domain controller (ADWS)
                  (powershell commands)
-
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
-from __future__ import unicode_literals
-
-import time
-import re
 import base64
-import functools
 import collections
+import functools
+import re
+import time
+
+import six
 
 import cereconf
-from Cerebrum.Utils import read_password
 from Cerebrum.Utils import Factory
 from Cerebrum.Utils import NotSet
-
+from Cerebrum.Utils import read_password
 from Cerebrum.modules.ad2.winrm import CommandTooLongException
 from Cerebrum.modules.ad2.winrm import PowershellClient
 from Cerebrum.modules.ad2.winrm import PowershellException, ExitCodeException
@@ -347,7 +351,9 @@ class ADclient(PowershellClient):
 
         # Filter, process and remove empty arguments
         for k in kwargs.copy():
-            if kwargs[k] or isinstance(kwargs[k], (bool, int, long, float)):
+            if (kwargs[k]
+                    or isinstance(kwargs[k], (bool, float))
+                    or isinstance(kwargs[k], six.integer_types)):
                 kwargs[k] = self.escape_to_string(kwargs[k])
             if not kwargs[k]:
                 self.logger.debug4("Omitting empty value for key %s", k)
@@ -841,8 +847,9 @@ class ADclient(PowershellClient):
         if attributes:
             attributes = dict((self.attribute_write_map.get(name, name), value)
                               for name, value in attributes.iteritems()
-                              if value or isinstance(value, (bool, int, long,
-                                                             float)))
+                              if value
+                              or isinstance(value, (bool, float))
+                              or isinstance(value, six.integer_types))
         if attributes:
             parameters['OtherAttributes'] = attributes
 
@@ -1027,13 +1034,13 @@ class ADclient(PowershellClient):
             # the length is exceeded because we have to update too many
             # elements in the attributes, not to clear them.
             self.logger.debug3("Command too long, splitting")
-            for k, v in attributes.iteritems():
+            for k, v in attributes.items():
                 # Elements of the list are approximately the same length
                 # 5000 is empirically chosen to have some length reserve
                 # TODO: 5000 is not always enough, we need to be more generic
                 # TODO: On clear or remove, `attrs' might be a set
-                splits = sum(len(elem) for elem in v) / 5000 + 1
-                elems_in_split = len(v) / splits + 1
+                splits = sum(len(elem) for elem in v) // 5000 + 1
+                elems_in_split = len(v) // splits + 1
                 newattrs = {}
                 for i in range(0, splits):
                     newattrs[k] = v[i * elems_in_split:(i+1) * elems_in_split]
@@ -1214,10 +1221,10 @@ class ADclient(PowershellClient):
 
         """
         # No dryrun here, since it's read-only
-        return self.execute('{} | ConvertTo-Json'
-                            .format(self._generate_ad_command('Get-ADGroupMember',
-                                                              {'Identity':
-                                                               groupid})))
+        return self.execute(
+            '{} | ConvertTo-Json'.format(
+                self._generate_ad_command('Get-ADGroupMember',
+                                          {'Identity': groupid})))
 
     def get_list_members(self, commandid):
         """Get the list of group members, as requested by L{start_list_members}.
@@ -1671,7 +1678,7 @@ class ADUtils(object):
         pass
 
     # TODO: This should go into a subclass, as not all uses exchange:
-    def update_Exchange(self, ad_obj):
+    def update_Exchange(self, ad_obj):  # noqa: N802
         """
         Telling the AD-service to start the Windows Power Shell command
         Update-Recipient on object in order to prep them for Exchange.
@@ -1724,7 +1731,8 @@ class ADUtils(object):
             ad_attr.sort()
 
         # Now we can compare the attrs
-        if isinstance(ad_attr, (str, unicode)) and isinstance(cb_attr, (str, unicode)):
+        if (isinstance(ad_attr, six.string_types)
+                and isinstance(cb_attr, six.string_types)):
             # Don't care about case
             if cb_attr.lower() != ad_attr.lower():
                 return cb_attr

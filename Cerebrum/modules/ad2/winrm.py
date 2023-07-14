@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2012-2018 University of Oslo, Norway
+# Copyright 2012-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,7 +17,8 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""Client functionality for making use of Windows Remote Management (WinRM).
+"""
+Client functionality for making use of Windows Remote Management (WinRM).
 
 WinRM is a protocol for communicating with Windows machines (servers) to get
 and set differents kinds of information. WinRM is Microsoft's version of WSMan,
@@ -35,7 +35,6 @@ For more information about the WinRM standard, see:
     http://msdn.microsoft.com/en-us/library/cc251526(v=prot.10).aspx
 
 """
-
 import base64
 import io
 import json
@@ -1968,7 +1967,7 @@ class PowershellClient(WinRMClient):
                 return u'$true'
             else:
                 return u'$false'
-        if isinstance(data, (int, long)):
+        if isinstance(data, six.integer_types):
             return data
         if isinstance(data, float):
             return u"'%f'" % data

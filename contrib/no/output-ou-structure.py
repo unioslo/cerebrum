@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2011, 2019 University of Oslo, Norway
+# Copyright 2011-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,8 +18,8 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-"""Output information about OU structure in a certain perspective.
+"""
+Output information about OU structure in a certain perspective.
 
 This script presents the OU structure in a human-friendly fashion. We look at
 either the OU structure from the specified data file OR from Cerebrum. The
@@ -44,14 +44,17 @@ sense of it.
 Multiple files may be supplied (even from multiple sources -- system_fs,
 system_lt, system_sap). However, only one perspective may be specified, and
 perspective-as-source and files-as-source are mutually exclusive.
-
 """
-
-from __future__ import unicode_literals
-
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import argparse
 from collections import deque
-from six import text_type
+
+import six
 
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.xmlutils.system2parser import system2parser
@@ -71,12 +74,12 @@ def build_ids(seq):
     """
 
     def stringify(obj):
-        if isinstance(obj, (int, long)):
+        if isinstance(obj, six.integer_types):
             if 0 <= obj < 100:
                 return "{:02d}".format(obj)
         elif isinstance(obj, (list, tuple, set)):
             return "".join(stringify(x) for x in obj)
-        return text_type(obj)
+        return six.text_type(obj)
 
     result = set()
     if not isinstance(seq, (set, list, tuple)):
@@ -275,7 +278,7 @@ def build_tree_from_files(sources):
 
     for (source_system, filename) in sources:
         source = co.human2constant(source_system, co.AuthoritativeSystem)
-        parser = (system2parser(text_type(source)) or
+        parser = (system2parser(six.text_type(source)) or
                   system2parser(source_system))
         if not parser:
             raise RuntimeError("Cannot determine source system: {!s}"
@@ -301,7 +304,7 @@ def build_tree_from_db(ou_perspective):
     if not perspective:
         print("No match for perspective «{}». Available options: {}".format(
             ou_perspective,
-            ", ".join(text_type(x) for x in
+            ", ".join(six.text_type(x) for x in
                       co.fetch_constants(co.OUPerspective))))
         return set()
 
@@ -316,7 +319,7 @@ def build_tree_from_db(ou_perspective):
         ou.find(row["ou_id"])
         sko = sko2str(ou.fakultet, ou.institutt, ou.avdeling)
         ids = set((("id", ou.entity_id), ("sko", sko)))
-        ids.update((text_type(co.EntityExternalId(x["id_type"])),
+        ids.update((six.text_type(co.EntityExternalId(x["id_type"])),
                     x["external_id"])
                    for x in ou.get_external_id())
         try:

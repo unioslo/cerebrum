@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2016 University of Oslo, Norway
+# Copyright 2016-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,15 +17,22 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" E-mail address API """
+"""
+E-mail address API.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
-from __future__ import unicode_literals
-
+import six
 from flask_restx import Namespace, Resource, abort
-from Cerebrum.rest.api import db, auth, fields, utils
 
 from Cerebrum import Errors
 from Cerebrum.modules import Email
+from Cerebrum.rest.api import db, auth, fields, utils
 
 api = Namespace('emailaddresses', description='Email address operations')
 
@@ -40,7 +46,7 @@ def find_email_address(address):
     """
     ea = Email.EmailAddress(db.connection)
     lookup = ea.find_by_address
-    if isinstance(address, (int, long)):
+    if isinstance(address, six.integer_types):
         lookup = ea.find
     try:
         lookup(address)
@@ -82,8 +88,11 @@ def get_email_address(ea):
 
 def list_email_addresses(ea):
     ea, et = find_email_target_by_address(ea)
-    return map(lambda (lp, dom, _a_id): format_email_address('{}@{}'.format(lp, dom), et),
-               et.get_addresses())
+    return [
+        format_email_address('{}@{}'.format(row['local_part'], row['domain']),
+                             et)
+        for row in et.get_addresses()
+    ]
 
 
 EmailAddress = api.model('EmailAddress', {

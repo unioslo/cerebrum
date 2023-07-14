@@ -45,7 +45,7 @@ from __future__ import (
 import datetime
 import re
 
-from six import text_type
+import six
 
 import cereconf
 
@@ -155,7 +155,7 @@ class BofhdEmailBase(BofhdCommandBase):
         """ Get EmailServer object by identifier (name or id). """
         es = Email.EmailServer(self.db)
         try:
-            if isinstance(ident, (int, long)):
+            if isinstance(ident, six.integer_types):
                 es.find(ident)
             else:
                 es.find_by_name(ident)
@@ -375,7 +375,7 @@ class BofhdEmailBase(BofhdCommandBase):
 
         """
         tmp = target
-        if isinstance(target, (int, long, float, Email.EmailTarget)):
+        if isinstance(target, six.integer_types + (float, Email.EmailTarget)):
             epat = Email.EmailPrimaryAddressTarget(self.db)
             if isinstance(target, Email.EmailTarget):
                 epat.find(target.entity_id)
@@ -521,7 +521,7 @@ class BofhdEmailBase(BofhdCommandBase):
         TODO: This method should be moved to Cerebrum.modules.Email and used
               everywhere for setting defaults.
         """
-        target_type = text_type(
+        target_type = six.text_type(
             self.const.EmailTarget(email_target.email_target_type))
         settings = cereconf.EMAIL_DEFAULT_SPAM_SETTINGS
         if target_type not in settings:
@@ -543,7 +543,7 @@ class BofhdEmailBase(BofhdCommandBase):
         TODO: This method should be moved to Cerebrum.modules.Email and used
               everywhere for setting defaults.
         """
-        target_type = text_type(
+        target_type = six.text_type(
             self.const.EmailTarget(email_target.email_target_type))
         settings = cereconf.EMAIL_DEFAULT_FILTERS
         if target_type not in settings:
