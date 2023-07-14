@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright 2002-2014 University of Oslo, Norway
+#
+# Copyright 2002-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -16,33 +17,34 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" Bofh client/server exceptions.
+"""
+Bofh client/server exceptions.
 
-The errors defined in this class, are errors that the bofhd server can
+The errors defined in this class are errors that the bofhd server can
 communicate to the client.
 
 All client implementations should be aware of these exception types.
-
 """
 
 
-class CerebrumError(StandardError):
-
-    """ Signal a user-error. """
-
+class CerebrumError(Exception):
+    """
+    Signal a user error.
+    """
     pass
 
 
 class PermissionDenied(CerebrumError):
-
-    """ The operation was not permitted. """
-
+    """
+    The operation was not permitted.
+    """
     pass
 
 
 class UnknownError(CerebrumError):
-
-    """ An unknown error has occured. """
+    """
+    An unknown error has occured.
+    """
 
     def __init__(self, type, value, msg=None):
         """ Wrap a non-L{CerebrumError} in a L{CerebrumError} exception.
@@ -69,22 +71,18 @@ class UnknownError(CerebrumError):
 
 
 class ServerRestartedError(CerebrumError):
-
-    """ Notify the client that the server has restarted.
+    """
+    Notify the client that the server has restarted.
 
     When receiving this error, clients should flush any cached data.
-
     """
-
     pass
 
 
 class SessionExpiredError(CerebrumError):
-
-    """ Indicate that the C{session_id} is expired.
+    """
+    Indicate that the C{session_id} is expired.
 
     This happens when the received C{session_id} is unknown.
-
     """
-
     pass
