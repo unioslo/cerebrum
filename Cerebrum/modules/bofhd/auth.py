@@ -17,7 +17,8 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""Module for access control in Cerebrum.
+"""
+Module for access control in Cerebrum.
 
 This module was mainly written for use with `bofhd`, given its name, but its
 functionality is *independent* of `bofhd`. You could use this module for every
@@ -222,9 +223,10 @@ from Cerebrum import Errors
 from Cerebrum import Person
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.Errors import NotFoundError
-from Cerebrum.group.GroupRoles import GroupRoles
-from Cerebrum.Utils import Factory, mark_update
+from Cerebrum.Utils import Factory
 from Cerebrum.Utils import argument_to_sql
+from Cerebrum.group.GroupRoles import GroupRoles
+from Cerebrum.meta import MarkUpdateMixin
 from Cerebrum.modules.bofhd.errors import PermissionDenied
 
 
@@ -246,7 +248,7 @@ class AuthConstants(Constants._CerebrumCode):
     _lookup_table = '[:table schema=cerebrum name=auth_op_code]'
 
 
-class BofhdAuthOpSet(DatabaseAccessor):
+class BofhdAuthOpSet(MarkUpdateMixin, DatabaseAccessor):
     """Operation Set (OpSet) management.
 
     Operations could be put into different groups (sets) of operations. These
@@ -263,7 +265,6 @@ class BofhdAuthOpSet(DatabaseAccessor):
     setting constraints for an operation, is put in `auth_op_attrs`.
     """
 
-    __metaclass__ = mark_update
     __read_attr__ = ('__in_db', 'const')
     __write_attr__ = ('op_set_id', 'name')
     dontclear = ('const',)
@@ -435,13 +436,12 @@ class BofhdAuthOpSet(DatabaseAccessor):
             {'op_id': op_id})
 
 
-class BofhdAuthOpTarget(DatabaseAccessor):
+class BofhdAuthOpTarget(MarkUpdateMixin, DatabaseAccessor):
     """Management of the `auth_op_target` table.
 
     This identifies *operation targets*, which operations may be performed on.
     """
 
-    __metaclass__ = mark_update
     __read_attr__ = ('__in_db', 'const')
     __write_attr__ = ('entity_id', 'target_type', 'attr', 'op_target_id')
     dontclear = ('const',)

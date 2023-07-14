@@ -1,18 +1,17 @@
 # -*- coding: utf-8 -*-
 
+from Cerebrum import Group
 from Cerebrum import Utils
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.Entity import Entity, EntityName, EntitySpread
 from Cerebrum.modules.dns.DnsConstants import _DnsZoneCode
-from Cerebrum import Group
+from Cerebrum.meta import MarkUpdateMixin
 
 
-class MXSet(DatabaseAccessor):
+class MXSet(MarkUpdateMixin, DatabaseAccessor):
     """``DnsOwner.MXSet(DatabaseAccessor)`` handles the dns_mx_set and
     dns_mx_set_members tables.  It uses the standard Cerebrum populate
     logic for handling updates."""
-
-    __metaclass__ = Utils.mark_update
 
     __read_attr__ = ('__in_db',)
     __write_attr__ = ('name', 'mx_set_id')

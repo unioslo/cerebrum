@@ -31,7 +31,8 @@ from collections import defaultdict
 from Cerebrum import Errors
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.QuarantineHandler import QuarantineHandler
-from Cerebrum.Utils import Factory, mark_update
+from Cerebrum.Utils import Factory
+from Cerebrum.meta import MarkUpdateMixin
 from Cerebrum.modules import Email
 from Cerebrum.modules import EmailConstants
 from Cerebrum.modules.bofhd_requests.request import BofhdRequests
@@ -49,11 +50,9 @@ def _is_near_future(_when):
     return when < near_future
 
 
-class EmailLDAP(DatabaseAccessor):
+class EmailLDAP(MarkUpdateMixin, DatabaseAccessor):
     """The EmailLDAP class is used to gather methodes used to generate
     an ldif for mail-backends."""
-
-    __metaclass__ = mark_update
 
     __write_attr__ = ('aid2addr', 'targ2addr', 'targ2prim', 'targ2spam',
                       'targ2quota', 'serv_id2server', 'targ2server_id',

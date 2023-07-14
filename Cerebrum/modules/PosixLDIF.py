@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2004-2019 University of Oslo, Norway
+# Copyright 2004-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -23,30 +23,31 @@ from __future__ import unicode_literals
 import logging
 import operator
 from collections import defaultdict
+
 from six import text_type
 
 import cereconf
-from Cerebrum.export.auth import AuthExporter
-from Cerebrum.modules import LDIFutils
-from Cerebrum.QuarantineHandler import QuarantineHandler
-from Cerebrum.Utils import Factory, auto_super, make_timer
-from Cerebrum.utils import transliterate
 from Cerebrum import Errors
+from Cerebrum.QuarantineHandler import QuarantineHandler
+from Cerebrum.Utils import Factory, make_timer
+from Cerebrum.export.auth import AuthExporter
+from Cerebrum.meta import AutoSuperMixin
+from Cerebrum.modules import LDIFutils
 from Cerebrum.modules.posix.UserExporter import HomedirResolver
 from Cerebrum.modules.posix.UserExporter import OwnerResolver
 from Cerebrum.modules.posix.UserExporter import UserExporter
 from Cerebrum.modules.posix.UserExporter import make_clock_time
+from Cerebrum.utils import transliterate
 
 
 logger = logging.getLogger(__name__)
 clock_time = make_clock_time(logger)
 
 
-class PosixLDIF(object):
+class PosixLDIF(AutoSuperMixin):
     """ Generates posix-user, -filegroups and -netgroups.
     Does not support hosts in netgroups.
     """
-    __metaclass__ = auto_super
 
     def __init__(self, db, logger, u_sprd=None, g_sprd=None, n_sprd=None,
                  fd=None):
@@ -316,10 +317,9 @@ class PosixLDIF(object):
             group_id = row['group_id']
             if group_id not in self.group2gid:
                 self.logger.warn(
-                    "Group id:{} has one of {} but no GID, skipping".format(
-                        group_id,
-                        getattr(cereconf,
-                                'LDAP_FILEGROUP').get('spread'), []))
+                    "Group id:%s has one of %s but no GID, skipping",
+                    group_id,
+                    getattr(cereconf, 'LDAP_FILEGROUP').get('spread'), [])
                 continue
             self.create_group_object(group_id, row['name'],
                                      row['description'])
