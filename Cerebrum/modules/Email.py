@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003-2020 University of Oslo, Norway
+# Copyright 2003-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,7 +17,8 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""Module for making Cerebrum into a local email address database.
+"""
+Module for making Cerebrum into a local email address database.
 
 This module contains various classes that enables Cerebrum to act as a
 source of email address/email delivery data, as is needed by any email
@@ -66,26 +67,31 @@ EMAIL_DEFAULT_DOMAINS <array>:
 """
 from __future__ import unicode_literals
 
+import datetime
 import re
 import string
 import time
-import datetime
 
 import six
 
-from Cerebrum import Utils
-from Cerebrum.Utils import prepare_string, argument_to_sql
-from Cerebrum.utils import transliterate
-from Cerebrum.Entity import Entity
-from Cerebrum.Disk import Host
-from Cerebrum import Person
+import cereconf
 from Cerebrum import Account
 from Cerebrum import Errors
-from EmailConstants import (_EmailTargetCode, _EmailSpamActionCode,
-                            _EmailSpamLevelCode, _EmailVirusFoundCode,
-                            _EmailVirusRemovedCode)
+from Cerebrum import Person
+from Cerebrum import Utils
+from Cerebrum.Disk import Host
+from Cerebrum.Entity import Entity
+from Cerebrum.Utils import prepare_string, argument_to_sql
+from Cerebrum.utils import transliterate
 from Cerebrum.utils.email import legacy_validate_lp, legacy_validate_domain
-import cereconf
+
+from .EmailConstants import (
+    _EmailTargetCode,
+    _EmailSpamActionCode,
+    _EmailSpamLevelCode,
+    _EmailVirusFoundCode,
+    _EmailVirusRemovedCode,
+)
 
 __version__ = "1.6"
 
