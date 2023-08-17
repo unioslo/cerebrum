@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
-
-# Copyright 2004-2018 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+#
+# Copyright 2004-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,34 +18,27 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""
+Populate Cerebrum with SAP OU ids.
 
-
-"""Populate Cerebrum with SAP OU ids.
-
-This file contains code to import SSØ SAP OU ids from FS (the authoritative
-system for OU structure). Typically SSØ SAP use their own OU ids in all data
+This file contains code to import SAP OU ids from FS (the authoritative
+system for OU structure). Typically SAP use their own OU ids in all data
 files, and since FS is authoritative, we need to remap the
 ids. fs.sted.stedkode_konv exists precisely for this purpose.
 
 This file scans an XML file generated from FS and populates entity_external_id
 for the corresponding OUs.
 """
-
-import cereconf
-
-from Cerebrum.Utils import Factory
-from Cerebrum import database
-from Cerebrum import Errors
-from Cerebrum.modules.xmlutils.system2parser import system2parser
-
 import getopt
 import sys
 
+import cereconf
+from Cerebrum import Errors
+from Cerebrum.Utils import Factory
+from Cerebrum.modules.xmlutils.system2parser import system2parser
 
 
-
-
-def process_OUs(db, parser):
+def process_ous(db, parser):
     ou = Factory.get("OU")(db)
     const = Factory.get("Constants")(db)
 
@@ -60,7 +53,7 @@ def process_OUs(db, parser):
             erroneous += 1
             continue
         faknr, instituttnr, gruppenr = sko
-        
+
         try:
             ou.clear()
             ou.find_stedkode(faknr, instituttnr, gruppenr,
@@ -121,8 +114,6 @@ def process_OUs(db, parser):
 
     logger.debug("Total: %d OUs (%s successful, %s missing, %s erroneous)",
                  total+1, success, no_translation, erroneous)
-# end process_OUs
-
 
 
 def main():
@@ -147,13 +138,9 @@ def main():
 
     db = Factory.get("Database")()
     db.cl_init(change_program="import_SAP")
-    
+
     parser = system2parser(source_system)
-    process_OUs(db, parser(filename, logger))
-# end main
-
-
-
+    process_ous(db, parser(filename, logger))
 
 
 if __name__ == "__main__":
