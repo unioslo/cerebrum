@@ -25,7 +25,7 @@ category:metainfo;
 name=changelog;
 
 category:metainfo;
-version=1.5;
+version=1.6;
 
 
 category:drop;
@@ -67,7 +67,7 @@ category:main;
 CREATE TABLE change_log
 (
   tstamp
-    TIMESTAMP
+    TIMESTAMP WITH TIME ZONE
     DEFAULT [:now]
     NOT NULL,
 
