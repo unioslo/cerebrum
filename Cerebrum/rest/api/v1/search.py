@@ -44,6 +44,11 @@ PersonResult = api.model(
     },
 )
 
+def stedkode_string_validator(value):
+    if not value.isdigit() or len(value) != 6:
+        raise ValueError
+    return value
+
 
 @api.route("/persons/affiliations", endpoint="search-persons-affiliations")
 class AffSearchResource(Resource):
@@ -64,10 +69,10 @@ class AffSearchResource(Resource):
     )
     search_filter.add_argument(
         "location",
-        type=validator.String(),
+        type=stedkode_string_validator,
         action="store",
         required=False,
-        help="Filter by location using stedkode, e.g 373022",
+        help="Filter by location using six-digit stedkode, e.g 373022",
     )
 
     @auth.require()
