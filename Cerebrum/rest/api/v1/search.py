@@ -21,15 +21,14 @@
 """ Generic search API. """
 
 from __future__ import unicode_literals
-from collections import defaultdict
 
 from flask_restx import Namespace, Resource, abort
 from flask_restx import fields as base_fields
-from flask_restx._http import HTTPStatus
 
+from Cerebrum.Constants import ConstantsBase
 from Cerebrum.Entity import EntityExternalId
-from Cerebrum import Errors
 from Cerebrum.Utils import Factory
+from Cerebrum import Errors
 
 from Cerebrum.rest.api import db, auth, validator
 from Cerebrum.rest.api import fields as crb_fields
@@ -37,51 +36,73 @@ from Cerebrum.rest.api.v1 import models
 
 api = Namespace('search', description='Search operations')
 
+PersonResult = api.model(
+    "PersonResult",
+    {
+        "id": base_fields.Integer(),
+        "href": crb_fields.href(endpoint=".person"),
+    },
+)
 
-PersonIdList = api.model('PersonIdList', {
-    'persons': base_fields.List(base_fields.Integer()),
-})
 
-@api.route('/persons/affiliations', endpoint='search-persons-affiliations')
-class AffiliationIdResource(Resource):
+@api.route("/persons/affiliations", endpoint="search-persons-affiliations")
+class AffSearchResource(Resource):
     """
     Resource for affiliation ID searches
 
     TODO: Deprecate this endpoint when the /persons/ endpoint has been
     implemented and has filtering on affiliation
     """
+
     search_filter = api.parser()
     search_filter.add_argument(
-        'affiliations',
+        "affiliation",
         type=validator.String(),
-        action='append',
-        required=True,
-        help="Filter by one or more affiliations, e.g ANSATT"
+        action="store",
+        required=False,
+        help="Filter by affiliation or status, e.g ANSATT or ANSATT/tekadm",
+    )
+    search_filter.add_argument(
+        "location",
+        type=validator.String(),
+        action="store",
+        required=False,
+        help="Filter by location using stedkode, e.g 373022",
     )
 
     @auth.require()
     @api.doc(expect=[search_filter])
-    @api.marshal_with(PersonIdList)
+    @api.marshal_with(PersonResult, as_list=True, envelope="persons")
     def get(self):
         args = self.search_filter.parse_args()
         search_filters = {
             key: value for (key, value) in args.items() if value is not None
         }
         filters = {}
-        errors = defaultdict(list)
-        pe = Factory.get('Person')(db.connection)
-        if 'affiliations' in search_filters:
-            co = Factory.get('Constants')(db.connection)
-            filters['aff_list'] = []
-            for aff in args["affiliations"]:
-                try:
-                    aff_int = int(co.PersonAffiliation(aff))
-                    filters['aff_list'].append(aff_int)
-                except Errors.NotFoundError:
-                    errors['aff_list'].append(aff)
-        if errors:
-            abort(HTTPStatus.BAD_REQUEST, "Invalid affiliations: {affs}".format(affs=errors['aff_list']))
-        return {'persons': [i["person_id"] for i in pe.list_affiliated_persons(**filters)]}
+        pe = Factory.get("Person")(db.connection)
+        if search_filters.get("affiliation"):
+            cb = ConstantsBase()
+            try:
+                aff, status = cb.get_affiliation(search_filters["affiliation"])
+                filters["affiliation"] = aff
+                if status:
+                    filters["status"] = status
+            except Errors.NotFoundError:
+                abort(
+                    400,
+                    "Invalid affiliation: {aff}".format(aff=search_filters["affiliation"]),
+                )
+        if search_filters.get("location"):
+            ou = Factory.get("OU")(db.connection)
+            try:
+                ou.find_sko(search_filters["location"])
+                filters["ou_id"] = ou.entity_id
+            except Errors.NotFoundError:
+                abort(
+                    400,
+                    "Invalid stedkode {sko}".format(sko=search_filters["location"])
+                )
+        return [{"id": i["person_id"]} for i in pe.list_affiliations(**filters)]
 
 
 ExternalIdItem = api.model('ExternalIdItem', {
