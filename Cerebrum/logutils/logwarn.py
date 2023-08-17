@@ -1,15 +1,19 @@
 # encoding: utf-8
-""" Capture Python warnings using a logger.
+"""
+Capture Python warnings using a logger.
 
 This module contains utilities to change the `warnings` module behaviour, so
 that warnings are logged rather than written to stderr.
 
 It also contains some utilities to change the `warnings` filters at runtime
 (e.g. from configuration).
-
 """
-from __future__ import absolute_import, unicode_literals
-
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import logging
 import sys
 import threading
@@ -45,7 +49,7 @@ class WarningsLogger(object):
         """
         logger.log(
             self.level,
-            self.formatwarning(message, category, filename, lineno))
+            self.formatwarning(message, category, filename, lineno, line=line))
 
     def __repr__(self):
         return '<{0}({1}) at 0x{2:x}>'.format(
@@ -68,7 +72,7 @@ class WarningsLogger(object):
         else:
             self._loglevel = logging.getLevelName(level)
 
-    def formatwarning(self, message, category, filename, lineno):
+    def formatwarning(self, message, category, filename, lineno, line=None):
         """ Format warning log message.
 
         This is our implementation of warnings.formatwarning -- and makes it
@@ -78,7 +82,7 @@ class WarningsLogger(object):
         messages.
         """
         return warnings.formatwarning(
-            message, category, filename, lineno, '').strip()
+            message, category, filename, lineno, line).strip()
 
 
 def set_showwarning(func=None):
