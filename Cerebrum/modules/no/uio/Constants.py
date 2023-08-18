@@ -404,6 +404,14 @@ class Constants(Constants.Constants):
         'azure_group',
         Constants.Constants.entity_group,
         "Group included in Azure's AD-OU")
+    spread_dovre_account = Constants._SpreadCode(
+        'dovre_account',
+        Constants.Constants.entity_account,
+        "Account included in Dovre's AD")
+    spread_dovre_group = Constants._SpreadCode(
+        'dovre_group',
+        Constants.Constants.entity_group,
+        "Group included in Dovre's AD")
 
     # Spreads for Exchange
     spread_exchange_account = Constants._SpreadCode(
