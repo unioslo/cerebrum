@@ -40,6 +40,8 @@ from Cerebrum.modules.bofhd.cmd_param import (
     FormatSuggestion,
     GroupName,
     Id,
+    SimpleString,
+    get_format_suggestion_table,
 )
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.help import merge_help_strings
@@ -116,6 +118,20 @@ class BofhdGroupRoleAuth(BofhdAuth):
             raise PermissionDenied(
                 "Not allowed to remove moderator from group")
 
+    def can_list_group_roles(self, operator, admin=None, query_run_any=False):
+        """
+        List moderated groups for a given admin/moderator.
+        """
+        # Same permissions as 'group_info' - i.e. everybody gets access
+        return True
+
+    def can_list_group_owners(self, operator, group=None, query_run_any=False):
+        """
+        List admins/moderators for a given group.
+        """
+        # Same permissions as 'group_info' - i.e. everybody gets access
+        return True
+
 
 # TODO: Consider moving/renaming these commands to:
 #
@@ -130,6 +146,8 @@ CMD_HELP = {
         'group_remove_admin': "remove admin from group",
         'group_add_moderator': "add moderator to group",
         'group_remove_moderator': "remove moderator from group",
+        'group_list_roles': "list group roles given to an admin/moderator",
+        'group_list_owners': "list admins/moderators of a given group",
     },
 }
 
@@ -155,6 +173,20 @@ CMD_ARGS = {
         textwrap.dedent(
             """
             Enter a group to administrate and/or moderate.
+            """
+        ).lstrip(),
+    ],
+    'group-role-type': [
+        "group-role-type",
+        "Group role",
+        textwrap.dedent(
+            """
+            Select a group role.
+
+            Valid group roles are 'admin' and 'moderator'.
+
+            Some commands use this value for filtering - in which case 'any'
+            can be used to include both roles.
             """
         ).lstrip(),
     ],
@@ -356,6 +388,140 @@ class BofhdGroupRoleCommands(BofhdCommandBase):
         roles.remove_moderator_from_group(int(mod.entity_id),
                                           int(group.entity_id))
         return self._format_response(group, mod, key="moderator")
+
+    #
+    # group list_roles <admin/moderator> [role-type]
+    #
+    all_commands['group_list_roles'] = Command(
+        ("group", "list_roles"),
+        Id(help_ref="group-role-admin"),
+        SimpleString(help_ref="group-role-type", default="any", optional=True),
+        fs=get_format_suggestion_table(
+            ("role", "Owner Role", 10, "s", True),
+            ("group_id", "Group Id", 9, "d", False),
+            ("group_name", "Group Name", 20, "s", True),
+            limit_key="limit",
+        ),
+        perm_filter="can_list_group_roles",
+    )
+
+    # Any given admin/moderator will probably not have *too* many direct
+    # ownerships.  Let's limit the number of results.
+    group_list_roles_limit = 100
+
+    def group_list_roles(self, operator, lookup, role="any"):
+        mod = self._get_role_member(lookup)
+        self.ba.can_list_group_roles(operator.get_entity_id(), mod)
+        if role not in ("admin", "moderator", "any"):
+            raise CerebrumError("Invalid role type: " + repr(role))
+
+        # Owner is the same value for each entry - let's make this a bit more
+        # efficient by only looking it up once...
+        owner_name = self._get_entity_name(
+            mod.entity_id, self.const.EntityType(mod.entity_type))
+
+        results = []
+        for owner in self._search_ownership(owner_id=mod.entity_id,
+                                            role=role,
+                                            include_owner_name=False):
+            if len(results) >= self.group_list_roles_limit:
+                # We've found group_list_roles_limit + 1 results; add sentinel
+                # to communicate that there *are* more results and stop
+                results.append({'limit': self.group_list_roles_limit})
+                break
+            owner['owner_name'] = owner_name
+            results.append(owner)
+
+        if not results:
+            raise CerebrumError(
+                "Entity %s (type=%s, id=%s) has no group roles"
+                % (owner_name,
+                   six.text_type(self.const.EntityType(mod.entity_type)),
+                   mod.entity_id))
+        results.sort(key=lambda r: (r['role'], r['group_name']))
+        return results
+
+    #
+    # group list_owners <admin/moderator> [role-type]
+    #
+    all_commands['group_list_owners'] = Command(
+        ("group", "list_owners"),
+        Id(help_ref="group-role-group"),
+        SimpleString(help_ref="group-role-type", default="any", optional=True),
+        fs=get_format_suggestion_table(
+            ("role", "Owner Role", 10, "s", True),
+            ("owner_type", "Owner Type", 10, "s", True),
+            ("owner_id", "Owner Id", 9, "d", False),
+            ("owner_name", "Owner Name", 20, "s", True),
+            limit_key="limit",
+        ),
+        perm_filter="can_list_group_owners",
+    )
+
+    # Any given group will have far fewer admins/moderators.
+    group_list_owners_limit = 100
+
+    def group_list_owners(self, operator, target, role="any"):
+        group = self._get_group(target)
+        self.ba.can_list_group_owners(operator.get_entity_id(), group)
+        if role not in ("admin", "moderator", "any"):
+            raise CerebrumError("Invalid role type: " + repr(role))
+
+        results = []
+        for owner in self._search_ownership(group_id=group.entity_id,
+                                            role=role,
+                                            include_owner_name=True):
+            if len(results) >= self.group_list_owners_limit:
+                # We have group_list_owners_limit + 1 results; add sentinel and
+                # stop
+                results.append({'limit': self.group_list_owners_limit})
+                break
+            results.append(owner)
+
+        if not results:
+            raise CerebrumError("Group %s (%s) has no admins/moderators"
+                                % (group.group_name, group.entity_id))
+
+        results.sort(key=lambda r: (r['role'], r['owner_id']))
+        return results
+
+    def _search_ownership(self, group_id=None, owner_id=None,
+                          role="any", include_owner_name=False):
+        """
+        List owners (admin and/or moderator) of group(s).
+
+        :param group_id: Filter by owned/moderated group
+        :param owner_id: Filter by owner/moderator
+        :param role: admin, moderator, or any
+        """
+        roles = GroupRoles(self.db)
+
+        def _prep_row(row, role):
+            owner_id = row[role + '_id']
+            owner_type = self.const.EntityType(row[role + '_type'])
+            owner = {
+                'owner_id': owner_id,
+                'owner_type': six.text_type(owner_type),
+                'role': role,
+                'group_id': row['group_id'],
+                'group_name': row['group_name'],
+            }
+            if include_owner_name:
+                owner['owner_name'] = self._get_entity_name(owner_id,
+                                                            owner_type)
+            return owner
+
+        if role in ("any", "admin"):
+            for row in roles.search_admins(admin_id=owner_id,
+                                           group_id=group_id,
+                                           include_group_name=True):
+                yield _prep_row(row, "admin")
+
+        if role in ("any", "moderator"):
+            for row in roles.search_moderators(moderator_id=owner_id,
+                                               group_id=group_id,
+                                               include_group_name=True):
+                yield _prep_row(row, "moderator")
 
     @classmethod
     def get_help_strings(cls):
