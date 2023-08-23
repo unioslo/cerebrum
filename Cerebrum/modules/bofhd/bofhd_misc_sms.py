@@ -301,14 +301,13 @@ class BofhdExtension(BofhdCommonMethods):
         AccountName(help_ref='account_name'),
         SMSString(help_ref='sms-message', repeat=False),
         fs=FormatSuggestion('Message sent to %s.', ('number',)),
-        perm_filter='is_superuser')
+        perm_filter='can_send_freetext_sms_message')
 
     def misc_sms_message(self, operator, account_name, message):
         """
         Sends SMS message(s)
         """
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise PermissionDenied('Only superusers may send messages by SMS')
+        self.ba.can_send_freetext_sms_message(operator.get_entity_id())
 
         mobile = self._select_sms_number(account_name)
 

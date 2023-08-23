@@ -1058,6 +1058,15 @@ class BofhdAuth(DatabaseAccessor):
                                            "from authoritative source systems")
         return True
 
+    def can_send_freetext_sms_message(self, operator, query_run_any=False):
+        if (self.is_superuser(operator) or
+            self._has_operation_perm_somewhere(
+                operator, self.const.auth_misc_sms_message)):
+            return True
+        if query_run_any:
+            return False
+        raise PermissionDenied("User does not have access")
+
     def can_alter_printerquota(self, operator, account=None,
                                query_run_any=False):
         if self.is_superuser(operator):
