@@ -28,7 +28,7 @@ from __future__ import unicode_literals
 
 import functools
 import logging
-import mx
+import datetime
 import re
 
 import six
@@ -46,6 +46,7 @@ from Cerebrum.Utils import (NotSet,
                             argument_to_sql,
                             prepare_string)
 from Cerebrum.utils.username import suggest_usernames
+from Cerebrum.utils.date_compat import get_date
 from Cerebrum.modules.password_generator.generator import PasswordGenerator
 
 logger = logging.getLogger(__name__)
@@ -621,7 +622,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         of expire_date < today. in addition a deactivated account should not
         have any group memberships or a password."""
         group = Utils.Factory.get("Group")(self._db)
-        self.expire_date = mx.DateTime.now()
+        self.expire_date = datetime.date.today()
         for s in self.get_spread():
             self.delete_spread(int(s['spread']))
         for row in group.search(member_id=self.entity_id):
@@ -1107,12 +1108,13 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
 
         (self.owner_type, self.owner_id,
          self.np_type, self.creator_id,
-         self.expire_date, self.description) = self.query_1("""
+         expire_date, self.description) = self.query_1("""
         SELECT owner_type, owner_id, np_type,
                creator_id, expire_date, description
         FROM [:table schema=cerebrum name=account_info]
         WHERE account_id=:a_id""", {'a_id': account_id})
         self.account_name = self.get_name(self.const.account_namespace)
+        self.expire_date = get_date(expire_date)
         try:
             del self.__in_db
         except AttributeError:
@@ -1173,7 +1175,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         return False
 
     def is_expired(self):
-        now = mx.DateTime.now()
+        now = datetime.date.today()
         if self.expire_date is None or self.expire_date >= now:
             return False
         return True
@@ -1413,13 +1415,13 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         current time. If specified then filter on expire_date>=expire_start.
         If expire_start is None, don't apply a start_date filter.
         @type expire_start: Date. Either a string on format 'YYYY-mm-dd' or a
-        mx.DateTime object
+        datetime object
 
         @param expire_stop: Filter on expire_date. If None, don't apply a
         stop filter on expire_date. If other than None, filter on
         expire_date<expire_stop.
         @type expire_stop: Date. Either a string on format 'YYYY-mm-dd' or a
-        mx.DateTime object
+        datetime object
 
         @param exclude_account_id: Filter out account(s) with given account_id.
         @type exclude_account_id: Integer, list, tuple, set

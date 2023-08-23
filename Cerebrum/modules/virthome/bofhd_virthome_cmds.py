@@ -1742,7 +1742,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
           Desired VirtAccount name. It is not certain that this name is
           available.
 
-        :type expire_date: mx.DateTime.DateTimeType
+        :type expire_date: datetime.date
         :param expire_date:
           Expiration date for the VirtAccount we are about to create.
 
@@ -1833,7 +1833,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
             Desired VirtAccount name.  It is not certain that this
             name is available.
 
-        :type expire_date: mx.DateTime.DateTimeType instance
+        :type expire_date: datetime.date
         @param expire_date:
             Expiration date for the VirtAccount we are about to create.
 

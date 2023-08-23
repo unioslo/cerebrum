@@ -43,7 +43,7 @@ from Cerebrum.modules import PosixUser
 from Cerebrum.modules.no.uit.Account import UsernamePolicy
 from Cerebrum.modules.no.uit import POSIX_GROUP_NAME
 from Cerebrum.utils.argutils import add_commit_args
-from Cerebrum.utils.date_compat import get_datetime_naive
+from Cerebrum.utils.date_compat import get_date
 
 logger = logging.getLogger(__name__)
 
@@ -243,7 +243,8 @@ def get_existing_accounts(db):
             pid2fnr[p_id] = row['external_id']
             person_cache[row['external_id']] = ExistingPerson(person_id=p_id)
         if p_id in deceased:
-            person_cache[row['external_id']].set_deceased_date(deceased[p_id])
+            person_cache[row['external_id']].set_deceased_date(
+                get_date(deceased[p_id]))
         del p_id
 
     logger.info("Loading person affiliations...")
@@ -265,7 +266,7 @@ def get_existing_accounts(db):
         account_cache[a_id] = ExistingAccount(
             pid2fnr[int(row['owner_id'])],
             row['name'],
-            row['expire_date'])
+            get_date(row['expire_date']))
         del a_id
 
     # Posixusers
@@ -696,17 +697,17 @@ def get_expire_date():
     Take into consideration that we do not want an expiredate in the general
     holiday time in Norway.
     """
-    today = datetime.datetime.today()
-    ff_start = datetime.datetime(today.year, 6, 15)
-    ff_slutt = datetime.datetime(today.year, 8, 15)
+    today = datetime.date.today()
+    ff_start = datetime.date(today.year, 6, 15)
+    ff_slutt = datetime.date(today.year, 8, 15)
     nextmonth = today + datetime.timedelta(30)
 
     # ikke sett default expire til en dato i fellesferien
     if nextmonth > ff_start and nextmonth < ff_slutt:
         # fellesferien. Bruk 1 sept istedet.
-        return get_datetime_naive(datetime.datetime(today.year, 9, 1))
+        return datetime.date(today.year, 9, 1)
     else:
-        return get_datetime_naive(nextmonth)
+        return nextmonth
 
 
 def _handle_changes(db, account_id, changes):
