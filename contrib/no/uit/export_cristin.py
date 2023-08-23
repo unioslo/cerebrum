@@ -74,6 +74,7 @@ import Cerebrum.logutils.options
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.atomicfile import SimilarSizeWriter
+from Cerebrum.utils.date_compat import get_date
 from Cerebrum.extlib import xmlprinter
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.xmlutils.system2parser import system2parser
@@ -279,7 +280,7 @@ class SystemXRepresentation(object):
                 writer.endElement("gruppenr")
 
                 writer.startElement("datoFra")
-                create_date = aff[0]['create_date']
+                create_date = get_date(aff[0]['create_date'])
 
                 dato_fra = "%s-%s-%s" % (
                     create_date.year, create_date.month, create_date.day)
@@ -1131,7 +1132,7 @@ def output_guest_information_2(writer, db_person, const, stedkode):
                     writer.endElement("gruppenr")
 
                     writer.startElement("datoFra")
-                    create_date = single_aff['create_date']
+                    create_date = create_date(single_aff['create_date'])
                     dato_fra = "{0}-{1}-{2}".format(
                         create_date.year, create_date.month, create_date.day)
                     writer.data(dato_fra)
@@ -1380,8 +1381,8 @@ def cache_phd_students():
                         row["ou_id"])
             continue
 
-        value = {"start": row["create_date"],
-                 "end": row["deleted_date"],
+        value = {"start": get_date(row["create_date"]),
+                 "end": get_date(row["deleted_date"]),
                  "code": "DOKTORGRADSSTUDENT",
                  "place": (ou_db.fakultet, ou_db.institutt, ou_db.avdeling)}
         result.setdefault(key, []).append(value)
@@ -1399,7 +1400,6 @@ def output_people(writer, db, person_file):
     logger.info("extracting people from %s", person_file)
     phd_students = cache_phd_students()
     logger.info("cached PhD students (%d people)", len(phd_students))
-
     #
     # Sanity-checking
     #

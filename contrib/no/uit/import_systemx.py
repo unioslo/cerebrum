@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2004-2019 University of Oslo, Norway
+# Copyright 2004-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -21,7 +21,12 @@
 """
 Import guest user data from SYSTEM-X.
 """
-from __future__ import print_function, unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import argparse
 import collections
@@ -34,6 +39,7 @@ import Cerebrum.logutils.options
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
+from Cerebrum.utils.date_compat import get_date
 from Cerebrum.modules.entity_expire.entity_expire import EntityExpiredError
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.uit.access_SYSX import SYSX
@@ -72,7 +78,7 @@ def rem_old_aff(db, old_affs, stats):
         for aff in person.list_affiliations(int(ent_id),
                                             affiliation=int(affi),
                                             ou_id=int(ou)):
-            last_date = aff['last_date'].pydate()
+            last_date = get_date(aff['last_date'])
             end_grace_period = last_date + grace
             if today > end_grace_period:
                 logger.warning(
