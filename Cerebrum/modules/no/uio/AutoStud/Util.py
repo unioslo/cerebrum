@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright 2003 University of Oslo, Norway
+# Copyright 2003-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,12 +17,13 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-from __future__ import unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
-import xml.sax
-from time import localtime, strftime, time
-
-import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.Constants import _SpreadCode
@@ -33,6 +34,7 @@ class AutostudError(Exception):
 
 
 class LookupHelper(object):
+
     def __init__(self, db, logger, ou_perspective):
         self._db = db
         self._logger = logger
@@ -63,7 +65,7 @@ class LookupHelper(object):
             return None
 
     def get_group(self, name):
-        if self._group_cache.has_key(name):
+        if name in self._group_cache:
             return self._group_cache[name]
         group = Factory.get('Group')(self._db)
         group.clear()
@@ -76,7 +78,7 @@ class LookupHelper(object):
         return self._group_cache[name]
 
     def get_stedkode(self, name, institusjon):
-        if self._sko_cache.has_key(name):
+        if name in self._sko_cache:
             return self._sko_cache[name]
         try:
             ou = Factory.get('OU')(self._db)
@@ -107,8 +109,10 @@ class LookupHelper(object):
                 not (self._cached_affiliations[0] in (fnr, person_id))):
             person = Factory.get('Person')(self._db)
             if fnr is not None:
-                person.find_by_external_id(self.const.externalid_fodselsnr,
-                                           fnr, source_system=self.const.system_fs)
+                person.find_by_external_id(
+                    self.const.externalid_fodselsnr,
+                    fnr,
+                    source_system=self.const.system_fs)
             else:
                 person.find(person_id)
             ret = []

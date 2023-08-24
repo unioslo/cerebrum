@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright 2003-2019 University of Oslo, Norway
+# Copyright 2003-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -30,10 +30,22 @@ from Cerebrum.modules.no.uio.AutoStud import Select
 from Cerebrum.modules.no.uio.AutoStud import StudentInfo
 from Cerebrum.modules.no.uio.AutoStud.DiskTool import DiskTool
 
+# Including __all__ here to indicate that these imports are intentional
+# even if they aren't used directly.
+__all__ = [
+    "AutoStud",
+    "DiskTool",
+    "ProfileConfig",
+    "ProfileHandler",
+    "Select",
+    "StudentInfo",
+]
+
 pp = pprint.PrettyPrinter(indent=4)
 
 
 class AutoStud(object):
+
     def __init__(self, db, logger, cfg_file=None, debug=0,
                  studieprogs_file=None, emne_info_file=None,
                  ou_perspective=None):

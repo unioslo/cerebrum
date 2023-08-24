@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-
-# Copyright 2003 University of Oslo, Norway
+#
+# Copyright 2003-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,32 +17,38 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-from __future__ import unicode_literals
-
+"""
+Utils to look up profiles from ProfileConfig.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import pprint
 
 import cereconf
-from Cerebrum.modules.no.uio.AutoStud.Util import AutostudError
 from Cerebrum.modules.no.uio.AutoStud import DiskTool
+from Cerebrum.modules.no.uio.AutoStud.Util import AutostudError
 
 pp = pprint.PrettyPrinter(indent=4)
 
 
 class NoMatchingQuotaSettings(AutostudError):
-    ''' No matching quota settings found '''
+    """ No matching quota settings found """
 
 
 class NoMatchingProfiles(AutostudError):
-    ''' No matching profile in config '''
+    """ No matching profile in config """
 
 
 class NoAvailableDisk(AutostudError):
-    ''' No available disk found '''
+    """ No available disk found """
 
 
 class NoDefaultGroup(AutostudError):
-    ''' No default group '''
+    """ No default group """
 
 
 class Profile(object):
@@ -66,11 +72,11 @@ class Profile(object):
                                       person_affs=person_affs)
 
     def get_disk_spreads(self):
-        tmp = {}
+        disk_spreads = set()
         for disk in self.matcher.get_match("disk"):
             for spread in disk.spreads:
-                tmp[int(spread)] = 1
-        return tmp.keys()
+                disk_spreads.add(int(spread))
+        return sorted(disk_spreads)
 
     # remove any disks where its matching profile is the child of
     # another profile that has a matching disk
@@ -154,14 +160,13 @@ class Profile(object):
             # Then call check_elimination for all the other disks, and
             # remove those that may be omitted.  Everytime we remove
             # something, we restart the outer loop
-            
             while i2 >= 0:
                 if i1 != i2:
                     self._logger.debug2("i1 = %i, i2 = %i" % (i1, i2))
                     candidate = potential_disks[i2]
                     if self._check_elimination(candidate[1], original[1]):
                         did_del = True
-                        del(potential_disks[i2])
+                        del potential_disks[i2]
                 i2 -= 1
             i1 -= 1
             if did_del:
@@ -227,13 +232,17 @@ class Profile(object):
         disk_spread = int(disk_spread)
 
         new_disk = self._solve_disk_match(disk_spread)
-        if do_check_move_ok and current_disk and not self._check_move_ok(
-            current_disk, new_disk, disk_spread):
-            self._logger.debug2("_check_move_ok not ok %s" % repr((current_disk, new_disk)))
+        if (do_check_move_ok
+                and current_disk
+                and not self._check_move_ok(current_disk, new_disk,
+                                            disk_spread)):
+            self._logger.debug2("_check_move_ok not ok %s"
+                                % repr((current_disk, new_disk)))
             return current_disk
         ret = new_disk.get_cerebrum_disk(check_ok_to=True)
         if ret is None:
-            raise NoAvailableDisk("No disks with free space matches %s" % new_disk)
+            raise NoAvailableDisk("No disks with free space matches %s"
+                                  % new_disk)
         return ret.disk_id
 
     def get_disk_kvote(self, disk_id):
@@ -252,7 +261,7 @@ class Profile(object):
             raise AutostudError("No defined disk_kvote")
         if disk_def.disk_kvote:
             return disk_def.disk_kvote
-        if self.pc.default_values.has_key('disk_kvote_value'):
+        if 'disk_kvote_value' in self.pc.default_values:
             return int(self.pc.default_values['disk_kvote_value'])
         raise AutostudError("No defined disk_kvote")
 
@@ -260,7 +269,6 @@ class Profile(object):
         for b in self.matcher.get_match("brev"):
             return b
         return None  # TBD: Raise error?
-        
 
     def get_build(self):
         home = False
@@ -302,7 +310,8 @@ class ProfileMatcher(object):
                  person_affs=None):
         self.pc = pc
         self.logger = logger
-        self._matches, self._matched_settings = pc.select_tool.get_person_match(
+        (self._matches,
+         self._matched_settings) = pc.select_tool.get_person_match(
             student_info, member_groups=member_groups, person_affs=person_affs)
         if not self._matched_settings:
             raise NoMatchingProfiles("No matching profiles")
@@ -315,7 +324,7 @@ class ProfileMatcher(object):
 
     def debug_dump(self):
         ret = "Dumping {} match entries\n{}\nSettings: {}".format(
-            len(self._matches), self._matches,
+            len(self._matches),
             pp.pformat(self._matches),
             pp.pformat(self._matched_settings)
         )
