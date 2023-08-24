@@ -86,9 +86,8 @@ class AffSearchResource(Resource):
         filters = {}
         pe = Factory.get("Person")(db.connection)
         if search_filters.get("affiliation"):
-            cb = ConstantsBase()
             try:
-                aff, status = cb.get_affiliation(search_filters["affiliation"])
+                aff, status = db.const.get_affiliation(search_filters["affiliation"])
                 filters["affiliation"] = aff
                 if status:
                     filters["status"] = status
@@ -105,7 +104,7 @@ class AffSearchResource(Resource):
             except Errors.NotFoundError:
                 abort(
                     400,
-                    "Invalid stedkode {sko}".format(sko=search_filters["location"])
+                    "Invalid location {sko}".format(sko=search_filters["location"])
                 )
         return [{"id": i["person_id"]} for i in pe.list_affiliations(**filters)]
 
