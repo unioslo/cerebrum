@@ -25,7 +25,6 @@ from __future__ import unicode_literals
 from flask_restx import Namespace, Resource, abort
 from flask_restx import fields as base_fields
 
-from Cerebrum.Constants import ConstantsBase
 from Cerebrum.Entity import EntityExternalId
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
