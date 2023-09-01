@@ -48,6 +48,7 @@ from Cerebrum.Utils import (NotSet,
 from Cerebrum.utils.username import suggest_usernames
 from Cerebrum.utils.date_compat import get_date
 from Cerebrum.modules.password_generator.generator import PasswordGenerator
+from Cerebrum.utils import date_compat
 
 logger = logging.getLogger(__name__)
 
@@ -1176,7 +1177,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
 
     def is_expired(self):
         now = datetime.date.today()
-        if self.expire_date is None or self.expire_date >= now:
+        if self.expire_date is None or date_compat.get_date(self.expire_date) >= now:
             return False
         return True
 
