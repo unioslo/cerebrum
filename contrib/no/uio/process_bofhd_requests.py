@@ -278,7 +278,7 @@ def proc_delete_user(db, r):
                        operator, mail_server):
         return False
 
-    account.expire_date = datetime.datetime.today()
+    account.expire_date = datetime.date.today()
     account.write_db()
     try:
         home = account.get_home(spread)
