@@ -352,7 +352,7 @@ class BofhdExtension(BofhdCommonMethods):
             sources.append(
                 text_type(co.AuthoritativeSystem(row['source_system']))
             )
-            last_seen.append(row['last_date'].date)
+            last_seen.append(row['last_date'])
 
         for ss in cereconf.SYSTEM_LOOKUP_ORDER:
             ss = getattr(co, ss)
@@ -523,7 +523,7 @@ class BofhdExtension(BofhdCommonMethods):
                 data.append({
                     'prim_acc': account.account_name,
                     'prim_acc_status':
-                    'Expired %s' % account.expire_date.date,
+                    'Expired %s' % account.expire_date,
                 })
             else:
                 data.append({
