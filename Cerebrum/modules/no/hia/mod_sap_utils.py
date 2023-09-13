@@ -37,6 +37,8 @@ from __future__ import (
     # TODO: unicode_literals,
 )
 
+import six
+
 import re
 import sys
 from datetime import datetime
@@ -238,9 +240,9 @@ class _MetaTupleBase(type):
         return kls
 
 
-class _SAPTupleBase(object):
-
-    """A tuple/dict-like class for abstracting away SAP-data.
+class _SAPTupleBase(six.with_metaclass(_MetaTupleBase), object):
+    """
+    A tuple/dict-like class for abstracting away SAP-data.
 
     This class presents and abstraction layer to deal with SAP-data. The main
     goal is to abstract away the storage details for SAP files. Ideally, we
@@ -277,11 +279,6 @@ class _SAPTupleBase(object):
     Should the transformation fail, the slot will be set to None and a
     suitable warning issued.
     """
-
-    #
-    # Make sure everyone's _field_count/_field_rules are processed properly on
-    # loading.
-    __metaclass__ = _MetaTupleBase
 
     def __init__(self, tpl, logger=None):
         if len(tpl) != self._field_count:
