@@ -17,6 +17,7 @@ Tests for Cerebrum.database
   (test_sql_lexer or somesuch)
 """
 import pytest
+import six
 
 import Cerebrum.database
 from Cerebrum.Utils import Factory
@@ -239,7 +240,7 @@ def table_baz_zy(db):
 
 
 def test_unions_with_numeric(db, table_foo_xy, table_baz_zy):
-    """ Database.execute(), SQL UNION on numericals returns int/long. """
+    """ Database.execute(), SQL UNION on numericals returns integer. """
 
     table_foo_xy.insert(db, x=1, y=2)
     table_baz_zy.insert(db, z=3, y='bar')
@@ -249,7 +250,7 @@ def test_unions_with_numeric(db, table_foo_xy, table_baz_zy):
 
     assert len(resultset) == 2
     for row in resultset:
-        assert isinstance(row['n'], (int, long))
+        assert isinstance(row['n'], six.integer_types)
 
 
 def test_all_critical_db_attributes(db):

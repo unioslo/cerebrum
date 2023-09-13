@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2016-2018 University of Oslo, Norway
+# Copyright 2016-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,16 +18,20 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ OrgUnit API. """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
-from __future__ import unicode_literals
-
+import six
 from flask_restx import Namespace, Resource, abort
 
+from Cerebrum import Errors
+from Cerebrum.Utils import Factory
 from Cerebrum.rest.api import db, auth, fields
 from Cerebrum.rest.api.v1 import models
-
-from Cerebrum.Utils import Factory
-from Cerebrum import Errors
 
 api = Namespace('ous', description='Organizational unit operations')
 
@@ -43,7 +46,7 @@ def find_ou(ou_id):
 
 
 def format_ou(ou):
-    if isinstance(ou, (int, long)):
+    if isinstance(ou, six.integer_types):
         ou = find_ou(ou)
 
     data = {

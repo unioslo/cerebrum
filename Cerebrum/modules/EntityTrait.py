@@ -226,17 +226,17 @@ class EntityTrait(Entity):
         equivalent to specifying None.
 
         @type code:
-          1) NotSet OR 2) int/long/EntityTrait instance or a sequence thereof.
+          1) NotSet OR 2) int/EntityTrait instance or a sequence thereof.
         @param code:
           Filter the result by specific trait(s).
 
         @type target_id:
-          1) NotSet OR 2) int/long or a sequence thereof.
+          1) NotSet OR 2) int or a sequence thereof.
         @param target_id:
           Filter the result by specific target_id(s) associated with the trait.
 
         @type entity_id
-          1) NotSet OR 2) int/long or a sequence thereof.
+          1) NotSet OR 2) int or a sequence thereof.
         @param entity_id
           Filter the result by specific entity_id(s) associated with the trait.
 
@@ -246,7 +246,7 @@ class EntityTrait(Entity):
           Filter the result by a specific date.
 
         @type numval:
-          1) NotSet OR 2) int/long or a sequence thereof.
+          1) NotSet OR 2) int or a sequence thereof.
         @param numval:
           Filter the result by specific numval(s) associated with the trait.
 

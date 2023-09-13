@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2002-2018 University of Oslo, Norway
+# Copyright 2002-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -370,7 +370,7 @@ class _CerebrumCode(DatabaseAccessor):
         key = None
         if isinstance(language, lang_kls):
             key = language.str
-        elif isinstance(language, (long, int)):
+        elif isinstance(language, six.integer_types):
             key = lang_kls(language).str
         elif isinstance(language, six.string_types):
             # Make sure that a string refers to a valid language code
@@ -1376,7 +1376,7 @@ class ConstantsBase(DatabaseAccessor):
           Suitable constant object, or None, if no object is found.
         """
         obj = None
-        if isinstance(human_repr, (int, long)):
+        if isinstance(human_repr, six.integer_types):
             obj = self.map_const(human_repr)
         elif isinstance(human_repr, six.string_types):
             if isinstance(human_repr, bytes):

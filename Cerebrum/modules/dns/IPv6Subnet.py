@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2009-2021 University of Oslo, Norway
+# Copyright 2009-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -22,6 +22,8 @@ This module contains all functionality relating to information about
 IPv6 subnets in Cerebrum.
 """
 import math
+
+import six
 
 import cereconf
 from Cerebrum.Errors import NotFoundError
@@ -383,7 +385,7 @@ class IPv6Subnet(Entity):
         if identifier is None:
             raise SubnetError("Unable to find IPv6 subnet identified"
                               " by '%s'" % identifier)
-        if isinstance(identifier, (int, long)):
+        if isinstance(identifier, six.integer_types):
             # The proper way of running find()
             where_param = "entity_id = :e_id"
             binds['e_id'] = identifier

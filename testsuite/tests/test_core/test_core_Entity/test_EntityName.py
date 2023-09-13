@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """ Basic tests for Cerebrum.Entity.EntityName. """
 import pytest
@@ -152,12 +151,12 @@ def test_list_names(database, Entity, domain_foo, domain_bar, entity_type):
     assert all(name in dict(results[0])
                for name in ['entity_id', 'value_domain', 'entity_name'])
     assert (
-        long(first.entity_id),
-        long(int(domain_foo)),
+        int(first.entity_id),
+        int(domain_foo),
         'first foo',
     ) == tuple(results[0])
     assert (
-        long(second.entity_id),
-        long(int(domain_foo)),
+        int(second.entity_id),
+        int(domain_foo),
         'second foo',
     ) == tuple(results[1])

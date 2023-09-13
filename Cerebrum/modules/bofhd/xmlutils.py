@@ -44,6 +44,8 @@ from Cerebrum.utils.textnorm import UnicodeNormalizer
 
 normalize = UnicodeNormalizer('NFC')
 
+_numerical = six.integer_types + (float,)
+
 
 class AttributeDict(dict):
     """Adds attribute access to keys, ie. a['knott'] == a.knott"""
@@ -87,7 +89,7 @@ def native_to_xmlrpc(obj):
         obj_type = type(obj)
         return obj_type([(native_to_xmlrpc(x), native_to_xmlrpc(obj[x]))
                          for x in obj])
-    elif isinstance(obj, (int, long, float)):
+    elif isinstance(obj, _numerical):
         return obj
     elif isinstance(obj, decimal.Decimal):
         return float(obj)
@@ -124,7 +126,7 @@ def xmlrpc_to_native(obj):
     elif isinstance(obj, dict):
         return AttributeDict([(xmlrpc_to_native(x), xmlrpc_to_native(obj[x]))
                               for x in obj])
-    elif isinstance(obj, (int, long, float)):
+    elif isinstance(obj, _numerical):
         return obj
     elif isinstance(obj, xmlrpclib.DateTime):
         # This doesn't really happen - all clients send date or datetime as

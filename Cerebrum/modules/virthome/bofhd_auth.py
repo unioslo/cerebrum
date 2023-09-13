@@ -30,6 +30,8 @@ from __future__ import (
     # TODO: unicode_literals,
 )
 
+import six
+
 import cereconf
 
 from Cerebrum import Errors
@@ -121,7 +123,7 @@ class BofhdVirtHomeAuth(auth.BofhdAuth):
         group = Factory.get("Group")(self._db)
         try:
             if ((isinstance(ident, str) and ident.isdigit())
-                    or isinstance(ident, (int, long))):
+                    or isinstance(ident, six.integer_types)):
                 group.find(int(ident))
             else:
                 group.find_by_name(ident)

@@ -17,7 +17,8 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" Common bofh daemon functionality used across all institutions.
+"""
+Common bofh daemon functionality used across all institutions.
 
 This module contains class, functions, etc. that are common and useful in all
 bofhd instances at all installations. This file should only include such
@@ -30,15 +31,15 @@ import cereconf
 
 from Cerebrum import Entity
 from Cerebrum import Errors
-from Cerebrum.group.GroupRoles import GroupRoles
 from Cerebrum.Constants import _CerebrumCode, _GroupTypeCode
 from Cerebrum.Utils import Factory
+from Cerebrum.group.GroupRoles import GroupRoles
 from Cerebrum.modules import Email
 from Cerebrum.modules.bofhd import cmd_param as cmd
 from Cerebrum.modules.bofhd import parsers
+from Cerebrum.modules.bofhd.auth import (BofhdAuthOpSet, BofhdAuthOpTarget)
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.utils import BofhdUtils
-from Cerebrum.modules.bofhd.auth import (BofhdAuthOpSet, BofhdAuthOpTarget)
 
 
 class BofhdCommandBase(object):
@@ -276,7 +277,7 @@ class BofhdCommandBase(object):
         if (human_repr is None or human_repr == ""):
             raise CerebrumError("Invalid id: <None>")
         # numbers (either as is, or as strings)
-        if isinstance(human_repr, (int, long)):
+        if isinstance(human_repr, six.integer_types):
             id_type, ident = "id", human_repr
         # strings (they could still be numeric IDs, though)
         elif isinstance(human_repr, basestring):
@@ -454,7 +455,7 @@ class BofhdCommandBase(object):
     def _get_host(self, name):
         host = Factory.get('Host')(self.db)
         try:
-            if isinstance(name, (int, long)):
+            if isinstance(name, six.integer_types):
                 host.find(name)
             else:
                 host.find_by_name(name)
@@ -589,13 +590,13 @@ class BofhdCommandBase(object):
             if idtype == "name":
                 group.find_by_name(group_id)
             elif idtype == "id":
-                if not (isinstance(group_id, (int, long)) or
+                if not (isinstance(group_id, six.integer_types) or
                         group_id.isdigit()):
                     raise CerebrumError(
                         "Non-numeric id lookup (%r)" % group_id)
                 group.find(group_id)
             elif idtype == "gid" and grtype == 'PosixGroup':
-                if not (isinstance(group_id, (int, long)) or
+                if not (isinstance(group_id, six.integer_types) or
                         group_id.isdigit()):
                     raise CerebrumError(
                         "Non-numeric gid lookup (%r)" % group_id)
