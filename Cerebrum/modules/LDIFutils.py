@@ -169,11 +169,11 @@ _attrval2iter = {
     set: sorted,  # sorting but minimizes changes in the output file
     frozenset: sorted,
     type(None): (lambda arg: ()),
+    str: (lambda *args: args),
+    # TODO: This is the same as str in PY3
+    #       Would we need to deal with bytes here?
+    six.text_type: (lambda *args: args),
 }
-_attrval2iter.update({
-    cls: (lambda *args: args)
-    for cls in six.string_types
-})
 
 
 def container_entry(tree_name, attrs=None, module=cereconf):
