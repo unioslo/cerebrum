@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2020-2022 University of Oslo, Norway
+# Copyright 2020-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -20,13 +20,44 @@
 """
 Client for communicating with the DFØ-SAP HTTP-APIs.
 
-History
--------
-This client is forked from the ``dfo_sap_client.client`` module @
-`https://bitbucket.usit.uio.no/scm/int/dfo-sap-client.git>`_.
-"""
-from __future__ import unicode_literals
 
+Example config
+--------------
+The basic config layout.  At least the ``url`` and the APIs that are to be used
+must be configured.
+
+.. code-block:: yaml
+
+    url: "http://localhost:8080/api"
+    employee_api:
+      path: "employees/"
+      auth: "plaintext:super-secret-key"
+    orgenhet_api:
+      path: "orgunits/"
+      auth: "plaintext:super-secret-key"
+    stilling_api:
+      path: "assignments/"
+      auth: "plaintext:super-secret-key"
+    headers:
+      "X-Foo": "Bar"
+      "User-Agent": "cerebrum"
+    use_sessions: true
+
+Example use
+-----------
+To use the client:
+::
+
+    client = get_client("client.yml")
+    employee = client.get_employee(employee_id)
+
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import logging
 
 import requests
@@ -39,56 +70,63 @@ from Cerebrum.config.configuration import (Configuration,
 from Cerebrum.config.secrets import Secret, get_secret_from_string
 from Cerebrum.config.settings import Boolean, Iterable, String
 from Cerebrum.utils import http as http_utils
+from Cerebrum.utils import reprutils
 
 logger = logging.getLogger(__name__)
 
 
-class SapEndpoints(object):
+class SapEndpoints(reprutils.ReprEvalMixin):
     """Get endpoints relative to the SAP API URL."""
 
-    default_employee_path = 'ansatte/'
-    default_orgenhet_path = 'orgenhet/'
-    default_stilling_path = 'stillinger/'
+    repr_id = False
+    repr_module = False
+    repr_args = ('baseurl',)
+    repr_kwargs = ('employee_path', 'orgunit_path', 'assignment_path')
+
+    default_employee_path = 'ansatte/v2'
+    default_orgunit_path = 'orgenhet/v2'
+    default_assignment_path = 'stillinger/v2'
 
     def __init__(self,
                  url,
                  employee_path=None,
-                 orgenhet_path=None,
-                 stilling_path=None):
+                 orgunit_path=None,
+                 assignment_path=None):
         self.baseurl = url
         self.employee_path = employee_path or self.default_employee_path
-        self.orgenhet_path = orgenhet_path or self.default_orgenhet_path
-        self.stilling_path = stilling_path or self.default_stilling_path
+        self.orgunit_path = orgunit_path or self.default_orgunit_path
+        self.assignment_path = assignment_path or self.default_assignment_path
 
-    def __repr__(self):
-        return (
-            '{cls.__name__}'
-            '({obj.baseurl!r},'
-            ' employee_path={obj.employee_path!r},'
-            ' orgenhet_path={obj.orgenhet_path!r},'
-            ' stilling_path={obj.stilling_path!r})'
-        ).format(cls=type(self), obj=self)
+    @property
+    def employees_url(self):
+        return http_utils.urljoin(self.baseurl, self.employee_path)
 
-    def get_employee(self, employee_id):
+    def get_employee_url(self, employee_id):
+        return http_utils.urljoin(
+            self.employees_url,
+            http_utils.safe_path(int(employee_id)))
+
+    def get_orgunit_url(self, org_id):
         return http_utils.urljoin(
             self.baseurl,
-            self.employee_path,
-            http_utils.safe_path(employee_id))
+            self.orgunit_path,
+            http_utils.safe_path(int(org_id)))
 
-    def get_orgenhet(self, org_id):
+    @property
+    def assignments_url(self):
+        return http_utils.urljoin(self.baseurl, self.assignment_path)
+
+    def get_assignment_url(self, stilling_id):
         return http_utils.urljoin(
-            self.baseurl,
-            self.orgenhet_path,
-            http_utils.safe_path(org_id))
-
-    def get_stilling(self, stilling_id):
-        return http_utils.urljoin(
-            self.baseurl,
-            self.stilling_path,
-            http_utils.safe_path(stilling_id))
+            self.assignments_url,
+            http_utils.safe_path(int(stilling_id)))
 
 
-class SapClient(object):
+class SapClient(reprutils.ReprFieldMixin):
+
+    repr_id = False
+    repr_module = False
+    repr_fields = ('urls',)
 
     default_headers = {
         'Accept': 'application/json',
@@ -117,14 +155,14 @@ class SapClient(object):
         self.urls = SapEndpoints(
             url=url,
             employee_path=employee_path,
-            orgenhet_path=orgenhet_path,
-            stilling_path=stilling_path,
+            orgunit_path=orgenhet_path,
+            assignment_path=stilling_path,
         )
         self.headers = http_utils.merge_headers(self.default_headers, headers)
         self.api_headers = {
             'employee': employee_headers,
-            'orgenhet': orgenhet_headers,
-            'stilling': stilling_headers,
+            'orgunit': orgenhet_headers,
+            'assignment': stilling_headers,
         }
         if use_sessions:
             self.session = requests.Session()
@@ -139,6 +177,13 @@ class SapClient(object):
         meaning in the API.
         """
         return "SAP" in response.headers.get('server', '')
+
+    def _prepare_headers(self, api, date=None):
+        api_headers = dict(self.api_headers[api])
+        extra_headers = {}
+        if date:
+            extra_headers['dato'] = date.isoformat()
+        return http_utils.merge_headers(api_headers, extra_headers)
 
     def call(self,
              method_name,
@@ -169,10 +214,9 @@ class SapClient(object):
     def put(self, url, **kwargs):
         return self.call('PUT', url, **kwargs)
 
-    # def get_employee(self, employee_id: str) -> [None, dict]:
-    def get_employee(self, employee_id):
-        url = self.urls.get_employee(employee_id)
-        headers = self.api_headers['employee']
+    def get_employee(self, employee_id, date=None):
+        url = self.urls.get_employee_url(employee_id)
+        headers = self._prepare_headers('employee', date=date)
         response = self.get(url, headers=headers)
         if not self._is_api_response(response):
             response.raise_for_status()
@@ -183,10 +227,20 @@ class SapClient(object):
             return data.get('ansatt', None)
         response.raise_for_status()
 
-    # def get_orgenhet(self, org_id: str) -> [None, dict]:
-    def get_orgenhet(self, org_id):
-        url = self.urls.get_orgenhet(org_id)
-        headers = self.api_headers['organisasjonId']
+    def list_employees(self, date=None):
+        url = self.urls.employees_url
+        headers = self._prepare_headers('employee', date=date)
+        response = self.get(url, headers=headers)
+        if not self._is_api_response(response):
+            response.raise_for_status()
+        response.raise_for_status()
+        data = response.json()
+        return data.get('ansatt') or []
+
+    # TODO rename to get_orgunit
+    def get_orgenhet(self, org_id, date=None):
+        url = self.urls.get_orgunit_url(org_id)
+        headers = self._prepare_headers('orgunit', date=date)
         response = self.get(url, headers=headers)
         if response.status_code == 404:
             return None
@@ -195,10 +249,10 @@ class SapClient(object):
             return data.get('organisasjon', None)
         response.raise_for_status()
 
-    # def get_stilling(self, stilling_id: str) -> [None, dict]:
-    def get_stilling(self, stilling_id):
-        url = self.urls.get_stilling(stilling_id)
-        headers = self.api_headers['stilling']
+    # TODO: rename to get_assignment
+    def get_stilling(self, stilling_id, date=None):
+        url = self.urls.get_assignment_url(stilling_id)
+        headers = self._prepare_headers('assignment', date=date)
         response = self.get(url, headers=headers)
         if response.status_code == 404:
             return None
@@ -206,6 +260,16 @@ class SapClient(object):
             data = response.json()
             return data.get('stilling', None)
         response.raise_for_status()
+
+    def list_assignments(self, date=None):
+        url = self.urls.assignments_url
+        headers = self._prepare_headers('assignment', date=date)
+        response = self.get(url, headers=headers)
+        if not self._is_api_response(response):
+            response.raise_for_status()
+        response.raise_for_status()
+        data = response.json()
+        return data.get('stilling') or []
 
 
 class DictEntry(Configuration):
