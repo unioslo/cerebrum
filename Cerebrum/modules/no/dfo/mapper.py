@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2020-2022 University of Oslo, Norway
+# Copyright 2020-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -51,12 +51,16 @@ These mappers are curerntly not configurable.  We might want to implement:
 
 The alternative is to subclass and build custom mappers for custom behavior.
 """
-from __future__ import unicode_literals
-
-import re
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import collections
 import datetime
 import logging
+import re
 
 from Cerebrum.modules.hr_import.mapper import AbstractMapper, HrPerson
 from Cerebrum.modules.no.dfo import title_maps

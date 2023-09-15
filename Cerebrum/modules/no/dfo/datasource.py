@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2020-2022 University of Oslo, Norway
+# Copyright 2020-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -33,8 +33,12 @@ py:class:`.EmployeeDatasource`
 py:class:`.AssignmentDatasource`
     Convert and normalize a single assignment from DFØ.
 """
-from __future__ import unicode_literals
-
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import datetime
 import json
 import logging
