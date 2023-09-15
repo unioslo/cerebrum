@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2020-2022 University of Oslo, Norway
+# Copyright 2020-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -33,8 +33,13 @@ py:class:`.EmployeeDatasource`
 py:class:`.AssignmentDatasource`
     Convert and normalize a single assignment from DFØ.
 """
-from __future__ import unicode_literals
-
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+import datetime
 import json
 import logging
 
@@ -49,6 +54,12 @@ from Cerebrum.utils import textnorm
 from Cerebrum.utils.date_compat import get_datetime_tz
 
 logger = logging.getLogger(__name__)
+
+
+IGNORE_ASSIGNMENT_IDS = set((
+    # placeholder for previous employees (invalid assignment):
+    99999999,
+))
 
 
 def normalize_id(dfo_id):
@@ -414,8 +425,8 @@ class EmployeeDatasource(AbstractDatasource):
         """ Extract reference from message body """
         return parse_message(event.body)['id']
 
-    def _get_employee(self, employee_id):
-        raw = self.client.get_employee(employee_id)
+    def _get_employee(self, employee_id, date=None):
+        raw = self.client.get_employee(employee_id, date=date)
         try:
             raw = _unpack_list_item(raw)
         except ValueError as e:
@@ -434,17 +445,37 @@ class EmployeeDatasource(AbstractDatasource):
             return {}
         return parse_assignment(raw)
 
-    def get_object(self, reference):
+    def get_object(self, reference, _today=None):
         """ Fetch data from sap (employee data, assignments, roles). """
         employee_id = reference
+        today = _today or datetime.date.today()
+        assignment_ids = set()
         employee = self._get_employee(employee_id)
+
+        # Try to find employee data and assignments at different dates
+        deltas = [datetime.timedelta(days=3)]
+        for delta in deltas:
+            date = today + delta
+            logger.debug("supplement with data from %s", date)
+            shifted = self._get_employee(employee_id, date=date)
+            if shifted:
+                if not employee:
+                    employee = shifted
+                # Assignments already includes data on previous/upcoming
+                # employees, so there's no need to include a date in these
+                # lookups
+                assignment_ids.update(get_assignment_ids(shifted))
+
         if not employee:
             return {'id': normalize_id(employee_id)}
 
-        assignment_ids = set(get_assignment_ids(employee))
+        assignment_ids.update(get_assignment_ids(employee))
 
-        # TODO: Temporary hack - exclude assignment 99999999
-        assignment_ids.discard(99999999)
+        # Exclude any assignment we're not interested in:
+        #   1. These assignments will never lead to an affiliation
+        #   2. Persons with just these assignments aren't considered employees
+        #   3. We don't want to spend time looking up these assignments
+        assignment_ids = assignment_ids - IGNORE_ASSIGNMENT_IDS
 
         assignments = employee['assignments'] = {}
         for assignment_id in assignment_ids:
