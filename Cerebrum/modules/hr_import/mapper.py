@@ -139,7 +139,7 @@ class AbstractMapper(object):
         # TODO: Add roles?
         retry_dates = set()
         for start, end in active_date_ranges:
-            if not in_date_range(start_cutoff, start=start):
+            if start and not in_date_range(start_cutoff, start=start):
                 # Start of affiliation is in the future
                 retry_date = start + self.start_offset
                 retry_dates.add(retry_date)
@@ -147,8 +147,8 @@ class AbstractMapper(object):
                             start, retry_date)
                 # No need to handle the the end date now.
                 continue
-            if (end not in self.end_dates_ignore and
-                    in_date_range(end_cutoff, end=end)):
+            if (end and end not in self.end_dates_ignore
+                    and in_date_range(end_cutoff, end=end)):
                 # We have to try again the day after the affiliations end date
                 # if we are actually going to remove it. Thus the + 1
                 retry_date = end + self.end_offset + datetime.timedelta(days=1)
