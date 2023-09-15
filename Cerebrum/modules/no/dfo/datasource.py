@@ -52,6 +52,12 @@ from Cerebrum.utils.date_compat import get_datetime_tz
 logger = logging.getLogger(__name__)
 
 
+IGNORE_ASSIGNMENT_IDS = set((
+    # placeholder for previous employees (invalid assignment):
+    99999999,
+))
+
+
 def normalize_id(dfo_id):
     """ Get a normalized employee object id. """
     return six.text_type(int(dfo_id))
@@ -461,8 +467,11 @@ class EmployeeDatasource(AbstractDatasource):
 
         assignment_ids.update(get_assignment_ids(employee))
 
-        # TODO: Temporary hack - exclude assignment 99999999
-        assignment_ids.discard(99999999)
+        # Exclude any assignment we're not interested in:
+        #   1. These assignments will never lead to an affiliation
+        #   2. Persons with just these assignments aren't considered employees
+        #   3. We don't want to spend time looking up these assignments
+        assignment_ids = assignment_ids - IGNORE_ASSIGNMENT_IDS
 
         assignments = employee['assignments'] = {}
         for assignment_id in assignment_ids:

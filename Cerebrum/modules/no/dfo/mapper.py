@@ -265,13 +265,6 @@ class DfoAffiliations(object):
     dataparser, as it needs *both* employee info, *and* additional info on each
     assignment present on the employee object.
     """
-
-    # A sequence of invalid assignment IDs.
-    #
-    # Any assignment with any of these IDs will simply be dropped, and not
-    # considered further.
-    IGNORE_ASSIGNMENT_IDS = (99999999,)
-
     # Employee group/subgroup to affiliation map.
     #
     # Employees are placed in groups (medarbeidergruppe, MG) and subgroups
@@ -341,10 +334,6 @@ class DfoAffiliations(object):
         assignment_ids = sorted(assignments, key=sort_by_main)
 
         for assignment_id in assignment_ids:
-            if assignment_id in self.IGNORE_ASSIGNMENT_IDS:
-                logger.info('skipping ignored assignment-id=%s', assignment_id)
-                continue
-
             assignment = assignments[assignment_id]
 
             # Affiliation from category - "regular emplyee affs"
