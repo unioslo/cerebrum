@@ -35,6 +35,7 @@ py:class:`.AssignmentDatasource`
 """
 from __future__ import unicode_literals
 
+import datetime
 import json
 import logging
 
@@ -414,8 +415,8 @@ class EmployeeDatasource(AbstractDatasource):
         """ Extract reference from message body """
         return parse_message(event.body)['id']
 
-    def _get_employee(self, employee_id):
-        raw = self.client.get_employee(employee_id)
+    def _get_employee(self, employee_id, date=None):
+        raw = self.client.get_employee(employee_id, date=date)
         try:
             raw = _unpack_list_item(raw)
         except ValueError as e:
@@ -434,14 +435,31 @@ class EmployeeDatasource(AbstractDatasource):
             return {}
         return parse_assignment(raw)
 
-    def get_object(self, reference):
+    def get_object(self, reference, _today=None):
         """ Fetch data from sap (employee data, assignments, roles). """
         employee_id = reference
+        today = _today or datetime.date.today()
+        assignment_ids = set()
         employee = self._get_employee(employee_id)
+
+        # Try to find employee data and assignments at different dates
+        deltas = [datetime.timedelta(days=3)]
+        for delta in deltas:
+            date = today + delta
+            logger.debug("supplement with data from %s", date)
+            shifted = self._get_employee(employee_id, date=date)
+            if shifted:
+                if not employee:
+                    employee = shifted
+                # Assignments already includes data on previous/upcoming
+                # employees, so there's no need to include a date in these
+                # lookups
+                assignment_ids.update(get_assignment_ids(shifted))
+
         if not employee:
             return {'id': normalize_id(employee_id)}
 
-        assignment_ids = set(get_assignment_ids(employee))
+        assignment_ids.update(get_assignment_ids(employee))
 
         # TODO: Temporary hack - exclude assignment 99999999
         assignment_ids.discard(99999999)
