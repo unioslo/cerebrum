@@ -397,3 +397,54 @@ def date_helper(colname, value=NotSet, gt=None, ge=None, lt=None, le=None,
     elif conds:
         return conds[0], binds
     return None, {}
+
+
+def int_helper(colname, value=NotSet, gt=None, ge=None, lt=None, le=None,
+               nullable=False):
+    """
+    Helper to prepare a numerical column query condition.
+
+    Helps to generate conditions for matching exact number values,
+    number ranges, or NULL.
+
+    >>> a, b, c = (15, 17, 19)
+    >>> int_helper("foo", (a, b), ge=c)
+    (
+        '((foo IN (:foo0, :foo1)) OR (foo >= :foo_range_start))',
+        {'foo0': 15, 'foo1': 17, 'foo_range_start': 19})
+
+    >>> int_helper("foo", None, gt=a, lt=b, nullable=True)
+    (
+        '(foo is NULL OR (foo > :foo_range_start AND foo < :foo_range_stop))',
+        {'foo_range_start': 15, 'foo_range_stop': 17})
+
+    :param str colname: column name (with prefix, e.g. "en.entity_name")
+    :param value: value check (sequence of ints, int, None, NotSet)
+    :param gt/ge: add range start condition (exclusive/inclusive)
+    :param lt/le: add range end condition (exclusive/inclusive)
+    :param bool nullable:
+        If True, a (column IS NULL) OR-condition is added when `value is None`.
+        This is usually what you want if the column allows NULL-values.
+    """
+    conds = []
+    binds = {}
+
+    if nullable and value is None:
+        conds.append("{} IS NULL".format(colname))
+
+    if value is not None and value is not NotSet:
+        conds.append(
+            argument_to_sql(value, colname, binds, int))
+
+    if any((lt, le, gt, ge)):
+        bind_prefix = colname.replace('.', '_') + '_range'
+        num_range = NumberRange(gt=gt, ge=ge, lt=lt, le=le)
+        r_cond, r_bind = num_range.get_sql_select(colname, bind_prefix)
+        conds.append(r_cond)
+        binds.update(r_bind)
+
+    if len(conds) > 1:
+        return '({})'.format(' OR '.join(conds)), binds
+    elif conds:
+        return conds[0], binds
+    return None, {}
