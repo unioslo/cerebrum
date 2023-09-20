@@ -33,7 +33,7 @@ import logging
 import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum.Utils import Factory
-from Cerebrum.utils.argutils import add_commit_args 
+from Cerebrum.utils.argutils import add_commit_args
 
 logger = logging.getLogger(__name__)
 
