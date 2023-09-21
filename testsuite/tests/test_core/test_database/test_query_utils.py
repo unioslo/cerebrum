@@ -2,6 +2,7 @@
 """
 Tests for Cerebrum.database.query_utils
 """
+import datetime
 
 import pytest
 
@@ -177,3 +178,128 @@ def test_sql_select_case_insensitive():
     cond, binds = r.get_sql_select('testcol', 'testval')
     assert cond == "(testcol ILIKE :testval)"
     assert binds == {'testval': 'Foo-%-Bar'}
+
+
+pattern_helper = Cerebrum.database.query_utils.pattern_helper
+
+
+def test_pattern_helper_blank():
+    # check that no args gives no conds
+    conds, binds = pattern_helper("foo")
+    assert conds is None
+    assert not binds
+
+
+def test_pattern_helper_nullable():
+    # check that the nullable argument works as expeceted
+    cond, binds = pattern_helper("foo", value=None, nullable=False)
+    assert cond is None
+    assert not binds
+
+    cond, binds = pattern_helper("foo", value=None, nullable=True)
+    assert cond == "foo IS NULL"
+    assert not binds
+
+
+def test_pattern_helper_values_and_patterns():
+    # check that normal use works as expected
+    cond, binds = pattern_helper("foo", value="Foo", icase_pattern="Foo-*-Baz")
+    assert cond == "((foo = :foo) OR (foo ILIKE :foo_i_pattern))"
+    assert binds == {
+        'foo': "Foo",
+        'foo_i_pattern': "Foo-%-Baz",
+    }
+
+
+def test_pattern_helper_null_and_patterns():
+    cond, binds = pattern_helper("foo",
+                                 value=None,
+                                 case_pattern="Foo-*-Bar",
+                                 nullable=True)
+    assert cond == ("(foo IS NULL OR (foo LIKE :foo_c_pattern))")
+    assert binds == {"foo_c_pattern": "Foo-%-Bar"}
+
+
+date_helper = Cerebrum.database.query_utils.date_helper
+
+
+def test_date_helper_blank():
+    # check that no args gives no conds
+    conds, binds = date_helper("foo")
+    assert conds is None
+    assert not binds
+
+
+def test_date_helper_nullable():
+    # check that the nullable argument works as expeceted
+    cond, binds = date_helper("foo", value=None, nullable=False)
+    assert cond is None
+    assert not binds
+
+    cond, binds = date_helper("foo", value=None, nullable=True)
+    assert cond == "foo IS NULL"
+    assert not binds
+
+
+def test_date_helper_range():
+    # check that ranges work as normal
+    a, b = datetime.date(2012, 1, 3), datetime.date(2012, 1, 6)
+    cond, binds = date_helper("foo", gt=a, lt=b)
+    assert cond == "(foo > :foo_range_start AND foo < :foo_range_stop)"
+    assert binds == {"foo_range_start": a, "foo_range_stop": b}
+
+
+def test_date_helper_values_and_range():
+    a, b, c = [datetime.date(2012, 1, d) for d in (1, 3, 5)]
+    cond, binds = date_helper("foo", value=(a, b), ge=c)
+    assert cond == ("((foo IN (:foo0, :foo1))"
+                    " OR (foo >= :foo_range_start))")
+    assert binds == {"foo0": a, "foo1": b, "foo_range_start": c}
+
+
+def test_date_helper_null_and_range():
+    d = datetime.date(2012, 1, 3)
+    cond, binds = date_helper("foo", value=None, ge=d, nullable=True)
+    assert cond == ("(foo IS NULL OR (foo >= :foo_range_start))")
+    assert binds == {"foo_range_start": d}
+
+
+int_helper = Cerebrum.database.query_utils.int_helper
+
+
+def test_int_helper_blank():
+    # check that no args gives no conds
+    conds, binds = int_helper("foo")
+    assert conds is None
+    assert not binds
+
+
+def test_int_helper_nullable():
+    # check that the nullable argument works as expeceted
+    cond, binds = int_helper("foo", value=None, nullable=False)
+    assert cond is None
+    assert not binds
+
+    cond, binds = int_helper("foo", value=None, nullable=True)
+    assert cond == "foo IS NULL"
+    assert not binds
+
+
+def test_int_helper_range():
+    # check that ranges work as normal
+    cond, binds = int_helper("foo", gt=3, lt=6)
+    assert cond == "(foo > :foo_range_start AND foo < :foo_range_stop)"
+    assert binds == {"foo_range_start": 3, "foo_range_stop": 6}
+
+
+def test_int_helper_values_and_range():
+    cond, binds = int_helper("foo", value=(1, 3, 5), ge=7)
+    assert cond == ("((foo IN (:foo0, :foo1, :foo2))"
+                    " OR (foo >= :foo_range_start))")
+    assert binds == {"foo0": 1, "foo1": 3, "foo2": 5, "foo_range_start": 7}
+
+
+def test_int_helper_null_and_range():
+    cond, binds = int_helper("foo", value=None, ge=7, nullable=True)
+    assert cond == ("(foo IS NULL OR (foo >= :foo_range_start))")
+    assert binds == {"foo_range_start": 7}
