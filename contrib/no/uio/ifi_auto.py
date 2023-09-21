@@ -24,9 +24,13 @@ Create e-mail addresses and filegroups for the courses at Dept. of
 Informatics.
 """
 
-from __future__ import unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
-import sys
 import argparse
 import re
 import datetime

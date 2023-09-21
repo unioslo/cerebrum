@@ -22,7 +22,12 @@
 Script for gathering data from FS and put it into XML files for further
 processing by other scripts.
 """
-from __future__ import print_function, unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import getopt
 import logging
@@ -226,7 +231,6 @@ class ImportFromFsUio(ImportFromFs):
         for d in drstudents:
             f.write(
                 xml.xmlify_dbrow(d, xml.conv_colnames(cols), 'drgrad') + "\n")
-
 
         # Studenter med opptak, privatister (=opptak i studiepgraommet
         # privatist) og Alumni

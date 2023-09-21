@@ -26,7 +26,12 @@ Roles are typically:
 
 Note: Near-identical with uit/generate_kurs_ldif.py
 """
-from __future__ import unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import argparse
 import logging
@@ -295,11 +300,11 @@ def gen_owner_id2urn(db, urn_dict):
     member_id2owner_id = {}
     for row in ac.list():
         member_id2owner_id[int(row['account_id'])] = int(row['owner_id'])
-    for i in urn_dict.itervalues():
+    for i in urn_dict.values():
         groups.extend(map(int, i.keys()))
     for row in group.search_members(group_id=groups):
         group_members[row['group_id']].append(row['member_id'])
-    for urn, members in urn_dict.iteritems():
+    for urn, members in urn_dict.items():
         for group_id, role in members.items():
             for member_id in group_members[int(group_id)]:
                 owner_id = member_id2owner_id.get(member_id)

@@ -1,10 +1,17 @@
 #!/usr/bin/env python
 # coding: utf-8
-u""" This script maintains ePhorte spreads and automatic roles for employees.
+""" This script maintains ePhorte spreads and automatic roles for employees.
 
 It can also send an email report if Cerebrum and ePhorte disagrees about which
 organizational units should be active.
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+
 import argparse
 import datetime
 import six

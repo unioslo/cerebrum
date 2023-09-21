@@ -18,6 +18,14 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """Script to enforce forwarding restrictions of emails"""
+
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+
 import argparse
 
 from collections import defaultdict
@@ -39,25 +47,25 @@ class FPECriteriaConfig(Configuration):
     """Configuration of the WebService connectivity."""
     affiliation = ConfigDescriptor(
         String,
-        default=u"affiliation_ansatt",
-        doc=u"Affiliation to aplly criteria by.")
+        default="affiliation_ansatt",
+        doc="Affiliation to aplly criteria by.")
 
     source_system = ConfigDescriptor(
         String,
         default='system_sap',
-        doc=u"The source system used for lookup of affiliations.")
+        doc="The source system used for lookup of affiliations.")
 
 
 class FPEEmailConfig(Configuration):
     sender = ConfigDescriptor(
         String,
-        doc=u"Sender address")
+        doc="Sender address")
     subject = ConfigDescriptor(
         String,
-        doc=u"Subject of email")
+        doc="Subject of email")
     body_template = ConfigDescriptor(
         String,
-        doc=u"Body template of email. '{}' will be filled with the addresses,"
+        doc="Body template of email. '{}' will be filled with the addresses,"
         " separated by newlines")
 
 
@@ -140,18 +148,18 @@ def main(args=None):
                         metavar='FILE',
                         default=None,
                         help='Use a custom configuration file')
-    parser.add_argument(u'--commit',
-                        dest=u'commit',
-                        action=u'store_true',
+    parser.add_argument('--commit',
+                        dest='commit',
+                        action='store_true',
                         default=False,
-                        help=u'Commit changes')
-    parser.add_argument(u'--send-notification',
-                        dest=u'send_notification',
-                        action=u'store_true',
+                        help='Commit changes')
+    parser.add_argument('--send-notification',
+                        dest='send_notification',
+                        action='store_true',
                         default=False,
-                        help=u'Send information about forward removal')
+                        help='Send information about forward removal')
     args = parser.parse_args(args)
-    prog_name = parser.prog.rsplit(u'.', 1)[0]
+    prog_name = parser.prog.rsplit('.', 1)[0]
     logger.info(args.send_notification)
 
     db = Factory.get('Database')()

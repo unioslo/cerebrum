@@ -417,7 +417,7 @@ def select_events_by_person(clh, config, change_types, selection_spread):
 
         events_by_person[event['subject_entity']].append(event)
 
-    for person_id, events in events_by_person.iteritems():
+    for person_id, events in events_by_person.items():
         yield (person_id, events)
 
 
@@ -594,10 +594,10 @@ def update_person_perms(person, client, remove_superfluous=False):
     # 999999 🤣
     for perm in sorted(cerebrum_perms, key=lambda x: x[1], reverse=True):
         if perm not in ephorte_perms:
-            logger.info(u"Adding new perm for %s: %s@%s, authorized=%s",
+            logger.info("Adding new perm for %s: %s@%s, authorized=%s",
                         userid, *perm)
         else:
-            logger.info(u"Ensuring perm for %s: %s@%s, authorized=%s",
+            logger.info("Ensuring perm for %s: %s@%s, authorized=%s",
                         userid, *perm)
 
         if perm[1] and not ephorte_has_ou(client, perm[1]):
@@ -609,7 +609,7 @@ def update_person_perms(person, client, remove_superfluous=False):
             client.ensure_access_code_authorization(userid, *perm)
         except Exception:
             logger.exception(
-                u"Could not ensure perm for %s: %s@%s, authorized=%s",
+                "Could not ensure perm for %s: %s@%s, authorized=%s",
                 userid, *perm)
 
     return True
