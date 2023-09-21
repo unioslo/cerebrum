@@ -33,17 +33,15 @@ should only have one such element.
 """
 from __future__ import print_function
 
-### TODO: need to change behaviour to support more than one fagmiljo per person.
+# TODO: Need to change behaviour to support
+#       more than one fagmiljo per person.
 # Comma separated?
 
 import sys
 import io
 import getopt
-import re
 from datetime import datetime
 
-import cereconf
-from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.hia.mod_sap_utils import make_utvalg_iterator
 
@@ -53,6 +51,7 @@ db = Factory.get("Database")()
 db.cl_init(change_program='import_SAP')
 co = Factory.get("Constants")(db)
 pe = Factory.get('Person')(db)
+
 
 def usage(exitcode=0):
     print(__doc__)
@@ -69,13 +68,17 @@ def usage(exitcode=0):
     """)
     sys.exit(exitcode)
 
+
 def populate_fagmiljo(person_id, fagmiljo):
     """Add a given fagmiljo string to the given person."""
     logger.debug("Populating fagmiljo for person_id=%s", person_id)
     pe.clear()
     pe.find(person_id)
-    pe.populate_trait(code=co.trait_fagmiljo, date=datetime.now(), strval=fagmiljo)
+    pe.populate_trait(code=co.trait_fagmiljo,
+                      date=datetime.now(),
+                      strval=fagmiljo)
     pe.write_db()
+
 
 def process_utvalg(filename, use_fok):
     """Scan file and perform all the necessary imports.
@@ -91,7 +94,7 @@ def process_utvalg(filename, use_fok):
                                            fetchall=False))
     # Fagmiljø already stored in Cerebrum:
     pe2fag_cb = dict((r['entity_id'], r['strval']) for r in
-                  pe.list_traits(co.trait_fagmiljo))
+                     pe.list_traits(co.trait_fagmiljo))
     # Caching all fagmiljø from SAP:
     sapid2fag_sap = dict()
 
@@ -112,7 +115,7 @@ def process_utvalg(filename, use_fok):
     logger.debug("Found %d valid employees with 'utvalg'", len(sapid2fag_sap))
 
     # Update Cerebrum
-    for sap_id, fag in sapid2fag_sap.iteritems():
+    for sap_id, fag in sapid2fag_sap.items():
         # Comma separate in case of more than one element from the file.
         # TODO: only unique elements? Remove those who are identical?
         fag = ','.join(fag)
@@ -128,20 +131,19 @@ def process_utvalg(filename, use_fok):
             populate_fagmiljo(e_id, fag)
 
     # Remove traits for persons that are no longer included in the file
-    for sap_id, e_id in sapid2pe.iteritems():
-        if not sap_id in sapid2fag_sap and e_id in pe2fag_cb:
+    for sap_id, e_id in sapid2pe.items():
+        if sap_id not in sapid2fag_sap and e_id in pe2fag_cb:
             logger.info('Removing old utvalg from person %s', e_id)
             pe.clear()
             pe.find(e_id)
             pe.delete_trait(code=co.trait_fagmiljo)
             pe.write_db()
 
+
 def main():
     try:
-        options, rest = getopt.getopt(sys.argv[1:],
-                                      "u:d",
-                                      ["utv-file=",
-                                       "dryrun",])
+        options, rest = getopt.getopt(sys.argv[1:], "u:d", ["utv-file=",
+                                                            "dryrun"])
     except getopt.GetoptError as e:
         print(e)
         usage(1)
@@ -172,6 +174,7 @@ def main():
     else:
         db.commit()
         logger.info("Committed all changes")
+
 
 if __name__ == "__main__":
     main()

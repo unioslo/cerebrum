@@ -56,7 +56,7 @@ def _parse_codes(db, codes):
     co = Factory.get('Constants')(db)
     if codes is None:
         return None
-    elif isinstance(codes, basestring):
+    elif isinstance(codes, six.string_types):
         return co.human2constant(codes)
     else:
         return [co.human2constant(x) for x in codes]
@@ -74,7 +74,7 @@ def _strip_n_parse_source_system(db, codes):
 
     if codes is None:
         return None
-    elif isinstance(codes, basestring):
+    elif isinstance(codes, six.string_types):
         return _fuck_it(codes)
     else:
         return [_fuck_it(x) for x in codes]
