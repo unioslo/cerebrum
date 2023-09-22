@@ -74,19 +74,20 @@ populate-automatic-groups.py -p SAP -o -f '^13' -f '^3315'
 
 FIXME: Profile this baby.
 """
-
-import collections
+import argparse
 import codecs
+import collections
 import re
 import sys
-import argparse
+
+import six
 
 import cereconf
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory, NotSet
-from Cerebrum.utils.funcwrap import memoize
 from Cerebrum.utils.argutils import add_commit_args, get_constant
+from Cerebrum.utils.funcwrap import memoize
 
 
 logger = Factory.get_logger("cronjob")
@@ -374,49 +375,31 @@ def group_name2group_id(group_name, description, current_groups, trait=NotSet):
     return current_groups[group_name].group_id
 
 
-def _load_selection_helper(iterable):
-    """Construct a data structure suitable for group membership selection.
-
-    :type iterable: an iterator over tuples (str, str)
-    :param iterable:
-      An iterator over (human representation of aff/status, group
-      prefix). human representation may be whatever
-      L{ConstantsBase.human2constant} accepts. group prefix is the prefix for
-      a group an aff/status holder is to be a member of.
-      L{cereconf.AUTOMATIC_GROUP_LEGAL_PREFIXES} lists the permissible values.
-
-    :rtype: dict (PersonAffiliation/PersonAffStatus -> str)
-    :return:
-      A dictionary mapping person affiliations/aff statuses to group prefixes
-      where an affiliation/status holder is to be a member.
+def load_select_criteria(const, criteria):
     """
-    result = dict()
-    co = Factory.get("Constants")()
-    for human_repr, prefix in iterable:
-        if prefix not in cereconf.AUTOMATIC_GROUP_LEGAL_PREFIXES:
-            logger.warn("Prefix '%s' is illegal for automatic groups. Ignored",
-                        prefix)
-            continue
+    Normalize and prepare aff-to-group criterias.
 
-        co_object = co.human2constant(human_repr, (co.PersonAffStatus,
-                                                   co.PersonAffiliation))
-        if co_object is None:
-            logger.warn("Failed to remap human representation <%s> to const",
-                        human_repr)
-        else:
-            result[co_object] = prefix
+    :type const: Cerebrum.Constants.ConstantsBase
+    :param criteria:
+        A list of (affiliaton-selector, group-prefix) values to prepare.
 
-    return result
+        - affiliation-selector should be a string, e.g. ANSATT or STUDENT/aktiv
+        - group-prefix should be one of the AUTOMATIC_GROUP_LEGAL_PREFIXES to
+          target
 
+    :rtype: dict
+    :returns:
+        A mapping of <aff or aff-status constant> -> <group prefix>
 
-def load_registration_criteria(criteria):
-    """Function generates a data structure for selecting group members.
+    This script is driven by affiliation-to-group mappings: a person with a
+    certain affiliation becomes a member of a certain group.  Specifically,
+    which affiliation/status results in which group membership is determined by
+    the --collect settings specified on the command line.
 
-    The script is driven by affiliations/statuses: a person with a certain
-    affiliation (or affiliation status) becomes a member of a certain
-    group. Specifically, which affiliation/status results in which group
-    membership is determined by the --collect settings specified on the
-    command line.
+    This function will, for each mapping:
+
+    1. Replace the affilation *key* with an actual affiliation constant
+    2. Validate the group prefix *value*
 
     The resulting data structure is a dict, mapping affiliation, or
     affiliation status to a group prefix for an automatically administered
@@ -424,17 +407,43 @@ def load_registration_criteria(criteria):
     'ansatt'-groups are special: they are ALSO members of the corresponding
     'meta-ansatt' groups.
     """
-    result = _load_selection_helper(criteria.items())
-    logger.debug("The following affs/statuses will result in memberships")
-    logger.debug("Result is %s", result)
-    for aff_or_status in result:
-        prefix = result[aff_or_status]
-        logger.debug("%s %s -> membership in '%s'",
-                     isinstance(aff_or_status, constants.PersonAffStatus)
-                     and "Status" or "Affiliation",
-                     str(aff_or_status),
-                     prefix)
-    return result
+    mapping = {}
+
+    for human_repr, prefix in criteria:
+        try:
+            aff, status = const.get_affiliation(human_repr)
+            co_object = status if status else aff
+        except Errors.NotFoundError:
+            co_object = None
+
+        # Legacy support - get const by attr
+        if co_object is None:
+            try:
+                co_object = getattr(const, human_repr)
+                int(co_object)
+            except (AttributeError, Errors.NotFoundError):
+                co_object = None
+
+        if co_object is None:
+            logger.warn("Skipping invalid affiliation: %s (prefix=%s)",
+                        repr(human_repr), repr(prefix))
+            continue
+
+        if co_object in mapping:
+            logger.warn("Skipping duplicate affiliation: %s (prefix=%s)",
+                        repr(human_repr), repr(prefix))
+            continue
+
+        if prefix not in cereconf.AUTOMATIC_GROUP_LEGAL_PREFIXES:
+            logger.warn("Skipping invalid prefix: %s (aff=%s)",
+                        repr(prefix), co_object)
+            continue
+
+        logger.info("Found mapping: %s -> membership in %s",
+                    co_object, repr(prefix))
+        mapping[co_object] = prefix
+
+    return mapping
 
 
 def get_meta_group_prefix(group_prefix):
@@ -1422,24 +1431,25 @@ def main():
 
     args = parser.parse_args()
 
-    args.perspective = get_constant(database,
-                                    parser,
-                                    constants.OUPerspective,
-                                    args.perspective)
+    perspective = get_constant(database, parser, constants.OUPerspective,
+                               args.perspective)
+    logger.info("Using orgunit perspective: %s", six.text_type(perspective))
 
-    source_systems = [get_constant(database,
-                                   parser,
-                                   constants.AuthoritativeSystem,
-                                   x) for x in args.source_system]
+    source_systems = [
+        get_constant(database, parser, constants.AuthoritativeSystem, x)
+        for x in args.source_system]
+    logger.info("Using source systems: %s", [six.text_type(s)
+                                             for s in source_systems])
 
-    select_criteria = dict()
+    raw_select_criteria = []
     for value in args.collect:
         aff_or_status, prefix = value.split(":")
-        select_criteria[aff_or_status] = prefix
+        raw_select_criteria.append((aff_or_status, prefix))
+    logger.info("Got %d collection criterias", len(raw_select_criteria))
 
     spreads = NotSet
     omit_spreads = set()
-    const = Factory.get("Constants")()
+    const = Factory.get("Constants")(database)
 
     # Fixes UTF-8 problems with the output-tree command
     sys.stdout = codecs.getwriter("utf-8")(sys.stdout)
@@ -1469,13 +1479,13 @@ def main():
         omit_spreads.add((prefix, spread))
 
     if args.output_groups:
-        output_group_forest(args.output_filters, args.perspective)
+        output_group_forest(args.output_filters, perspective)
         sys.exit(0)
     elif args.wipe_all:
         perform_delete()
     else:
-        select_criteria = load_registration_criteria(select_criteria)
-        perform_sync(select_criteria, args.perspective, source_systems,
+        select_criteria = load_select_criteria(const, raw_select_criteria)
+        perform_sync(select_criteria, perspective, source_systems,
                      spreads, omit_spreads, args.populate_with_primary_acc)
 
     if args.commit:
