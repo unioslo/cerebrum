@@ -1556,8 +1556,12 @@ class BofhdAuth(DatabaseAccessor):
                                                     ou.avdeling))
 
     def can_remove_affiliation(self, operator, person=None, ou=None,
-                               aff=None, query_run_any=False):
-        """If the opset has rem_affiliation access to the affiliation, and the
+                               affiliation=None, status=None,
+                               source_system=None, query_run_any=False):
+        """
+        Check if a given affiliation can be removed.
+
+        If the opset has rem_affiliation access to the affiliation, and the
         operator has rem_affiliation access to the affiliation's OU, allow
         removing the affiliation from the person. Not as strict on MANUELL.
         """
@@ -1571,12 +1575,17 @@ class BofhdAuth(DatabaseAccessor):
                 return True
             return False
 
-        for row in person.list_affiliations(person_id=person.entity_id,
-                                            ou_id=ou.entity_id,
-                                            affiliation=aff):
-            if self.is_authoritative_system(row['source_system']):
-                raise PermissionDenied("Not allowed to remove affiliations "
-                                       "from authoritative systems")
+        # all optional parameters are mandatory from here on...
+        affiliation = self.const.get_constant(self.const.PersonAffiliation,
+                                              affiliation)
+        status = self.const.get_constant(self.const.PersonAffStatus, status)
+        source_system = self.const.get_constant(self.const.AuthoritativeSystem,
+                                                source_system)
+
+        if self.is_authoritative_system(source_system):
+            raise PermissionDenied(
+                "Not allowed to remove affiliations from %s"
+                % (source_system,))
 
         if self.is_superuser(operator):
             return True
@@ -1585,19 +1594,23 @@ class BofhdAuth(DatabaseAccessor):
                                         self.const.auth_remove_affiliation,
                                         self.const.auth_target_type_ou,
                                         ou.entity_id, person.entity_id,
-                                        six.text_type(aff)):
+                                        six.text_type(affiliation)):
             return True
+        # TODO: We should probably also support aff-status in op-attrs.
+        # if status and self._has_target_perms(..., six.text_type(status)):
+        #     return True
+
         # 2015-09-11: Temporarily (?) allow all LITAs to remove manual
         #             affiliations from all persons to simplify cleaning up.
         #             CERT (bore) has given permission to do this. – tvl
-        if (aff == self.const.affiliation_manuell and
+        if (affiliation == self.const.affiliation_manuell and
             self._has_operation_perm_somewhere(operator,
                                                self.const.auth_create_user)):
             return True
-        raise PermissionDenied("No access for affiliation %s on person %s in "
-                               "OU %02d%02d%02d" % (aff, person.entity_id,
-                                                    ou.fakultet, ou.institutt,
-                                                    ou.avdeling))
+        raise PermissionDenied(
+            "No access for affiliation %s on person %s in OU %02d%02d%02d"
+            % (affiliation, person.entity_id, ou.fakultet, ou.institutt,
+               ou.avdeling))
 
     def can_create_user(self, operator, person=None, disk=None,
                         query_run_any=False):
