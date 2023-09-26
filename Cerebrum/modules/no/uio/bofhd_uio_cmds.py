@@ -25,6 +25,7 @@ import imaplib
 import re
 import select
 
+import six
 from six import string_types, text_type
 
 import cereconf
@@ -3023,36 +3024,81 @@ class BofhdExtension(BofhdCommonMethods):
                                           person.entity_id)
 
     #
-    # person affilation_remove
+    # person affilation_remove <person> AFFILIATION[/status] [source]
     #
     all_commands['person_affiliation_remove'] = Command(
         ("person", "affiliation_remove"),
         PersonId(),
         OU(),
         Affiliation(),
-        perm_filter='can_remove_affiliation')
+        SourceSystem(help_ref="source_system", optional=True, default=None),
+        fs=FormatSuggestion(
+            "OK, removed %s@%s [%s] from person id:%d",
+            ('status', 'ou_name', 'source_system', 'person_id')),
+        perm_filter='can_remove_affiliation',
+    )
 
-    def person_affiliation_remove(self, operator, person_id, ou, aff):
+    def person_affiliation_remove(self, operator, person_id, ou, affstr,
+                                  sourcestr=None):
         try:
             person = self._get_person(*self._map_person_id(person_id))
         except Errors.TooManyRowsError:
             raise CerebrumError("Unexpectedly found more than one person")
-        aff = self._get_affiliationid(aff)
         ou = self._get_ou(stedkode=ou)
-        self.ba.can_remove_affiliation(operator.get_entity_id(),
-                                       person, ou, aff)
-        for row in person.list_affiliations(person_id=person.entity_id,
-                                            ou_id=ou.entity_id,
-                                            affiliation=aff):
-            person.delete_affiliation(ou.entity_id, aff,
-                                      row['source_system'])
-            break
+        try:
+            affiliation, status = self.const.get_affiliation(affstr)
+        except Errors.NotFoundError:
+            raise CerebrumError("invalid affiliation: " + repr(affstr))
+        if sourcestr is None:
+            source_system = None
         else:
-            # no rows
-            raise CerebrumError("Affiliation does not exist")
-        return "OK, removed %s@%s from %s" % (text_type(aff),
-                                              self._format_ou_name(ou),
-                                              person.entity_id)
+            try:
+                source_system = self.const.get_constant(
+                    self.const.AuthoritativeSystem, sourcestr)
+            except Errors.NotFoundError:
+                raise CerebrumError("invalid source system: "
+                                    + repr(sourcestr))
+
+        target_affs = [
+            dict(row)
+            for row in person.list_affiliations(
+                person_id=int(person.entity_id),
+                ou_id=int(ou.entity_id),
+                affiliation=affiliation,
+                status=status,
+                source_system=source_system)]
+
+        if not target_affs:
+            raise CerebrumError("No matching affiliation")
+
+        # check if operator has access to all target_affs
+        operator_id = operator.get_entity_id()
+        for row in target_affs:
+            self.ba.can_remove_affiliation(operator=operator_id,
+                                           person=person,
+                                           ou=ou,
+                                           affiliation=row['affiliation'],
+                                           status=row['status'],
+                                           source_system=row['source_system'])
+
+        removed = []
+        for row in target_affs:
+            person.delete_affiliation(row['ou_id'],
+                                      row['affiliation'],
+                                      row['source_system'])
+            removed.append({
+                'person_id': int(row['person_id']),
+                'ou_id': int(ou.entity_id),
+                'ou_name': self._format_ou_name(ou),
+                'affiliation': six.text_type(
+                    self.const.PersonAffiliation(row['affiliation'])),
+                'status': six.text_type(
+                    self.const.PersonAffStatus(row['status'])),
+                'source_system': six.text_type(
+                    self.const.AuthoritativeSystem(row['source_system'])),
+            })
+
+        return removed
 
     #
     # person set_bdate
