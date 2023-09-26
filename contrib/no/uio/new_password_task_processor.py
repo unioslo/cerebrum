@@ -90,8 +90,8 @@ def task_callback(db, task, dryrun):
 
     person_in_systems = [int(af['source_system']) for af in
                          pe.list_affiliations(person_id=pe.entity_id)]
-    mobile = filter(lambda x: x['source_system'] in person_in_systems,
-                    mobile)[0]['contact_value']
+    mobile = [x['contact_value'] for x in mobile
+              if x['source_system'] in person_in_systems][0]
 
     if dryrun:
         logger.info('Dryrun for id - %s', task.key)

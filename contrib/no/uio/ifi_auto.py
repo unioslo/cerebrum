@@ -189,7 +189,7 @@ def convert_activitynumber(act):
     if act < 26:
         return delim + "%c" % (ord('a') + act)
     else:
-        return "%c%c" % (ord('a') + act/26, ord('a') + act % 26)
+        return "%c%c" % (ord('a') + act//26, ord('a') + act % 26)
 
 
 def make_filegroup_name(course, act, names):
