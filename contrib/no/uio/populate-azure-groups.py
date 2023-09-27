@@ -210,6 +210,9 @@ def main():
                                "it-uio-ms365-student",
                                "it-uio-ms365-ansatt",
                                "it-uio-ms365-andre"])
+    sync_group(db, "it-uio-ms365-ansatt-publisert",
+               include_groups=["it-uio-ms365-ansatt"],
+               exclude_groups=["DFO-elektroniske-reservasjoner"])
 
     if args.commit:
         db.commit()
