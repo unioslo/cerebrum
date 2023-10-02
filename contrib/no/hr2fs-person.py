@@ -97,16 +97,22 @@ class SimplePerson(SimpleMap):
         self.set(key, item)
 
     def __getattr__(self, name):
-        try:
-            return self[name]
-        except KeyError as e:
-            raise AttributeError(str(e))
+        if name in self.allowed_keys:
+            try:
+                return self[name]
+            except KeyError as e:
+                raise AttributeError(str(e))
+        else:
+            return super(SimplePerson, self).__getattr__(name)
 
     def __setattr__(self, name, value):
-        try:
-            self.set(name, value)
-        except KeyError as e:
-            raise AttributeError(str(e))
+        if name in self.allowed_keys:
+            try:
+                self.set(name, value)
+            except KeyError as e:
+                raise AttributeError(str(e))
+        else:
+            super(SimplePerson, self).__setattr__(name, value)
 
     def setdefault(self, key, default=None):
         nkey = self.transform_key(key)
@@ -982,4 +988,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
