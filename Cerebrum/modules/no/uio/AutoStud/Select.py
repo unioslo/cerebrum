@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-
-# Copyright 2019 University of Oslo, Norway
+#
+# Copyright 2003-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,8 +17,8 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-"""How this stuff works:
+"""
+How this stuff works:
 
 SelectTool.select_map_defs defines a mapping of studconfig.xml
 select-tags to the corresponding matching class.
@@ -33,7 +33,12 @@ apropriate, making SelectMap*._select_map look like:
   { <studieprogram="TVIJF">: <profile> }
 
 """
-from __future__ import unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import pprint
 
 from six import python_2_unicode_compatible
@@ -63,13 +68,17 @@ class SelectMapSuper(object):
 
     def _normalize_nivakode(self, niva):
         niva = int(niva)
-        if niva < 100:  # Forkurs ol.
+        if niva < 100:
+            # Forkurs ol.
             niva = 50
-        elif niva >= 100 and niva < 500:  # Laveregrad, Cand.Mag, Bachelor
+        elif niva >= 100 and niva < 500:
+            # Laveregrad, Cand.Mag, Bachelor
             niva = 100
-        elif niva >= 500 and niva < 900:  # Høyeregrad, Profesjon, hovedfag, master
+        elif niva >= 500 and niva < 900:
+            # Høyeregrad, Profesjon, hovedfag, master
             niva = 500
-        elif niva >= 900:  # PHD
+        elif niva >= 900:
+            # PHD
             niva = 900
         return niva
 
@@ -113,9 +122,11 @@ class SelectMapTag(SelectMapSuper):
         #  (('studieprogramkode', 'MNM2-ANMAT'), ('studieretningskode', 'CSC'))
 
         for s_attr in select_attrs:
-            key = tuple([(self._match_attr[n], s_attr[self._config_attr[n]])
-                         for n in range(len(self._config_attr))
-                         if s_attr.has_key(self._config_attr[n])])
+            key = tuple(
+                (self._match_attr[n], s_attr[self._config_attr[n]])
+                for n in range(len(self._config_attr))
+                if self._config_attr[n] in s_attr
+            )
             self._select_map[key] = profile
 
     def get_matches(self, person_info, member_groups=None, person_affs=None):
@@ -183,7 +194,7 @@ class SelectMapAktivtSted(SelectMapSuper):
                             s_criteria.get('nivaa_max', '')))
             tmp = self._select_map.setdefault(tmp, {})
             tmp.setdefault('profiles', []).append(profile)
-            if not tmp.has_key('steder'):
+            if 'steder' not in tmp:
                 tmp['steder'] = self._get_steder(
                     s_criteria['institusjon'],
                     s_criteria['stedkode'],
@@ -198,24 +209,22 @@ class SelectMapAktivtSted(SelectMapSuper):
                  'studieprogramkode', '_studieansv'),
                 (self._pc.autostud.emnekode2info,
                  'emnekode', '_reglement')):
-            # self._logger.debug("Check with %s" % match_tag)
             for pdta in person_info.get('aktiv', []):
-                if not pdta.has_key(match_tag):
-                    continue  # emnekode not set for some aktiv tags.
+                if match_tag not in pdta:
+                    # emnekode not set for some aktiv tags.
+                    continue
                 try:
                     fs_info = fs_infodict[pdta[match_tag]]
                 except KeyError:
                     self._logger.error("Ukjent: %s in %s" % (
                         match_tag, pdta))
                     continue
-                sko = "%02i%02i%02i" % (int(fs_info['faknr%s' % col_postfix]),
-                                        int(fs_info[
-                                                'instituttnr%s' % col_postfix]),
-                                        int(fs_info[
-                                                'gruppenr%s' % col_postfix]))
-                # self._logger.debug("Is %s in %s?" % (sko, self._select_map.values()))
+                sko = "%02i%02i%02i" % (
+                    int(fs_info['faknr%s' % col_postfix]),
+                    int(fs_info['instituttnr%s' % col_postfix]),
+                    int(fs_info['gruppenr%s' % col_postfix]))
                 for select_attrs in self._select_map.values():
-                    if not sko in select_attrs['steder']:
+                    if sko not in select_attrs['steder']:
                         continue
                     if ((select_attrs['nivaa_min'] and
                          int(fs_info['studienivakode']) < int(
@@ -239,22 +248,21 @@ class SelectMapEmnestudSted(SelectMapAktivtSted):
             # print "***%s" % match_tag
             for pdta in person_info.get('emnestud', []):
                 # print "***emnestud"
-                if not pdta.has_key(match_tag):
-                    continue  # emnekode not set for some aktiv tags.
+                if match_tag not in pdta:
+                    # emnekode not set for some aktiv tags.
+                    continue
                 try:
                     fs_info = fs_infodict[pdta[match_tag]]
                 except KeyError:
                     self._logger.error("Ukjent: %s in %s" % (
                         match_tag, pdta))
                     continue
-                sko = "%02i%02i%02i" % (int(fs_info['faknr%s' % col_postfix]),
-                                        int(fs_info[
-                                                'instituttnr%s' % col_postfix]),
-                                        int(fs_info[
-                                                'gruppenr%s' % col_postfix]))
-                # self._logger.debug("Is %s in %s?" % (sko, self._select_map.values()))
+                sko = "%02i%02i%02i" % (
+                    int(fs_info['faknr%s' % col_postfix]),
+                    int(fs_info['instituttnr%s' % col_postfix]),
+                    int(fs_info['gruppenr%s' % col_postfix]))
                 for select_attrs in self._select_map.values():
-                    if not sko in select_attrs['steder']:
+                    if sko not in select_attrs['steder']:
                         continue
                     self._append_match(matches, select_attrs['profiles'],
                                        fs_info)
@@ -275,7 +283,7 @@ class SelectMapTilbudSted(SelectMapAktivtSted):
                             s_criteria['scope']))
             tmp = self._select_map.setdefault(tmp, {})
             tmp.setdefault('profiles', []).append(profile)
-            if not tmp.has_key('steder'):
+            if 'steder' not in tmp:
                 tmp['steder'] = self._get_steder(
                     s_criteria['institusjon'],
                     s_criteria['stedkode'],
@@ -287,22 +295,21 @@ class SelectMapTilbudSted(SelectMapAktivtSted):
                 (self._pc.autostud.studieprogramkode2info,
                  'studieprogramkode', '_studieansv'),):
             for pdta in person_info.get('tilbud', []):
-                if not pdta.has_key(match_tag):
-                    continue  # emnekode not set for some aktiv tags.
+                if match_tag not in pdta:
+                    # emnekode not set for some aktiv tags.
+                    continue
                 try:
                     fs_info = fs_infodict[pdta[match_tag]]
                 except KeyError:
                     self._logger.error("Ukjent: %s in %s" % (
                         match_tag, pdta))
                     continue
-                sko = "%02i%02i%02i" % (int(fs_info['faknr%s' % col_postfix]),
-                                        int(fs_info[
-                                                'instituttnr%s' % col_postfix]),
-                                        int(fs_info[
-                                                'gruppenr%s' % col_postfix]))
-                # self._logger.debug("Is %s in %s?" % (sko, self._select_map.values()))
+                sko = "%02i%02i%02i" % (
+                    int(fs_info['faknr%s' % col_postfix]),
+                    int(fs_info['instituttnr%s' % col_postfix]),
+                    int(fs_info['gruppenr%s' % col_postfix]))
                 for select_attrs in self._select_map.values():
-                    if not sko in select_attrs['steder']:
+                    if sko not in select_attrs['steder']:
                         continue
                     self._append_match(matches, select_attrs['profiles'],
                                        fs_info)
@@ -310,6 +317,7 @@ class SelectMapTilbudSted(SelectMapAktivtSted):
 
 
 class SelectMapEvuSted(SelectMapAktivtSted):
+
     def set_select_map(self, select_attrs, profile):
         self._logger.debug("EVU Map: %s -> %s", select_attrs, profile)
         super(SelectMapEvuSted, self).set_select_map(select_attrs, profile)
@@ -329,6 +337,7 @@ class SelectMapEvuSted(SelectMapAktivtSted):
 
 
 class SelectMapAny(SelectMapSuper):
+
     def set_select_map(self, select_attrs, profile):
         if len(select_attrs) > 0:
             self._select_map.setdefault('ALL', []).append(profile)
@@ -341,6 +350,7 @@ class SelectMapAny(SelectMapSuper):
 
 
 class SelectMapGroupMember(SelectMapSuper):
+
     def set_select_map(self, select_attrs, profile):
         for s_attr in select_attrs:
             group_id = self._pc.lookup_helper.get_group(s_attr['navn'])
@@ -351,12 +361,13 @@ class SelectMapGroupMember(SelectMapSuper):
         if not member_groups:
             return matches
         for g in member_groups:
-            if self._select_map.has_key(g):
+            if g in self._select_map:
                 self._append_match(matches, self._select_map[g])
         return matches
 
 
 class SelectMapPersonAffiliation(SelectMapSuper):
+
     def set_select_map(self, select_attrs, profile):
         self._logger.debug("Paff Map: %s -> %s" % (select_attrs, profile))
         for s_attr in select_attrs:
@@ -381,7 +392,7 @@ class SelectMapPersonAffiliation(SelectMapSuper):
         # try keys `(aff, status)` and `aff`
         for p_aff in ([(x[0], x[2]) for x in person_affs] +
                       [x[0] for x in person_affs]):
-            if self._select_map.has_key(p_aff):
+            if p_aff in self._select_map:
                 self._append_match(matches, self._select_map[p_aff])
         return matches
 
@@ -438,11 +449,12 @@ class SelectTool(object):
                 sm_obj = self.select_map_defs[select_name]
                 sm_obj.set_select_map(select_attrs, p)
 
-    def _matches_sort(self, x, y):
+    def _matches_sort_key(self, pn_tuple):
         """Sort by nivaakode (highest first), then by profile"""
-        if (x[1] == y[1]):
-            return cmp(x[0], y[0])
-        return cmp(y[1], x[1])
+        profile, level = pn_tuple
+        # primary key is *level*, but inverted so that higher numbers are first
+        # if same level, sort by profile
+        return -level, profile
 
     def _unique_extend(self, tgt_list, values, profile_name, nivaakode=0):
         """Append all v in values to tgt_list iff they are not already
@@ -491,7 +503,7 @@ class SelectTool(object):
             matches = tmp
         self._logger.debug("Matching settings: %s", matches)
         # Sort matches on nivåkode, and remove duplicates
-        matches.sort(self._matches_sort)
+        matches.sort(key=self._matches_sort_key)
         matched_settings = {}
         for match in matches:
             profile, nivaakode = match
