@@ -2085,7 +2085,7 @@ class roles_xml_parser(non_nested_xml_parser):
             'status_default_veileder': None,
             'institusjonsnr_eier': None,
             'rolletype': None,
-            'plnr': None
+            'plnr': None,
             }
         data = attrs.copy()
         target = None
