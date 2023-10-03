@@ -306,18 +306,43 @@ class BofhdVirtHomeAuth(auth.BofhdAuth):
         """
         Can an account change group_id's description?
 
-        Group owners are allowed to change description.
+        Group admins are allowed to do that.
         """
-        # can_delete_group() is available for owners only.
-        return self.can_force_delete_group(account_id, group_id)
+        if self.is_superuser(account_id):
+            return True
+
+        if self._is_admin(int(account_id), int(group_id)):
+            return True
+
+        account = self._get_account(account_id)
+        group = self._get_group(group_id)
+        raise PermissionDenied(
+            "Account %s (id=%s) cannot change description for group %s (id=%s)"
+            % (account and account.account_name or "N/A",
+               account_id,
+               group and group.group_name or "N/A",
+               group_id))
 
     def can_change_resource(self, account_id, group_id):
         """
         Can an account change group_id's resources (url, etc)?
 
-        Group owners are allowed to do that.
+        Group admins are allowed to do that.
         """
-        return self.can_force_delete_group(account_id, group_id)
+        if self.is_superuser(account_id):
+            return True
+
+        if self._is_admin(int(account_id), int(group_id)):
+            return True
+
+        account = self._get_account(account_id)
+        group = self._get_group(group_id)
+        raise PermissionDenied(
+            "Account %s (id=%s) cannot change resources for group %s (id=%s)"
+            % (account and account.account_name or "N/A",
+               account_id,
+               group and group.group_name or "N/A",
+               group_id))
 
     def can_manipulate_spread(self, account_id, entity_id):
         """
@@ -355,6 +380,10 @@ class BofhdVirtHomeAuth(auth.BofhdAuth):
         if self.is_superuser(account_id):
             return True
 
+        if self._is_admin(int(account_id), int(group_id)):
+            return True
+
+        # TODO: auth_create_group? This seems like the wrong op code...
         if self._has_target_permissions(account_id,
                                         self.const.auth_create_group,
                                         self.const.auth_target_type_group,
