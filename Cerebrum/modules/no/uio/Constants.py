@@ -31,9 +31,10 @@ from Cerebrum.modules.bofhd.bofhd_constants import _AuthRoleOpCode
 from Cerebrum.modules.consent import Consent
 from Cerebrum.modules.dns import DnsConstants
 from Cerebrum.modules.trait.constants import _EntityTraitCode
+from Cerebrum.modules.no.Constants import ConstantsHigherEdu
 
 
-class Constants(Constants.Constants):
+class Constants(ConstantsHigherEdu):
 
     #
     # Bofhd Auth
@@ -82,179 +83,177 @@ class Constants(Constants.Constants):
     #
     # Affiliation ANSATT
     #
-    affiliation_ansatt = Constants._PersonAffiliationCode(
-        'ANSATT',
-        'Registrert som aktiv ansatt ved UiO')
-    affiliation_status_ansatt_vit = Constants._PersonAffStatusCode(
-        affiliation_ansatt,
-        'vitenskapelig',
-        'Vitenskapelig ansatt')
+    affiliation_status_ansatt_vit = (
+        # uio-alias for this aff status
+        ConstantsHigherEdu.affiliation_status_ansatt_vitenskapelig
+    )
     affiliation_status_ansatt_bil = Constants._PersonAffStatusCode(
-        affiliation_ansatt,
+        ConstantsHigherEdu.affiliation_ansatt,
         'bilag',
-        'Bilagslønnet')
-    affiliation_status_ansatt_tekadm = Constants._PersonAffStatusCode(
-        affiliation_ansatt,
-        'tekadm',
-        'Teknisk/administrativt ansatt')
+        'Bilagslønnet',
+    )
     affiliation_status_ansatt_perm = Constants._PersonAffStatusCode(
-        affiliation_ansatt,
+        ConstantsHigherEdu.affiliation_ansatt,
         'permisjon',
-        'Ansatt, for tiden i permisjon')
+        'Ansatt, for tiden i permisjon',
+    )
 
     #
     # Affiliation STUDENT
     #
-    affiliation_student = Constants._PersonAffiliationCode(
-        'STUDENT',
-        'Student ved UiO, registrert i FS')
     affiliation_status_student_soker = Constants._PersonAffStatusCode(
-        affiliation_student,
+        ConstantsHigherEdu.affiliation_student,
         'soker',
-        'Registrert med søknad i FS')
+        'Registrert med søknad i FS',
+    )
     affiliation_status_student_tilbud = Constants._PersonAffStatusCode(
-        affiliation_student,
+        ConstantsHigherEdu.affiliation_student,
         'tilbud',
-        'Registrert tilbud om opptak i FS')
+        'Registrert tilbud om opptak i FS',
+    )
     affiliation_status_student_opptak = Constants._PersonAffStatusCode(
-        affiliation_student,
+        ConstantsHigherEdu.affiliation_student,
         'opptak',
-        'Registrert med gyldig studierett i FS ')
+        'Registrert med gyldig studierett i FS ',
+    )
     affiliation_status_student_ny = Constants._PersonAffStatusCode(
-        affiliation_student,
+        ConstantsHigherEdu.affiliation_student,
         'ny',
-        'Registrert med ny, gyldig studierett i FS')
-    affiliation_status_student_aktiv = Constants._PersonAffStatusCode(
-        affiliation_student,
-        'aktiv',
-        'Registrert som aktiv student i FS')
+        'Registrert med ny, gyldig studierett i FS',
+    )
     affiliation_status_student_emnestud = Constants._PersonAffStatusCode(
-        affiliation_student,
+        ConstantsHigherEdu.affiliation_student,
         'emnestud',
-        'Registrert som aktiv emnestudent i FS')
-    affiliation_status_student_drgrad = Constants._PersonAffStatusCode(
-        affiliation_student,
-        'drgrad',
-        'Registrert som aktiv doktorgradsstudent i FS')
-    affiliation_status_student_privatist = Constants._PersonAffStatusCode(
-        affiliation_student,
-        'privatist',
-        'Registrert som privatist i FS')
-    affiliation_status_student_evu = Constants._PersonAffStatusCode(
-        affiliation_student,
-        'evu',
-        'Registrert som EVU-student i FS')
+        'Registrert som aktiv emnestudent i FS',
+    )
     affiliation_status_student_perm = Constants._PersonAffStatusCode(
-        affiliation_student,
+        ConstantsHigherEdu.affiliation_student,
         'permisjon',
-        'Registrert med gyldig permisjon i FS')
+        'Registrert med gyldig permisjon i FS',
+    )
     affiliation_status_student_alumni = Constants._PersonAffStatusCode(
-        affiliation_student,
+        ConstantsHigherEdu.affiliation_student,
         'alumni',
-        'Har fullført studieprogram i FS')
+        'Har fullført studieprogram i FS',
+    )
 
     #
     # Affiliation TILKNYTTET
     #
-    affiliation_tilknyttet = Constants._PersonAffiliationCode(
-        'TILKNYTTET',
-        'Tilknyttet UiO uten å være student eller ansatt')
-    affiliation_tilknyttet_fagperson = Constants._PersonAffStatusCode(
-        affiliation_tilknyttet,
-        'fagperson', 'Registrert som fagperson i FS')
+    # TODO: This is a mess - the naming standard for these are
+    # affiliation_status_<type>_<status>...
+    # We need to make aliases to prevent references to these from breaking
+    affiliation_tilknyttet_bilag = (
+        ConstantsHigherEdu.affiliation_status_tilknyttet_bilag
+    )
+    affiliation_tilknyttet_fagperson = (
+        ConstantsHigherEdu.affiliation_status_tilknyttet_fagperson
+    )
+    affiliation_tilknyttet_gjesteforsker = (
+        ConstantsHigherEdu.affiliation_status_tilknyttet_gjesteforsker
+    )
+
     affiliation_tilknyttet_emeritus = Constants._PersonAffStatusCode(
-        affiliation_tilknyttet,
+        ConstantsHigherEdu.affiliation_tilknyttet,
         'emeritus',
-        'Registrert med rolle EMERITUS i SAPUiO')
-    affiliation_tilknyttet_bilag = Constants._PersonAffStatusCode(
-        affiliation_tilknyttet,
-        'bilag',
-        'Registrert med rolle BILAGSLØN i SAPUiO')
+        'Registrert med rolle EMERITUS i SAPUiO',
+    )
     affiliation_tilknyttet_ekst_forsker = Constants._PersonAffStatusCode(
-        affiliation_tilknyttet,
+        ConstantsHigherEdu.affiliation_tilknyttet,
         'ekst_forsker',
-        'Registrert med rolle EF-FORSKER eller SENIORFORS i SAPUiO')
-    affiliation_tilknyttet_gjesteforsker = Constants._PersonAffStatusCode(
-        affiliation_tilknyttet,
-        'gjesteforsker',
-        'Registrert med rolle GJ-FORSKER i SAPUiO')
+        'Registrert med rolle EF-FORSKER eller SENIORFORS i SAPUiO',
+    )
     affiliation_tilknyttet_assosiert_person = Constants._PersonAffStatusCode(
-        affiliation_tilknyttet,
+        ConstantsHigherEdu.affiliation_tilknyttet,
         'assosiert_person',
-        'Registrert med rolle ASSOSIERT i SAPUiO')
+        'Registrert med rolle ASSOSIERT i SAPUiO',
+    )
     affiliation_tilknyttet_frida_reg = Constants._PersonAffStatusCode(
-        affiliation_tilknyttet,
+        ConstantsHigherEdu.affiliation_tilknyttet,
         'frida_reg',
-        'Registrert med rolle REGANSV og REG-ANSV i SAPUiO')
+        'Registrert med rolle REGANSV og REG-ANSV i SAPUiO',
+    )
     affiliation_tilknyttet_ekst_stip = Constants._PersonAffStatusCode(
-        affiliation_tilknyttet,
+        ConstantsHigherEdu.affiliation_tilknyttet,
         'ekst_stip',
-        'Registrert med rolle EF-STIP i SAPUiO')
+        'Registrert med rolle EF-STIP i SAPUiO',
+    )
     affiliation_tilknyttet_sivilarbeider = Constants._PersonAffStatusCode(
-        affiliation_tilknyttet,
+        ConstantsHigherEdu.affiliation_tilknyttet,
         'sivilarbeider',
-        'Personer registrert i LT med gjestetypekode=SIVILARB')
+        'Personer registrert i LT med gjestetypekode=SIVILARB',
+    )
     affiliation_tilknyttet_diverse = Constants._PersonAffStatusCode(
-        affiliation_tilknyttet,
+        ConstantsHigherEdu.affiliation_tilknyttet,
         'diverse',
-        'Personer registrert i LT med gjestetypekode=IKKE ANGITT')
+        'Personer registrert i LT med gjestetypekode=IKKE ANGITT',
+    )
     affiliation_tilknyttet_pcvakt = Constants._PersonAffStatusCode(
-        affiliation_tilknyttet,
+        ConstantsHigherEdu.affiliation_tilknyttet,
         'pcvakt',
-        'Personer registrert i LT med gjestetypekode=PCVAKT')
+        'Personer registrert i LT med gjestetypekode=PCVAKT',
+    )
     affiliation_tilknyttet_unirand = Constants._PersonAffStatusCode(
-        affiliation_tilknyttet,
+        ConstantsHigherEdu.affiliation_tilknyttet,
         'unirand',
-        'Personer registrert i LT med gjestetypekode=UNIRAND')
+        'Personer registrert i LT med gjestetypekode=UNIRAND',
+    )
     affiliation_tilknyttet_grlaerer = Constants._PersonAffStatusCode(
-        affiliation_tilknyttet,
+        ConstantsHigherEdu.affiliation_tilknyttet,
         'grlaerer',
-        'Personer registrert i LT med gjestetypekode=GRUPPELÆRER')
+        'Personer registrert i LT med gjestetypekode=GRUPPELÆRER',
+    )
     affiliation_tilknyttet_ekst_partner = Constants._PersonAffStatusCode(
-        affiliation_tilknyttet,
+        ConstantsHigherEdu.affiliation_tilknyttet,
         'ekst_partner',
-        'Personer registrert i LT med gjestetypekode=EKST. PART')
+        'Personer registrert i LT med gjestetypekode=EKST. PART',
+    )
     affiliation_tilknyttet_studpol = Constants._PersonAffStatusCode(
-        affiliation_tilknyttet,
+        ConstantsHigherEdu.affiliation_tilknyttet,
         'studpol',
         'Personer registrert i LT'
-        ' med gjestetypekode=ST-POL FRI eller ST-POL UTV')
+        ' med gjestetypekode=ST-POL FRI eller ST-POL UTV',
+    )
     affiliation_tilknyttet_studorg = Constants._PersonAffStatusCode(
-        affiliation_tilknyttet,
+        ConstantsHigherEdu.affiliation_tilknyttet,
         'studorg',
         'Personer registrert i LT'
-        ' med gjestetypekode=ST-ORG FRI eller ST-ORG UTV')
+        ' med gjestetypekode=ST-ORG FRI eller ST-ORG UTV',
+    )
     affiliation_tilknyttet_innkjoper = Constants._PersonAffStatusCode(
-        affiliation_tilknyttet,
+        ConstantsHigherEdu.affiliation_tilknyttet,
         'innkjoper',
-        'Registrert med rolle INNKJØPER i SAPUiO')
+        'Registrert med rolle INNKJØPER i SAPUiO',
+    )
     affiliation_tilknyttet_isf = Constants._PersonAffStatusCode(
-        affiliation_tilknyttet,
+        ConstantsHigherEdu.affiliation_tilknyttet,
         'isf',
-        'Person tilknyttet Institutt for samfunnsforskning')
+        'Person tilknyttet Institutt for samfunnsforskning',
+    )
     affiliation_tilknyttet_ekstern = Constants._PersonAffStatusCode(
-        affiliation_tilknyttet,
+        ConstantsHigherEdu.affiliation_tilknyttet,
         'ekstern',
-        'Person tilknyttet enhet med avtale om utvidede IT-tilganger (FEIDE)')
-
+        'Person tilknyttet enhet med avtale om utvidede IT-tilganger (FEIDE)',
+    )
     affiliation_tilknyttet_komitemedlem = Constants._PersonAffStatusCode(
-        affiliation_tilknyttet,
+        ConstantsHigherEdu.affiliation_tilknyttet,
         'komitemedlem',
-        'Registrert med rolle KOMITEMEDLEM i SAPUiO ')
+        'Registrert med rolle KOMITEMEDLEM i SAPUiO ',
+    )
+
     #
     # Affiliation MANUELL
     #
-    affiliation_manuell = Constants._PersonAffiliationCode(
-        'MANUELL',
-        'Tilknyttet enheter/institusjoner som USIT har avtale med')
     affiliation_manuell_alumni = Constants._PersonAffStatusCode(
-        affiliation_manuell,
+        ConstantsHigherEdu.affiliation_manuell,
         'alumni',
-        'Uteksaminerte studenter')
+        'Uteksaminerte studenter',
+    )
     affiliation_manuell_ekstern = Constants._PersonAffStatusCode(
-        affiliation_manuell,
+        ConstantsHigherEdu.affiliation_manuell,
         'ekstern',
-        'Person tilknyttet enhet med avtale om begrensede IT-tilganger')
+        'Person tilknyttet enhet med avtale om begrensede IT-tilganger',
+    )
 
     #
     # Shell settings for PosixUser
