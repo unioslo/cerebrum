@@ -97,7 +97,7 @@ import cereconf
 from Cerebrum.utils.mappings import DecoratorMap
 
 
-def legacy_read_password(user, system, host=None, encoding=None):
+def legacy_read_password(user, system, host=None, encoding='utf-8'):
     """
     Get password for *user* in *system*, optionally separated by *host*.
 
@@ -125,9 +125,8 @@ def legacy_read_password(user, system, host=None, encoding=None):
 
     basename = format_str.format(**format_vars)
     filename = os.path.join(cereconf.DB_AUTH_DIR, basename)
-    mode = 'rb' if encoding is None else 'r'
 
-    with io.open(filename, mode, encoding=encoding) as f:
+    with io.open(filename, mode='r', encoding=encoding) as f:
         # .rstrip() removes any trailing newline, if present.
         dbuser, dbpass = f.readline().rstrip('\n').split('\t', 1)
         assert dbuser == user
