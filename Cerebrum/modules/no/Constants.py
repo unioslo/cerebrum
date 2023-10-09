@@ -342,7 +342,7 @@ class ConstantsHigherEdu(Constants.Constants):
     affiliation_status_student_evu = _PersonAffStatusCode(
         affiliation_student,
         'evu',
-        'Student, etter og videre utdanning',
+        'Student, etter- og videreutdanning',
     )
     affiliation_status_student_aktiv = _PersonAffStatusCode(
         affiliation_student,
@@ -381,6 +381,37 @@ class ConstantsHigherEdu(Constants.Constants):
         affiliation_ansatt,
         'tekadm',
         'Ansatt, teknisk-administrativ',
+    )
+
+    #
+    # Affiliation for associated people
+    #
+    affiliation_tilknyttet = _PersonAffiliationCode(
+        'TILKNYTTET',
+        'Assosiert person, registrert i kildesystem',
+    )
+
+    affiliation_status_tilknyttet_bilag = _PersonAffStatusCode(
+        affiliation_tilknyttet,
+        'bilag',
+        'Registrert i kildesystem som bilagslønnet',
+    )
+
+    affiliation_status_tilknyttet_fagperson = _PersonAffStatusCode(
+        affiliation_tilknyttet,
+        'fagperson',
+        'Registrert i kildesystem som fagperson',
+    )
+
+    affiliation_status_tilknyttet_gjesteforsker = _PersonAffStatusCode(
+        affiliation_tilknyttet,
+        'gjesteforsker',
+        'Registrert i kildesystem som gjesteforsker',
+    )
+
+    affiliation_manuell = Constants._PersonAffiliationCode(
+        'MANUELL',
+        'Tilknyttet uten å være registrert i kildesystem',
     )
 
     #
@@ -438,7 +469,7 @@ class ConstantsHigherEdu(Constants.Constants):
     )
 
 
-class ConstantsUniversityColleges(Constants.Constants):
+class ConstantsUniversityColleges(ConstantsHigherEdu):
 
     #
     # Source systems
@@ -455,48 +486,35 @@ class ConstantsUniversityColleges(Constants.Constants):
     #
     # Affiliation for associated people
     #
-    affiliation_tilknyttet = _PersonAffiliationCode(
-        'TILKNYTTET',
-        'Assosiert, reg. i kildesystem',
-    )
-    affiliation_status_tilknyttet_fagperson = _PersonAffStatusCode(
-        affiliation_tilknyttet,
-        'fagperson',
-        'Registrert i FS, fagperson',
-    )
     affiliation_status_tilknyttet_pensjonist = _PersonAffStatusCode(
-        affiliation_tilknyttet,
+        ConstantsHigherEdu.affiliation_tilknyttet,
         'pensjonist',
         'Registrert i HR, pensjonist',
     )
-    affiliation_status_tilknyttet_bilag = _PersonAffStatusCode(
-        affiliation_tilknyttet,
-        'bilag',
-        'Registrert i HR, bilagslønnet',
-    )
     affiliation_status_tilknyttet_time = _PersonAffStatusCode(
-        affiliation_tilknyttet,
+        ConstantsHigherEdu.affiliation_tilknyttet,
         'timelønnet',
         'Registrert i HR, timelønnet',
     )
     affiliation_status_tilknyttet_gjest = _PersonAffStatusCode(
-        affiliation_tilknyttet,
+        ConstantsHigherEdu.affiliation_tilknyttet,
         'gjest',
         'Registrert i HR, gjest',
     )
-    affiliation_status_tilknyttet_gjestefors = _PersonAffStatusCode(
-        affiliation_tilknyttet,
-        'gjesteforsker',
-        'Registrert i HR, gjesteforsker',
+    affiliation_status_tilknyttet_gjestefors = (
+        # legacy attribute name for backwards compatibility
+        ConstantsHigherEdu.affiliation_status_tilknyttet_gjesteforsker
     )
-
     affiliation_status_tilknyttet_nosrc = _PersonAffStatusCode(
-        affiliation_tilknyttet,
+        ConstantsHigherEdu.affiliation_tilknyttet,
         'nosource',
         'Ekstern person, ltilknyttet uten rgistrering',
     )
+    # TODO: This aff status is probably a hack, as the uio aff status has this
+    # attribute name.  I.e. a placeholder to make some script referring to it
+    # *not* crash.
     affiliation_tilknyttet_fagperson = _PersonAffStatusCode(
-        affiliation_tilknyttet,
+        ConstantsHigherEdu.affiliation_tilknyttet,
         'fperson',
         'Dummy, do not use',
     )

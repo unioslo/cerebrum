@@ -27,48 +27,60 @@ from __future__ import unicode_literals
 from Cerebrum import Constants
 from Cerebrum.Constants import (
     _SpreadCode,
-    _EntityExternalIdCode,
-    _PersonAffiliationCode,
     _PersonAffStatusCode,
+)
+from Cerebrum.modules.no.Constants import (
+    ConstantsUniversityColleges,
+    ConstantsHigherEdu,
 )
 
 
-class Constants(Constants.Constants):
+class Constants(ConstantsUniversityColleges, ConstantsHigherEdu):
 
-    # affiliation tilknyttet
-    affiliation_tilknyttet = _PersonAffiliationCode(
-        'TILKNYTTET',
-        'Assosiert, reg. i kildesystem')
     # affiliation for FI
     affiliation_status_tilknyttet_fi = _PersonAffStatusCode(
-        affiliation_tilknyttet,
+        ConstantsHigherEdu.affiliation_tilknyttet,
         'fi',
-        'Manuelt registrert, forsvarsinst.')
+        'Manuelt registrert, forsvarsinst.',
+    )
     # affiliation for pensjonister
     affiliation_status_tilknyttet_pensjonist = _PersonAffStatusCode(
-        affiliation_tilknyttet,
+        ConstantsHigherEdu.affiliation_tilknyttet,
         'pensjonist',
-        'Manuelt registrert, pensjonist.')
+        'Manuelt registrert, pensjonist.',
+    )
     # affiliation for park og idrett
     affiliation_status_tilknyttet_park = _PersonAffStatusCode(
-        affiliation_tilknyttet,
+        ConstantsHigherEdu.affiliation_tilknyttet,
         'park-idrett',
-        'Manuelt registrert, park og idrett.')
+        'Manuelt registrert, park og idrett.',
+    )
+
     # Spread definitions - user related
     spread_ad_account = _SpreadCode(
-        'account@ad', Constants.Constants.entity_account,
-        'Brukeren kjent i AD ved NiH')
+        'account@ad',
+        Constants.Constants.entity_account,
+        'Brukeren kjent i AD ved NiH',
+    )
     spread_exchange_account = _SpreadCode(
-        'account@exchange', Constants.Constants.entity_account,
-        'Brukeren kjent i AD ved NiH')
+        'account@exchange',
+        Constants.Constants.entity_account,
+        'Brukeren kjent i AD ved NiH',
+    )
 
     # Spread definitions - group related
     spread_ad_group = _SpreadCode(
-        'group@ad', Constants.Constants.entity_group,
-        'Gruppe kjent i AD ved NiH')
+        'group@ad',
+        Constants.Constants.entity_group,
+        'Gruppe kjent i AD ved NiH',
+    )
     spread_exch_group = _SpreadCode(
-        'group@exchange', Constants.Constants.entity_group,
-        'Gruppe kjent i Exchange ved NiH')
+        'group@exchange',
+        Constants.Constants.entity_group,
+        'Gruppe kjent i Exchange ved NiH',
+    )
     spread_lms_group = _SpreadCode(
-        'group@lms', Constants.Constants.entity_group,
-        'Gruppe kjent i LMSen til NiH')
+        'group@lms',
+        Constants.Constants.entity_group,
+        'Gruppe kjent i LMSen til NiH',
+    )
