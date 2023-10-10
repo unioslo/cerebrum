@@ -48,6 +48,7 @@ class _UioGregRoles(mapper.GregRoles):
         'external-consultant': 'TILKNYTTET/ekst_partner',
         'external-partner': 'TILKNYTTET/ekst_partner',
         'guest-researcher': 'TILKNYTTET/gjesteforsker',
+        'grader': 'TILKNYTTET/sensor',
     }
 
     get_orgunit_ids = _UioGregOrgunitIds()
