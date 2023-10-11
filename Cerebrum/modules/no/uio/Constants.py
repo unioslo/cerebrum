@@ -240,6 +240,12 @@ class Constants(ConstantsHigherEdu):
         'komitemedlem',
         'Registrert med rolle KOMITEMEDLEM i SAPUiO ',
     )
+    # Note attribute name - this is how attributes are named elsewhere
+    affiliation_status_tilknyttet_sensor = Constants._PersonAffStatusCode(
+        ConstantsHigherEdu.affiliation_tilknyttet,
+        'sensor',
+        'Registrert med rolle "sensor" eller "grader" i kildesystem',
+    )
 
     #
     # Affiliation MANUELL
