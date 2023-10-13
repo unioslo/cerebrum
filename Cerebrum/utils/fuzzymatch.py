@@ -74,9 +74,26 @@ def restricted_damerau_levenshtein(first, second):
     return distance_matrix[-1][-1]
 
 
+def rdl_score(first, second):
+    """
+    Score two strings based on relative edit distance.
+
+    :returns float: A flot ranging from 1.0 (equal) to 0.0 (totally different)
+    """
+    if first == second:
+        # shortcut - avoids divide-by-zero if both strings are empty
+        return 1.0
+    edit_distance = restricted_damerau_levenshtein(first, second)
+    maxlen = max(len(first), len(second))
+    return 1.0 - (edit_distance / maxlen)
+
+
 def longest_common_subsequence(first, second):
     """
     Determine the longest common subsequence (LCS) of two strings.
+
+    Note: This is different from longest common *substring*, which is also
+    often abbreviated as LCS.
 
     :returns str: the longest common substring
     """
@@ -108,6 +125,20 @@ def longest_common_subsequence(first, second):
             x -= 1
             y -= 1
     return result
+
+
+def lcs_score(first, second):
+    """
+    Score two strings based on longest common subsequence.
+
+    :returns float: A flot ranging from 1.0 (equal) to 0.0 (totally different)
+    """
+    if first == second:
+        # shortcut - avoids divide-by-zero if both strings are empty
+        return 1.0
+    longest = len(longest_common_subsequence(first, second))
+    maxlen = max(len(first), len(second))
+    return longest / maxlen
 
 
 def words_diff(first, second, threshold=0):
