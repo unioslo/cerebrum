@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2020 University of Oslo, Norway
+# Copyright 2020-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,67 +18,103 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
-This module contains tools for string matching
+This module contains various tools for fuzzy string matching.
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 
-def restricted_damarau_levenshtein(first, second):
+def restricted_damerau_levenshtein(first, second):
     """
-    Calculate the edit distance between two string using restricted damarau
-    levenshtein. Allowing deletion, insertion, substitution and transposition
-    of characters.
+    Calculate the Damerau-Levenshtein distance between strings.
+
+    This function calculates the edit distance between `first` and `second`
+    using the Damerau-Levenshtein optimal string alignment algorithm.
+
+    :returns int: The edit distance
     """
-    first = ' ' + first
-    second = ' ' + second
-    dist_matrix = [[0 for i in range(len(first))] for b in range(len(second))]
+    # input strings are 1-indexed:
+    first = " " + first
+    second = " " + second
+
+    distance_matrix = [
+        [0 for i in range(len(first))]
+        for b in range(len(second))
+    ]
 
     for i in range(len(second)):
-        dist_matrix[i][0] = i
+        distance_matrix[i][0] = i
 
     for j in range(len(first)):
-        dist_matrix[0][j] = j
+        distance_matrix[0][j] = j
 
-    for i in range(1, len(dist_matrix)):
-        for j in range(1, len(dist_matrix[0])):
-            possible_choices = [dist_matrix[i-1][j] + 1,           #del
-                                dist_matrix[i][j-1] + 1]           #ins
+    for i in range(1, len(distance_matrix)):
+        for j in range(1, len(distance_matrix[0])):
+            possible_choices = [
+                # delete:
+                distance_matrix[i-1][j] + 1,
+                # insert:
+                distance_matrix[i][j-1] + 1,
+            ]
             if first[j] == second[i]:
-                possible_choices.append(dist_matrix[i-1][j-1])     #equal
+                # equal:
+                possible_choices.append(distance_matrix[i-1][j-1])
             elif first[j] == second[i-1] and first[j-1] == second[i]:
-                possible_choices.append(dist_matrix[i-2][j-2] + 1) #trans
+                # transpose:
+                possible_choices.append(distance_matrix[i-2][j-2] + 1)
             else:
-                possible_choices.append(dist_matrix[i-1][j-1] + 1) #sub
-            dist_matrix[i][j] = min(possible_choices)
+                # substitute:
+                possible_choices.append(distance_matrix[i-1][j-1] + 1)
+            distance_matrix[i][j] = min(possible_choices)
 
-    return dist_matrix[-1][-1]
+    return distance_matrix[-1][-1]
 
 
-def name_diff(full_name1, full_name2, threshold=2):
+def words_diff(first, second, threshold=0):
     """
-    Calculate the difference between two names, allowing one name to be
-    longer than the other by only checking whether all names in the shortest
-    seem to be included in the longest.
-    e.g. name_diff('foo bar', 'foo test bar') = 0
+    Calculate if fuzzy words from one string occur in another.
 
-    If the total difference is larger than a given threshold after any part of
-    the name, the function will return early. Useful when only close matches
-    are interesting.
+    This function is good for matching *full names*, and other similar strings,
+    as it checks if all words from one string occurs in another, but allowing
+    for typos or accented characters.
+
+    >>> words_diff("foo baz", "foo bar baz")
+    0
+
+    >>> words_diff("foo bar", "foo bár baz")
+    1
+
+    :param str first: A string to compare.
+    :param str second: Another string to compare.
+    :param int threshold:
+        Stop matching if an edit distance threshold is reached.
+
+        This allows us to abort early if there are too many differences.  The
+        default is 0, which won't apply a threshold.  A threshold of 2 is good
+        for e.g. fullname matching.
+
+    :returns int:
+        The edit distance of all words in shortest string (by wordcount).
     """
     total_difference = 0
-    names1 = full_name1.split()
-    names2 = full_name2.split()
-    if len(names1) > len(names2):
-        names1, names2 = names2, names1
+    fewer_words = first.split()
+    words = second.split()
+    if len(fewer_words) > len(words):
+        fewer_words, words = words, fewer_words
 
-    for n1 in names1:
+    for base_word in fewer_words:
         best_match = (0, 5)
-        for i, n2 in enumerate(names2, 1):
-            diff = restricted_damarau_levenshtein(n1, n2)
+        for wordnum, word in enumerate(words, 1):
+            diff = restricted_damerau_levenshtein(base_word, word)
             if diff < best_match[1]:
-                best_match = (i, diff)
+                best_match = (wordnum, diff)
 
         total_difference += best_match[1]
-        names2 = names2[best_match[0]:]
-        if total_difference > threshold:
+        words = words[best_match[0]:]
+        if threshold > 0 and total_difference > threshold:
             break
     return total_difference
