@@ -74,6 +74,42 @@ def restricted_damerau_levenshtein(first, second):
     return distance_matrix[-1][-1]
 
 
+def longest_common_subsequence(first, second):
+    """
+    Determine the longest common subsequence (LCS) of two strings.
+
+    :returns str: the longest common substring
+    """
+    if not first or not second:
+        return ""
+    lengths = [
+        [0 for j in range(len(second)+1)]
+        for i in range(len(first)+1)
+    ]
+    # row 0 and column 0 are initialized to 0 already
+    for i, x in enumerate(first):
+        for j, y in enumerate(second):
+            if x == y:
+                lengths[i+1][j+1] = lengths[i][j] + 1
+            else:
+                lengths[i+1][j+1] = max(lengths[i+1][j], lengths[i][j+1])
+
+    # read the substring out from the matrix
+    result = ""
+    x, y = len(first), len(second)
+    while x != 0 and y != 0:
+        if lengths[x][y] == lengths[x-1][y]:
+            x -= 1
+        elif lengths[x][y] == lengths[x][y-1]:
+            y -= 1
+        else:
+            assert first[x-1] == second[y-1]
+            result = first[x-1] + result
+            x -= 1
+            y -= 1
+    return result
+
+
 def words_diff(first, second, threshold=0):
     """
     Calculate if fuzzy words from one string occur in another.
