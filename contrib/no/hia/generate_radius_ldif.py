@@ -107,7 +107,7 @@ class UserLDIF(object):
         fd.write(container_entry_string('RADIUS'))
 
         logger.info('Generating export...')
-        for account_id, vlan_vpn in self.id2vlan_vpn.iteritems():
+        for account_id, vlan_vpn in self.id2vlan_vpn.items():
             try:
                 uname = self.account_names[account_id]
             except KeyError:
