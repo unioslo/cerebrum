@@ -78,7 +78,7 @@ def rdl_score(first, second):
     """
     Score two strings based on relative edit distance.
 
-    :returns float: A flot ranging from 1.0 (equal) to 0.0 (totally different)
+    :returns float: A float ranging from 1.0 (equal) to 0.0 (totally different)
     """
     if first == second:
         # shortcut - avoids divide-by-zero if both strings are empty
@@ -95,7 +95,7 @@ def longest_common_subsequence(first, second):
     Note: This is different from longest common *substring*, which is also
     often abbreviated as LCS.
 
-    :returns str: the longest common substring
+    :returns str: the longest common subsequence
     """
     if not first or not second:
         return ""
@@ -131,7 +131,7 @@ def lcs_score(first, second):
     """
     Score two strings based on longest common subsequence.
 
-    :returns float: A flot ranging from 1.0 (equal) to 0.0 (totally different)
+    :returns float: A float ranging from 1.0 (equal) to 0.0 (totally different)
     """
     if first == second:
         # shortcut - avoids divide-by-zero if both strings are empty
