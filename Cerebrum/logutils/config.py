@@ -1,40 +1,60 @@
 # -*- coding: utf-8 -*-
-
+#
+# Copyright 2017-2023 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
 Log configuration.
 
-Note that we are talking about two *types* of configuration here. 'logging' and
-'logger'.
+We have two different types of log config: *logenv* and *preset*.  This module
+implements config file formats and deals with finding and reading these files.
 
-Logging
+Logenv
 -------
-The 'logging' config is defined in the cerebrum config directory (typically
-<prefix>/etc/cerebrum/config), in a 'logging' file.
+The *logenv* logging environment config is defined in the cerebrum config
+directory (typically <prefix>/etc/cerebrum/config), in a 'logenv.yaml' or
+'logenv.json' file.
 
-This file defines the behaviour of this logging sub-package. I.e.:
+This is a config file used by all entry points in Cerebrum that uses
+logging/logutils, and defines the behaviour of the logutils sub-modules:
 
 - Should unhandled exceptions be logged?
 - Should warnings be logged?
-- Where are the 'logger' configs placed?
-- Where should log files be placed?
+- Where are the log presets found?
+- Where should log files generally be placed?
 
-Logger
+Preset
 ------
-The 'logger' configs configures the logger hierarchy. These log files follows
-the formats of `logging.config`.
+The *preset* configs configures the actual python logger hierarchy, along with
+formatters, handlers, and anything else that the standard python logging
+configuration allows for.  These log files follows the format of
+`logging.config`.
 
-The idea here is to make it possible to include a series of logger config
-files.  Different scripts will have different logging needs, so we want to make
-it possible to apply different setups to different scripts.
-
-In addition, devs might want to use their own setups, e.g. log everyting to
-stdout/stderr with their own format.
-
-The design here is that we have a config dir with log configs. The name of the
-config file corresponds to the logger name (--logger-name argument).
+A preset is applied according to the *default preset* set within the script, or
+any override given through cli options (--logger-name).  The first matching
+preset from the logger preset search path (given in the *logenv* config) is
+applied when configuring the logging system.
 """
-from __future__ import absolute_import, unicode_literals
-
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import logging
 import logging.config
 import os
