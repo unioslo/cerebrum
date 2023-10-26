@@ -273,22 +273,34 @@ def get_expiring_groups(db, co, today, timelimit1, timelimit2):
     # Find the mods of the groups
     manual_group_types = list(
         co.GroupType(i) for i in cereconf.PERISHABLE_MANUAL_GROUP_TYPES)
-    all_groups = gr.search(group_type=manual_group_types, filter_expired=True)
 
-    before_t1 = [i['group_id'] for i in all_groups
-                 if i['expire_date'] is not None and
-                 today < i['expire_date'] <= timelimit1]
-    after_t1_before_t2 = [i['group_id'] for i in all_groups
-                          if i['expire_date'] is not None and
-                          timelimit1 < i['expire_date'] < timelimit2]
-    return set(before_t1), set(after_t1_before_t2)
+    # tuples of (group_id, expire_date)
+    all_groups = [
+        (r['group_id'], get_date(r['expire_date']))
+        for r in gr.search(group_type=manual_group_types, filter_expired=True)
+    ]
+
+    # Sort into buckets
+    before_t1 = set(
+        group_id for group_id, expire_date in all_groups
+        if expire_date is not None
+        and today < expire_date
+        and expire_date <= timelimit1
+    )
+    after_t1_before_t2 = set(
+        group_id for group_id, expire_date in all_groups
+        if expire_date is not None
+        and timelimit1 < expire_date
+        and expire_date < timelimit2
+    )
+    return before_t1, after_t1_before_t2
 
 
 @memoize
 def get_group_info(gr, group_id):
     gr.clear()
     gr.find(group_id)
-    return gr.group_name, six.text_type(gr.expire_date.date)
+    return gr.group_name, six.text_type(get_date(gr.expire_date))
 
 
 def get_admin_mod_type(user):
@@ -527,7 +539,8 @@ def main(inargs=None):
     for group_id in groups_with_expiring_trait:
         gr.clear()
         gr.find(group_id)
-        if gr.expire_date and get_date(gr.expire_date) > limit_2:
+        expire_date = get_date(gr.expire_date)
+        if expire_date and expire_date > limit_2:
             gr.delete_trait(co.trait_group_expire_notify)
             logger.debug("Removed trait for group id %s", group_id)
     # Commit or rollback
