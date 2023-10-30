@@ -77,11 +77,16 @@ Note:
     'populate-automatic-groups.py' on the other hand does not generate groups
     for OUs where no persons are currently affiliated.
 """
-from __future__ import unicode_literals
-import logging
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import argparse
-import six
 import datetime
+import logging
+import six
 
 from Cerebrum import logutils
 from Cerebrum.Utils import Factory
@@ -93,7 +98,7 @@ from Cerebrum.modules.automatic_group.structure import (
     get_current_members,
     get_automatic_group_ids
 )
-from Cerebrum.utils.argutils import add_commit_args, get_constant
+from Cerebrum.utils import argutils
 
 logger = logging.getLogger(__name__)
 
@@ -159,7 +164,7 @@ def main(inargs=None):
     parser = argparse.ArgumentParser(
         description='Update automatic groups so that they reflect the '
                     'OU-structure of an organization')
-    parser.add_argument(
+    perspective_arg = parser.add_argument(
         '--perspective',
         type=six.text_type,
         help='Set the system perspective to fetch the OU structure from, '
@@ -174,7 +179,7 @@ def main(inargs=None):
         help='Prefix for the automatic groups this script creates',
         required=True
     )
-    add_commit_args(parser)
+    argutils.add_commit_args(parser)
 
     logutils.options.install_subparser(parser)
     args = parser.parse_args(inargs)
@@ -183,7 +188,9 @@ def main(inargs=None):
     db.cl_init(change_program=parser.prog)
     co = Factory.get('Constants')(db)
 
-    perspective = get_constant(db, parser, co.OUPerspective, args.perspective)
+    perspective = argutils.get_constant(db, parser, co.OUPerspective,
+                                        args.perspective,
+                                        argument=perspective_arg)
     ou = Factory.get('OU')(db)
     gr = Factory.get('Group')(db)
 
