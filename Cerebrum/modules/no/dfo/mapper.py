@@ -276,7 +276,6 @@ class DfoAffiliations(object):
     # group/subgroup pairs, we should not consider the main assignment
     # category, but rather map to specific non-employee affiliations.
     EMPLOYEE_GROUP_MAP = {
-        (8, 50): 'ANSATT/bilag',
         (9, 90): 'TILKNYTTET/ekst_partner',
         (9, 91): 'TILKNYTTET/ekst_partner',
         (9, 93): 'TILKNYTTET/emeritus',
