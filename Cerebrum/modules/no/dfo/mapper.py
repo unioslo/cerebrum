@@ -276,6 +276,7 @@ class DfoAffiliations(object):
     # group/subgroup pairs, we should not consider the main assignment
     # category, but rather map to specific non-employee affiliations.
     EMPLOYEE_GROUP_MAP = {
+        (8, 50): None,  # Explicitly ignore this MG/MUG
         (9, 90): 'TILKNYTTET/ekst_partner',
         (9, 91): 'TILKNYTTET/ekst_partner',
         (9, 93): 'TILKNYTTET/emeritus',
@@ -351,6 +352,12 @@ class DfoAffiliations(object):
                 # a special affiliation.
                 if (main_group, main_subgroup) in self.EMPLOYEE_GROUP_MAP:
                     aff = self.EMPLOYEE_GROUP_MAP[(main_group, main_subgroup)]
+                    if not aff:
+                        logger.info(
+                            "Ignoring assignment from MG/MUG: "
+                            "id=%r, mg=%r, mug=%r",
+                            assignment_id, main_group, main_subgroup)
+                        continue
                 elif not aff:
                     # If this happens it's probably because the assignment
                     # doesn't yet have a valid category.  There's really
