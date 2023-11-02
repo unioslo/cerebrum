@@ -347,7 +347,7 @@ def get_assignment_ids(employee_data):
     if employee_data.get('stillingId'):
         yield assert_int(employee_data['stillingId'])
     for secondary in employee_data.get('tilleggsstilling', ()):
-        if secondary.get('stillingId'):
+        if secondary and secondary.get('stillingId'):
             yield assert_int(secondary['stillingId'])
 
 
