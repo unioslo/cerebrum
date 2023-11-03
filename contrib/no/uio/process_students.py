@@ -42,29 +42,29 @@ from __future__ import (
     print_function,
     unicode_literals,
 )
-import hotshot
-import hotshot.stats
-
 import argparse
 import datetime
-import sys
+import hotshot
+import hotshot.stats
 import os
-from time import localtime, strftime, time
 import pprint
+import sys
+from time import localtime, strftime, time
 
 import cereconf
 
 import Cerebrum.logutils
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.utils.argutils import ParserContext
 from Cerebrum.modules.AccountPolicy import AccountPolicy
-from Cerebrum.modules.bofhd_requests.request import BofhdRequests
 from Cerebrum.modules.bofhd import errors
+from Cerebrum.modules.bofhd_requests.request import BofhdRequests
+from Cerebrum.modules.disk_quota import DiskQuota
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.uio import AutoStud
-from Cerebrum.modules.disk_quota import DiskQuota
 from Cerebrum.modules.no.uio.AutoStud.Util import AutostudError
+from Cerebrum.utils.argutils import ParserContext
+from Cerebrum.utils import date_compat
 
 proffile = 'hotshot.prof'
 
@@ -915,7 +915,7 @@ def get_existing_accounts():
             continue
         tmp_ac[int(row['account_id'])] = ExistingAccount(
             pid2fnr[int(row['owner_id'])],
-            row['expire_date'])
+            date_compat.get_date(row['expire_date']))
     # PosixGid
     for row in posix_user_obj.list_posix_users():
         tmp = tmp_ac.get(int(row['account_id']), None)
