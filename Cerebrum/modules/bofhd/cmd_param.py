@@ -125,8 +125,7 @@ class Date(Parameter):
     _help_ref = 'date'
 
 
-# named DateTimeString due to namespace conflicts with DateTime
-# import from mx module.
+# Named with a String-suffix to avoid namespace conflicts
 class DateTimeString(Parameter):
     _type = 'datetime'
     _help_ref = 'datetime'

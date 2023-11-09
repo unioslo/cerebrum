@@ -379,7 +379,7 @@ class PasswordNotifier(object):
         :param Cerebrum.Account account:
             The account to fetch a deadline time for.
 
-        :return DateTime:
+        :returns datetime.date:
             Returns the deadline datetime.
         """
         grace_delta = datetime.timedelta(days=self.config.grace_period)
