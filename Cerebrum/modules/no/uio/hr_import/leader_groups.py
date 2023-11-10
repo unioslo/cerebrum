@@ -23,6 +23,12 @@ Manager group module.
 This module defines the Cerebrum groups for managers, ``adm-leder-<ou>``.
 These groups mirror manager roles from the hr system.
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import logging
 
 from Cerebrum.Utils import Factory
@@ -58,7 +64,7 @@ class ManagerGroupSync(object):
                 gr.search(member_id=person_id,
                           name=MANAGER_GROUP_PREFIX + '*',
                           group_type=self.const.group_type_affiliation,
-                          filter_expired=True,
+                          filter_expired=False,
                           fetchall=False))
 
     def _fetch_group_ids(self, ou_objects):
