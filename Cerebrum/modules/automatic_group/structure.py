@@ -135,11 +135,19 @@ def update_memberships(gr, entity_id, current_memberships, wanted_memberships):
     :type current_memberships: set
     :type wanted_memberships: set
     """
-    for group_id in wanted_memberships.difference(current_memberships):
+    to_add = set(wanted_memberships) - set(current_memberships)
+    to_remove = set(current_memberships) - set(wanted_memberships)
+    for group_id in to_add:
         gr.clear()
         gr.find(group_id)
-        gr.add_member(entity_id)
-    for group_id in current_memberships.difference(wanted_memberships):
+        # If we blindly trust the current_memberships input, we may run into
+        # problems.  Often, the search for current memberships will *omit
+        # expired groups*, and the wanted_memberships *includes* expired
+        # groups.
+        if not gr.has_member(entity_id):
+            gr.add_member(entity_id)
+    for group_id in to_remove:
         gr.clear()
         gr.find(group_id)
-        gr.remove_member(entity_id)
+        if gr.has_member(entity_id):
+            gr.remove_member(entity_id)
