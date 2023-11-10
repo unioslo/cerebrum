@@ -1,5 +1,24 @@
-# encoding: utf-8
-""" logging cli arguments.
+# -*- coding: utf-8 -*-
+#
+# Copyright 2017-2023 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""
+Options/cli arguments for logutils.
 
 This module contains utilities to parse command line arguments, and use them to
 change logging behaviour in Cerebrum. These options typically sets log levels
@@ -14,7 +33,12 @@ Both should result in an object that contains attributes with the command line
 settings.
 
 """
-from __future__ import absolute_import, print_function, unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import argparse
 import sys
 import threading
@@ -40,13 +64,15 @@ def install_subparser(parser):
         dest=OPTION_CAPTURE_EXC,
         default=None,
         action='store_true',
-        help="Enable exception capture")
+        help="Enable exception capture",
+    )
     exc_mutex.add_argument(
         '--logger-no-exc',
         dest=OPTION_CAPTURE_EXC,
         default=None,
         action='store_false',
-        help="Disable exception capture")
+        help="Disable exception capture",
+    )
 
     # Enable or disable logger warnings "hook"
     warn_mutex = subparser.add_mutually_exclusive_group()
@@ -55,109 +81,55 @@ def install_subparser(parser):
         dest=OPTION_CAPTURE_WARN,
         default=None,
         action='store_true',
-        help="Enable warnings capture")
+        help="Enable warnings capture",
+    )
     warn_mutex.add_argument(
         '--logger-no-warn',
         dest=OPTION_CAPTURE_WARN,
         default=None,
         action='store_false',
-        help="Disable warnings capture")
+        help="Disable warnings capture",
+    )
 
     # Select a logger preset
+    # TODO: This should be renamed to `--logger-preset`,
+    #       as the term *logger name* refers to something else
     subparser.add_argument(
         '--logger-name',
         metavar='NAME',
         dest=OPTION_LOGGER_NAME,
-        help="Override logger configuration")
+        help="Override logger configuration",
+    )
 
     # Select a logger level
     subparser.add_argument(
         '--logger-level',
         metavar='LEVEL',
         dest=OPTION_LOGGER_LEVEL,
-        help="Override logger level")
+        help="Override logger level",
+    )
+
     return subparser
 
 
-def extract_arguments(arglist, options, flags):
-    """Extract command line arguments.
-
-    Unfortunately getopt and other argument parsers reacts adversely to unknown
-    arguments. Thus we'd have to process command-line arguments ourselves.
-
-    :type arglist: list
-    :param arglist:
-        The list of command line arguments to process. This would typically be
-        `sys.argv`. Note that this function is DESCTUCTIVE, and will alter this
-        list.
-
-    :type options: sequence (of basestrings)
-    :param options:
-        A list of options to extract from `arglist`. Each option will also
-        extract the option value (the next argument).
-
-    :type flags: sequence (of basestrings)
-    :param flags:
-        A list of flags/switches to look for in sys.argv. If the flag is
-        present, we'll return True as its value.
-
-    :rtype: dict (of basestring to basestring)
-    :return:
-        A dictionary mapping entries from L{options} and L{flags} to the values
-        belonging to those arguments.
-
-    NOTE: This method should be called within a thread lock if processing
-          sys.argv or any other shared/global value.
-    """
-    # key to command line parameter value
-    result = dict()
-    # the copy of the original sys.argv
-    args = arglist[:]
-    # positions that we'll have to remove from the original sys.argv
-    filter_list = list()
-
-    i = 0
-    while i < len(args):
-        for key in options:
-            if not args[i].startswith(key):
-                continue
-
-            # We have an option. Two cases:
-            # Case 1: key=value
-            if args[i].find("=") != -1:
-                result[key] = args[i].split("=")[1]
-                filter_list.append(i)
-            # Case 2: key value. In this case we peek into the next argument
-            elif i < len(args)-1:
-                result[key] = args[i+1]
-                filter_list.append(i)
-                filter_list.append(i+1)
-                # since we peeked one argument ahead, skip it
-                i += 1
-
-        for key in flags:
-            if args[i] == key:
-                result[key] = True
-                filter_list.append(i)
-
-        # next argument
-        i += 1
-
-    # Rebuild arglist with remaining args.
-    # We must make sure that every reference to sys.argv already made remains
-    # intact.
-    arglist[:] = list()
-    for i in range(0, len(args)):
-        if i not in filter_list:
-            arglist.append(args[i])
-
-    return result
-
-
+# Threading lock to prevent simultaneous changes to `sys.argv` by
+# `process_arguments`
 process_arguments_lock = threading.Lock()
 
 
 def process_arguments(**kwargs):
+    """
+    Legacy argument parsing.
+
+    This function is used to extract logger options directly from sys.argv.
+
+    .. note::
+       This function has side effects: It directly modifies `sys.argv` by
+       removing valid logutils options.
+
+    :returns argparse.Namespace:
+        A namespace with all the logutils options.
+    """
     parser = argparse.ArgumentParser(add_help=False)
     install_subparser(parser)
 
