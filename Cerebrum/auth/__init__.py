@@ -295,6 +295,9 @@ class AuthTypeSHA256(AuthBaseClass):
         This auth method needs to be prefixed by {CRYPT} for use with OpenLDAP.
     """
     _implementation = passlib.hash.sha256_crypt
+    _defaults = {
+        'rounds': 55000,
+    }
 
     @classmethod
     def encrypt(cls, plaintext, salt=None, binary=False):
@@ -320,6 +323,9 @@ class AuthTypeSHA256(AuthBaseClass):
                 settings.update({
                     'salt': salt,
                 })
+        else:
+            # no salt - new cryptstring
+            settings.update(cls._defaults)
 
         return cls._implementation.using(**settings).hash(plaintext)
 
@@ -336,6 +342,9 @@ class AuthTypeSHA512(AuthTypeSHA256):
     Behaves just like :py:class:`AuthTypeSHA256`.
     """
     _implementation = passlib.hash.sha512_crypt
+    _defaults = {
+        'rounds': 55000,
+    }
 
 
 @all_auth_methods('MD5-crypt')
