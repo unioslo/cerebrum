@@ -427,13 +427,13 @@ class EventLog(Cerebrum.ChangeLog.ChangeLog):
         :param int id: The subject- or dest_entity to search for.
         :param int type: The EventType to search for.
         :param str param: A substring to search for in change_params.
-        :param DateTime/str from_ts: Search for events that occurred after this
+        :param datetime/str from_ts: Search for events that occurred after this
             timestamp.
-        :param DateTime/str to_ts: Search for events that occurred before this
+        :param datetime/str to_ts: Search for events that occurred before this
             timestamp.
-        :param DateTime/str taken_before:
+        :param datetime/str taken_before:
             Search for events that were taken before this timestamp.
-        :param DateTime/str taken_after:
+        :param datetime/str taken_after:
             Search for events that were taken after this timestamp.
         :param bool is_taken: Filter by taken/unlocked
         :param int target_system: The TargetSystem to search for.

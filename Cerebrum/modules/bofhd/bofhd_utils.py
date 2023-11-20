@@ -210,10 +210,10 @@ default_format_day = get_dt_formatter()
 
 
 def format_time(field):
-    """ Build a FormatSuggestion field for DateTime.
+    """
+    Build a FormatSuggestion field for xmlrpc datetime objects.
 
     Note: The client should format a 16 char long datetime string.
-
     """
     fmt = "yyyy-MM-dd HH:mm"            # 16 characters wide
     return ':'.join((field, "date", fmt))

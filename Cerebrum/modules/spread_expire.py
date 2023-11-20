@@ -136,7 +136,7 @@ class SpreadExpire(DatabaseAccessor):
 
         :type entity_id: int
         :type spread: Cerebrum.Constants._SpreadCode
-        :type expire_date: mx.DateTime.DateTime, datetime.date
+        :type expire_date: datetime.date
         """
         try:
             old_date = self.get(entity_id, spread)
