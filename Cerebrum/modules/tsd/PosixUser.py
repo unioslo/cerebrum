@@ -1,6 +1,6 @@
-#!/user/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright 2013 University of Oslo, Norway
+#
+# Copyright 2013-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,20 +17,21 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""TSD specific behaviour for posix users."""
+"""
+TSD specific behaviour for posix users.
+"""
+import datetime
 
-from mx import DateTime
-
-import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.modules import PosixUser  
+from Cerebrum.modules import PosixUser
+
 
 class PosixUserTSDMixin(PosixUser.PosixUser):
-    """This mixin overrides PosixUser for the TSD instance, where all users are
+    """
+    This mixin overrides PosixUser for the TSD instance, where all users are
     members of one and only one project. All members of the same project have
     the same default file group.
-
     """
 
     def __init__(self, database):
@@ -54,8 +55,8 @@ class PosixUserTSDMixin(PosixUser.PosixUser):
 
         TODO: rewrite this, was for UiO:
         Note that the given L{gid_id} is ignored, the account's personal file
-        group is used anyways. The personal group's entity_id will be fetched at
-        L{write_db}.
+        group is used anyways. The personal group's entity_id will be fetched
+        at L{write_db}.
 
         Note that the gid_id could be forced by explicitly setting pu.gid_id
         after populate. The module would then respect this at write_db.
@@ -133,9 +134,11 @@ class PosixUserTSDMixin(PosixUser.PosixUser):
         users?
 
         """
-        mapping = {int(self.const.spread_ad_account):
-                       (int(self.const.spread_file_group),),
-                   }
+        mapping = {
+            int(self.const.spread_ad_account): (
+                int(self.const.spread_file_group),
+            ),
+        }
         user_spreads = [int(r['spread']) for r in self.get_spread()]
         group_spreads = [int(r['spread']) for r in self.pg.get_spread()]
         for uspr, gsprs in mapping.iteritems():
@@ -163,5 +166,5 @@ class PosixUserTSDMixin(PosixUser.PosixUser):
             else:
                 self.pg.populate_trait(self.const.trait_project_group,
                                        target_id=ou_id,
-                                       date=DateTime.now())
+                                       date=datetime.datetime.now())
                 self.pg.write_db()
