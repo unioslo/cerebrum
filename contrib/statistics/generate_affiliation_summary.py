@@ -28,7 +28,6 @@ from __future__ import (
     unicode_literals,
 )
 import argparse
-import io
 import json
 import logging
 import string
@@ -41,6 +40,7 @@ import Cerebrum.logutils.options
 from Cerebrum.Utils import Factory
 from Cerebrum.utils import aggregate
 from Cerebrum.utils import csvutils
+from Cerebrum.utils import file_stream
 from Cerebrum.utils import reprutils
 
 logger = logging.getLogger(__name__)
@@ -156,14 +156,17 @@ def count_unique_by_key(iterable, key):
 
 
 def _write_csv(filename, counts):
-    with io.open(filename, mode="w", encoding="utf-8") as f:
+    with file_stream.get_output_context(filename, encoding="utf-8") as f:
         writer = csvutils.UnicodeWriter(f)
         for k in sorted(counts):
             writer.writerow((k, counts[k]))
 
 
 def _write_json(filename, counts):
-    with open(filename, mode="w") as f:
+    # If the default str is a bytestring, then json.dump produces bytestrings
+    # for our file stream:
+    encoding = None if str is bytes else "utf-8"
+    with file_stream.get_output_context(filename, encoding=encoding) as f:
         json.dump(counts, f, indent=2, sort_keys=True)
 
 
@@ -206,7 +209,7 @@ def write_legacy_report(filename, affiliations):
         print(line, **kwargs)
 
     # Writing
-    with io.open(filename, mode="w", encoding="utf-8") as f:
+    with file_stream.get_output_context(filename, encoding="utf-8") as f:
         print_line("", "#persons", "#affs", file=f)
         for k in sorted(groups):
             print_line(k, pe_count[k], pk_count[k], file=f)
@@ -221,24 +224,25 @@ def main(inargs=None):
             Examples:
 
               Count number of affiliations, grouped by affiliation type, and
-              write as CSV-rows to stdout:
+              write as csv-rows to stdout:
 
-                %(prog)s /dev/stdout
+                %(prog)s
 
               Count number of unique persons grouped by affiliation status:
 
-                %(prog)s --key '$status' --unique '$person_id' /dev/stdout
+                %(prog)s --group-by '$status' --count-by '$person_id'
 
               Count unique org units grouped by affiliation and source system,
-              and output as JSON:
+              and output as json file:
 
-                %(prog)s --key '${affiliation}@${source_system}' \\
-                         --unique '$ou_id' \\
-                         --json /dev/stdout
+                %(prog)s --group-by '${affiliation}@${source_system}' \\
+                         --count-by '$ou_id' \\
+                         --json \\
+                         --filename report.json
 
               Generate a legacy report that counts persons and affs over
               multiple groupings:
-                %(prog)s --legacy /dev/stdout
+                %(prog)s --legacy
 
             Key format placeholders:
 
@@ -294,7 +298,9 @@ def main(inargs=None):
     )
     fmt_arg.set_defaults(writer=default_writer)
     parser.add_argument(
-        "filename",
+        "-f", "--filename",
+        default=file_stream.DEFAULT_STDOUT_NAME,
+        help="write output to %(metavar)s (default: stdout)",
     )
 
     Cerebrum.logutils.options.install_subparser(parser)

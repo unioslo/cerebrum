@@ -23,18 +23,20 @@ from __future__ import (
     absolute_import,
     division,
     print_function,
-    # TODO: unicode_literals,
+    unicode_literals,
 )
 import argparse
 import datetime
 import json
 import logging
-import sys
+
+import six
 
 import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum.Entity import EntityQuarantine
 from Cerebrum.Utils import Factory
+from Cerebrum.utils import file_stream
 from Cerebrum.utils.argutils import get_constant
 from Cerebrum.utils.date_compat import get_date, to_mx_format
 
@@ -82,7 +84,8 @@ def codes_to_human(db, quarantines):
     en = Factory.get('Entity')(db)
     co = Factory.get('Constants')(db)
     for q in quarantines:
-        q['quarantine_type'] = str(co.Quarantine(q['quarantine_type']))
+        q['quarantine_type'] = six.text_type(
+            co.Quarantine(q['quarantine_type']))
         en.clear()
         en.find(q['entity_id'])
         if en.entity_type == co.entity_account:
@@ -91,16 +94,26 @@ def codes_to_human(db, quarantines):
         yield q
 
 
-def write_report(stream, quarantines):
+def write_report(filename, quarantines):
     """Dump a list of quarantines to JSON-file.
 
     :param list quarantines: quarantine database rows to report.
     :param file outfile: file-like object to write to
     """
-    json.dump(list(quarantines), stream,
-              cls=JsonEncoder, indent=4, sort_keys=True)
-    stream.write("\n")
-    stream.flush()
+    # If the default str is a bytestring, then json.dump produces bytestrings
+    # for our file stream:
+    encoding = None if str is bytes else "utf-8"
+    with file_stream.get_output_context(filename, encoding=encoding) as stream:
+        json.dump(
+            list(quarantines),
+            stream,
+            cls=JsonEncoder,
+            indent=4,
+            sort_keys=True,
+        )
+        # Writing a unicode newline to a byte stream in Python 2.  This works
+        # because of Python 2 implicit conversion:
+        stream.write("\n")
 
 
 def main(inargs=None):
@@ -109,15 +122,16 @@ def main(inargs=None):
     parser.add_argument(
         '--outfile',
         dest='output',
-        type=argparse.FileType('w'),
         default='-',
         metavar='FILE',
-        help='Output file for report, defaults to stdout')
+        help='Output file for report, defaults to stdout',
+    )
     q_arg = parser.add_argument(
         '--quarantines',
         nargs='+',
         required=True,
-        help="Quarantines that should be exported (i.e. 'radius vpn')")
+        help="Quarantines that should be exported (i.e. 'radius vpn')",
+    )
 
     Cerebrum.logutils.options.install_subparser(parser)
     args = parser.parse_args(inargs)
@@ -128,17 +142,14 @@ def main(inargs=None):
     quarantines = [get_constant(db, parser, co.Quarantine, q, q_arg)
                    for q in args.quarantines]
 
-    logger.info('Start of script %s', parser.prog)
+    logger.info('Start: %s', parser.prog)
     logger.debug("quarantines: %r", quarantines)
 
     quarantines = codes_to_human(db, get_quarantines(db, quarantines))
     write_report(args.output, quarantines)
 
-    if args.output is not sys.stdout:
-        args.output.close()
-
-    logger.info('Report written to %s', args.output.name)
-    logger.info('Done with script %s', parser.prog)
+    logger.info('Report written to %s', args.output)
+    logger.info('Done: %s', parser.prog)
 
 
 if __name__ == '__main__':
