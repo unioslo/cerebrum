@@ -188,14 +188,15 @@ def main():
     db = Factory.get('Database')()
     db.cl_init(change_program='populate-azure-groups.py')
 
-    sync_group(db, "it-uio-ms365-student",
-               include_groups=["meta-student-900000"],
-               exclude_groups=["it-uio-ms365-betalende-utflatet"])
     sync_group(db, "it-uio-ms365-ansatt",
                include_groups=["meta-ansatt-vitenskapelig-900000",
                                "meta-ansatt-tekadm-900000"],
+               exclude_quarantined=True,
+               exclude_groups=["it-uio-ms365-betalende-utflatet"])
+    sync_group(db, "it-uio-ms365-student",
+               include_groups=["meta-student-900000"],
                exclude_groups=["it-uio-ms365-betalende-utflatet",
-                               "it-uio-ms365-student"])
+                               "it-uio-ms365-ansatt"])
     sync_group(db, "it-uio-ms365-andre",
                include_groups=["meta-ansatt-bilag-900000",
                                "meta-tilknyttet-900000"],
