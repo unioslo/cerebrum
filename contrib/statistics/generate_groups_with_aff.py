@@ -37,7 +37,7 @@ def cachedata(db):
     cache = dict()
     cache["accounts"] = list(account["owner_id"] for account in ac.list())
     cache["status"] = dict(
-        (int(r), str(r)) for r in co.fetch_constants(co.PersonAffStatus)
+        (int(status), str(status)) for status in co.fetch_constants(co.PersonAffStatus)
     )
     cache["ou"] = dict(
         (
