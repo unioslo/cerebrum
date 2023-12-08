@@ -23,11 +23,14 @@ Create a CSV file that outputs the amount of active accounts
 distributed by OU and affiliation status.
 """
 import argparse
+import logging
 
 import Cerebrum.utils.csvutils as csvutils
 import Cerebrum.logutils
 
 from Cerebrum.Utils import Factory
+
+logger = logging.getLogger(__name__)
 
 def cachedata(db):
     ac = Factory.get("Account")(db)
@@ -83,14 +86,23 @@ def main():
         "-o",
         "--output",
         type=argparse.FileType(mode="w"),
+        metavar='FILE',
+        default='-',
         help="CSV file where output is written.",
     )
 
     Cerebrum.logutils.options.install_subparser(parser)
     args = parser.parse_args()
     Cerebrum.logutils.autoconf("tee", args)
+
+    logger.info('Start of script %s', parser.prog)
+    logger.debug("args: %r", args)
+
     affiliations = get_affiliations()
     create_csv(args.output, affiliations)
+
+    logger.info('Report written to %s', args.output.name)
+    logger.info('Done with script %s', parser.prog)
 
 
 if __name__ == "__main__":
