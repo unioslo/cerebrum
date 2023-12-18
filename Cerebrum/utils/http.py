@@ -20,11 +20,19 @@
 """
 Common http and url utils.
 """
-from __future__ import absolute_import, unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+
 from six.moves.urllib.parse import (
     quote_plus as _quote_plus,
     urljoin as _urljoin,
 )
+
+from . import text_compat
 
 
 def safe_path(arg):
@@ -33,7 +41,7 @@ def safe_path(arg):
     >>> safe_path('123/something-else')
     '123%2Fsomething-else'
     """
-    return _quote_plus(str(arg))
+    return text_compat.to_text(_quote_plus(text_compat.to_str(arg)))
 
 
 def merge_headers(*dicts):

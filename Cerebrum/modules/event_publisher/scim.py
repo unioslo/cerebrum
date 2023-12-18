@@ -41,6 +41,8 @@ from Cerebrum.config.configuration import (
 )
 from Cerebrum.config.settings import String
 from Cerebrum.utils import date as date_utils
+from Cerebrum.utils import http as http_utils
+from Cerebrum.utils import text_compat
 
 
 class EntityTypeToApiRouteMapConfig(Configuration):
@@ -121,16 +123,21 @@ class ScimFormatter(object):
         return getattr(self.config.entity_type_map, entity_type, default)
 
     def build_url(self, entity_type, entity_id):
-        return self.config.urltemplate.format(entity_type=entity_type,
-                                              entity_id=entity_id)
+        return self.config.urltemplate.format(
+            entity_type=http_utils.safe_path(entity_type),
+            entity_id=http_utils.safe_path(entity_id),
+        )
 
     def get_uri(self, action):
         """ Format an uri for the message. """
-        return '{}:{}'.format(self.config.uri_prefix, action)
+        return '{}:{}'.format(self.config.uri_prefix,
+                              text_compat.to_text(action))
 
     def get_key(self, entity_type, event):
-        return self.config.keytemplate.format(entity_type=entity_type,
-                                              event=event)
+        return self.config.keytemplate.format(
+            entity_type=text_compat.to_text(entity_type),
+            event=text_compat.to_text(event),
+        )
 
 
 class EventScimFormatter(ScimFormatter):
