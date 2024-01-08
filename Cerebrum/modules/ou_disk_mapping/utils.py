@@ -119,36 +119,3 @@ def resolve_disk(disk_mapping,
         if ou_id in seen_ids:
             raise RuntimeError("Org tree cycle! (ou_id=%s, perspective=%s)"
                                % (repr(ou_id), repr(perspective)))
-
-
-def get_disk(database,
-             disk_mapping,
-             ou_id,
-             aff_code,
-             status_code,
-             perspective,
-             ou_class=None,
-             constants=None):
-    """
-    This function is deprecated, and is only here to support legacy lookups.
-
-    Find the appropriate disk_id for a given affiliation.  This is a
-    hierarchical selection process, and the selection process is as follows:
-
-    OU+Aff+Status > OU+Aff > OU > parent OU+Aff+Status > parent OU+Aff > ...
-
-    :param disk_mapping: disk mapping implementation
-    :param database: not used
-    :param int ou_id: org unit for default disk selection
-    :param aff_code: affiliation for default disk selection
-    :param status_code: affiliation status for default disk selection
-    :param perspective: org unit perspective
-    :param ou_class: not used
-    :param constants: not used
-
-    :returns int: entity id of the matching default disk
-    :raises Error.NotFoundError:
-        if no matching default disk setting exists anywhere in the org tree
-    """
-    row = resolve_disk(disk_mapping, ou_id, aff_code, status_code, perspective)
-    return row['disk_id']

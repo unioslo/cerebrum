@@ -33,7 +33,7 @@ import cereconf
 from Cerebrum.Errors import InvalidAccountCreationArgument, NotFoundError
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.disk_quota import DiskQuota
-from Cerebrum.modules.ou_disk_mapping import utils
+from Cerebrum.modules.ou_disk_mapping.utils import resolve_disk
 from Cerebrum.modules.ou_disk_mapping.dbal import OUDiskMapping
 from Cerebrum.utils.email import is_email
 
@@ -71,6 +71,8 @@ class AccountPolicy(object):
         self.posix_user = Factory.get('PosixUser')(db)
         self.disk_quota = DiskQuota(db)
         self.disk_mapping = OUDiskMapping(db)
+        self.ou_perspective = self.const.OUPerspective(
+            cereconf.DEFAULT_OU_PERSPECTIVE)
 
     def create_basic_account(self, creator_id, owner, uname, np_type=None):
         self.account.clear()
@@ -155,15 +157,10 @@ class AccountPolicy(object):
             aff = self.const.PersonAffiliation(aff)
         if status:
             status = self.const.PersonAffStatus(status)
-        disk_id = utils.get_disk(
-            self.db,
-            self.disk_mapping,
-            ou_id,
-            aff,
-            status,
-            self.const.OUPerspective(cereconf.DEFAULT_OU_PERSPECTIVE))
+        disk_rule = resolve_disk(self.disk_mapping, ou_id, aff, status,
+                                 self.ou_perspective)
         home_spread = int(self.const.Spread(cereconf.DEFAULT_HOME_SPREAD))
-        return disk_id, home_spread
+        return disk_rule['disk_id'], home_spread
 
     def update_account(self, person, account_id, *args, **kwargs):
         self.account.clear()
@@ -187,6 +184,10 @@ class AccountPolicy(object):
         user = self._get_user_obj(make_posix_user)
         for spread in spreads:
             user.add_spread(spread)
+        # TODO: We may not find a default disk here - that should probably be
+        #       handled better.  Our options are basically:  (a) don't create a
+        #       user account, (b) use a global default disk, (c) don't posix
+        #       promote, or (d) posix promote but don't add a homedir.
         if ou_disk and not disks:
             disk_id, home_spread = self._get_ou_disk(person)
             disks = ({'disk_id': disk_id, 'home_spread': home_spread},)
