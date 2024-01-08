@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright 2019 University of Oslo, Norway
+#
+# Copyright 2019-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,15 +18,23 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
-Module to store OU Disk Mappings in Cerebrum.
+Rules for mapping a default disk to given affiliations.
 
-This module provides storage for default home dir paths for OUs in Cerebrum.
-One can also add paths for specific affiliations at an OU, and even for a
-specific affiliation status if that is preferred.
+This module provides storage for default homedir disk rules in Cerebrum.
+The intended use is looking up and setting a home directory for new user
+accounts during automatic account creation.
 
-The intended usage of the module is for settings home directories during
-automatic account generation. If one wants to change the home dir of an account
-afterwards that should be possible. This is just so that there is a default.
+The data model supports setting a default disk for:
+
+1. <AFFILIATION>/<status>@<ou>
+2. <AFFILIATION>/<*>@<ou>
+3. <*>/<*>@<ou>
+
+When looking up the default disk for a given user account, you *should* provide
+an affiliation (typically the affiliation that triggers account creation) to
+find a default disk.  The *most specific* (first match from the list above)
+will be used.  If no default disk can be found at the given <ou>, the process
+is repeated with the parent ou, until a match can be found.
 """
 
 __version__ = '1.0'
