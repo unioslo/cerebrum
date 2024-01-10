@@ -38,9 +38,11 @@ class BofhdExtension(base.BofhdExtension):
 
     def _get_printer(self, session, template):
         """ Get printer preset. """
-        if template.get('type', '') == 'letter':
-            return cereconf.PRINT_PRINTER
-        return 'pullprint'
+        if template.get('type', '') == 'papercutricoh':
+            return cereconf.PRINT_PAPERCUTRICOH
+        if template.get('type', '') == 'papercuthp':
+            return cereconf.PRINT_PAPERCUTHP
+        return cereconf.PRINT_PRINTER
 
     def _can_set_spool_user(self, session, template):
         """ Can spool user be set? """
