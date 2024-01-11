@@ -46,7 +46,7 @@ class BofhdExtension(base.BofhdExtension):
 
     def _can_set_spool_user(self, session, template):
         """ Can spool user be set? """
-        return self._get_printer(session, template) == 'pullprint'
+        return self._get_printer(session, template) in ('pullprint','papercutricoh','papercuthp')
 
     def _get_group_account_mappings(self, account):
         group = self._get_group(account.owner_id, idtype='id')
