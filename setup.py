@@ -369,6 +369,8 @@ setup(
     packages=[
         'Cerebrum',
         'Cerebrum/auth',
+        'Cerebrum/config',
+        'Cerebrum/database',
         'Cerebrum/export',
         'Cerebrum/extlib',
         'Cerebrum/group',
@@ -436,8 +438,7 @@ setup(
         'Cerebrum/modules/xmlutils',
         'Cerebrum/modules/virthome',
         'Cerebrum/modules/cis',
-        'Cerebrum/config',
-        'Cerebrum/database',
+        'Cerebrum/org',
         'Cerebrum/testutils',
         'Cerebrum/utils',
         'Cerebrum/rest',
