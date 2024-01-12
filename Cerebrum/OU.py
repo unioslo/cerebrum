@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright 2002-2018 University of Oslo, Norway
+#
+# Copyright 2002-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -16,7 +17,8 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""Organisational Unit implementation.
+"""
+Organisational Unit implementation.
 
 This module implements the functionality for one of the basic elements of
 Cerebrum - organizational units (OUs). They represent an element of an
@@ -27,20 +29,24 @@ OUs are organized into trees. Trees are specific to a given authoritative data
 source, called perspective. An OU may be in different parts of the
 organizational trees in different perspectives.
 """
-
-from __future__ import unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import six
 
-from Cerebrum import Utils
-from Cerebrum.Utils import prepare_string
 from Cerebrum import Errors
-from Cerebrum.Entity import EntityContactInfo
+from Cerebrum import Utils
 from Cerebrum.Entity import EntityAddress
-from Cerebrum.Entity import EntityQuarantine
+from Cerebrum.Entity import EntityContactInfo
 from Cerebrum.Entity import EntityExternalId
-from Cerebrum.Entity import EntitySpread
 from Cerebrum.Entity import EntityNameWithLanguage
+from Cerebrum.Entity import EntityQuarantine
+from Cerebrum.Entity import EntitySpread
+from Cerebrum.Utils import prepare_string
 
 
 Entity_class = Utils.Factory.get("Entity")
