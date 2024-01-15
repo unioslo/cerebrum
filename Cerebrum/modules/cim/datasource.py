@@ -31,6 +31,7 @@ import six
 from Cerebrum.utils import phone
 from Cerebrum.Utils import Factory
 from Cerebrum.Errors import NotFoundError
+from Cerebrum.org import perspective_db
 
 
 class CIMDataSource(object):
@@ -173,7 +174,7 @@ class CIMDataSource(object):
                     self.pe.entity_id,
                     self.ac.account_name,
                     six.text_type(self.co.ContactInfo(entry['contact_type'])),
-                    phone_number))
+                    entry["contact_value"]))
 
         try:
             num = phone.parse(
@@ -235,7 +236,7 @@ class CIMDataSource(object):
         self.ou.clear()
         self.ou.find(from_ou_id)
 
-        ou_roots = set([x['ou_id'] for x in self.ou.root()])
+        ou_roots = perspective_db.list_roots(self.db, self.ou_perspective)
         ous = []
         structure = {}
         current_ou_id = self.ou.entity_id
