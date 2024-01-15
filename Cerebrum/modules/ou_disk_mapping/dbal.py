@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright 2019 University of Oslo, Norway
+#
+# Copyright 2019-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,21 +18,35 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
-Implementation of mod_ou_disk_mapping database access.
+Database access for the ``mod_ou_disk_mapping`` tables.
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+
 import six
 
 from Cerebrum import Errors
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.Disk import Disk
-from Cerebrum.Utils import NotSet, Factory
+from Cerebrum.Utils import Factory, NotSet, argument_to_sql
+
 from .constants import CLConstants
 
 
+# Columns and column order for selects
+DEFAULT_FIELDS = ('ou_id', 'aff_code', 'status_code', 'disk_id')
+
+# Result row ordering in queries
+DEFAULT_ORDER = ('ou_id', 'disk_id', 'aff_code', 'status_code')
+
+
 class OUDiskMapping(DatabaseAccessor):
-    """
-    Map OU and Affiliation to Disk
-    """
+    """ Database access to the default disk rules. """
+
     def __init__(self, database):
         super(OUDiskMapping, self).__init__(database)
         self.disk = Disk(self._db)
@@ -53,9 +68,8 @@ class OUDiskMapping(DatabaseAccessor):
         """
         binds = {
             'ou_id': int(ou_id),
-            'aff_code': aff_code if aff_code is None else int(aff_code),
-            'status_code': status_code if status_code is None else int(
-                status_code),
+            'aff_code': (None if aff_code is None else int(aff_code)),
+            'status_code': (None if status_code is None else int(status_code)),
             'disk_id': int(disk_id),
         }
         stmt = """
@@ -73,8 +87,8 @@ class OUDiskMapping(DatabaseAccessor):
             CLConstants.ou_disk_add,
             None,
             change_params={
-                'aff': six.text_type(
-                    status_code) if status_code else six.text_type(aff_code),
+                'aff': (six.text_type(status_code) if status_code
+                        else six.text_type(aff_code)),
                 'path': six.text_type(self.disk.path),
             }
         )
@@ -119,8 +133,8 @@ class OUDiskMapping(DatabaseAccessor):
             CLConstants.ou_disk_add,
             None,
             change_params={
-                'aff': six.text_type(
-                    status_code) if status_code else six.text_type(aff_code),
+                'aff': (six.text_type(status_code) if status_code
+                        else six.text_type(aff_code)),
                 'path': six.text_type(self.disk.path),
             }
         )
@@ -173,29 +187,11 @@ class OUDiskMapping(DatabaseAccessor):
             CLConstants.ou_disk_remove,
             None,
             change_params={
-                'aff': six.text_type(
-                    status_code) if status_code else six.text_type(aff_code),
+                'aff': (six.text_type(status_code) if status_code
+                        else six.text_type(aff_code)),
                 'path': six.text_type(self.disk.path)
             }
         )
-
-    def get_with_disk(self, disk_id):
-        """
-        Get all OUs and Affiliations that use a disk_id
-
-        :param int disk_id:
-        :return: list of db.rows with keys ou_id, aff_code, disk_id
-        """
-        binds = {
-            'disk_id': int(disk_id),
-        }
-        stmt = """
-          SELECT ou_id, aff_code, status_code
-          FROM [:table schema=cerebrum name=ou_disk_mapping]
-          WHERE
-            disk_id = :disk_id
-        """
-        return self.query(stmt, binds)
 
     def get(self, ou_id, aff_code, status_code):
         """
@@ -212,27 +208,28 @@ class OUDiskMapping(DatabaseAccessor):
         :rtype: db.row
         :return: ou_id, aff_code, status_code, disk_id
         """
-        binds = {
-            'ou_id': int(ou_id),
-        }
+        binds = {'ou_id': int(ou_id)}
+        conds = ["ou_id = :ou_id"]
 
-        where = "ou_id = :ou_id"
         if aff_code is None:
-            where += " AND aff_code IS NULL AND status_code IS NULL"
+            conds.extend(("aff_code IS NULL", "status_code IS NULL"))
         else:
-            where += " AND aff_code = :aff_code"
+            conds.append("aff_code = :aff_code")
             binds['aff_code'] = int(aff_code)
             if status_code is None:
-                where += " AND status_code IS NULL"
+                conds.append("status_code IS NULL")
             else:
-                where += " AND status_code = :status_code"
+                conds.append("status_code = :status_code")
                 binds['status_code'] = int(status_code)
 
         stmt = """
-          SELECT ou_id, aff_code, status_code, disk_id
+          SELECT {fields}
           FROM [:table schema=cerebrum name=ou_disk_mapping]
-          WHERE {where}
-        """.format(where=where)
+          WHERE {conds}
+        """.format(
+            fields=', '.join(DEFAULT_FIELDS),
+            conds=" AND ".join(conds),
+        )
         return self.query_1(stmt, binds)
 
     def add(self, ou_id, aff_code, status_code, disk_id):
@@ -267,47 +264,64 @@ class OUDiskMapping(DatabaseAccessor):
         else:
             self.__update(ou_id, aff_code, status_code, disk_id)
 
-    def search(self, ou_id, aff_code=NotSet, any_status=True):
+    def search(self, ou_id=None, disk_id=None,
+               affiliation=NotSet, status=NotSet,
+               limit=None):
         """
-        Search for rows matching ou, aff, status
+        Search for disk mapping rules.
 
-        Similar to get but allows NotSet for aff_code and status_code so that
-        one can find all entries for an OU or OU+aff combination
+        :param int ou_id: Filter results by one or more ou ids
+        :param int disk_id: Filter results by one or more disk ids
+        :param affiliation: Filter results by affiliation
+        :param status: Filter results by affiliation status
 
-        :param int ou_id: entity_id of the ou
+        .. note::
+           *affiliation* and affiliation *status* takes `None` to mean
+           *no value in rule* - i.e. a rule that matches all values.  Use the
+           default `NotSet` to avoid filtering on affiliation or affiliation
+           status.
 
-        :type aff_code: int, None
-        :param aff_code: Cerebrum person aff (status) constant
-
-        :param bool any_status: Look for any matching status if aff_code is set
-         to a person affiliation
-
-        :rtype: db.row
-        :return: ou_id, aff_code, status_code, disk_id
+        :returns:
+            Rows of (ou_id, aff_code, status_code, disk_id) disk mapping rules.
         """
-        binds = {
-            'ou_id': int(ou_id),
-        }
+        conds = []
+        binds = {}
 
-        where = "ou_id = :ou_id"
-        if aff_code is None:
-            where += " AND aff_code IS NULL AND status_code IS NULL"
-        elif aff_code is NotSet:
-            pass
+        if ou_id is not None:
+            conds.append(argument_to_sql(ou_id, 'ou_id', binds, int))
+
+        if disk_id is not None:
+            conds.append(argument_to_sql(disk_id, 'disk_id', binds, int))
+
+        if affiliation is None:
+            conds.append("aff_code IS NULL")
+        elif affiliation:
+            conds.append("aff_code = :aff_code")
+            binds['aff_code'] = int(affiliation)
+
+        if status is None:
+            conds.append("status_code IS NULL")
+        elif status:
+            conds.append("status_code = :status_code")
+            binds['status_code'] = int(status)
+
+        if limit is None:
+            limit_clause = ''
         else:
-            aff_code, status_code = self.const.get_affiliation(aff_code)
-            where += " AND aff_code = :aff_code"
-            binds['aff_code'] = int(aff_code)
-            if status_code is None:
-                if not any_status:
-                    where += " AND status_code IS NULL"
-            else:
-                where += " AND status_code = :status_code"
-                binds['status_code'] = int(status_code)
+            limit_clause = 'LIMIT :limit'
+            binds['limit'] = int(limit)
 
         stmt = """
-          SELECT ou_id, aff_code, status_code, disk_id
+          SELECT {fields}
           FROM [:table schema=cerebrum name=ou_disk_mapping]
-          WHERE {where}
-        """.format(where=where)
+          {where}
+          ORDER BY {order}
+          {limit}
+        """.format(
+            fields=', '.join(DEFAULT_FIELDS),
+            limit=limit_clause,
+            order=', '.join(DEFAULT_ORDER),
+            where=("WHERE " + " AND ".join(conds)) if conds else "",
+        )
+
         return self.query(stmt, binds)
