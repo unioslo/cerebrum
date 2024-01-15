@@ -47,6 +47,7 @@ from Cerebrum.Entity import EntityNameWithLanguage
 from Cerebrum.Entity import EntityQuarantine
 from Cerebrum.Entity import EntitySpread
 from Cerebrum.Utils import prepare_string
+from Cerebrum.org import perspective_db
 
 
 Entity_class = Utils.Factory.get("Entity")
@@ -171,12 +172,8 @@ class OU(EntityContactInfo, EntityExternalId, EntityAddress,
         self.__updated = []
 
     def get_parent(self, perspective):
-        return self.query_1("""
-        SELECT parent_id
-        FROM [:table schema=cerebrum name=ou_structure]
-        WHERE ou_id=:ou_id AND  perspective=:perspective""",
-                            {'ou_id': self.entity_id,
-                             'perspective': int(perspective)})
+        return perspective_db.get_parent_id(self._db, perspective,
+                                            int(self.entity_id))
 
     def local_it_contact(self, perspective):
         """Return the 'LOCAL-IT' contact of the nearest OU which has one
@@ -206,113 +203,80 @@ class OU(EntityContactInfo, EntityExternalId, EntityAddress,
         return []
 
     def list_ou_path(self, perspective):
-        """Return a list indicating OU's structural placement.
-
-        Recursively collect 'entity_id' of OU and its parents (as they
-        are modeled in 'perspective'); return a list with most specific OU
-        first.
-
         """
-        temp = self.__class__(self._db)
-        temp.find(self.entity_id)
+        Get a list of the full org path to a given ou.
 
-        visited = list()
-        while True:
-            # Detect infinite loops
-            if temp.entity_id in visited:
-                raise RuntimeError("DEBUG: Loop detected: %r" % visited)
-            visited.append(temp.entity_id)
-            # Find parent, end search if parent is either NULL or the
-            # same node we're currently at.
-            parent_id = temp.get_parent(perspective)
-            if (parent_id is None) or (parent_id == temp.entity_id):
-                break
-            temp.clear()
-            temp.find(parent_id)
-        return visited
+        :param perspective: org tree perspective to use
+
+        :returns list:
+            All org unit ids from the starting ou to its root ou.
+
+            ret[0] will always contain the input *ou_id*, and ret[-1] will
+            always be a root ou.
+        """
+        # TODO: Should we verify that this ou actually exists?
+        ou_id = int(self.entity_id)
+        path = [ou_id]
+        for row in perspective_db.find_parents(self._db, perspective, ou_id):
+            # *find_parents* returns rows the same order as we want
+            path.append(int(row['parent_id']))
+        return path
 
     def unset_parent(self, perspective):
-        binds = {'ou_id': self.entity_id,
-                 'perspective': int(perspective)}
-        exists_stmt = """
-        SELECT EXISTS (
-          SELECT 1
-          FROM [:table schema=cerebrum name=ou_structure]
-          WHERE {where}
-        )
-        """.format(where=' AND '.join('{0}=:{0}'.format(x) for x in binds))
-        if not self.query_1(exists_stmt, binds):
-            # False positive
-            return
-        delete_stmt = """
-        DELETE FROM [:table schema=cerebrum name=ou_structure]
-        WHERE ou_id=:ou_id AND perspective=:perspective"""
-        self.execute(delete_stmt, binds)
-        self._db.log_change(self.entity_id,
-                            self.clconst.ou_unset_parent,
-                            None,
-                            change_params={'perspective': int(perspective)})
+        ou_id = int(self.entity_id)
+        perspective_db.clear_parent(self._db, perspective, ou_id)
 
     def set_parent(self, perspective, parent_id):
         """Set the parent of this OU to ``parent_id`` in ``perspective``."""
-        try:
-            old_parent = self.get_parent(perspective)
-            if old_parent == parent_id:
-                # Don't need to change parent_id to the same parent_id
-                return
-            self.execute("""
-            UPDATE [:table schema=cerebrum name=ou_structure]
-            SET parent_id=:parent_id
-            WHERE ou_id=:e_id AND perspective=:perspective""",
-                         {'e_id': self.entity_id,
-                          'perspective': int(perspective),
-                          'parent_id': parent_id})
-        except Errors.NotFoundError:
-            self.execute("""
-            INSERT INTO [:table schema=cerebrum name=ou_structure]
-              (ou_id, perspective, parent_id)
-            VALUES (:e_id, :perspective, :parent_id)""",
-                         {'e_id': self.entity_id,
-                          'perspective': int(perspective),
-                          'parent_id': parent_id})
-        self._db.log_change(self.entity_id, self.clconst.ou_set_parent,
-                            parent_id,
-                            change_params={'perspective': int(perspective)})
+        ou_id = int(self.entity_id)
+        perspective_db.set_parent(self._db, perspective, ou_id, parent_id)
 
     def list_children(self, perspective, entity_id=None, recursive=False):
-        if not entity_id:
-            entity_id = self.entity_id
-        tmp = self.query("""
-        SELECT ou_id FROM [:table schema=cerebrum name=ou_structure]
-        WHERE parent_id=:e_id AND perspective=:perspective""",
-                         {'e_id': entity_id,
-                          'perspective': int(perspective)},
-                         fetchall=False)
-        if recursive:
-            ou_ids = []
-            for row in tmp:
-                ou_ids.append(row['ou_id'])
-                ou_ids.extend(self.list_children(perspective,
-                                                 row['ou_id'],
-                                                 True))
-            return ou_ids
-        return [r['ou_id'] for r in tmp]
+        """
+        Get a list of children of a given ou.
+
+        :param db:
+        :param perspective: org tree perspective to use
+        :param entity_id: org unit to get path from (default: self)
+        :param recursive: include indirect children (grandchildren, etc...)
+
+        :returns list: Child org unit ids of the given *ou_id*.
+        """
+        depth = None if recursive else 1
+        ou_id = int(self.entity_id if entity_id is None else entity_id)
+        return [row['ou_id']
+                for row in perspective_db.find_children(self._db, perspective,
+                                                        ou_id, depth=depth)]
 
     def get_structure_mappings(self, perspective):
-        """Return list of ou_id -> parent_id connections in ``perspective``."""
-        return self.query("""
-        SELECT ou_id, parent_id
-        FROM [:table schema=cerebrum name=ou_structure]
-        WHERE perspective=:perspective""", {'perspective': int(perspective)})
+        """
+        Get parent rows for all org units according to *perspective*.
+
+        This is a legacy function - please use
+        :func:`.perspective_db.get_parent_map`.
+
+        :param int perspective: the perspective (org tree) to use
+
+        :returns:
+            Rows of *ou_id* -> parent *ou_id* relationships for all org units
+            in the given perspective.
+        """
+        return self._db.query(
+            """
+              SELECT ou_id, parent_id
+              FROM [:table schema=cerebrum name=ou_structure]
+              WHERE perspective=:perspective
+            """,
+            {'perspective': int(perspective)},
+        )
 
     def root(self):
-        # FIXME: Doesn't check perspective. Documentation should also
-        # make it clear that a perspective can have more than one root.
-        #
-        # Is this to be tought of as a method or class method? Even
-        # though a perspective can have many roots, any given OU will
-        # only have one root inside a perspective, if the OU is at all
-        # represented in that perspective.
+        """
+        Find all root org units.
+
+        Do *not* use this function!  See :func:`.perspective_db.list_roots` for
+        similar functionality.
+        """
         return self.query("""
         SELECT ou_id
         FROM [:table schema=cerebrum name=ou_structure]
