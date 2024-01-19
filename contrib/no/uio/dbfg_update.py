@@ -79,7 +79,6 @@ from Cerebrum.utils import argutils
 from Cerebrum.modules.no.uio.access_FS import FS, FSvpd
 from Cerebrum.modules.no.uio.access_AJ import AJ
 from Cerebrum.modules.no.uio.access_OA import OA
-from Cerebrum.modules.no.uio.access_OEP import OEP
 
 from Cerebrum.config.configuration import (Configuration, ConfigDescriptor,
                                            Namespace)
@@ -100,7 +99,7 @@ def get_accessor(acc):
         FS=FS,
         AJ=AJ,
         OA=OA,
-        OEP=OEP)[acc]
+    )[acc]
 
 
 class DbConfig(Configuration):
