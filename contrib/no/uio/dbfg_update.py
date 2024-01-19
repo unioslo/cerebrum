@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003-2021 University of Oslo, Norway
+# Copyright 2003-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -30,46 +30,6 @@ FSPROD          select username FROM all_users          fsprod
 FSSBKURS        select username FROM all_users          fssbkurs
 AJPROD          select username FROM all_users          ajprod
 OAPRD           select user_name FROM applsys.fnd_user  oaprd
-OEPA2TST        [1], [2], [3], [4]                      basware-*-test
-OEPAKURS        [5], [6], [7], [8]                      basware-*-kurs
-OEPAPRD         [9], [10], [11], [12]                   basware-*
-
-[1]   basware-users-test:
-      select USER_NETWORK_NAME FROM basware.ip_group_user
-      WHERE GROUP_NAME = 'BasWareBrukere' AND upper(DOMAIN) = 'UIO'
-[2]   basware-masters-test:
-      SELECT USER_NETWORK_NAME FROM basware.ip_group_user
-      WHERE GROUP_NAME = 'Masterbrukere' AND upper(DOMAIN) = 'UIO'
-[3]   basware-monitor-test:
-      SELECT USER_NETWORK_NAME FROM basware.ip_group_user
-      WHERE GROUP_NAME = 'Monitorbrukere' AND upper(DOMAIN) = 'UIO'
-[4]   basware-useradmin-test:
-      SELECT USER_NETWORK_NAME FROM basware.ip_group_user
-      WHERE GROUP_NAME = 'UserAdminbrukere' AND upper(DOMAIN) = 'UIO'
-[5]   basware-users-kurs:
-      select USER_NETWORK_NAME FROM basware.ip_group_user
-      WHERE GROUP_NAME = 'BasWareBrukere' AND upper(DOMAIN) = 'UIO'
-[6]   basware-masters-kurs:
-      SELECT USER_NETWORK_NAME FROM basware.ip_group_user
-      WHERE GROUP_NAME = 'Masterbrukere' AND upper(DOMAIN) = 'UIO'
-[7]   basware-monitor-kurs:
-      SELECT USER_NETWORK_NAME FROM basware.ip_group_user
-      WHERE GROUP_NAME = 'Monitorbrukere' AND upper(DOMAIN) = 'UIO'
-[8]   basware-useradmin-kurs:
-      SELECT USER_NETWORK_NAME FROM basware.ip_group_user
-      WHERE GROUP_NAME = 'UserAdminbrukere' AND upper(DOMAIN) = 'UIO'
-[9]   basware-users:
-      select USER_NETWORK_NAME FROM basware.ip_group_user
-      WHERE GROUP_NAME = 'BasWareBrukere' AND upper(DOMAIN) = 'UIO'
-[10]  basware-masters:
-      SELECT USER_NETWORK_NAME FROM basware.ip_group_user
-      WHERE GROUP_NAME = 'Masterbrukere' AND upper(DOMAIN) = 'UIO'
-[11]  basware-monitor:
-      SELECT USER_NETWORK_NAME FROM basware.ip_group_user
-      WHERE GROUP_NAME = 'Monitorbrukere' AND upper(DOMAIN) = 'UIO'
-[12]  basware-useradmin:
-      SELECT USER_NETWORK_NAME FROM basware.ip_group_user
-      WHERE GROUP_NAME = 'UserAdminbrukere' AND upper(DOMAIN) = 'UIO'
 
 After the update, each group in cerebrum contains only the members listed in
 the corresponding external database. That is, if
@@ -92,22 +52,30 @@ information is written back to cerebrum:
 
 Each of the updates can be turned on/off from the command line.
 """
-from __future__ import unicode_literals
-
-import sys
-import string
-import traceback
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+import io
 import argparse
-import StringIO
+import logging
+import string
+import sys
+import traceback
 
 from six import text_type
 
 import cereconf
 
 import Cerebrum
+import Cerebrum.logutils
+import Cerebrum.logutils.options
 from Cerebrum import database
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.atomicfile import AtomicFileWriter
+from Cerebrum.utils import argutils
 from Cerebrum.modules.no.uio.access_FS import FS, FSvpd
 from Cerebrum.modules.no.uio.access_AJ import AJ
 from Cerebrum.modules.no.uio.access_OA import OA
@@ -119,9 +87,11 @@ from Cerebrum.config.settings import String, Iterable, Boolean
 import Cerebrum.config.loader
 
 
-logger = """Global variable for logger."""
-dryrun = """Global flag for dryrun."""
-account2name = """Global variable mapping account ids to usernames."""
+logger = logging.getLogger(__name__)
+
+# TODO: Get rid of these globals.
+dryrun = True
+account2name = dict()
 
 
 def get_accessor(acc):
@@ -134,36 +104,67 @@ def get_accessor(acc):
 
 
 class DbConfig(Configuration):
+    """ Settings for one database sync. """
 
-    """Settings for one DB."""
-
-    name = ConfigDescriptor(String, doc=u"Name of entry")
-    dbname = ConfigDescriptor(String, doc=u"Name of database")
-    dbuser = ConfigDescriptor(String, doc=u"Username for database connection")
-    accessor = ConfigDescriptor(String, doc=u"Name of class to use")
-    sync_accessor = ConfigDescriptor(String, doc=u"Member function to call")
-    report_accessor = ConfigDescriptor(String, default=None,
-                                       doc=u"Member function to call")
-    report_missing = ConfigDescriptor(Boolean, default=True,
-                                      doc=u'Report missing?')
-    ceregroup = ConfigDescriptor(String, doc=u"Member function to call")
-    db_charset = ConfigDescriptor(String, default=None, doc=u"Charset")
+    name = ConfigDescriptor(
+        String,
+        doc="Name of entry",
+    )
+    dbname = ConfigDescriptor(
+        String,
+        doc="Name of database",
+    )
+    dbuser = ConfigDescriptor(
+        String,
+        doc="Username for database connection",
+    )
+    accessor = ConfigDescriptor(
+        String,
+        doc="Name of database *accessor* class to use for the sync."
+    )
+    sync_accessor = ConfigDescriptor(
+        String,
+        doc="*accessor* method to list usernames for the sync",
+    )
+    report_accessor = ConfigDescriptor(
+        String,
+        default=None,
+        doc="*accessor* method to list usernames for the report",
+    )
+    report_missing = ConfigDescriptor(
+        Boolean,
+        default=True,
+        doc="If set, the report will warn about non-existing members",
+    )
+    ceregroup = ConfigDescriptor(
+        String,
+        doc="Name of cerebrum group to sync with this database",
+    )
+    db_charset = ConfigDescriptor(
+        String,
+        default=None,
+        doc="Encoding/charset to use with this database",
+    )
 
 
 class Config(Configuration):
-
     """Configuration for dbfg_update."""
 
-    databases = ConfigDescriptor(Iterable,
-                                 template=Namespace(DbConfig),
-                                 doc=u"Database entries")
-    report = ConfigDescriptor(Iterable,
-                              template=String(doc=u"Name of database"),
-                              doc=u"Databases for report")
+    databases = ConfigDescriptor(
+        Iterable,
+        template=Namespace(DbConfig),
+        doc="Database entries",
+    )
+    report = ConfigDescriptor(
+        Iterable,
+        template=String(doc="Name of database"),
+        doc="Databases for report",
+    )
 
 
 def sanitize_group(cerebrum_group, constants):
-    """This helper function removes 'unwanted' members of CEREBRUM_GROUP.
+    """
+    This helper function removes 'unwanted' members of CEREBRUM_GROUP.
 
     The groups handled by this script are flat and should contain only
     non-group members. I.e. all group members (of CEREBRUM_GROUP) are deleted.
@@ -474,7 +475,7 @@ def report_users(stream_name, databases):
     """
 
     def report_no_exc(user, report_missing, item, acc_name, func_list):
-        """We don't want to bother with ignore/'"""
+        """We don't want to bother with ignore'"""
 
         try:
             return make_report(user, report_missing, item, acc_name,
@@ -524,7 +525,7 @@ def make_report(user, report_missing, item, acc_name, *func_list):
                           DB_driver=cereconf.DB_DRIVER_ORACLE)
     source = get_accessor(item["accessor"])(db)
     accessor = getattr(source, acc_name)
-    stream = StringIO.StringIO()
+    stream = io.StringIO()
 
     for row in accessor():
         #
@@ -557,40 +558,79 @@ def readconf():
     return conf
 
 
-def main():
-    """
-    Start method for this script.
-    """
-    global logger
-
-    logger = Factory.get_logger("cronjob")
-    logger.info("Performing group synchronization")
-
+def main(argv=None):
+    # This is kind of horrible:
+    # We read the config file here, and add options for each database in
+    # config.  This should probably be replaced by:
+    #
+    # 1. Add a repeatable argument: --db <name>
+    # 2. After arguments are parsed, read config (maybe from its own
+    #    argument?), and check for invalid <name>s given
+    #
     conf = readconf()
-    p = argparse.ArgumentParser()
-    subs = p.add_subparsers(dest='mode')
-    sync = subs.add_parser('sync', help=u'Perform sync')
-    rep = subs.add_parser('report', help=u'Generate report')
-    sync.add_argument('--commit', action='store_true', help=u'Commit')
-    rep.add_argument('-e', '--expired-file', action='store', required=True,
-                     help='Locate expired accounts and generate a report')
-    for db in conf.databases:
-        name = db['name']
-        sync.add_argument('--' + name, action='append_const', const=db,
-                          dest='db', help=u'Update {} group'.format(name))
-        rep.add_argument('--' + name, action='append_const', const=db,
-                         dest='db', help=u'Report database {}'.format(name))
 
-    opts = p.parse_args()
+    p = argparse.ArgumentParser()
+    subs = p.add_subparsers(
+        dest='mode',
+    )
+
+    sync = subs.add_parser(
+        "sync",
+        help="Perform sync",
+    )
+    argutils.add_commit_args(sync)
+
+    rep = subs.add_parser(
+        "report",
+        help="Generate report",
+    )
+    rep.add_argument(
+        "-e", "--expired-file",
+        action="store",
+        required=True,
+        help="Locate expired accounts and generate a report",
+    )
+
+    for db in conf.databases:
+        name = db["name"]
+        sync.add_argument(
+            "--" + name,
+            action="append_const",
+            const=db,
+            dest="db",
+            help="Update {} group".format(name),
+        )
+        rep.add_argument(
+            "--" + name,
+            action="append_const",
+            const=db,
+            dest="db",
+            help="Report database {}".format(name),
+        )
+
+    Cerebrum.logutils.options.install_subparser(p)
+    opts = p.parse_args(argv)
+    Cerebrum.logutils.autoconf('console', opts)
+
+    logger.info("start %s", p.prog)
+    logger.debug("args: %s", repr(opts))
 
     if opts.mode == 'report':
-        report_users(opts.expired_file, databases=(opts.db
-                                                   if opts.db is not None
-                                                   else
-                                                   [x for x in conf.databases
-                                                    for y in conf.report if
-                                                    x.name == y]))
+        logger.info("mode: report")
+        report_users(
+            opts.expired_file,
+            databases=(
+                opts.db
+                if opts.db is not None
+                else [x
+                      for x in conf.databases
+                      for y in conf.report
+                      if x.name == y]
+            ),
+        )
+        logger.info("report written to %s", opts.expired_file)
     else:
+        logger.info("mode: sync")
         services = opts.db or []
         global dryrun
         dryrun = not opts.commit
@@ -600,10 +640,14 @@ def main():
         const = Factory.get("Constants")()
         group = Factory.get("Group")(db)
         global account2name
-        account2name = dict((x["entity_id"], x["entity_name"]) for x in
-                            group.list_names(const.account_namespace))
-
+        account2name = dict(
+            (x["entity_id"], x["entity_name"])
+            for x in group.list_names(const.account_namespace)
+        )
         perform_synchronization(services)
+        logger.info("sync done")
+
+    logger.info("done")
 
 
 if __name__ == "__main__":
