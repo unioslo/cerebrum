@@ -16,7 +16,7 @@ phonenumbers
 pid
 pika==1.1.0
 psycopg2-binary
-pygpgme
+pygpgme==0.3
 pyOpenSSL
 pyrsistent~=0.16.1
 pytest==4.3.1
