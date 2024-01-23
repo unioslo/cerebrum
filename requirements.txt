@@ -1,4 +1,4 @@
-aniso8601
+aniso8601==3.0.0
 backports.ssl-match-hostname
 cffi
 cx-Oracle~=7.3.0
