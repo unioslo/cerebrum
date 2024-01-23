@@ -6238,29 +6238,6 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
                                   grtype="DistributionGroup")
         return et, grp
 
-    def _is_email_delivery_stopped(self, ldap_target):
-        """ Test if email delivery is turned off in LDAP for a user. """
-        import ldap
-        import ldap.filter
-        import ldap.ldapobject
-        ldapconns = [ldap.ldapobject.ReconnectLDAPObject("ldap://%s/" % server)
-                     for server in cereconf.LDAP_SERVERS]
-        target_filter = ("(&(target=%s)(mailPause=TRUE))" %
-                         ldap.filter.escape_filter_chars(ldap_target))
-        for conn in ldapconns:
-            try:
-                # FIXME: cereconf.LDAP_MAIL['dn'] has a bogus value, so we
-                # must hardcode the DN.
-                res = conn.search_s("cn=targets,cn=mail,dc=uio,dc=no",
-                                    ldap.SCOPE_ONELEVEL, target_filter,
-                                    ["1.1"])
-                if len(res) != 1:
-                    return False
-            except ldap.LDAPError:
-                self.logger.error("LDAP search failed", exc_info=True)
-                return False
-        return True
-
     def _email_info_detail(self, acc):
         info = []
         eq = Email.EmailQuota(self.db)
