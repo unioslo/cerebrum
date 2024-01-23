@@ -24,7 +24,7 @@ python-ldap
 pytz
 PyYAML
 raven
-requests
+requests==2.18.4
 rpclib==2.7.0-beta
 six>=1.10
 statsd==3.2.2
