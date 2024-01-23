@@ -1,1 +1,1 @@
-ipython
+ipython==6.3.1
