@@ -438,7 +438,8 @@ class BofhdGroupRoleCommands(BofhdCommandBase):
                 % (owner_name,
                    six.text_type(self.const.EntityType(mod.entity_type)),
                    mod.entity_id))
-        results.sort(key=lambda r: (r['role'], r['group_name']))
+        results.sort(key=lambda r: (r.get('limit', 0), r.get('role', ''),
+                                    r.get('group_name', '')))
         return results
 
     #
