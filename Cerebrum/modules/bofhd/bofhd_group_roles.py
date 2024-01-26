@@ -483,7 +483,8 @@ class BofhdGroupRoleCommands(BofhdCommandBase):
             raise CerebrumError("Group %s (%s) has no admins/moderators"
                                 % (group.group_name, group.entity_id))
 
-        results.sort(key=lambda r: (r['role'], r['owner_id']))
+        results.sort(key=lambda r: (r.get('limit', 0), r.get('role', ''),
+                                    r.get('owner_id', '')))
         return results
 
     def _search_ownership(self, group_id=None, owner_id=None,
