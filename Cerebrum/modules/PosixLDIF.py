@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2004-2023 University of Oslo, Norway
+# Copyright 2004-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,7 +18,12 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ Common POSIX LDIF generator. """
-from __future__ import unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import logging
 import operator
@@ -240,6 +245,12 @@ class PosixLDIF(AutoSuperMixin):
     def load_auth_tab(self):
         self.user_password.cache.update_all()
 
+    def format_user_dn(self, username):
+        return "uid={username},{user_dn}".format(
+            username=username,
+            user_dn=self.user_dn,
+        )
+
     def user_object(self, row):
         account_id = int(row['account_id'])
         uname = self.account2name[account_id]
@@ -291,7 +302,7 @@ class PosixLDIF(AutoSuperMixin):
             self.logger.warn('Duplicate user entry: (%s, %s)',
                              account_id, uname)
             return None, None
-        dn = ','.join((('uid=' + uname), self.user_dn))
+        dn = self.format_user_dn(uname)
         return dn, entry
 
     def update_user_entry(self, account_id, entry, owner_id):
@@ -361,6 +372,7 @@ class PosixLDIF(AutoSuperMixin):
             'cn': cache['name'],
             'gidNumber': text_type(self.group2gid[group_id]),
         }
+
         if 'description' in cache:
             entry['description'] = (cache['description'],)
         self.filegroupcache[group_id] = entry
@@ -377,6 +389,10 @@ class PosixLDIF(AutoSuperMixin):
             self.logger.warn("No valid netgroup-spread in cereconf or arg!")
             return
 
+        # Add a custom, multi-valued member attribute, member_attr,
+        # with the DN of each member.
+        member_attr = LDIFutils.ldapconf("NETGROUP", "member_attr", None)
+
         self.init_netgroup()
         timer2 = make_timer(self.logger, 'Caching netgroups...')
         for row in self.grp.search(spread=self.spread_d['netgroup'],
@@ -388,27 +404,36 @@ class PosixLDIF(AutoSuperMixin):
         timer2('... done caching filegroups')
         self.cache_uncached_children()
         timer2 = make_timer(self.logger, 'Adding users and groups...')
-        for group_id, entry in self.netgroupcache.iteritems():
+
+        for group_id, entry in self.netgroupcache.items():
             users, groups = self.get_users_and_groups(group_id, set(), set(),
                                                       add_persons=True)
-            unames = self.userid2unames(users, group_id)
-            triple = []
-            for uname in unames:
-                if '_' in uname:
-                    continue
-                triple.append('(,%s,)' % uname)
 
-            netgroup = []
-            for g in groups:
-                netgroup.append(self.netgroupcache[g]['cn'])
+            unames = LDIFutils.attr_unique([
+                uname
+                for uname in sorted(self.userid2unames(users, group_id))
+                if '_' not in uname
+            ])
 
+            triple = ['(,%s,)' % uname for uname in unames]
             entry['nisNetgroupTriple'] = triple
+
+            netgroup = LDIFutils.attr_unique([
+                self.netgroupcache[g]['cn']
+                for g in groups
+            ])
+
             entry['memberNisNetgroup'] = netgroup
+
+            if member_attr and self.user_dn:
+                members = [self.format_user_dn(uname) for uname in unames]
+                entry[member_attr] = members
+
         timer2('... done adding users and groups')
         timer2 = make_timer(self.logger, 'Writing group objects...')
         f = LDIFutils.ldif_outfile('NETGROUP', filename, self.fd)
         f.write(LDIFutils.container_entry_string('NETGROUP'))
-        for group_id, entry in self.netgroupcache.iteritems():
+        for group_id, entry in self.netgroupcache.items():
             dn = ','.join(('cn=' + entry['cn'], self.ngrp_dn))
             f.write(LDIFutils.entry_string(dn, entry, False))
         LDIFutils.end_ldif_outfile('NETGROUP', f, self.fd)
@@ -434,8 +459,8 @@ class PosixLDIF(AutoSuperMixin):
                 users.update(self.group2persons[group_id])
 
         for g_id in self.group2groups[group_id]:
-            assert g_id in self.groupcache, "g_id %s in group_id %s missing" % \
-                (g_id, group_id)
+            assert g_id in self.groupcache, ("g_id %s in group_id %s missing"
+                                             % (g_id, group_id))
             if g_id in self.netgroupcache:
                 groups.add(g_id)
             else:
@@ -452,8 +477,8 @@ class PosixLDIF(AutoSuperMixin):
                 users.update(self.group2persons[group_id])
 
         for g_id in self.group2groups[group_id]:
-            assert g_id in self.groupcache, "g_id %s in group_id %s missing" % \
-                (g_id, group_id)
+            assert g_id in self.groupcache, ("g_id %s in group_id %s missing"
+                                             % (g_id, group_id))
             users = self.get_users(g_id, users)
 
         return users
@@ -465,6 +490,7 @@ class PosixLDIF(AutoSuperMixin):
             'objectClass': ('top', 'nisNetGroup'),
             'cn': cache['name'],
         }
+        entry.update(self.ngrp_attrs)
         if 'description' in cache:
             entry['description'] = \
                 transliterate.to_iso646_60(cache['description']).rstrip(),
@@ -473,6 +499,7 @@ class PosixLDIF(AutoSuperMixin):
     def init_netgroup(self):
         """Initiate modules, constants and cache"""
         self.ngrp_dn = LDIFutils.ldapconf('NETGROUP', 'dn')
+        self.ngrp_attrs = LDIFutils.ldapconf('NETGROUP', 'group_attrs', {})
         self.cache_account2name()
         self.cache_groups_and_users()
         self.cache_group2persons()
