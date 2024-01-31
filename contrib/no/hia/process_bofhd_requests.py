@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-# Copyright 2003-2017 University of Oslo, Norway
+#
+# Copyright 2003-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,46 +18,49 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""
+Process bofhd requests for UiA.
 
-from __future__ import unicode_literals
+This script reads from the bofhd_request table in the database and picks the
+requests of the given types for processing.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import argparse
-import pickle
 import logging
+import pickle
+
+import six
 
 import cereconf
 
-from Cerebrum import logutils
+import Cerebrum.logutils
+import Cerebrum.logutils.options
 from Cerebrum import Errors
-from Cerebrum.modules import Email
 from Cerebrum.Utils import Factory, spawn_and_log_output
-from Cerebrum.utils import json
-from Cerebrum.modules.bofhd_requests.request import BofhdRequests
+from Cerebrum.modules import Email
 from Cerebrum.modules.bofhd_requests import process_requests
+from Cerebrum.utils import json
+
 
 logger = logging.getLogger(__name__)
-db = Factory.get('Database')()
-db.cl_init(change_program='process_bofhd_r')
-cl_const = Factory.get('CLConstants')(db)
-const = Factory.get('Constants')(db)
 
 EXIT_SUCCESS = 0
 
 operations_map = process_requests.OperationsMap()
 
-
-def dependency_pending(dep_id, local_db=db, local_co=const):
-    if not dep_id:
-        return False
-    br = BofhdRequests(local_db, local_co)
-    for dr in br.get_requests(request_id=dep_id):
-        logger.debug("waiting for request %d" % int(dep_id))
-        return True
-    return False
+constants_cls = Factory.get("Constants")
+sympa_create_op = six.text_type(constants_cls.bofh_sympa_create)
+sympa_remove_op = six.text_type(constants_cls.bofh_sympa_remove)
 
 
-@operations_map(const.bofh_sympa_create, delay=2*60)
-def proc_sympa_create(request):
+@operations_map(sympa_create_op, delay=2*60)
+def proc_sympa_create(db, request):
     """Execute the request for creating a sympa mailing list.
 
     @type request: ??
@@ -66,7 +69,7 @@ def proc_sympa_create(request):
     """
 
     try:
-        listname = get_address(request["entity_id"])
+        listname = get_address(db, request["entity_id"])
     except Errors.NotFoundError:
         logger.info("Sympa list address %s is deleted! No need to create",
                     listname)
@@ -106,8 +109,8 @@ def proc_sympa_create(request):
     return spawn_and_log_output(cmd) == EXIT_SUCCESS
 
 
-@operations_map(const.bofh_sympa_remove, delay=2*60)
-def proc_sympa_remove(request):
+@operations_map(sympa_remove_op, delay=2*60)
+def proc_sympa_remove(db, request):
     """Execute the request for removing a sympa mailing list.
 
     @type request: ??
@@ -145,7 +148,7 @@ def proc_sympa_remove(request):
     return spawn_and_log_output(cmd) == EXIT_SUCCESS
 
 
-def get_address(address_id):
+def get_address(db, address_id):
     ea = Email.EmailAddress(db)
     ea.find(address_id)
     ed = Email.EmailDomain(db)
@@ -161,29 +164,38 @@ def main():
         dest='types',
         action='append',
         choices=['sympa'],
-        required=True)
+        required=True,
+    )
     parser.add_argument(
         '-m', '--max',
         dest='max_requests',
         default=999999,
         help='Perform up to this number of requests',
-        type=int)
+        type=int,
+    )
     parser.add_argument(
         '-p', '--process',
         dest='process',
         action='store_true',
-        help='Perform the queued operations')
+        help='Perform the queued operations',
+    )
 
-    logutils.options.install_subparser(parser)
+    Cerebrum.logutils.options.install_subparser(parser)
     args = parser.parse_args()
-    logutils.autoconf('bofhd_req', args)
+    Cerebrum.logutils.autoconf('bofhd_req', args)
 
-    logger.info('Start of script %s', parser.prog)
+    logger.info('Start %s', parser.prog)
     logger.debug('args: %r', args)
+
+    db = Factory.get('Database')()
+    db.cl_init(change_program='process_bofhd_r')
+    const = constants_cls(db)
 
     if args.process:
         rp = process_requests.RequestProcessor(db, const)
         rp.process_requests(operations_map, args.types, args.max_requests)
+
+    logger.info('Done %s', parser.prog)
 
 
 if __name__ == '__main__':

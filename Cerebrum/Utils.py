@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2002-2022 University of Oslo, Norway
+# Copyright 2002-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -24,7 +24,6 @@ This module contains a number of core utilities used everywhere in the tree.
 from __future__ import unicode_literals
 
 import collections
-import io
 import os
 import random
 import sys
@@ -239,11 +238,7 @@ class Factory(object):
                       'PosixUser': 'CLASS_POSIX_USER',
                       'PosixGroup': 'CLASS_POSIX_GROUP',
                       'DistributionGroup': 'CLASS_DISTRIBUTION_GROUP',
-                      'Project': 'CLASS_PROJECT',
-                      'Allocation': 'CLASS_ALLOCATION',
-                      'AllocationPeriod': 'CLASS_ALLOCATION_PERIOD',
-                      'LMSImport': 'CLASS_LMS_IMPORT',
-                      'LMSExport': 'CLASS_LMS_EXPORT', }
+                      }
 
         if comp in Factory.class_cache:
             return Factory.class_cache[comp]

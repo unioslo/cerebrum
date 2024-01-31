@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2013-2015 University of Oslo, Norway
+# Copyright 2013-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,17 +17,30 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""Utility class for maintainig event to target system relations"""
+"""
+Utility class for maintainig event to target system relations.
+
+``Cerebrum.modules.EventLog`` only logs events for specific systems.  This
+module contains utils for setting up these system mappings.
+
+TODO: Should probably be moved to a ``Cerebrum.modules.eventlog`` submodule.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    # TODO: unicode_literals,
+)
+
 from functools import partial
-# TODO: Make ChangeType go away. We should have EventTypes
+
 from Cerebrum.Errors import CerebrumError
-from Cerebrum.Errors import NotFoundError
 from Cerebrum.Utils import Factory
 from Cerebrum.Utils import argument_to_sql
 
 
 class EventToTargetUtils(object):
-    u"""Utility class for maintainig event to target system relations.
+    """Utility class for maintainig event to target system relations.
 
     This table will typically be consulted under population of events
     in the EventLog, in order to create an unique event for relevant
@@ -48,7 +60,7 @@ class EventToTargetUtils(object):
                                               self.co.TargetSystem)
 
     def __get_const(self, const_object, const_type, value):
-        u""" A human2constant that accepts Constants as input.
+        """ A human2constant that accepts Constants as input.
 
         :raises CerebrumError:
             If the constant doesn't exist.
@@ -63,7 +75,7 @@ class EventToTargetUtils(object):
         return const
 
     def get_mappings(self, target_systems=None, event_types=None):
-        u""" Gets current event-to-target mappings.
+        """ Gets current event-to-target mappings.
 
         :type target_system:
             NoneType, int, str, TargetSystem, list
@@ -125,7 +137,7 @@ class EventToTargetUtils(object):
             pass
 
     def delete(self, target_system=None, event_type=None):
-        u""" Removes event-to-target mappings.
+        """ Removes event-to-target mappings.
 
         :type target_system:
             NoneType, int, str, TargetSystem, list
@@ -163,7 +175,7 @@ class EventToTargetUtils(object):
             pass
 
     def update_target_system(self, target_system, event_types):
-        u""" Update event types for a given target system.
+        """ Update event types for a given target system.
 
         :type target_system:
             int, str, TargetSystem

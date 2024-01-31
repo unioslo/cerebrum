@@ -23,20 +23,22 @@ Site specific auth.py for UiA
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.apikeys import bofhd_apikey_cmds
 from Cerebrum.modules.audit import bofhd_history_cmds
+from Cerebrum.modules.bofhd import bofhd_group_roles
 from Cerebrum.modules.bofhd import bofhd_ou_cmds
+from Cerebrum.modules.bofhd import bofhd_user_create_unpersonal
 from Cerebrum.modules.bofhd.auth import BofhdAuth
+from Cerebrum.modules.bofhd.bofhd_access import BofhdAccessAuth
 from Cerebrum.modules.bofhd.bofhd_contact_info import BofhdContactAuth
 from Cerebrum.modules.bofhd.bofhd_email import BofhdEmailAuth
-from Cerebrum.modules.bofhd_requests.bofhd_requests_auth import RequestsAuth
-from Cerebrum.modules.bofhd.bofhd_access import BofhdAccessAuth
 from Cerebrum.modules.bofhd.errors import PermissionDenied
+from Cerebrum.modules.bofhd_requests.bofhd_requests_auth import RequestsAuth
 from Cerebrum.modules.no.bofhd_note_cmds import EntityNoteBofhdAuth
-from Cerebrum.modules.bofhd import bofhd_user_create_unpersonal
 from Cerebrum.modules.trait import bofhd_trait_cmds
 
 
 class UiaAuth(EntityNoteBofhdAuth, BofhdAuth):
-    """Defines methods that are used by bofhd to determine wheter
+    """
+    Defines methods that are used by bofhd to determine wheter
     an operator is allowed to perform a given action.
 
     This class only contains special cases for UiA.
@@ -101,6 +103,7 @@ class ContactAuth(UiaAuth, BofhdContactAuth):
     def can_add_contact_info(self, operator,
                              entity=None,
                              contact_type=None,
+                             source_system=None,
                              query_run_any=False):
         # Superusers can see and run command
         if self.is_superuser(operator):
@@ -152,42 +155,62 @@ class EmailAuth(UiaAuth, BofhdEmailAuth):
             return False
         raise PermissionDenied("Currently limited to superusers")
 
-    # non-employee users and local sysadmin is allowed to turn forwarding on/off
     def can_email_forward_toggle(self, operator, account=None,
                                  query_run_any=False):
+        """
+        Non-employee users and local sysadmin is allowed to turn forwarding
+        on/off
+        """
         if query_run_any:
             return True
-        if self._is_local_postmaster(operator,
-                                     self.const.auth_email_forward_off,
-                                     account=account,
-                                     domain=None,
-                                     query_run_any=query_run_any):
-            return True
+
+        # Check for special permission
+        try:
+            if self._is_local_postmaster(operator,
+                                         self.const.auth_email_forward_off,
+                                         account=account,
+                                         domain=None,
+                                         query_run_any=query_run_any):
+                return True
+        except PermissionDenied:
+            pass
+
         if account and operator == account.entity_id:
             if account.is_employee():
-                raise PermissionDenied("Employees may not toggle email forwarding")
+                raise PermissionDenied(
+                    "Employees may not toggle email forwarding")
             else:
                 return True
-        raise PermissionDenied("Currently limited to superusers")
+        raise PermissionDenied("Not allowed to toggle email forward")
 
-    # only non-employee users may add or remove forward addresses
     def can_email_forward_edit(self, operator, account=None, domain=None,
                                query_run_any=False):
+        """
+        Non-employee users and local sysadmin is allowed to add or remove
+        forwarding address
+        """
         if query_run_any:
             return True
+
+        # Check for special permission
         # TODO: make a separate authentication operation for this!
-        if self._is_local_postmaster(operator,
-                                     self.const.auth_email_forward_off,
-                                     account=account,
-                                     domain=domain,
-                                     query_run_any=query_run_any):
-            return True
+        try:
+            if self._is_local_postmaster(operator,
+                                         self.const.auth_email_forward_off,
+                                         account=account,
+                                         domain=domain,
+                                         query_run_any=query_run_any):
+                return True
+        except PermissionDenied:
+            pass
+
         if account and operator == account.entity_id:
             if account.is_employee():
-                raise PermissionDenied("Employees may not edit email forwarding")
+                raise PermissionDenied(
+                    "Employees may not edit email forwarding")
             else:
                 return True
-        raise PermissionDenied("Currently limited to superusers")
+        raise PermissionDenied("Not allowed to edit email forward")
 
 
 class BofhdRequestsAuth(UiaAuth, RequestsAuth):
@@ -204,6 +227,10 @@ class ApiKeyAuth(UiaAuth, bofhd_apikey_cmds.BofhdApiKeyAuth):
 
 class CreateUnpersonalAuth(UiaAuth,
                            bofhd_user_create_unpersonal.BofhdUnpersonalAuth):
+    pass
+
+
+class GroupRoleAuth(UiaAuth, bofhd_group_roles.BofhdGroupRoleAuth):
     pass
 
 

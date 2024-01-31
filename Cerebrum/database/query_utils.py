@@ -23,24 +23,47 @@ Utilities for generating database expressions and preparing parameters.
 TODO
 ----
 
-- Move py:func:`Cerebrum.Utils.argument_to_sql` here
-- Replace use of py:func:`Cerebrum.Utils.prepare_string` with
-  py:class:`.Pattern`.
-- Replace use of py:func:`Cerebrum.database.Database.sql_pattern` with
-  py:class:`.Pattern`.
+- Move :func:`Cerebrum.Utils.argument_to_sql` here
+
+- Replace use of :func:`Cerebrum.Utils.prepare_string` with
+  :class:`.Pattern`
+
+- Replace use of :func:`Cerebrum.database.Database.sql_pattern` with
+  :class:`.Pattern`
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+
+import six
+
+from Cerebrum.Utils import NotSet, argument_to_sql
 from Cerebrum.utils import reprutils
 
 
-def _int_or_none(value):
+def _not_none(value):
+    """
+    Check that value is not None/NotSet.
+
+    This is typically used as transform-callback in
+    ``argument_to_sql`` if no other transforms are suitable.
+    """
     if value is None:
-        return None
-    return int(value)
+        raise ValueError("unexpected None-value")
+    if value is NotSet:
+        raise ValueError("unexpected NotSet-value")
+    return value
 
 
 class _Range(object):
     """
     Abstract range (lower/upper limits).
+
+    Note that if both a gt/ge and a lt/le is given, then the two
+    values must be comparable.
     """
     def __init__(self, gt=None, ge=None, lt=None, le=None):
         gt = self._convert(gt)
@@ -255,3 +278,173 @@ class Pattern(reprutils.ReprFieldMixin):
         cond = '({} {} :{})'.format(colname, op, ref)
         binds = {ref: self.sql_pattern}
         return cond, binds
+
+
+def pattern_helper(colname,
+                   value=NotSet,
+                   case_pattern=None,
+                   icase_pattern=None,
+                   nullable=False):
+    """
+    Helper to prepare a string column query condition.
+
+    Helps to generate conditions for matching exact string values, string
+    patterns, or NULL.
+
+    >>> pattern_helper("foo", ("bar", "baz"), None, "bar baz*")
+    (
+        "(foo IN (:foo0, :foo1) OR foo ILIKE :foo_i_pattern)",
+        {'foo0': 'bar', 'foo1': 'baz', 'foo_i_pattern': 'bar baz%'},
+    )
+
+    >>> pattern_helper("x.foo", None, "*Bar?", nullable=True)
+    (
+        "(x.foo IS NULL OR x.foo LIKE :x_foo_c_pattern)",
+        {'x_foo_c_pattern': '%Bar_'}
+    )
+
+    :param str colname: column name (with prefix, e.g. "en.entity_name")
+    :param str value: value check (sequence of strings, string, None, NotSet)
+    :param str case_pattern: case-sensitive pattern
+    :param str icase_pattern: case-insensitive pattern
+    :param bool nullable:
+        If True, a (column IS NULL) OR-condition is added when `value is None`.
+        This is usually what you want if the column allows NULL-values.
+    """
+    conds = []
+    binds = {}
+
+    if nullable and value is None:
+        conds.append("{} IS NULL".format(colname))
+
+    elif value is not None and value is not NotSet:
+        conds.append(
+            argument_to_sql(value, colname, binds, six.text_type))
+
+    bind_like = colname.replace('.', '_') + '_c_pattern'
+    bind_ilike = colname.replace('.', '_') + '_i_pattern'
+
+    # case-sensitive pattern
+    if case_pattern:
+        c_pattern = Pattern(case_pattern, case_sensitive=True)
+        c_cond, c_bind = c_pattern.get_sql_select(colname, bind_like)
+        conds.append(c_cond)
+        binds.update(c_bind)
+
+    # case-insensitive pattern
+    if icase_pattern:
+        i_pattern = Pattern(icase_pattern, case_sensitive=False)
+        i_cond, i_bind = i_pattern.get_sql_select(colname, bind_ilike)
+        conds.append(i_cond)
+        binds.update(i_bind)
+
+    if len(conds) > 1:
+        return '({})'.format(' OR '.join(conds)), binds
+    elif conds:
+        return conds[0], binds
+    return None, {}
+
+
+def date_helper(colname, value=NotSet, gt=None, ge=None, lt=None, le=None,
+                nullable=False):
+    """
+    Helper to prepare a date/timestamp column query condition.
+
+    Helps to generate conditions for matching exact date/datetime values,
+    date/datetime ranges, or NULL.
+
+    >>> a, b, c = (datetime.date(2023, 4, i) for i in (15, 17, 19))
+    >>> date_helper("foo", (a, b), ge=c)
+    (
+        '((foo IN (:foo0, :foo1)) OR (foo >= :foo_range_start))',
+        {'foo0': datetime.date(2023, 4, 15),
+         'foo1': datetime.date(2023, 4, 17),
+         'foo_range_start': datetime.date(2023, 4, 19)})
+
+    >>> date_helper("foo", None, gt=a, lt=b)
+    (
+        '(foo > :foo_range_start AND foo < :foo_range_stop)',
+        {'foo_range_start': datetime.date(2023, 4, 15),
+         'foo_range_stop': datetime.date(2023, 4, 17)})
+
+    :param str colname: column name (with prefix, e.g. "en.entity_name")
+    :param value: value check (sequence of dates, date, None, NotSet)
+    :param gt/ge: add range start condition (exclusive/inclusive)
+    :param lt/le: add range end condition (exclusive/inclusive)
+    :param bool nullable:
+        If True, a (column IS NULL) OR-condition is added when `value is None`.
+        This is usually what you want if the column allows NULL-values.
+    """
+    conds = []
+    binds = {}
+
+    if nullable and value is None:
+        conds.append("{} IS NULL".format(colname))
+
+    if value is not None and value is not NotSet:
+        conds.append(
+            argument_to_sql(value, colname, binds, _not_none))
+
+    if any((lt, le, gt, ge)):
+        bind_prefix = colname.replace('.', '_') + '_range'
+        date_range = _Range(gt=gt, ge=ge, lt=lt, le=le)
+        r_cond, r_bind = date_range.get_sql_select(colname, bind_prefix)
+        conds.append(r_cond)
+        binds.update(r_bind)
+
+    if len(conds) > 1:
+        return '({})'.format(' OR '.join(conds)), binds
+    elif conds:
+        return conds[0], binds
+    return None, {}
+
+
+def int_helper(colname, value=NotSet, gt=None, ge=None, lt=None, le=None,
+               nullable=False):
+    """
+    Helper to prepare a numerical column query condition.
+
+    Helps to generate conditions for matching exact number values,
+    number ranges, or NULL.
+
+    >>> a, b, c = (15, 17, 19)
+    >>> int_helper("foo", (a, b), ge=c)
+    (
+        '((foo IN (:foo0, :foo1)) OR (foo >= :foo_range_start))',
+        {'foo0': 15, 'foo1': 17, 'foo_range_start': 19})
+
+    >>> int_helper("foo", None, gt=a, lt=b, nullable=True)
+    (
+        '(foo is NULL OR (foo > :foo_range_start AND foo < :foo_range_stop))',
+        {'foo_range_start': 15, 'foo_range_stop': 17})
+
+    :param str colname: column name (with prefix, e.g. "en.entity_name")
+    :param value: value check (sequence of ints, int, None, NotSet)
+    :param gt/ge: add range start condition (exclusive/inclusive)
+    :param lt/le: add range end condition (exclusive/inclusive)
+    :param bool nullable:
+        If True, a (column IS NULL) OR-condition is added when `value is None`.
+        This is usually what you want if the column allows NULL-values.
+    """
+    conds = []
+    binds = {}
+
+    if nullable and value is None:
+        conds.append("{} IS NULL".format(colname))
+
+    if value is not None and value is not NotSet:
+        conds.append(
+            argument_to_sql(value, colname, binds, int))
+
+    if any((lt, le, gt, ge)):
+        bind_prefix = colname.replace('.', '_') + '_range'
+        num_range = NumberRange(gt=gt, ge=ge, lt=lt, le=le)
+        r_cond, r_bind = num_range.get_sql_select(colname, bind_prefix)
+        conds.append(r_cond)
+        binds.update(r_bind)
+
+    if len(conds) > 1:
+        return '({})'.format(' OR '.join(conds)), binds
+    elif conds:
+        return conds[0], binds
+    return None, {}

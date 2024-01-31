@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2016-2018 University of Oslo, Norway
+# Copyright 2016-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,14 +18,17 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """This module contains a command for sending passwords by SMS."""
-from __future__ import unicode_literals
-
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import io
 import os
+import textwrap
 
 import cereconf
-
-from mx import DateTime
 
 from Cerebrum import Errors
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
@@ -36,9 +39,8 @@ from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.no.uio.bofhd_auth import BofhdAuth
 from Cerebrum.modules.no.uio.bofhd_uio_cmds import (BofhdExtension as
                                                     UiOBofhdExtension)
+from Cerebrum.utils import date as date_utils
 from Cerebrum.utils.sms import SMSSender
-
-uio_helpers = ['_get_cached_passwords']
 
 
 class BofhdAuth(BofhdAuth):
@@ -74,29 +76,35 @@ CMD_HELP = {
 
 CMD_ARGS = {
     # argname, prompt, help text
-    'welcome_mobile': [
-        'mobile',
+    'welcome-sms-mobile': [
+        'welcome-sms-mobile',
         'Enter phone number (empty to auto-select)',
-        'A number to send the welcome SMS to, if allowed.'
-        ' Use an empty value to automatically select the best available'
-        ' number'
+        textwrap.dedent(
+            """
+            A number to send the welcome SMS to, if allowed.
+
+            Use an empty value to automatically select the best available
+            number.
+            """
+        ).lstrip(),
     ],
-    'sms_pass_lang': [
-        'language',
+    'password-sms-language': [
+        'password-sms-language',
         'Enter a template language (no, en, ...)',
-        'Language to use in the password SMS message'
+        'Language to use in the password SMS message',
     ],
-    'sms_message': [
-        'message',
+    'sms-message': [
+        'sms-message',
         'Enter message',
-        'A message to send as SMS'
+        'A message to send as SMS',
     ],
 }
 
 
 @copy_func(
     UiOBofhdExtension,
-    methods=uio_helpers)
+    methods=['_get_cached_passwords'],
+)
 class BofhdExtension(BofhdCommonMethods):
 
     all_commands = {}
@@ -162,7 +170,7 @@ class BofhdExtension(BofhdCommonMethods):
     all_commands['user_send_welcome_sms'] = Command(
         ("user", "send_welcome_sms"),
         AccountName(help_ref="account_name", repeat=False),
-        Mobile(help_ref='welcome_mobile', optional=True),
+        Mobile(help_ref='welcome-sms-mobile', optional=True),
         fs=FormatSuggestion([('Ok, message sent to %s', ('mobile',)), ]),
         perm_filter='can_send_welcome_sms')
 
@@ -173,7 +181,7 @@ class BofhdExtension(BofhdCommonMethods):
         missing. Override must be permitted in the cereconf setting
         BOFHD_ALLOW_MANUAL_MOBILE.
         """
-        sms = SMSSender(logger=self.logger)
+        sms = SMSSender()
         account = self._get_account(username)
         # Access Control
         self.ba.can_send_welcome_sms(operator.get_entity_id())
@@ -205,7 +213,7 @@ class BofhdExtension(BofhdCommonMethods):
         mailaddr = ''
         try:
             mailaddr = account.get_primary_mailaddress()
-        except:
+        except Exception:
             pass
         # NOTE: There's no need to supply the 'email' entry at the moment,
         # but contrib/no/send_welcome_sms.py does it as well
@@ -225,7 +233,7 @@ class BofhdExtension(BofhdCommonMethods):
             pass
         finally:
             account.populate_trait(code=self.const.trait_sms_welcome,
-                                   date=DateTime.now())
+                                   date=date_utils.now())
             account.write_db()
         return {'mobile': mobile}
 
@@ -235,7 +243,7 @@ class BofhdExtension(BofhdCommonMethods):
     all_commands['misc_sms_password'] = Command(
         ('misc', 'sms_password'),
         AccountName(help_ref="account_name", repeat=False),
-        SimpleString(help_ref='sms_pass_lang', repeat=False,
+        SimpleString(help_ref='password-sms-language', repeat=False,
                      optional=True, default='no'),
         fs=FormatSuggestion('Password sent to %s.', ('number',)),
         perm_filter='is_superuser')
@@ -279,7 +287,7 @@ class BofhdExtension(BofhdCommonMethods):
                 'SMS disabled in cereconf, would have '
                 'sent password to %r', mobile)
         else:
-            sms = SMSSender(logger=self.logger)
+            sms = SMSSender()
             if not sms(mobile, msg):
                 raise CerebrumError('Unable to send message to %r' % mobile)
 
@@ -291,16 +299,15 @@ class BofhdExtension(BofhdCommonMethods):
     all_commands['misc_sms_message'] = Command(
         ('misc', 'sms_message'),
         AccountName(help_ref='account_name'),
-        SMSString(help_ref='sms_message', repeat=False),
+        SMSString(help_ref='sms-message', repeat=False),
         fs=FormatSuggestion('Message sent to %s.', ('number',)),
-        perm_filter='is_superuser')
+        perm_filter='can_send_freetext_sms_message')
 
     def misc_sms_message(self, operator, account_name, message):
         """
         Sends SMS message(s)
         """
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise PermissionDenied('Only superusers may send messages by SMS')
+        self.ba.can_send_freetext_sms_message(operator.get_entity_id())
 
         mobile = self._select_sms_number(account_name)
 
@@ -310,7 +317,7 @@ class BofhdExtension(BofhdCommonMethods):
                 'SMS disabled in cereconf, would have '
                 'sent message to %r', mobile)
         else:
-            sms = SMSSender(logger=self.logger)
+            sms = SMSSender()
             if not sms(mobile, message):
                 raise CerebrumError('Unable to send message to %r' % mobile)
         return {'number': mobile}

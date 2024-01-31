@@ -85,7 +85,7 @@ def get_existing_accounts(db):
 
             if int(row['entity_id']) in deceased:
                 tmp_persons[int(row['external_id'])].set_deceased_date(
-                    deceased[int(row['entity_id'])])
+                    get_date(deceased[int(row['entity_id'])]))
 
     logger.debug("Loading affiliations...")
     for row in pers.list_affiliations(
@@ -147,7 +147,7 @@ def get_existing_accounts(db):
             continue
 
         tmp_ac[row['account_id']] = ExistingAccount(sysx_id,
-                                                    row['expire_date'])
+                                                    get_date(row['expire_date']))
 
     # Posixusers
     logger.info("Loading posix users...")
@@ -526,14 +526,14 @@ class Build(object):
             changes.append(('promote_posix', True))
 
         # Update expire if needed
-        current_expire = get_date(acc_obj.get_expire_date())
+        current_expire = acc_obj.get_expire_date()
         new_expire = get_date(person_info['expire_date'])
         today = datetime.date.today()
 
         # expire account if person is deceased
         new_deceased = False
         if p_obj.get_deceased_date() is not None:
-            new_expire = str(p_obj.get_deceased_date())
+            new_expire = p_obj.get_deceased_date()
             if current_expire != new_expire:
                 logger.warning("Person with sysx_id=%r is deceased (%r)",
                                sysx_id, new_expire)

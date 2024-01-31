@@ -28,6 +28,7 @@ import Cerebrum.Errors
 from Cerebrum.modules.greg.client import get_client
 from Cerebrum.modules.greg.importer import get_import_class
 from Cerebrum.modules.greg.tasks import GregImportTasks
+from Cerebrum.modules.import_utils import syncs
 from Cerebrum.modules.tasks.queue_processor import QueueProcessor
 from Cerebrum.utils.argutils import add_commit_args
 
@@ -44,6 +45,11 @@ def main(inargs=None):
         help='Client config to use (see Cerebrum.modules.greg.client)',
     )
     parser.add_argument(
+        '-d', '--debug',
+        action='store_true',
+        help='Debugging mode (show values during import)',
+    )
+    parser.add_argument(
         '-l', '--limit',
         type=int,
         default=None,
@@ -53,11 +59,13 @@ def main(inargs=None):
 
     db_args = parser.add_argument_group('Database')
     add_commit_args(db_args)
-
     Cerebrum.logutils.options.install_subparser(parser)
-    args = parser.parse_args(inargs)
 
+    args = parser.parse_args(inargs)
     Cerebrum.logutils.autoconf('cronjob', args)
+
+    if args.debug:
+        syncs.enable_debug_log()
 
     logger.info("start %s", parser.prog)
     logger.debug("args: %r", args)

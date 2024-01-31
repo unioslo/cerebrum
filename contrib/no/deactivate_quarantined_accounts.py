@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2011, 2012, 2014 University of Oslo, Norway
+# Copyright 2011-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,8 +18,8 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-"""Deactivate accounts with a given quarantine.
+"""
+Deactivate accounts with a given quarantine.
 
 The criterias for deactivating accounts:
 
@@ -49,49 +49,117 @@ Note: If a quarantine has been temporarily disabled, it would not be found by
 this script. This would make it possible to let accounts live for a prolonged
 period. This is a problem which should be solved in other ways, and not by this
 script.
-
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
-from __future__ import unicode_literals
-
-import sys
-import getopt
-import re
-
+import argparse
 import datetime
+import logging
+import textwrap
+
+import six
 
 import cereconf
-from Cerebrum import Errors
+
+import Cerebrum.logutils
+import Cerebrum.logutils.options
+import Cerebrum.Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.utils.context import entity, entitise
-from Cerebrum.utils.date_compat import get_date
+from Cerebrum.modules.bofhd.errors import CerebrumError as BofhdError
 from Cerebrum.modules.bofhd_requests.request import BofhdRequests
+from Cerebrum.utils import argutils
+from Cerebrum.utils import date_compat
 
-logger = Factory.get_logger("cronjob")
-database = Factory.get("Database")()
-database.cl_init(change_program="deactivate-qua")
-constants = Factory.get("Constants")(database)
-# we could probably generalise and use entity here, but for now we
-# need only look at accounts
-account = Factory.get("Account")(database)
-person = Factory.get("Person")(database)
+logger = logging.getLogger(__name__)
 
 
-account.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
-operator_id = account.entity_id
-account.clear()
+def get_default_operator_id(db):
+    """ Get operator_id for bofhd_requests. """
+    ac = Factory.get("Account")(db)
+    ac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
+    return int(ac.entity_id)
 
 
-def fetch_all_relevant_accounts(qua_type, since, ignore_affs,
-                                system_accounts):
-    """Fetch all accounts that matches the criterias for deactivation.
+def _fetch_quarantined_since(db, quarantine_types, start_before):
+    """ Fetch quarantined accounts. """
+    logger.debug("fetching accounts quarantined before %s ...", start_before)
+    ac = Factory.get("Account")(db)
+    accounts = set(
+        row['entity_id']
+        for row in ac.list_entity_quarantines(
+            entity_types=ac.const.entity_account,
+            quarantine_types=quarantine_types,
+            only_active=True,
+        )
+        if date_compat.get_date(row['start_date']) <= start_before
+    )
+    logger.debug("found %d quarantined accounts", len(accounts))
+    return accounts
 
-    :param QuarantineCode qua_type:
-        The quarantine that the accounts must have to be targeted.
 
-    :param int since:
-        The number of days a quarantine must have been active for the account
-        to be targeted.
+def _fetch_deleted_accounts(db):
+    """ Fetch all accounts already considered deleted/deactivated. """
+    logger.debug("fetching deleted accounts ...")
+    ac = Factory.get("Account")(db)
+    accounts = set(int(row['account_id']) for row in ac.list_deleted_users())
+    logger.debug("found %d deleted accounts", len(accounts))
+    return accounts
+
+
+def _fetch_affiliated_accounts(db, ignore_affs):
+    """ Fetch all personal accounts of affiliated persons. """
+    # prepare int tuples
+    ignore_aff_t = set(
+        (int(aff), None if status is None else int(status))
+        for aff, status in ignore_affs)
+
+    # find affilated persons
+    logger.debug("fetching affiliated persons ...")
+    pe = Factory.get("Person")(db)
+    affiliated_persons = set(
+        row['person_id']
+        for row in pe.list_affiliations(include_deleted=False)
+        if (int(row['affiliation']), None) not in ignore_aff_t
+        and (int(row['affiliation']), int(row['status'])) not in ignore_aff_t)
+    logger.debug("found %d affiliated persons", len(affiliated_persons))
+
+    # find their active accounts
+    logger.debug("fetching affiliated personal accounts ...")
+    ac = Factory.get("Account")(db)
+    accounts = set(
+        int(row['account_id'])
+        for row in ac.search(owner_type=ac.const.entity_person)
+        if int(row['owner_id']) in affiliated_persons)
+    logger.debug("found %d affiliated personal accounts", len(accounts))
+    return accounts
+
+
+def _fetch_system_accounts(db):
+    """ Fetch all system accounts. """
+    logger.debug("fetching system accounts ...")
+    ac = Factory.get("Account")(db)
+    accounts = set(
+        int(row['account_id'])
+        for row in ac.search(owner_type=ac.const.entity_group))
+    logger.debug("found %d system accounts", len(accounts))
+    return accounts
+
+
+def fetch_target_accounts(db, quarantine_types, started_before, ignore_affs,
+                          include_system_accounts):
+    """
+    Fetch all accounts that matches the criterias for deactivation.
+
+    :param list quarantine_types:
+        Quarantines to select
+
+    :param datetime.date started_before:
+        Select quarantines started before this date
 
     :type ignore_affs: set, list or tuple
     :param ignore_affs:
@@ -99,7 +167,7 @@ def fetch_all_relevant_accounts(qua_type, since, ignore_affs,
         and process the persons' accounts as if they didn't have an
         affiliation, and could therefore be targeted for deactivation.
 
-    :param bool system_accounts:
+    :param bool include_system_accounts:
         If True, accounts owned by groups are also included in the resulting
         target list.
 
@@ -107,51 +175,49 @@ def fetch_all_relevant_accounts(qua_type, since, ignore_affs,
     :returns: The `entity_id` for all the accounts that match the criterias.
 
     """
-    max_date = datetime.date.today() - datetime.timedelta(days=since)
-    logger.debug("Search quarantines older than %s days, i.e. before %s",
-                 since, max_date.strftime('%Y-%m-%d'))
-    targets = set(row['entity_id'] for row in
-                  account.list_entity_quarantines(
-                      entity_types=constants.entity_account,
-                      quarantine_types=qua_type, only_active=True)
-                  if get_date(row['start_date']) <= max_date)
-    logger.debug("Found %d quarantine targets", len(targets))
 
-    if len(targets) == 0:
+    # Get quarantined accounts
+    targets = _fetch_quarantined_since(db, quarantine_types, started_before)
+    logger.info("Found %d quarantined targets", len(targets))
+    if not targets:
         return targets
 
-    # Ignore those with person affiliations:
-    persons = set(r['person_id'] for r in
-                  person.list_affiliations(include_deleted=False)
-                  if (int(r['affiliation']), None) not in ignore_affs and
-                  (int(r['affiliation']), int(r['status'])) not in ignore_affs)
-    logger.debug2("Found %d persons with affiliations", len(persons))
-    accounts_to_ignore = set(int(r['account_id']) for r in
-                             account.search(owner_type=constants.entity_person)
-                             if r['owner_id'] in persons)
-    targets.difference_update(accounts_to_ignore)
-    logger.debug2("Removed targets with person-affs (%d). Result: %d",
-                  len(accounts_to_ignore), len(targets))
+    # Remove deleted accounts, as they won't be processed anyway
+    already_deleted = _fetch_deleted_accounts(db)
+    targets -= already_deleted
+    logger.info("Ignoring %d deleted accounts, %d remaining targets",
+                len(already_deleted), len(targets))
+    if not targets:
+        return targets
 
-    # Ignore accounts owned by groups:
-    if not system_accounts:
-        targets.difference_update(r['account_id'] for r in
-                                  account.search(
-                                      owner_type=constants.entity_group))
-        logger.debug2("Removed system accounts. Result: %d", len(targets))
+    # Ignore accounts owned by persons with non-ignored affs
+    affiliated_accounts = _fetch_affiliated_accounts(db, ignore_affs)
+    targets -= affiliated_accounts
+    logger.info("Ignoring %d affiliated accounts, %d remaining targets",
+                len(affiliated_accounts), len(targets))
+    if not targets:
+        return targets
+
+    if not include_system_accounts:
+        # remove system accounts from targets
+        system_accounts = _fetch_system_accounts(db)
+        targets -= system_accounts
+        logger.info("Ignoring %d system accounts, %d remaining targets",
+                    len(system_accounts), len(targets))
+
     return targets
 
 
-def process_account(account, delete=False, bofhdreq=False):
-    """Deactivate the given account.
+def process_account(account, operator_id, terminate=False, use_request=False):
+    """ Deactivate the given account.
 
     :param Cerebrum.Account: The account that should get deactivated.
 
-    :param bool delete:
+    :param bool terminate:
         If True, the account will be totally deleted instead of just
         deactivated.
 
-    :param bool bofhdreq:
+    :param bool use_request:
         If True, the account will be given to BofhdRequest for further
         processing. It will then not be deactivated by this script.
 
@@ -159,188 +225,250 @@ def process_account(account, delete=False, bofhdreq=False):
     :returns: If the account really got deactivated/deleted.
 
     """
+    db = account._db
+    const = account.const
+    account_repr = "%s (%d)" % (account.account_name, account.entity_id)
+
     if account.is_deleted():
-        logger.debug2("Account %s already deleted", account.account_name)
+        logger.warning("Account %s already deleted", account_repr)
         return False
-    logger.info('Deactivating account: %s (%s)', account.account_name,
-                account.entity_id)
-    if delete:
-        logger.info("Terminating account: %s", account.account_name)
+
+    logger.debug("Processing account %s", account_repr)
+
+    if terminate:
         account.terminate()
-    elif bofhdreq:
-        logger.debug("Send to BofhdRequest: %s", account.account_name)
-        br = BofhdRequests(database, constants)
+        logger.info("Terminated %s", account_repr)
+        return True
+
+    if use_request:
+        br = BofhdRequests(db, const)
         try:
-            reqid = br.add_request(operator_id, when=br.now,
-                                   op_code=constants.bofh_delete_user,
-                                   entity_id=account.entity_id,
-                                   destination_id=None)
-            logger.debug("BofhdRequest-Id: %s", reqid)
-        except Errors.CerebrumError as e:
-            # A CerebrumError is thrown if there exists some move_user for the
-            # same user...
-            logger.warn("Couldn't delete %s: %s", account.account_name, e)
+            reqid = br.add_request(
+                operator=operator_id,
+                when=br.now,
+                op_code=const.bofh_delete_user,
+                entity_id=int(account.entity_id),
+                destination_id=None,
+            )
+            logger.info("Queued delete request for %s: request_id=%r",
+                        account_repr, reqid)
+            return True
+        except BofhdError as e:
+            # TODO: This *should* probably be a Cerebrum.Errors.CerebrumError,
+            # but we'd need to rewrite error handling everywhere else...
+            logger.warn("Unable to queue request for %s: %s", account_repr,  e)
             return False
-    else:
-        account.deactivate()
+
+    account.deactivate()
+    logger.info("Deactivated %s", account_repr)
     return True
 
 
-def usage(exitcode=0):
-    print("""Usage: deactivate_quarantined_accounts.py -q quarantine_type -s #days [-d]
+def _iter_csv_arg(values):
+    """
+    Iterate over values in list arguments.
 
-Deactivate all accounts where given quarantine has been set for at least #days.
-
-Accounts will NOT be deactivated by default if their persons are registered
-with affiliations, or if the account is a system account, i.e. owned by a group
-and not a person.
-
-%s
-
-    -q, --quarantines QUAR  Quarantine types, to find out the exact names run
-                            the following command: "jbofh> quarantine list". If
-                            muliple values are to be provided those should be
-                            comma separated with no spaces in between. If not
-                            provided it defaults to the "generell" quarantine.
-
-    -s, --since DAYS        Number of days since quarantine started.
-                            Default: 30
-
-    -l, --limit LIMIT       Limit the number of deactivations by the script.
-                            This is to prevent too much changes in the system,
-                            as archiving could take time. Defaults to no limit.
-
-        --bofhdrequest      If specified, instead of deactivating the account
-                            directly, it is handed over to BofhdRequest for
-                            further processing. This is needed e.g. when we
-                            need to archive the home directory before the
-                            account gets deactivated.
-
-    -a, --affiliations AFFS List of person affiliation types that will be
-                            ignored, and handled as if the person did not have
-                            an affiliation. Affiliations specified here will
-                            make the person's accounts getting deactivated.
-                            Manual affiliation are typically added here. Could
-                            be comma separated.
-                            Affiliation status types can be specified in the format 
-                            STATUS/affiliation (eg. TILKNYTTET/fagperson).
-
-        --include-system-accounts If set, system accounts with the quarantine
-                            will also de deactivated.
-
-    -d, --dryrun            Do not commit changes to the database
-
-        --terminate         *Delete* the account instead of just deactivating
-                            it. Warning: This deletes *everything* about the
-                            accounts with active quarantines, even their logs.
-                            This can not be undone, so use with care!
-
-    -h, --help              show this and quit.
-    """ % __doc__)
-    sys.exit(exitcode)
+    This is used to get individual items from arguments that have
+    action=append, but can also be comma-separated.
+    """
+    for raw_value in (values or ()):
+        for item in raw_value.split(","):
+            item = item.strip()
+            if item:
+                yield item
 
 
-def main():
-    options, junk = getopt.getopt(sys.argv[1:],
-                                  "q:s:dhl:a:",
-                                  ("quarantines=",
-                                   "dryrun",
-                                   "affiliations=",
-                                   "help",
-                                   "limit=",
-                                   "bofhdrequest",
-                                   "include-system-accounts",
-                                   "terminate",
-                                   "since=",))
-    dryrun = False
-    limit = None
-    # default quarantine type
-    quarantines = [int(constants.quarantine_generell)]
-    # number of days since the quarantines have started
-    since = 30
-    delete = bofhdreq = False
-    system_accounts = False
-    affiliations = set()
+def main(inargs=None):
+    parser = argparse.ArgumentParser(
+        description=textwrap.dedent(
+            """
+            Deactivate all accounts where given quarantine has been set for at
+            least DAYS.
 
-    for option, value in options:
-        if option in ("-q", "--quarantines"):
-            quarantines = []
-            target = re.sub("\,$", "", value)
-            for i in target.split(","):
-                quarantines.append(int(constants.Quarantine(i)))
-        elif option in ("-d", "--dryrun"):
-            dryrun = True
-        elif option in ("-s", "--since"):
-            since = int(value)
-        elif option in ("-l", "--limit"):
-            limit = int(value)
-        elif option in ("--bofhdrequest",):
-            logger.debug('Set to use BofhdRequest for deactivation')
-            bofhdreq = True
-        elif option in ("--include-system-accounts",):
-            system_accounts = True
-        elif option in ("--terminate",):
-            logger.debug('Set to delete accounts and not just deactivating!')
-            delete = True
-        elif option in ('-a', '--affiliations'):
-            for af in value.strip().split(','):
-                try:
-                    aff = constants.get_affiliation(af)
-                except Errors.NotFoundError:
-                    print("Unknown affiliation: %s" % af)
-                    raise Errors.CerebrumError("Affiliation (%s) not found" % af)
-                aff_status = ((int(aff[0]), None)  # to prevent int(None)
-                                    if aff[1] is None   # if status=None
-                                    else (int(aff[0]), int(aff[1])))  # (aff, status)
-                affiliations.add(aff_status)
-        elif option in ("-h", "--help"):
-            usage()
-        else:
-            print("Unknown argument: %s" % option)
-            usage(1)
+            Accounts will NOT be deactivated by default if their persons are
+            registered with affiliations, or if the account is a system
+            account, i.e. owned by a group and not a person.
 
-    logger.info("Start deactivation, quar=%s, since=%s, terminate=%s, "
-                "bofhdreq=%s, limit=%s",
-                [str(constants.human2constant(q)) for q in quarantines],
-                since, delete, bofhdreq, limit)
-    logger.debug("Ignoring person-affilations: %s",
-                 ', '.join(
-                     "\naffiliation:"+str(a[0])+" - status:"+str(a[1])
-                           for a in affiliations))
-    logger.info("Fetching relevant accounts")
-    rel_accounts = fetch_all_relevant_accounts(quarantines, since,
-                                               ignore_affs=affiliations,
-                                               system_accounts=system_accounts)
-    logger.info("Got %s accounts to process", len(rel_accounts))
+            {}
+            """
+        ).strip().format(__doc__),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    arg_quarantines = parser.add_argument(
+        "-q", "--quarantines",
+        action='append',
+        help=textwrap.dedent(
+            """
+            Quarantine types to select accounts for deactivation.  Multiple
+            quarantines can be given by repeating the argument, or by giving a
+            comma-separated list.  Defaults to 'generell' if no quarantines are
+            given.
+            """
+        ).strip(),
+        metavar="QUAR",
+    )
+    parser.add_argument(
+        "-s", "--since",
+        default=30,
+        type=int,
+        help=textwrap.dedent(
+            """
+            Number of days since quarantine started (default: %(default)s)
+            """
+        ).strip(),
+        metavar="DAYS",
+    )
+    parser.add_argument(
+        "-l", "--limit",
+        type=int,
+        help=textwrap.dedent(
+            """
+            Limit number of deactivations by the script (default: %(default)s)
+            """
+        ).strip(),
+        metavar="LIMIT",
+    )
+    parser.add_argument(
+        "--bofhdrequest",
+        dest="use_bofhd_request",
+        action="store_true",
+        default=False,
+        help=textwrap.dedent(
+            """
+            Use BofhdRequest for deactivation.  If specified, instead of
+            deactivating the account directly, it is handed over to
+            BofhdRequest for further processing.  This is needed e.g. when we
+            need to archive the home directory before the account gets
+            deactivated.
+           """
+        ).strip(),
+    )
+    arg_affiliations = parser.add_argument(
+        "-a", "--affiliations",
+        action='append',
+        help=textwrap.dedent(
+            """
+            List of affiliations that will be ignored (not considered active).
+            Values can be affiliations (e.g. MANUELL), or statuses (e.g.
+            TILKNYTTET/fagperson).  Multiple values can be given by repeating
+            the arugment, or by giving a comma-separated list.
+           """
+        ).strip(),
+        metavar="AFFS",
+    )
+    parser.add_argument(
+        "--include-system-accounts",
+        action="store_true",
+        default=False,
+        help="Deactivate system accounts as well",
+    )
+    parser.add_argument(
+        "--terminate",
+        action="store_true",
+        default=False,
+        help=textwrap.dedent(
+            """
+            *Delete* the account instead of just deactivating it.  Warning:
+            This deletes *everything* about the accounts with active
+            quarantines, even their logs.  This can not be undone, so use with
+            care!
+           """
+        ).strip(),
+    )
+    # TODO: default should be False
+    argutils.add_commit_args(parser, default=True)
+    Cerebrum.logutils.options.install_subparser(parser)
 
-    i = 0
-    for entity_id in rel_accounts:
-        try:
-            account.clear()
-            account.find(entity_id)
-        except Errors.NotFoundError:
-            logger.warn("Could not find account_id %s skipping", entity_id)
-            continue
-        if limit and i >= limit:
-            logger.debug("Limit of deactivations reached (%d), stopping",
-                         limit)
+    #
+    # Prepare arguments
+    #
+    args = parser.parse_args(inargs)
+    Cerebrum.logutils.autoconf('cronjob', args)
+
+    logger.info("Start %s", parser.prog)
+    logger.debug("args: %s", repr(args))
+
+    db = Factory.get("Database")()
+    const = Factory.get("Constants")(db)
+
+    with argutils.ParserContext(parser, arg_quarantines):
+        quarantine_types = [
+            const.get_constant(const.Quarantine, v)
+            for v in _iter_csv_arg(args.quarantines)]
+
+    if not quarantine_types:
+        quarantine_types = [const.quarantine_generell]
+
+    with argutils.ParserContext(parser, arg_affiliations):
+        ignore_affs = set(const.get_affiliation(aff)
+                          for aff in _iter_csv_arg(args.affiliations))
+
+    started_before = (datetime.date.today()
+                      - datetime.timedelta(days=args.since))
+
+    pretty_quarantines = ", ".join(six.text_type(q) for q in quarantine_types)
+    pretty_ignores = ", ".join(six.text_type(st) if st else six.text_type(aff)
+                               for aff, st in ignore_affs)
+    pretty_mode = ("terminate" if args.terminate
+                   else "bofhd-request" if args.use_bofhd_request
+                   else "deactivate")
+
+    logger.info("Start deactivation: quarantines=%s, start=%s, ignore=%s, "
+                "mode=%s, limit=%s", pretty_quarantines, started_before,
+                pretty_ignores, pretty_mode, args.limit)
+
+    #
+    # Fetch and process
+    #
+    db.cl_init(change_program="deactivate-qua")
+    operator_id = get_default_operator_id(db)
+
+    logger.info("Fetching relevant accounts ...")
+    to_deactivate = fetch_target_accounts(
+        db,
+        quarantine_types=quarantine_types,
+        started_before=started_before,
+        ignore_affs=ignore_affs,
+        include_system_accounts=args.include_system_accounts,
+    )
+    logger.info("Found %d accounts to process", len(to_deactivate))
+
+    ac = Factory.get("Account")(db)
+
+    num_deactivated = 0
+    for entity_id in to_deactivate:
+        if args.limit and num_deactivated >= args.limit:
+            logger.info("Reached limit (%d) of deactivations, stopping",
+                        args.limit)
             break
+
         try:
-            if process_account(account, delete=delete,
-                               bofhdreq=bofhdreq):
-                i += 1
-        except Exception:
-            logger.exception("Failed deactivating account: %s (%s)" %
-                             (account.account_name, account.entity_id))
+            ac.clear()
+            ac.find(entity_id)
+        except Cerebrum.Errors.NotFoundError:
+            logger.warn("Could not find account_id=%r, skipping", entity_id)
             continue
 
-    if dryrun:
-        database.rollback()
-        logger.info("rolled back all changes")
+        try:
+            if process_account(ac, operator_id,
+                               terminate=args.terminate,
+                               use_request=args.use_bofhd_request):
+                num_deactivated += 1
+        except Exception:
+            logger.error("Failed deactivating account: %s (%s)",
+                         ac.account_name, ac.entity_id, exc_info=True)
+            continue
+
+    logger.info("Deactivated %d accounts", num_deactivated)
+
+    if args.commit:
+        logger.info("Commiting changes")
+        db.commit()
     else:
-        database.commit()
-        logger.info("changes commited")
-    logger.info("Done deactivate_quarantined_accounts")
+        logger.info("Rolling back changes (dryrun)")
+        db.rollback()
+
+    logger.info("Done %s", parser.prog)
 
 
 if __name__ == '__main__':

@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-# Copyright 2003-2019 University of Oslo, Norway
+#
+# Copyright 2003-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,15 +17,26 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""
+Utils to process requests.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    # TODO: unicode_literals,
+)
 
-import mx
-import os
-import time
 import errno
 import fcntl
 import logging
+import os
+import time
 from contextlib import closing
-from collections import Mapping
+
+import six
+
+import cereconf
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
@@ -34,9 +44,10 @@ from Cerebrum.modules.bofhd_requests.request import BofhdRequests
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.uio import AutoStud
 from Cerebrum.modules.no.uio.AutoStud.Util import AutostudError
+from Cerebrum.utils import date as date_utils
+from Cerebrum.utils import date_compat
+from Cerebrum.utils import mappings
 
-
-import cereconf
 
 logger = logging.getLogger(__name__)
 default_lockdir = getattr(cereconf, 'BOFHD_REQUEST_LOCK_DIR', None)
@@ -73,22 +84,34 @@ def set_operator(db, entity_id=None):
 
 
 class RequestLockHandler(object):
+    """
+    Create and lock a lockfile.
+    """
+
     def __init__(self, lockdir=default_lockdir):
-        """lockdir should be a template holding exactly one %d."""
+        """
+        :param str lockdir:
+            File path of request lock files.
+
+            Should be a template holding exactly one %d (to be replaced with
+            the request id). E.g.: "/var/run/br/request-%d.lock"
+        """
         self.lockdir = lockdir
         self.lockfd = None
 
     def grab(self, reqid):
-        """Release the old lock if one is held, then grab the lock
-        corresponding to reqid.  Returns False if it fails.
+        """
+        Grab lock file for a given request-id.
 
+        Release the old lock if one is held, then grab the lock
+        corresponding to reqid.  Returns False if it fails.
         """
         if self.lockfd is not None:
             self.close()
 
         self.reqid = reqid
         try:
-            lockfile = file(self.lockdir % reqid, "wb")
+            lockfile = open(self.lockdir % reqid, "wb")
         except IOError as e:
             logger.error("Checking lock for %d failed: %s", reqid, e)
             return False
@@ -104,7 +127,7 @@ class RequestLockHandler(object):
         return True
 
     def close(self):
-        """Release and clean up lock."""
+        """ Release and clean up lock. """
         if self.lockfd is not None:
             fcntl.flock(self.lockfd, fcntl.LOCK_UN)
             # There's a potential race here (someone else can grab and
@@ -115,40 +138,62 @@ class RequestLockHandler(object):
             self.lockfd = None
 
 
-class OperationsMap(Mapping):
-    """ A dict for mapping one or more keys to a function and settings """
-    def __init__(self):
-        self.__operations_map = {}
+class OperationsMap(mappings.SimpleMap):
+    """
+    A dict for mapping one or more keys to a function and settings
 
-    def __getitem__(self, item):
-        return self.__operations_map.__getitem__(item)
+    Example:
+    ::
 
-    def __iter__(self):
-        return self.__operations_map.__iter__()
+        handlers = OperationsMap()
 
-    def __len__(self):
-        return self.__operations_map.__len__()
+        @handlers("br_move_user", delay=3)
+        def move_user(request):
+            # ...
+            pass
+
+        @handlers("br_move_user_now", delay=0)
+        def move_user_now(request):
+            # ...
+            pass
+
+        processor = RequestProcessor(...)
+        processor.process_requests(handlers, ("move",), ...)
+        6)
+    """
 
     def __call__(self, *keys, **settings):
-        """ Registers decorated function with the given keys.
+        """
+        Registers decorated function with the given keys.
 
         :param *list keys:
-            A list of keys to add the decorated function to.
+            A list of operations / keys to use the decorated function for.
 
         :param **dict settings:
             Settings to be used by RequestProcessor.
+
+            See the chosen request processor for valid settings.  Invalid
+            settings are usually ignored.
 
         :return callable:
             Returns a function decorator.
         """
         def register(func):
+            value = [func, settings]
             for key in keys:
-                self.__operations_map[key] = [func, settings]
+                self.set(key, value)
             return func
         return register
 
 
 class RequestProcessor(object):
+    """
+    Request processor.
+
+    Note: :meth:`.process_requests` calls commit/rollback on the
+    database object given to this object!
+    """
+
     def __init__(self, db, co):
         super(RequestProcessor, self).__init__()
         self.db = db
@@ -171,27 +216,34 @@ class RequestProcessor(object):
         }
 
     def process_requests(self, operations_map, op_types, max_requests):
+        max_runtime = date_utils.to_seconds(minutes=30)
         with closing(RequestLockHandler()) as reqlock:
             br = BofhdRequests(self.db, self.co)
             for t in op_types:
+                logger.info("Processing operation type %r", t)
                 for op in self.op_type_map[t]:
-                    if op not in operations_map:
-                        logger.info('Unable to process operation %r', op)
+                    op_key = six.text_type(op)
+                    logger.info("Processing operation %r (%r)", op_key, op)
+                    if op_key not in operations_map:
+                        logger.info('Unable to process operation %r (%r)',
+                                    op_key, op)
                         continue
-                    func, settings = operations_map[op]
+                    func, settings = operations_map[op_key]
                     delay = settings.get('delay', 0)
                     set_operator(self.db)
                     start_time = time.time()
                     for r in br.get_requests(operation=op, only_runnable=True):
                         reqid = r['request_id']
                         logger.debug("Req: %s %d at %s, state %r",
-                                     op, reqid, r['run_at'], r['state_data'])
-                        if time.time() - start_time > 30 * 60:
+                                     op_key, reqid, r['run_at'],
+                                     r['state_data'])
+                        if (time.time() - start_time) > max_runtime:
                             break
-                        if r['run_at'] > mx.DateTime.now():
+                        run_at = date_compat.get_datetime_tz(r['run_at'])
+                        if run_at and run_at > date_utils.now():
                             continue
                         # Moving users only at ok times
-                        if (op is self.co.bofh_move_user
+                        if (op == self.co.bofh_move_user
                                 and not is_ok_batch_time()):
                             break
                         if not is_valid_request(br, reqid):
@@ -200,7 +252,7 @@ class RequestProcessor(object):
                             if max_requests <= 0:
                                 break
                             max_requests -= 1
-                            if func(r):
+                            if func(self.db, r):
                                 br.delete_request(request_id=reqid)
                                 self.db.commit()
                             else:
@@ -211,6 +263,7 @@ class RequestProcessor(object):
 
 
 class MoveStudentProcessor(object):
+
     def __init__(self, db, co, ou_perspective, emne_info_file, studconfig_file,
                  studieprogs_file, default_spread=None):
         self.db = db
@@ -233,7 +286,7 @@ class MoveStudentProcessor(object):
         # Set self.fnr2move_student
         self.set_fnr2move_student(rows)
 
-        logger.debug("Starting callbacks to find: %s" %
+        logger.debug("Starting callbacks to find: %s",
                      self.fnr2move_student)
         self.autostud.start_student_callbacks(student_info_file,
                                               self.move_student_callback)
@@ -244,17 +297,20 @@ class MoveStudentProcessor(object):
         # Move remaining users to pending disk
         disk = Factory.get('Disk')(self.db)
         disk.find_by_path(cereconf.AUTOSTUD_PENDING_DISK)
-        logger.debug(str(self.fnr2move_student.values()))
+        logger.debug("fnr2move_student: %s",
+                     str(self.fnr2move_student.values()))
         for tmp_stud in self.fnr2move_student.values():
             for account_id, request_id, requestee_id in tmp_stud:
-                logger.debug("Sending %s to pending disk" % repr(account_id))
+                logger.debug("Sending %s to pending disk", repr(account_id))
                 self.br.delete_request(request_id=request_id)
-                self.br.add_request(requestee_id,
-                                    self.br.batch_time,
-                                    self.co.bofh_move_user,
-                                    account_id,
-                                    disk.entity_id,
-                                    state_data=int(self.default_spread))
+                self.br.add_request(
+                    operator=requestee_id,
+                    when=self.br.batch_time,
+                    op_code=self.co.bofh_move_user,
+                    entity_id=account_id,
+                    destination_id=disk.entity_id,
+                    state_data=int(self.default_spread),
+                )
                 self.db.commit()
 
     def set_fnr2move_student(self, rows):
@@ -274,7 +330,7 @@ class MoveStudentProcessor(object):
                 source_system=self.co.system_fs
             )
             if not fnr:
-                logger.warn("Not student fnr for: %i" % account.entity_id)
+                logger.warn("Not student fnr for: %d", account.entity_id)
                 self.br.delete_request(request_id=r['request_id'])
                 self.db.commit()
                 continue
@@ -285,7 +341,8 @@ class MoveStudentProcessor(object):
                  int(r['requestee_id'])))
 
     def move_student_callback(self, person_info):
-        """We will only move the student if it has a valid fnr from FS,
+        """
+        We will only move the student if it has a valid fnr from FS,
         and it is not currently on a student disk.
 
         If the new homedir cannot be determined, user will be moved to a
@@ -293,15 +350,16 @@ class MoveStudentProcessor(object):
         as a proper disk can be determined.
 
         Currently we only operate on the disk whose spread is
-        default_spread"""
-
+        default_spread
+        """
         fnr = "%06d%05d" % (int(person_info['fodselsdato']),
                             int(person_info['personnr']))
-        logger.debug("Callback for %s" % fnr)
+        logger.debug("Callback for %s", fnr)
         try:
             fodselsnr.personnr_ok(fnr)
-        except Exception as e:
-            logger.exception(e)
+        except Exception:
+            logger.error("Unhandled exception in move_student_callback",
+                         exc_info=True)
             return
         if fnr not in self.fnr2move_student:
             return
@@ -319,20 +377,26 @@ class MoveStudentProcessor(object):
                                                     member_groups=groups)
                 logger.debug(profile.matcher.debug_dump())
             except AutostudError as msg:
-                logger.debug("Error getting profile, using pending: %s" % msg)
+                logger.debug("Error getting profile, using pending: %s", msg)
                 continue
 
             disks = self.determine_disks(account, request_id, profile, fnr)
 
-            logger.debug(str((fnr, account_id, disks)))
+            logger.debug("move_student_callback for: %s",
+                         str((fnr, account_id, disks)))
             if disks:
-                logger.debug("Destination %s" % repr(disks))
+                logger.debug("Destination %s", repr(disks))
                 del (self.fnr2move_student[fnr])
                 for disk, spread in disks:
                     self.br.delete_request(request_id=request_id)
-                    self.br.add_request(requestee_id, self.br.batch_time,
-                                   self.co.bofh_move_user,
-                                   account_id, disk, state_data=spread)
+                    self.br.add_request(
+                        operator=requestee_id,
+                        when=self.br.batch_time,
+                        op_code=self.co.bofh_move_user,
+                        entity_id=account_id,
+                        destination_id=disk,
+                        state_data=spread,
+                    )
                     self.db.commit()
 
     def determine_disks(self, account, request_id, profile, fnr):
@@ -384,7 +448,7 @@ class MoveStudentProcessor(object):
                     except AutostudError as msg:
                         # Will end up on pending (since we only use one
                         # spread)
-                        logger.debug("Error getting disk: %s" % msg)
+                        logger.debug("Error getting disk: %s", msg)
                         break
         except NextAccount:
             pass  # Stupid python don't have labeled breaks

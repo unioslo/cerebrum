@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-# Copyright 2011 University of Oslo, Norway
+#
+# Copyright 2011-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,161 +18,108 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""
+Generate a list of primary accounts for persons with given affiliations.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+import argparse
+import logging
 
-# $Id$
+import six
 
-from __future__ import print_function
-import sys
-import getopt
-
-import cereconf
+import Cerebrum.logutils
+import Cerebrum.logutils.options
 from Cerebrum.Utils import Factory
+from Cerebrum.utils import argutils
+from Cerebrum.utils import file_stream
 
-progname = __file__.split("/")[-1]
-
-__doc__ = """
-Usage: %s [options]
-
-   --aff, -a          Comma-seperated list of the affiliations to include
-   --students         Alias for adding the following affiliations:
-                         'STUDENT/aktiv', 'STUDENT/drgrad' and 'STUDENT/evu'
-   --file, -f FILE    Where to generate the exported output. Default: STDOUT
-   --help             Prints this message and quits
-
-This script generates a list of the primary useraccounts of all people
-with at least one of affiliations designated by --aff
-
-""" % progname
-
-__version__ = "$Revision$"
-# $URL$
-
-logger = Factory.get_logger("console")
-
-db = Factory.get('Database')()
-pe  = Factory.get('Person')(db)
-co  = Factory.get('Constants')(db)
-ac  = Factory.get('Account')(db)
-
-options = {"aff": [],
-           "output": sys.stdout}
-
-def usage(message=None):
-    """Gives user info on how to use the program and its options.
-
-    @param message:
-      Extra message to supply to user before rest of help-text is given.
-    @type message:
-      string
-
-    """
-    if message is not None:
-        print("\n%s" % message, file=sys.stderr)
-
-    print(__doc__, file=sys.stderr)
+logger = logging.getLogger(__name__)
 
 
-def main(argv=None):
-    """Main processing hub for program.
+def get_accounts(db, affiliations):
+    pe = Factory.get("Person")(db)
+    co = Factory.get("Constants")(db)
+    ac = Factory.get("Account")(db)
 
-    @param argv:
-      Substitute for sys.argv if wanted; see main help for options
-      that can/should be given.
-    @type argv:
-      list
-
-    @return:
-      value that program should exit with
-    @rtype:
-      int    
-
-    """
-    if argv is None:
-        argv = sys.argv
-    try:
-        opts, args = getopt.getopt(argv[1:],
-                                   "ha:f:",
-                                   ["help", "aff=",
-                                    "file=", "students"])
-    except getopt.GetoptError as error:
-        usage(message=error.msg)
-        return 1
-
-    output_stream = options["output"]
-
-    for opt, val in opts:
-        if opt in ('-h', '--help',):
-            usage()
-            return 0
-        if opt in ('-a', '--aff',):
-            options['aff'] += val.split(',')
-        if opt in ('--students'):
-            options['aff'] += ['STUDENT/aktiv', 'STUDENT/drgrad', 'STUDENT/evu']
-        if opt in ('-f', '--file',):
-            options["output"] = val
-
-    if options["output"] != sys.stdout:
-        output_stream = open(options["output"], "w")
-
-    if not options['aff']:
-        usage(message="Did you really want to do this without supplying any affiliations?")
-        return 2
-
-    # First, gather a list with all persons with the given affiliations
-    person_rows = []
-    for aff_status in options['aff']:
-        logger.info("Prosessing people with aff '%s'" % aff_status)
-
-        # If no status is given, make sure it is set to None in
-        # further processing
-        padded_aff_status = aff_status.split('/') + [None]
-        (aff, status) = padded_aff_status[0:2]
-        
-        aff_const = co.PersonAffiliation(aff)
-        if status is not None:
-            status_const = co.PersonAffStatus(aff, status)
-        else:
-            status_const = None
-
-        result = pe.list_affiliations(affiliation=aff_const, status=status_const)
-        logger.info("Found '%s' people with aff '%s'" % (len(result), aff_status))
-        person_rows = person_rows + result
+    person_ids = set()
+    for aff_string in affiliations:
+        logger.info("Prosessing people with aff %s", repr(aff_string))
+        aff, status = co.get_affiliation(aff_string)
+        aff_repr = six.text_type(aff if status is None else status)
+        new_ids = set(row['person_id']
+                      for row in pe.list_affiliations(affiliation=aff,
+                                                      status=status))
+        logger.info("Found %d persons with aff '%s'", len(new_ids), aff_repr)
+        person_ids.update(new_ids)
+    logger.info("Found %d persons in total", len(person_ids))
 
     # ..then retrieve the primary accounty for each of them
     no_primary_account = 0
-    all_accounts = set() # using set() to not worry about duplicates
-    for row in person_rows:
+    all_accounts = set()
+    for person_id in person_ids:
         pe.clear()
-        pe.find(row['person_id'])
+        pe.find(person_id)
         primary_account_id = pe.get_primary_account()
         if primary_account_id is None:
-            logger.debug("Person '%s' has no valid primary account" % pe.entity_id)
+            logger.debug("no primary account for person id=%d", pe.entity_id)
             no_primary_account += 1
             continue
         ac.clear()
         ac.find(primary_account_id)
         all_accounts.add(ac.account_name)
 
-    logger.info("Found a total of %s " % len(all_accounts) +
-                "individuals with valid primary accounts")
-    logger.info("Found a total of %s " % no_primary_account +
-                "individuals without valid primary accounts")
+    logger.info("ignoring %d persons without primary accounts",
+                no_primary_account)
+    logger.info("found %d primary accounts", all_accounts)
+    return all_accounts
 
-    
-    sorted_accounts = list(all_accounts)
-    sorted_accounts.sort()
 
-    for account in sorted_accounts:
-        output_stream.write(account + "\n")
+def main(argv=None):
+    parser = argparse.ArgumentParser(
+        description="List primary accounts for persons with given affs.",
+    )
+    parser.add_argument(
+        "-a", "--aff",
+        dest="affiliations",
+        action="append",
+        help="an affiliation to include (can be repeated)",
+    )
+    parser.add_argument(
+        "--students",
+        action=argutils.ExtendConstAction,
+        dest="affiliations",
+        const=["STUDENT/aktiv", "STUDENT/drgrad", "STUDENT/evu"],
+        help="add student affiliations: %(const)s",
+    )
+    parser.add_argument(
+        "-f", "--file",
+        dest="output",
+        default="-",
+        help="write report to %(metavar)s (default: stdout)",
+    )
+    Cerebrum.logutils.options.install_subparser(parser)
+    args = parser.parse_args(argv)
 
-    if output_stream != sys.stdout:
-        output_stream.close()
+    if not args.affiliations:
+        parser.error(message="Must provide at least one affiliation")
 
-    return 0
+    Cerebrum.logutils.autoconf("console", args)
+
+    logger.info("Start: %s", parser.prog)
+    db = Factory.get("Database")()
+
+    with file_stream.get_output_context(args.output, encoding="utf-8") as f:
+        sorted_accounts = sorted(get_accounts(db, args.affiliations))
+        for account in sorted_accounts:
+            f.write(account + "\n")
+
+    logger.info("Done: %s", parser.prog)
 
 
 if __name__ == "__main__":
-    logger.info("Starting program '%s'" % progname)
-    return_value = main()
-    logger.info("Program '%s' finished" % progname)
-    sys.exit(return_value)
+    main()

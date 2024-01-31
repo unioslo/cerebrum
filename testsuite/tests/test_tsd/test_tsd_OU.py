@@ -1,14 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-"""Tests for TSD's OU mixin - Cerebrum/modules/tsd/OU.py.
+"""
+Tests for TSD's OU mixin - Cerebrum/modules/tsd/OU.py.
 
 Each TSD project is represented by an OU.
 """
-
 import unittest
-
-import mx.DateTime as DateTime
 
 import cereconf
 from Cerebrum import Errors
@@ -107,10 +105,11 @@ class SimpleOUTests(TSDOUTest):
         pid1 = self._ou.get_next_free_project_id()
         pid2 = self._ou.get_next_free_project_id()
         self.assertEqual(pid1, pid2)
-        # Test that no lower project existst
+
+        # Test that no vacant, lower project exists
         for i in range(1, int(pid1[1:])):
             self._ou.clear()
-            self._ou.find_by_tsd_projectid(i)
+            self._ou.find_by_tsd_projectid("p%02d" % (i,))
 
         # set up a pair of projects, delete, and assert that project id is
         # reused
@@ -130,24 +129,6 @@ class SimpleOUTests(TSDOUTest):
         vlan = self._ou.get_next_free_vlan()
         for i in range(101):
             self.setup_project("seq%s" % i, vlan)
-
-    @unittest.skip
-    def test_quarantined_project(self):
-        """Quarantined projects should not be set up."""
-        self._ou.clear()
-        self._ou.create_project('tstcr')
-        # Add various settings:
-        self._ou.populate_trait(self._co.trait_project_vm_type,
-                                strval='win_and_linux_vm')
-        # Add quarantine:
-        self._ou.add_entity_quarantine(
-            qtype=self._co.quarantine_not_approved,
-            creator=self.db_tools.get_initial_account_id(),
-            description='Project not approved yet',
-            start=DateTime.now())
-        self._ou.write_db()
-        self._ou.setup_project(self.db_tools.get_initial_account_id())
-        # TODO: Check that nothing has been setup!
 
     def setup_project(self, name, vlan=None):
         """Helper for standard setup of a project.
@@ -186,17 +167,17 @@ class SimpleOUTests(TSDOUTest):
         """
         # project_id=0
         self.assertEqual(
-            ('10.128.0.0/24', 'fd00:c0de:cafe:8000::/64'),
+            ('10.128.0.0/24', '2001:700:111:8000::/64'),
             self._ou._generate_subnets_for_project_id(0))
 
         # project_id=3000
         self.assertEqual(
-            ('10.139.184.0/24', 'fd00:c0de:cafe:8bb8::/64'),
+            ('10.139.184.0/24', '2001:700:111:8bb8::/64'),
             self._ou._generate_subnets_for_project_id(3000))
 
         # project_id=32767
         self.assertEqual(
-            ('10.255.255.0/24', 'fd00:c0de:cafe:ffff::/64'),
+            ('10.255.255.0/24', '2001:700:111:ffff::/64'),
             self._ou._generate_subnets_for_project_id(32767))
 
     def test_calculate_subnets_for_project_out_of_range(self):

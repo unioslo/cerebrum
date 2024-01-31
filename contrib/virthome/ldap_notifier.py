@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 #
-# Copyright 2013-2021 University of Oslo, Norway
+# Copyright 2013-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,7 +18,8 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" Process users that are exported to or retained from LDAP.
+"""
+Process users that are exported to or retained from LDAP.
 
 This script can run an assortment of functions on users as they are 'created'
 or 'deleted' in the associated WebID LDAP tree.  We calculate if users *should*
@@ -74,6 +75,12 @@ cereconf
             ),
         }
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    # TODO: unicode_literals,
+)
 import argparse
 import datetime
 import ldap
@@ -87,6 +94,7 @@ import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum.Utils import Factory
 from Cerebrum.utils import date_compat
+from Cerebrum.utils.argutils import add_commit_args
 from Cerebrum.utils.email import sendmail
 from Cerebrum.modules.virthome.LDIFHelper import LDIFHelper
 
@@ -518,21 +526,6 @@ def main(inargs=None):
             """
         )
     )
-
-    # --commit / --dryrun
-    commit_mutex = parser.add_mutually_exclusive_group()
-    commit_mutex.add_argument(
-        '-c', '--commit',
-        dest='commit',
-        action='store_true',
-        help='commit changes')
-    commit_mutex.add_argument(
-        '--dryrun',
-        dest='commit',
-        action='store_false',
-        help='dry run (do not commit -- this is the default)')
-    commit_mutex.set_defaults(commit=False)
-
     parser.add_argument(
         '-r', '--run_callbacks',
         action='store_true',
@@ -546,8 +539,9 @@ def main(inargs=None):
         default=False,
         help='Force run callbacks (-r) in dryrun'
     )
-
+    add_commit_args(parser)
     Cerebrum.logutils.options.install_subparser(parser)
+
     args = parser.parse_args(inargs)
     Cerebrum.logutils.autoconf(DEFAULT_LOGGER, args)
 

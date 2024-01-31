@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003-2021 University of Oslo, Norway
+# Copyright 2003-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,7 +17,8 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" This module implements password history storage.
+"""
+This module implements password history storage.
 
 The py:class:`.PasswordHistory` class is used to keep track of previous
 passwords for an account, mainly to prevent password reuse.
@@ -43,14 +44,20 @@ structure of PasswordHistory, please see:
 
 > commit 9a01d8b6ac93513a57ac8d6393de842939582f51
 > Mon Jul 20 14:12:55 2015 +0200
-
 """
-from __future__ import unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
-import os
-import hashlib
 import base64
+import hashlib
+import os
+
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
+from Cerebrum.utils import date_compat
 
 __version__ = "1.1"
 
@@ -157,12 +164,16 @@ class PasswordHistoryMixin(ClearPasswordHistoryMixin):
 
     def _bruteforce_check_password_history(self, password):
         """
-        Check if entity had a similar password earlier.
+        Check if this account have used a similar password before.
+
+        Note that this check can be pretty expensive, as it needs to brute
+        force different password combinations.
 
         :param str password: The plaintext password.
 
-        :return: Returns True if the password is too similar to an old
-            one. Return False or None otherwise
+        :returns bool:
+            - True if a similar password is found in password history
+            - False/None if no matching password history record is found.
         """
         ph = PasswordHistory(self._db)
         name = getattr(self, 'account_name', None)
@@ -172,10 +183,12 @@ class PasswordHistoryMixin(ClearPasswordHistoryMixin):
             return
 
         def what_range(ch):
-            """Return a range of characters from character `ch'.
+            """
+            Return a range of characters from character `ch'.
 
             This allows us to detect that the user changes password from
-            '1secret' to '2secret'. """
+            '1secret' to '2secret'.
+            """
             if not ch.isalpha():
                 return range(ord(ch)-5, ord(ch)+6)
             if ch.isupper():
@@ -198,12 +211,13 @@ class PasswordHistoryMixin(ClearPasswordHistoryMixin):
 
     def _check_password_history(self, password):
         """
-        Check if entity had this password earlier.
+        Check if this account have used the given password before.
 
         :param str password: The plaintext password.
 
-        :return: Returns True if the password has been used before.
-            Return False or None otherwise
+        :returns bool:
+            - True if the password is found in password history
+            - False/None if no password history record is found.
         """
         ph = PasswordHistory(self._db)
         name = getattr(self, 'account_name', None)
@@ -219,7 +233,16 @@ class PasswordHistory(DatabaseAccessor):
     """PasswordHistory contains an API for accessing password history."""
 
     def add_history(self, account, password, _csum=None, _when=None):
-        """Add an entry to the password history."""
+        """
+        Add an entry to the password history.
+
+        :param account: A populated account object
+        :param password: Plaintext password to add
+        :param _csum:
+            Ignore plaintext password and store this checksum directly
+        :param _when:
+            Insert history record with this 'set_at' date or datetime value
+        """
         entity_id = int(account.entity_id)
 
         if _csum is not None:
@@ -230,11 +253,14 @@ class PasswordHistory(DatabaseAccessor):
             salt = os.urandom(pbkdf2_params['salt_size'])
             keylen = pbkdf2_params['desired_key_len']
             csum = encode_for_history(algo, rounds, salt, password, keylen)
+
         if _when is not None:
             col_when = ", set_at"
             val_when = ", :when"
         else:
             col_when = val_when = ""
+        when = date_compat.get_datetime_naive(_when)
+
         self.execute(
             """
             INSERT INTO [:table schema=cerebrum name=password_history]
@@ -244,25 +270,16 @@ class PasswordHistory(DatabaseAccessor):
             {
                 'e_id': entity_id,
                 'hash': csum,
-                'when': _when,
+                'when': when,
             },
         )
 
-    def del_exp_history(self, date):
-        """
-        Removes entries before given date in history for all entities.
-        :param date: Date threshold
-        :type: mx.DateTime.DateTime object
-        """
-        self.execute(
-            """
-            DELETE FROM [:table schema=cerebrum name=password_history]
-            WHERE set_at < :exp_date
-            """,
-            {'exp_date': date},
-        )
-
     def del_history(self, entity_id):
+        """
+        Remove password history records for a given entity.
+
+        :param int entity_id: The entity to remove password history records for
+        """
         self.execute(
             """
             DELETE FROM [:table schema=cerebrum name=password_history]
@@ -272,6 +289,11 @@ class PasswordHistory(DatabaseAccessor):
         )
 
     def get_history(self, entity_id):
+        """
+        Fetch password history records for a given entity.
+
+        :param int entity_id: The entity to remove password history records for
+        """
         return self.query(
             """
             SELECT hash, set_at
@@ -283,15 +305,25 @@ class PasswordHistory(DatabaseAccessor):
         )
 
     def find_old_password_accounts(self, date):
-        """Returns account_id for all accounts that has not changed
-        password since before date"""
+        """
+        Fetch active accounts that don't have recent password history records.
 
+        This is typically used to find active accounts that haven't updated
+        their password in a while.
+
+        :param datetime.datetime date:
+            Date cutoff.
+
+            This method will return accounts *without* password history records
+            after the given point in time.
+        """
         # TODO: hva med systemkonti o.l. uten passord?  har alle karantene?
 
         # Fetch all account_id that:
         # - has spread
         # - has expire_date in the future/not set
         # - newest entry in password_history is older than <date>
+        when = date_compat.get_datetime_naive(date, allow_none=False)
         return self.query(
             """
             SELECT account_id
@@ -307,12 +339,16 @@ class PasswordHistory(DatabaseAccessor):
             GROUP BY ai.account_id
             HAVING MAX(set_at) < :date
             """,
-            {'date': date},
+            {'date': when},
         )
 
     def find_no_history_accounts(self):
-        """Returns account_id for all accounts that are not in
-        password_history at all"""
+        """
+        Fetch active accounts that don't have any password history records.
+
+        This is typically used to find active accounts that have never set a
+        password.
+        """
         return self.query(
             """
             SELECT account_id
@@ -332,3 +368,43 @@ class PasswordHistory(DatabaseAccessor):
                 FROM password_history ph
                 WHERE ai.account_id=ph.entity_id)
             """)
+
+    def get_most_recent_set_at(self, entity_id):
+        """
+        Get the most recent `set_at` timestamp for a given account, if any.
+
+        This is typically used to find the most recent password change date for
+        a given account.
+        """
+        result = self.query_1(
+            """
+              SELECT MAX(set_at)
+              FROM [:table schema=cerebrum name=password_history]
+              WHERE entity_id=:entity_id
+            """,
+            {'entity_id': int(entity_id)},
+        )
+        return date_compat.get_datetime_naive(result)
+
+    def delete_set_before(self, when):
+        """
+        Remove all records before a given date.
+
+        This is typically used to clean up password history records that are
+        too old and no longer needed.
+
+        :param datetime.datetime when:
+            A date or datetime cutuff value.
+
+            All history records set (set_at) before this point in time will be
+            deleted.
+        """
+        return self.query(
+            """
+              DELETE FROM [:table schema=cerebrum name=password_history]
+              WHERE set_at < :when
+              RETURNING entity_id, set_at
+            """,
+            {'when': date_compat.get_datetime_naive(when, allow_none=False)},
+            fetchall=True,
+        )

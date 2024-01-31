@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2002-2021 University of Oslo, Norway
+# Copyright 2002-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -35,13 +35,16 @@ TODO
 ----
 Remove any commands from the BofhdExtension that is not actually in use at UiT.
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    # TODO: unicode_literals,
+)
 
-import imaplib
+import datetime
 import re
-import socket
-import ssl
 
-from mx import DateTime
 from six import text_type
 
 import cereconf
@@ -50,6 +53,7 @@ from Cerebrum import Utils
 from Cerebrum import database
 from Cerebrum.modules import Email
 from Cerebrum.modules.apikeys import bofhd_apikey_cmds
+from Cerebrum.modules.bofhd import bofhd_group_roles
 from Cerebrum.modules.audit import bofhd_history_cmds
 from Cerebrum.modules.bofhd import bofhd_ou_cmds
 from Cerebrum.modules.bofhd.cmd_param import (
@@ -64,26 +68,52 @@ from Cerebrum.modules.bofhd.cmd_param import (
 )
 from Cerebrum.modules.bofhd import bofhd_access
 from Cerebrum.modules.bofhd import bofhd_email
+from Cerebrum.modules.bofhd import bofhd_external_id
 from Cerebrum.modules.bofhd import bofhd_user_create_unpersonal
+from Cerebrum.modules.bofhd import parsers
 from Cerebrum.modules.bofhd.bofhd_contact_info import BofhdContactCommands
+from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
+from Cerebrum.modules.bofhd.bofhd_utils import (
+    date_to_string,
+    default_format_day,
+    exc_to_text,
+)
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.help import merge_help_strings
 from Cerebrum.modules.bofhd_requests import bofhd_requests_cmds
+from Cerebrum.modules.greg.datasource import normalize_id as _norm_greg_id
+from Cerebrum.modules.greg.tasks import GregImportTasks
 from Cerebrum.modules.job_runner.bofhd_job_runner import BofhdJobRunnerCommands
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.uio import bofhd_uio_cmds
 from Cerebrum.modules.no.uio.access_FS import FS
 from Cerebrum.modules.no.uit import ad_email
 from Cerebrum.modules.no.uit import bofhd_auth
+from Cerebrum.modules.no.uit import greg_users
+from Cerebrum.modules.tasks import bofhd_task_cmds
 from Cerebrum.modules.trait import bofhd_trait_cmds
 
 
-format_day = bofhd_uio_cmds.format_day
-date_to_string = bofhd_uio_cmds.date_to_string
-exc_to_text = bofhd_uio_cmds.exc_to_text
+format_day = default_format_day  # 10 characters wide
 
 
-class BofhdExtension(bofhd_uio_cmds.BofhdExtension):
+class _UitBofhdMixin(BofhdCommandBase):
+
+    def __init__(self, *args, **kwargs):
+        super(_UitBofhdMixin, self).__init__(*args, **kwargs)
+
+        if not hasattr(self, 'external_id_mappings'):
+            self.external_id_mappings = {}
+
+        self.external_id_mappings.update({
+            'fnr': self.const.externalid_fodselsnr,
+            'passnr': self.const.externalid_pass_number,
+            'sitonr': self.const.externalid_sito_ansattnr,
+            'studnr': self.const.externalid_studentnr,
+        })
+
+
+class BofhdExtension(_UitBofhdMixin, bofhd_uio_cmds.BofhdExtension):
 
     all_commands = {}
     hidden_commands = {}
@@ -110,17 +140,7 @@ class BofhdExtension(bofhd_uio_cmds.BofhdExtension):
         # 'user_restore',
     }
     parent_commands = True
-
     authz = bofhd_auth.UitAuth
-    external_id_mappings = {}
-
-    def __init__(self, *args, **kwargs):
-        super(BofhdExtension, self).__init__(*args, **kwargs)
-        self.external_id_mappings.update({
-            'fnr': self.const.externalid_fodselsnr,
-            'sitonr': self.const.externalid_sito_ansattnr,
-            'studnr': self.const.externalid_studentnr,
-        })
 
     @classmethod
     def get_help_strings(cls):
@@ -513,13 +533,11 @@ class BofhdExtension(bofhd_uio_cmds.BofhdExtension):
         account = self._get_account(accountname)
         self.ba.can_show_history(operator.get_entity_id(), account)
         ret = []
-        timedelta = "%s" % (DateTime.mxDateTime.now() -
-                            DateTime.DateTimeDelta(7))
-        timeperiod = timedelta.split(" ")
-
+        start_date_str = (datetime.date.today()
+                          - datetime.timedelta(days=7)).isoformat()
         for r in self.db.get_log_events(0,
                                         subject_entity=account.entity_id,
-                                        sdate=timeperiod[0]):
+                                        sdate=start_date_str):
             ret.append(self._format_changelog_entry(r))
 
         ret_val = ""
@@ -1025,32 +1043,237 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
                 + ad_emails_added)
 
 
-class BofhdRequestCommands(bofhd_requests_cmds.BofhdExtension):
-    authz = bofhd_auth.BofhdRequestsAuth
-
-
 class AccessCommands(bofhd_access.BofhdAccessCommands):
     authz = bofhd_auth.AccessAuth
-
-
-class JobRunnerCommands(BofhdJobRunnerCommands):
-    authz = bofhd_auth.JobRunnerAuth
 
 
 class ApiKeyCommands(bofhd_apikey_cmds.BofhdApiKeyCommands):
     authz = bofhd_auth.ApiKeyAuth
 
 
+class BofhdRequestCommands(bofhd_requests_cmds.BofhdExtension):
+    authz = bofhd_auth.BofhdRequestsAuth
+
+
 class CreateUnpersonalCommands(bofhd_user_create_unpersonal.BofhdExtension):
     authz = bofhd_auth.CreateUnpersonalAuth
+
+
+class ExtidCommands(bofhd_external_id.BofhdExtidCommands):
+    authz = bofhd_auth.ExtidAuth
+
+
+class GroupRoleCommands(bofhd_group_roles.BofhdGroupRoleCommands):
+    authz = bofhd_auth.GroupRoleAuth
 
 
 class HistoryCommands(bofhd_history_cmds.BofhdHistoryCmds):
     authz = bofhd_auth.HistoryAuth
 
 
+class JobRunnerCommands(BofhdJobRunnerCommands):
+    authz = bofhd_auth.JobRunnerAuth
+
+
 class OuCommands(bofhd_ou_cmds.OuCommands):
     authz = bofhd_auth.OuAuth
+
+
+def _parse_greg_id(value):
+    """ Try to parse lookup value as a GREG_PID. """
+    # 'greg:<greg-id>', 'greg_id:<greg-id>'
+    if value.partition(':')[0].lower() in ('greg', 'greg_pid'):
+        value = value.partition(':')[2]
+    # <greg-id>
+    return _norm_greg_id(value)
+
+
+class TaskCommands(_UitBofhdMixin, bofhd_task_cmds.BofhdTaskCommands):
+
+    # TODO: These commands are mostly copied from UiO.  Should we make a
+    # separate *greg* command group, and implement common greg import commands?
+    # It's probably useful, and we'll want these commands or similar commands
+    # in all envs that use Greg...
+
+    all_commands = {}
+    authz = bofhd_auth.TaskAuth
+    parent_commands = True
+    omit_parent_commands = (
+        # Disallow `task_add`, as adding tasks without payload may beak
+        # some imports.  Add custom commands to add tasks.
+        'task_add',
+    )
+
+    _user_queue = greg_users.UitGregUserUpdateHandler
+
+    @classmethod
+    def get_help_strings(cls):
+        greg_group = "Commands related to greg and greg tasks"
+        greg_cmds = {
+            'greg_person_stats': cls.greg_person_stats.__doc__.strip(),
+            'greg_person_import': cls.greg_person_import.__doc__.strip(),
+            'greg_person_queue': cls.greg_person_queue.__doc__.strip(),
+            'greg_user_stats': cls.greg_user_stats.__doc__.strip(),
+            'greg_user_import': cls.greg_user_import.__doc__.strip(),
+            'greg_user_queue': cls.greg_user_queue.__doc__.strip(),
+        }
+        greg_args = {
+            'greg-pid': [
+                "greg-pid",
+                "Enter Greg person identifier",
+                ("Enter a valid greg person id or other cerebrum person"
+                 " identifier"),
+            ],
+            'greg-expire-date': [
+                "greg-expire-date",
+                "Enter Greg user expire date",
+                ("Enter an expire date to use when updating user account"
+                 " or an empty value/:None to skip expire date update"
+                 "\nDate formats:\n\n" + parsers.parse_date_help_blurb)
+            ],
+        }
+        return merge_help_strings(
+            super(TaskCommands, cls).get_help_strings(),
+            ({'greg': greg_group}, {'greg': greg_cmds}, greg_args)
+        )
+
+    def _get_greg_id(self, value):
+        """
+        Get GREG_PID from user argument.
+
+        This helper function allow users to provide a GREG_PID value directly,
+        or fetch a GREG_PID from an existing Person-object.
+        """
+        try:
+            return _parse_greg_id(value)
+        except ValueError:
+            pass
+
+        # other identifiers, e.g. <username>, person:<username>, id:<entity-id>
+        try:
+            pe = self.util.get_target(value, restrict_to=['Person'])
+            row = pe.get_external_id(source_system=pe.const.system_greg,
+                                     id_type=pe.const.externalid_greg_pid)
+            return row['external_id']
+        except Exception:
+            raise CerebrumError("Invalid GREG_PID: " + repr(value))
+
+    #
+    # greg person_stats
+    #
+    all_commands['greg_person_stats'] = Command(
+        ("greg", "person_stats"),
+        fs=bofhd_task_cmds.BofhdTaskCommands._get_queue_stats_fs,
+        perm_filter='can_greg_import',
+    )
+
+    def greg_person_stats(self, operator):
+        """ Get task counts for the greg import queues. """
+        self.ba.can_greg_import(operator.get_entity_id())
+        results = list(self._get_queue_stats(GregImportTasks.queue,
+                                             GregImportTasks.max_attempts))
+        if results:
+            return results
+        raise CerebrumError('No queued greg import tasks')
+
+    #
+    # greg person_import <greg-id>
+    #
+    all_commands['greg_person_import'] = Command(
+        ("greg", "person_import"),
+        SimpleString(help_ref='greg-pid'),
+        fs=bofhd_task_cmds.BofhdTaskCommands._add_task_fs,
+        perm_filter='can_greg_import',
+    )
+
+    def greg_person_import(self, operator, lookup_value):
+        """ Add a guest to the greg import queue. """
+        self.ba.can_greg_import(operator.get_entity_id())
+        greg_id = self._get_greg_id(lookup_value)
+        task = GregImportTasks.create_manual_task(greg_id)
+        return self._add_task(task)
+
+    #
+    # greg person_queue <greg-id>
+    #
+    all_commands['greg_person_queue'] = Command(
+        ("greg", "person_queue"),
+        SimpleString(help_ref='greg-pid'),
+        fs=bofhd_task_cmds.BofhdTaskCommands._search_tasks_info_fs,
+        perm_filter='can_greg_import',
+    )
+
+    def greg_person_queue(self, operator, lookup_value):
+        """ Show tasks in the greg person import queues. """
+        self.ba.can_greg_import(operator.get_entity_id())
+        greg_id = self._get_greg_id(lookup_value)
+        params = {'queues': GregImportTasks.queue, 'keys': greg_id}
+        tasks = list(self._search_tasks(params))
+        if tasks:
+            return tasks
+        raise CerebrumError('No greg import in queue for: '
+                            + repr(lookup_value))
+
+    #
+    # greg user_stats
+    #
+    all_commands['greg_user_stats'] = Command(
+        ("greg", "user_stats"),
+        fs=bofhd_task_cmds.BofhdTaskCommands._get_queue_stats_fs,
+        perm_filter='can_greg_import',
+    )
+
+    def greg_user_stats(self, operator):
+        """ Get task counts for the greg user update queues. """
+        self.ba.can_greg_import(operator.get_entity_id())
+        results = list(self._get_queue_stats(
+            self._user_queue.queue,
+            self._user_queue.max_attempts))
+        if results:
+            return results
+        raise CerebrumError('No queued greg user tasks')
+
+    #
+    # greg user_import <person>
+    #
+    all_commands['greg_user_import'] = Command(
+        ("greg", "user_import"),
+        PersonId(),
+        SimpleString(help_ref='greg-expire-date', optional=True),
+        fs=bofhd_task_cmds.BofhdTaskCommands._add_task_fs,
+        perm_filter='can_greg_import',
+    )
+
+    def greg_user_import(self, operator, lookup_value, expire_date=None):
+        """ Add a guest to the greg import queue. """
+        self.ba.can_greg_import(operator.get_entity_id())
+        person = self._get_person(*self._map_person_id(lookup_value))
+        expire_date = parsers.parse_date(expire_date, optional=True)
+        task = self._user_queue.create_manual_task(person.entity_id,
+                                                   expire_date=expire_date)
+        return self._add_task(task)
+
+    #
+    # greg user_queue <person>
+    #
+    all_commands['greg_user_queue'] = Command(
+        ("greg", "user_queue"),
+        PersonId(),
+        fs=bofhd_task_cmds.BofhdTaskCommands._search_tasks_info_fs,
+        perm_filter='can_greg_import',
+    )
+
+    def greg_user_queue(self, operator, lookup_value):
+        """ Show tasks in the greg person import queues. """
+        self.ba.can_greg_import(operator.get_entity_id())
+        person = self._get_person(*self._map_person_id(lookup_value))
+        mock_task = self._user_queue.create_manual_task(person.entity_id)
+        params = {'queues': self._user_queue.queue, 'keys': mock_task.key}
+        tasks = list(self._search_tasks(params))
+        if tasks:
+            return tasks
+        raise CerebrumError('No greg user update in queue for: '
+                            + repr(lookup_value))
 
 
 class TraitCommands(bofhd_trait_cmds.TraitCommands):

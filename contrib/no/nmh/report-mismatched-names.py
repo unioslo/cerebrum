@@ -36,7 +36,7 @@ from Cerebrum.Utils import Factory
 
 logger = logging.getLogger(__name__)
 
-TEMPLATE = u"""
+TEMPLATE = """
 <!DOCTYPE html>
 <html>
   <head>
@@ -90,8 +90,8 @@ def get_names(db, system, variant, pid=None):
 
 def compare_names(db, args):
     """ Generates an XML report for missing names. """
-    co = Factory.get(b'Constants')(db)
-    pe = Factory.get(b'Person')(db)
+    co = Factory.get('Constants')(db)
+    pe = Factory.get('Person')(db)
     variants = [co.PersonName(t[0]) for t in pe.list_person_name_codes()]
 
     logger.debug("Fetching names from {!s}".format(args.check_system))
@@ -136,14 +136,14 @@ def write_html_report(stream, codec, data):
             'data': data,
         })
     )
-    stream.write(u'\n')
+    stream.write('\n')
 
 
 DEFAULT_ENCODING = 'utf-8'
 
 
 def get_const(db, const_type, const_val):
-    u""" Gets a constant by value. """
+    """ Gets a constant by value. """
     if isinstance(const_val, const_type):
         return const_val
     const = Factory.get('Constants')(db)
@@ -155,7 +155,7 @@ def get_const(db, const_type, const_val):
 
 
 def argparse_const(db, const_type, const_val):
-    u""" Get a constant from argument. """
+    """ Get a constant from argument. """
     try:
         return get_const(db, const_type, const_val)
     except ValueError as e:

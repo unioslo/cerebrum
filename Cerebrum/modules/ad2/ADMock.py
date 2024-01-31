@@ -1,7 +1,6 @@
-#! /usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2015-2017 University of Oslo, Norway
+# Copyright 2015-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,22 +17,24 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-"""Module for mocking communication and interaction with Active Directory.
+"""
+Module for mocking communication and interaction with Active Directory.
 
 This mock builds on L{ADclient}, and should be used the same way.
 """
-
-from __future__ import with_statement
-
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    # TODO: unicode_literals,
+)
 import collections
+
+import six
 
 from Cerebrum.modules.ad2 import ADUtils
 from Cerebrum.modules.ad2.winrm import CommandTooLongException
 from Cerebrum.Utils import Factory
-
-import cereconf
-getattr(cereconf, "No linter nag!", None)
 
 
 class ADclientMock(ADUtils.ADclient):
@@ -302,8 +303,9 @@ class ADclientMock(ADUtils.ADclient):
         if attributes:
             attributes = dict((self.attribute_write_map.get(name, name), value)
                               for name, value in attributes.iteritems()
-                              if value or isinstance(value, (bool, int, long,
-                                                             float)))
+                              if value
+                              or isinstance(value, (bool, float))
+                              or isinstance(value, six.integer_types))
         if attributes:
             parameters['OtherAttributes'] = attributes
 

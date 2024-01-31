@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2013-2018 University of Oslo, Norway
+# Copyright 2013-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -27,23 +27,35 @@ Gateway e.g through bofh commands and the import from Nettskjema, but not all
 information gets update that way.
 An example is quarantines that gets activated or deactivated.
 """
-from __future__ import unicode_literals, print_function
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+import argparse
+import logging
 
 import six
 
 import cereconf
 
-from Cerebrum.Utils import Factory
+import Cerebrum.logutils
+import Cerebrum.logutils.options
 from Cerebrum import Errors
-from Cerebrum.modules.dns.Errors import SubnetError
-
+from Cerebrum.Utils import Factory
 # Parts of the DNS module raises bofhd exceptions. Need to handle this:
-from Cerebrum.modules.dns import (IPv6Subnet, Subnet, AAAARecord, ARecord,
-                                  IPv6Utils)
+from Cerebrum.modules.dns import (
+    IPv6Subnet,
+    Subnet,
+    AAAARecord,
+    ARecord,
+    IPv6Utils,
+)
+from Cerebrum.modules.dns.Errors import SubnetError
 from Cerebrum.modules.tsd import Gateway
 
-# Global logger
-logger = Factory.get_logger('cronjob')
+logger = logging.getLogger(__name__)
 
 
 def print_config():
@@ -90,15 +102,15 @@ class Processor:
         self.acid2acname = dict(
             (row['account_id'], row['name']) for row in
             self.ac.search(spread=self.co.spread_gateway_account))
-        logger.debug2("Found %d accounts", len(self.acid2acname))
+        logger.debug("Found %d accounts", len(self.acid2acname))
 
         # Quarantined OUs (ou_id)
         self.quarantined_ous = set(r['entity_id'] for r in
                                    self.ou.list_entity_quarantines(
                                        entity_types=self.co.entity_ou,
                                        only_active=True))
-        logger.debug2("Found %d quarantined projects",
-                      len(self.quarantined_ous))
+        logger.debug("Found %d quarantined projects",
+                     len(self.quarantined_ous))
 
         # Map ou_id to project id:
         self.ouid2pid = dict((row['entity_id'], row['external_id']) for row in
@@ -106,7 +118,7 @@ class Processor:
                                  entity_type=self.co.entity_ou,
                                  id_type=self.co.externalid_project_id)
                              if row['entity_id'] not in self.quarantined_ous)
-        logger.debug2("Found %d project IDs", len(self.ouid2pid))
+        logger.debug("Found %d project IDs", len(self.ouid2pid))
 
     def process(self):
         """
@@ -157,8 +169,8 @@ class Processor:
             self.ou.clear()
             self.ou.find(row['ou_id'])
             if self.ou.get_entity_quarantine(only_active=True):
-                logger.debug3("Skipping quarantined project with ou_id=%s",
-                              self.ou.entity_id)
+                logger.debug("Skipping quarantined project with ou_id=%s",
+                             self.ou.entity_id)
                 continue
             try:
                 pid = self.ou.get_project_id()
@@ -166,9 +178,9 @@ class Processor:
                 logger.warn("No project id for ou_id %s: %s", row['ou_id'], e)
                 continue
             if pid in processed:
-                logger.debug4('Skipping already processed project: %s', pid)
+                logger.debug('Skipping already processed project: %s', pid)
                 continue
-            logger.debug2('Creating project: %s', pid)
+            logger.debug('Creating project: %s', pid)
             self.gw.create_project(pid, self.ou.expire_date)
             processed.add(pid)
 
@@ -190,9 +202,6 @@ class Processor:
             self.ou.find_by_tsd_projectid(pid)
         except Errors.NotFoundError:
             logger.debug("Project %s not found in Cerebrum", pid)
-            # TODO: check if the project is marked as 'expired', so we don't
-            # send this to the gw every time.
-            # if proj['expires'] and proj['expires'] < DateTime.now():
             self.gw.delete_project(pid)
             return
 
@@ -247,8 +256,8 @@ class Processor:
                             row['account_id'])
                 continue
             ac2proj[row['account_id']] = row['ou_id']
-        logger.debug2("Found %d accounts connected with projects",
-                      len(ac2proj))
+        logger.debug("Found %d accounts connected with projects",
+                     len(ac2proj))
 
         # Update existing projects:
         for usr in self.gw.list_users():
@@ -263,7 +272,7 @@ class Processor:
         for row in self.pu.search(spread=self.co.spread_gateway_account):
             if row['name'] in processed:
                 continue
-            logger.debug2("User not known by GW: %s" % row['name'])
+            logger.debug("User not known by GW: %s" % row['name'])
             self.pu.clear()
             try:
                 self.pu.find(row['account_id'])
@@ -272,8 +281,8 @@ class Processor:
                 continue
             # Skip quarantined accounts:
             if tuple(self.pu.get_entity_quarantine(only_active=True)):
-                logger.debug2("Skipping unknown, quarantined account: %s",
-                              row['name'])
+                logger.debug("Skipping unknown, quarantined account: %s",
+                             row['name'])
                 continue
             # Skip accounts not affiliated with a project.
             pid = self.ouid2pid.get(ac2proj.get(self.pu.entity_id))
@@ -296,7 +305,7 @@ class Processor:
             to.
         """
         username = gw_user['username']
-        logger.debug2("Process user %s: %s" % (username, gw_user))
+        logger.debug("Process user %s: %s" % (username, gw_user))
 
         try:
             pid = gw_user['project']
@@ -340,7 +349,7 @@ class Processor:
             # sort here in order to be able to show the same list in the log
             quars.sort(key=lambda v: v['start_date'])  # sort by start_date
             when = quars[0]['start_date']  # the row with the lowest start_date
-            logger.debug2('User {username} has quarantines: {quars}'.format(
+            logger.debug('User {username} has quarantines: {quars}'.format(
                 username=username,
                 quars=six.text_type(quars)))
             if gw_user['frozen']:
@@ -358,8 +367,8 @@ class Processor:
         gr2proj = dict((r['entity_id'], r['target_id']) for r in
                        self.ent.list_traits(code=self.co.trait_project_group)
                        if r['target_id'] in self.ouid2pid)
-        logger.debug2("Found %d groups affiliated with projects",
-                      len(gr2proj))
+        logger.debug("Found %d groups affiliated with projects",
+                     len(gr2proj))
         processed = set()
 
         # Update existing projects:
@@ -375,7 +384,7 @@ class Processor:
         for row in self.pg.search(spread=self.co.spread_file_group):
             if row['name'] in processed:
                 continue
-            logger.debug2("Group not known by GW: %s" % row['name'])
+            logger.debug("Group not known by GW: %s" % row['name'])
             # Skip groups not affiliated with a project.
             pid = self.ouid2pid.get(gr2proj.get(row['group_id']))
             if not pid:
@@ -401,7 +410,7 @@ class Processor:
             A mapping from group_id to the ou_id of the project it belongs to.
         """
         groupname = gw_group['groupname']
-        logger.debug2("Process group %s: %s" % (groupname, gw_group))
+        logger.debug("Process group %s: %s" % (groupname, gw_group))
         try:
             pid = gw_group['project']
         except KeyError:
@@ -483,8 +492,8 @@ class Processor:
         def _collect(record, ip_attr):
             if record['dns_owner_id'] not in hostid2pid:
                 # Host is not connected to a project, and is therefore ignored.
-                logger.debug2("Host not connected to project: %s",
-                              record['name'])
+                logger.debug("Host not connected to project: %s",
+                             record['name'])
                 return
             hostname = record['name'].rstrip('.')
             host2project[hostname] = hostid2pid[record['dns_owner_id']]
@@ -496,9 +505,9 @@ class Processor:
         for row in ARecord.ARecord(self.db).list_ext():
             _collect(row, 'a_ip')
 
-        logger.debug2("Mapped %d hosts to projects", len(host2project))
-        logger.debug2("Mapped %d hosts with at least one IP address",
-                      len(host2ips))
+        logger.debug("Mapped %d hosts to projects", len(host2project))
+        logger.debug("Mapped %d hosts with at least one IP address",
+                     len(host2ips))
 
         # Process hosts and ips:
         self._process_hosts(self.gw.list_hosts(), host2project)
@@ -551,8 +560,8 @@ class Processor:
         for row in self.subnet.search():
             _collect(row)
 
-        logger.debug2("Found %s subnets for projects", len(subnets))
-        logger.debug2("Found %s VLANs for projects", len(vlans))
+        logger.debug("Found %s subnets for projects", len(subnets))
+        logger.debug("Found %s VLANs for projects", len(vlans))
         return subnets, vlans
 
     def _process_vlans(self, gw_vlans, vlans):
@@ -643,7 +652,7 @@ class Processor:
         for ident, sub in subnets.iteritems():
             if ident in processed:
                 continue
-            logger.debug3("New subnet: %s" % (sub,))
+            logger.debug("New subnet: %s" % (sub,))
             try:
                 self.gw.create_subnet(*sub)
             except Gateway.GatewayException as e:
@@ -736,28 +745,41 @@ class Processor:
                     logger.warn("GW exception for new IP %s: %s", adr, e)
 
 
-def main():
+def main(inargs=None):
     """Script invocation."""
-    import argparse
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        '-u', '--url', dest='url', metavar='URL',
+        '-u', '--url',
+        dest='url',
         default=cereconf.TSD_GATEWAY_URL,
         help=("The full URL to the Gateway. "
               "Example: https://gw.tsd.uio.no:1234/RPC "
-              "Default: cereconf.TSD_GATEWAY_URL"))
+              "Default: %(default)s"),
+        metavar='URL',
+    )
     parser.add_argument(
-        '-d', '--dryrun', dest='dryrun', action='store_true', default=False,
+        '-d', '--dryrun',
+        dest='dryrun',
+        action='store_true',
+        default=False,
         help=("Run the sync in dryrun. Data is retrieved from the Gateway and "
               "compared, but changes are not sent back to the gateway. "
-              "Default is to commit the changes."))
+              "Default is to commit the changes."),
+    )
     parser.add_argument(
-        '-m', '--mock', dest='mock', action='store_true', default=False,
+        '-m', '--mock',
+        dest='mock',
+        action='store_true',
+        default=False,
         help=("Mock the gateway by returning empty lists instead with the GW. "
-              "Usable for testing the functionality locally."))
-    args = parser.parse_args()
+              "Usable for testing the functionality locally."),
+    )
+    Cerebrum.logutils.options.install_subparser(parser)
+    args = parser.parse_args(inargs)
+    Cerebrum.logutils.autoconf('cronjob', args)
 
+    logger.info('Start %s', parser.prog)
     gw_cls = Gateway.GatewayClient
 
     if args.mock:
@@ -772,7 +794,7 @@ def main():
     logger.debug("Start gw-sync against URL: %s", gw)
     p = Processor(gw, args.dryrun)
     p.process()
-    logger.info("Finished gw-sync")
+    logger.info('Done %s', parser.prog)
 
 
 if __name__ == '__main__':

@@ -162,7 +162,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                    :deceased_date, :desc)""",
                              {'e_type': int(self.const.entity_person),
                               'p_id': self.entity_id,
-                              'exp_id': 'exp-' + six.text_type(self.entity_id),
+                              'exp_id': 'exp' + six.text_type(self.entity_id),
                               'b_date': self.birth_date,
                               'gender': int(self.gender),
                               'deceased_date': self.deceased_date,
@@ -172,7 +172,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                     self.clconst.person_create,
                     None)
             else:
-                binds = {'export_id': 'exp-' + six.text_type(self.entity_id),
+                binds = {'export_id': 'exp' + six.text_type(self.entity_id),
                          'birth_date': self.birth_date,
                          'gender': int(self.gender),
                          'deceased_date': self.deceased_date,
@@ -1208,7 +1208,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
             where = 'WHERE ' + argument_to_sql(person_id, 'person_id',
                                                binds, int)
         return self.query("""
-        SELECT person_id, birth_date
+        SELECT person_id, birth_date, export_id
         FROM [:table schema=cerebrum name=person_info]
         """ + where, binds)
 

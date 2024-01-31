@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-# Copyright 2008-2018 University of Oslo, Norway
+#
+# Copyright 2008-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -25,7 +25,12 @@ This script sends password notifications for accounts that are due for a
 new password.  It will also quarantine accounts where the password is not
 changed within the deadline.
 """
-from __future__ import unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import argparse
 import logging
@@ -43,36 +48,37 @@ logger = logging.getLogger(__name__)
 def main(inargs=None):
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        description=(__doc__ or '').strip())
+        description=(__doc__ or '').strip(),
+    )
     parser.add_argument(
-        '-d', '--dryrun',
-        action='store_true',
-        dest='dryrun',
+        "-d", "--dryrun",
+        action="store_true",
         default=False,
-        help='Run in "dryrun" mode')
+        dest="dryrun",
+        help="Run in dryrun mode",
+    )
     parser.add_argument(
-        '-f', '--config-file',
-        metavar='<filename>',
-        type=six.text_type,
+        "-f", "--config-file",
         default=None,
-        dest='alternative_config',
-        help='Alternative configuration file for %(prog)s')
+        dest="config",
+        type=six.text_type,
+        help="Use configuration from %(metavar)s",
+        metavar="<filename>",
+    )
     Cerebrum.logutils.options.install_subparser(parser)
+
     args = parser.parse_args(inargs)
     Cerebrum.logutils.autoconf('cronjob', args)
+    logger.info("Start %s", parser.prog)
+    logger.debug("args: %s", repr(args))
 
-    logger.info('Start of script %s', parser.prog)
-    logger.debug("args: %r", args)
-
-    db = Utils.Factory.get('Database')()
-
-    notifier = PasswordNotifier.get_notifier(args.alternative_config)(
-        db=db,
-        dryrun=args.dryrun)
+    db = Utils.Factory.get("Database")()
+    cls = PasswordNotifier.get_notifier(args.config)
+    notifier = cls(db=db, dryrun=args.dryrun)
     notifier.process_accounts()
 
-    logger.info('Done with script %s', parser.prog)
+    logger.info("Done %s", parser.prog)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

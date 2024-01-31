@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+#
 # Copyright 2003-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -16,11 +17,13 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-
+"""
+UiO-specific Group overrides
+"""
 import re
 
-from Cerebrum import Errors, Group
+from Cerebrum import Errors
+from Cerebrum import Group
 from Cerebrum.modules import Email
 
 
@@ -64,7 +67,7 @@ class GroupUiOMixin(Group.Group):
         if len(name) == 0:
             return "Must specify group name"
         # no group names should start with a period or a space!
-        if re.search("^\.|^\s", name):
+        if re.search(r"^\.|^\s", name):
             return "Names cannot start with period or space (%s)" % name
         # Avoid circular import dependency
         from Cerebrum.modules import PosixGroup
@@ -77,15 +80,15 @@ class GroupUiOMixin(Group.Group):
                 return ("name too long ({name_length} characters; "
                         "{max_length} is max)".format(
                             name_length=len(name), max_length=max_length))
-            if re.search("[^a-z0-9\-_]", name):
+            if re.search(r"[^a-z0-9\-_]", name):
                 return "name contains illegal characters (%s)" % name
             if re.search("^[^a-z]", name):
                 return "name must start with a character (%s)" % name
         elif isinstance(self, ExchangeGroups.DistributionGroup):
             # allow [a-z0-9], '-' and '.' in DistributionGroup names
-            if re.search("[^a-z0-9\-\.]", name):
+            if re.search(r"[^a-z0-9\-\.]", name):
                 return ("name %s contains illegal characters (lower case "
-                       "a-z, digits, '-' and '.' are legal)"  % name)
+                        "a-z, digits, '-' and '.' are legal)" % name)
             # ad-groups may have names up to 64 char long
             if len(name) > 64:
                 return "Name %s too long (64 char allowed)" % name

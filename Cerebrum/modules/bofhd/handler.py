@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2002-2016 University of Oslo, Norway
+# Copyright 2002-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,7 +17,6 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
 """
 Request handler for bofhd.
 
@@ -71,19 +69,22 @@ moved to a separate module after:
     Merge: c57e8ee 61f02de
     Date:  Fri Mar 18 10:34:58 2016 +0100
 """
-
-from __future__ import unicode_literals
-
-import cereconf
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import io
 import socket
 import warnings
-import xmlrpclib
 from SimpleXMLRPCServer import SimpleXMLRPCRequestHandler
 from xml.parsers.expat import ExpatError
 
 import six
+
+import cereconf
 
 from Cerebrum import (
     Errors,
@@ -196,7 +197,8 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
         stats_client.incr(method)
 
         try:
-            ret = apply(func, xmlrpc_to_native(params))
+            args = tuple(xmlrpc_to_native(params))
+            ret = func(*args)
         except CerebrumError as e:
             exc_type = type(e)
             raise exc_type(exc_to_text(e))
@@ -241,8 +243,9 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
     def send_xmlrpc(self, message):
         try:
             payload = protocol.dumps(message)
-        except:
-            self.logger.error("Unable to serialize XML-RPC: %r", message, exc_info=True)
+        except Exception:
+            self.logger.error("Unable to serialize XML-RPC: %r",
+                              message, exc_info=True)
             self.send_error(500)
         else:
             self.send_response(200)
@@ -252,7 +255,7 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
             self.wfile.write(payload)
             self.wfile.flush()
 
-    def do_POST(self):
+    def do_POST(self):  # noqa: N802
         """
         Handles HTTP POST requests.
 
@@ -269,7 +272,8 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
         try:
             content_length = self.headers["content-length"]
         except KeyError:
-            self.logger.warn("Missing Content-Length (client=%r)", self.client_address)
+            self.logger.warn("Missing Content-Length (client=%r)",
+                             self.client_address)
             self.send_error(411)
             return
 
@@ -284,14 +288,15 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
             method, params = protocol.loads(data)
         except ExpatError:
             self.logger.warn(
-                "Unable to deserialize request to XML-RPC (client=%r, data=%r)",
+                "Unable to deserialize request to XML-RPC "
+                "(client=%r, data=%r)",
                 self.client_address,
                 data,
                 exc_info=True,
             )
             self.send_error(400)
             return
-        except:
+        except Exception:
             self.logger.warn(
                 "Unknown client error (client=%r, data=%r)",
                 self.client_address,
@@ -329,7 +334,6 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
             that affects the account.
         """
         const = Factory.get('Constants')(self.db)
-        Quarantine = const.Quarantine
         nonlock = getattr(cereconf, 'BOFHD_NONLOCK_QUARANTINES', [])
         active = []
 
@@ -345,11 +349,11 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
             # This should probably be based on spreads or some
             # such mechanism, but quarantinehandler and the import
             # routines don't support a more appopriate solution yet
-            if six.text_type(Quarantine(q_type)) not in nonlock:
+            if six.text_type(const.Quarantine(q_type)) not in nonlock:
                 active.append(q_type)
         qh = QuarantineHandler.QuarantineHandler(self.db, active)
         if qh.should_skip() or qh.is_locked():
-            return [Quarantine(q).description for q in active]
+            return [const.Quarantine(q).description for q in active]
         return []
 
     def bofhd_login(self, uname, password):
@@ -410,7 +414,7 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
                 self.logger.info(
                     'Successful login for %r from %r',
                     uname, format_addr(self.client_address))
-                session = BofhdSession(self.db, self.logger)
+                session = BofhdSession(self.db)
                 session_id = session.set_authenticated_entity(
                     account.entity_id, self.client_address[0])
                 self.db_commit()
@@ -424,12 +428,12 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
 
     def bofhd_logout(self, session_id):
         """ The bofhd logout function. """
-        session = BofhdSession(self.db, self.logger, session_id)
+        session = BofhdSession(self.db, session_id)
         # TODO: statsd - gauge active user sessions?
         try:
             session.clear_session()
             if session_id in self.server.sessions:
-                del(self.server.sessions[session_id])
+                del self.server.sessions[session_id]
             self.db_commit()
         except Exception:
             self.db_rollback()
@@ -460,7 +464,7 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
 
     def bofhd_get_commands(self, session_id):
         """Build a dict of the commands available to the client."""
-        session = BofhdSession(self.db, self.logger, session_id)
+        session = BofhdSession(self.db, session_id)
         ident = int(session.get_entity_id())
         if not ident:
             return {}
@@ -491,6 +495,12 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
         if len(group) == 0:
             ret = self.server.cmdhelp.get_general_help(commands)
         elif group[0] == 'arg_help':
+            if len(group) < 2:
+                raise CerebrumError(
+                    "Missing argument (usage: help arg_help <arg>)")
+            if len(group) > 2:
+                raise CerebrumError(
+                    "Too many arguments (usage: help arg_help <arg>)")
             ret = self.server.cmdhelp.get_arg_help(group[1])
         elif len(group) == 1:
             ret = self.server.cmdhelp.get_group_help(commands, *group)
@@ -545,13 +555,12 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
         # First, drop the short-lived sessions FIXME: if this is too
         # CPU-intensive, introduce a timestamp in this class, and drop the
         # short-lived sessions ONLY if more than BofhdSession._short_timeout
-        session = BofhdSession(self.db, self.logger)
+        session = BofhdSession(self.db)
         session.remove_short_timeout_sessions()
         self.db_commit()
 
         # Set up session object
-        session = BofhdSession(self.db, self.logger, session_id,
-                               self.client_address)
+        session = BofhdSession(self.db, session_id, self.client_address)
         entity_id = self.check_session_validity(session)
         self.db.cl_init(change_by=entity_id)
 
@@ -604,15 +613,14 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
           (("%5s %s", 'foo', 'bar'), return-value).  The first row is
           used as header
         - raw : don't use map after all"""
-        session = BofhdSession(self.db, self.logger, session_id,
-                               self.client_address)
-        cls, cmdObj = self.server.get_cmd_info(cmd)
+        session = BofhdSession(self.db, session_id, self.client_address)
+        cls, cmd_obj = self.server.get_cmd_info(cmd)
         self.check_session_validity(session)
-        if cmdObj._prompt_func is not None:
+        if cmd_obj._prompt_func is not None:
             self.logger.debug('prompt_func: %r', args)
             instance = cls(self.db, self.logger)
             return getattr(instance,
-                           cmdObj._prompt_func.__name__)(session, *args)
+                           cmd_obj._prompt_func.__name__)(session, *args)
         raise CerebrumError("Command %r has no prompt func" % (cmd,))
 
     def bofhd_get_default_param(self, session_id, cmd, *args):
@@ -625,15 +633,15 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
         corresponding parameter object.
 
         """
-        session = BofhdSession(self.db, self.logger, session_id)
-        cls, cmdObj = self.server.get_cmd_info(cmd)
+        session = BofhdSession(self.db, session_id)
+        cls, cmd_obj = self.server.get_cmd_info(cmd)
 
         # If the client calls this method when no default function is defined,
         # it is a bug in the client.
-        if cmdObj._default is not None:
-            func = cmdObj._default
+        if cmd_obj._default is not None:
+            func = cmd_obj._default
         else:
-            func = cmdObj._params[len(args)]._default
+            func = cmd_obj._params[len(args)]._default
             if func is None:
                 return ""
         instance = cls(self.db, self.logger)

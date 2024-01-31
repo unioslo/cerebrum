@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2005-2022 University of Oslo, Norway
+# Copyright 2005-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,10 +17,22 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""
+Trait mixin for Cerebrum.Entity.
+
+See Cerebrum.modules.trait for more info.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    # TODO: unicode_literals,
+)
 from Cerebrum.Entity import Entity
 from Cerebrum.Constants import _ChangeTypeCode, _get_code
 from Cerebrum import Errors
 from Cerebrum.Utils import NotSet
+from Cerebrum.utils.date_compat import get_datetime_naive
 from Cerebrum.modules.trait.constants import _EntityTraitCode
 
 
@@ -179,7 +191,9 @@ class EntityTrait(Entity):
                     {
                         'entity_id': self.entity_id,
                     }):
-                self.__traits[_EntityTraitCode(row['code'])] = dict(row)
+                row = dict(row)
+                row['date'] = get_datetime_naive(row['date'])
+                self.__traits[_EntityTraitCode(row['code'])] = row
         return self.__traits
 
     def get_trait(self, trait):
@@ -212,27 +226,27 @@ class EntityTrait(Entity):
         equivalent to specifying None.
 
         @type code:
-          1) NotSet OR 2) int/long/EntityTrait instance or a sequence thereof.
+          1) NotSet OR 2) int/EntityTrait instance or a sequence thereof.
         @param code:
           Filter the result by specific trait(s).
 
         @type target_id:
-          1) NotSet OR 2) int/long or a sequence thereof.
+          1) NotSet OR 2) int or a sequence thereof.
         @param target_id:
           Filter the result by specific target_id(s) associated with the trait.
 
         @type entity_id
-          1) NotSet OR 2) int/long or a sequence thereof.
+          1) NotSet OR 2) int or a sequence thereof.
         @param entity_id
           Filter the result by specific entity_id(s) associated with the trait.
 
         @type date:
-          1) NotSet OR 2) an mx.DateTime object.
+          1) NotSet OR 2) an date/datetime/mx-like object.
         @param date:
           Filter the result by a specific date.
 
         @type numval:
-          1) NotSet OR 2) int/long or a sequence thereof.
+          1) NotSet OR 2) int or a sequence thereof.
         @param numval:
           Filter the result by specific numval(s) associated with the trait.
 

@@ -39,29 +39,29 @@ hr2fs-person.py -p affiliation_ansatt \
                 --commit
 """
 from __future__ import unicode_literals
-from UserDict import IterableUserDict
 
 import argparse
 import logging
 import sys
 import traceback
 import six
+from operator import itemgetter
 
 import Cerebrum.logutils.options
-
 from Cerebrum import Errors
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.access_FS import make_fs
 from Cerebrum.utils import phone
 from Cerebrum.utils.argutils import get_constant
 from Cerebrum.utils.funcwrap import memoize
+from Cerebrum.utils.mappings import SimpleMap
 from Cerebrum.Utils import Factory
 
 logger = logging.getLogger(__name__)
 
 
 @six.python_2_unicode_compatible
-class SimplePerson(IterableUserDict, object):
+class SimplePerson(SimpleMap):
     """
     FS-relevant info storage.
 
@@ -88,37 +88,37 @@ class SimplePerson(IterableUserDict, object):
                     "fax",
                     "mobile")
 
-    def __keys_are_legal(self, *keys):
-        for key in keys:
-            if key not in self.allowed_keys:
-                return False
-        return True
-
-    def __init__(self, **kwargs):
-        assert self.__keys_are_legal(*kwargs.iterkeys())
-        super(SimplePerson, self).__init__(**kwargs)
+    def transform_key(self, key):
+        if key in self.allowed_keys:
+            return key
+        raise KeyError('Key not allowed: ' + repr(key))
 
     def __setitem__(self, key, item):
-        assert self.__keys_are_legal(key)
-        super(SimplePerson, self).__setitem__(key, item)
+        self.set(key, item)
 
     def __getattr__(self, name):
         if name in self.allowed_keys:
-            return self.__getitem__(name)
-        super(SimplePerson, self).__getattr__(name)
+            try:
+                return self[name]
+            except KeyError as e:
+                raise AttributeError(str(e))
+        else:
+            return super(SimplePerson, self).__getattr__(name)
 
     def __setattr__(self, name, value):
         if name in self.allowed_keys:
-            return self.__setitem__(name, value)
-        super(SimplePerson, self).__setattr__(name, value)
+            try:
+                self.set(name, value)
+            except KeyError as e:
+                raise AttributeError(str(e))
+        else:
+            super(SimplePerson, self).__setattr__(name, value)
 
-    def update(self, dictionary=None, **kwargs):
-        assert self.__keys_are_legal(*kwargs.iterkeys())
-        super(SimplePerson, self).update(dictionary, **kwargs)
-
-    def setdefault(self, key, failobj=None):
-        assert self.__keys_are_legal(key)
-        super(SimplePerson, self).setdefault(key, failobj)
+    def setdefault(self, key, default=None):
+        nkey = self.transform_key(key)
+        if nkey not in self:
+            self.set(nkey, default)
+        return self[nkey]
 
     def __str__(self):
         return "Person(fnr={0}, {1}): birth={2}; email={3}; {4}, {5};".format(
@@ -126,7 +126,7 @@ class SimplePerson(IterableUserDict, object):
             self.name_last, self.name_first)
 
 
-class HR2FSSyncer(object):
+class Hr2FsSyncer(object):
     """Syncs a selection of HR data to FS."""
 
     def __init__(self,
@@ -406,7 +406,7 @@ class HR2FSSyncer(object):
             accounts.append(row)
 
         # ... arrange them with respect to priority
-        accounts.sort(lambda x, y: cmp(x['priority'], y['priority']))
+        accounts.sort(key=itemgetter('priority'))
 
         # ... and whichever matches first is the answer. IOW, whichever account
         # has the highest priority AND matches the specified affiliations for
@@ -573,7 +573,6 @@ class HR2FSSyncer(object):
                'gender': person.gender == self.co.gender_male and 'M' or 'K',
                'email': self.find_primary_mail_address(person),
                'phone': self.find_contact_info(person, self.co.contact_phone),
-               ''
                'fax': self.find_contact_info(person, self.co.contact_fax),
                'ansattnr': self.find_ansattnr(person),
                'mobile': self.find_contact_info(person,
@@ -827,11 +826,11 @@ class HR2FSSyncer(object):
         """Writes all updates to FS."""
         people = self.select_fs_candidates(self.person_affiliations)
 
-        for person_id, person_data in people.iteritems():
+        for person_id, person_data in people.items():
             self.export_person(person_id, person_data)
 
         people = self.select_fs_candidates(self.fagperson_affiliations)
-        for person_id, person_data in people.iteritems():
+        for person_id, person_data in people.items():
             self.export_fagperson(person_id, person_data,
                                   self.fagperson_affiliations)
 
@@ -970,7 +969,7 @@ def main():
     else:
         fagperson_fields = None
 
-    syncer = HR2FSSyncer(person_affs, fagperson_affs, authoritative_system,
+    syncer = Hr2FsSyncer(person_affs, fagperson_affs, authoritative_system,
                          ou_perspective, db, fs, co, ansattnr_code_str,
                          fagperson_export_fields=fagperson_fields,
                          use_cache=True, email_cache=args.email_cache,
@@ -989,4 +988,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-# Copyright 2014-2015 University of Oslo, Norway
+#
+# Copyright 2014-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,37 +18,43 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""Syncronizator for persons in ePhorte.
+"""
+Syncronizator for persons in ePhorte.
 
 This piece of software ensures existence of user accounts in ePhorte,
 via the ePhorte web service.
+
+TODO
+----
+Handle primary account changes.
 """
-from __future__ import print_function, unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
-# TODO:
-# - Handle primary account changes
-
-import sys
-import time
-import functools
 import argparse
-import logging
+import datetime
+import functools
+import sys
+import textwrap
+import time
 from collections import defaultdict
 
-from six import text_type
+import six
 
-import cereconf
-
-from Cerebrum.Utils import Factory
 from Cerebrum import Errors
-
+from Cerebrum.Utils import Factory
+from Cerebrum.modules.no.uio.Ephorte import EphortePermission
 from Cerebrum.modules.no.uio.Ephorte import EphorteRole
 from Cerebrum.modules.no.uio.EphorteWS import EphorteWSError
-from Cerebrum.modules.no.uio.Ephorte import EphortePermission
-from Cerebrum.utils.funcwrap import memoize
+from Cerebrum.utils import date as date_utils
+from Cerebrum.utils import date_compat
 from Cerebrum.utils.context import entity
+from Cerebrum.utils.funcwrap import memoize
 
-cereconf  # Satisfy the linters.
 
 logger = Factory.get_logger("cronjob")
 db = Factory.get('Database')()
@@ -128,7 +134,7 @@ def get_sko(ou_id):
     :return: The six-digit stedkode
     """
     with entity.ou.find(ou_id) as ou:
-        return text_type(ou)
+        return six.text_type(ou)
 
 
 def ou_has_ephorte_spread(ou_id):
@@ -227,9 +233,11 @@ def update_person_info(pe, client):
 
     street_address, zip_code, city = get_person_address(pe, co)
 
-    logger.info('Ensuring existence of %s: %s', user_id, text_type((
-        first_name, None, last_name, full_name, uname,
-        email_address, telephone, mobile, street_address, zip_code, city)))
+    logger.info('Ensuring existence of %s: %s',
+                user_id,
+                six.text_type((first_name, None, last_name, full_name, uname,
+                               email_address, telephone, mobile,
+                               street_address, zip_code, city)))
     try:
         client.ensure_user(user_id, first_name, None, last_name, full_name,
                            uname, email_address, telephone, mobile,
@@ -240,12 +248,12 @@ def update_person_info(pe, client):
         # an unspecified rule violation for field length.
         # Should be removed once the WS itself returns the specific field
         # that caused the exception.
-        if 'Det er ikke tillatt med mer enn' in text_type(e):
+        if 'Det er ikke tillatt med mer enn' in six.text_type(e):
             max_length = [num for num in str(e).split() if num.isdigit()][0]
             e = ('Unknown field violating WS-rule of max '
                  '%s characters.' % max_length)
         logger.warn('Could not ensure existence of %s in ePhorte: %s',
-                    user_id, text_type(e))
+                    user_id, six.text_type(e))
         return False
 
 
@@ -257,7 +265,7 @@ def perm_code_id_to_perm(code):
         return _perm_codes[code]
 
     logger.debug("Mapping perm codes")
-    _perm_codes = dict((text_type(x), x)
+    _perm_codes = dict((six.text_type(x), x)
                        for x in map(functools.partial(getattr, co), dir(co))
                        if isinstance(x, co.EphortePermission))
 
@@ -329,14 +337,14 @@ def fullsync_account(client, selection_spread, account_name):
 
         try:
             update_person_roles(person, client, remove_superfluous=True)
-        except:
+        except Exception:
             logger.warn(
                 'Failed to update roles for person_id:%s',
                 person.entity_id, exc_info=True)
 
         try:
             update_person_perms(person, client, remove_superfluous=True)
-        except:
+        except Exception:
             logger.warn(
                 'Failed to update permissions for person_id:%s',
                 person.entity_id, exc_info=True)
@@ -357,8 +365,9 @@ def select_persons_for_update(selection_spread):
         pe.clear()
         try:
             pe.find(p['entity_id'])
-        except NotFoundError:
-            logger.warn('NotFoundError raised for entity_id %s in spread list', p['entity_id'])
+        except Errors.NotFoundError:
+            logger.warn('NotFoundError raised for entity_id %s in spread list',
+                        p['entity_id'])
             continue
 
         try:
@@ -390,7 +399,8 @@ def select_events_by_person(clh, config, change_types, selection_spread):
     :rtype: generator
     :return: A generator that yields (person_id, events)
     """
-    too_old = time.time() - int(config.changes_too_old_days) * 60 * 60 * 24
+    too_old = (date_utils.now()
+               - datetime.timedelta(days=int(config.changes_too_old_days)))
 
     logger.debug("Fetching unhandled events using change key: %s",
                  config.change_key)
@@ -400,7 +410,7 @@ def select_events_by_person(clh, config, change_types, selection_spread):
     events_by_person = defaultdict(list)
     for event in all_events:
         # Ignore too old changes
-        if int(event['tstamp']) < too_old:
+        if date_compat.get_datetime_tz(event['tstamp']) < too_old:
             logger.info("Skipping too old change_id: %s" % event['change_id'])
             clh.confirm_event(event)
             continue
@@ -461,14 +471,14 @@ def fullsync_roles_and_perms(client, selection_spread):
     for person in select_persons_for_update(selection_spread):
         try:
             update_person_roles(person, client, remove_superfluous=True)
-        except:
+        except Exception:
             logger.warn(
                 'Failed to update roles for person_id:%s',
                 person.entity_id, exc_info=True)
 
         try:
             update_person_perms(person, client, remove_superfluous=True)
-        except:
+        except Exception:
             logger.warn(
                 'Failed to update permissions for person_id:%s',
                 person.entity_id, exc_info=True)
@@ -521,7 +531,7 @@ def quicksync_roles_and_perms(client, selection_spread, config, commit):
                 for event in events:
                     if event['change_type_id'] in change_types_roles:
                         clh.confirm_event(event)
-        except:
+        except Exception:
             logger.warn(
                 'Failed to update roles for person_id:%s',
                 person_id, exc_info=True)
@@ -534,7 +544,7 @@ def quicksync_roles_and_perms(client, selection_spread, config, commit):
                 for event in events:
                     if event['change_type_id'] in change_types_perms:
                         clh.confirm_event(event)
-        except:
+        except Exception:
             logger.warn(
                 'Failed to update permissions for person_id:%s',
                 person_id, exc_info=True)
@@ -698,26 +708,27 @@ def update_person_roles(pe, client, remove_superfluous=False):
 
     # These functons can be used to remove the default_role component from
     # data-structures.
-    def remove_default_flag(l):
-        return filter(lambda e: e[0] is not 'default_role', l)
+    def remove_default_flag(lst):
+        return filter(lambda e: e[0] != 'default_role', lst)
 
-    def remove_default_flag_from_set(l):
-        return set(map(remove_default_flag, l))
+    def remove_default_flag_from_set(lst):
+        return set(map(remove_default_flag, lst))
 
     for role in ephorte_role.list_roles(person_id=pe.entity_id,
                                         filter_expired=True):
         try:
-            args['arkivdel'] = unicode(co.EphorteArkivdel(role['arkivdel']))
-            args['journalenhet'] = unicode(co.EphorteJournalenhet(
-                role['journalenhet']))
-            args['role_id'] = unicode(co.EphorteRole(role['role_type']))
+            args['arkivdel'] = six.text_type(
+                co.EphorteArkivdel(role['arkivdel']))
+            args['journalenhet'] = six.text_type(
+                co.EphorteJournalenhet(role['journalenhet']))
+            args['role_id'] = six.text_type(co.EphorteRole(role['role_type']))
         except (TypeError, Errors.NotFoundError):
             logger.warn(
                 "Unknown arkivdel, journalenhet or role type, "
                 "skipping role %s", role)
             continue
 
-        args['ou_id'] = unicode(get_sko(role['adm_enhet']))
+        args['ou_id'] = six.text_type(get_sko(role['adm_enhet']))
         args['job_title'] = role['rolletittel'] or None
         args['default_role'] = role['standard_role'] == 'T'
 
@@ -748,7 +759,8 @@ def update_person_roles(pe, client, remove_superfluous=False):
             client.ensure_role_for_user(user_id, **args)
         except EphorteWSError as e:
             logger.warn('Could not ensure existence of role %s@%s for %s: %s',
-                        args['role_id'], args['ou_id'], user_id, unicode(e))
+                        args['role_id'], args['ou_id'], user_id,
+                        six.text_type(e))
 
     if remove_superfluous:
         # Remove the default role flag. We need to do this before computing the
@@ -766,7 +778,7 @@ def update_person_roles(pe, client, remove_superfluous=False):
             except EphorteWSError as e:
                 logger.warn('Could not remove role %s@%s for %s: %s',
                             role['role_id'], role['ou_id'], user_id,
-                            unicode(e))
+                            six.text_type(e))
 
     return True
 
@@ -877,7 +889,7 @@ def disable_users(client, selection_spread):
                     disabled_previously += 1
             except EphorteWSError as e:
                 logger.warn('Failed disabling user %s or its roles/authz: %s',
-                            eph_user_id, unicode(e), exc_info=True)
+                            eph_user_id, six.text_type(e), exc_info=True)
                 failed += 1
 
     logger.info('Checked %s users in %s secs',
@@ -890,6 +902,24 @@ def disable_users(client, selection_spread):
 def show_org_units(client):
     for org in client.get_all_org_units():
         print(dict(org))
+
+
+help_example_config = textwrap.dedent(
+    """
+    Example configuration:
+
+      [DEFAULT]
+      wsdl=http://example.com/?wsdl
+      customer_id=CustomerID
+      database=DatabaseName
+      client_key=None
+      client_cert=None
+      ca_certs=None
+      selection_spread=ePhorte_person
+      change_key=eph_sync_foo
+      changes_too_old_days=30
+    """
+).strip()
 
 
 def main():
@@ -941,18 +971,7 @@ def main():
     args = parser.parse_args()
 
     if args.config_help:
-        print("""Example configuration:
-
-  [DEFAULT]
-  wsdl=http://example.com/?wsdl
-  customer_id=CustomerID
-  database=DatabaseName
-  client_key=None
-  client_cert=None
-  ca_certs=None
-  selection_spread=ePhorte_person
-  change_key=eph_sync_foo
-  changes_too_old_days=30""")
+        print(help_example_config)
         sys.exit(0)
 
     # Select proper client depending on commit-argument

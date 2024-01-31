@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2004-2018 University of Oslo, Norway
+# Copyright 2004-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -25,7 +25,7 @@ import random
 import sys
 import time
 
-from six import text_type
+import six
 from six.moves import shlex_quote as quote
 
 import cereconf
@@ -128,11 +128,11 @@ class Action(object):
         for p in self.call.params:
             if callable(p):
                 try:
-                    arguments.append(text_type(p()))
+                    arguments.append(six.text_type(p()))
                 except IOError:
                     arguments.append(repr(p))
             else:
-                arguments.append(quote(text_type(p)))
+                arguments.append(quote(six.text_type(p)))
         return "%s %s" % (self.call.cmd, " ".join(arguments))
 
     def next_delta(self, last_run, current_time):
@@ -291,9 +291,9 @@ class System(CallableAction):
                 p = list()
                 for argument in self.params[:]:
                     if callable(argument):
-                        argument = text_type(argument())
+                        argument = six.text_type(argument())
                     else:
-                        argument = text_type(argument)
+                        argument = six.text_type(argument)
                     p.append(argument)
 
                 # TODO: Why not self.id? It's a better process name than e.g.
@@ -393,14 +393,12 @@ class UniqueActionAttrs(type):
         return type.__new__(cls, name, bases, dict_)
 
 
-class Jobs(object):
+class Jobs(six.with_metaclass(UniqueActionAttrs), object):
     """
     Utility class meant for grouping related job-actions
     together. Contains logic for checking uniqueness and non-cyclicity
     in job definitions.
-
     """
-    __metaclass__ = UniqueActionAttrs
 
     def validate(self):
         all_jobs = self.get_jobs(_from_validate=True)

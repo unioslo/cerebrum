@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003-2022 University of Oslo, Norway
+# Copyright 2003-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,7 +19,17 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ Help-command functionality for bofhd. """
-from __future__ import print_function, unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+import logging
+
+from .errors import CerebrumError
+
+logger = logging.getLogger(__name__)
 
 _help_general = """
 BOFH
@@ -513,6 +523,10 @@ class Help(object):
         specified, try returning the help for 'user_id'
 
         """
+        if help_ref not in self.arg_help:
+            logger.warning("missing argument help for help_ref=%s",
+                           repr(help_ref))
+            raise CerebrumError("No help available for: " + repr(help_ref))
         if len(self.arg_help[help_ref]) == 3:
             return self.arg_help[help_ref][2]
         if help_ref.find(":") > 0:
@@ -581,12 +595,12 @@ def test(args=None):
 
     def cb_general(args):
         bofhd_help = get_help(args.config)
-        print("======================= General help =========================")
+        print("======================= General help ========================")
         print(bofhd_help.get_general_help(get_all_commands()))
 
     def cb_group(args):
         bofhd_help = get_help(args.config)
-        print("\n======================== Group help =========================")
+        print("\n======================== Group help ========================")
         for g in sorted(bofhd_help.group_help.keys()):
             print("-------------------- %s --------------------" % g)
             print(bofhd_help.get_group_help(get_all_commands(), g))
@@ -594,7 +608,7 @@ def test(args=None):
     def cb_command(args):
         # TODO: This is completely useless without a config...
         bofhd_help = get_help(args.config)
-        print("\n========================= Arg help ==========================")
+        print("\n========================= Arg help =========================")
         for g in sorted(bofhd_help.command_help.keys()):
             print("-------------------- %s --------------------" % g)
             for c in sorted(bofhd_help.command_help[g].keys()):

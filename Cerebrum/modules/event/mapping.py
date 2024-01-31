@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2015 University of Oslo, Norway
+# Copyright 2015-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,9 +17,17 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" Module for setting up mappings between events and actions. """
+"""
+Module for setting up mappings between events and actions.
 
-from __future__ import unicode_literals
+TODO: This could be replaced by, or at least use ``Cerebrum.utils.mappings``.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 from collections import defaultdict
 from .errors import EventHandlerNotImplemented
@@ -36,7 +43,7 @@ class EventMap(object):
     >>>     emap = EventMap()
     >>>     @emap('foo', 'bar')
     >>>     def foo_or_bar(*args):
-    >>>         print 'foo_or_bar called with args', repr(args)
+    >>>         print('foo_or_bar called with args', repr(args))
     >>>     def handle(self, event_name):
     >>>         for cb in self.emap.get_callbacks(event_name)
     >>>             cb(self, 1, 2, 3)
@@ -113,7 +120,7 @@ class CallbackMap(EventMap):
     >>>     cmap = CallbackMap()
     >>>     @emap('foo', 'bar')
     >>>     def foo_or_bar(*args):
-    >>>         print 'foo_or_bar called with args', repr(args)
+    >>>         print('foo_or_bar called with args', repr(args))
     >>>     def handle(self, event_name):
     >>>         for cb in self.cmap.get_callbacks(event_name)
     >>>             cb(self, 1, 2, 3)

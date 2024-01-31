@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2016-2018 University of Oslo, Norway
+# Copyright 2016-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,11 +17,18 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""
+Utils for the Cerebrum REST API.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
-from __future__ import unicode_literals
-
+import six
 from flask import url_for
-from six import text_type
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
@@ -62,11 +68,13 @@ def get_account(identifier, idtype=None, actype='Account'):
         if idtype == 'name':
             account.find_by_name(identifier, db.const.account_namespace)
         elif idtype == 'entity_id':
-            if isinstance(identifier, text_type) and not identifier.isdigit():
+            if (isinstance(identifier, six.text_type)
+                    and not identifier.isdigit()):
                 raise EntityLookupError("entity_id must be a number")
             account.find(identifier)
         elif idtype == 'posix_uid':
-            if isinstance(identifier, text_type) and not identifier.isdigit():
+            if (isinstance(identifier, six.text_type)
+                    and not identifier.isdigit()):
                 raise EntityLookupError("posix_uid must be a number")
             if actype != 'PosixUser':
                 account = Factory.get('PosixUser')(db.connection)
@@ -173,13 +181,13 @@ def get_entity_name(entity):
 
     If 'entity' is numeric, the object is retrived from the database.
 
-    :param Entity/int/long entity:
+    :param Entity/int entity:
         The entity object or its ID
 
     :return text:
         The name of the entity
     """
-    if isinstance(entity, (int, long)):
+    if isinstance(entity, six.integer_types):
         entity_obj = Factory.get('Entity')(db.connection)
         try:
             entity_obj.find(entity)

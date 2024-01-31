@@ -25,15 +25,6 @@ Bundled and/or modified third party modules.
     various row object implementations.  Deprecated, as *db_row* only supports
     Python 2.  Will be replaced with `records` in time.
 
-``doc_exception``
-    A copy of the *doc_exception 0.1.0* exception message formatting module,
-    written by a Cerebrum contributor.  Similar functionality is already
-    implemented in ``Cerebrum.Errors``.  This module is currently *only* used
-    in:
-
-    - ``Cerebrum.modules.abcenterprise.Object2Cerebrum``
-    - ``Cerebrum.modules.abcenterprise.ABCUtils``
-
 ``records``
     This module contains the row objects from *records v0.5.3*.  Introduced to
     replace `db_row`.
@@ -42,7 +33,6 @@ Bundled and/or modified third party modules.
     Simplified xml formatting util, based on *xmlprinter v0.1.0*.  Widely used
     in contrib scripts for formatting XML output.  Also used in:
 
-    - ``Cerebrum.modules.abcenterprise.ABCXmlWriter.ABCXMLWriter``
     - ``Cerebrum.modules.fs.import_from_FS.ImportFromFs``
     - ``Cerebrum.modules.xmlutils.GeneralXMLWriter.XMLWriter``
 """

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2018 University of Oslo, Norway
+# Copyright 2018-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,6 +19,12 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """Delete old data from users."""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import argparse
 import collections
@@ -26,6 +32,7 @@ import functools
 import logging
 
 import Cerebrum.logutils
+from Cerebrum.utils.date_compat import get_date
 
 logger = logging.getLogger(__name__)
 
@@ -165,19 +172,18 @@ def select_by_affiliation(person, source_system, grace=0):
     """Select persons that has had all their affiliations deleted."""
     import datetime
 
-    grace_date = datetime.datetime.now() - datetime.timedelta(days=grace)
+    grace_date = datetime.date.today() - datetime.timedelta(days=grace)
     cfd = collections.defaultdict(list)
 
     for r in person.list_affiliations(
             source_system=source_system,
             include_deleted=True):
-        cfd[r['person_id']].append(r['deleted_date'])
+        cfd[r['person_id']].append(get_date(r['deleted_date']))
 
     dont_alter = set()
     for (pid, dates) in cfd.iteritems():
         if any([(not date or date > grace_date) for date in dates]):
             dont_alter.add(pid)
-
     return set(cfd.keys()) - set(dont_alter)
 
 

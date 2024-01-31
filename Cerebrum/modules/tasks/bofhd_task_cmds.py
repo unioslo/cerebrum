@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2022 University of Oslo, Norway
+# Copyright 2022-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -251,7 +251,7 @@ class BofhdTaskAuth(BofhdAuth):
                         query_run_any=False):
         return self._can_modify_tasks(operator, query_run_any=query_run_any)
 
-    def can_inspect_tasks(self, operator, query_run_any=False):
+    def can_inspect_tasks(self, operator, queue=None, query_run_any=False):
         return self._can_modify_tasks(operator, query_run_any=query_run_any)
 
 
@@ -354,10 +354,11 @@ class BofhdTaskCommands(BofhdCommonMethods):
                     'Not before:    %s',
                     'Issued at:     %s',
                     'Reason:        %s',
+                    'Payload:       %s',
                     '',
                 )),
              ('task_id', 'attempts', format_time('nbf'), format_time('iat'),
-              'reason')),
+              'reason', 'payload')),
             # Allow for a special 'limit' sentinel value.  This value should
             # never appear when using this format
             ("...\nLimited to %d results", ('limit',)),
@@ -455,8 +456,10 @@ class BofhdTaskCommands(BofhdCommonMethods):
                 _task_filter_help_blurb,
             ],
         }
-        return merge_help_strings(get_help_strings(),
-                                  (grp_help, cmd_help, arg_help))
+        return merge_help_strings(
+            get_help_strings(),
+            (grp_help, cmd_help, arg_help),
+        )
 
     #
     # task info <task-id>

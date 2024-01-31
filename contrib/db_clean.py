@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2002-2018 University of Oslo, Norway
+# Copyright 2002-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,21 +18,28 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-"""Database cleaner that can:
- - Clean up the change log
- - Get rid of plaintext passwords
-
-Default configuration lives in Cerebrum.modules.default_dbcl_conf
-Instance specific configuration that extends and/or overrides the defaults
-should be in a module called 'dbcl_conf' in the Python path.
 """
+Combine, remove or modify changelog records
 
-from __future__ import unicode_literals
+This is script can be used to:
 
+- Remove records of a given type if older than a given limit
+- Clean up successive records
+- Remove passwords from change_params
+
+Default configuration lives in :mod:`Cerebrum.modules.default_dbcl_conf`.
+Configuration that extends and/or overrides the defaults should be in a
+`dbcl_conf` module.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+import argparse
 import datetime
 import logging
-import time
 
 from six import text_type
 
@@ -46,6 +53,8 @@ from Cerebrum.modules import default_dbcl_conf
 from Cerebrum.Utils import Factory
 from Cerebrum.utils import json
 from Cerebrum.utils.argutils import add_commit_args
+from Cerebrum.utils import date as date_utils
+from Cerebrum.utils import date_compat
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +75,7 @@ def maybe_commit(cls):
 
 
 class CleanChangeLog(object):
+
     def __init__(self, commit=False):
         self.commit = commit
         self.db = get_db()
@@ -75,8 +85,7 @@ class CleanChangeLog(object):
         self.forever = default_dbcl_conf.forever
 
         if dbcl_conf:
-            logger.info("Found instance specific configuration: {}".format(
-                dbcl_conf))
+            logger.info("Found instance specific configuration: %s", dbcl_conf)
         else:
             logger.info("No instance specific configuration found")
 
@@ -101,14 +110,16 @@ class CleanChangeLog(object):
                         found = True
                         if ('togglable' in i and 'togglable' in j
                                 and i['togglable'] == j['togglable']):
-                            logger.info("Custom trigger %s " +
-                                    "with already default settings," +
-                                    " skipping", (j['triggers']))
+                            logger.info(
+                                "Custom trigger %s with default settings,"
+                                " skipping",
+                                j['triggers'])
                         else:
                             j['togglable'] = i['togglable']
-                            logger.info("Updated following trigger " +
-                                    "%s to 'togglable': %s", j['triggers'],
-                                    i['togglable'])
+                            logger.info(
+                                "Updated following trigger %s to "
+                                " 'togglable': %s",
+                                j['triggers'], i['togglable'])
                         break
                 if not found:
                     self.togglers.append(i)
@@ -119,17 +130,18 @@ class CleanChangeLog(object):
         return i
 
     def format_for_logging(self, e):
-        return (e['tstamp'].strftime('%Y-%m-%d'),
-                int(e['change_id']),
-                text_type(self.clconst.map_const(int(e['change_type_id']))),
-                self.int_or_none(e['subject_entity']),
-                self.int_or_none(e['dest_entity']),
-                'password' if (
-                    int(e['change_type_id']) == int(self.clconst.account_password))
-                else e['change_params'])
+        is_pwd = int(e['change_type_id']) == int(self.clconst.account_password)
+        return (
+            e['tstamp'].strftime('%Y-%m-%d'),
+            int(e['change_id']),
+            text_type(self.clconst.map_const(int(e['change_type_id']))),
+            self.int_or_none(e['subject_entity']),
+            self.int_or_none(e['dest_entity']),
+            'password' if is_pwd else e['change_params'],
+        )
 
     def process_log(self):
-        start = time.time()
+        start = date_utils.now()
         last_seen = {}
         unknown_type = {}
         processed = aged = toggled = 0
@@ -151,7 +163,8 @@ class CleanChangeLog(object):
                 continue
 
             # Keep all data newer than minimum_age
-            age = start - e['tstamp'].ticks()
+            age = (start -
+                   date_compat.get_datetime_tz(e['tstamp'])).total_seconds()
             if age < self.minimum_age:
                 continue
 
@@ -160,8 +173,8 @@ class CleanChangeLog(object):
 
             max_age = self.max_ages.get(change_type, self.default_age)
             if max_age != self.forever and age > max_age:
-                logger.info("Removed due to age: {!r}".format(
-                    self.format_for_logging(e)))
+                logger.info("Removed due to age: %s",
+                            repr(self.format_for_logging(e)))
                 aged += 1
                 if self.commit:
                     self.db.remove_log_event(e['change_id'])
@@ -184,8 +197,9 @@ class CleanChangeLog(object):
 
             # Has something been toggled?
             if key in last_seen:
-                logger.info("Removed toggle {!r}, {!r} toggled by {!r}".format(
-                    key, last_seen[key], self.format_for_logging(e)))
+                logger.info("Removed toggle %s, %s toggled by %s",
+                            repr(key), repr(last_seen[key]),
+                            repr(self.format_for_logging(e)))
                 toggled += 1
                 if self.commit:
                     self.db.remove_log_event(last_seen[key])
@@ -195,36 +209,35 @@ class CleanChangeLog(object):
                 self.db.commit()
 
         for change_type, num in unknown_type.items():
-            logger.warn(
-                "Unknown change type id:{} ({}) for {} entries".format(
-                    change_type,
-                    text_type(self.clconst.human2constant(change_type)),
-                    num))
+            logger.warn("Unknown change type id:%s (%s) for %s entries",
+                        change_type,
+                        text_type(self.clconst.human2constant(change_type)),
+                        num)
 
         maybe_commit(self)
 
-        logger.info("Entries processed: {}".format(processed))
-        logger.info("Entries removed due to age: {}".format(aged))
-        logger.info("Entries removed due to being toggled: {}".format(toggled))
-        logger.info("Spent {} seconds".format(int(time.time() - start)))
+        logger.info("Entries processed: %s", processed)
+        logger.info("Entries removed due to age: %s", aged)
+        logger.info("Entries removed due to being toggled: %s", toggled)
+        logger.info("Spent %s", date_utils.now() - start)
 
     def parse_config(self):
-        logger.info("Default age: {} seconds".format(self.default_age))
-        logger.info("Minimum age: {} seconds".format(self.minimum_age))
+        logger.info("Default age: %s seconds", self.default_age)
+        logger.info("Minimum age: %s seconds", self.minimum_age)
         logger.info("Parsing max ages...")
 
         for human_change_type, age in self.max_ages.items():
             change_type = self.clconst.human2constant(human_change_type)
             if change_type is None:
-                logger.info("Unknown change type {!r} ignored".format(
-                    human_change_type))
+                logger.info("Unknown change type %s ignored",
+                            repr(human_change_type))
                 del self.max_ages[human_change_type]
                 continue
             assert isinstance(change_type, self.clconst.ChangeType)
             self.max_ages[int(change_type)] = age
             del self.max_ages[human_change_type]
 
-        logger.info("Max age overrides: {}".format(len(self.max_ages)))
+        logger.info("Max age overrides: %d", len(self.max_ages))
 
         togglable_stats = {True: 0, False: 0}
         self.trigger_map = {}
@@ -238,20 +251,17 @@ class CleanChangeLog(object):
             for trigger in data['triggers']:
                 change_type = self.clconst.human2constant(trigger)
                 if change_type is None:
-                    logger.info(
-                        "Unknown change type {!r} ignored".format(trigger))
+                    logger.info("Unknown change type %s ignored", trigger)
                     continue
                 if not isinstance(change_type, self.clconst.ChangeType):
-                    logger.info(
-                        "{!r} is not a change type".format(trigger))
+                    logger.info("%s is not a change type", repr(trigger))
                     continue
                 triggers.append(int(change_type))
 
             # Skip toggler if a change type is unknown
             if len(triggers) != len(data['triggers']):
-                logger.info(
-                    "One or more unknown triggers, ignoring: {!r}".format(
-                        data))
+                logger.info("One or more unknown triggers, ignoring: %s",
+                            repr(data))
                 continue
 
             data['triggers'] = triggers
@@ -265,11 +275,9 @@ class CleanChangeLog(object):
                         self.clconst.ChangeType(trigger)))
                 self.trigger_map[trigger] = data if togglable else None
 
-        logger.info("Unique toggler rules: {}".format(len(self.togglers)))
-        logger.info(
-            "Active toggler rules: {}".format(togglable_stats[True]))
-        logger.info(
-            "Inactive toggler rules: {}".format(togglable_stats[False]))
+        logger.info("Unique toggler rules: %d", len(self.togglers))
+        logger.info("Active toggler rules: %s", togglable_stats[True])
+        logger.info("Inactive toggler rules: %s", togglable_stats[False])
 
     def run(self):
         self.parse_config()
@@ -277,6 +285,7 @@ class CleanChangeLog(object):
 
 
 class CleanPasswords(object):
+
     def __init__(self, password_age, commit=False):
         self.commit = commit
         self.password_age = password_age
@@ -290,7 +299,7 @@ class CleanPasswords(object):
         delta = datetime.timedelta(days=self.password_age)
         cutoff = today - delta
 
-        start = time.time()
+        start = date_utils.now()
 
         removed = 0
         logger.info("Fetching password change log entries...")
@@ -305,13 +314,11 @@ class CleanPasswords(object):
                 del data['password']
                 if self.commit:
                     self.db.update_log_event(e['change_id'], data)
-                logger.info("Removed password for id:{:d}".format(
-                    e['subject_entity']))
+                logger.info("Removed password for id:%d", e['subject_entity'])
                 removed += 1
 
-        logger.info("Spent {} seconds".format(int(time.time() - start)))
-        logger.info("Removed {} passwords older than {}".format(
-            removed, cutoff))
+        logger.info("Spent %s", date_utils.now() - start)
+        logger.info("Removed %s passwords older than %s", removed, cutoff)
 
         maybe_commit(self)
 
@@ -321,7 +328,6 @@ class CleanPasswords(object):
 
 def main(args=None):
     """Main script runtime. Parses arguments. Starts tasks."""
-    import argparse
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--plaintext-passwords',
                         default=False,
@@ -345,7 +351,8 @@ def main(args=None):
     args = parser.parse_args(args)
     Cerebrum.logutils.autoconf("big_shortlived", args)
 
-    logger.info("Starting %s with args: %s", parser.prog, args.__dict__)
+    logger.info("Start %s", parser.prog)
+    logger.debug("args: %s", repr(args))
 
     if args.remove_plaintext:
         CleanPasswords(

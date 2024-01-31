@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 #
-# Copyright 2013, 2017, 2018, 2019 University of Oslo, Norway
+# Copyright 2013-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,7 +18,8 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" Count active accounts to be used for invoicing by UiO.
+"""
+Count active accounts to be used for invoicing by UiO.
 
 University of Oslo hosts Cerebrum for various partners. The invoice is based on
 the number of «active accounts» in the Cerebrum instance.
@@ -26,96 +27,147 @@ the number of «active accounts» in the Cerebrum instance.
 The returned number is only for what is *right now*. No history is supported.
 To get data from previous dates, you need either to log the output, or get a
 copy from the database from that date.
-
 """
-
-from __future__ import unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import argparse
 import csv
+import datetime
 import logging
-import time
-from six import text_type
+
+import six
 
 import Cerebrum.logutils
 import cereconf
 from Cerebrum.utils.email import sendmail
+from Cerebrum.utils import argutils
+from Cerebrum.utils import date_compat
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 
 logger = logging.getLogger(__name__)
 
-mail_from = 'cerebrum@ulrik.uio.no'
-mail_subject = 'Cerebrum invoice report'
+MAIL_FROM = 'cerebrum@ulrik.uio.no'
+MAIL_SUBJECT = 'Cerebrum invoice report'
+
+AFFILIATIONS = ('STUDENT', 'ANSATT', 'TILKNYTTET',
+                'ELEV', 'MANUELL', 'PROJECT')
+
+
+def get_last_event(db):
+    """ Get last logged event. """
+    last_event = None
+    # TODO: Replace changelog with audit log?
+    try:
+        last_event = db.query_1(
+            """
+              SELECT MAX(tstamp)
+              FROM [:table schema=cerebrum name=change_log]
+            """
+        )
+    except Errors.NotFoundError:
+        pass
+    last_event = date_compat.get_datetime_tz(last_event)
+    logger.debug("Last event found from db: %s", last_event)
+    return last_event
+
+
+def get_affiliated(db):
+    """ Get all affiliated person ids. """
+    pe = Factory.get('Person')(db)
+    co = pe.const
+
+    affiliations = []
+    for aff_string in AFFILIATIONS:
+        try:
+            affiliations.append(
+                co.get_constant(co.PersonAffiliation, aff_string))
+        except LookupError:
+            pass
+    logger.debug("Active affiliations: %s",
+                 ', '.join(six.text_type(a) for a in affiliations))
+
+    persons = set(r['person_id']
+                  for r in pe.list_affiliations(affiliation=affiliations,
+                                                include_deleted=False))
+    logger.debug("Found %d persons with active aff", len(persons))
+    return persons
+
+
+def get_quarantined_accounts(db):
+    """ Get all quarantined account ids. """
+    ac = Factory.get('Account')(db)
+    co = ac.const
+
+    quars = set(r['entity_id']
+                for r in ac.list_entity_quarantines(
+                    only_active=True,
+                    entity_types=co.entity_account,
+                ))
+    logger.debug("Found %d quarantined accounts", len(quars))
+    return quars
 
 
 def process(output, mail):
     db = Factory.get('Database')()
     co = Factory.get('Constants')(db)
     ac = Factory.get('Account')(db)
-    pe = Factory.get('Person')(db)
 
-    logger.info("Invoice stats started")
     logger.debug("Using database: %s", cereconf.CEREBRUM_DATABASE_NAME)
-    last_event = None
-    try:
-        last_event = db.query_1('''
-            SELECT tstamp FROM [:table schema=cerebrum name=change_log]
-            ORDER BY tstamp DESC
-            LIMIT 1''')
-    except Errors.NotFoundError:
-        pass
-    logger.debug("Last event found from db: %s", last_event)
 
-    # Find active persons:
-    affs = []
-    for a in ('STUDENT', 'ANSATT', 'TILKNYTTET', 'ELEV', 'MANUELL', 'PROJECT'):
-        try:
-            af = co.PersonAffiliation(a)
-            int(af)
-            affs.append(af)
-        except Errors.NotFoundError:
-            pass
-    logger.debug("Active affiliations: %s" % ', '.join(text_type(a) for a in
-                                                       affs))
-    all_affiliated = set(r['person_id'] for r in pe.list_affiliations(
-                                affiliation=affs,
-                                include_deleted=False))
-    logger.debug("Found %d persons with active aff", len(all_affiliated))
+    last_event = get_last_event(db)
 
-    # Find active accounts:
-    quars = set(r['entity_id'] for r in
-                ac.list_entity_quarantines(only_active=True,
-                                           entity_types=co.entity_account))
-    logger.debug("Found %d quarantined accounts", len(quars))
+    # Find active persons
+    all_affiliated = get_affiliated(db)
 
-    active_accounts = set(r['account_id'] for r in
-                          ac.search(owner_type=co.entity_person) if
-                          (r['owner_id'] in all_affiliated and r['account_id']
-                           not in quars))
+    # Find inactive accounts
+    quars = get_quarantined_accounts(db)
+
+    active_accounts = set(
+        r['account_id']
+        for r in ac.search(owner_type=co.entity_person)
+        if (r['owner_id'] in all_affiliated
+            and r['account_id'] not in quars))
     logger.info("Found %d accounts for the active persons",
                 len(active_accounts))
 
+    last_event_str = date_compat.to_mx_format(last_event) if last_event else ""
+    today_str = datetime.date.today().strftime('%Y-%m-%d')
+    num_accounts = len(active_accounts)
+
     if output:
+        # TODO: We may want to use Cerebrum.utils.csvutils for unicode support
         csvw = csv.writer(output)
-        csvw.writerow((time.strftime('%Y-%m-%d'),
-                       cereconf.CEREBRUM_DATABASE_NAME,
-                       len(active_accounts),
-                       last_event,
-                       ))
+        csvw.writerow((
+            today_str,
+            cereconf.CEREBRUM_DATABASE_NAME,
+            num_accounts,
+            last_event_str,
+        ))
+        logger.info("wrote report to: %s", output)
+
     if mail:
-        body = """Found {} active accounts in {} from {}""".format(
-            len(active_accounts), cereconf.CEREBRUM_DATABASE_NAME, last_event)
-        sendmail(mail, mail_from, mail_subject, body)
-    logger.info("Invoice stats finished")
+        body = "Found {num} active accounts in {db} from {when}".format(
+            num=num_accounts,
+            db=cereconf.CEREBRUM_DATABASE_NAME,
+            when=last_event_str,
+        )
+        sendmail(mail, MAIL_FROM, MAIL_SUBJECT, body)
+        logger.info("sent report to: %s", mail)
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         '-o', '--output-file',
-        dest='output', type=argparse.FileType('a'),
+        dest='output',
+        type=argparse.FileType('a'),
         help='Append invoice data, in CSV format'
     )
     parser.add_argument(
@@ -127,8 +179,15 @@ def main():
     Cerebrum.logutils.options.install_subparser(parser)
     args = parser.parse_args()
     Cerebrum.logutils.autoconf('cronjob', args)
+    logger.info("start %s", parser.prog)
+    logger.debug("args: %s", repr(args))
+
+    with argutils.ParserContext(parser):
+        if not any((args.output, args.mail)):
+            raise ValueError("no action provided")
 
     process(args.output, args.mail)
+    logger.info("done %s", parser.prog)
 
 
 if __name__ == '__main__':

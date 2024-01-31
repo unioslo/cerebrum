@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2010-2022 University of Oslo, Norway
+# Copyright 2010-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -20,9 +20,20 @@
 """
 Constants for the VirtHome project.
 """
-from Cerebrum.Constants import (Constants, CLConstants, _ChangeTypeCode)
-from Cerebrum.Constants import _SpreadCode as SpreadCode
-from Cerebrum.Constants import _QuarantineCode as QuarantineCode
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    # TODO: unicode_literals,
+)
+
+from Cerebrum.Constants import (
+    CLConstants,
+    Constants,
+    _ChangeTypeCode,
+    _QuarantineCode as QuarantineCode,
+    _SpreadCode as SpreadCode,
+)
 from Cerebrum.modules.trait.constants import _EntityTraitCode as EntityTrait
 
 

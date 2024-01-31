@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2016-2022 University of Oslo, Norway
+# Copyright 2016-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,6 +18,14 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ Generic field type serialization rules. """
+
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+
 import six
 from flask_restx import fields as base
 
@@ -83,6 +91,10 @@ class DateTime(base.DateTime):
         if dt is None:
             return None
         value = date_compat.get_datetime_naive(dt)
+        # Drop microsecond precision:
+        # We drop precision here to avoid changing the output format as we move
+        # to using datetime.datetime in the whole stack
+        value = value.replace(microsecond=0)
         return super(DateTime, self).format(value)
 
 
@@ -99,6 +111,7 @@ class DateTimeTz(base.DateTime):
         if dt is None:
             return None
         value = date_compat.get_datetime_tz(dt)
+        value = value.replace(microsecond=0)
         return super(DateTime, self).format(value)
 
 

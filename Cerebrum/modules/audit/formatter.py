@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2018 University of Oslo, Norway
+# Copyright 2018-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,16 +17,49 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" Format audit log records.
-
-This module contains utilities to turn a AuditRecord into a PreparedRecord,
-and to format AuditRecord like objects into strings.
 """
+Format audit log records.
+
+This module contains utilities to format audit records.  The process is split
+into two distinct steps: processing into an intermediate data structure, and
+formatting that intermediate data structure.
+
+Preparing a :class:`.record.AuditRecord`
+    A callable (default implementation in :class:`.AuditRecordProcessor`) that
+    takes AuditRecord objects from the database, and turns them into
+    PreparedRecord objects.
+
+    The processor decides the overall *message*, and allows custom messages for
+    individual change types.
+
+Intermediate format (:class:`.PreparedRecord`)
+    Each PreparedRecord is a seriablizable verison of the original AuditRecord.
+    The PreparedRecord decides how individual fields are formatted (timestamp
+    as ISO8601, subject entity strings, etc...)
+
+Formatting a :class:`.PreparedRecord`
+    A callable (default implementation in :class:`.AuditRecordFormatter`) that
+    takes PreparedRecord objects and returns the final, formatted or serialized
+    record.  The default just takes a format string as input, and formats it
+    with fields from the PreparedRecord.
+
+    This could be replaced to e.g. format the entire PreparedRecord dict as a
+    JSON-blob.
+
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import collections
 import logging
 import re
 
 import six
+
+from Cerebrum.utils import date_compat
 
 logger = logging.getLogger(__name__)
 
@@ -41,23 +74,10 @@ def _format_entity(entity_id, entity_type, entity_name):
     else:
         return '<no name>(%r)' % (entity_id)
 
-# def _format_entity(entity_id, entity_type, entity_name):
-#     if entity_id is None:
-#         return None
-
-#     if entity_type:
-#         entity_type = six.text_type(entity_type)
-#     else:
-#         entity_type = '<entity>'
-
-#     if entity_name:
-#         return '%s(id=%r, name=%s)' % (entity_type, entity_id, entity_name)
-#     else:
-#         return '%s(id=%r)' % (entity_type, entity_id)
-
 
 class PreparedRecord(object):
-    """ AuditRecord-like object with formatted attributes.
+    """
+    AuditRecord-like object with formatted attributes.
 
     This object wraps AuditRecord objects, and presents all its attributes as
     human readable values, suitable for formatting.
@@ -70,10 +90,11 @@ class PreparedRecord(object):
         self.message = message
 
     def __repr__(self):
-        return '<%s change=%s message=%r>' % (
+        return "<%s change=%s message=%r>" % (
             self.__class__.__name__,
             self.change_type,
-            self.message)
+            self.message,
+        )
 
     @property
     def timestamp(self):
@@ -81,7 +102,6 @@ class PreparedRecord(object):
         if self._record.timestamp:
             return self._record.timestamp.strftime('%Y-%m-%d %H:%M:%S %z')
         else:
-            # TODO: Default to <now> with tz?
             return None
 
     @property
@@ -94,7 +114,8 @@ class PreparedRecord(object):
         return _format_entity(
             self._record.operator_id,
             (self._record.metadata or {}).get('operator_type'),
-            (self._record.metadata or {}).get('operator_name'))
+            (self._record.metadata or {}).get('operator_name'),
+        )
 
     @property
     def entity(self):
@@ -102,7 +123,8 @@ class PreparedRecord(object):
         return _format_entity(
             self._record.entity_id,
             (self._record.metadata or {}).get('entity_type'),
-            (self._record.metadata or {}).get('entity_name'))
+            (self._record.metadata or {}).get('entity_name'),
+        )
 
     @property
     def target(self):
@@ -110,7 +132,8 @@ class PreparedRecord(object):
         return _format_entity(
             self._record.target_id,
             (self._record.metadata or {}).get('target_type'),
-            (self._record.metadata or {}).get('target_name'))
+            (self._record.metadata or {}).get('target_name'),
+        )
 
     @property
     def change_program(self):
@@ -148,7 +171,7 @@ class _ChangeTypeCallbacks(object):
 
     def register(self, category, change):
         """ Register an event generator for a given change type. """
-        key = re.compile('^{0}:{1}$'.format(category, change))
+        key = re.compile(r'^{0}:{1}$'.format(category, change))
 
         def wrapper(fn):
             self.callbacks[key] = fn
@@ -156,14 +179,26 @@ class _ChangeTypeCallbacks(object):
         return wrapper
 
     def get_callback(self, category, change):
-        term = '{0}:{1}'.format(category, change)
+        term = "{0}:{1}".format(category, change)
         for key in self.callbacks:
             if key.match(term):
                 return self.callbacks[key]
 
 
 class AuditRecordProcessor(object):
-    """ Process audit records into a PreparedRecord. """
+    """
+    Process audit records into a PreparedRecord.
+
+    The final *message* attribute will be the first message that
+    exists/succeeds out of:
+
+    1. ``custom_formatters`` callback, if it exists
+    2. _LegacyMessageFormatter, which tries to format a message from the
+       ``msg_string``/``format`` of the change type itself.
+    3. ``format_message`` callback, which outputs the params and metadata
+    4. ``repr`` of the AuditRecord
+    5. The AuditRecord id
+    """
     # TODO: Find *one* good way to describe how to format records
 
     custom_formatters = _ChangeTypeCallbacks()
@@ -212,8 +247,8 @@ class AuditRecordProcessor(object):
         if not message:
             message = try_msg(repr)
         if not message:
-            message = '<%r id=record_id>' % (type(record).__name__,
-                                             record.record_id)
+            message = "<%r id=%r>" % (type(record).__name__,
+                                      record.record_id)
         return message
 
     def __call__(self, record):
@@ -260,10 +295,11 @@ from Cerebrum.Utils import Factory   # noqa: E402
 
 
 def _format_message_from_const(record):
-    """ format changelog according to its `record.change_type`.
+    """
+    Format message according to its `record.change_type`.
 
-    ChangeType constants may provide a `msg_string` and `format` attribute that
-    hints on how to format records with that type.
+    This wrapper formats messages using the _LegacyMessageFormatter, in a
+    separate database transaction.
     """
     # We use a new db transaction here -- we don't want formatting of cl
     # records to depend on a database -- this is just a way to handle old cruft
@@ -273,9 +309,11 @@ def _format_message_from_const(record):
 
 
 def _find_value(record, name, default=None):
-    """ find a field in a record.
+    """
+    Find a field in a record.
 
-    looks for attributes in:
+    Helper for the _LegacyMessageFormatter that tries to look up existing
+    values in:
 
     1. The record itself
     2. The record params
@@ -293,7 +331,23 @@ def _find_value(record, name, default=None):
 
 
 class _LegacyMessageFormatter(object):
-    """ The old formatter functionality. """
+    """
+    Legacy `user history`-like message formatter.
+
+    This formatter tries to generate a message from the audit record
+    `change_type.msg_string` and `change_type.format` values.  The idea is not
+    bad, but the implementation is, as this formatter depends on the database
+    to look up related entities and constant types for formatting.  This has a
+    few major drawbacks:
+
+    1. We need to query the database for each record/message, which is
+       expensive.
+    2. Entities must still exist in the database.
+    3. Constants must still exist in the database, and carry the same meaning.
+
+    This re-implementation does try to avoid database lookups, but will fall
+    back to doing these if neccessary.
+    """
 
     def __init__(self, db):
         self._format_entity = _EntityFormatter(db)
@@ -356,7 +410,12 @@ class _LegacyMessageFormatter(object):
 
 
 class _ConstantFormatter(object):
-    """ Turn constant intval into constant strval. """
+    """
+    Turn constant intval into strval.
+
+    Helper for the _LegacyMessageFormatter that translates constant intvals
+    from e.g. params to constant strvals.
+    """
 
     co_type_map = {
         'affiliation': ['PersonAffiliation'],
@@ -399,7 +458,12 @@ class _ConstantFormatter(object):
 
 
 class _EntityFormatter(object):
-    """ Turn entities and values into strings. """
+    """
+    Turn entities and values into strings.
+
+    Helper for the _LegacyMessageFormatter that translates various values
+    into suitable strings.
+    """
 
     en_type_map = {
         'disk': '_fmt_disk_id',
@@ -431,7 +495,9 @@ class _EntityFormatter(object):
             return "deleted_disk:%r" % (disk_id,)
 
     def _fmt_date(self, value):
-        return value.date
+        if isinstance(value, six.string_types):
+            return value
+        return six.text_type(date_compat.get_date(value))
 
     def _fmt_ts(self, value):
         return six.text_type(value)

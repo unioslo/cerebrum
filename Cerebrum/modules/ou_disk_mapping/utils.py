@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright 2019 University of Oslo, Norway
+#
+# Copyright 2019-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,88 +18,104 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
-Utilities related to ou_disk_mapping module
+Utilities for looking up default disks and disk rules.
+
+This modules implements two important features in the default disk mapping
+module:
+
+Wildcard rules (:func:`.get_disk_rule`)
+    Rules can apply to all affiliations or affiliation statuses at a given org
+    unit.  If an org unit has multiple rules (e.g. `<*>/<*>@<ou>`,
+    `<AFFILIATION>/<*>@<ou>`, `<AFFILIATION>/<status>@<ou>`), the most specific
+    rule will be used.
+
+Hierarchical lookup (:func:`.resolve_disk`)
+    If no rule (including wildcard rules) applies to a given org unit,  we
+    continue searching upwards in the org unit tree for a matching rule.
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 
 
-def get_disk(database,
-             disk_mapping,
-             ou_id,
-             aff_code,
-             status_code,
-             perspective,
-             ou_class=None,
-             constants=None):
+def get_disk_rule(disk_mapping, ou_id, affiliation, status):
     """
-    Find the appropriate disk depending on OU, Aff, Status
+    Get disk for a given affiliation/selection rule.
 
-    This is a hierarchical selection process.
-    The selection process is as follows:
-      OU+Aff+Status > OU+Aff > OU > parent OU+Aff+Status > parent OU+Aff
-      and so on until there is a hit.
+    :param int ou_id: org unit id
+    :param int affiliation: affiliation code
+    :param int status: affiliation status code
 
-    :param disk_mapping: Instance of OUDiskMapping
-
-    :type constants: Cerebrum.Utils._dynamic_Constants
-    :param constants: Constants generated with Factory.get
-
-    :type ou_class: Cerebrum.OU.OU or None
-    :param ou_class: Unpopulated Ou object
-
-    :type perspective: int or Cerebrum.Constants._OUPerspectiveCode
-    :param perspective: Ou perspective
-
-    :type database: Cerebrum.CLDatabase.CLDatabase
-    :param database: Database connection
-
-    :param int ou_id: entity id of the OU
-
-    :param aff_code: None or Cerebrum.Constants._PersonAffiliationCode
-
-    :param status_code: None or Cerebrum.Constants._PersonAffStatusCode
-
-    :rtype: int
-    :return: The entity id of the disk
+    :returns: matching rule row
+    :raises Error.NotFoundError: if no matching rule exists
     """
-    if ou_class is None:
-        ou_class = Factory.get("OU")(database)
-    if constants is None:
-        constants = Factory.get("Constants")(database)
-
-    # Is there a hit for the specific one?
-    if status_code:
+    # Is there a rule for this affiliation and status?
+    if status:
         try:
-            row = disk_mapping.get(ou_id, aff_code, status_code)
+            return disk_mapping.get(ou_id, affiliation, status)
         except Errors.NotFoundError:
             pass
-        else:
-            return row["disk_id"]
 
-    # With just Ou and aff?
-    if aff_code:
+    # Is there a rule for this affiliation?
+    if affiliation:
         try:
-            row = disk_mapping.get(ou_id, aff_code, None)
+            return disk_mapping.get(ou_id, affiliation, None)
         except Errors.NotFoundError:
             pass
-        else:
-            return row["disk_id"]
 
-    # With just OU?
-    try:
-        row = disk_mapping.get(ou_id, None, None)
-    except Errors.NotFoundError:
-        pass
-    else:
-        return row["disk_id"]
+    # Is there a rule for all affiliations?
+    return disk_mapping.get(ou_id, None, None)
 
-    # Jump to parent and start over
-    ou_class.find(ou_id)
-    parent_id = ou_class.get_parent(perspective)
-    ou_class.clear()
-    disk_id = get_disk(database, disk_mapping, parent_id, aff_code,
-                       status_code,
-                       perspective,
-                       ou_class=ou_class)
-    return disk_id
+
+def get_parent_id(db, ou_id, perspective):
+    """
+    Get parent org unit id.
+
+    :returns int: parent id
+    :raises Error.NotFoundError: if no parent exists
+    """
+    ou = Factory.get("OU")(db)
+    ou.find(ou_id)
+    return ou.get_parent(perspective)
+
+
+def resolve_disk(disk_mapping,
+                 ou_id,
+                 affiliation,
+                 status,
+                 perspective):
+    """
+    Search the org tree for the best matching ou mapping disk rule.
+
+    :param disk_mapping: disk mapping implementation
+    :param int ou_id: org unit id
+    :param int affiliation: affiliation code
+    :param int status: affiliation status code
+    :param int perspective: org unit perspective
+    """
+    db = disk_mapping._db
+    seen_ids = set()
+
+    while True:
+        try:
+            return get_disk_rule(disk_mapping, ou_id, affiliation, status)
+        except Errors.NotFoundError:
+            # No match at this ou_id
+            pass
+
+        seen_ids.add(ou_id)
+
+        # No matching rule found yet, continue with parent.
+        # This will raise NotFoundError if there aren't any more parents
+        ou_id = get_parent_id(db, ou_id, perspective)
+
+        # org tree cycle protection
+        if ou_id in seen_ids:
+            raise RuntimeError("Org tree cycle! (ou_id=%s, perspective=%s)"
+                               % (repr(ou_id), repr(perspective)))

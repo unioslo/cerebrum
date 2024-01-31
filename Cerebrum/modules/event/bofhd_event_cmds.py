@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2014-2018 University of Oslo, Norway
+# Copyright 2014-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,7 +17,17 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""Commands used for listing and managing events."""
+"""
+Commands used for listing and managing events.
+
+TODO: Should probably be moved to a ``Cerebrum.modules.eventlog`` submodule.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    # TODO: unicode_literals,
+)
 from collections import defaultdict
 
 import six
@@ -85,8 +94,10 @@ class BofhdExtension(BofhdCommandBase):
         return ts
 
     def _make_constants_human_readable(self, data):
-        """Convert dictionary entries known to contain contant codes,
-        to human-readable text."""
+        """
+        Convert dictionary entries known to contain contant codes,
+        to human-readable text.
+        """
         constant_keys = ['spread', 'entity_type', 'code', 'affiliation',
                          'src', 'name_variant', 'action', 'level']
         try:
@@ -196,7 +207,8 @@ class BofhdExtension(BofhdCommandBase):
                 locked=locked):
             r.append({
                 'id': ev['event_id'],
-                'type': six.text_type(self.clconst.map_const(ev['event_type'])),
+                'type': six.text_type(
+                    self.clconst.map_const(ev['event_type'])),
                 'taken': ev['taken_time'],
                 'failed': ev['failed']
             })

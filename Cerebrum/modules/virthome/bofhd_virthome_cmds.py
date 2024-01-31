@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2009-2019 University of Oslo, Norway
+# Copyright 2009-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,7 +17,6 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
 """
 WebID (aka "VirtHome") bofhd extensions.
 
@@ -27,21 +26,26 @@ Cerebrum instance.
 It should be possible to use the jbofh client with this bofhd command set,
 although the help strings won't be particularily useful.
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
-from __future__ import unicode_literals
-
+import datetime
 import re
 
 import six
-from mx.DateTime import now, DateTimeDelta
-from mx.DateTime import strptime
 
 import cereconf
 
 from Cerebrum import Entity, Errors
 from Cerebrum.group.GroupRoles import GroupRoles
 from Cerebrum.modules.audit import bofhd_history_cmds
+from Cerebrum.modules.bofhd import parsers
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
+from Cerebrum.modules.bofhd.bofhd_utils import get_quarantine_status
 from Cerebrum.modules.bofhd.cmd_param import (
     AccountName,
     Command,
@@ -67,6 +71,8 @@ from Cerebrum.modules.pwcheck.checker import (
 from Cerebrum.modules.virthome.VirtAccount import FEDAccount, VirtAccount
 from Cerebrum.modules.virthome.base import VirthomeBase, VirthomeUtils
 from Cerebrum.modules.virthome.bofhd_auth import BofhdVirtHomeAuth
+from Cerebrum.utils import date_compat
+from Cerebrum.utils import date as date_utils
 from Cerebrum.utils import json
 
 
@@ -148,7 +154,8 @@ class BofhdVirthomeCommands(BofhdCommandBase):
                 return None
 
         owner_name = None
-        if account.np_type in (self.const.fedaccount_type, self.const.virtaccount_type):
+        if account.np_type in (self.const.fedaccount_type,
+                               self.const.virtaccount_type):
             owner_name = account.get_owner_name(name_type)
         return owner_name
 
@@ -206,6 +213,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         except Errors.NotFoundError:
             raise CerebrumError("No event associated with key %s" % magic_key)
 
+        event["tstamp"] = date_compat.get_datetime_tz(event["tstamp"])
         if event["change_params"]:
             event["change_params"] = json.loads(event["change_params"])
 
@@ -215,7 +223,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         return event
 
     # TODO: Move event processing to Cerebrum.modules.virthome.base
-    # NOTE: The return value for __process_<event> has changed. They now return
+    # NOTE: The return value for __process_<event> has changed. They return
     # the event type and relevant values.
     # webid.uio.no has been updated to use this info to lookup a text
     # translation for the event.
@@ -254,7 +262,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         # would we want to pollute change_log?)
         for row in self.db.get_log_events(subject_entity=account.entity_id,
                                           types=self.clconst.va_email_change,):
-            if row["tstamp"] < event["tstamp"]:
+            if date_compat.get_datetime_tz(row["tstamp"]) < event["tstamp"]:
                 self.db.remove_log_event(row["change_id"])
         # action e_account:pending_email
         # OK, e-mail changed, <old_email> -> <new_email>
@@ -282,7 +290,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
             raise CerebrumError("Account %s (type %s) cannot join groups." %
                                 (member.account_name, member.np_type))
 
-        # Now, users who have been explicitly invited must be tagged as
+        # users who have been explicitly invited must be tagged as
         # such. There is a slight point of contention here, if the same VA is
         # invited multiple times, and the user accepts all invitations -- only
         # the first invitation will be records as trait_user_invited. This
@@ -290,7 +298,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         if not member.get_trait(self.const.trait_user_invited):
             member.populate_trait(self.const.trait_user_invited,
                                   numval=inviter_id,
-                                  date=now())
+                                  date=date_utils.now())
             member.write_db()
 
         if group.has_member(member.entity_id):
@@ -311,8 +319,8 @@ class BofhdVirthomeCommands(BofhdCommandBase):
     # TODO(2013-04-19):
     # What happens if multiple invitations are sent out for the same group?
     # Apparently, the last one to confirm the request will end up as the owner.
-    # Is this the desired outcome?  Or should all other invitations be invalidated
-    # when a request is confirmed?
+    # Is this the desired outcome?  Or should all other invitations be
+    # invalidated when a request is confirmed?
     def __process_admin_swap_request(self, issuer_id, event):
         """Perform the necessary magic associated with letting another account
         take over group adminship.
@@ -420,7 +428,6 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         webapp is the issuer_id in this case. The true account target is in
         event['subject_entity'].
         """
-
         assert event["change_type_id"] == self.clconst.va_reset_expire_date
         account_id = event["subject_entity"]
         target = self._get_account(account_id)
@@ -428,13 +435,13 @@ class BofhdVirthomeCommands(BofhdCommandBase):
                                   self.const.fedaccount_type):
             raise CerebrumError("Expiration date setting is limited to "
                                 "VA/FA only.")
-
         target.extend_expire_date()
         target.write_db()
-
-        return {'action': event.get('change_type'),
-                'username': target.account_name,
-                'date': target.expire_date.strftime('%Y-%m-%d'), }
+        return {
+            'action': event.get('change_type'),
+            'username': target.account_name,
+            'date': target.expire_date.strftime('%Y-%m-%d'),
+        }
 
     def __process_request_confirmation(self, issuer_id, magic_key, *rest):
         """
@@ -627,6 +634,8 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         else:
             raise CerebrumError("A VirtAccount must have a password")
 
+        expire_date = parsers.parse_date(expire_date, optional=True)
+
         # Create account without confirmation
         try:
             account, junk = self.vhutils.create_account(
@@ -755,7 +764,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
             group.remove_member(account.entity_id)
 
         # Set account as expired
-        account.expire_date = now()
+        account.expire_date = datetime.date.today()
         account.write_db()
 
         # Yank the spreads
@@ -764,11 +773,13 @@ class BofhdVirthomeCommands(BofhdCommandBase):
 
         # Slap it with a quarantine
         if not account.get_entity_quarantine(self.const.quarantine_disabled):
+            creator = self._get_account(cereconf.INITIAL_ACCOUNTNAME)
             account.add_entity_quarantine(
-                self.const.quarantine_disabled,
-                self._get_account(cereconf.INITIAL_ACCOUNTNAME).entity_id,
-                "Account has been disabled",
-                now())
+                qtype=self.const.quarantine_disabled,
+                creator=creator.entity_id,
+                description="Account has been disabled",
+                start=datetime.date.today(),
+            )
 
         return "OK, account %s (id=%s) has been disabled" % (
             account.account_name, account.entity_id)
@@ -782,7 +793,8 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         EmailAddress(),
         Date(),
         PersonName(),
-        PersonName())
+        PersonName(),
+    )
 
     def user_fedaccount_login(self, operator, account_name, email,
                               expire_date=None, human_first_name=None,
@@ -791,9 +803,10 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         Login a (potentially new) fedaccount.
 
         This method performs essentially two operations: create a
-        new federated user if one does not exist (:func:`user_fedaccount_create`),
-        then change session to that user (:func:`user_su`).  Its return value
-        is consequently equivalent to that of :func:`user_su`.
+        new federated user if one does not exist
+        (:func:`user_fedaccount_create`), then change session to that user
+        (:func:`user_su`).  Its return value is consequently equivalent to that
+        of :func:`user_su`.
         """
         self.ba.can_create_fedaccount(operator.get_entity_id())
         if not self.vhutils.account_exists(account_name):
@@ -832,7 +845,8 @@ class BofhdVirthomeCommands(BofhdCommandBase):
     #
     all_commands["user_su"] = Command(
         ("user", "su"),
-        AccountName())
+        AccountName(),
+    )
 
     def user_su(self, operator, target_account):
         """
@@ -893,35 +907,6 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         """
         self.ba.can_view_requests(operator.get_entity_id())
         return self.__get_request(confirmation_key)
-
-    def __quarantine_to_string(self, eq):
-        """
-        Return a human-readable representation of ``eq``'s quarantines.
-
-        :type eq: EntityQuarantine subclass of some sort
-        :param eq:
-            An entity for which we want to fetch quarantine information.
-            This entity must be associated with suitable database rows,
-            i.e. it must have the `entity_id` attribute set.
-
-        :return:
-            A string describing the quaratine for the entity in question
-            or an empty string.
-        """
-        quarantined = "<not set>"
-        for q in eq.get_entity_quarantine():
-            if q["start_date"] <= now():
-                if q["end_date"] and q["end_date"] < now():
-                    quarantined = "expired"
-                elif (q["disable_until"] is not None and
-                      q["disable_until"] > now()):
-                    quarantined = "disabled"
-                else:
-                    return "active"
-            else:
-                quarantined = "pending"
-
-        return quarantined
 
     #
     # user info
@@ -995,7 +980,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
                           for x in account.get_traits()),
             "expire": account.expire_date,
             "entity_id": account.entity_id,
-            "quarantine": self.__quarantine_to_string(account),
+            "quarantine": get_quarantine_status(account) or "<not set>",
             "confirmation": pending,
             "moderator": self.vhutils.list_groups_moderated(account),
             "owner": self.vhutils.list_groups_admined(account),
@@ -1024,7 +1009,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
             return "OK, EULA %s has been accepted by %s" % (
                 str(eula), account.account_name)
 
-        account.populate_trait(eula, date=now())
+        account.populate_trait(eula, date=date_utils.now())
         account.write_db()
         return "OK, EULA %s has been accepted by %s" % (str(eula),
                                                         account.account_name)
@@ -1291,7 +1276,11 @@ class BofhdVirthomeCommands(BofhdCommandBase):
     all_commands["group_disable"] = Command(
         ("group", "disable"),
         GroupName(),
-        fs=FormatSuggestion("OK, disabled group %s (id=%i)", ("group", "group_id")))
+        fs=FormatSuggestion(
+            "OK, disabled group %s (id=%i)",
+            ("group", "group_id"),
+        ),
+    )
 
     def group_disable(self, operator, gname):
         """
@@ -1342,9 +1331,12 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         GroupName(),
         fs=FormatSuggestion(
             "%-6i %-34s %-8s %-31s %s",
-            ("member_id", "member_name", "member_type", "owner_name", "email_address"),
-            hdr="%-6s %-34s %-8s %-31s %s" % ("ID", "Name", "Type", "Owner", "Email"),
-        ))
+            ("member_id", "member_name", "member_type", "owner_name",
+             "email_address"),
+            hdr="%-6s %-34s %-8s %-31s %s" % ("ID", "Name", "Type", "Owner",
+                                              "Email"),
+        ),
+    )
 
     def group_list(self, operator, gname):
         """List the content of group L{gname}."""
@@ -1515,7 +1507,10 @@ class BofhdVirthomeCommands(BofhdCommandBase):
             days = int(timeout)
             if days < 1:
                 raise CerebrumError("Timeout too short")
-            elif DateTimeDelta(days) > cereconf.MAX_INVITE_PERIOD:
+            timeout_d = datetime.timedelta(days=days)
+            max_timeout_d = date_compat.get_timedelta(
+                cereconf.MAX_INVITE_PERIOD)
+            if timeout_d > max_timeout_d:
                 raise CerebrumError("Timeout too long")
 
         uuid = self.vhutils.setup_event_request(
@@ -1531,9 +1526,11 @@ class BofhdVirthomeCommands(BofhdCommandBase):
             ac = self._get_account(email)
             match_user = ac.account_name
             match_user_email = self._get_email_address(ac)
-            return {"confirmation_key": uuid,
-                    "match_user": ac.account_name,
-                    "match_user_email": self._get_email_address(ac)}
+            return {
+                "confirmation_key": uuid,
+                "match_user": match_user,
+                "match_user_email": match_user_email,
+            }
         except CerebrumError:
             return {"confirmation_key": uuid}
 
@@ -1692,7 +1689,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
             request = self.__get_request(magic_key)
             params = request["change_params"]
             entry = {"invitee_mail": params["invitee_mail"],
-                     "timestamp": row["tstamp"].strftime("%F %T"), }
+                     "timestamp": request["tstamp"].strftime("%F %T"), }
             try:
                 inviter = self._get_account(params["inviter_id"])
                 inviter = inviter.account_name
@@ -1733,7 +1730,8 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         human_last_name=None,
     ):
         """
-        Create a VirtAccount in Cerebrum and tag it with ``VACCOUNT_UNCONFIRMED``.
+        Create a VirtAccount in Cerebrum and tag it with
+        ``VACCOUNT_UNCONFIRMED``.
 
         :type email: str
         :param email:
@@ -1744,7 +1742,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
           Desired VirtAccount name. It is not certain that this name is
           available.
 
-        :type expire_date: mx.DateTime.DateTimeType
+        :type expire_date: datetime.date
         :param expire_date:
           Expiration date for the VirtAccount we are about to create.
 
@@ -1773,6 +1771,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
             raise CerebrumError("Illegal realm for '%s' (required: %s)" % (
                 account_name, cereconf.VIRTHOME_REALM))
 
+        expire_date = parsers.parse_date(expire_date, optional=True)
         account = self.virtaccount_class(self.db)
         try:
             account, confirmation_key = self.vhutils.create_account(
@@ -1786,13 +1785,15 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         # slap an initial quarantine, so the users are forced to confirm
         # account creation.
         account.add_entity_quarantine(
-            self.const.quarantine_pending,
-            self._get_account(cereconf.INITIAL_ACCOUNTNAME).entity_id,
-            "Account pending confirmation upon creation",
-            now())
-
-        return {"entity_id": account.entity_id,
-                "confirmation_key": confirmation_key}
+            qtype=self.const.quarantine_pending,
+            creator=self._get_account(cereconf.INITIAL_ACCOUNTNAME).entity_id,
+            description="Account pending confirmation upon creation",
+            start=datetime.date.today(),
+        )
+        return {
+            "entity_id": account.entity_id,
+            "confirmation_key": confirmation_key,
+        }
 
     #######################################################################
     #
@@ -1806,7 +1807,11 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         ("user", "fedaccount_create"),
         AccountName(),
         SimpleString(),
-        fs=FormatSuggestion("OK, FEDAccount with ID %i created", ("entity_id",)))
+        fs=FormatSuggestion(
+            "OK, FEDAccount with ID %i created",
+            ("entity_id",),
+        ),
+    )
 
     def user_fedaccount_create(self, operator, account_name, email,
                                expire_date=None,
@@ -1828,7 +1833,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
             Desired VirtAccount name.  It is not certain that this
             name is available.
 
-        :type expire_date: mx.DateTime.DateTimeType instance
+        :type expire_date: datetime.date
         @param expire_date:
             Expiration date for the VirtAccount we are about to create.
 
@@ -1848,6 +1853,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
             "confirmation_key": <str> Empty string.
         """
         self.ba.can_create_fedaccount(operator.get_entity_id())
+        expire_date = parsers.parse_date(expire_date, optional=True)
         account_id = self.vhutils.create_fedaccount(
                 account_name, email, expire_date, human_first_name,
                 human_last_name)
@@ -1937,7 +1943,11 @@ class BofhdVirthomeMiscCommands(BofhdCommandBase):
     authz = BofhdVirtHomeAuth
 
     def _get_spread(self, spread):
-        """Fetch the proper spread constant, or raise CerebrumError if not found."""
+        """
+        Fetch the proper spread constant
+
+        :raises CerebrumError: if not found
+        """
         spread = self.const.Spread(spread)
         try:
             int(spread)
@@ -2022,7 +2032,8 @@ class BofhdVirthomeMiscCommands(BofhdCommandBase):
         """
         entity = self._get_entity(entity_type, entity_id)
         self.ba.can_view_spreads(operator.get_entity_id(), entity.entity_id)
-        return [str(self.const.Spread(x["spread"])) for x in entity.get_spread()]
+        return [str(self.const.Spread(x["spread"]))
+                for x in entity.get_spread()]
 
     #
     # quarantine_add
@@ -2033,13 +2044,13 @@ class BofhdVirthomeMiscCommands(BofhdCommandBase):
         Id(repeat=True),
         QuarantineType(),
         SimpleString(),
-        SimpleString())
+        SimpleString(),
+    )
 
     def quarantine_add(self, operator, entity_type, ident, qtype, why,
                        date_end):
         """Set a quarantine on an entity."""
-        # TODO: factor out _parse*date*-methods from bofhd_uio_cmds.py
-        date_end = strptime(date_end, "%Y-%m-%d")
+        date_end = parsers.parse_date(date_end)
         entity = self._get_entity(entity_type, ident)
         qconst = self.const.human2constant(qtype, self.const.Quarantine)
         self.ba.can_manipulate_quarantines(operator.get_entity_id(),
@@ -2049,8 +2060,13 @@ class BofhdVirthomeMiscCommands(BofhdCommandBase):
             raise CerebrumError("Entity %s %s already has %s quarantine" %
                                 (entity_type, ident, str(qconst)))
 
-        entity.add_entity_quarantine(qconst, operator.get_entity_id(),
-                                     why, now(), date_end)
+        entity.add_entity_quarantine(
+            qtype=qconst,
+            creator=operator.get_entity_id(),
+            description=why,
+            start=datetime.date.today(),
+            end=date_end,
+        )
         return "OK, quarantined %s %s with %s" % (entity_type, ident,
                                                   str(qconst))
 
@@ -2204,7 +2220,7 @@ class BofhdVirthomeMiscCommands(BofhdCommandBase):
             if key == "target_id":
                 params[key] = self._get_entity(value).entity_id
             elif key == "date":
-                params[key] = strptime(value, "%Y-%m-%d")
+                params[key] = parsers.parse_datetime(value)
             elif key == "numval":
                 params[key] = int(value)
             elif key == "strval":

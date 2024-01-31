@@ -1,10 +1,35 @@
-from __future__ import absolute_import, print_function
-
+# -*- coding: utf-8 -*-
+#
+# Copyright 2018-2023 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""
+Search audit log for records.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import argparse
 import datetime
 import itertools
 import logging
-import os
 
 import six
 
@@ -12,16 +37,15 @@ import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.audit.auditdb import AuditLogAccessor
-from Cerebrum.modules.audit.formatter import (AuditRecordFormatter,
-                                              AuditRecordProcessor)
-from Cerebrum.utils.date import (apply_timezone, parse_date, parse_datetime,
-                                 parse_time)
+from Cerebrum.modules.audit.formatter import (
+    AuditRecordFormatter,
+    AuditRecordProcessor,
+)
+from Cerebrum.utils import argutils
+from Cerebrum.utils import date as date_utils
+from Cerebrum.utils import date_compat
 
-
-DEFAULT_LOG_PRESET = 'console'
-DEFAULT_LOG_LEVEL = logging.ERROR
-SCRIPT = os.path.basename(__file__).replace('.pyc', '.py').replace('.', '-')
-logger = logging.getLogger(SCRIPT)
+logger = logging.getLogger(__name__)
 
 
 def _entity_lookup(db):
@@ -113,26 +137,16 @@ def change_id_type(value):
 
 
 def datetime_type(value):
-    def _parse_dt(value, **kwargs):
-        d = parse_datetime(value)
-        if d.tzinfo is None:
-            d = apply_timezone(d)
-        return d
-
-    def _parse_dt_space(value):
-        return _parse_dt(value)
-
-    def _parse_date(value):
-        return parse_date(value)
-
     def _parse_time(value):
-        t = parse_time(value)
-        d = datetime.datetime.combine(datetime.datetime.now().date(), t)
-        return apply_timezone(d)
+        t = date_utils.parse_time(value)
+        return datetime.datetime.combine(datetime.date.today(), t)
 
-    for parser in (_parse_dt, _parse_dt_space, _parse_date, _parse_time):
+    for parser in (
+            date_utils.parse_datetime,
+            date_utils.parse_date,
+            _parse_time):
         try:
-            dt = parser(value)
+            dt = date_compat.get_datetime_tz(parser(value))
             logger.debug("%s(%r) succeeded: %s", parser.__name__, value, dt)
             return dt
         except Exception as e:
@@ -233,8 +247,10 @@ def main(inargs=None):
     parser.add_argument(
         '--format',
         default='{timestamp}  [{change_by}]:  {message}',
+        type=argutils.UnicodeType(),
         help="specify format usign str.format syntax",
-        metavar="FORMAT")
+        metavar="FORMAT",
+    )
 
     parser.add_argument(
         '-l', '--limit',
@@ -248,35 +264,37 @@ def main(inargs=None):
         default=False,
         help='Sort records by timestamp')
 
-    Cerebrum.logutils.options.install_subparser(parser)
-    parser.set_defaults(logger_level=DEFAULT_LOG_LEVEL)
+    log_subparser = Cerebrum.logutils.options.install_subparser(parser)
+    log_subparser.set_defaults(**{
+        Cerebrum.logutils.options.OPTION_LOGGER_LEVEL: "ERROR",
+    })
     args = parser.parse_args(inargs)
-    Cerebrum.logutils.autoconf(DEFAULT_LOG_PRESET, args)
+    Cerebrum.logutils.autoconf("console", args)
 
     db = Factory.get("Database")()
 
-    logger.info('Start of script %s', parser.prog)
-    logger.debug('args: %r', args)
+    logger.info("start: %s", parser.prog)
+    logger.debug("args: %r", args)
 
     record_db = AuditLogAccessor(db)
     format_record = get_formatter(args)
     search_params = build_search_params(db, args)
-    logger.info('search: %r', search_params)
+    logger.info("search: %r", search_params)
     records = iter(record_db.search(**search_params))
 
     if args.sort:
-        logger.debug('sorting records by timestamp')
+        logger.debug("sorting records by timestamp")
         records = sorted(records, key=lambda r: r.timestamp)
 
     if args.limit:
-        logger.debug('limiting to %r first records', args.limit)
+        logger.debug("limiting to %r first records", args.limit)
         records = itertools.islice(records, 0, args.limit)
 
     for r in records:
         print(format_record(r))
 
-    logger.info('Done with script %s', parser.prog)
+    logger.info("done: %s", parser.prog)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

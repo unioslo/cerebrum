@@ -46,7 +46,7 @@ class EventsAccessor(DatabaseAccessor):
         :param str subject_type:
             The entity_type of the altered object.
 
-        :param DateTime schedule:
+        :param datetime.datetime schedule:
             When this event should be issued (default: None, indicates wihtout
             delay).
 

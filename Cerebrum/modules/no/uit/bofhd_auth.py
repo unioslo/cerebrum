@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003-2021 University of Oslo, Norway
+# Copyright 2003-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -26,15 +26,18 @@ from Cerebrum.Errors import NotFoundError
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.apikeys import bofhd_apikey_cmds
 from Cerebrum.modules.audit import bofhd_history_cmds
-from Cerebrum.modules.bofhd import bofhd_user_create_unpersonal
+from Cerebrum.modules.bofhd import bofhd_access
+from Cerebrum.modules.bofhd import bofhd_external_id
+from Cerebrum.modules.bofhd import bofhd_group_roles
 from Cerebrum.modules.bofhd import bofhd_ou_cmds
+from Cerebrum.modules.bofhd import bofhd_user_create_unpersonal
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.bofhd_contact_info import BofhdContactAuth
-from Cerebrum.modules.bofhd_requests.bofhd_requests_auth import RequestsAuth
 from Cerebrum.modules.bofhd.bofhd_email import BofhdEmailAuth
-from Cerebrum.modules.bofhd import bofhd_access
 from Cerebrum.modules.bofhd.errors import PermissionDenied
+from Cerebrum.modules.bofhd_requests.bofhd_requests_auth import RequestsAuth
 from Cerebrum.modules.job_runner.bofhd_job_runner import BofhdJobRunnerAuth
+from Cerebrum.modules.tasks import bofhd_task_cmds
 from Cerebrum.modules.trait import bofhd_trait_cmds
 
 
@@ -373,12 +376,35 @@ class CreateUnpersonalAuth(UitAuth,
     pass
 
 
+class ExtidAuth(UitAuth, bofhd_external_id.BofhdExtidAuth):
+    pass
+
+
+class GroupRoleAuth(UitAuth, bofhd_group_roles.BofhdGroupRoleAuth):
+    pass
+
+
 class HistoryAuth(UitAuth, bofhd_history_cmds.BofhdHistoryAuth):
     pass
 
 
 class OuAuth(UitAuth, bofhd_ou_cmds.OuAuth):
     pass
+
+
+class TaskAuth(UitAuth, bofhd_task_cmds.BofhdTaskAuth):
+
+    # can_add_task(self, operator, queue=None, sub=None, ...)
+    # can_remove_task(self, operator, queue=None, sub=None, ...)
+    # can_inspect_tasks(self, operator, ...)
+
+    def can_greg_import(self, operator, query_run_any=False):
+        """Access to list which entities has a trait."""
+        if self.is_superuser(operator):
+            return True
+        if query_run_any:
+            return False
+        raise PermissionDenied('No access to import queue')
 
 
 class TraitAuth(UitAuth, bofhd_trait_cmds.TraitAuth):

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2002-2019 University of Oslo, Norway
+# Copyright 2002-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -45,7 +45,12 @@ PAGA_EARLYDAYS
     Accept roles from Paga with a start date that is ``PAGA_EARLYDAYS`` days
     into the future.
 """
-from __future__ import unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import argparse
 import datetime
@@ -56,6 +61,7 @@ import Cerebrum.logutils.options
 import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
+from Cerebrum.utils.date_compat import get_date
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.uit.PagaDataParser import PagaDataParserClass
 from Cerebrum.utils.argutils import add_commit_args
@@ -645,7 +651,7 @@ def remove_old_affiliations(db, affiliations):
             ou_id=ou,
             source_system=const.system_paga)
         for aff in affs:
-            last_date = aff['last_date'].pydate()
+            last_date = get_date(aff['last_date'])
             end_grace_period = last_date + grace_period
             if today > end_grace_period:
                 logger.warning(

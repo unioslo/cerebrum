@@ -7,29 +7,30 @@ import cereconf
 from Cerebrum.Utils import Factory
 
 
+_disk_sort_regex = re.compile(r"^(\D+)(\d*)")
+
+
 class DiskSorters(object):
     """Mix-in for DiskDef/DiskPool"""
 
-    def _disk_sort_by_count(self, x, y):
-        return cmp(self._disks[x].count, self._disks[y].count)
+    def _disk_sort_by_count_key(self, name):
+        return self._disks[name].count
 
-    def _disk_sort_by_name(self, x, y):
-        regexp = re.compile(r"^(\D+)(\d*)")
-        m_x = regexp.match(self._disks[x].path)
-        m_y = regexp.match(self._disks[y].path)
-        pre_x, num_x = m_x.group(1), m_x.group(2)
-        pre_y, num_y = m_y.group(1), m_y.group(2)
-        if pre_x != pre_y:
-            return cmp(pre_x, pre_y)
+    def _disk_sort_by_name_key(self, name):
+        """
+        Key function to sort cached disk name/identifier by disk path.
+        """
+        # Sort by disk prefix and then numerator
+        matchres = _disk_sort_regex.match(self._disks[name].path)
+        disk_prefix, raw_idx = matchres.group(1), matchres.group(2)
         try:
-            return cmp(int(num_x), int(num_y))
+            disk_idx = int(raw_idx)
         except ValueError:
-            self._logger.warn("Unexpected disk name {} or {}".format(
-                self._disks[x].path, self._disks[y].path))
-            return cmp(pre_x, pre_y)
+            disk_idx = 0
+        return (disk_prefix, disk_idx)
 
     def _resort_disk_count(self):
-        self._disk_count_order.sort(self._disk_sort_by_count)
+        self._disk_count_order.sort(key=self._disk_sort_by_count_key)
 
     def post_filter_search_res(self, order, orderby, max=999999):
         """Do not allow results with more than max users on disk.  Try
@@ -49,6 +50,7 @@ class DiskSorters(object):
 
 @python_2_unicode_compatible
 class DiskDef(DiskSorters):
+
     def __init__(self, disk_tool, prefix=None, path=None, spreads=None,
                  max=None, disk_kvote=None, auto=None, orderby=None):
         self._disk_tool = disk_tool
@@ -67,9 +69,9 @@ class DiskDef(DiskSorters):
         self.disk_kvote = disk_kvote
         self.auto = auto
         self._disks = self._find_cerebrum_disks()
-        self._disk_name_order = self._disks.keys()
-        self._disk_name_order.sort(self._disk_sort_by_name)
-        self._disk_count_order = self._disks.keys()
+        self._disk_name_order = list(self._disks)
+        self._disk_name_order.sort(key=self._disk_sort_by_name_key)
+        self._disk_count_order = list(self._disks)
         self._resort_disk_count()
 
     def __str__(self):
@@ -90,11 +92,11 @@ class DiskDef(DiskSorters):
     def get_cerebrum_disk(self, check_ok_to=False, _orderby=None):
         if _orderby is None:  # Used when called from DiskPool
             _orderby = self.orderby
-        if check_ok_to and not self.auto in ('auto', 'to'):
+        if check_ok_to and self.auto not in ('auto', 'to'):
             return
         if self.path:
             # we ignore max_on_disk when path is explisitly set
-            return self._disks.values()[0]
+            return list(self._disks.values())[0]
         if _orderby == 'name':
             order = self._disk_name_order
         elif _orderby == 'count':
@@ -104,6 +106,7 @@ class DiskDef(DiskSorters):
 
 
 class DiskPool(DiskSorters):
+
     def __init__(self, disk_tool, name, orderby=None):
         self._disk_tool = disk_tool
         self.name = name
@@ -118,9 +121,9 @@ class DiskPool(DiskSorters):
     def post_process(self):
         """Call once you have finished calling add_disk_def"""
         self._disks = self._find_cerebrum_disks()
-        self._disk_name_order = self._disks.keys()
-        self._disk_name_order.sort(self._disk_sort_by_name)
-        self._disk_count_order = self._disks.keys()
+        self._disk_name_order = list(self._disks)
+        self._disk_name_order.sort(key=self._disk_sort_by_name_key)
+        self._disk_count_order = list(self._disks)
         self._resort_disk_count()
 
     def _find_cerebrum_disks(self):
@@ -153,10 +156,10 @@ class DiskPool(DiskSorters):
                 tmp.append(cd.disk_id)
         # Resort results
         if self.orderby == 'name':
-            tmp.sort(self._disk_sort_by_name)
+            tmp.sort(key=self._disk_sort_by_name_key)
         else:
             self._resort_disk_count()
-            tmp.sort(self._disk_sort_by_count)
+            tmp.sort(self._disk_sort_by_count_key)
         return self.post_filter_search_res(tmp, self.orderby)
 
     def __repr__(self):
@@ -166,6 +169,7 @@ class DiskPool(DiskSorters):
 
 
 class CerebrumDisk(object):
+
     def __init__(self, disk_id, path, count):
         self.disk_id = disk_id
         self.path = path
@@ -179,6 +183,7 @@ class CerebrumDisk(object):
 
 
 class DiskTool(object):
+
     def __init__(self, db, const):
         self._db = db
         self._const = const
@@ -190,8 +195,9 @@ class DiskTool(object):
 
         self._cerebrum_disks = {}
         disk = Factory.get('Disk')(self._db)
-        for d in disk.list(filter_expired=True,
-                           spread=getattr(self._const, cereconf.HOME_SPREADS[0])):
+        for d in disk.list(
+                filter_expired=True,
+                spread=getattr(self._const, cereconf.HOME_SPREADS[0])):
             cd = CerebrumDisk(int(d['disk_id']), d['path'], int(d['count']))
             self._cerebrum_disks[int(d['disk_id'])] = cd
 
@@ -226,7 +232,7 @@ class DiskTool(object):
         self._disk_spreads[spread_code] = True
 
     def get_known_spreads(self):
-        return self._disk_spreads.keys()
+        return list(self._disk_spreads)
 
     def get_diskdef_by_select(self, prefix=None, path=None, pool=None):
         if prefix:

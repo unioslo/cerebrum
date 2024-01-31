@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2016-2020 University of Oslo, Norway
+# Copyright 2016-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -36,4 +36,4 @@ The data is then encrypted and stored as a GPG message, with a message id.
     message for another recipient.
 """
 
-__version__ = "1.0"  # mod_gpg
+__version__ = "1.1"  # mod_gpg

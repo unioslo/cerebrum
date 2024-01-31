@@ -1,6 +1,6 @@
 # coding: utf-8
 #
-# Copyright 2020 University of Oslo, Norway
+# Copyright 2020-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,31 +17,34 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""This module contains functionality necessary for maintaining automatic
-groups reflecting the OU-structure of an organization
 """
-from __future__ import unicode_literals
+Functionality for building group hierarchies based on org trees.
+
+TODO: This module needs revision.  It was built for- and only used for *manager
+groups* (see Cerebrum.modules.no.uio.leader_groups).  Parts of this module
+should be moved there.
+
+TODO: This sub-module should probably be named something like
+`Cerebrum.modules.org_groups`, to better reflect what it actually *does*.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import logging
 
-import cereconf
+from Cerebrum.group.template import GroupTemplate
 
-from Cerebrum import Errors
-from Cerebrum.utils.funcwrap import memoize
-from Cerebrum.Utils import Factory
 
 logger = logging.getLogger(__name__)
+
 
 PREFIX_2_DESCRIPTION = {
     'adm-leder-': 'Administrerende leder ved {}',
     'meta-adm-leder-': 'Administrerende ledere ved {} og underenheter',
 }
-
-
-@memoize
-def get_initial_account_id(database):
-    ac = Factory.get('Account')(database)
-    ac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
-    return ac.entity_id
 
 
 def cache_stedkoder(ou):
@@ -56,21 +59,19 @@ def cache_stedkoder(ou):
 
 def get_automatic_group(database, stedkode, prefix):
     """Get or create an automatic group corresponding to ou at 'stedkode'"""
-    description = PREFIX_2_DESCRIPTION[prefix]
-    name = prefix + stedkode
-    gr = Factory.get('Group')(database)
-    co = Factory.get('Constants')(database)
-    try:
-        gr.find_by_name(name)
-    except Errors.NotFoundError:
-        gr.clear()
-        gr.populate(creator_id=get_initial_account_id(database),
-                    visibility=co.group_visibility_internal,
-                    name=name,
-                    description=description.format(stedkode),
-                    group_type=co.group_type_affiliation)
-        gr.write_db()
-    return gr
+    group_name = prefix + stedkode
+    group_description = PREFIX_2_DESCRIPTION[prefix].format(stedkode)
+
+    template = GroupTemplate(
+        group_name=group_name,
+        group_description=group_description,
+        # TODO: leader groups should have their own type?
+        group_type="affiliation-group",
+        # TODO: Visibility "I" - seems wrong
+        group_visibility="I",
+        conflict=GroupTemplate.CONFLICT_UPDATE,
+    )
+    return template(database)
 
 
 def get_current_members(gr, group_id):
@@ -135,11 +136,19 @@ def update_memberships(gr, entity_id, current_memberships, wanted_memberships):
     :type current_memberships: set
     :type wanted_memberships: set
     """
-    for group_id in wanted_memberships.difference(current_memberships):
+    to_add = set(wanted_memberships) - set(current_memberships)
+    to_remove = set(current_memberships) - set(wanted_memberships)
+    for group_id in to_add:
         gr.clear()
         gr.find(group_id)
-        gr.add_member(entity_id)
-    for group_id in current_memberships.difference(wanted_memberships):
+        # If we blindly trust the current_memberships input, we may run into
+        # problems.  Often, the search for current memberships will *omit
+        # expired groups*, and the wanted_memberships *includes* expired
+        # groups.
+        if not gr.has_member(entity_id):
+            gr.add_member(entity_id)
+    for group_id in to_remove:
         gr.clear()
         gr.find(group_id)
-        gr.remove_member(entity_id)
+        if gr.has_member(entity_id):
+            gr.remove_member(entity_id)

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2022 University of Oslo, Norway
+# Copyright 2022-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -248,15 +248,18 @@ def parse_legacy_date_range(raw_value):
     if raw_value and raw_value.strip():
         parts = raw_value.split("--")
         if len(parts) == 2:
-            date_start = parse_date(parts[0], optional=True)
+            if parts[0]:
+                date_start = parse_date(parts[0], optional=True)
             date_end = parse_date(parts[1], optional=True)
         elif len(parts) == 1:
             # no separator - assume date is end date, if given
             date_end = parse_date(parts[0], optional=True)
-        else:
-            # multiple separators?
-            raise CerebrumError("invalid date range: " + repr(raw_value))
-    return (date_start, date_end)
+
+    # The method we're replacing *could* end up returing a None-value, but
+    # let's try to be just a little more strict
+    if date_start and date_end:
+        return (date_start, date_end)
+    raise CerebrumError("invalid date range: " + repr(raw_value))
 
 
 parse_legacy_date_range_help_blurb = """

@@ -228,7 +228,7 @@ class ExtendAction(argparse.Action):
             metavar=metavar)
 
     def __call__(self, parser, namespace, values, option_string=None):
-        items = list(getattr(namespace, self.dest, ()))[:]
+        items = list(getattr(namespace, self.dest, None) or ())
         items.extend(values)
         setattr(namespace, self.dest, self.type(items))
 
@@ -269,7 +269,7 @@ class ExtendConstAction(argparse.Action):
             metavar=metavar)
 
     def __call__(self, parser, namespace, values, option_string=None):
-        items = list(getattr(namespace, self.dest, ()))[:]
+        items = list(getattr(namespace, self.dest, None) or ())
         items.extend(self.const)
         setattr(namespace, self.dest, self.type(items))
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2002-2018 University of Oslo, Norway
+# Copyright 2002-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -58,7 +58,12 @@ SYSTEM_LOOKUP_ORDER
     This list decides which source system to use when fetching and exporting
     data from Cerebrum.
 """
-from __future__ import print_function
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    # TODO: unicode_literals,
+)
 import copy
 import logging
 import re
@@ -101,6 +106,8 @@ class SynchronizedDatabase(Database_class):
     _db_proxy_lock = threading.RLock()
 
     def __init__(self, *args, **kwargs):
+        if 'app_hint' not in kwargs:
+            kwargs['app_hint'] = 'const'
         super(SynchronizedDatabase, self).__init__(*args, **kwargs)
 
     def execute(self, operation, parameters=()):
@@ -368,7 +375,7 @@ class _CerebrumCode(DatabaseAccessor):
         key = None
         if isinstance(language, lang_kls):
             key = language.str
-        elif isinstance(language, (long, int)):
+        elif isinstance(language, six.integer_types):
             key = lang_kls(language).str
         elif isinstance(language, six.string_types):
             # Make sure that a string refers to a valid language code
@@ -386,12 +393,12 @@ class _CerebrumCode(DatabaseAccessor):
         return self.str
 
     def __repr__(self):
+        strval = getattr(self, "str", None)
+        intval = getattr(self, "int", None)
         return "<{cls} instance{strval}{intval} at 0x{addr:02x}>".format(
             cls=self.__class__.__name__,
-            strval=("" if getattr(self, 'str', None) is None
-                    else " code_str=" + self.str.encode('UTF-8')),
-            intval=("" if getattr(self, 'int', None) is None
-                    else " code=" + str(self.int)),
+            strval=("" if strval is None else " code_str=" + repr(strval)),
+            intval=("" if intval is None else " code=" + repr(intval)),
             addr=id(self),
         )
 
@@ -747,14 +754,14 @@ class _PersonAffStatusCode(_CerebrumCode):
         super(_PersonAffStatusCode, self).__init__(status, description, lang)
 
     def __repr__(self):
+        aff = getattr(self, "affiliation", None)
+        strval = getattr(self, "str", None)
+        intval = getattr(self, "int", None)
         return "<{cls} instance{aff}{strval}{intval} at 0x{addr:02x}>".format(
             cls=self.__class__.__name__,
-            strval=("" if getattr(self, 'str', None) is None
-                    else " code_str=%r" % self.str),
-            intval=("" if getattr(self, 'int', None) is None
-                    else " code=%d" % self.int),
-            aff=("" if getattr(self, 'affiliation', None) is None
-                 else " affiliation=%r" % self.affiliation),
+            aff=("" if aff is None else " affiliation=" + repr(aff)),
+            strval=("" if strval is None else " code_str=" + repr(strval)),
+            intval=("" if intval is None else " code=" + repr(intval)),
             addr=id(self),
         )
 
@@ -959,20 +966,27 @@ class _ChangeTypeCode(_CerebrumCode):
             self.msg_string = msg_string
         if not hasattr(self, "format") or format is not None:
             self.format = format
+
+        # This is a bit stupid: _ChangeTypeCode gets inited with str set to
+        # category and description set to type in the parent class.  Neither
+        # value makes sense to put in those fields.
         super(_ChangeTypeCode, self).__init__(category, type)
 
     def __repr__(self):
+        cat = getattr(self, "category", None)
+        typ = getattr(self, "type", None)
+        # Note: self.str doesn't make sense for _ChangeTypeCode, and isn't an
+        # integral part of the obejct.  It shouldn't be shown in the repr
+        # either.
+        strval = getattr(self, "str", None)
+        intval = getattr(self, "int", None)
         return ("<{cls} instance{cat}{typ}{strval}{intval} "
                 "at 0x{addr:02x}>").format(
             cls=self.__class__.__name__,
-            cat=("" if getattr(self, 'category', None) is None
-                 else " category=%r" % self.category),
-            typ=("" if getattr(self, 'type', None) is None
-                 else " type=%r" % self.type),
-            strval=("" if getattr(self, 'str', None) is None
-                    else " code_str=%r" % self.str),
-            intval=("" if getattr(self, 'int', None) is None
-                    else " code=%d" % self.int),
+            cat=("" if cat is None else " category=" + repr(cat)),
+            typ=("" if typ is None else " type=" + repr(typ)),
+            strval=("" if strval is None else " code_str=" + repr(strval)),
+            intval=("" if intval is None else " code=" + repr(intval)),
             addr=id(self),
         )
 
@@ -1200,7 +1214,6 @@ class ConstantsBase(DatabaseAccessor):
           A generator yielding (in random order) constants of the specified
           type. If no type is specified, all constants will be yielded.
         """
-
         if const_type is None:
             const_type = _CerebrumCode
 
@@ -1339,7 +1352,7 @@ class ConstantsBase(DatabaseAccessor):
         return clist
 
     def cache_constants(self):
-        u""" Do a lookup on every constant, to cause caching of values. """
+        """ Do a lookup on every constant, to cause caching of values. """
         for const_obj in self.__iterate_constants(None):
             int(const_obj)
 
@@ -1374,30 +1387,34 @@ class ConstantsBase(DatabaseAccessor):
           Suitable constant object, or None, if no object is found.
         """
         obj = None
-        if isinstance(human_repr, (int, long)):
+        if isinstance(human_repr, six.integer_types):
+            # assume intval
             obj = self.map_const(human_repr)
         elif isinstance(human_repr, six.string_types):
+            # check if this could be an attribute name
             if isinstance(human_repr, bytes):
                 try:
                     human_repr = human_repr.decode('UTF-8')
                 except UnicodeDecodeError:
                     human_repr = human_repr.decode('latin-1')
-            # ok, that failed, so assume this is a constant attribute name ...
             try:
                 if _attr_lookup and hasattr(self, human_repr):
                     obj = getattr(self, human_repr)
             except UnicodeError:
                 # PY2 does not like non-ascii attribute names
                 pass
-            # ok, that failed too, we can only compare stringified version of
-            # all proper constants with the parameter...
+
+            # check if a constant strval matches this value - note that this is
+            # risky without const_type, as there may be duplicates.
             if obj is None:
                 for const_obj in self.__iterate_constants(const_type):
                     if six.text_type(const_obj) == human_repr:
                         obj = const_obj
-            # assume it's a textual representation of the code int...
+
             if obj is None and human_repr.isdigit():
+                # assume intval
                 obj = self.map_const(int(human_repr))
+
         # Make sure it's of the right type...
         if obj is not None and const_type is not None:
             if not isinstance(obj, const_type):

@@ -92,7 +92,8 @@ class UnicodeDictWriter(_UnicodeSupport):
             for k, v in row.items())
 
     def writeheader(self):
-        return self.writer.writeheader()
+        row = dict(zip(self.writer.fieldnames, self.writer.fieldnames))
+        self.writerow(row)
 
 
 class CerebrumDialect(csv.Dialect):

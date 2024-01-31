@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2019 University of Oslo, Norway
+# Copyright 2019-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,7 +19,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
-Script for notifying the owners of expiring groups
+Script for notifying group owners about expiring groups.
 
 The near future is defined using two time limits such that owners are notified
 two times about the expiration. We keep track of this by setting a trait on
@@ -31,60 +31,76 @@ that has an expire date further into the future than the second time limit, has
 the trait removed. This ensures that owners can be notified of the same group
 multiple times.
 """
-from __future__ import unicode_literals, print_function
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import argparse
 import collections
 import datetime
 import logging
 import os
+import textwrap
 from smtplib import SMTPException
 
 import six
 
-import Cerebrum.utils.email
 import cereconf
-from Cerebrum import logutils
-from Cerebrum.group.GroupRoles import GroupRoles
+import Cerebrum.logutils
+import Cerebrum.logutils.options
+import Cerebrum.utils.email
 from Cerebrum.Utils import Factory, NotSet
+from Cerebrum.group.GroupRoles import GroupRoles
+from Cerebrum.modules.email_report.plain_text_table import get_table
+from Cerebrum.modules.email_report.utils import (
+    create_html_message,
+    get_account_email,
+    timestamp_title,
+    write_html_report,
+)
 from Cerebrum.utils.argutils import add_commit_args
 from Cerebrum.utils.argutils import codec_type
 from Cerebrum.utils.date_compat import get_date
 from Cerebrum.utils.funcwrap import memoize
-from Cerebrum.modules.email_report.utils import (
-    timestamp_title,
-    write_html_report,
-    create_html_message,
-    get_account_email
-)
-from Cerebrum.modules.email_report.plain_text_table import get_table
 
 logger = logging.getLogger(__name__)
 
+
 DEFAULT_TEMPLATE_FOLDER = os.path.join(os.path.dirname(__file__),
-                                       'statistics',
-                                       'templates')
+                                       'statistics/templates')
 TEMPLATE_NAME = 'group_expiring_table.html'
 FROM_ADDRESS = 'noreply@usit.uio.no'
 SENDER = 'USIT\nUiO'
 DEFAULT_ENCODING = 'utf-8'
 DEFAULT_LANGUAGE = 'nb'
 BRUKERINFO_GROUP_MANAGE_LINK = 'https://brukerinfo.uio.no/groups/?group='
-INFO_LINK = 'https://www.uio.no/tjenester/it/brukernavn-passord/brukeradministrasjon/hjelp/grupper/rapportering/?'
+INFO_LINK = (
+    "https://www.uio.no/tjenester/it/brukernavn-passord/"
+    "brukeradministrasjon/hjelp/grupper/rapportering/?"
+)
 
 TRANSLATION = {
     'en': {
-        'title': 'Review of soon expiring groups you are administrating or moderating',
+        'title': (
+            "Review of soon expiring groups you are administrating "
+            "or moderating"
+        ),
         'greeting': 'Hi,',
-        'message': "The following groups will expire in the near future. If "
-                   "you want the groups to remain, please extend their expire "
-                   "date. If you would like the group to expire, no action is "
-                   "needed."
+        'message': textwrap.dedent(
+            """
+            The following groups will expire in the near future.  If you want
+            the groups to remain, please extend their expire date.  If you
+            would like the group to expire, no action is needed.
 
-                   "The groups can be managed with the account {}. "
-                   "You are considered to be an administrator and/or a moderator of these groups "
-                   "because you are a direct administrator, a member of "
-                   "administrator group(s), or a member of moderator group(s) giving you that role. ",
+            The groups can be managed with the account {}.  You are considered
+            to be an administrator and/or a moderator of these groups because
+            you are a direct administrator, a member of administrator group(s),
+            or a member of moderator group(s) giving you that role.
+            """
+        ).strip(),
         'info_link': 'For more information go to the page ',
         'here': 'Automatisk rapportering av grupper.',
         'signature': 'Best regards,',
@@ -96,19 +112,27 @@ TRANSLATION = {
         ]),
     },
     'nb': {
-        'title': 'Oversikt over grupper med kort utløpsdato du administrerer eller modererer',
+        'title': (
+            "Oversikt over grupper med kort utløpsdato du administrerer "
+            "eller modererer"
+        ),
         'greeting': 'Hei,',
-        'message': "Her følger en oversikt over grupper med utløpsdato i "
-                   "nærmeste fremtid. Vennligst forleng utløpsdato om du "
-                   "ønsker å beholde dem. Hvis du vil at gruppene skal utløpe "
-                   "trenger du ikke foreta deg noe. "
-                   "Gruppene kan administrereres med kontoen {}. "
-                   "Du blir regnet som administrator og/eller moderator for disse gruppene fordi "
-                   "du er satt som administrator, er medlem av "
-                   "administrator-gruppe(r), eller er medlem av moderator-gruppe(r) som gir deg den rollen. "
-                   "På UiO blir tilgang til nettsider og en del verktøy "
-                   "definert av gruppemedlemskap. Det er derfor viktig at "
-                   "grupper vedlikeholdes kontinuerlig.",
+        'message': textwrap.dedent(
+            """
+            Her følger en oversikt over grupper med utløpsdato i nærmeste
+            fremtid.  Vennligst forleng utløpsdato om du ønsker å beholde dem.
+            Hvis du vil at gruppene skal utløpe trenger du ikke foreta deg noe.
+
+            Gruppene kan administrereres med kontoen {}.  Du blir regnet som
+            administrator og/eller moderator for disse gruppene fordi du er
+            satt som administrator, er medlem av administrator-gruppe(r), eller
+            er medlem av moderator-gruppe(r) som gir deg den rollen.
+
+            På UiO blir tilgang til nettsider og en del verktøy definert av
+            gruppemedlemskap.  Det er derfor viktig at grupper vedlikeholdes
+            kontinuerlig.
+            """
+        ).strip(),
         'info_link': 'For mer informasjon gå til ',
         'here': 'Automatisk rapportering av grupper.',
         'signature': 'Med vennlig hilsen,',
@@ -120,18 +144,25 @@ TRANSLATION = {
         ]),
     },
     'nn': {
-        'title': 'Oversikt over grupper med kort utløpsdato du administrerer eller modererer',
+        'title': (
+            "Oversikt over grupper med kort utløpsdato du administrerer "
+            "eller modererer"
+        ),
         'greeting': 'Hei,',
-        'message': 'Her følgjer ei oversikt over alle grupper du kan '
-                   'administrerere med brukaren {}. Du blir '
-                   'rekna som administrator og/eller moderator for desse gruppene fordi du '
-                   'er satt som administrator, er medlem av administrator-gruppe(r), '
-                   'eller er medlem av moderator-gruppe(r) som gir deg den rolla. '
-                   'På UiO blir tilgang til nettsider og ein '
-                   'del verktøy definert av gruppemedlemskap. Det er derfor '
-                   'viktig at kun riktige personer er medlemmar i kvar '
-                   'gruppe. Sjå over at medlemma er riktige, og '
-                   'fjern medlemmar som ikkje lenger skal vere med. ',
+        'message': textwrap.dedent(
+            """
+            Her følgjer ei oversikt over alle grupper du kan administrerere med
+            brukaren {}.  Du blir rekna som administrator og/eller moderator
+            for desse gruppene fordi du er satt som administrator, er medlem av
+            administrator-gruppe(r), eller er medlem av moderator-gruppe(r) som
+            gir deg den rolla.
+
+            På UiO blir tilgang til nettsider og ein del verktøy definert av
+            gruppemedlemskap.  Det er derfor viktig at kun riktige personer er
+            medlemmar i kvar gruppe.  Sjå over at medlemma er riktige, og fjern
+            medlemmar som ikkje lenger skal vere med.
+            """
+        ).strip(),
         'info_link': 'For meir informasjon gå til sida ',
         'here': 'Automatisk rapportering av grupper.',
         'signature': 'Med vennleg helsing,',
@@ -155,15 +186,30 @@ def write_plain_text_report(codec, translation=None, sender=None,
             rows.append([group[k] for k in keys])
         return rows
 
-    return (
-            '\n' + translation['greeting'] +
-            '\n\n' + translation['message'].format(account_name) +
-            '\n\n' + translation['info_link'] + translation['here'] + ': ' +
-            INFO_LINK +
-            '\n\n' + get_table(get_table_rows()) +
-            '\n' + translation['signature'] +
-            '\n' + sender
-    ).encode(codec.name)
+    context = {
+        'greeting': translation['greeting'],
+        'message': translation['message'].format(account_name),
+        'info_link': translation['info_link'],
+        'here': translation['here'],
+        'link': INFO_LINK,
+        'table': get_table(get_table_rows()),
+        'signature': translation['signature'],
+        'sender': sender,
+    }
+
+    return textwrap.dedent(
+        """
+        {greeting}
+
+        {message}
+
+        {info_link}{here}: {link}
+
+        {table}
+        {signature}
+        {sender}
+        """
+    ).rstrip().format(**context).encode(codec.name)
 
 
 def send_mails(args, group_info_dict, translation, title):
@@ -227,67 +273,44 @@ def get_expiring_groups(db, co, today, timelimit1, timelimit2):
     # Find the mods of the groups
     manual_group_types = list(
         co.GroupType(i) for i in cereconf.PERISHABLE_MANUAL_GROUP_TYPES)
-    all_groups = gr.search(group_type=manual_group_types, filter_expired=True)
 
-    before_t1 = [i['group_id'] for i in all_groups
-                 if i['expire_date'] is not None and
-                 today < i['expire_date'] <= timelimit1]
-    after_t1_before_t2 = [i['group_id'] for i in all_groups
-                          if i['expire_date'] is not None and
-                          timelimit1 < i['expire_date'] < timelimit2]
-    return set(before_t1), set(after_t1_before_t2)
+    # tuples of (group_id, expire_date)
+    all_groups = [
+        (r['group_id'], get_date(r['expire_date']))
+        for r in gr.search(group_type=manual_group_types, filter_expired=True)
+    ]
 
-
-def make_parser():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        '-e', '--encoding',
-        dest='codec',
-        default=DEFAULT_ENCODING,
-        type=codec_type,
-        help="html encoding, defaults to %(default)s")
-    parser.add_argument(
-        '-t', '--template-folder',
-        default=DEFAULT_TEMPLATE_FOLDER,
-        help='Path to the template folder'
+    # Sort into buckets
+    before_t1 = set(
+        group_id for group_id, expire_date in all_groups
+        if expire_date is not None
+        and today < expire_date
+        and expire_date <= timelimit1
     )
-    limits = parser.add_argument_group(
-        "Limits",
-        "Time limits for first and second warnings"
+    after_t1_before_t2 = set(
+        group_id for group_id, expire_date in all_groups
+        if expire_date is not None
+        and timelimit1 < expire_date
+        and expire_date < timelimit2
     )
-    limits.add_argument('--limit1',
-                        required=True,
-                        type=int,
-                        help='Time until expire date in days')
-    limits.add_argument('--limit2',
-                        required=True,
-                        type=int,
-                        help='Time until expire date in days')
-    test_group = parser.add_argument_group('Testing',
-                                           'Arguments useful when testing')
-    test_group.add_argument(
-        '-p', '--print-messages',
-        action='store_true',
-        help='Print messages to console'
-    )
-    add_commit_args(parser, commit_desc='Send emails to group owners')
-    return parser
+    return before_t1, after_t1_before_t2
 
 
 @memoize
 def get_group_info(gr, group_id):
     gr.clear()
     gr.find(group_id)
-    return gr.group_name, six.text_type(gr.expire_date.date)
+    return gr.group_name, six.text_type(get_date(gr.expire_date))
+
 
 def get_admin_mod_type(user):
-    type = None
+    owner_type = None
     if user['admin_type']:
-        type = user['admin_type']
+        owner_type = user['admin_type']
     elif user['moderator_type']:
-        type = user['moderator_type']
+        owner_type = user['moderator_type']
+    return owner_type
 
-    return type
 
 def get_admin_mod_id(user):
     return user['admin_id'] if user['admin_id'] else user['moderator_id']
@@ -325,7 +348,7 @@ def get_admins_groups_emails(db, expiring_groups):
 
     roles = GroupRoles(db)
     admins = (roles.search_admins(group_id=expiring_groups)
-            + roles.search_moderators(group_id=expiring_groups))
+              + roles.search_moderators(group_id=expiring_groups))
 
     for admin in admins:
         gr_id = admin['group_id']
@@ -360,10 +383,58 @@ def get_admins_groups_emails(db, expiring_groups):
         else:
             raise ValueError(
                 "Unknown admin/moderator type '{}'".format(type))
-    return {'owner2groupids': owner2groupids,
-            'owner2mail': owner2mail,
-            'groupid2name': groupid2name,
-            'groupid2expdate': groupid2expdate}
+    return {
+        'owner2groupids': owner2groupids,
+        'owner2mail': owner2mail,
+        'groupid2name': groupid2name,
+        'groupid2expdate': groupid2expdate,
+    }
+
+
+def make_parser():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        '-e', '--encoding',
+        dest='codec',
+        default=DEFAULT_ENCODING,
+        type=codec_type,
+        help="html encoding, defaults to %(default)s",
+    )
+    parser.add_argument(
+        '-t', '--template-folder',
+        default=DEFAULT_TEMPLATE_FOLDER,
+        help='Path to the template folder',
+    )
+
+    limits = parser.add_argument_group(
+        "Limits",
+        "Time limits for first and second warnings"
+    )
+    limits.add_argument(
+        '--limit1',
+        required=True,
+        type=int,
+        help='Time until expire date in days',
+    )
+    limits.add_argument(
+        '--limit2',
+        required=True,
+        type=int,
+        help='Time until expire date in days',
+    )
+
+    test_group = parser.add_argument_group(
+        'Testing',
+        'Arguments useful when testing',
+    )
+    test_group.add_argument(
+        '-p', '--print-messages',
+        action='store_true',
+        help='Print messages to console'
+    )
+
+    add_commit_args(parser, commit_desc='Send emails to group owners')
+    return parser
 
 
 def main(inargs=None):
@@ -371,9 +442,9 @@ def main(inargs=None):
     parser = make_parser()
 
     # Setup logging
-    logutils.options.install_subparser(parser)
+    Cerebrum.logutils.options.install_subparser(parser)
     args = parser.parse_args(inargs)
-    logutils.autoconf('cronjob', args)
+    Cerebrum.logutils.autoconf('cronjob', args)
 
     # Do the main logic of the script
     logger.info("Start %s", parser.prog)
@@ -468,7 +539,8 @@ def main(inargs=None):
     for group_id in groups_with_expiring_trait:
         gr.clear()
         gr.find(group_id)
-        if gr.expire_date and get_date(gr.expire_date) > limit_2:
+        expire_date = get_date(gr.expire_date)
+        if expire_date and expire_date > limit_2:
             gr.delete_trait(co.trait_group_expire_notify)
             logger.debug("Removed trait for group id %s", group_id)
     # Commit or rollback
@@ -479,7 +551,7 @@ def main(inargs=None):
         db.rollback()
         logger.info("Changes rolled back (dryrun)")
 
-    logger.info("DONE %s", parser.prog)
+    logger.info("Done %s", parser.prog)
 
 
 if __name__ == '__main__':

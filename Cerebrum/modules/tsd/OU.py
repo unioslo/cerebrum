@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2013-2018 University of Oslo, Norway
+# Copyright 2013-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -26,20 +26,26 @@ project ID stored as an external ID. When a project has finished, we will
 delete all details about the project, except the project's OU and its external
 ID and acronym, to avoid reuse of the project ID and name for later projects.
 """
-from __future__ import unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import re
 import itertools
 
 import six
-
-from mx import DateTime
+import datetime
 
 import cereconf
 
 from Cerebrum import Errors
 from Cerebrum.OU import OU
 from Cerebrum.Utils import Factory
+from Cerebrum.utils import date as date_utils
+from Cerebrum.utils import date_compat
 from Cerebrum.modules.dns import (Subnet, IPv6Subnet, HostInfo, DnsOwner,
                                   Utils, IPv6Number, AAAARecord, IPNumber,
                                   ARecord, IntegrityHelper)
@@ -251,7 +257,7 @@ class TsdProjectMixin(OU):
         :raise Errors.CerebrumError:
             If the given project name was not accepted
         """
-        m = re.search('[^A-Za-z0-9_\-:;\*"\'\#\&\=!\?]', name)
+        m = re.search(r'[^A-Za-z0-9_\-:;\*"\'\#\&\=!\?]', name)
         if m:
             raise Errors.CerebrumError(
                 'Invalid characters in projectname: %s' % m.group())
@@ -353,18 +359,18 @@ class OULockMixin(OU):
     def freeze_quarantine_start(self):
         """Start date of any freeze quarantine on the project.
 
-        :rtype: mx.DateTime, NoneType
+        :rtype: datetime.date, NoneType
         :return:
-            Return the start_date (mx.DateTime) of the freeze quarantine
+            Return the start_date of the freeze quarantine
             (Note: None will be returned in a case of no freeze-quarantines
-            for the OU (Project). Hence mx.DateTime return value is a proof
+            for the OU (Project).  Hence a truthy return value is a proof
             that the OU (Project) has at least one autofreeze-quarantine,
             while return value None is not a proof of the opposite
         """
         frozen_quarantines = self.get_entity_quarantine(
             qtype=self.const.quarantine_frozen)
         if frozen_quarantines:
-            return frozen_quarantines[0]['start_date']
+            return date_compat.get_date(frozen_quarantines[0]['start_date'])
         return None
 
 
@@ -460,7 +466,7 @@ class OUAffiliateMixin(OU):
         trait.find(entity.entity_id)
         trait.populate_trait(trait_code,
                              target_id=self.entity_id,
-                             date=DateTime.now())
+                             date=datetime.datetime.now())
         trait.write_db()
 
 
@@ -640,7 +646,7 @@ class TsdDefaultEntityMixin(TsdProjectMixin, OUAffiliateMixin):
             The gender of the person that should own this account. If None,
             "X" (unknown) will be used.
 
-        :type: bdate: mx.DateTime, str, NoneType
+        :type: bdate: datetime.date, str, NoneType
         :param bdate:
             The birth date for the person that should own this acocunt. If
             given as string, the expected format is yyyy-mm-dd.
@@ -669,8 +675,8 @@ class TsdDefaultEntityMixin(TsdProjectMixin, OUAffiliateMixin):
         shell = (self.const.human2constant(six.text_type(shell),
                                            self.const.PosixShell) or
                  self.const.posix_shell_bash)
-        bdate = (DateTime.Parser.DateFromString(bdate, formats=('ymd1', ))
-                 if bdate and not isinstance(bdate, DateTime.DateTimeType)
+        bdate = (date_utils.parse_date(bdate)
+                 if bdate and not isinstance(bdate, datetime.date)
                  else bdate)
         aff, status = self.const.get_affiliation(affiliation)
 
@@ -860,7 +866,7 @@ class OUTSDMixin(TsdDefaultEntityMixin,
                 sub = Subnet.Subnet(self._db)
                 sub.find(self.ipv4_subnets.next())
                 vlan = sub.vlan_number
-            except:
+            except Exception:
                 vlan = self.get_next_free_vlan()
         try:
             vlan = int(vlan)
@@ -983,7 +989,6 @@ class OUTSDMixin(TsdDefaultEntityMixin,
                 TSDUtils.add_host_to_policy_component(self._db,
                                                       host_dns_owner.entity_id,
                                                       comp)
-
 
     def _setup_project_posix(self, creator_id):
         """Upgrade non-posix entities.
@@ -1120,7 +1125,8 @@ class OUTSDMixin(TsdDefaultEntityMixin,
         approvals = self.get_pre_approved_persons()
         approvals.update(ids)
         self.populate_trait(code=self.const.trait_project_persons_accepted,
-                            date=DateTime.now(), strval=','.join(approvals))
+                            date=datetime.datetime.now(),
+                            strval=','.join(approvals))
         return True
 
     def terminate(self):
@@ -1169,7 +1175,6 @@ class OUTSDMixin(TsdDefaultEntityMixin,
                                 status=row['status'])
             pe.write_db()
         # Remove all project's DnsOwners (hosts):
-        dnsowner = DnsOwner.DnsOwner(self._db)
         policy = PolicyComponent(self._db)
         update_helper = IntegrityHelper.Updater(self._db)
         for row in ent.list_traits(code=self.const.trait_project_host,

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003-2016 University of Oslo, Norway
+# Copyright 2003-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -22,10 +22,10 @@
 
 import Cerebrum.ChangeLog
 from Cerebrum.Utils import argument_to_sql
-import Cerebrum.utils.json as json
+from Cerebrum.utils import json
 
 
-__version__ = "1.5"
+__version__ = "1.6"
 
 
 def _params_to_db(params, separators=(',', ':')):
@@ -40,6 +40,7 @@ def _params_to_db(params, separators=(',', ':')):
 
 
 class ChangeLog(Cerebrum.ChangeLog.ChangeLog):
+
     # Don't want to override the Database constructor
     def cl_init(self, change_by=None, change_program=None, **kw):
         super(ChangeLog, self).cl_init(**kw)
@@ -61,23 +62,30 @@ class ChangeLog(Cerebrum.ChangeLog.ChangeLog):
             None (remove parameters), or any json-able object.
 
         """
-        self.execute("""
-        UPDATE [:table schema=cerebrum name=change_log]
-        SET change_params=:change_params
-        WHERE change_id=:change_id""", {
-            'change_id': int(change_id),
-            'change_params': _params_to_db(change_params)})
+        self.execute(
+            """
+              UPDATE [:table schema=cerebrum name=change_log]
+              SET change_params=:change_params
+              WHERE change_id=:change_id
+            """,
+            {
+                'change_id': int(change_id),
+                'change_params': _params_to_db(change_params),
+            },
+        )
 
     def remove_log_event(self, change_id):
         """ Remove a logged change.
 
         :param int change_id: The change id
-
         """
-        self.execute("""
-        DELETE FROM [:table schema=cerebrum name=change_log]
-        WHERE change_id=:change_id""", {
-            'change_id': int(change_id)})
+        self.execute(
+            """
+              DELETE FROM [:table schema=cerebrum name=change_log]
+              WHERE change_id=:change_id
+            """,
+            {'change_id': int(change_id)},
+        )
 
     def log_change(self,
                    subject_entity,
@@ -127,15 +135,16 @@ class ChangeLog(Cerebrum.ChangeLog.ChangeLog):
             **kw)
         if skip_change:
             return
-        self.messages.append(
-            dict(
-                subject_entity=subject_entity,
-                change_type_id=int(change_type_id),
-                destination_entity=destination_entity,
-                change_by=self.change_by if change_by is None else change_by,
-                change_program=(self.change_program if change_program is None
-                                else change_program),
-                change_params=_params_to_db(change_params)))
+        self.messages.append({
+            'subject_entity': subject_entity,
+            'change_type_id': int(change_type_id),
+            'destination_entity': destination_entity,
+            'change_by': self.change_by if change_by is None else change_by,
+            'change_program': (self.change_program
+                               if change_program is None
+                               else change_program),
+            'change_params': _params_to_db(change_params)
+        })
 
     def clear_log(self):
         """See write_log"""
@@ -153,13 +162,18 @@ class ChangeLog(Cerebrum.ChangeLog.ChangeLog):
 
         for m in self.messages:
             m['id'] = int(self.nextval('change_log_seq'))
-            self.execute("""
-            INSERT INTO [:table schema=cerebrum name=change_log]
-               (change_id, subject_entity, change_type_id, dest_entity,
-                change_params, change_by, change_program)
-            VALUES (:id, :subject_entity, :change_type_id,
-                    :destination_entity, :change_params, :change_by,
-                    :change_program)""", m)
+            self.execute(
+                """
+                  INSERT INTO [:table schema=cerebrum name=change_log]
+                    (change_id, subject_entity, change_type_id, dest_entity,
+                    change_params, change_by, change_program)
+                  VALUES
+                    (:id, :subject_entity, :change_type_id,
+                     :destination_entity,
+                     :change_params, :change_by, :change_program)
+                """,
+                m,
+            )
         self.messages = []
 
     def get_log_events(self, start_id=0, max_id=None, types=None,
@@ -214,42 +228,49 @@ class ChangeLog(Cerebrum.ChangeLog.ChangeLog):
             raise self.ProgrammingError(
                 "you need to choose at least one change type "
                 "to deliver last cl entry for")
-        where = ["change_id >= :start_id"]
+        conds = ["change_id >= :start_id"]
         bind = {'start_id': int(start_id)}
         if subject_entity is not None:
-            where.append(argument_to_sql(subject_entity, "subject_entity",
+            conds.append(argument_to_sql(subject_entity, "subject_entity",
                                          bind, int))
         if dest_entity is not None:
-            where.append("dest_entity=:dest_entity")
+            conds.append("dest_entity=:dest_entity")
             bind['dest_entity'] = int(dest_entity)
         if any_entity is not None:
-            where.append("subject_entity=:any_entity OR "
+            conds.append("subject_entity=:any_entity OR "
                          "dest_entity=:any_entity")
             bind['any_entity'] = int(any_entity)
         if change_by is not None:
-            where.append("change_by=:change_by")
+            conds.append("change_by=:change_by")
             bind['change_by'] = int(change_by)
         if change_program is not None:
-            where.append("change_program=:change_program")
+            conds.append("change_program=:change_program")
             bind['change_program'] = change_program
         if max_id is not None:
-            where.append("change_id <= :max_id")
+            conds.append("change_id <= :max_id")
             bind['max_id'] = int(max_id)
         if types is not None:
-            where.append(argument_to_sql(types, "change_type_id", bind, int))
+            conds.append(argument_to_sql(types, "change_type_id", bind, int))
         if sdate is not None:
-            where.append("tstamp > :sdate")
+            conds.append("tstamp > :sdate")
             bind['sdate'] = sdate
-        where = "WHERE (" + ") AND (".join(where) + ")"
+
+        where = " AND ".join("({})".format(cond) for cond in conds)
         if return_last_only:
-            where = where + 'ORDER BY tstamp DESC LIMIT 1'
+            order = 'tstamp DESC LIMIT 1'
         else:
-            where = where + 'ORDER BY change_id'
-        return self.query("""
-        SELECT tstamp, change_id, subject_entity, change_type_id, dest_entity,
-               change_params, change_by, change_program
-        FROM [:table schema=cerebrum name=change_log] %s
-        """ % where, bind, fetchall=False)
+            order = 'change_id'
+        return self.query(
+            """
+              SELECT tstamp, change_id, subject_entity, change_type_id,
+                     dest_entity, change_params, change_by, change_program
+              FROM [:table schema=cerebrum name=change_log]
+              WHERE {where}
+              ORDER BY {order}
+            """.format(where=where, order=order),
+            bind,
+            fetchall=False,
+        )
 
     def get_log_events_date(self, type=None, sdate=None, edate=None):
         """ Fetch change entries from the database by date.
@@ -283,22 +304,33 @@ class ChangeLog(Cerebrum.ChangeLog.ChangeLog):
             if edate is not None:
                 where.append("tstamp <= TO_DATE('%s', 'YYYY-MM-DD')" % edate)
         if (type, sdate, edate) is not None:
-            where = "WHERE "+" AND ".join(where)
-        return self.query("""
-        SELECT tstamp, change_id, subject_entity, change_type_id,
-               dest_entity, change_params, change_by, change_program
-        FROM [:table schema=cerebrum name=change_log] %s
-        ORDER BY change_id""" % where)
+            where = " AND ".join(where)
+        return self.query(
+            """
+              SELECT tstamp, change_id, subject_entity, change_type_id,
+                     dest_entity, change_params, change_by, change_program
+              FROM [:table schema=cerebrum name=change_log]
+              WHERE {where}
+              ORDER BY change_id
+            """.format(where=where),
+        )
 
     def get_changetypes(self):
         """ List the change types registered in the database. """
-        return self.query("""
-        SELECT change_type_id, category, type, msg_string
-        FROM [:table schema=cerebrum name=change_type]""")
+        return self.query(
+            """
+              SELECT change_type_id, category, type, msg_string
+              FROM [:table schema=cerebrum name=change_type]
+            """,
+        )
 
     def get_last_changelog_id(self):
         """ Get the id of the last change entry in the database. """
-        return self.query_1("""
-        SELECT change_id
-        FROM [:table schema=cerebrum name=change_log]
-        ORDER BY change_id DESC LIMIT 1""")
+        return self.query_1(
+            """
+              SELECT change_id
+              FROM [:table schema=cerebrum name=change_log]
+              ORDER BY change_id DESC
+              LIMIT 1
+            """,
+        )

@@ -435,7 +435,7 @@ class AccountUtil(object):
         needs_expire_update = False
         if not current_expire:
             needs_expire_update = True
-        elif get_date(current_expire) != get_date(default_expire_date):
+        elif current_expire != default_expire_date:
             needs_expire_update = True
         set_expire_date = None
         if fnr in deceased:
@@ -1006,7 +1006,7 @@ def get_existing_accounts():
             continue
         tmp_ac[int(row['account_id'])] = ExistingAccount(
             pid2fnr[int(row['owner_id'])],
-            row['expire_date'])
+            get_date(row['expire_date']))
     # PosixGid
     for row in posix_user_obj.list_posix_users():
         tmp = tmp_ac.get(int(row['account_id']), None)
@@ -1401,7 +1401,8 @@ def main():
             id_type=const.externalid_fodselsnr,
             fetchall=False):
         if int(row['entity_id']) in pid_deceased:
-            deceased[row['external_id']] = pid_deceased[int(row['entity_id'])]
+            deceased[row['external_id']] = get_date(
+                pid_deceased[int(row['entity_id'])])
 
     start_process_students(update_create=(args.create_users or
                                           args.reset_diskquota))

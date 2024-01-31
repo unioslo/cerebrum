@@ -1,23 +1,22 @@
 # -*- coding: utf-8 -*-
 import re
-import cereconf
-import socket
 
-from Cerebrum.modules.dns import ARecord
+import cereconf
+from Cerebrum import Errors
+from Cerebrum.modules import dns
+from Cerebrum.modules.bofhd.errors import CerebrumError
 from Cerebrum.modules.dns import AAAARecord
-from Cerebrum.modules.dns import HostInfo
+from Cerebrum.modules.dns import ARecord
+from Cerebrum.modules.dns import CNameRecord
 from Cerebrum.modules.dns import DnsOwner
+from Cerebrum.modules.dns import HostInfo
 from Cerebrum.modules.dns import IPNumber
 from Cerebrum.modules.dns import IPv6Number
-from Cerebrum.modules.dns import CNameRecord
-from Cerebrum.modules.dns import Subnet
 from Cerebrum.modules.dns import IPv6Subnet
-from Cerebrum.modules.dns.Errors import DNSError, SubnetError
+from Cerebrum.modules.dns import Subnet
+from Cerebrum.modules.dns.Errors import SubnetError
 from Cerebrum.modules.dns.IPUtils import IPCalc, IPUtils
 from Cerebrum.modules.dns.IPv6Utils import IPv6Calc, IPv6Utils
-from Cerebrum import Errors
-from Cerebrum.modules.bofhd.errors import CerebrumError
-from Cerebrum.modules import dns
 
 
 class DnsParser(object):
@@ -88,7 +87,7 @@ class DnsParser(object):
         try:
             ipc = Find(self._db, None)
             subnet_ip = ipc._find_subnet(ip)
-        except:
+        except Exception:
             subnet_ip = None
         return subnet_ip, full_ip and ip or None
 
@@ -100,7 +99,8 @@ class DnsParser(object):
         return False
 
     def parse_hostname_repeat(self, name):
-        """Handles multiple hostnames with the same prefix and a
+        r"""
+        Handles multiple hostnames with the same prefix and a
         numeric suffix.  We have these variants:
 
         - pcubit#20 = start at the highest existing pcubit+1 and
@@ -113,7 +113,7 @@ class DnsParser(object):
         def find_last_startnum(prefix):
             ret = 0
             like_str = '%s%%%s' % (prefix, self._default_zone.postfix)
-            re_num = re.compile(like_str.replace('%', '(\d+)'))
+            re_num = re.compile(like_str.replace('%', r'(\d+)'))
             for row in self._dns_owner.search(name_like=like_str):
                 m = re_num.search(row['name'])
                 if m:
@@ -454,14 +454,14 @@ class Find(object):
             sub.find(subnet)
             ip_number = IPNumber.IPNumber(self._db)
             ip_key = 'ip_number_id'
-            ipnr = lambda x: x['ipnr']
+            ipnr = lambda x: x['ipnr']  # noqa: E731
             start = sub.ip_min
         except SubnetError:
             sub = IPv6Subnet.IPv6Subnet(self._db)
             sub.find(subnet)
             ip_number = IPv6Number.IPv6Number(self._db)
             ip_key = 'ipv6_number_id'
-            ipnr = lambda x: IPv6Calc.ip_to_long(x['aaaa_ip'])
+            ipnr = lambda x: IPv6Calc.ip_to_long(x['aaaa_ip'])  # noqa: E731
             # We'll do this, since we don't want bofh to be stuck forever
             # trying to fetch all IPv6-addresses.
             # This is ugly, but it's not only-only.
@@ -479,7 +479,7 @@ class Find(object):
         try:
             taken = {}
             for row in ip_number.find_in_range(start, sub.ip_max):
-                taken[long(ipnr(row))] = int(row[ip_key])
+                taken[int(ipnr(row))] = int(row[ip_key])
 
             stop = sub.ip_max - start + 1
             n = 0
@@ -488,7 +488,7 @@ class Find(object):
                 if no_of_addrs is not None and len(ret) == no_of_addrs:
                     break
                 if (
-                        long(start+n) not in taken and
+                        int(start+n) not in taken and
                         n+start not in sub.reserved_adr
                 ):
                     ret.append(n+start)
@@ -501,8 +501,7 @@ class Find(object):
     def count_used_ips(self, subnet):
         """Returns the number of used ips on the given subnet.
 
-        Returns a long.
-
+        Returns an int.
         """
 
         if '.' in subnet:

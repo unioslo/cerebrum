@@ -327,7 +327,7 @@ def process_account(db, account_data, logger, default_owner_id,
 
     # Update expire date
     logger.info("Updating expire date to %s", expire_date)
-    pu.expire_date = "%s" % expire_date
+    pu.expire_date = expire_date
     pu.write_db()
 
     # Updating homedir for existing spreads

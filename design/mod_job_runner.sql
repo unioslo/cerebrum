@@ -25,7 +25,7 @@ category:metainfo;
 name=job_runner;
 
 category:metainfo;
-version=1.1;
+version=1.2;
 
 
 category:main;
@@ -36,7 +36,7 @@ CREATE TABLE job_ran
     CONSTRAINT job_ran_pk PRIMARY KEY,
 
   timestamp
-    TIMESTAMP
+    TIMESTAMP WITH TIME ZONE
     NOT NULL
 );
 

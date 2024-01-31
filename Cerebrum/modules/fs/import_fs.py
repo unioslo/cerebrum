@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2002-2018 University of Oslo, Norway
+# Copyright 2002-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,7 +18,12 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-from __future__ import unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import json
 import logging
@@ -83,6 +88,10 @@ class FsImporter(object):
 
         self.commit = commit
         self.source = source
+
+        self.disregard_grace_for_affs = [
+            int(self.co.human2constant(x))
+            for x in cereconf.FS_EXCLUDE_AFFILIATIONS_FROM_GRACE]
 
     def init_reservation_group(self):
         """ get callbacks to add/remove members in reservation group """
@@ -606,10 +615,6 @@ class FsImporter(object):
         they are.
         """
 
-        disregard_grace_for_affs = [
-            int(self.co.human2constant(x)) for x in
-            cereconf.FS_EXCLUDE_AFFILIATIONS_FROM_GRACE]
-
         logger.info("Removing old FS affiliations")
         stats = defaultdict(lambda: 0)
         person = Factory.get("Person")(self.db)
@@ -617,6 +622,8 @@ class FsImporter(object):
         for k in self.old_aff:
             if not self.old_aff[k]:
                 # Aff still present in import files
+                # TODO: Checking if an affiliation is valid might still be
+                # important even if it exists in important files?
                 continue
 
             person_id, ou_id, aff_id = (int(val) for val in k.split(':'))
@@ -644,11 +651,12 @@ class FsImporter(object):
             # end of grace period. Some affiliations should be removed at once
             # for certain institutions.
             grace_days = cereconf.FS_STUDENT_REMOVE_AFF_GRACE_DAYS
-            if (get_date(aff['last_date'])
-                    > (date.today() - timedelta(days=grace_days)) and
-                    int(aff['status']) not in disregard_grace_for_affs):
-                logger.debug("Sparing aff (%s) for person_id=%r at ou_id=%r,"
-                             " grace-period in effect",aff_id, person_id, ou_id)
+            grace_cutoff = date.today() - timedelta(days=grace_days)
+            use_grace = int(aff['status']) not in self.disregard_grace_for_affs
+            if (get_date(aff['last_date']) > grace_cutoff and use_grace):
+                logger.debug(
+                    "Sparing aff (%s) for person_id=%r at ou_id=%r,"
+                    " grace-period in effect", aff_id, person_id, ou_id)
                 stats['grace'] += 1
                 continue
 
@@ -669,10 +677,11 @@ class FsImporter(object):
                 for ac in acs:
                     account = Factory.get("Account")(self.db)
                     account.find(ac[0])
-                    if (account.expire_date and
-                           date.today() < get_date(account.expire_date) and
-                           any(aff['affiliation'] in affi for affi in
-                               account.get_account_types(filter_expired=False))):
+                    if (account.expire_date
+                            and date.today() < get_date(account.expire_date)
+                            and any(aff['affiliation'] in affi
+                                    for affi in account.get_account_types(
+                                        filter_expired=False))):
                         logger.debug("Sparing aff (%s) for person_id=%r at"
                                      " ou_id=%r, person has active account"
                                      " affiliation", aff_id, person_id, ou_id)

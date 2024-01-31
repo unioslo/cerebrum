@@ -49,19 +49,24 @@ but have to be on their own lines.
 TODO: Describe the format of the SQL definitions, or add a reference to where
 that is located.
 """
-from __future__ import print_function
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    # TODO: unicode_literals,
+)
 
 import getopt
 import os
 import sys
 import traceback
 
+import cereconf
+
 import Cerebrum
 from Cerebrum import Metainfo
 from Cerebrum.database import sql_parser
 from Cerebrum.Utils import Factory, dyn_import
-
-import cereconf
 
 all_ok = True
 
@@ -357,7 +362,7 @@ def check_schema_versions(db, strict=False):
         'ad_email': 'Cerebrum.modules.no.uit.ad_email',
         'apikeys': 'Cerebrum.modules.apikeys',
         'auditlog': 'Cerebrum.modules.audit',
-        'bofhd_requests': 'Cerebrum.modules.bofhd_requests.request',
+        'bofhd_requests': 'Cerebrum.modules.bofhd_requests',
         'changelog': 'Cerebrum.modules.ChangeLog',
         'disk_quota': 'Cerebrum.modules.disk_quota',
         'dns': 'Cerebrum.modules.dns',
@@ -367,6 +372,7 @@ def check_schema_versions(db, strict=False):
         'eventlog': 'Cerebrum.modules.EventLog',
         'events': 'Cerebrum.modules.event_publisher',
         'hostpolicy': 'Cerebrum.modules.hostpolicy',
+        'job_runner': 'Cerebrum.modules.job_runner',
         'legacy_users': 'Cerebrum.modules.legacy_users',
         'otp': 'Cerebrum.modules.otp',
         'note': 'Cerebrum.modules.Note',

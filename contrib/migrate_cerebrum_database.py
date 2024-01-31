@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-# Copyright 2002-2021 University of Oslo, Norway
+#
+# Copyright 2002-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,8 +18,12 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-from __future__ import print_function
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    # TODO: unicode_literals,
+)
 
 import cPickle
 import getopt
@@ -47,18 +51,22 @@ targets = {
         'rel_0_9_10', 'rel_0_9_11', 'rel_0_9_12', 'rel_0_9_13',
         'rel_0_9_14', 'rel_0_9_15', 'rel_0_9_16', 'rel_0_9_17',
         'rel_0_9_18', 'rel_0_9_19', 'rel_0_9_20', 'rel_0_9_21',
-        'rel_0_9_22',
+        'rel_0_9_22', 'rel_0_9_23',
     ),
-    'bofhd': ('bofhd_1_1', 'bofhd_1_2', 'bofhd_1_3', 'bofhd_1_4',),
+    'bofhd': ('bofhd_1_1', 'bofhd_1_2', 'bofhd_1_3', 'bofhd_1_4', 'bofhd_1_5'),
     'bofhd_auth': ('bofhd_auth_1_1', 'bofhd_auth_1_2',),
+    'bofhd_requests': ('bofhd_requests_1_1',),
     'changelog': ('changelog_1_2', 'changelog_1_3', 'changelog_1_4',
-                  'changelog_1_5'),
+                  'changelog_1_5', 'changelog_1_6'),
+    'consent': ('consent_1_1',),
     'email': ('email_1_0', 'email_1_1', 'email_1_2', 'email_1_3', 'email_1_4',
               'email_1_5', 'email_1_6'),
     'feide_service': ('feide_service_1_1',),
     'entity_expire': ('entity_expire_1_0',),
     'ephorte': ('ephorte_1_1', 'ephorte_1_2'),
-    'eventlog': ('eventlog_1_1', ),
+    'eventlog': ('eventlog_1_1', 'eventlog_1_2'),
+    'events': ('events_1_1', ),
+    'gpg': ('gpg_1_1',),
     'stedkode': ('stedkode_1_1', ),
     'posixuser': ('posixuser_1_0', 'posixuser_1_1', ),
     'dns': ('dns_1_0', 'dns_1_1', 'dns_1_2', 'dns_1_3', 'dns_1_4', 'dns_1_5'),
@@ -68,8 +76,8 @@ targets = {
     'task_queue': ('task_queue_1_1',),
     'entity_trait': ('entity_trait_1_1',),
     'hostpolicy': ('hostpolicy_1_1',),
-    'note': ('note_1_1',),
-    'job_runner': ('job_runner_1_1',),
+    'note': ('note_1_1', 'note_1_2'),
+    'job_runner': ('job_runner_1_1', 'job_runner_1_2'),
 }
 
 # Global variables
@@ -944,6 +952,17 @@ def migrate_to_rel_0_9_22():
     db.commit()
 
 
+def migrate_to_rel_0_9_23():
+    """Migrate from 0.9.22 database to the 0.9.23 database schema."""
+    assert_db_version("0.9.22")
+    makedb('0_9_23', 'pre')
+    print("\ndone.")
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo(Metainfo.SCHEMA_VERSION_KEY, (0, 9, 23))
+    print("Migration to 0.9.23 completed successfully")
+    db.commit()
+
+
 def migrate_to_bofhd_1_1():
     print("\ndone.")
     assert_db_version("1.0", component='bofhd')
@@ -991,6 +1010,17 @@ def migrate_to_bofhd_1_4():
     db.commit()
 
 
+def migrate_to_bofhd_1_5():
+    """ Bumps the version number of bofhd_table to 1.5 """
+    print("\ndone.")
+    assert_db_version("1.4", component='bofhd')
+    makedb('bofhd_1_5', 'pre')
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo("sqlmodule_bofhd", "1.5")
+    print("Migration to bofhd 1.5 completed successfully")
+    db.commit()
+
+
 def migrate_to_bofhd_auth_1_1():
     print("\ndone.")
     assert_db_version("1.0", component='bofhd_auth')
@@ -1008,6 +1038,16 @@ def migrate_to_bofhd_auth_1_2():
     meta = Metainfo.Metainfo(db)
     meta.set_metainfo("sqlmodule_bofhd_auth", "1.2")
     print("Migration to bofhd_auth 1.2 completed successfully")
+    db.commit()
+
+
+def migrate_to_bofhd_requests_1_1():
+    print("\ndone.")
+    assert_db_version("1.0", component='bofhd_requests')
+    makedb('bofhd_requests_1_1', 'pre')
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo("sqlmodule_bofhd_requests", "1.1")
+    print("Migration to bofhd_requests 1.1 completed successfully")
     db.commit()
 
 
@@ -1054,7 +1094,7 @@ def fix_change_params(params):
         return dict((fix_change_params(k), fix_change_params(v)) for k, v in
                     d.items())
 
-    def fix_array(l):
+    def fix_array(l):  # noqa: E741
         return list(map(fix_change_params, l))
 
     if isinstance(params, bytes):
@@ -1079,7 +1119,7 @@ def get_change_type(cl, code):
 def fix_changerows(process, qin, qout, mn, mx):
     print('started process {}: from: {}, to: {}'.format(process, mn, mx))
     try:
-        import cPickle as pickle
+        import cPickle as pickle  # noqa: N813
     except ImportError:
         import pickle
     from Cerebrum.modules.ChangeLog import _params_to_db
@@ -1155,7 +1195,7 @@ def migrate_to_changelog_1_4():
             yield iterable[i:min(i + n, length)]
 
     tasks = []
-    per_thread = (len(ids) / workers) + 10
+    per_thread = (len(ids) // workers) + 10
     for chunk in chunks(ids, n=per_thread):
         tasks.append((min(chunk), max(chunk)))
 
@@ -1213,6 +1253,24 @@ def migrate_to_changelog_1_5():
     db.commit()
 
 
+def migrate_to_changelog_1_6():
+    assert_db_version("1.5", component='changelog')
+    makedb('changelog_1_6', 'pre')
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo("sqlmodule_changelog", "1.6")
+    print("Migration to changelog 1.6 completed successfully")
+    db.commit()
+
+
+def migrate_to_consent_1_1():
+    assert_db_version('1.0', component='consent')
+    makedb('consent_1_1', 'pre')
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo('sqlmodule_consent', '1.1')
+    print('Migration to consent 1.1 completed successfully')
+    db.commit()
+
+
 def migrate_to_eventlog_1_1():
     assert_db_version("1.0", component='eventlog')
     from Cerebrum.modules.ChangeLog import _params_to_db
@@ -1241,6 +1299,24 @@ def migrate_to_eventlog_1_1():
     meta = Metainfo.Metainfo(db)
     meta.set_metainfo("sqlmodule_eventlog", "1.1")
     print("Migration to eventlog 1.1 completed successfully")
+    db.commit()
+
+
+def migrate_to_eventlog_1_2():
+    assert_db_version("1.1", component='eventlog')
+    makedb('eventlog_1_2', 'pre')
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo("sqlmodule_eventlog", "1.2")
+    print("Migration to eventlog 1.2 completed successfully")
+    db.commit()
+
+
+def migrate_to_events_1_1():
+    assert_db_version("1.0", component='events')
+    makedb('events_1_1', 'pre')
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo("sqlmodule_events", "1.1")
+    print("Migration to events 1.1 completed successfully")
     db.commit()
 
 
@@ -1624,16 +1700,6 @@ def migrate_to_email_1_6():
     print("Migration to email 1.6 completed successfully")
 
 
-def migrate_to_feide_service_1_1():
-    assert_db_version("1.0", component="feide_service")
-    print("Removing UNIQUE constraint and changing to char(128)")
-    makedb("feide_service_1_1", "pre")
-    meta = Metainfo.Metainfo(db)
-    meta.set_metainfo("sqlmodule_feide_service", "1.1")
-    db.commit()
-    print("Migration to feide_service 1.1 completed successfully")
-
-
 def migrate_to_ephorte_1_1():
     print("\ndone.")
     assert_db_version("1.0", component='ephorte')
@@ -1678,12 +1744,40 @@ def migrate_to_ephorte_1_2():
     db.commit()
 
 
+def migrate_to_feide_service_1_1():
+    assert_db_version("1.0", component="feide_service")
+    print("Removing UNIQUE constraint and changing to char(128)")
+    makedb("feide_service_1_1", "pre")
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo("sqlmodule_feide_service", "1.1")
+    db.commit()
+    print("Migration to feide_service 1.1 completed successfully")
+
+
+def migrate_to_gpg_1_1():
+    assert_db_version("1.0", component="gpg")
+    makedb("gpg_1_1", "pre")
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo("sqlmodule_gpg", "1.1")
+    db.commit()
+    print("Migration to gpg 1.1 completed successfully")
+
+
 def migrate_to_note_1_1():
     assert_db_version('1.0', component='note')
     makedb('note_1_1', 'pre')
     meta = Metainfo.Metainfo(db)
     meta.set_metainfo('sqlmodule_note', '1.1')
     print('Migration to note 1.1 completed successfully')
+    db.commit()
+
+
+def migrate_to_note_1_2():
+    assert_db_version('1.1', component='note')
+    makedb('note_1_2', 'pre')
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo('sqlmodule_note', '1.2')
+    print('Migration to note 1.2 completed successfully')
     db.commit()
 
 
@@ -1883,6 +1977,15 @@ def migrate_to_job_runner_1_1():
     meta.set_metainfo("sqlmodule_job_runner", "1.1")
     print("Migration to job_runner 1.1 completed successfully")
     db.commit()
+
+
+def migrate_to_job_runner_1_2():
+    assert_db_version("1.1", component="job_runner")
+    makedb("job_runner_1_2", "pre")
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo("sqlmodule_job_runner", "1.2")
+    db.commit()
+    print("Migration to job_runner 1.2 completed successfully")
 
 
 def migrate_to_spread_expire_1_1():

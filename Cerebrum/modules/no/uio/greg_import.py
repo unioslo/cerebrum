@@ -23,7 +23,6 @@ UiO-specific Greg import logic.
 from Cerebrum.group.template import GroupTemplate
 from Cerebrum.modules.greg import mapper
 from Cerebrum.modules.greg import importer
-from Cerebrum.modules.import_utils.groups import GroupMembershipSetter
 
 
 GREG_CONSENT_GROUP = GroupTemplate(
@@ -32,8 +31,6 @@ GREG_CONSENT_GROUP = GroupTemplate(
     group_type='internal-group',
     group_visibility='A',
 )
-
-sync_greg_consent = GroupMembershipSetter(GREG_CONSENT_GROUP)
 
 
 class _UioGregOrgunitIds(mapper.GregOrgunitIds):
@@ -51,6 +48,7 @@ class _UioGregRoles(mapper.GregRoles):
         'external-consultant': 'TILKNYTTET/ekst_partner',
         'external-partner': 'TILKNYTTET/ekst_partner',
         'guest-researcher': 'TILKNYTTET/gjesteforsker',
+        'grader': 'TILKNYTTET/sensor',
     }
 
     get_orgunit_ids = _UioGregOrgunitIds()
@@ -64,7 +62,7 @@ class _UioGregMapper(mapper.GregMapper):
 class UioGregImporter(importer.GregImporter):
 
     CONSENT_GROUPS = {
-        'greg-publish': sync_greg_consent,
+        'greg-publish': GREG_CONSENT_GROUP,
     }
 
     mapper = _UioGregMapper()

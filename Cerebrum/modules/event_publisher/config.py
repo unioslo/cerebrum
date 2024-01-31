@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2016-2017 University of Oslo, Norway
+# Copyright 2016-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,21 +17,51 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" This module defines all necessary config for the publishing AMQP client.
-
-event_daemon:
- - event_publisher: {...}
- - event_formatter: {...}
- - event_daemon_collector: {...}
-
 """
+This module defines all necessary config for the publishing AMQP client.
+
+Example YAML-config, ``event_daemon.yaml``:
+::
+
+    event_publisher:
+      connection:
+        host: "mq.example.org"
+        port: 5671
+        ssl_enable: true
+        virtual_host: "default"
+        username: "guest"
+        password: "plaintext:guest"
+
+      exchange:
+        durable: true
+        exchange_type: "topic"
+        name: "from_cerebrum"
+
+    event_formatter:
+      issuer: "https://api.example.org/"
+      urltemplate: "https://api.example.org/v1/{entity_type}/{entity_id}"
+      keytemplate: "org.example.scim.{entity_type}.{event}"
+
+    event_daemon_collector:
+      run_interval: 180
+      failed_limit: 10
+      failed_delay: 1200
+      unpropagated_delay: 5400
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+
 from Cerebrum.config.loader import read, read_config
 from Cerebrum.config.configuration import (Namespace,
                                            Configuration,
                                            ConfigDescriptor)
 from Cerebrum.config.settings import Integer
+from Cerebrum.modules.amqp.config import PublisherConfig
 
-from .amqp_publisher import PublisherConfig
 from .scim import ScimFormatterConfig
 
 

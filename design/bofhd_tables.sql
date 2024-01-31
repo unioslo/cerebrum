@@ -1,6 +1,6 @@
 /* encoding: utf-8
  *
- * Copyright 2003-2019 University of Oslo, Norway
+ * Copyright 2003-2023 University of Oslo, Norway
  *
  * This file is part of Cerebrum.
  *
@@ -28,7 +28,7 @@ category:metainfo;
 name=bofhd;
 
 category:metainfo;
-version=1.4;
+version=1.5;
 
 /*  bofhd_session
  *
@@ -55,11 +55,12 @@ CREATE TABLE bofhd_session
     NOT NULL,
 
   auth_time
-    TIMESTAMP
+    TIMESTAMP WITH TIME ZONE
     NOT NULL,
 
   last_seen
-    TIMESTAMP,
+    TIMESTAMP WITH TIME ZONE
+    NOT NULL,
 
   /* IPv4 address is stored as a 32-bit integer */
   ip_address
@@ -99,7 +100,7 @@ CREATE TABLE bofhd_session_state
     NULL,
 
   set_time
-    TIMESTAMP
+    TIMESTAMP WITH TIME ZONE
     NOT NULL
 );
 

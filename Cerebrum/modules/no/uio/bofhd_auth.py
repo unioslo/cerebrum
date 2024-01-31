@@ -27,14 +27,16 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules.EntityTrait import EntityTrait
 from Cerebrum.modules.apikeys import bofhd_apikey_cmds
 from Cerebrum.modules.audit import bofhd_history_cmds
+from Cerebrum.modules.bofhd import bofhd_access
+from Cerebrum.modules.bofhd import bofhd_external_id
+from Cerebrum.modules.bofhd import bofhd_group_roles
+from Cerebrum.modules.bofhd import bofhd_ou_cmds
+from Cerebrum.modules.bofhd import bofhd_user_create_unpersonal
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.bofhd_contact_info import BofhdContactAuth
-from Cerebrum.modules.bofhd_requests.bofhd_requests_auth import RequestsAuth
 from Cerebrum.modules.bofhd.bofhd_email import BofhdEmailAuth
-from Cerebrum.modules.bofhd import bofhd_access
-from Cerebrum.modules.bofhd import bofhd_ou_cmds
 from Cerebrum.modules.bofhd.errors import PermissionDenied
-from Cerebrum.modules.bofhd import bofhd_user_create_unpersonal
+from Cerebrum.modules.bofhd_requests.bofhd_requests_auth import RequestsAuth
 from Cerebrum.modules.otp import bofhd_otp_cmds
 from Cerebrum.modules.ou_disk_mapping import bofhd_cmds
 from Cerebrum.modules.trait import bofhd_trait_cmds
@@ -387,6 +389,10 @@ class ApiKeyAuth(UioAuth, bofhd_apikey_cmds.BofhdApiKeyAuth):
     pass
 
 
+class ExtidAuth(UioAuth, bofhd_external_id.BofhdExtidAuth):
+    pass
+
+
 class PasswordIssuesAuth(UioAuth):
     pass
 
@@ -397,6 +403,10 @@ class CreateUnpersonalAuth(UioAuth,
 
 
 class OUDiskMappingAuth(UioAuth, bofhd_cmds.BofhdOUDiskMappingAuth):
+    pass
+
+
+class GroupRoleAuth(UioAuth, bofhd_group_roles.BofhdGroupRoleAuth):
     pass
 
 

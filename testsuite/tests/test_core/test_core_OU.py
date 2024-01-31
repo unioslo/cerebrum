@@ -1,7 +1,33 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-"""Basic tests for Cerebrum/OU.py."""
-from __future__ import unicode_literals
+# encoding: utf-8
+#
+# Copyright 2016-2023 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""
+Basic tests for ``Cerebrum.OU.OU``
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+
+import datetime
 
 import pytest
 
@@ -84,9 +110,7 @@ def basic_ous(ou_object):
     return _populator(ou_object)
 
 
-@pytest.fixture
-def ou_tree(ou_object, perspective):
-    """ Returns list of OU objects, in a tree structure. """
+def _generate_ou_tree(ou_object, perspective):
     ous = list()
     for e in _populator(ou_object):
         ou_object.find(e.get('entity_id'))
@@ -95,6 +119,12 @@ def ou_tree(ou_object, perspective):
         ou_object.clear()
         ous.append(e)
     return ous
+
+
+@pytest.fixture
+def ou_tree(ou_object, perspective):
+    """ Returns list of OU objects, in a tree structure. """
+    return _generate_ou_tree(ou_object, perspective)
 
 
 @pytest.fixture
@@ -111,14 +141,13 @@ def ous_with_spreads(ou_object, ou_spread):
 
 @pytest.fixture
 def ous_with_quarantines(ou_object, ou_quarantine, initial_account):
-    from mx.DateTime import now
     ous = list()
     for e in _populator(ou_object):
         ou_object.find(e.get('entity_id'))
         ou_object.add_entity_quarantine(ou_quarantine,
                                         initial_account.entity_id,
                                         "Description",
-                                        now())
+                                        datetime.date.today())
         ou_object.clear()
         ous.append(e)
     return ous
@@ -162,7 +191,7 @@ def test_get_parent_error(ou_object, basic_ous, perspective):
 
 def test_root(ou_object, perspective):
     def _gen():
-        return ou_tree(ou_object, perspective)[0]['entity_id']
+        return _generate_ou_tree(ou_object, perspective)[0]['entity_id']
 
     assert filter(
         lambda x: x in map(

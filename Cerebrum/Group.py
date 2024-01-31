@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2002-2021 University of Oslo, Norway
+# Copyright 2002-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -26,9 +26,14 @@ would probably turn out to be a bad idea if one tried to use groups in
 that fashion.  Hence, this module **requires** the caller to supply a
 name when constructing a Group object.
 """
-from __future__ import unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+import datetime
 
-import mx
 import six
 
 import cereconf
@@ -38,6 +43,7 @@ from Cerebrum.group.GroupRoles import GroupRoles
 from Cerebrum.Entity import (EntityName, EntityQuarantine, EntityExternalId,
                              EntitySpread, EntityNameWithLanguage)
 from Cerebrum.Utils import argument_to_sql, prepare_string
+from Cerebrum.utils import date_compat
 
 
 Entity_class = Utils.Factory.get("Entity")
@@ -124,10 +130,10 @@ class BaseGroup(EntityQuarantine, EntityExternalId,
 
     def is_expired(self):
         """Checks if group is expired"""
-        now = mx.DateTime.now()
-        if self.expire_date is None or self.expire_date >= now:
+        expire_date = date_compat.get_date(self.expire_date)
+        if expire_date is None:
             return False
-        return True
+        return expire_date < datetime.date.today()
 
     def is_empty(self):
         """Checks if group is empty"""
@@ -137,9 +143,11 @@ class BaseGroup(EntityQuarantine, EntityExternalId,
 
     def set_default_expire_date(self):
         """Sets the expire date of a group if a default lifetime is defined"""
-        if cereconf.MANUAL_GROUP_DEFAULT_LIFETIME:
-            self.expire_date = mx.DateTime.now() + mx.DateTime.TimeDelta(
-                cereconf.MANUAL_GROUP_DEFAULT_LIFETIME)
+        lifetime = cereconf.MANUAL_GROUP_DEFAULT_LIFETIME
+        if lifetime:
+            # Insanity: This value is in *hours*?
+            delta = datetime.timedelta(hours=int(lifetime))
+            self.expire_date = datetime.date.today() + delta
 
     # exchange-relatert-jazz
     # we need to be able to check group names for different

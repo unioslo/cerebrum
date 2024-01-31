@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2022 University of Oslo, Norway
+# Copyright 2022-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,14 +18,19 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ Trait-related bofhd commands. """
-from __future__ import absolute_import, print_function, unicode_literals
-
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import logging
 from operator import itemgetter
 
 import six
 
 from Cerebrum.Utils import Factory
+from Cerebrum.modules.bofhd import parsers
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.bofhd_core_help import get_help_strings
@@ -38,7 +43,6 @@ from Cerebrum.modules.bofhd.cmd_param import (
 from Cerebrum.modules.bofhd.errors import PermissionDenied
 from Cerebrum.modules.bofhd.help import merge_help_strings
 from Cerebrum.modules.EntityTrait import EntityTrait
-
 
 logger = logging.getLogger(__name__)
 
@@ -345,9 +349,13 @@ class TraitCommands(BofhdCommonMethods):
                               trait=trait, ety=entity)
         entity_name = self._get_name_from_object(entity)
 
-        # TODO: We should use bofhd.parsers.ParamParser, but that could break
-        #       existing use (no get_abbr_type(), ':'/'=' as separator, parsing
-        #       'foo' as 'foo=')
+        # We should use bofhd.parsers.ParamParser, but that would break
+        # existing use/syntax:
+        #
+        # - no abbreviation support (get_abbr_type)
+        # - hard-coded ':' as separator (vs. current '=')
+        # - empty values must include separator ('foo=', vs current 'foo')
+        #
         params = {}
         for v in values:
             key, value = v.split('=', 1) if ('=' in v) else (v, '')
@@ -359,10 +367,8 @@ class TraitCommands(BofhdCommonMethods):
                 target = self.util.get_target(value, restrict_to=[])
                 params[key] = int(target.entity_id)
             elif key == 'date':
-                # TODO: _parse_date only handles dates, not hours etc.
-                # TODO: Parse date returns in mx.DateTime - use
-                #       .parsers.parse_datetime?
-                params[key] = self._parse_date(value)
+                # Optional is odd here, but it's how the old parser worked...
+                params[key] = parsers.parse_datetime(value, optional=True)
             elif key == 'numval':
                 params[key] = int(value)
             elif key == 'strval':
@@ -415,15 +421,34 @@ class TraitCommands(BofhdCommonMethods):
 _trait_value_text_blurb = """
 Enter the trait value as key=value.  'key' is one of:
 
-- target_id    value is an entity, entered as type:name
-- date         value is on format YYYY-MM-DD
-- numval       value is an integer
-- strval       value is a string
+Valid trait params:
 
-The key name may be abbreviated.  If value is left empty, the value
-associated with key will be cleared.  Updating an existing trait will
-blank all unnamed keys.
-"""
+ - target_id    value is an <entity> (e.g. id:123, group:foo)
+ - date         value is a <datetime> (e.g. 2023-02-20)
+ - numval       value is an integer
+ - strval       value is a string
+
+Note: To include whitespace in values, the whole key=value expression must be
+quoted: "key=hello world" (*not* key="hello world").  Updating an existing
+trait will blank all unnamed keys.
+
+Valid <datetime> values:
+
+{datetime}
+
+Valid <entity> values are any lookup string that works for other, generic
+entity commands, e.g.:
+
+ - id:123           look up any entity by its entity id
+ - account:example  look up account by account name "example"
+ - person:example   look up person by owned account name "example"
+ - group:example    look up group by group name "example"
+ - ou:102030        look up org-unit by location code "102030'
+
+""".format(
+    datetime=parsers.parse_datetime_help_blurb,
+)
+
 
 HELP_GRP = {
     "trait": "Trait related commands",

@@ -38,13 +38,13 @@ class BofhdExtension(base.BofhdExtension):
 
     def _get_printer(self, session, template):
         """ Get printer preset. """
-        if template.get('type', '') == 'letter':
-            return cereconf.PRINT_PRINTER
-        return 'pullprint'
+        if template.get('type', '') == cereconf.PRINT_PAPERCUT:
+            return cereconf.PRINT_PAPERCUT
+        return cereconf.PRINT_PRINTER
 
     def _can_set_spool_user(self, session, template):
         """ Can spool user be set? """
-        return self._get_printer(session, template) == 'pullprint'
+        return self._get_printer(session, template) in (cereconf.PRINT_PRINTER, cereconf.PRINT_PAPERCUT)
 
     def _get_group_account_mappings(self, account):
         group = self._get_group(account.owner_id, idtype='id')

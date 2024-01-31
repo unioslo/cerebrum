@@ -1,6 +1,6 @@
-# -*- coding: iso-8859-1 -*-
-
-# Copyright 2003 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+#
+# Copyright 2003-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,25 +17,32 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-"""This module provides method for parsing the studconfig.xml file and
-translating it to an internal datastructure"""
-from __future__ import unicode_literals
-import sys
+"""
+This module provides method for parsing the studconfig.xml file and
+translating it to an internal datastructure.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import pprint
+import sys
 
 from six import python_2_unicode_compatible
 
-from Cerebrum.modules.xmlutils.GeneralXMLParser import GeneralXMLParser
-from Cerebrum.modules.no.uio.AutoStud.Util import LookupHelper
-from Cerebrum.modules.no.uio.AutoStud.Select import SelectTool
-from Cerebrum.modules import PosixGroup
 from Cerebrum import Errors
+from Cerebrum.modules import PosixGroup
+from Cerebrum.modules.no.uio.AutoStud.Select import SelectTool
+from Cerebrum.modules.no.uio.AutoStud.Util import LookupHelper
+from Cerebrum.modules.xmlutils.GeneralXMLParser import GeneralXMLParser
 
 pp = pprint.PrettyPrinter(indent=4)
 
 
 class Config(object):
+
     def __init__(self, autostud, logger, cfg_file=None, debug=0):
         self.debug = debug
         self.autostud = autostud
@@ -46,16 +53,18 @@ class Config(object):
         self.profiles = []
         self.profilename2profile = {}
         self.required_spread_order = []
-        self.lookup_helper = LookupHelper(autostud.db, logger, autostud.ou_perspective)
+        self.lookup_helper = LookupHelper(autostud.db, logger,
+                                          autostud.ou_perspective)
 
         try:
             sp = StudconfigParser(self, cfg_file)
-        except:
+        except Exception:
             if self._errors:
                 logger.fatal("Got the following errors, and a stack trace: \n"
                              "{}".format("\n".join(self._errors)))
             raise
-        self.spread_defs = [int(autostud.co.Spread(x)) for x in sp.legal_spreads.keys()]
+        self.spread_defs = [int(autostud.co.Spread(x))
+                            for x in sp.legal_spreads.keys()]
         self._post_process_config()
         self.autostud.disk_tool.post_process()
 
@@ -65,7 +74,7 @@ class Config(object):
         profilename2profile = {}
         self.using_priority = False
         for p in self.profiles:
-            if profilename2profile.has_key(p.name):
+            if p.name in profilename2profile:
                 self.add_error("Duplicate profile-name {}".format(p.name))
             profilename2profile[p.name] = p
             p.post_config(self.lookup_helper, self)
@@ -133,7 +142,7 @@ class ProfileDefinition(object):
         return "ProfileDefinition object({})".format(self.name)
 
     def post_config(self, lookup_helper, config):
-        self._convertToDatabaseRefs(lookup_helper, config)
+        self._convert_to_database_refs(lookup_helper, config)
 
         # Initially _settings directly contains the actual settings.
         # After we have finished, we expand this so that it contains
@@ -149,7 +158,7 @@ class ProfileDefinition(object):
         we can remove the reference to super."""
 
         if self.super is not None:
-            if not name2profile.has_key(self.super):
+            if self.super not in name2profile:
                 self.config.add_error("Illegal super '{}' for '{}'".format(
                     self.super, self.name))
             tmp_super = name2profile[self.super]
@@ -171,7 +180,8 @@ class ProfileDefinition(object):
                         tmp_super.priority)
                 )
             self.super = None
-            self._settings["spread"] = self._sort_spreads(self._settings["spread"])
+            self._settings["spread"] = self._sort_spreads(
+                self._settings["spread"])
 
     def _sort_spreads(self, spreads):
         """On some sites certain spreads requires other spreads, thus
@@ -204,14 +214,17 @@ class ProfileDefinition(object):
         self.selection_criterias.setdefault(name, []).append(attribs)
 
     def debug_dump(self):
-        return "Profile name: '%s', p=%s, supers=%s, settings:\n%s" % (
-            self.name, self.priority, self.super_names, pp.pformat(self._settings))
+        return (
+            "Profile name: '%s', p=%s, supers=%s, settings:\n%s"
+            % (self.name, self.priority, self.super_names,
+               pp.pformat(self._settings))
+        )
 
     #
     # methods for converting the XML entries to values from the database
     #
 
-    def _convertToDatabaseRefs(self, lookup_helper, config):
+    def _convert_to_database_refs(self, lookup_helper, config):
         """Convert references in profil-settings to database values
         where apropriate"""
         for p in self._settings.get("priority", []):
@@ -290,8 +303,9 @@ class StudconfigParser(object):
 
     def got_default_values(self, dta, elem_stack):
         for ename, txt, attrs, children in dta:
-            for a in attrs:
-                self._config.default_values['{}_{}'.format(ename, a)] = attrs[a]
+            for attr in attrs:
+                key = '{}_{}'.format(ename, attr)
+                self._config.default_values[key] = attrs[attr]
 
     def got_disk_oversikt(self, dta, elem_stack):
         tmp_disk_spreads = []
@@ -361,12 +375,12 @@ class StudconfigParser(object):
 
         for ename, txt, attrs, children in dta:
             if ename in self.profil_settings:
-                if ename == 'gruppe' and not self._legal_groups.has_key(
-                        attrs['navn']):
+                if (ename == 'gruppe'
+                        and attrs['navn'] not in self._legal_groups):
                     self._config.add_error("Not in groupdef: {}".format(
                                            attrs['navn']))
-                elif ename == 'spread' and not self.legal_spreads.has_key(
-                        attrs['system']):
+                elif (ename == 'spread'
+                        and attrs['system'] not in self.legal_spreads):
                     self._config.add_error("Not in spreaddef: {}".format(
                                            attrs['system']))
                 elif ename == 'disk_kvote':
@@ -374,7 +388,7 @@ class StudconfigParser(object):
                 in_profil.add_setting(ename, attrs)
             elif ename == 'select':
                 for ename2, txt2, attrs2, children2 in children:
-                    if not ename2 in SelectTool.select_map_defs:
+                    if ename2 not in SelectTool.select_map_defs:
                         self._config.add_error(
                             "Unexpected tag '{}', attr={} in {}".format(
                                 ename2, str(attrs2), repr(elem_stack)))

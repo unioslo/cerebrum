@@ -118,7 +118,7 @@ class QueueProcessor(object):
         # previous commit/rollback and this.
         return db_context(self.conn, dryrun=self._dryrun)
 
-    def select_tasks(self):
+    def select_tasks(self, sub_queue=None):
         attempts = self.queue_handler.max_attempts
         logger.info('collecting tasks (nbf=%s, limit=%r, max-attempts=%r)',
                     self.nbf_before, self.limit, attempts)
@@ -126,6 +126,7 @@ class QueueProcessor(object):
         tasks = list(
             TaskQueue(self.conn).search_tasks(
                 queues=self.queue_handler.queue,
+                subs=sub_queue,
                 nbf_before=self.nbf_before,
                 max_attempts=attempts,
                 limit=self.limit))

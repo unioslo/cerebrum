@@ -1,6 +1,6 @@
 /* encoding: utf-8
  *
- * Copyright 2013-2019 University of Oslo, Norway
+ * Copyright 2013-2023 University of Oslo, Norway
  *
  * This file is part of Cerebrum.
  *
@@ -25,7 +25,7 @@ category:metainfo;
 name=eventlog;
 
 category:metainfo;
-version=1.1;
+version=1.2;
 
 
 category:drop;
@@ -90,7 +90,7 @@ category:main;
 CREATE TABLE event_log
 (
   tstamp
-    TIMESTAMP
+    TIMESTAMP WITH TIME ZONE
     DEFAULT [:now]
     NOT NULL,
 
@@ -114,7 +114,7 @@ CREATE TABLE event_log
     NUMERIC(12,0),
 
   taken_time
-    TIMESTAMP,
+    TIMESTAMP WITH TIME ZONE,
 
   failed
     NUMERIC(12,0)

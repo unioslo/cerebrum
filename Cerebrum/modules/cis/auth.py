@@ -90,12 +90,9 @@ To support access control, add the following to your Cerebrum class:
 
 from __future__ import unicode_literals
 
-from mx import DateTime
-
-from twisted.python import log
-
-from rpclib.model.primitive import Unicode
 from rpclib.decorator import rpc
+from rpclib.model.primitive import Unicode
+from twisted.python import log
 
 import cereconf
 from Cerebrum import Errors
@@ -104,6 +101,7 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules.cis import SoapListener
 from Cerebrum.modules.cis.faults import (AuthenticationError,
                                          NotAuthenticatedError)
+from Cerebrum.utils import date as date_utils
 
 
 class Authenticator(object):
@@ -118,9 +116,8 @@ class Authenticator(object):
             raise AuthenticationError('Empty identitifer is not allowed')
         self.authenticated = True
         self.id = id
-        self.started = DateTime.now()
-        self.lastAccessed = DateTime.now()
-        # TODO: more data we would need?
+        self.started = date_utils.now()
+        self.lastAccessed = date_utils.now()
 
     def expire(self):
         """Deauthenticate, log out."""
@@ -264,19 +261,19 @@ class PasswordAuthenticationService(AuthenticationService):
         # Check quarantines
         quarantines = []
         for qrow in account.get_entity_quarantine(only_active=True):
-                # The quarantine found in this row is currently
-                # active. Some quarantine types may not restrict
-                # access to bofhd even if they otherwise result in
-                # lock. Check therefore whether a found quarantine
-                # should be appended
-                #
-                # FIXME, Jazz 2008-04-08:
-                # This should probably be based on spreads or some
-                # such mechanism, but quarantinehandler and the import
-                # routines don't support a more appopriate solution yet
-                if not str(constant.Quarantine(qrow['quarantine_type'])) \
-                       in cereconf.BOFHD_NONLOCK_QUARANTINES:
-                    quarantines.append(qrow['quarantine_type'])
+            # The quarantine found in this row is currently
+            # active. Some quarantine types may not restrict
+            # access to bofhd even if they otherwise result in
+            # lock. Check therefore whether a found quarantine
+            # should be appended
+            #
+            # FIXME, Jazz 2008-04-08:
+            # This should probably be based on spreads or some
+            # such mechanism, but quarantinehandler and the import
+            # routines don't support a more appopriate solution yet
+            if not str(constant.Quarantine(qrow['quarantine_type'])) \
+                   in cereconf.BOFHD_NONLOCK_QUARANTINES:
+                quarantines.append(qrow['quarantine_type'])
         qh = QuarantineHandler.QuarantineHandler(db, quarantines)
         if qh.should_skip() or qh.is_locked():
             qua_repr = ", ".join(constant.Quarantine(q).description
@@ -340,9 +337,9 @@ class UsernameAuthenticationService(AuthenticationService):
         # Check quarantines
         quarantines = []
         for qrow in account.get_entity_quarantine(only_active=True):
-                if not str(constant.Quarantine(qrow['quarantine_type'])) \
-                       in cereconf.BOFHD_NONLOCK_QUARANTINES:
-                    quarantines.append(qrow['quarantine_type'])
+            if not str(constant.Quarantine(qrow['quarantine_type'])) \
+                   in cereconf.BOFHD_NONLOCK_QUARANTINES:
+                quarantines.append(qrow['quarantine_type'])
         qh = QuarantineHandler.QuarantineHandler(db, quarantines)
         if qh.should_skip() or qh.is_locked():
             qua_repr = ", ".join(constant.Quarantine(q).description

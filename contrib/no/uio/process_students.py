@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-# Copyright 2003-2019 University of Oslo, Norway
+#
+# Copyright 2003-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,39 +18,53 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-"""To create new users:
-        ./contrib/no/uio/process_students.py -C .../studconfig.xml
-        -S .../studieprogrammer.xml -s .../merged_persons.xml -c
 """
+Process students/student info.
 
-from __future__ import unicode_literals
-from __future__ import print_function
+This is the entrypoint for creating, restoring and disabling student accounts,
+according to student data from `import_FS`.
 
-import hotshot
-import hotshot.stats
+Note that this script still needs some of the source files for `import_FS`, as
+some info is not imported/available in Cerebrum.
 
+To create new users:
+::
+
+    python process_students.py \\
+      -C studconfig.xml \\
+      -S studieprogrammer.xml \\
+      -s merged_persons.xml \\
+      -c
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import argparse
 import datetime
-import sys
+import hotshot
+import hotshot.stats
 import os
-import traceback
-from time import localtime, strftime, time
 import pprint
+import sys
+from time import localtime, strftime, time
 
 import cereconf
 
 import Cerebrum.logutils
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.utils.argutils import ParserContext
 from Cerebrum.modules.AccountPolicy import AccountPolicy
-from Cerebrum.modules.bofhd_requests.request import BofhdRequests
 from Cerebrum.modules.bofhd import errors
+from Cerebrum.modules.bofhd_requests.request import BofhdRequests
+from Cerebrum.modules.disk_quota import DiskQuota
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.uio import AutoStud
-from Cerebrum.modules.disk_quota import DiskQuota
 from Cerebrum.modules.no.uio.AutoStud.Util import AutostudError
+from Cerebrum.utils.argutils import ParserContext
+from Cerebrum.utils import date_compat
 
 proffile = 'hotshot.prof'
 
@@ -538,13 +552,11 @@ class BuildAccounts(object):
         global max_errors
         try:
             BuildAccounts._process_student(person_info)
-        except:
+        except Exception:
             max_errors -= 1
             if max_errors < 0:
                 raise
-            trace = "".join(traceback.format_exception(
-                sys.exc_type, sys.exc_value, sys.exc_info()[2]))
-            logger.error("Unexpected error: %s", trace)
+            logger.error("Unexpected error", exc_info=True)
             db.rollback()
 
     @staticmethod
@@ -574,7 +586,7 @@ class BuildAccounts(object):
             logger.warn("No matching profile error for %s: %s", fnr, msg)
             logger.set_indent(0)
             return
-        except AutoStud.ProfileHandler.NoAvailableDisk as msg:
+        except AutoStud.ProfileHandler.NoAvailableDisk:
             # pretend that the account was processed so that
             # list_noncallback_users doesn't include the user(s).
             # While this is only somewhat correct behaviour, the
@@ -725,7 +737,7 @@ class ExistingAccount(object):
         return self._home.get(spread, (None, None))
 
     def get_home_spreads(self):
-        return self._home.keys()
+        return list(self._home.keys())
 
     def has_homes(self):
         return len(self._home) > 0
@@ -903,7 +915,7 @@ def get_existing_accounts():
             continue
         tmp_ac[int(row['account_id'])] = ExistingAccount(
             pid2fnr[int(row['owner_id'])],
-            row['expire_date'])
+            date_compat.get_date(row['expire_date']))
     # PosixGid
     for row in posix_user_obj.list_posix_users():
         tmp = tmp_ac.get(int(row['account_id']), None)
@@ -979,7 +991,7 @@ def get_existing_accounts():
             tmp.append_affiliation(int(row['affiliation']), int(row['ou_id']))
 
     for ac_id, tmp in tmp_ac.items():
-        fnr = tmp_ac[ac_id].get_fnr()
+        fnr = tmp.get_fnr()
         if tmp.is_reserved():
             tmp_persons[fnr].append_reserved_ac(ac_id)
         elif tmp.is_deleted():
@@ -1002,8 +1014,8 @@ def get_existing_accounts():
         else:
             tmp_persons[fnr].append_other_ac(ac_id)
 
-    logger.info(" found %i persons and %i accounts", len(tmp_persons),
-                len(tmp_ac))
+    logger.info(" found %i persons and %i accounts",
+                len(tmp_persons), len(tmp_ac))
     return tmp_persons, tmp_ac
 
 

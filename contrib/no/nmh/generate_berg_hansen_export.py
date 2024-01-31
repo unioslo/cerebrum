@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2015-2018 University of Oslo, Norway
+# Copyright 2015-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,23 +18,25 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-"""Generate CSV-export with users that should be imported into Berg-Hansens
+"""
+Generate CSV-export with users that should be imported into Berg-Hansens
 travel-portal.
 
 The output format: title, first name, last name, FEIDE id, e-mail address,
-telephone number, social security number (or equivalent)."""
+telephone number, social security number (or equivalent).
+"""
 import argparse
 import csv
 import logging
 
-import cereconf
+import six
 
+import cereconf
 import Cerebrum.logutils
 import Cerebrum.logutils.options
 import Cerebrum.utils.argutils
-import Cerebrum.utils.csvutils as _csvutils
 from Cerebrum.Utils import Factory
+from Cerebrum.utils import csvutils as _csvutils
 from Cerebrum.utils.atomicfile import AtomicFileWriter
 
 logger = logging.getLogger(__name__)
@@ -54,7 +56,7 @@ def _parse_codes(db, codes):
     co = Factory.get('Constants')(db)
     if codes is None:
         return None
-    elif isinstance(codes, basestring):
+    elif isinstance(codes, six.string_types):
         return co.human2constant(codes)
     else:
         return [co.human2constant(x) for x in codes]
@@ -72,7 +74,7 @@ def _strip_n_parse_source_system(db, codes):
 
     if codes is None:
         return None
-    elif isinstance(codes, basestring):
+    elif isinstance(codes, six.string_types):
         return _fuck_it(codes)
     else:
         return [_fuck_it(x) for x in codes]
@@ -137,7 +139,7 @@ def get_person_info(db, person, source_system,
         system to filter by.
     :param Cerebrum.Constants._ContactInfoCode telephone_types: Filter
         telephone entries by type."""
-    if isinstance(person, (int, long)):
+    if isinstance(person, six.integer_types):
         pe = Factory.get('Person')(db)
         pe.find(person)
     else:

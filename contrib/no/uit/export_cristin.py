@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding:utf-8 -*-
 #
-# Copyright 2003-2019 University of Oslo, Norway
+# Copyright 2003-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -50,9 +50,13 @@ rows.
 sted.xml format is noe specified anywhere (but it will be :)). For now, this
 file is ignored and no <URL> elements are generated in frida.xml (in
 violation of the FRIDA.dtd).
-
 """
-from __future__ import unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import argparse
 import logging
@@ -65,10 +69,12 @@ import six
 
 import cereconf
 import Cerebrum.logutils
+import Cerebrum.logutils.options
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.atomicfile import SimilarSizeWriter
+from Cerebrum.utils.date_compat import get_date
 from Cerebrum.extlib import xmlprinter
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.xmlutils.system2parser import system2parser
@@ -274,7 +280,7 @@ class SystemXRepresentation(object):
                 writer.endElement("gruppenr")
 
                 writer.startElement("datoFra")
-                create_date = aff[0]['create_date']
+                create_date = get_date(aff[0]['create_date'])
 
                 dato_fra = "%s-%s-%s" % (
                     create_date.year, create_date.month, create_date.day)
@@ -1034,7 +1040,7 @@ def output_assignments(writer, sequence, ou_cache, blockname, elemname, attrs):
             if key == "place":
                 continue
             value = item[key]
-            # FIXME: DateTime hack. SIGTHTBABW
+            # FIXME: datetime hack. SIGTHTBABW
             if hasattr(value, "strftime"):
                 value = value.strftime("%Y-%m-%d")
             output_element(writer, value, xmlelement)
@@ -1126,7 +1132,7 @@ def output_guest_information_2(writer, db_person, const, stedkode):
                     writer.endElement("gruppenr")
 
                     writer.startElement("datoFra")
-                    create_date = single_aff['create_date']
+                    create_date = create_date(single_aff['create_date'])
                     dato_fra = "{0}-{1}-{2}".format(
                         create_date.year, create_date.month, create_date.day)
                     writer.data(dato_fra)
@@ -1375,8 +1381,8 @@ def cache_phd_students():
                         row["ou_id"])
             continue
 
-        value = {"start": row["create_date"],
-                 "end": row["deleted_date"],
+        value = {"start": get_date(row["create_date"]),
+                 "end": get_date(row["deleted_date"]),
                  "code": "DOKTORGRADSSTUDENT",
                  "place": (ou_db.fakultet, ou_db.institutt, ou_db.avdeling)}
         result.setdefault(key, []).append(value)
@@ -1394,7 +1400,6 @@ def output_people(writer, db, person_file):
     logger.info("extracting people from %s", person_file)
     phd_students = cache_phd_students()
     logger.info("cached PhD students (%d people)", len(phd_students))
-
     #
     # Sanity-checking
     #

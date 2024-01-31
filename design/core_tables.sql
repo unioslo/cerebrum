@@ -23,7 +23,7 @@
 category:metainfo;
 name=cerebrum_database_schema_version;
 category:metainfo;
-version=0.9.22;
+version=0.9.23;
 
 /* Konvensjoner
  *
@@ -234,6 +234,9 @@ GRANT SELECT ON entity_id_seq TO change_entity;
  * TBD: Need separate `entity_type's for
  *   * name reservations (to be kept in the `entity_name' table)
  *   * ldap DNs (to allow these to members of groups)
+ *
+ * Note: created_at should ideally be NOT NULL, but we're missing some historical
+ * data here
  **/
 category:main;
 CREATE TABLE entity_info
@@ -249,7 +252,7 @@ CREATE TABLE entity_info
     REFERENCES entity_type_code(code),
 
   created_at
-    TIMESTAMP
+    TIMESTAMP WITH TIME ZONE
     DEFAULT [:now]
     NULL,
 

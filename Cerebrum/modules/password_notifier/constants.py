@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2016 University of Oslo, Norway
+# Copyright 2016-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,28 +17,37 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""Constants for the PasswordNotifier."""
+"""
+Constants for the PasswordNotifier.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
-from Cerebrum import Constants as _c
+import Cerebrum.Constants
 from Cerebrum.modules.EntityTrait import _EntityTraitCode
 
 
-class Constants(_c.Constants):
-    """
-    Constants used by PasswordNotifier
-    """
+class Constants(Cerebrum.Constants.Constants):
+
     trait_passwordnotifier_excepted = _EntityTraitCode(
         'autopass_except',
-        _c.Constants.entity_account,
+        Cerebrum.Constants.Constants.entity_account,
         "Trait marking accounts whose password's change is not enforced "
-        "by PasswordNotifier.")
+        "by PasswordNotifier.",
+    )
 
     trait_passwordnotifier_notifications = _EntityTraitCode(
         'pw_notifications',
-        _c.Constants.entity_account,
-        "Trait for PasswordNotifier's bookkeeping.")
+        Cerebrum.Constants.Constants.entity_account,
+        "Trait for PasswordNotifier's bookkeeping.",
+    )
 
     trait_passwordnotifier_sms_notifications = _EntityTraitCode(
         'pw_sms_notificat',
-        _c.Constants.entity_account,
-        "Trait for bookkeeping number of SMSes sent by PasswordNotifier.")
+        Cerebrum.Constants.Constants.entity_account,
+        "Trait for bookkeeping number of SMSes sent by PasswordNotifier.",
+    )

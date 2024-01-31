@@ -27,28 +27,30 @@ from __future__ import unicode_literals
 from Cerebrum import Constants
 from Cerebrum.Constants import (
     _SpreadCode,
-    _PersonAffiliationCode,
     _PersonAffStatusCode,
 )
 from Cerebrum.modules.EntityTrait import _EntityTraitCode
+from Cerebrum.modules.no.Constants import (
+    ConstantsUniversityColleges,
+    ConstantsHigherEdu,
+)
 
 
-class Constants(Constants.Constants):
+class Constants(ConstantsUniversityColleges, ConstantsHigherEdu):
 
-    # employees - affiliation definition
-    affiliation_ansatt = _PersonAffiliationCode('ANSATT', 'Ansatt ved NMH')
     # affiliations for employees
     affiliation_status_ansatt_ovlaerer = _PersonAffStatusCode(
-        affiliation_ansatt, 'ans_ovlaerer', 'Ansatt ved NMH, øvingslærer.')
+        ConstantsHigherEdu.affiliation_ansatt,
+        'ans_ovlaerer',
+        'Ansatt ved NMH, øvingslærer.',
+    )
 
     # affiliations for others
-    affiliation_manuell = _PersonAffiliationCode(
-        'MANUELL',
-        ('Tilknyttet NMH uten å være registrert i et av de'
-         ' autoritative kildesystemene'))
     affiliation_status_manuell_inaktiv = _PersonAffStatusCode(
-        affiliation_manuell, 'inaktiv',
-        'Person uten ekte tilknytning til NMH. Bruk med forsiktighet!')
+        ConstantsHigherEdu.affiliation_manuell,
+        'inaktiv',
+        'Person uten ekte tilknytning til NMH. Bruk med forsiktighet!',
+    )
 
     # Spread definitions - user related
     spread_ad_account = _SpreadCode(

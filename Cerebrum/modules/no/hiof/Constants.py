@@ -28,7 +28,6 @@ from __future__ import unicode_literals
 from Cerebrum import Constants as CereConst
 from Cerebrum.Constants import (
     _SpreadCode,
-    _PersonAffiliationCode,
     _PersonAffStatusCode,
 )
 from Cerebrum.modules.EntityTrait import _EntityTraitCode
@@ -42,42 +41,38 @@ from Cerebrum.modules.no.Constants import (
 )
 
 
-class Constants(CereConst.Constants):
+class Constants(ConstantsUniversityColleges, ConstantsHigherEdu):
 
     # Affiliations for students
-    affiliation_student = ConstantsHigherEdu.affiliation_student
     affiliation_status_student_tilbud = _PersonAffStatusCode(
-        affiliation_student,
+        ConstantsHigherEdu.affiliation_student,
         'tilbud',
-        'Student, tilbud')
-    affiliation_status_student_privatist = _PersonAffStatusCode(
-        affiliation_student,
-        'privatist',
-        'Student, privatist')
+        'Student, tilbud',
+    )
 
     # Affiliations for associated people
     affiliation_status_tilknyttet_timelonnet = _PersonAffStatusCode(
-        ConstantsUniversityColleges.affiliation_tilknyttet,
+        ConstantsHigherEdu.affiliation_tilknyttet,
         'timelonnet',
-        'Personer registrert i SAP som timelønnet')
+        'Personer registrert i SAP som timelønnet',
+    )
 
     # Affiliations for others
-    affiliation_manuell = _PersonAffiliationCode(
-        'MANUELL',
-        'Tilknyttet HiOf uten å være registrert i et av de'
-        ' autoritative kildesystemene')
     affiliation_status_manuell_ekstern = _PersonAffStatusCode(
-        affiliation_manuell,
+        ConstantsHigherEdu.affiliation_manuell,
         'ekstern',
-        'Eksternt tilknyttet person, når spesifikke kategorier ikke passer')
+        'Eksternt tilknyttet person, når spesifikke kategorier ikke passer',
+    )
     affiliation_status_manuell_pensjonist = _PersonAffStatusCode(
-        affiliation_manuell,
+        ConstantsHigherEdu.affiliation_manuell,
         'pensjonist',
-        'Pensjonist ved HiOf, ikke registrert i SAP')
+        'Pensjonist ved HiOf, ikke registrert i SAP',
+    )
     affiliation_status_manuell_gjest = _PersonAffStatusCode(
-        affiliation_manuell,
+        ConstantsHigherEdu.affiliation_manuell,
         'gjest',
-        'Gjesteopphold ved HiOf')
+        'Gjesteopphold ved HiOf',
+    )
 
     # Posix-shell definitions
     #

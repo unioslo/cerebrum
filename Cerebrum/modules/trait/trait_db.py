@@ -25,7 +25,7 @@ import six
 
 import Cerebrum.Errors
 from Cerebrum.Utils import NotSet, argument_to_sql
-from Cerebrum.database.query_utils import NumberRange, Pattern
+from Cerebrum.database import query_utils
 from .constants import CLConstants as TraitChange
 
 
@@ -57,12 +57,6 @@ def _get_change_params(row_like):
     if date:
         change_params['date'] = str(date)
     return change_params
-
-
-def _assert_not_none(value):
-    if value is None:
-        raise ValueError("invalid value: cannot be None")
-    return value
 
 
 def _select(code=None, entity_id=None, entity_type=None,
@@ -165,37 +159,17 @@ def _select(code=None, entity_id=None, entity_type=None,
     #
     # date select
     #
-    date_conds = []
-
-    # None or specific date values
-    if date is None:
-        date_conds.append("({} IS NULL)".format(p + 'date'))
-    elif date is not NotSet:
-        date_conds.append(
-            argument_to_sql(date, p + 'date', binds, _assert_not_none))
-
-    # range - TODO: Implement date/datetime range util
-    if date_before and date_after and date_before < date_after:
-        # a date can never be *both* before <t> *and* after that same
-        # <t>+<delta>
-        raise ValueError("date_after: cannot be after date_before"
-                         " (%s < date < %s)" % (date_before, date_after))
-    date_range = []
-    if date_after:
-        date_range.append("{0} > :date_a".format(p + 'date'))
-        binds['date_a'] = date_after
-    if date_before:
-        date_range.append("{0} < :date_b".format(p + 'date'))
-        binds['date_b'] = date_before
-    if len(date_range) > 1:
-        date_conds.append('({})'.format(' AND '.join(date_range)))
-    elif date_range:
-        date_conds.append(date_range[0])
-
-    if len(date_conds) > 1:
-        clauses.append('({})'.format(' OR '.join(date_conds)))
-    elif date_conds:
-        clauses.append(date_conds[0])
+    date_cond, date_binds = query_utils.date_helper(
+        colname=p + 'date',
+        value=date,
+        gt=date_after,
+        lt=date_before,
+        nullable=True,
+    )
+    if date_cond:
+        clauses.append(date_cond)
+    if date_binds:
+        binds.update(date_binds)
 
     #
     # numval selects
@@ -208,7 +182,7 @@ def _select(code=None, entity_id=None, entity_type=None,
             argument_to_sql(numval, p + 'numval', binds, int))
 
     if numval_min is not None or numval_max is not None:
-        n_range = NumberRange(ge=numval_min, lt=numval_max)
+        n_range = query_utils.NumberRange(ge=numval_min, lt=numval_max)
         n_cond, n_binds = n_range.get_sql_select(p + 'numval', 'numval')
         num_conds.append(n_cond)
         binds.update(n_binds)
@@ -221,33 +195,17 @@ def _select(code=None, entity_id=None, entity_type=None,
     #
     # strval selects
     #
-    str_conds = []
-
-    # match
-    if strval is None:
-        str_conds.append("({} IS NULL)".format(p + 'strval'))
-    elif strval is not NotSet:
-        str_conds.append(
-            argument_to_sql(strval, p + 'strval', binds, six.text_type))
-
-    # case-sensitive pattern
-    if strval_like:
-        sc_pattern = Pattern(strval_like, case_sensitive=True)
-        sc_cond, sc_bind = sc_pattern.get_sql_select(p + 'strval', 'c_pattern')
-        str_conds.append(sc_cond)
-        binds.update(sc_bind)
-
-    # case-insensitive pattern
-    if strval_ilike:
-        si_pattern = Pattern(strval_ilike, case_sensitive=False)
-        si_cond, si_bind = si_pattern.get_sql_select(p + 'strval', 'i_pattern')
-        str_conds.append(si_cond)
-        binds.update(si_bind)
-
-    if len(str_conds) > 1:
-        clauses.append('({})'.format(' OR '.join(str_conds)))
-    elif str_conds:
-        clauses.append(str_conds[0])
+    strval_cond, strval_binds = query_utils.pattern_helper(
+        colname=p + 'strval',
+        value=strval,
+        case_pattern=strval_like,
+        icase_pattern=strval_ilike,
+        nullable=True,
+    )
+    if strval_cond:
+        clauses.append(strval_cond)
+    if strval_binds:
+        binds.update(strval_binds)
 
     return clauses, binds
 

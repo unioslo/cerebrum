@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright 2006-2018 University of Oslo, Norway
+#
+# Copyright 2006-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -20,8 +21,9 @@ import re
 import urlparse
 import xmlrpclib
 
-import cereconf
+import six
 
+import cereconf
 from Cerebrum.Utils import Factory, read_password
 
 
@@ -446,8 +448,9 @@ class ADuserUtil(ADutil):
                             # represented as a list.
                             Mchange = False
 
-                            if isinstance(adusrs[usr][attr],
-                                          (basestring, int, long)):
+                            if (isinstance(adusrs[usr][attr], six.string_types)
+                                    or isinstance(adusrs[usr][attr],
+                                                  six.integer_types)):
                                 # Transform single-value to a list for
                                 # comparison.
                                 val2list = []

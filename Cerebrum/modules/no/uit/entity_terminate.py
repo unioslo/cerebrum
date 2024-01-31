@@ -120,7 +120,6 @@ def delete(db, ac):
         ('entity_contact_info', 'entity_id'),
         ('email_target', 'target_entity_id'),
         ('entity_info', 'entity_id'),
-        ('entity_contact_info', 'entity_id'),
     ]
 
     for key, value in delete_tables:

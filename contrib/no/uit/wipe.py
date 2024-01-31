@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003-2019 University of Oslo, Norway
+# Copyright 2003-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,40 +18,48 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""
+Wipe passwords from the changelog
+"""
 
-"""Wipes passwords from the database."""
-
-from __future__ import unicode_literals
-
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import argparse
 import json
 import logging
-import time
 
 import cereconf
 import Cerebrum.logutils
 
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import CLHandler
+from Cerebrum.utils import date as date_utils
+from Cerebrum.utils import date_compat
 
 
 logger = logging.getLogger(__name__)
 
 
 def pwd_wipe(db, cl, changes, age_threshold, commit):
-    """Remove password older then a threshold from the changelog."""
-    now = time.time()
+    """Remove password older than a threshold from the changelog."""
+    # Cutoff datetime: Only process changes older than this
+    threshold = date_utils.now() - date_compat.get_timedelta(age_threshold)
+
     for chg in changes:
+        tstamp = date_compat.get_datetime_tz(chg['tstamp'])
         changed = False
-        age = now - chg['tstamp'].ticks()
-        if age > age_threshold:
-            logger.debug('Password will be wiped: %s', str(chg['change_id']))
+        if tstamp < threshold:
+            logger.debug('Password will be wiped: %s', chg['change_id'])
             change_params = json.loads(chg['change_params'])
             if wipe_pw(db, chg['change_id'], change_params, commit):
                 changed = True
         else:
-            logger.debug('Password will not be wiped (too recent): %s' + str(
-                chg['change_id']))
+            logger.debug('Password will not be wiped (too recent): %s',
+                         chg['change_id'])
 
         if changed:
             cl.confirm_event(chg)
@@ -117,6 +125,9 @@ def main():
     Cerebrum.logutils.autoconf('cronjob', args)
 
     if not args.changelog_tracker:
+        # TODO: We should *not* exit with a success code here!  This is (most
+        # likely) an invalid input argument - replace with parser.error() +
+        # message to stderr
         logger.error("Empty changelog tracker! This would go through the "
                      "entire change-log. No way! Quitting!")
         return
@@ -128,6 +139,8 @@ def main():
         logger.info("No passwords to wipe!")
         return
     elif num_changes > args.max_changes:
+        # TODO: We should *not* exit with a success code here!  Replace with
+        # an unhandled exception.
         logger.error("Too many changes (%s)! Check if changelog tracker "
                      "(%s) is correct, or override limit in command-line "
                      "or cereconf", num_changes, args.changelog_tracker)

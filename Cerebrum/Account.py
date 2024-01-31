@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright 2002-2019 University of Oslo, Norway
+#
+# Copyright 2002-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -16,37 +17,46 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-"""The Account module stores information about an account of
+"""
+The Account module stores information about an account of
 arbitrary type.  Extentions like PosixUser are used for additional
 parameters that may be required by the requested backend.
 
-Usernames are stored in the table entity_name.  The domain that the
-default username is stored in is yet to be determined.
+Usernames are stored in the table entity_name.
 """
-from __future__ import unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
-import functools
 import logging
-import mx
+import datetime
 import re
 
 import six
 
 import cereconf
-from Cerebrum.auth import all_auth_methods
-from Cerebrum import Utils, Disk
-from Cerebrum.Entity import (EntityName,
-                             EntityQuarantine,
-                             EntityContactInfo,
-                             EntityExternalId,
-                             EntitySpread)
+from Cerebrum import Disk
 from Cerebrum import Errors
-from Cerebrum.Utils import (NotSet,
-                            argument_to_sql,
-                            prepare_string)
-from Cerebrum.utils.username import suggest_usernames
+from Cerebrum import Utils
+from Cerebrum.Entity import (
+    EntityContactInfo,
+    EntityExternalId,
+    EntityName,
+    EntityQuarantine,
+    EntitySpread,
+)
+from Cerebrum.Utils import (
+    NotSet,
+    argument_to_sql,
+    prepare_string,
+)
+from Cerebrum.auth import all_auth_methods
 from Cerebrum.modules.password_generator.generator import PasswordGenerator
+from Cerebrum.utils import date_compat
+from Cerebrum.utils.username import suggest_usernames
 
 logger = logging.getLogger(__name__)
 
@@ -193,10 +203,12 @@ class AccountType(object):
                                                  'old_pri': int(orig_pri)})
 
     def del_account_type(self, ou_id, affiliation):
-        binds = {'person_id': self.owner_id,
-                'ou_id': ou_id,
-                'affiliation': int(affiliation),
-                'account_id': self.entity_id}
+        binds = {
+            'person_id': self.owner_id,
+            'ou_id': ou_id,
+            'affiliation': int(affiliation),
+            'account_id': self.entity_id,
+        }
         if not _account_row_exists(self._db, 'account_type', binds):
             # False positive
             return
@@ -437,7 +449,7 @@ class AccountHome(object):
 
         if current_id is NotSet:
             # Allocate new id
-            binds['homedir_id'] = long(self.nextval('homedir_id_seq'))
+            binds['homedir_id'] = int(self.nextval('homedir_id_seq'))
 
             # Specify None as default value for create
             for key, value in binds.items():
@@ -621,7 +633,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         of expire_date < today. in addition a deactivated account should not
         have any group memberships or a password."""
         group = Utils.Factory.get("Group")(self._db)
-        self.expire_date = mx.DateTime.now()
+        self.expire_date = datetime.date.today()
         for s in self.get_spread():
             self.delete_spread(int(s['spread']))
         for row in group.search(member_id=self.entity_id):
@@ -1107,12 +1119,13 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
 
         (self.owner_type, self.owner_id,
          self.np_type, self.creator_id,
-         self.expire_date, self.description) = self.query_1("""
+         expire_date, self.description) = self.query_1("""
         SELECT owner_type, owner_id, np_type,
                creator_id, expire_date, description
         FROM [:table schema=cerebrum name=account_info]
         WHERE account_id=:a_id""", {'a_id': account_id})
         self.account_name = self.get_name(self.const.account_namespace)
+        self.expire_date = date_compat.get_date(expire_date)
         try:
             del self.__in_db
         except AttributeError:
@@ -1173,8 +1186,9 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         return False
 
     def is_expired(self):
-        now = mx.DateTime.now()
-        if self.expire_date is None or self.expire_date >= now:
+        today = datetime.date.today()
+        expire_date = date_compat.get_date(self.expire_date)
+        if expire_date is None or expire_date >= today:
             return False
         return True
 
@@ -1413,13 +1427,13 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         current time. If specified then filter on expire_date>=expire_start.
         If expire_start is None, don't apply a start_date filter.
         @type expire_start: Date. Either a string on format 'YYYY-mm-dd' or a
-        mx.DateTime object
+        datetime object
 
         @param expire_stop: Filter on expire_date. If None, don't apply a
         stop filter on expire_date. If other than None, filter on
         expire_date<expire_stop.
         @type expire_stop: Date. Either a string on format 'YYYY-mm-dd' or a
-        mx.DateTime object
+        datetime object
 
         @param exclude_account_id: Filter out account(s) with given account_id.
         @type exclude_account_id: Integer, list, tuple, set

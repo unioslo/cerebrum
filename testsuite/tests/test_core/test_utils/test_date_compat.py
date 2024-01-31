@@ -1,3 +1,31 @@
+# encoding: utf-8
+#
+# Copyright 2021-2023 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""
+Tests for ``Cerebrum.utils.date_compat``
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import datetime
 
 import pytest
@@ -11,7 +39,7 @@ LOCAL_TZ = date.TIMEZONE
 
 
 class _MockDateTime(object):
-    """ a mock mx.DateTime.DateTime object with pydate() and pydatetime() """
+    """ a mock mx-like datetime object with pydate() and pydatetime() """
 
     def __init__(self, ts):
         """
@@ -46,7 +74,7 @@ class _MockDateTime(object):
 
 
 class _MockDelta(object):
-    """ a mock mx.DateTime.TimeDelta object with pydate() and pydatetime() """
+    """ a mock mx-like timedelta object with pytimedelta() """
 
     def __init__(self, delta):
         """
@@ -92,7 +120,7 @@ def naive_dt(local_dt):
 
 @pytest.fixture
 def mxlike_dt(naive_dt):
-    """ mx.DateTime-like object representing `local_dt`. """
+    """ mx-like datetime object representing `local_dt`. """
     return _MockDateTime(naive_dt)
 
 
@@ -104,7 +132,7 @@ def local_date(local_dt):
 
 @pytest.fixture
 def mxlike_date(local_date):
-    """ mx.DateTime-like object representing `local_date`. """
+    """ mx-like date object representing `local_date`. """
     ts = datetime.datetime.combine(local_date, datetime.time(0))
     return _MockDateTime(ts)
 
@@ -117,7 +145,7 @@ def delta():
 
 @pytest.fixture
 def mxlike_delta(delta):
-    """ mx.DateTime-like timedelta. """
+    """ mx-like timedelta object representing `delta`. """
     return _MockDelta(delta)
 
 
@@ -182,7 +210,7 @@ def test_get_date_from_nondate(delta):
 
 # get_datetime_naive tests
 #
-# None, date, naive datetime, tz-aware datetime, mx.DateTime
+# None, date, naive datetime, tz-aware datetime, mx-like datetime
 # should all result in a sane naive datetime object.
 #
 # If tzinfo is present, we convert the datetime it to the given tz before
@@ -221,7 +249,7 @@ def test_get_datetime_naive_from_mx(mxlike_dt, naive_dt):
 
 # get_datetime_tz tests
 #
-# None, date, naive datetime, tz-aware datetime, mx.DateTime
+# None, date, naive datetime, tz-aware datetime, mx-like datetime
 # should all result in a sane tz-aware datetime object.
 #
 # If tzinfo is missing from the input, we assume the *naive* date/datetime is

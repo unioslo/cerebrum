@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003-2017 University of Oslo, Norway
+# Copyright 2003-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,8 +17,8 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-""" Module with utilities for dealing with SAP-specific data files.
+"""
+Module with utilities for dealing with SAP-specific data files.
 
 The public interface is two methods only -- `make_person_iterator` and
 `make_employment_iterator`. The rest is meant for internal usage only.
@@ -29,7 +28,16 @@ SAP data.
 
 TODO: This module should be profiled.
 
+TODO: All datetime objects in this module *should* be datetime.date values.
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    # TODO: unicode_literals,
+)
+
+import six
 
 import re
 import sys
@@ -232,9 +240,9 @@ class _MetaTupleBase(type):
         return kls
 
 
-class _SAPTupleBase(object):
-
-    """A tuple/dict-like class for abstracting away SAP-data.
+class _SAPTupleBase(six.with_metaclass(_MetaTupleBase), object):
+    """
+    A tuple/dict-like class for abstracting away SAP-data.
 
     This class presents and abstraction layer to deal with SAP-data. The main
     goal is to abstract away the storage details for SAP files. Ideally, we
@@ -259,10 +267,7 @@ class _SAPTupleBase(object):
       >>> x = SAPEmploymentTuple(<some tuple>)
       >>> x[5]
       20100228
-      >>> x.start_date
-      <mx.DateTime.DateTime object for '2010-02-28 00:00:00.00'>
-      >>> x['start_date'']
-      <mx.DateTime.DateTime object for '2010-02-28 00:00:00.00'>
+      >>> x.start_date == x['start_date']
 
     Both kinds of index/key refer to the same element, but positional access
     yields raw value, whereas accessing the attribute by name provides the
@@ -275,11 +280,6 @@ class _SAPTupleBase(object):
     suitable warning issued.
     """
 
-    #
-    # Make sure everyone's _field_count/_field_rules are processed properly on
-    # loading.
-    __metaclass__ = _MetaTupleBase
-
     def __init__(self, tpl, logger=None):
         if len(tpl) != self._field_count:
             raise RuntimeError("Wrong # of fields: wanted %s got %s" %
@@ -290,7 +290,7 @@ class _SAPTupleBase(object):
             try:
                 value = transformation(*[tpl[index] for index in indices])
                 setattr(self, slot_name, value)
-            except:
+            except Exception:
                 if logger is not None:
                     logger.info("Failed to set value %s for attribute %s in "
                                 "tuple (%s): %s. Assuming None",

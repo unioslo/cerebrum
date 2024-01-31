@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2016-2018 University of Oslo, Norway
+# Copyright 2016-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,10 +18,8 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-from __future__ import unicode_literals
-
-"""Module for handling notifications of passwords that are running out of date.
+"""
+Module for handling notifications of passwords that are running out of date.
 
 Institutions could have security related policies in that passwords must be
 changed after a given number of days.
@@ -47,58 +45,104 @@ module:
 
 A trait is used for excepting specific users from being processed.
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
-import io
+import contextlib
+import datetime
 import email
+import io
 import locale
 import logging
 import os
 import smtplib
-import time
-import warnings
+import textwrap
 from functools import partial
 
-import mx.DateTime as dt
 import six
 
 import cereconf
 
 from Cerebrum import Errors
 from Cerebrum import Utils
-from Cerebrum.utils.email import sendmail
-from Cerebrum.utils.sms import SMSSender
 from Cerebrum.QuarantineHandler import QuarantineHandler
 from Cerebrum.modules.password_notifier.config import load_config
 from Cerebrum.modules.pwcheck.history import PasswordHistory
+from Cerebrum.utils import date as date_utils
+from Cerebrum.utils import date_compat
+from Cerebrum.utils.email import sendmail
+from Cerebrum.utils.module import resolve
+from Cerebrum.utils.sms import SMSSender
 
 
 logger = logging.getLogger(__name__)
 
-# Default date format (non-localized)
-DATE_FORMAT = '%Y-%m-%d'
+
+def human_date(date_like):
+    """ Default date format (non-localized). """
+    date = date_compat.get_date(date_like, allow_none=False)
+    return date.strftime('%Y-%m-%d')
 
 
-def _get_notifier_classes(values):
+@contextlib.contextmanager
+def locale_context(category, tmp_locale=None):
+    """ Use a temporary locale setting. """
+    prev_locale = locale.getlocale(category)
+
+    locale.setlocale(category, tmp_locale)
+
+    try:
+        yield locale.getlocale(category)
+    except Exception:
+        locale.setlocale(category, prev_locale)
+        raise
+
+
+def local_date(date, language_code=None):
     """
-    """
-    def _import_cls(spec):
-        mod, name = spec.split('/')
-        mod = Utils.dyn_import(str(mod))
-        cls = getattr(mod, str(name))
-        return cls
+    Get a localized date.
 
-    cls_list = []
-    for idx, class_str in enumerate(values):
-        cls_list.append(_import_cls(class_str))
-        for prev in range(idx):
-            if issubclass(cls_list[idx], cls_list[prev]):
+    Return a human readable string of a given date, and in the correct
+    language. Making it easier for users to be sure of a deadline date.
+    """
+    date_formats = {
+        'nb_NO': '%A %-d. %B %Y',
+        'nn_NO': '%x',
+        'en_US': '%A, %-d %B %Y',
+        None:    '%x',  # default
+    }
+    date_fmt = date_formats.get(language_code) or date_formats[None]
+
+    if six.PY2 and not isinstance(language_code, bytes):
+        # in `locale.setlocale` - PY2 locale must be a bytestring
+        language_code = language_code.encode('ascii')
+
+    with locale_context(locale.LC_TIME, language_code) as curr_locale:
+        encoding = curr_locale[1]
+        datestr = date.strftime(date_fmt)
+        if isinstance(datestr, bytes):
+            datestr = datestr.decode(encoding or 'ascii')
+        return datestr
+
+
+def _get_notifier_classes(class_notifier):
+    """ Get PasswordNotifier base classes. """
+    bases = []
+    curr_cls = None
+    for curr_idx, class_str in enumerate(class_notifier):
+        curr_cls = resolve(class_str)
+        for prev_idx, prev_cls in enumerate(bases):
+            if issubclass(curr_cls, prev_cls):
                 raise RuntimeError(
                     'class_notifier[{:d}] ({!r}) is a subclass of '
-                    'class_notifier[{:d}] ({!r})'.format(idx,
-                                                         cls_list[idx],
-                                                         prev,
-                                                         cls_list[prev]))
-    return cls_list
+                    'class_notifier[{:d}] ({!r})'.format(curr_idx, curr_cls,
+                                                         prev_idx, prev_cls))
+        bases.append(curr_cls)
+    return tuple(bases)
 
 
 class PasswordNotifier(object):
@@ -107,28 +151,21 @@ class PasswordNotifier(object):
     can query information about passwords notifications.
     """
 
-    def __init__(self, db=None, logger=None, dryrun=False, *rest, **kw):
+    def __init__(self, db=None, dryrun=False, *rest, **kw):
         """ Constructs a PasswordNotifier.
 
         :param Cerebrum.database.Database db:
             Database object to use. If `None`, this object will fetch a new db
             connection with `Factory.get('Database')`. This is the default.
 
-        :param logging.Logger logger:
-            Logger object to use. If `None`, this object will fetch a new
-            logger with `Factory.get_logger('crontab')`. This is the default.
-
         :param bool dryrun:
             If this object should refrain from doing changes, and only print
             debug info. Default is `False`.
         """
-        if logger is not None:
-            warnings.warn("passing logger is deprecated", DeprecationWarning)
         self.db = db or Utils.Factory.get("Database")()
         self.dryrun = bool(dryrun)
 
-        self.now = dt.Date(*(time.localtime()[:3]))
-        self.today = dt.Date(*(time.localtime()[:3]))
+        self.start = date_utils.now()
 
         account = Utils.Factory.get("Account")(self.db)
         account.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
@@ -136,15 +173,23 @@ class PasswordNotifier(object):
         self.constants = Utils.Factory.get('Constants')(db)
         self.splatted_users = []
 
+    @property
+    def today(self):
+        return self.start.date()
+
     def get_old_account_ids(self):
         """ Returns the ID of candidate accounts with old affiliations.
 
         :return set:
             A set with Account entity_ids.
         """
+        ph = PasswordHistory(self.db)
+
         def _with_aff(affiliation=None, max_age=None):
             old = set()
             person = Utils.Factory.get("Person")(self.db)
+
+            max_age = date_compat.get_timedelta(max_age)
 
             aff_or_status = self.constants.human2constant(affiliation)
             if not aff_or_status:
@@ -155,46 +200,44 @@ class PasswordNotifier(object):
                       else 'affiliation': aff_or_status}
             for row in person.list_affiliations(**lookup):
                 person_id = row['person_id']
-                # if person_id in old_ids:
-                #     continue
                 person.clear()
                 person.find(person_id)
-                # account_id = person.get_primary_account()
                 for account_row in person.get_accounts():
                     # consider all accounts belonging to this person
                     account_id = account_row['account_id']
                     if account_id:
-                        history = [x['set_at'] for x in ph.get_history(
-                            account_id)]
-                        if history and (self.today - max(history) > max_age):
+                        last_set = date_compat.get_date(
+                            ph.get_most_recent_set_at(account_id))
+                        if (last_set
+                                and max_age
+                                and (self.today - last_set > max_age)):
                             old.add(account_id)
                         else:
                             # The account does not have an expired password
                             # according to the special rules.
                             # Remove it from old_ids if it was put there
                             # by the default rules.
-                            try:
-                                old_ids.remove(account_id)
-                            except KeyError:
-                                pass
+                            old_ids.discard(account_id)
             logger.info(
                 'Accounts with affiliation %s with old password: %s',
                 str(affiliation), len(old))
             return old
 
-        ph = PasswordHistory(self.db)
-
+        max_password_age = datetime.timedelta(
+            days=self.config.max_password_age)
         logger.info('Fetching accounts with password older than %d days',
-                    self.config.max_password_age)
+                    max_password_age.days)
+        is_old_before = self.today - max_password_age
         old_ids = set(
-            [int(x['account_id']) for x in ph.find_old_password_accounts((
-                self.today - dt.DateTimeDelta(
-                    self.config.max_password_age)).strftime(DATE_FORMAT))])
+            int(x['account_id'])
+            for x in ph.find_old_password_accounts(is_old_before))
+
         # Do we have special rules for certain person affiliations?
         # We want to end with the smallest 'max_password_age'
-        aff_mappings = sorted(self.config.affiliation_mappings,
-                              key=lambda k: k['max_password_age'],
-                              reverse=True)
+        aff_mappings = sorted(
+            self.config.affiliation_mappings,
+            key=lambda k: k['max_password_age'],
+            reverse=True)
         for aff_mapping in aff_mappings:
             logger.info(
                 'Fetching accounts with affiliation %s '
@@ -203,7 +246,8 @@ class PasswordNotifier(object):
                 aff_mapping['max_password_age'])
             old_ids.update(_with_aff(
                 affiliation=aff_mapping['affiliation'],
-                max_age=dt.DateTimeDelta(aff_mapping['max_password_age'])))
+                max_age=datetime.timedelta(
+                    days=aff_mapping['max_password_age'])))
         logger.info('Fetching quarantines')
         # TODO: Select only autopassword quarantines?
         quarantined_ids = QuarantineHandler.get_locked_entities(
@@ -264,9 +308,10 @@ class PasswordNotifier(object):
             account.populate_trait(
                 code=self.constants.EntityTrait(self.config.trait),
                 target_id=None,
-                date=self.now,
+                date=self.start,
                 numval=0,
-                strval=self.today.strftime("Failed: " + DATE_FORMAT))
+                strval=("Failed: " + human_date(self.today)),
+            )
             account.write_db()
         else:
             if int(traits['numval']) != 0:
@@ -290,24 +335,25 @@ class PasswordNotifier(object):
                         account.account_name, traits['numval'])
             if traits['strval']:
                 strval = ", ".join((str(traits['strval']),
-                                    self.today.strftime(DATE_FORMAT)))
+                                    human_date(self.today)))
             else:
-                strval = self.today.strftime(DATE_FORMAT)
+                strval = human_date(self.today)
             traits['strval'] = strval
         else:
             logger.info("Adding passwd trait for %s", account.account_name)
             traits = {
                 'code': self.constants.EntityTrait(self.config.trait),
                 'target_id': None,
-                'date': self.now,
+                'date': self.start,
                 'numval': 1,
-                'strval': self.today.strftime(DATE_FORMAT)
+                'strval': human_date(self.today),
             }
         account.populate_trait(**traits)
         account.write_db()
 
     def get_notification_time(self, account):
-        """ Fetches previous notification time.
+        """
+        Fetches previous notification time.
 
         The notification time is stored in the date field of the notification
         trait.
@@ -315,16 +361,15 @@ class PasswordNotifier(object):
         :param Cerebrum.Account account:
             The account to fetch notification time for.
 
-        :return DateTime:
-            Returns the DateTime for the previous notification, or None if the
+        :returns datetime.datetime:
+            Returns the time for the previous notification, or None if the
             account has not been notified.
         """
-        traits = account.get_trait(
+        trait = account.get_trait(
             self.constants.EntityTrait(self.config.trait))
-        if traits is None:
+        if trait is None:
             return None
-        else:
-            return traits['date']
+        return date_compat.get_datetime_naive(trait['date'])
 
     def get_deadline(self, account):
         """ Calculates the deadline for password change.
@@ -334,18 +379,17 @@ class PasswordNotifier(object):
         :param Cerebrum.Account account:
             The account to fetch a deadline time for.
 
-        :return DateTime:
+        :returns datetime.date:
             Returns the deadline datetime.
         """
+        grace_delta = datetime.timedelta(days=self.config.grace_period)
         d = self.get_notification_time(account)
-        if d is None:
-            d = self.today
-        return d + dt.DateTimeDelta(self.config.grace_period)
+        deadline = date_compat.get_date(d) or self.today
+        return deadline + grace_delta
 
     def get_account_affiliation_mapping(self, account):
         """
-        Returns the affiliation_mappings value for the given account,
-        based on the affiliations of the account's owner.
+        Get best config[affiliation_mappings] mapping for a given account.
 
         :return dict or None (if no matching mapping is found in the config)
         """
@@ -376,22 +420,36 @@ class PasswordNotifier(object):
                     return aff_mapping
         return None
 
-    def remind_ok(self, account):
-        """Returns true if it is time to remind"""
-        n = self.get_num_notifications(account)
-
+    def _get_reminder_delays(self, account):
+        """ Get a tuple of reminder delays for a given account. """
         try:
+            # TODO: This is the only use of get_account_affiliation_mapping ...
             a_mapping = self.get_account_affiliation_mapping(account)
         except Errors.NotFoundError:
             a_mapping = None
 
         if a_mapping is not None:
+            # delays from config[affiliation_mappings]
             reminder_delay_values = a_mapping['warn_before_expiration_days']
         else:
+            # delays from config[reminder_delay_values]
             reminder_delay_values = self.config.reminder_delay_values
-        if 0 < n <= len(reminder_delay_values):
-            delay = dt.DateTimeDelta(reminder_delay_values[n-1])
-            if self.get_notification_time(account) <= self.today - delay:
+
+        return tuple(datetime.timedelta(days=n)
+                     for n in reminder_delay_values)
+
+    def remind_ok(self, account):
+        """Returns true if it is time to remind"""
+        n = self.get_num_notifications(account)
+        reminder_delays = self._get_reminder_delays(account)
+
+        if 0 < n <= len(reminder_delays):
+            delay = reminder_delays[n-1]
+            last_notified = date_compat.get_date(
+                self.get_notification_time(account))
+            if not last_notified:
+                return True
+            if last_notified <= self.today - delay:
                 return True
         return False
 
@@ -409,7 +467,7 @@ class PasswordNotifier(object):
                 self.constants.quarantine_autopassord,
                 self.splattee_id,
                 "password not changed",
-                self.now,
+                self.today,
                 None)
             return True
         else:
@@ -502,21 +560,25 @@ class PasswordNotifier(object):
             if num_skipped_new_notifications
             else '')
 
-        stats = ("Users with old passwords: {}\n"
-                 "Excepted users: {}\n"
-                 "Splatted users: {}\n"
-                 "Warned users: {} {}\n"
-                 "Reminded users: {}\n"
-                 "Users warned previously: {}\n"
-                 "Users with new passwords: {}\n").format(
-                     len(old_ids),
-                     num_excepted,
-                     num_splatted,
-                     num_mailed,
-                     skipped_warnings,
-                     num_reminded,
-                     num_previously_warned,
-                     num_lifted)
+        stats = textwrap.dedent(
+            """
+            Users with old passwords: {}
+            Excepted users: {}
+            Splatted users: {}
+            Warned users: {} {}
+            Reminded users: {}
+            Users warned previously: {}
+            Users with new passwords: {}
+            """
+        ).format(
+            len(old_ids),
+            num_excepted,
+            num_splatted,
+            num_mailed, skipped_warnings,
+            num_reminded,
+            num_previously_warned,
+            num_lifted,
+        ).lstrip()
 
         if self.dryrun:
             print(stats)
@@ -612,8 +674,8 @@ class PasswordNotifier(object):
         """
         return True
 
-    @staticmethod
-    def get_notifier(config=None):
+    @classmethod
+    def get_notifier(cls, config=None):
         """ Factories a notifier class object.
 
         Secondary calls to get_notifier will always return the same class,
@@ -631,51 +693,31 @@ class PasswordNotifier(object):
         try:
             # If called previously, the class has been cached in
             # PasswordNotifier
-            return PasswordNotifier._notifier
+            return cls._notifier
         except AttributeError:
             pass
 
-        if config is None:
-            config = load_config()
-        else:
-            config = load_config(filepath=config)
+        config = load_config(filepath=config)
 
         comp_class = type(
             str('_dynamic_notifier'),
             tuple(_get_notifier_classes(config.class_notifier_values)),
             {'config': config, })
-        PasswordNotifier._notifier = comp_class
+        cls._notifier = comp_class
         return comp_class
 
 
 class EmailPasswordNotifier(PasswordNotifier):
     """ Send password notifications by E-mail. """
 
-    def __init__(self, db=None, logger=None, dryrun=False, *rest, **kw):
-        """ Constructs a PasswordNotifier that notifies by E-mail.
-
-        :param Cerebrum.database.Database db:
-            Database object to use. If `None`, this object will fetch a new db
-            connection with `Factory.get('Database')`. This is the default.
-
-        :param logging.Logger logger:
-            Logger object to use. If `None`, this object will fetch a new
-            logger with `Factory.get_logger('crontab')`. This is the default.
-
-        :param bool dryrun:
-            If this object should refrain from doing changes, and only print
-            debug info. Default is `False`.
-        """
-        super(EmailPasswordNotifier,
-              self).__init__(db, logger, dryrun, rest, kw)
+    def __init__(self, *rest, **kw):
+        """ Constructs a PasswordNotifier that notifies by E-mail. """
+        super(EmailPasswordNotifier, self).__init__(*rest, **kw)
 
         self.mail_info = []
         for fn in self.config.templates:
-            with io.open(os.path.join(cereconf.TEMPLATE_DIR,
-                                      'no_NO',
-                                      'email',
-                                      fn),
-                         'r', encoding='UTF-8') as fp:
+            filename = os.path.join(cereconf.TEMPLATE_DIR, 'no_NO/email', fn)
+            with io.open(filename, 'r', encoding='UTF-8') as fp:
                 msg = email.message_from_file(fp)
             self.mail_info.append({
                 'Subject': msg['Subject'],
@@ -687,7 +729,7 @@ class EmailPasswordNotifier(PasswordNotifier):
 
     def notify(self, account):
 
-        def mail_user(account, mail_type, deadline, first_time=''):
+        def mail_user(account, mail_type, deadline, first_time=None):
             mail_type = min(mail_type, len(self.mail_info)-1)
             if mail_type == -1:
                 logger.debug("No template defined")
@@ -699,21 +741,19 @@ class EmailPasswordNotifier(PasswordNotifier):
             subject = subject.replace('${USERNAME}', account.account_name)
             body = self.mail_info[mail_type]['Body']
             body = body.replace('${USERNAME}', account.account_name)
-            body = body.replace('${DEADLINE}', deadline.strftime(DATE_FORMAT))
-            if isinstance(first_time, dt.DateTimeType):
-                body = body.replace('${FIRST_TIME}',
-                                    first_time.strftime(DATE_FORMAT))
+            body = body.replace('${DEADLINE}', human_date(deadline))
+            if first_time:
+                body = body.replace('${FIRST_TIME}', human_date(first_time))
             else:
-                body = body.replace('${FIRST_TIME}', first_time)
+                body = body.replace('${FIRST_TIME}', "")
 
             # add dates for different languages::
             for lang in ('nb_NO', 'nn_NO', 'en_US'):
                 tag = '${DEADLINE_%s}' % lang.upper()
-                body = body.replace(tag, self._date2human(deadline, lang))
+                body = body.replace(tag, local_date(deadline, lang))
                 if first_time:
                     tag = '${FIRST_TIME_%s}' % lang.upper()
-                    body = body.replace(tag, self._date2human(first_time,
-                                                              lang))
+                    body = body.replace(tag, local_date(first_time, lang))
             return _send_mail(
                 mail_to=to_email,
                 mail_from=self.mail_info[mail_type]['From'],
@@ -726,7 +766,7 @@ class EmailPasswordNotifier(PasswordNotifier):
             "Notifying %s, number=%d, deadline=%s",
             account.account_name,
             self.get_num_notifications(account) + 1,
-            deadline.strftime(DATE_FORMAT))
+            human_date(deadline))
         if self.get_num_notifications(account) == 0:
             return mail_user(
                 account=account,
@@ -739,73 +779,18 @@ class EmailPasswordNotifier(PasswordNotifier):
                 deadline=deadline,
                 first_time=self.get_notification_time(account))
 
-    def _date2human(self, date, language_code=None):
-        """ Get a localized date.
-
-        Return a human readable string of a given date, and in the correct
-        language. Making it easier for users to be sure of a deadline date.
-        """
-        date_formats = {
-            'nb_NO': '%A %-d. %B %Y',
-            'nn_NO': '%x',
-            'en_US': '%A, %-d %B %Y',
-            None:    '%x',  # default
-        }
-        # TODO: Replace this with babel.dates.format_date?
-        # setlocale doesn't seem to like unicode
-        if language_code:
-            try:
-                language_code = str(language_code)
-            except UnicodeError:
-                warnings.warn(
-                    'non-ascii language_code: {!r}'.format(language_code),
-                    UnicodeWarning)
-                language_code = None
-
-        if language_code:
-            previous = locale.getlocale(locale.LC_TIME)
-            try:
-                locale.setlocale(locale.LC_TIME, language_code)
-            except locale.Error as e:
-                warnings.warn('locale.setlocale failed: {}'.format(e),
-                              RuntimeWarning)
-
-        locale_encoding = locale.getlocale(locale.LC_TIME)[1]
-        date_fmt = date_formats.get(language_code) or date_formats[None]
-        ret = date.strftime(date_fmt)
-        if language_code:
-            locale.setlocale(locale.LC_TIME, previous)
-        if locale_encoding:
-            ret = ret.decode(locale_encoding)
-        return six.text_type(ret)
-
 
 class SMSPasswordNotifier(PasswordNotifier):
     """ Send password notifications by SMS. """
-    def __init__(self, db=None, logger=None, dryrun=False, *rest, **kw):
-        """ Constructs a PasswordNotifier that notifies by SMS.
 
-        :param Cerebrum.database.Database db:
-            Database object to use. If `None`, this object will fetch a new db
-            connection with `Factory.get('Database')`. This is the default.
-
-        :param logging.Logger logger:
-            Logger object to use. If `None`, this object will fetch a new
-            logger with `Factory.get_logger('crontab')`. This is the default.
-
-        :param bool dryrun:
-            If this object should refrain from doing changes, and only print
-            debug info. Default is `False`.
-        """
-        super(SMSPasswordNotifier, self).__init__(db, logger, dryrun, rest, kw)
-
-        from os import path
-        with io.open(path.join(cereconf.TEMPLATE_DIR,
-                               'warn_before_splat_sms.template'),
-                     'r', encoding='UTF-8') as f:
+    def __init__(self, *rest, **kw):
+        """ Constructs a PasswordNotifier that notifies by SMS. """
+        super(SMSPasswordNotifier, self).__init__(*rest, **kw)
+        filename = os.path.join(cereconf.TEMPLATE_DIR,
+                                'warn_before_splat_sms.template')
+        with io.open(filename, 'r', encoding='UTF-8') as f:
             self.template = f.read()
-
-        self.person = Utils.Factory.get('Person')(db)
+        self.person = Utils.Factory.get('Person')(self.db)
 
     def get_deadline(self, account):
         """ Calculates the deadline for password change.
@@ -815,36 +800,31 @@ class SMSPasswordNotifier(PasswordNotifier):
         :param Cerebrum.Account account:
             The account to fetch a deadline time for.
 
-        :return DateTime:
+        :returns datetime.date:
             Returns the deadline datetime.
         """
         trait = account.get_trait(
             self.constants.EntityTrait(self.config.follow_trait))
+        grace_delta = datetime.timedelta(days=self.config.grace_period)
+
         d = trait['date'] if trait else None
-        if d is None:
-            d = self.today
-        return d + dt.DateTimeDelta(self.config.grace_period)
+        deadline = date_compat.get_date(d) or self.today
+        return deadline + grace_delta
 
     def remind_ok(self, account):
         """Returns true if it is time to remind"""
-        try:
-            a_mapping = self.get_account_affiliation_mapping(account)
-        except Errors.NotFoundError:
-            a_mapping = None
+        reminder_delays = self._get_reminder_delays(account)
 
-        if a_mapping is not None:
-            reminder_delay_values = a_mapping['warn_before_expiration_days']
-        else:
-            reminder_delay_values = self.config.reminder_delay_values
-
-        if (self.get_notification_time(account) == self.today or
+        last_notified = date_compat.get_date(
+            self.get_notification_time(account))
+        if (last_notified == self.today or
                 (self.get_num_notifications(account) >=
-                 len(reminder_delay_values))):
+                 len(reminder_delays))):
             return False
 
-        for days_before in reminder_delay_values:
-            if ((self.get_deadline(account) -
-                 dt.DateTimeDelta(days_before)) == self.today):
+        for days_before in reminder_delays:
+            deadline = self.get_deadline(account)
+            if (deadline - days_before) == self.today:
                 return True
         return False
 
@@ -899,14 +879,19 @@ class SMSPasswordNotifier(PasswordNotifier):
                 else:
                     logger.info("User %s not notified", account.account_name)
 
-        stats = ("Users with old passwords: {}\n"
-                 "Excepted users: {}\n"
-                 "SMSed users: {}\n"
-                 "Users with new passwords: {}\n").format(
-                     len(old_ids),
-                     num_excepted,
-                     num_smsed,
-                     num_lifted)
+        stats = textwrap.dedent(
+            """
+            Users with old passwords: {}
+            Excepted users: {}
+            SMSed users: {}
+            Users with new passwords: {}
+            """
+        ).format(
+            len(old_ids),
+            num_excepted,
+            num_smsed,
+            num_lifted,
+        ).lstrip()
 
         if self.dryrun:
             print(stats)
@@ -936,9 +921,9 @@ class SMSPasswordNotifier(PasswordNotifier):
             else:
                 sms_numbers = cereconf.SMS_NUMBER_SELECTOR
             try:
-                spec = map(lambda (s, t): (self.constants.human2constant(s),
-                                           self.constants.human2constant(t)),
-                           sms_numbers)
+                spec = [(self.constants.human2constant(s),
+                         self.constants.human2constant(t))
+                        for s, t in sms_numbers]
                 mobile = self.person.sort_contact_info(
                     spec, self.person.get_contact_info())
                 person_in_systems = [int(af['source_system']) for af in
@@ -979,10 +964,9 @@ class SMSPasswordNotifier(PasswordNotifier):
             "Notifying %s by SMS, number=%d, deadline=%s",
             account.account_name,
             self.get_num_notifications(account) + 1,
-            deadline.strftime(DATE_FORMAT))
-        return sms(
-            account=account,
-            days_until_splat=int(deadline - self.today))
+            human_date(deadline))
+        days_until_splat = (deadline - self.today).days
+        return sms(account=account, days_until_splat=days_until_splat)
 
 
 def _send_mail(mail_to, mail_from, subject, body,

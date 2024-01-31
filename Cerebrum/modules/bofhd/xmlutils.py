@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2002-2018 University of Oslo, Norway
+# Copyright 2002-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,6 +17,18 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""
+XML-RPC utilities for bofhd.
+
+This module deals with serializing and de-serializing
+XML-RPC data in bofhd.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    # TODO: unicode_literals,
+)
 
 import datetime
 import decimal
@@ -24,13 +36,15 @@ import warnings
 import xmlrpclib
 
 import six
-from mx import DateTime
 
 from Cerebrum.utils import date_compat
+from Cerebrum.utils import date as date_utils
 from Cerebrum.utils.textnorm import UnicodeNormalizer
 
 
 normalize = UnicodeNormalizer('NFC')
+
+_numerical = six.integer_types + (float,)
 
 
 class AttributeDict(dict):
@@ -75,14 +89,18 @@ def native_to_xmlrpc(obj):
         obj_type = type(obj)
         return obj_type([(native_to_xmlrpc(x), native_to_xmlrpc(obj[x]))
                          for x in obj])
-    elif isinstance(obj, (int, long, float)):
+    elif isinstance(obj, _numerical):
         return obj
     elif isinstance(obj, decimal.Decimal):
         return float(obj)
-    elif isinstance(obj, (xmlrpclib.DateTime, DateTime.DateTimeType)):
-        return xmlrpclib.DateTime(tuple([int(i) for i in obj.tuple()]))
     elif isinstance(obj, datetime.date):
         # (datetime.date, datetime.datetime) -> naive datetime -> xmlrpc
+        return xmlrpclib.DateTime(date_compat.get_datetime_naive(obj))
+    elif isinstance(obj, xmlrpclib.DateTime):
+        # Why don't we return the object as-is?
+        return xmlrpclib.DateTime(tuple(int(i) for i in obj.tuple()))
+    elif date_compat.is_mx_datetime(obj):
+        # mx-like -> naive datetime -> xmlrpc
         return xmlrpclib.DateTime(date_compat.get_datetime_naive(obj))
     else:
         raise ValueError("Unrecognized parameter type: '{!r}' {!r}".format(
@@ -94,7 +112,7 @@ def xmlrpc_to_native(obj):
     # We could have used marshal.{loads,dumps} here,
     # but then the Java client would have trouble
     # encoding/decoding requests/responses.
-    if isinstance(obj, basestring):
+    if isinstance(obj, (six.text_type, bytes)):
         if isinstance(obj, bytes):
             obj = six.text_type(obj)
         if obj == ':None':
@@ -108,10 +126,12 @@ def xmlrpc_to_native(obj):
     elif isinstance(obj, dict):
         return AttributeDict([(xmlrpc_to_native(x), xmlrpc_to_native(obj[x]))
                               for x in obj])
-    elif isinstance(obj, (int, long, float)):
+    elif isinstance(obj, _numerical):
         return obj
     elif isinstance(obj, xmlrpclib.DateTime):
-        return DateTime.ISO.ParseDateTime(obj.value)
+        # This doesn't really happen - all clients send date or datetime as
+        # strings in a string type field
+        return date_utils.parse_datetime(obj.value)
     elif isinstance(obj, xmlrpclib.Binary):
         return bytearray(obj.data)
     else:

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003-2020 University of Oslo, Norway
+# Copyright 2003-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,7 +17,8 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""Module for access control in Cerebrum.
+"""
+Module for access control in Cerebrum.
 
 This module was mainly written for use with `bofhd`, given its name, but its
 functionality is *independent* of `bofhd`. You could use this module for every
@@ -26,7 +27,7 @@ Cerebrum service that needs access control.
 This authorization module is quite fine grained, making it a bit complex.
 
 Summary
-=======
+========
 
 How the access control works:
 
@@ -222,9 +223,10 @@ from Cerebrum import Errors
 from Cerebrum import Person
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.Errors import NotFoundError
-from Cerebrum.group.GroupRoles import GroupRoles
-from Cerebrum.Utils import Factory, mark_update
+from Cerebrum.Utils import Factory
 from Cerebrum.Utils import argument_to_sql
+from Cerebrum.group.GroupRoles import GroupRoles
+from Cerebrum.meta import MarkUpdateMixin
 from Cerebrum.modules.bofhd.errors import PermissionDenied
 
 
@@ -246,7 +248,7 @@ class AuthConstants(Constants._CerebrumCode):
     _lookup_table = '[:table schema=cerebrum name=auth_op_code]'
 
 
-class BofhdAuthOpSet(DatabaseAccessor):
+class BofhdAuthOpSet(MarkUpdateMixin, DatabaseAccessor):
     """Operation Set (OpSet) management.
 
     Operations could be put into different groups (sets) of operations. These
@@ -263,7 +265,6 @@ class BofhdAuthOpSet(DatabaseAccessor):
     setting constraints for an operation, is put in `auth_op_attrs`.
     """
 
-    __metaclass__ = mark_update
     __read_attr__ = ('__in_db', 'const')
     __write_attr__ = ('op_set_id', 'name')
     dontclear = ('const',)
@@ -435,13 +436,12 @@ class BofhdAuthOpSet(DatabaseAccessor):
             {'op_id': op_id})
 
 
-class BofhdAuthOpTarget(DatabaseAccessor):
+class BofhdAuthOpTarget(MarkUpdateMixin, DatabaseAccessor):
     """Management of the `auth_op_target` table.
 
     This identifies *operation targets*, which operations may be performed on.
     """
 
-    __metaclass__ = mark_update
     __read_attr__ = ('__in_db', 'const')
     __write_attr__ = ('entity_id', 'target_type', 'attr', 'op_target_id')
     dontclear = ('const',)
@@ -1058,6 +1058,15 @@ class BofhdAuth(DatabaseAccessor):
                                            "from authoritative source systems")
         return True
 
+    def can_send_freetext_sms_message(self, operator, query_run_any=False):
+        if (self.is_superuser(operator) or
+            self._has_operation_perm_somewhere(
+                operator, self.const.auth_misc_sms_message)):
+            return True
+        if query_run_any:
+            return False
+        raise PermissionDenied("User does not have access")
+
     def can_alter_printerquota(self, operator, account=None,
                                query_run_any=False):
         if self.is_superuser(operator):
@@ -1339,46 +1348,6 @@ class BofhdAuth(DatabaseAccessor):
             return False
         raise PermissionDenied("Only superuser can set group_type")
 
-    def can_add_group_admin(self, operator, group=None, query_run_any=False):
-        # You can do whatever you want if you are a superuser
-        if self.is_superuser(operator):
-            return True
-        # You can see the command if you are an admin
-        if query_run_any:
-            return (self._is_admin(operator) or
-                    self._has_operation_perm_somewhere(
-                        operator, self.const.auth_add_group_admin))
-        # You can add an admin if you are an admin of the group
-        if self._is_admin(operator, group.entity_id):
-            return True
-        # TODO: Decide if we want to keep special permissions for groups
-        #  through opsets
-        if self._has_target_permissions(operator,
-                                        self.const.auth_add_group_admin,
-                                        self.const.auth_target_type_group,
-                                        group.entity_id, group.entity_id):
-            return True
-        raise PermissionDenied("Not allowed to add admin to group")
-
-    def can_add_group_moderator(self,
-                                operator,
-                                group=None,
-                                query_run_any=False):
-        # You can do whatever you want if you are a superuser
-        if self.is_superuser(operator):
-            return True
-        try:
-            return self.can_add_group_admin(operator, group, query_run_any)
-        except PermissionDenied:
-            pass
-        # You can see the command if you are an admin or mod of something
-        if query_run_any:
-            return self._is_admin_or_moderator(operator)
-        # You can add a mod if you are a mod or admin of the group
-        if self._is_admin_or_moderator(operator, group.entity_id):
-            return True
-        raise PermissionDenied("Not allowed to add moderator to group")
-
     def can_create_personal_group(self, operator, account=None,
                                   query_run_any=False):
         if query_run_any or self.is_superuser(operator):
@@ -1587,8 +1556,12 @@ class BofhdAuth(DatabaseAccessor):
                                                     ou.avdeling))
 
     def can_remove_affiliation(self, operator, person=None, ou=None,
-                               aff=None, query_run_any=False):
-        """If the opset has rem_affiliation access to the affiliation, and the
+                               affiliation=None, status=None,
+                               source_system=None, query_run_any=False):
+        """
+        Check if a given affiliation can be removed.
+
+        If the opset has rem_affiliation access to the affiliation, and the
         operator has rem_affiliation access to the affiliation's OU, allow
         removing the affiliation from the person. Not as strict on MANUELL.
         """
@@ -1602,12 +1575,17 @@ class BofhdAuth(DatabaseAccessor):
                 return True
             return False
 
-        for row in person.list_affiliations(person_id=person.entity_id,
-                                            ou_id=ou.entity_id,
-                                            affiliation=aff):
-            if self.is_authoritative_system(row['source_system']):
-                raise PermissionDenied("Not allowed to remove affiliations "
-                                       "from authoritative systems")
+        # all optional parameters are mandatory from here on...
+        affiliation = self.const.get_constant(self.const.PersonAffiliation,
+                                              affiliation)
+        status = self.const.get_constant(self.const.PersonAffStatus, status)
+        source_system = self.const.get_constant(self.const.AuthoritativeSystem,
+                                                source_system)
+
+        if self.is_authoritative_system(source_system):
+            raise PermissionDenied(
+                "Not allowed to remove affiliations from %s"
+                % (source_system,))
 
         if self.is_superuser(operator):
             return True
@@ -1616,19 +1594,23 @@ class BofhdAuth(DatabaseAccessor):
                                         self.const.auth_remove_affiliation,
                                         self.const.auth_target_type_ou,
                                         ou.entity_id, person.entity_id,
-                                        six.text_type(aff)):
+                                        six.text_type(affiliation)):
             return True
+        # TODO: We should probably also support aff-status in op-attrs.
+        # if status and self._has_target_perms(..., six.text_type(status)):
+        #     return True
+
         # 2015-09-11: Temporarily (?) allow all LITAs to remove manual
         #             affiliations from all persons to simplify cleaning up.
         #             CERT (bore) has given permission to do this. – tvl
-        if (aff == self.const.affiliation_manuell and
+        if (affiliation == self.const.affiliation_manuell and
             self._has_operation_perm_somewhere(operator,
                                                self.const.auth_create_user)):
             return True
-        raise PermissionDenied("No access for affiliation %s on person %s in "
-                               "OU %02d%02d%02d" % (aff, person.entity_id,
-                                                    ou.fakultet, ou.institutt,
-                                                    ou.avdeling))
+        raise PermissionDenied(
+            "No access for affiliation %s on person %s in OU %02d%02d%02d"
+            % (affiliation, person.entity_id, ou.fakultet, ou.institutt,
+               ou.avdeling))
 
     def can_create_user(self, operator, person=None, disk=None,
                         query_run_any=False):
@@ -2465,11 +2447,12 @@ class BofhdAuth(DatabaseAccessor):
             return True
 
         if entity.entity_type == self.const.entity_person:
-            return self._can_get_person_external_id(operator,
-                                                    entity,
-                                                    extid_type,
-                                                    source_sys,
-                                                    query_run_any=query_run_any)
+            return self._can_get_person_external_id(
+                operator,
+                entity,
+                extid_type,
+                source_sys,
+                query_run_any=query_run_any)
 
         raise PermissionDenied("You don't have permission to view external "
                                "ids for entity {}".format(entity.entity_id))
@@ -2495,8 +2478,8 @@ class BofhdAuth(DatabaseAccessor):
 
         ext_id_const = int(self.const.EntityExternalId(extid_type))
         for id_ in cereconf.BOFHD_VISIBLE_EXTERNAL_IDS:
-            if (ext_id_const ==
-                    self.const.human2constant(id_, self.const.EntityExternalId)):
+            if (ext_id_const == self.const.human2constant(
+                    id_, self.const.EntityExternalId)):
                 return True
 
         operation_attr = str("{}:{}".format(
@@ -2515,13 +2498,84 @@ class BofhdAuth(DatabaseAccessor):
                                    person.entity_id))
 
     def _is_admin(self, entity_id, group_id=None):
+        """
+        Check if a given user is a group administrator.
+
+        Can be used to check if a given user account is admin for a *specific*
+        group, or if the account is admin for *any* group.
+
+        :param int entity_id: account-id of a user account
+        :param int group_id: check if admin for this specific group
+
+        :returns bool: if the given account is an admin
+        """
         admin_ids = self._get_users_auth_entities(entity_id)
         return self._group_roles.is_admin(admin_ids, group_id)
 
     def _is_moderator(self, entity_id, group_id=None):
+        """
+        Check if a given user is a group moderator.
+
+        Can be used to check if a given user account is moderator for a
+        *specific* group, or if the account is moderator for *any* group.
+
+        :param int entity_id: account-id of a user account
+        :param int group_id: check if admin for this specific group
+
+        :returns bool: if the given account is an admin
+        """
         moderator_ids = self._get_users_auth_entities(entity_id)
         return self._group_roles.is_moderator(moderator_ids, group_id)
 
     def _is_admin_or_moderator(self, entity_id, group_id=None):
+        """
+        Convenience method -- check if admin *or* moderator.
+
+        This is usually the method to use when checking if a given user account
+        has *moderator privileges*.
+
+        Same arguments and return value as ``_is_admin``/``_is_moderator``.
+        """
         return (self._is_admin(entity_id, group_id)
                 or self._is_moderator(entity_id, group_id))
+
+    def can_administrate_group(self, operator,
+                               group=None, query_run_any=False):
+        """
+        Generic group administrator access check.
+        """
+        if self.is_superuser(operator):
+            return True
+
+        if query_run_any:
+            return self._is_admin(operator)
+
+        # You can add an admin if you are an admin of the group
+        if self._is_admin(operator, int(group.entity_id)):
+            return True
+
+        raise PermissionDenied("No access to administrate group")
+
+    def can_moderate_group(self, operator,
+                           group=None, query_run_any=False):
+        """
+        Generic group moderator access check.
+
+        TODO: What about `can_alter_group`?
+        """
+        # If you can administrate, you can also moderate
+        try:
+            if self.can_administrate_group(operator=operator, group=group,
+                                           query_run_any=query_run_any):
+                return True
+        except PermissionDenied:
+            pass
+
+        # You can see the command if you are a moderator of *any* group
+        if query_run_any:
+            return self._is_moderator(operator)
+
+        if self._is_moderator(operator, int(group.entity_id)):
+            return True
+
+        raise PermissionDenied("No access to moderate group")

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2006-2018 University of Oslo, Norway
+# Copyright 2006-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -26,10 +26,11 @@ ADutilMixIn.py to work with the AD setup at the University of Oslo.
 import copy
 from collections import defaultdict
 
-import cereconf
+import six
 
-from Cerebrum import Utils
+import cereconf
 from Cerebrum import QuarantineHandler
+from Cerebrum import Utils
 from Cerebrum.modules import CLHandler
 from Cerebrum.modules.Email import EmailTarget
 from Cerebrum.modules.no.uio import ADutils
@@ -537,8 +538,9 @@ class ADFullUserSync(ADutils.ADuserUtil):
                             # represented as a list.
                             Mchange = False
 
-                            if (isinstance(adusrs[usr][attr],
-                                           (basestring, int, long))):
+                            if (isinstance(adusrs[usr][attr], six.string_types)
+                                    or isinstance(adusrs[usr][attr],
+                                                  six.integer_types)):
                                 # Transform single-value to a list for comp
                                 val2list = []
                                 val2list.append(adusrs[usr][attr])
@@ -937,7 +939,9 @@ class ADFullGroupSync(ADutils.ADgroupUtil):
                             Mchange = False
 
                             if (isinstance(ad_dict[grp][attr],
-                                           (basestring, int, long))):
+                                           six.string_types)
+                                    or isinstance(ad_dict[grp][attr],
+                                                  six.integer_types)):
                                 # Transform single-value to a list for comp.
                                 val2list = []
                                 val2list.append(ad_dict[grp][attr])

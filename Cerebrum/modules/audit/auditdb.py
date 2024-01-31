@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2018-2022 University of Oslo, Norway
+# Copyright 2018-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,16 +17,24 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" Database access to audit records.
+"""
+Database access to audit records.
 
 Audit records should mostly be read or appended to the database.  In the future
 there may be cleanup scripts that clear out non-critical personal information
 from audit record params, and delete really old audit records, subject to data
 retention.
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    # TODO: unicode_literals,
+)
 import datetime
 import json
 
+from Cerebrum.database import query_utils
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.Utils import argument_to_sql, Factory
 from Cerebrum.utils import date_compat
@@ -44,7 +52,7 @@ def _serialize_datetime(dt):
 
 
 def _serialize_mx_datetime(dt):
-    """ Convert mx.DateTime-like objects to string. """
+    """ Convert mx-like objects to string. """
     if date_compat.is_mx_date(dt):
         return _serialize_datetime(dt.pydate())
     elif dt:
@@ -59,7 +67,6 @@ def serialize_params(value):
     if isinstance(value, datetime.date):
         return _serialize_datetime(value)
     elif date_compat.is_mx_datetime(value):
-        # Looks like an mx.DateTime
         return _serialize_mx_datetime(value)
     elif isinstance(value, (list, tuple, set)):
         return [serialize_params(p) for p in value]
@@ -71,9 +78,9 @@ def serialize_params(value):
 
 def sql_get_record(db, record_id):
     query = """
-    SELECT *
-    FROM [:table schema=cerebrum name=audit_log]
-    WHERE record_id = :record_id
+      SELECT *
+      FROM [:table schema=cerebrum name=audit_log]
+      WHERE record_id = :record_id
     """
     binds = {
         'record_id': int(record_id),
@@ -81,30 +88,44 @@ def sql_get_record(db, record_id):
     return db.query_1(query, binds)
 
 
-def sql_search(
-        db,
-        change_types=None,
-        operators=None,
-        entities=None,
-        targets=None,
-        record_ids=None,
-        after_id=None, before_id=None,
-        after_timestamp=None, before_timestamp=None,
-        fetchall=False):
-    """ TODO: document """
-    query = """
-    SELECT *
-    FROM [:table schema=cerebrum name=audit_log]
+def _select(change_types=None, operators=None, entities=None, targets=None,
+            record_ids=None, after_id=None, before_id=None,
+            after_timestamp=None, before_timestamp=None):
+    """
+    Generate clauses and binds for audit log queries.
+
+    Example:
+
+        >>> _select(entities=(123, 124), operators=2)
+        (
+            ['entity IN (:entity0, :entity1)', 'operator = :operator'],
+            {'entity0': 123, 'entity1': 124, 'operator': 2},
+        )
+
+    :param change_types: only include results for these change types
+    :param operators: only include results for these operator ids
+    :param entities: only include results for these subject entity ids
+    :param targets: only include results for these destination entity ids
+    :param record_ids: only include these record ids (*)
+    :param after_id: only include record ids bigger than this (*)
+    :param before_id: only include record ids smaller than this (*)
+    :param timestamp_before: only include results with a timetsamp before this
+    :param timestamp_after: only include results with a timestamp after this
+
+    Note:
+        If both timestamp_before and _after is given, they must be comparable.
+
+    Note:
+        If both record_ids and after_id/before_id is given, they are OR-ed.
+
+    :rtype: tuple(list, dict)
+    :returns:
+        Returns a list of conditions, and a dict of query params.
     """
     clauses = []
     binds = {}
 
-    #
     # value selects
-    #
-    if record_ids:
-        clauses.append(
-            argument_to_sql(record_ids, 'record_id', binds, int))
     if change_types:
         clauses.append(
             argument_to_sql(change_types, 'change_type', binds, int))
@@ -118,31 +139,45 @@ def sql_search(
         clauses.append(
             argument_to_sql(targets, 'target', binds, int))
 
-    #
-    # range selects
-    #
-    if after_timestamp is not None:
-        clauses.append("timestamp > :after_ts")
-        binds['after_ts'] = after_timestamp
-    if before_timestamp is not None:
-        clauses.append("timestamp < :before_ts")
-        binds['before_timestamp'] = before_timestamp
-    if after_id is not None:
-        clauses.append("record_id > :after_id")
-        binds['after_id'] = int(after_id)
-    if before_id is not None:
-        clauses.append("record_id < :before_id")
-        binds['before_id'] = int(before_id)
+    # timestamp_before/timestamp_after
+    ts_cond, ts_binds = query_utils.date_helper("timestamp",
+                                                gt=after_timestamp,
+                                                lt=before_timestamp)
+    if ts_cond:
+        clauses.append(ts_cond)
+        binds.update(ts_binds)
+
+    # record_ids/before_id/after_id
+    id_cond, id_binds = query_utils.int_helper("record_id",
+                                               value=record_ids,
+                                               gt=after_id,
+                                               lt=before_id)
+    if id_cond:
+        clauses.append(id_cond)
+        binds.update(id_binds)
+
+    return clauses, binds
+
+
+def sql_search(db, **kwargs):
+    """
+    Search for audit records.
+
+    :see: `._select` for arguments.
+    """
+    query = """
+      SELECT *
+      FROM [:table schema=cerebrum name=audit_log]
+    """
+    fetchall = kwargs.pop("fetchall", False)
+    clauses, binds = _select(**kwargs)
 
     if clauses:
-        where = ' WHERE ' + ' AND '.join(clauses)
+        where = " WHERE " + " AND ".join(clauses)
     else:
-        where = ''
+        where = ""
 
-    return db.query(
-        query + where,
-        binds,
-        fetchall=fetchall)
+    return db.query(query + where, binds, fetchall=fetchall)
 
 
 def sql_insert(
@@ -186,65 +221,30 @@ def sql_insert(
     return binds['record_id']
 
 
-def sql_delete(
-        db,
-        change_types=None,
-        operators=None,
-        entities=None,
-        targets=None,
-        record_ids=None,
-        after_id=None, before_id=None,
-        after_timestamp=None, before_timestamp=None):
-    """ TODO: document """
-    query = """
-    DELETE FROM [:table schema=cerebrum name=audit_log]
+def sql_delete(db, **kwargs):
     """
-    clauses = []
-    binds = {}
+    Delete audit records.
 
-    #
-    # value selects
-    #
-    if record_ids:
-        clauses.append(
-            argument_to_sql(record_ids, 'record_id', binds, int))
-    if change_types:
-        clauses.append(
-            argument_to_sql(change_types, 'change_type', binds, int))
-    if operators:
-        clauses.append(
-            argument_to_sql(operators, 'operator', binds, int))
-    if entities:
-        clauses.append(
-            argument_to_sql(entities, 'entity', binds, int))
-    if targets:
-        clauses.append(
-            argument_to_sql(targets, 'target', binds, int))
+    .. note::
+        This should generally never be done, as audit records should be
+        peristent.
 
-    #
-    # range selects
-    #
-    if after_timestamp is not None:
-        clauses.append("timestamp > :after_ts")
-        binds['after_ts'] = after_timestamp
-    if before_timestamp is not None:
-        clauses.append("timestamp < :before_ts")
-        binds['before_timestamp'] = before_timestamp
-    if after_id is not None:
-        clauses.append("record_id > :after_id")
-        binds['after_id'] = int(after_id)
-    if before_id is not None:
-        clauses.append("record_id < :before_id")
-        binds['before_id'] = int(before_id)
+    .. warning::
+        By giving no filter arguments, all audit records will be deleted.
+
+    :see: `._select` for filter arguments.
+    """
+    query = """
+      DELETE FROM [:table schema=cerebrum name=audit_log]
+    """
+    clauses, binds = _select(**kwargs)
 
     if clauses:
-        where = ' WHERE ' + ' AND '.join(clauses)
+        where = " WHERE " + " AND ".join(clauses)
     else:
-        where = ''
+        where = ""
 
-    return db.execute(
-        query + where,
-        binds)
+    return db.execute(query + where, binds)
 
 
 def db_row_to_record(db, row):

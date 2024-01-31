@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2005-2018 University of Oslo, Norway
+# Copyright 2005-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -24,8 +24,7 @@ The module contains functionality for handling guests and other
 temporary users.
 
 """
-
-from mx import DateTime
+import datetime
 
 import cereconf
 from Cerebrum import Errors
@@ -124,8 +123,10 @@ class GuestUtils(object):
         # quarantine that kicks in now.
         if ac.get_entity_quarantine(self.co.quarantine_guest_release):
             ac.delete_entity_quarantine(self.co.quarantine_guest_release)
-        ac.add_entity_quarantine(self.co.quarantine_guest_release, operator_id,
-                                 "Guest user released", start=DateTime.today())
+        ac.add_entity_quarantine(self.co.quarantine_guest_release,
+                                 operator_id,
+                                 "Guest user released",
+                                 start=datetime.date.today())
         self.logger.debug("%s is now in release_quarantine" % guest)
         ac.write_db()
         self.update_group_memberships(ac.entity_id)
@@ -188,8 +189,10 @@ class GuestUtils(object):
         """
         ac = Factory.get('Account')(self.db)
         ret = []
-        quarantined_guests = [q['entity_id'] for q in ac.list_entity_quarantines(
-            quarantine_types=self.co.quarantine_guest_release)]
+        quarantined_guests = [
+            q['entity_id']
+            for q in ac.list_entity_quarantines(
+                quarantine_types=self.co.quarantine_guest_release)]
 
         for row in ac.list_traits(self.co.trait_uio_guest_owner,
                                   target_id=owner_id):
@@ -463,14 +466,14 @@ class GuestUtils(object):
         # get length, start- and end-position of shortest subset in las
         slen, start, end = las.pop(0)
         if num_subsets == 1 and num_requested <= slen:
-            return start, start+num_requested-1
+            return (start, start+num_requested-1)
 
-        l = slen
+        ln = slen
         i = 1
         use_shortest = False
         while num_subsets > i:
-            l += las[-i][0]
-            if l >= num_requested:
+            ln += las[-i][0]
+            if ln >= num_requested:
                 use_shortest = True
                 break
             i += 1

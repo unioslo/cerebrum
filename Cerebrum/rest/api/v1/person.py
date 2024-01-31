@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2016-2019 University of Oslo, Norway
+# Copyright 2016-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,8 +18,12 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ Person API. """
-
-from __future__ import unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 from flask import url_for
 from flask_restx import Namespace, Resource, abort
@@ -28,7 +31,6 @@ from six import text_type
 
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
-from Cerebrum.modules.bofhd.errors import CerebrumError
 from Cerebrum.modules.otp.mixins import OtpPersonMixin
 from Cerebrum.modules.otp.otp_types import (PersonOtpUpdater,
                                             get_policy,
@@ -320,15 +322,15 @@ class PersonConsentListResource(Resource):
             })
         if not hasattr(pe, 'list_consents'):
             return consents
-        for c in pe.list_consents(entity_id=pe.entity_id):
-            consent = db.const.EntityConsent(c['consent_code'])
+        for row in pe.list_consents(entity_id=pe.entity_id):
+            consent = db.const.EntityConsent(row['consent_code'])
             consent_type = db.const.ConsentType(consent.consent_type)
             consents.append({
                 'name': text_type(consent),
                 'description': consent.description,
                 'type': text_type(consent_type),
-                'set_at': c.time_set,
-                'expires': c.expiry,
+                'set_at': row['set_at'],
+                'expires': None,
             })
         return consents
 
@@ -360,7 +362,7 @@ class PersonSetOTPSecret(Resource):
         'secret',
         type=validator.String(),
         required=True,
-        location=['form', 'json'],
+        location=('form', 'json'),
         help='OTP secret',
     )
 
@@ -391,7 +393,7 @@ class PersonSetOTPSecret(Resource):
 
         try:
             validate_secret(secret)
-        except ValueError as e:
+        except ValueError:
             abort(400, message='invalid secret')
 
         otp_policy = get_policy()

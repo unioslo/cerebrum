@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2020-2022 University of Oslo, Norway
+# Copyright 2020-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -51,12 +51,16 @@ These mappers are curerntly not configurable.  We might want to implement:
 
 The alternative is to subclass and build custom mappers for custom behavior.
 """
-from __future__ import unicode_literals
-
-import re
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import collections
 import datetime
 import logging
+import re
 
 from Cerebrum.modules.hr_import.mapper import AbstractMapper, HrPerson
 from Cerebrum.modules.no.dfo import title_maps
@@ -265,13 +269,6 @@ class DfoAffiliations(object):
     dataparser, as it needs *both* employee info, *and* additional info on each
     assignment present on the employee object.
     """
-
-    # A sequence of invalid assignment IDs.
-    #
-    # Any assignment with any of these IDs will simply be dropped, and not
-    # considered further.
-    IGNORE_ASSIGNMENT_IDS = (99999999,)
-
     # Employee group/subgroup to affiliation map.
     #
     # Employees are placed in groups (medarbeidergruppe, MG) and subgroups
@@ -279,7 +276,7 @@ class DfoAffiliations(object):
     # group/subgroup pairs, we should not consider the main assignment
     # category, but rather map to specific non-employee affiliations.
     EMPLOYEE_GROUP_MAP = {
-        (8, 50): 'ANSATT/bilag',
+        (8, 50): None,  # Explicitly ignore this MG/MUG
         (9, 90): 'TILKNYTTET/ekst_partner',
         (9, 91): 'TILKNYTTET/ekst_partner',
         (9, 93): 'TILKNYTTET/emeritus',
@@ -341,10 +338,6 @@ class DfoAffiliations(object):
         assignment_ids = sorted(assignments, key=sort_by_main)
 
         for assignment_id in assignment_ids:
-            if assignment_id in self.IGNORE_ASSIGNMENT_IDS:
-                logger.info('skipping ignored assignment-id=%s', assignment_id)
-                continue
-
             assignment = assignments[assignment_id]
 
             # Affiliation from category - "regular emplyee affs"
@@ -359,6 +352,12 @@ class DfoAffiliations(object):
                 # a special affiliation.
                 if (main_group, main_subgroup) in self.EMPLOYEE_GROUP_MAP:
                     aff = self.EMPLOYEE_GROUP_MAP[(main_group, main_subgroup)]
+                    if not aff:
+                        logger.info(
+                            "Ignoring assignment from MG/MUG: "
+                            "id=%r, mg=%r, mug=%r",
+                            assignment_id, main_group, main_subgroup)
+                        continue
                 elif not aff:
                     # If this happens it's probably because the assignment
                     # doesn't yet have a valid category.  There's really

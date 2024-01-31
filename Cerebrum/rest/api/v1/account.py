@@ -203,7 +203,7 @@ password_parser.add_argument(
     'password',
     type=validator.String(),
     required=True,
-    location=['form', 'json'],
+    location=('form', 'json'),
     help='Password',
 )
 
@@ -320,7 +320,7 @@ class AccountQuarantineListResource(Resource):
     account_quarantines_filter.add_argument(
         'context',
         type=validator.String(),
-        location=['form', 'json'],
+        location=('form', 'json'),
         help='Consider locked status based on context.')
 
     @api.marshal_with(AccountQuarantineList)
@@ -412,24 +412,24 @@ class AccountQuarantineItemResource(Resource):
         type=_iso_datetime_type,
         required=True,
         nullable=False,
-        location=['form', 'json'],
+        location=('form', 'json'),
         help='when the quarantine should take effect (ISO8601 datetime)')
     quarantine_parser.add_argument(
         'end',
         type=_iso_datetime_type,
         nullable=True,
-        location=['form', 'json'],
+        location=('form', 'json'),
         help='if/when the quarantine should end (ISO8601 datetime)')
     quarantine_parser.add_argument(
         'disable_until',
         type=_iso_datetime_type,
         nullable=True,
-        location=['form', 'json'],
+        location=('form', 'json'),
         help='if/when the quarantine should really start (ISO8601 datetime)')
     quarantine_parser.add_argument(
         'comment',
         nullable=True,
-        location=['form', 'json'],
+        location=('form', 'json'),
         help='{error_msg}')
 
     @api.expect(quarantine_parser)
@@ -716,7 +716,7 @@ class AccountPasswordResource(Resource):
         'password',
         type=validator.String(),
         required=False,
-        location=['form', 'json'],
+        location=('form', 'json'),
         help='Password, leave empty to generate one',
     )
 

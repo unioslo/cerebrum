@@ -32,6 +32,7 @@ import datetime
 import cereconf
 
 from Cerebrum.Utils import Factory
+from Cerebrum.modules.import_utils.groups import GroupMembershipSetter
 from Cerebrum.modules.import_utils.matcher import (
     OuMatcher,
     PersonMatcher,
@@ -87,8 +88,7 @@ class GregImporter(object):
         'GREG_PID',
     )
 
-    # Map consent name to
-    # `Cerebrum.modules.import_utils.group.GroupMembershipSetter`
+    # Map consent name to `Cerebrum.group.template.GroupTemplate`
     CONSENT_GROUPS = {}
 
     mapper = GregMapper()
@@ -105,13 +105,30 @@ class GregImporter(object):
         self._sync_name = PersonNameSync(db, source_system, (co.name_first,
                                                              co.name_last))
 
-    def _sync_consents(self, person_obj, consents):
-        """ Sync consents from greg. """
-        # Consents represented as groups:
-        for consent, update_group in self.CONSENT_GROUPS.items():
+    def _sync_consent_groups(self, person_obj, consents):
+        """
+        Sync consents from greg to personal group memberships in Cerebrum.
+
+        :type person_obj: Cerebrum.Person.Person
+        :param consents: collection of (mapped) consent values for this person
+
+        :returns tuple:
+            Returns a pair of tuples -- added to groups, removed from groups
+        """
+        added = []
+        removed = []
+
+        for consent, group_template in self.CONSENT_GROUPS.items():
             is_consent = consent in consents
-            update_group(self.db, person_obj.entity_id, is_consent)
-        # TODO: Also sync to Cerebrum.modules.consent?
+            group_name = group_template.group_name
+            update_group = GroupMembershipSetter(group_template)
+            if update_group(self.db, person_obj.entity_id, is_consent):
+                if is_consent:
+                    added.append(group_name)
+                else:
+                    removed.append(group_name)
+
+        return (tuple(added), tuple(removed))
 
     def get_person(self, greg_person):
         """ Find matching person from a Greg person dict. """
@@ -204,25 +221,33 @@ class GregImporter(object):
 
         logger.info('created new person, greg_id=%s, person_id=%s',
                     greg_id, person_obj.entity_id)
-        self.update(greg_person, person_obj)
+
+        changes = self.update(greg_person, person_obj)
+        return person_obj, changes
 
     def remove(self, greg_person, person_obj):
-        """ Clear greg data from a Person object. """
+        """ Clear greg data from a Person object.  """
         if person_obj is None or not person_obj.entity_id:
             raise ValueError('remove() called without cerebrum person!')
+
+        changes = {}
+        changes['person-name'] = self._sync_name(person_obj, ())
 
         # Note; We need to continue updating external ids - as this will allow
         # us to cross-reference persons *created* by greg with persons that may
         # appear in other source systems.
+        #
+        greg_ids = tuple(self.mapper.get_person_ids(greg_person))
+        changes['external-id'] = self._sync_ids(person_obj, greg_ids)
 
-        self._sync_name(person_obj, ())
-        self._sync_ids(person_obj, self.mapper.get_person_ids(greg_person))
-        self._sync_cinfo(person_obj, ())
-        self._sync_affs(person_obj, ())
-        self._sync_consents(person_obj, ())
+        changes['contact-info'] = self._sync_cinfo(person_obj, ())
+        changes['affiliation'] = self._sync_affs(person_obj, ())
+        changes['consent-group'] = self._sync_consent_groups(person_obj, ())
+
+        return changes
 
     def update(self, greg_person, person_obj, _today=None):
-        """ Update the Person object using employee_data. """
+        """ Update the Person object using employee_data.  """
         if not greg_person:
             raise ValueError('update() called without greg person data!')
         if person_obj is None or not person_obj.entity_id:
@@ -230,14 +255,32 @@ class GregImporter(object):
 
         today = _today or datetime.date.today()
 
-        self._sync_name(person_obj, self.mapper.get_names(greg_person))
-        self._sync_ids(person_obj, self.mapper.get_person_ids(greg_person))
-        self._sync_cinfo(person_obj, self.mapper.get_contact_info(greg_person))
-        affs = (
+        changes = {}
+
+        # 'person-name' -> added, updated, removed
+        greg_names = tuple(self.mapper.get_names(greg_person))
+        changes['person-name'] = self._sync_name(person_obj, greg_names)
+
+        # 'external-id' -> added, updated, removed
+        greg_ids = tuple(self.mapper.get_person_ids(greg_person))
+        changes['external-id'] = self._sync_ids(person_obj, greg_ids)
+
+        # 'contact-info' -> added, updated, removed
+        greg_cinfo = tuple(self.mapper.get_contact_info(greg_person))
+        changes['contact-info'] = self._sync_cinfo(person_obj, greg_cinfo)
+
+        # 'affiliation' -> added, kept, removed
+        affs = tuple(
             (aff_status, self.get_ou(org_ids).entity_id)
             for aff_status, org_ids, start_date, end_date
             in self.mapper.get_affiliations(greg_person,
                                             filter_active_at=today)
         )
-        self._sync_affs(person_obj, affs)
-        self._sync_consents(person_obj, self.mapper.get_consents(greg_person))
+        changes['affiliation'] = self._sync_affs(person_obj, affs)
+
+        # 'consent-group' -> added, removed
+        consents = tuple(self.mapper.get_consents(greg_person))
+        changes['consent-group'] = self._sync_consent_groups(person_obj,
+                                                             consents)
+
+        return changes

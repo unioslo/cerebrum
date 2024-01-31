@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2009-2021 University of Oslo, Norway
+# Copyright 2009-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -21,6 +21,8 @@
 in Cerebrum.
 """
 import math
+
+import six
 
 import cereconf
 
@@ -250,7 +252,7 @@ class Subnet(Entity):
         res_adr_in_use = []
 
         for row in ip_number.find_in_range(self.ip_min, self.ip_max):
-            current_address = long(row['ipnr'])
+            current_address = int(row['ipnr'])
             if current_address in self.reserved_adr:
                 res_adr_in_use.append(IPCalc.long_to_ip(current_address))
 
@@ -444,7 +446,7 @@ class Subnet(Entity):
             # This is probably an IPv6 subnet
             raise SubnetError("Unable to find IPv4 subnet identified by '%s'" %
                               identifier)
-        if isinstance(identifier, (int, long)):
+        if isinstance(identifier, six.integer_types):
             # The proper way of running find()
             where_param = "entity_id = :e_id"
             binds['e_id'] = identifier

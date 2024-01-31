@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2019 University of Oslo, Norway
+# Copyright 2019-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,43 +18,51 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ This module contains tools for the password_issues bofh command """
-
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import datetime
-from six import text_type
-from Cerebrum import Utils, Errors
-from Cerebrum.utils.date_compat import get_datetime_tz
-from Cerebrum.modules.bofhd.bofhd_core import (BofhdCommonMethods,
-                                               BofhdCommandBase)
-from Cerebrum.modules.bofhd.errors import (CerebrumError,
-                                           PermissionDenied)
-from Cerebrum.modules.bofhd.cmd_param import (AccountName,
-                                              Command,
-                                              FormatSuggestion)
+
+import six
+
+from Cerebrum import Utils
+from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
+from Cerebrum.modules.bofhd.bofhd_core_help import get_help_strings
+from Cerebrum.modules.bofhd.cmd_param import (
+    AccountName,
+    Command,
+    FormatSuggestion,
+)
+from Cerebrum.modules.bofhd.errors import (
+    CerebrumError,
+    PermissionDenied,
+)
+from Cerebrum.modules.bofhd.help import merge_help_strings
+from Cerebrum.utils import date_compat
+
 
 # This should be equal to CEREBRUM_FRESH_DAYS which is configured in the
 # pofh-backend repo.
 FRESH_DAYS = 7
 
 
-def check_ac_basics(ac, correct_ac_type):
+def check_personal_account(ac):
     """Checks if an account is deleted, expired or not belonging to a person"""
     if ac.is_deleted():
         raise CerebrumError('Account is deleted')
-    elif ac.is_expired():
+    if ac.is_expired():
         raise CerebrumError('Account has expired')
-    elif ac.owner_type != correct_ac_type:
+    if ac.owner_type != ac.const.entity_person:
         raise CerebrumError('Account is not owned by a person')
-    return
 
 
-def get_pe_from_ac(ac, db):
-    """Creates pe from ac and db"""
-    # Move elsewhere/check if relevante duplicate exists?
-    try:
-        pe = Utils.Factory.get('Person')(db)
-        pe.find(ac.owner_id)
-    except Errors.NotFoundError:
-        raise CerebrumError('Account is not owned by a person')
+def get_personal_account_owner(ac):
+    """Creates pe from ac"""
+    pe = Utils.Factory.get('Person')(ac._db)
+    pe.find(ac.owner_id)
     return pe
 
 
@@ -62,23 +70,24 @@ def _filter_trouble_traits(co, traits):
     """Check if a traits-dict contains traits that are problematic
     for the SMS-service.
     """
-    return set(traits.keys()) & {co.trait_sysadm_account,
-                                 co.trait_reservation_sms_password,
-                                 co.trait_important_account}
+    return set(traits) & {co.trait_sysadm_account,
+                          co.trait_reservation_sms_password,
+                          co.trait_important_account}
 
 
 def _filter_informative_traits(co, traits):
     """Check if a traits-dict contains traits that are unproblematic,
     but still informative for determining the availability of the  SMS-service.
     """
-    return set(traits.keys()) & {co.trait_sms_welcome,
-                                 co.trait_student_new,
-                                 co.trait_account_new,
-                                 co.trait_primary_aff}
+    return set(traits) & {co.trait_sms_welcome,
+                          co.trait_student_new,
+                          co.trait_account_new,
+                          co.trait_primary_aff}
 
 
-def investigate_traits(ac, co):
+def investigate_traits(ac):
     """Investigate if ac contains problematic or informative traits"""
+    co = ac.const
     traits = ac.get_traits()
     results = {}
     if traits:
@@ -91,68 +100,74 @@ def investigate_traits(ac, co):
     return results
 
 
-def account_is_fresh(ac, co):
+def account_is_fresh(ac):
     """ Determine if an account is fresh (newly created *or* revived)"""
+    co = ac.const
     traits = ac.get_traits()
-    if co.trait_student_new in traits or co.trait_account_new in traits:
-        return True
-    return False
+    return (co.trait_student_new in traits
+            or co.trait_account_new in traits)
 
 
-def is_member_of_admingroups(ac, db):
+def is_member_of_admingroups(ac):
     """Check account is member of group 'admin' or 'superusers'.
     pofh specifically checks these two"""
-    Groupclass = Utils.Factory.get("Group")
-    groups = {r['name'] for r in Groupclass(db).search(member_id=ac.entity_id)}
-    return 'superusers' in groups or 'admin' in groups
+    db = ac._db
+    gr = Utils.Factory.get("Group")(db)
+    group_names = {r['name'] for r in gr.search(member_id=ac.entity_id)}
+    return 'superusers' in group_names or 'admin' in group_names
 
 
-def illegal_quarantines(ac, co):
+def illegal_quarantines(ac):
     """Check if account has any illegal quarantines
     legal quarantine_type hard coded in example.pofh.cfg
     """
-    qr = ac.get_entity_quarantine(only_active=True)
-    qr = {text_type(co.human2constant(q['quarantine_type'])) for q in qr}
+    co = ac.const
+    qr = set(
+        six.text_type(co.human2constant(q['quarantine_type']))
+        for q in ac.get_entity_quarantine(only_active=True))
     return qr - {'svakt_passord', 'autopassord'}
 
 
-def filter_valid_affiliations(affiliations):
+def get_affiliations(pe):
     """Filter out valid affiliations"""
-    today = datetime.date.today()
-    for aff in affiliations:
-        del_date = aff['deleted_date']
-        if not del_date or del_date > today:
-            yield {'ssys': aff['source_system'],
-                   'status': aff['status']}
+    for aff in pe.get_affiliations():
+        yield {
+            'ssys': aff['source_system'],
+            'status': aff['status'],
+        }
 
 
-def filter_mobilephones(co, contact_rows):
+def get_mobile_numbers(pe):
     """Extract mobile phone numbers with corresponding date and source
     system from contact rows.
     """
+    co = pe.const
     phone_types = {int(co.contact_mobile_phone),
                    int(co.contact_private_mobile),
                    int(co.contact_private_mobile_visible)}
-    for row in contact_rows:
+    for row in pe.get_contact_info():
         if (row['contact_type'] in phone_types):
-            yield {'ssys': row['source_system'],
-                   'number': row['contact_value'],
-                   'date': row['last_modified']}
+            yield {
+                'ssys': row['source_system'],
+                'number': row['contact_value'],
+                'date': date_compat.get_datetime_tz(row['last_modified']),
+            }
 
 
 def merge_affs_and_phones(co, valid_affiliations, phones):
     """
-    Merges affiliations and phones, ensuring that
-    duplicates are kept.
+    Merges affiliations and phones, ensuring that duplicates are kept.
 
     Affs. contains: ssys, status
     Phone contains: ssys, number, date, has_been_added
 
     If ssys match, then the phone is from a valid affilition, and we want:
     (a) ssys, status, number, date
+
     If aff does not match any phones, then the affiliation is not associated
     with a phone. We want:
     (b) ssys, status, None, None
+
     If there is a phone that matches no valid affiliation, then the phone is
     associated with an *invalid* affiliation. We want:
     (c) ssys, None, number, date
@@ -164,61 +179,63 @@ def merge_affs_and_phones(co, valid_affiliations, phones):
     type c.
     """
     entries = []
-    Phones = list(phones)
-    for phone in Phones:
+    phone_list = list(phones)
+    for phone in phone_list:
         phone['unused'] = True
 
     def valid_phone(aff):
-        for i, phone in enumerate(Phones):
+        for i, phone in enumerate(phone_list):
             if aff['ssys'] == phone['ssys']:
-                entry = {'ssys': aff['ssys'], 'status': aff['status'],
-                         'number': phone['number'], 'date': phone['date']}
+                entry = {
+                    'ssys': aff['ssys'],
+                    'status': aff['status'],
+                    'number': phone['number'],
+                    'date': phone['date'],
+                }
                 phone['unused'] = False
                 return entry
-        return {'ssys': aff['ssys'], 'status': aff['status'],
-                'number': None, 'date': None}
-    # Evil filter reflecting broken policy: If a valid aff to SAP exists,
-    # then all other valid affs are deemed irrelevant.
-    if co.system_dfo_sap in valid_affiliations:
-        for aff in valid_affiliations:
-            if aff['source_system'] != co.system_dfo_sap:
-                affs.remove(aff)
-    # Remove from here...
-    if co.system_sap in valid_affiliations:
-        for aff in valid_affiliations:
-            if aff['source_system'] != co.system_sap:
-                affs.remove(aff)
-    # ... to here when transition to DFO is complete!
+        return {
+            'ssys': aff['ssys'],
+            'status': aff['status'],
+            'number': None,
+            'date': None,
+        }
     for aff in valid_affiliations:
         entries.append(valid_phone(aff))
     for phone in phones:
         if phone['unused']:
-            entries.append({'ssys': phone['ssys'], 'status': None,
-                            'number': phone['number'], 'date': phone['date']})
+            entries.append({
+                'ssys': phone['ssys'],
+                'status': None,
+                'number': phone['number'],
+                'date': phone['date'],
+            })
     return entries
 
 
 def welcome_sms_received_date(ac, co):
     traits = ac.get_traits()
-    if co.trait_sms_welcome in traits:
-        # The 'date' value of traits are naive datetime objects, *not* dates!
-        return get_datetime_tz(traits[co.trait_sms_welcome]['date'])
-    return None
+    raw_date = traits.get(co.trait_sms_welcome, {}).get('date')
+    # The 'date' value of traits are naive datetime objects,
+    # *not* an actual date, so we need:
+    return date_compat.get_date(raw_date)
 
 
-def any_valid_phones(ac, co, phone_table, fresh_account):
+def any_valid_phones(ac, phone_table):
     """Return True if a phone table contains at least one phone
     which either:
     * has not been updated in the last week,
     * unless the account is fresh,
     * or a welcome SMS has been sent after the phone was updated.
     """
+    co = ac.const
+    fresh_account = account_is_fresh(ac)
     last_week = datetime.date.today() - datetime.timedelta(days=7)
     for phone in phone_table:
         if phone['status'] and phone['number']:
             if fresh_account:
                 return True
-            date = phone['date']
+            date = date_compat.get_date(phone['date'])
             if not date or date < last_week:
                 return True
             welcome_sms = welcome_sms_received_date(ac, co)
@@ -231,19 +248,21 @@ def format_phone_table(co, phone_table):
     today = datetime.date.today()
     last_week = today - datetime.timedelta(days=7)
     table = []
-    for i, entry in enumerate(sorted(phone_table)):
+    for i, entry in enumerate(sorted(phone_table,
+                                     key=(lambda d: (d.get('ssys'),
+                                                     d.get('status'))))):
         ssys = entry['ssys']
-        ssys_s = '{0: <8}'.format(text_type(
-            co.AuthoritativeSystem(ssys)))
+        ssys_s = '{0: <8}'.format(six.text_type(co.AuthoritativeSystem(ssys)))
         status = entry['status']
         if status:
-            status_s = '{0: <24}'.format(text_type(co.human2constant(status)))
+            status_s = '{0: <24}'.format(
+                six.text_type(co.human2constant(status)))
         else:
-            status_s = '{0: <24}'.format(text_type('invalid affiliation'))
+            status_s = '{0: <24}'.format('invalid affiliation')
         number = entry['number']
         if number:
-            num_s = '{0: >18}'.format(text_type(number))
-            mod_date = entry['date']
+            num_s = '{0: >18}'.format(six.text_type(number))
+            mod_date = date_compat.get_date(entry['date'])
             if mod_date and mod_date > last_week:
                 days_ago = (today - mod_date).days
                 date_s = '  (changed {} days ago)'.format(int(days_ago))
@@ -260,118 +279,113 @@ def format_phone_table(co, phone_table):
     return table
 
 
-def format_simple(entries, keybase='issue'):
-    data = []
-    for i, ie in enumerate(entries):
-        data.append({keybase + '0': ie} if i == 0 else {keybase + 'n': ie})
-    return data
+def format_n_list(entries, keybase='issue'):
+    """
+    Return keyed items for list formatting:
+
+    >>> list(format_n_list(["a", "b", "c"], "key_"))
+    [{"key_0": "a"}, {"key_n": "b"}, {"key_n": "c"}]
+    """
+    for i, item in enumerate(entries):
+        key = keybase + ('n' if i else '0')
+        yield {key: item}
 
 
-class PassWordIssues(BofhdCommonMethods):
-    """This class exists to serve the bofh command
-    `password issues`.
+def check_password_issues(ac):
+    """ Check if something blocks a user from using password services.
 
-    This class does two things:
     1) Checks all necessary information from an account
        object to determine *whether* the SMS service can
        be used for password reset, and
+
     2) Formats this data into a shape required by the bofh
        command.
     """
-    def __init__(self, ac, db):
-        self.ac = ac
-        self.database = db
-        self.co = Utils.Factory.get('Constants')(db)
-        self.pe = get_pe_from_ac(ac, db)
-        self.data = []
+    check_personal_account(ac)
 
-    def __call__(self):
-        # basics
-        check_ac_basics(self.ac, self.co.entity_person)
-        # Problematic or informative traits?
-        trait_data = investigate_traits(self.ac, self.co)
-        fresh_account = account_is_fresh(self.ac, self.co)
-        issues = []
-        info = []
-        if 'info' in trait_data:
-            trait_info = trait_data['info']
-            in_str = 'Informative traits:' + ' {}'*len(trait_info)
-            info.append(in_str.format(*trait_info))
-        if 'issues' in trait_data:
-            trait_issues = trait_data['issues']
-            tr_str = 'Illegal traits:' + ' {}'*len(trait_issues)
-            issues.append(tr_str.format(*trait_issues))
-        # Member of an admin group?
-        if is_member_of_admingroups(self.ac, self.database):
-            issues.append('Member of admin group')
-        # Illegal quarantines?
-        quars = illegal_quarantines(self.ac, self.co)
-        if quars:
-            q_str = 'Illegal quarantines:' + ' {}'*len(quars)
-            issues.append(q_str.format(*quars))
-        # Affiliatins and phones
-        contact_rows = self.pe.get_contact_info()
-        if not contact_rows:
-            issues.append('No contact info')
-        valid_affiliations = [a for a in filter_valid_affiliations(
-            self.pe.get_affiliations())]
-        if not valid_affiliations:
-            issues.append('No valid affiliatons')
-        phones = [ent for ent in filter_mobilephones(self.co, contact_rows)]
-        valid_source_phone = False
-        for phone in phones:
-            if phone['ssys'] in (self.co.system_dfo_sap,
-                                 self.co.system_fs,
-                                 self.co.system_greg,):
-                valid_source_phone = True
-                break
-        if not valid_source_phone:
-            issues.append('No phone number from valid source system.')
-        phone_table = merge_affs_and_phones(self.co, valid_affiliations, phones)
-        if phone_table:
-            if not any_valid_phones(self.ac, self.co, phone_table, fresh_account):
-                issues.append('No valid phones')
-            for entry in format_phone_table(self.co, phone_table):
-                self.data.append(entry)
-        else:
-            issues.append('No phones')
-        # Finish formatting
-        if issues:
-            self.data.append({'sms_work_p': 'UNAVAILABLE',
-                              'accountname': self.ac.account_name})
-            for issue in format_simple(issues, keybase='issue'):
-                self.data.append(issue)
-        else:
-            self.data.append({'sms_work_p': 'available',
-                              'accountname': self.ac.account_name})
+    co = ac.const
+    pe = get_personal_account_owner(ac)
 
-        for info in format_simple(info, keybase='info'):
-            self.data.append(info)
+    data = []
+
+    # basics
+    # Problematic or informative traits?
+    trait_data = investigate_traits(ac)
+    issues = []
+    info = []
+    if 'info' in trait_data:
+        trait_info = trait_data['info']
+        in_str = 'Informative traits:' + ' {}'*len(trait_info)
+        info.append(in_str.format(*trait_info))
+    if 'issues' in trait_data:
+        trait_issues = trait_data['issues']
+        tr_str = 'Illegal traits:' + ' {}'*len(trait_issues)
+        issues.append(tr_str.format(*trait_issues))
+    # Member of an admin group?
+    if is_member_of_admingroups(ac):
+        issues.append('Member of admin group')
+    # Illegal quarantines?
+    quars = illegal_quarantines(ac)
+    if quars:
+        q_str = 'Illegal quarantines:' + ' {}'*len(quars)
+        issues.append(q_str.format(*quars))
+    # Affiliatins and phones
+    affiliations = list(get_affiliations(pe))
+    if not affiliations:
+        issues.append('No affiliatons')
+    phones = list(get_mobile_numbers(pe))
+    valid_source_phone = False
+    for phone in phones:
+        if phone['ssys'] in (co.system_dfo_sap,
+                             co.system_fs,
+                             co.system_greg,):
+            valid_source_phone = True
+            break
+    if not valid_source_phone:
+        issues.append('No phone number from valid source system.')
+
+    phone_table = merge_affs_and_phones(co, affiliations, phones)
+    if phone_table:
+        if not any_valid_phones(ac, phone_table):
+            issues.append('No valid phones')
+        for entry in format_phone_table(co, phone_table):
+            data.append(entry)
+    else:
+        issues.append('No phones')
+    # Finish formatting
+    if issues:
+        data.append({
+            'sms_work_p': 'UNAVAILABLE',
+            'accountname': ac.account_name,
+        })
+        data.extend(format_n_list(issues, keybase='issue'))
+    else:
+        data.append({
+            'sms_work_p': 'available',
+            'accountname': ac.account_name,
+        })
+
+    data.extend(format_n_list(info, keybase='info'))
+
+    return data
 
 
 class BofhdExtension(BofhdCommandBase):
+
     all_commands = {}
 
     @classmethod
     def get_help_strings(cls):
-        group_help = {
-            'password': "Miscellaneous commands",
-        }
-
         command_help = {
             'misc': {
                 'password_issues': 'Show if SMS pw service '
                 'is available for ac',
             },
         }
-        arg_help = {
-            'account_name':
-            ['uname', 'Enter account name',
-             'Enter the name of the account for this operation'],
-        }
-        return (group_help,
-                command_help,
-                arg_help)
+        return merge_help_strings(
+            get_help_strings(),
+            ({}, command_help, {}),
+        )
 
     #
     # misc password_issues
@@ -414,12 +428,4 @@ class BofhdExtension(BofhdCommandBase):
         ac = self._get_account(accountname, idtype='name')
         if not self.ba.can_set_password(operator.get_entity_id(), ac):
             raise PermissionDenied("Access denied")
-        pwi = PassWordIssues(ac, self.db)
-        pwi()
-        return pwi.data
-
-
-if __name__ == '__main__':
-    db = Utils.Factory.get('Database')()
-    logger = Utils.Factory.get_logger('console')
-    pwi = BofhdExtension(db, logger)
+        return check_password_issues(ac)

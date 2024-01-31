@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2006-2022 University of Oslo, Norway
+# Copyright 2006-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,24 +18,35 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ NIH bofhd commands. """
-import mx.DateTime
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    # TODO: unicode_literals,
+)
+
+import datetime
 
 from Cerebrum import Utils
 from Cerebrum import Errors
 from Cerebrum import database
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
-
 from Cerebrum.modules.apikeys import bofhd_apikey_cmds
 from Cerebrum.modules.audit import bofhd_history_cmds
 from Cerebrum.modules.bofhd import bofhd_contact_info
 from Cerebrum.modules.bofhd import bofhd_email
+from Cerebrum.modules.bofhd import bofhd_group_roles
 from Cerebrum.modules.bofhd import bofhd_ou_cmds
 from Cerebrum.modules.bofhd import cmd_param
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.bofhd_core_help import get_help_strings
-from Cerebrum.modules.bofhd.bofhd_utils import copy_func, copy_command
+from Cerebrum.modules.bofhd.bofhd_utils import (
+    copy_command,
+    copy_func,
+    default_format_day,
+)
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.help import merge_help_strings
 from Cerebrum.modules.no import fodselsnr
@@ -43,11 +54,10 @@ from Cerebrum.modules.no.access_FS import make_fs
 from Cerebrum.modules.no.uio import bofhd_uio_cmds
 from Cerebrum.modules.bofhd import bofhd_access
 from Cerebrum.modules.trait import bofhd_trait_cmds
+from Cerebrum.utils import date_compat
 
 
-def format_day(field):
-    fmt = "yyyy-MM-dd"  # 10 characters wide
-    return ":".join((field, "date", fmt))
+format_day = default_format_day  # 10 characters wide
 
 
 class NihAuth(bofhd_contact_info.BofhdContactAuth, BofhdAuth):
@@ -111,10 +121,6 @@ uio_commands = [
     'group_remove_entity',
     'group_search',
     'group_set_description',
-    'group_add_admin',
-    'group_remove_admin',
-    'group_add_moderator',
-    'group_remove_moderator',
     'misc_affiliations',
     'misc_check_password',
     'misc_clear_passwords',
@@ -186,32 +192,31 @@ class BofhdExtension(BofhdCommonMethods):
     all_commands['person_student_info'] = cmd_param.Command(
         ("person", "student_info"),
         cmd_param.PersonId(),
-        fs=cmd_param.FormatSuggestion(
-            [
-                ("Studieprogrammer: %s, %s, %s, %s, "
-                 "tildelt=%s->%s privatist: %s",
-                 ("studprogkode",
-                  "studieretningkode",
-                  "studierettstatkode",
-                  "studentstatkode",
-                  format_day("dato_tildelt"),
-                  format_day("dato_gyldig_til"),
-                  "privatist", )),
-                ("Eksamensmeldinger: %s (%s), %s",
-                 ("ekskode", "programmer", format_day("dato"))),
-                ("Utd. plan: %s, %s, %d, %s",
-                 ("studieprogramkode",
-                  "terminkode_bekreft",
-                  "arstall_bekreft",
-                  format_day("dato_bekreftet"))),
-                ("Semesterreg: %s, %s, FS bet. reg: %s, endret: %s",
-                 ("regformkode",
-                  "betformkode",
-                  format_day("dato_endring"),
-                  format_day("dato_regform_endret")))
-            ]
-        ),
-        perm_filter='can_get_student_info')
+        fs=cmd_param.FormatSuggestion([
+            ("Studieprogrammer: %s, %s, %s, %s, "
+             "tildelt=%s->%s privatist: %s",
+             ("studprogkode",
+              "studieretningkode",
+              "studierettstatkode",
+              "studentstatkode",
+              format_day("dato_tildelt"),
+              format_day("dato_gyldig_til"),
+              "privatist")),
+            ("Eksamensmeldinger: %s (%s), %s",
+             ("ekskode", "programmer", format_day("dato"))),
+            ("Utd. plan: %s, %s, %d, %s",
+             ("studieprogramkode",
+              "terminkode_bekreft",
+              "arstall_bekreft",
+              format_day("dato_bekreftet"))),
+            ("Semesterreg: %s, %s, FS bet. reg: %s, endret: %s",
+             ("regformkode",
+              "betformkode",
+              format_day("dato_endring"),
+              format_day("dato_regform_endret"))),
+        ]),
+        perm_filter='can_get_student_info',
+    )
 
     def person_student_info(self, operator, person_id):
         person = self._get_person(*self._map_person_id(person_id))
@@ -228,57 +233,48 @@ class BofhdExtension(BofhdCommonMethods):
             self.logger.warn("Can't connect to FS (%s)" % e)
             raise CerebrumError("Can't connect to FS, try later")
 
+        # parse date value from fs
+        fs_date = date_compat.get_date
+
         har_opptak = set()
         for row in fs_db.student.get_studierett(fodselsdato, pnum):
             har_opptak.add(row['studieprogramkode'])
-            ret.append(
-                {
-                    'studprogkode': row['studieprogramkode'],
-                    'studierettstatkode': row['studierettstatkode'],
-                    'studentstatkode': row['studentstatkode'],
-                    'studieretningkode': row['studieretningkode'],
-                    'dato_tildelt': self._ticks_to_date(
-                        row['dato_studierett_tildelt']),
-                    'dato_gyldig_til': self._ticks_to_date(
-                        row['dato_studierett_gyldig_til']),
-                    'privatist': row['status_privatist'],
-                }
-            )
+            ret.append({
+                'studprogkode': row['studieprogramkode'],
+                'studierettstatkode': row['studierettstatkode'],
+                'studentstatkode': row['studentstatkode'],
+                'studieretningkode': row['studieretningkode'],
+                'dato_tildelt': fs_date(row['dato_studierett_tildelt']),
+                'dato_gyldig_til': fs_date(row['dato_studierett_gyldig_til']),
+                'privatist': row['status_privatist'],
+            })
 
         for row in fs_db.student.get_eksamensmeldinger(fodselsdato, pnum):
             programmer = []
             for row2 in fs_db.info.get_emne_i_studieprogram(row['emnekode']):
                 if row2['studieprogramkode'] in har_opptak:
                     programmer.append(row2['studieprogramkode'])
-            ret.append(
-                {
-                    'ekskode': row['emnekode'],
-                    'programmer': ",".join(programmer),
-                    'dato': self._ticks_to_date(row['dato_opprettet']),
-                }
-            )
+            ret.append({
+                'ekskode': row['emnekode'],
+                'programmer': ",".join(programmer),
+                'dato': fs_date(row['dato_opprettet']),
+            })
 
         for row in fs_db.student.get_utdanningsplan(fodselsdato, pnum):
-            ret.append(
-                {
-                    'studieprogramkode': row['studieprogramkode'],
-                    'terminkode_bekreft': row['terminkode_bekreft'],
-                    'arstall_bekreft': row['arstall_bekreft'],
-                    'dato_bekreftet': self._ticks_to_date(
-                        row['dato_bekreftet']),
-                }
-            )
+            ret.append({
+                'studieprogramkode': row['studieprogramkode'],
+                'terminkode_bekreft': row['terminkode_bekreft'],
+                'arstall_bekreft': row['arstall_bekreft'],
+                'dato_bekreftet': fs_date(row['dato_bekreftet']),
+            })
 
         for row in fs_db.student.get_semreg(fodselsdato, pnum):
-            ret.append(
-                {
-                    'regformkode': row['regformkode'],
-                    'betformkode': row['betformkode'],
-                    'dato_endring': self._ticks_to_date(row['dato_endring']),
-                    'dato_regform_endret': self._ticks_to_date(
-                        row['dato_regform_endret']),
-                }
-            )
+            ret.append({
+                'regformkode': row['regformkode'],
+                'betformkode': row['betformkode'],
+                'dato_endring': fs_date(row['dato_endring']),
+                'dato_regform_endret': fs_date(row['dato_regform_endret']),
+            })
         return ret
 
     #
@@ -294,7 +290,7 @@ class BofhdExtension(BofhdCommonMethods):
         self.ba.can_delete_user(operator.get_entity_id(), account)
         if account.is_deleted():
             raise CerebrumError("User is already deleted")
-        account.expire_date = mx.DateTime.now()
+        account.expire_date = datetime.date.today()
         for s in account.get_spread():
             account.delete_spread(int(s['spread']))
         account.write_db()
@@ -407,6 +403,14 @@ class _ApiKeyAuth(NihAuth, bofhd_apikey_cmds.BofhdApiKeyAuth):
 
 class ApiKeyCommands(bofhd_apikey_cmds.BofhdApiKeyCommands):
     authz = _ApiKeyAuth
+
+
+class _GroupRoleAuth(NihAuth, bofhd_group_roles.BofhdGroupRoleAuth):
+    pass
+
+
+class GroupRoleCommands(bofhd_group_roles.BofhdGroupRoleCommands):
+    authz = _GroupRoleAuth
 
 
 class _HistoryAuth(NihAuth, bofhd_history_cmds.BofhdHistoryAuth):

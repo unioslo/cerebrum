@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2016-2017 University of Oslo, Norway
+# Copyright 2016-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,21 +17,32 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" Implementation of SCIM messages.
-
-https://tools.ietf.org/html/draft-hunt-idevent-scim-00#section-2.2
 """
-from __future__ import absolute_import
+Implementation of SCIM messages.
 
-import calendar
-import datetime
+See `<https://tools.ietf.org/html/draft-hunt-idevent-scim-00#section-2.2>`_ for
+more info.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+
 import uuid
+
 import six
 
-from Cerebrum.config.configuration import (Configuration,
-                                           ConfigDescriptor,
-                                           Namespace)
+from Cerebrum.config.configuration import (
+    Configuration,
+    ConfigDescriptor,
+    Namespace,
+)
 from Cerebrum.config.settings import String
+from Cerebrum.utils import date as date_utils
+from Cerebrum.utils import http as http_utils
+from Cerebrum.utils import text_compat
 
 
 class EntityTypeToApiRouteMapConfig(Configuration):
@@ -40,28 +50,28 @@ class EntityTypeToApiRouteMapConfig(Configuration):
 
     entity = ConfigDescriptor(
         String,
-        default=u'entities',
-        doc=u'API Route for entities')
+        default='entities',
+        doc='API Route for entities')
 
     person = ConfigDescriptor(
         String,
-        default=u'persons',
-        doc=u'API Route for person entities')
+        default='persons',
+        doc='API Route for person entities')
 
     account = ConfigDescriptor(
         String,
-        default=u'accounts',
-        doc=u'API Route for account entities')
+        default='accounts',
+        doc='API Route for account entities')
 
     group = ConfigDescriptor(
         String,
-        default=u'groups',
-        doc=u'API Route for group entities')
+        default='groups',
+        doc='API Route for group entities')
 
     ou = ConfigDescriptor(
         String,
-        default=u'ous',
-        doc=u'API Route for OU entities')
+        default='ous',
+        doc='API Route for OU entities')
 
 
 class ScimFormatterConfig(Configuration):
@@ -69,20 +79,20 @@ class ScimFormatterConfig(Configuration):
 
     issuer = ConfigDescriptor(
         String,
-        default=u'cerebrum',
-        doc=u'Issuer field in scim')
+        default='cerebrum',
+        doc='Issuer field in scim')
 
     urltemplate = ConfigDescriptor(
         String,
-        default=u'https://cerebrum.example.com/v1/{entity_type}/{entity_id}',
-        doc=u'Format string for URL (use {entity_type} and {entity_id} as '
-            u'placeholders')
+        default='https://cerebrum.example.com/v1/{entity_type}/{entity_id}',
+        doc='Format string for URL (use {entity_type} and {entity_id} as '
+            'placeholders')
 
     keytemplate = ConfigDescriptor(
         String,
-        default=u'no.uio.cerebrum.scim.{entity_type}.{event}',
-        doc=(u'Format string for routing key (use {entity_type} and {event} '
-             u'as placeholders'))
+        default='no.uio.cerebrum.scim.{entity_type}.{event}',
+        doc=('Format string for routing key (use {entity_type} and {event} '
+             'as placeholders'))
 
     entity_type_map = ConfigDescriptor(
         Namespace,
@@ -90,12 +100,13 @@ class ScimFormatterConfig(Configuration):
 
     uri_prefix = ConfigDescriptor(
         String,
-        default=u'urn:ietf:params:event:SCIM',
-        doc=u'Default URI Prefix for SCIM-events'
+        default='urn:ietf:params:event:SCIM',
+        doc='Default URI Prefix for SCIM-events'
     )
 
 
 class ScimFormatter(object):
+
     def __init__(self, config=None):
         self.config = config or ScimFormatterConfig()
 
@@ -103,8 +114,8 @@ class ScimFormatter(object):
     def make_timestamp(dt_object=None):
         """ Make a timestamp from a datetime object. """
         if dt_object is None:
-            dt_object = datetime.datetime.utcnow()
-        return int(calendar.timegm(dt_object.utctimetuple()))
+            dt_object = date_utils.utcnow()
+        return int(date_utils.to_timestamp(dt_object))
 
     def get_entity_type_route(self, entity_type):
         """ Get the API route for the given entity type. """
@@ -112,16 +123,21 @@ class ScimFormatter(object):
         return getattr(self.config.entity_type_map, entity_type, default)
 
     def build_url(self, entity_type, entity_id):
-        return self.config.urltemplate.format(entity_type=entity_type,
-                                              entity_id=entity_id)
+        return self.config.urltemplate.format(
+            entity_type=http_utils.safe_path(entity_type),
+            entity_id=http_utils.safe_path(entity_id),
+        )
 
     def get_uri(self, action):
         """ Format an uri for the message. """
-        return '{}:{}'.format(self.config.uri_prefix, action)
+        return '{}:{}'.format(self.config.uri_prefix,
+                              text_compat.to_text(action))
 
     def get_key(self, entity_type, event):
-        return self.config.keytemplate.format(entity_type=entity_type,
-                                              event=event)
+        return self.config.keytemplate.format(
+            entity_type=text_compat.to_text(entity_type),
+            event=text_compat.to_text(event),
+        )
 
 
 class EventScimFormatter(ScimFormatter):
@@ -182,8 +198,8 @@ class EventScimFormatter(ScimFormatter):
                 event_uri,
                 dict())['object'] = [self.get_url(o) for o in event.objects]
         if event.scheduled is not None:
-            # assume datetime.datetime, although mx.DateTime will also work
-            # .strftime('%s') is not official and it will not work in Windows
+            # assume datetime.datetime, although mx-like datetime objects will
+            # also work
             payload['nbf'] = self.make_timestamp(event.scheduled)
         payload['resourceType'] = self.get_entity_type(event.subject)
         return payload

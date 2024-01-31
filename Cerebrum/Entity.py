@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2002-2021 University of Oslo, Norway
+# Copyright 2002-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -24,7 +24,12 @@ This module contains the base class for all database objects in Cerebrum, along
 with mixins for this base class that provides common functionality, like the
 ability to assign quarantines and spreads.
 """
-from __future__ import unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import collections
 
@@ -32,12 +37,12 @@ import six
 
 import cereconf
 from Cerebrum import Errors
-from Cerebrum import Utils
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.Utils import Factory
 from Cerebrum.Utils import argument_to_sql, prepare_string
 from Cerebrum.Utils import NotSet
 from Cerebrum.Utils import to_unicode
+from Cerebrum.meta import MarkUpdateMixin
 
 
 def _entity_row_exists(db, table, binds):
@@ -45,7 +50,7 @@ def _entity_row_exists(db, table, binds):
 
     :type database: database object
 
-    :type table: basestring
+    :type table: str
     :param table: name of table for query
 
     :type binds: dict
@@ -63,7 +68,7 @@ def _entity_row_exists(db, table, binds):
 
 
 @six.python_2_unicode_compatible
-class Entity(DatabaseAccessor):
+class Entity(MarkUpdateMixin, DatabaseAccessor):
     """Class for generic access to Cerebrum entities.
 
     An instance of this class (or any of its subclasses) can associate
@@ -71,8 +76,6 @@ class Entity(DatabaseAccessor):
     meaningful before such an association has been performed (TODO:
     raise exception?).
     """
-
-    __metaclass__ = Utils.mark_update
 
     __read_attr__ = ('__in_db', 'const', 'clconst',
                      # Define source system once here, instead of one
@@ -516,7 +519,7 @@ class EntityName(Entity):
 
     def find_by_name(self, name, domain):
         "Associate instance with the entity having NAME in DOMAIN."
-        if not isinstance(name, basestring):
+        if not isinstance(name, six.string_types):
             raise ValueError("invalid name {name!r}".format(name=name))
 
         entity_id = self.query_1(
@@ -1327,7 +1330,7 @@ class EntityQuarantine(Entity):
         :type qtype: QuarantineCode or int
         :param qype: The quarantine to be disabled
 
-        :type until: mx.DateTime
+        :type until: datetime.date or mx-like datetime
         :param until: Disable quarantine until this point in time
         """
         binds = {'entity_id': self.entity_id,
@@ -1580,7 +1583,7 @@ class EntityExternalId(Entity):
         :type id_type: int or EntityExternalId or sequence thereof
         :param id_type: Filter resulting IDs by ID type(s).
 
-        :type external_id: basestring
+        :type external_id: str
         :param external_id:
             Filter resulting IDs by external ID, case insensitively. The ID may
             contain SQL wildcard characters. Useful for finding the entity a

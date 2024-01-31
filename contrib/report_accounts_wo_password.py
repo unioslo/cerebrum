@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2019 University of Oslo, Norway
+# Copyright 2019-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -51,6 +51,13 @@ The original can be found in cerebrum_config.git, as
   Merge: bef67be2 3bfbd8a2
   Date:  Wed Jun 19 16:07:06 2019 +0200
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+
 import argparse
 import datetime
 import functools
@@ -61,6 +68,7 @@ import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.argutils import codec_type
+from Cerebrum.utils import date_compat
 
 logger = logging.getLogger(__name__)
 
@@ -116,11 +124,11 @@ def get_user_info(ac):
     pe.find(ac.owner_id)
     co = Factory.get('Constants')(db)
 
-    if not ac.created_at:
+    created_at = date_compat.get_datetime_tz(ac.created_at)
+
+    if not created_at:
         raise ValueError("Missing created_at for account_id=%r (%s)" %
                          (ac.entity_id, ac.account_name))
-
-    created_at = ac.created_at.pydatetime()
 
     for row in pe.get_external_id(id_type=co.externalid_fodselsnr):
         nin = row['external_id']
@@ -153,6 +161,7 @@ def write_missing_passwords(db, account_ids, stream):
         except Exception as e:
             logger.error("Unable to get account_id=%r: %s", account_id, e)
             stats['skipped'] += 1
+            continue
         stream.write(
             format_line(
                 user_info,

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 #
-# Copyright 2017-2018 University of Oslo, Norway
+# Copyright 2017-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,25 +18,33 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" Event handler for publishing SCIM-messages to the Message Queue.
+"""
+Event handler for publishing SCIM-messages to the Message Queue.
 
 Once started, this daemon will listen for changes in the Cerebrum database, and
 attempt to publish SCIM-formatted messages using some MQ publisher.
 
 This process accepts the following signals:
 
-SIGHUP (any process):
-    Gracefully stop the utils.
+SIGHUP (any subprocess):
+    Gracefully stop the service.
 
 SIGUSR1 (main process)
     List current processes, pids and their state.
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import argparse
 import logging
 
 from six.moves.queue import Queue
 
 import Cerebrum.logutils
+import Cerebrum.logutils.options
 from Cerebrum.modules.event import utils
 from Cerebrum.modules.event_publisher import consumer
 from Cerebrum.modules.event_publisher.config import load_daemon_config
@@ -50,7 +58,8 @@ class Manager(utils.Manager):
 
 
 # Inject our queue implementation:
-Manager.register('queue', Queue)
+# manager names must be bytestrings in PY2
+Manager.register(str('queue'), Queue)
 
 
 def unlock_all_events():
@@ -119,47 +128,54 @@ def show_config(config):
 def main(args=None):
     parser = argparse.ArgumentParser(description=__doc__)
 
-    parser.add_argument('-c', '--config',
-                        dest='configfile',
-                        metavar='FILE',
-                        default=None,
-                        help='Use a custom configuration file')
-
-    parser.add_argument('--show-config',
-                        dest='show_config',
-                        action='store_true',
-                        default=False,
-                        help='Show config and exit')
-
-    parser.add_argument('-n', '--num-workers',
-                        dest='num_workers',
-                        metavar='NUM',
-                        default=1,
-                        help=('Use %(metavar)s processes to handle incoming'
-                              ' events (default=%(default)s)'))
-
-    parser.add_argument('--no-listener',
-                        dest='listen_db',
-                        action='store_false',
-                        default=True,
-                        help='Disable event listener')
-
-    parser.add_argument('--no-collection',
-                        dest='collect_db',
-                        action='store_false',
-                        default=True,
-                        help='Disable event collectors')
-
-    parser.add_argument('--unlock-events',
-                        dest='unlock_events',
-                        action='store_true',
-                        default=False,
-                        help='Unlock events that remain locked from '
-                             'previous runs')
+    parser.add_argument(
+        '-c', '--config',
+        default=None,
+        dest='configfile',
+        help='Use a custom configuration file',
+        metavar='FILE',
+    )
+    parser.add_argument(
+        '--show-config',
+        action='store_true',
+        default=False,
+        dest='show_config',
+        help='Show config and exit',
+    )
+    parser.add_argument(
+        '-n', '--num-workers',
+        default=1,
+        dest='num_workers',
+        help=('Use %(metavar)s processes to handle incoming'
+              ' events (default=%(default)s)'),
+        metavar='NUM',
+    )
+    parser.add_argument(
+        '--no-listener',
+        action='store_false',
+        default=True,
+        dest='listen_db',
+        help='Disable event listener',
+    )
+    parser.add_argument(
+        '--no-collection',
+        action='store_false',
+        default=True,
+        dest='collect_db',
+        help='Disable event collectors',
+    )
+    parser.add_argument(
+        '--unlock-events',
+        action='store_true',
+        default=False,
+        dest='unlock_events',
+        help=('Unlock events that remain locked from'
+              ' previous runs'),
+    )
 
     Cerebrum.logutils.options.install_subparser(parser)
     args = parser.parse_args(args)
-    Cerebrum.logutils.autoconf(__name__, args)
+    Cerebrum.logutils.autoconf("cronjob", args)
 
     config = load_daemon_config(filepath=args.configfile)
 
@@ -168,7 +184,7 @@ def main(args=None):
         raise SystemExit()
 
     # Run event processes
-    logger.info('Starting publisher event utils')
+    logger.info("Starting publisher event utils")
     with Pid():
         if args.unlock_events:
             unlock_all_events()
@@ -178,8 +194,8 @@ def main(args=None):
             args.listen_db,
             args.collect_db)
 
-    logger.info('Event publisher stopped')
+    logger.info("Event publisher stopped")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
