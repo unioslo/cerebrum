@@ -95,6 +95,8 @@ command_help = {
             'List all administrators of a group by type (account or group)',
         'group_list_mods':
             'List all moderators of a group by type (account or group)',
+        'group_accounts':
+            'Lists all accounts owned by a group',
         'group_memberships': 'List all groups an entity is a member of',
         'group_memberships_expanded':
             'List all groups an entity is a member of, direct and indirect',
