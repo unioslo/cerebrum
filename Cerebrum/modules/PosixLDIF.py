@@ -330,7 +330,7 @@ class PosixLDIF(AutoSuperMixin):
                 self.logger.warn(
                     "Group id:%s has one of %s but no GID, skipping",
                     group_id,
-                    getattr(cereconf, 'LDAP_FILEGROUP').get('spread'), [])
+                    getattr(cereconf, 'LDAP_FILEGROUP').get('spread', []))
                 continue
             self.create_group_object(group_id, row['name'],
                                      row['description'])
