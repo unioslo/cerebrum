@@ -43,15 +43,18 @@ kinds of reservations and acceptance.
 
 The script tags people in the following order:
 
-1. If the person is an employee:
+1. If the person is a member of manuelt-aktivt-samtykke:
+   - Reservation is removed.
+
+2. If the person is an employee:
    - Gets reserved if a member of DFO-elektroniske-reservasjoner.
    - Otherwise reservation is removed.
 
-2. If the person is not an employee, but is a student:
+3. If the person is not an employee, but is a student:
    - Reservation is removed if a member of FS-aktivt-samtykke.
    - Otherwise gets reserved.
 
-3. Everyone else, i.e. those which are not employees or students, gets reserved.
+4. Everyone else, i.e. those which are not employees or students, gets reserved.
 
 """
 
@@ -135,6 +138,8 @@ def process(emplaffs, studaffs, with_commit=False):
     students = get_students(studaffs)
     logger.debug('%d students found', len(students))
 
+    manual_consent_members = get_members('manuelt-aktivt-samtykke')
+    logger.debug('%d members from manual consent', len(manual_consent_members))
     sapmembers = get_members('DFO-elektroniske-reservasjoner')
     logger.debug('%d members from DFO-SAP reservations', len(sapmembers))
     fsmembers = get_members('FS-aktivt-samtykke')
@@ -162,7 +167,9 @@ def process(emplaffs, studaffs, with_commit=False):
             continue
         already_processed.add(person_id)
 
-        if person_id in employees:
+        if person_id in manual_consent_members:
+            set_reservation(person_id, False)
+        elif person_id in employees:
             set_reservation(person_id, person_id in sapmembers)
         elif person_id in students:
             set_reservation(person_id, person_id not in fsmembers)
