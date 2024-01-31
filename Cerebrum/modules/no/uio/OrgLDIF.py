@@ -326,6 +326,7 @@ class UioOrgLdif(NorEduSmsAuthnMixin,
             (student, int(self.const.affiliation_status_student_drgrad)),
             (student, int(self.const.affiliation_status_student_emnestud)))
         self.sap_res = self.init_person_group("DFO-elektroniske-reservasjoner")
+        self.manuelt_samtykke = self.init_person_group("manuelt-aktivt-samtykke")
         self.fs_samtykke = self.init_person_group("FS-aktivt-samtykke")
 
     def is_person_visible(self, person_id):
@@ -354,6 +355,9 @@ class UioOrgLdif(NorEduSmsAuthnMixin,
         #  * The trait's numval is set to 0
         # This means that a missing trait should be considered as a
         # reservation.
+
+        if person_id in self.manuelt_samtykke:
+            return True
 
         p_affs = self.affiliations[person_id]
         # If there is an affiliation from SAP then consider
