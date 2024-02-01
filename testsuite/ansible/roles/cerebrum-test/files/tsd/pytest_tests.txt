@@ -1,6 +1,0 @@
-test_core/test_core_Database.py
-test_core/test_core_Group.py
-test_core/test_core_Account.py
-test_core/test_core_Utils.py
-test_tsd/test_tsd_Account.py
-test_tsd/test_tsd_OU.py
