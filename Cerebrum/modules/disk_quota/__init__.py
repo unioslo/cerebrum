@@ -42,8 +42,9 @@ CLASS_CL_CONSTANTS
 
 History
 -------
-This submodule used to live in Cerebrum.modules.no.{uio,uit}.{Disk,DiskQuota}.
-It was moved to a separate module after:
+This submodule was merged from duplicate implementations, the main ones being
+Cerebrum.modules.no.uio.{Disk,DiskQuota}.  The modules were merged and moved
+here after:
 
     commit b09f87aca4a1b6ed715f863dd7cf8730465391a3
     Merge: e940e928e ddf367002

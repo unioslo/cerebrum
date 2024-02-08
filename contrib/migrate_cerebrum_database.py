@@ -851,7 +851,7 @@ def migrate_to_rel_0_9_22():
     aos = BofhdAuthOpSet(db)
     try:
         try:
-            # uit and uio
+            # uio
             aos.find_by_name('Group-owner')
         except Errors.NotFoundError:
             try:
@@ -902,7 +902,7 @@ def migrate_to_rel_0_9_22():
     aos.clear()
     try:
         try:
-            # uit and uio
+            # uio
             aos.find_by_name("Group-admin")
         except Errors.NotFoundError:
             # webid
