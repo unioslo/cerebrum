@@ -72,7 +72,6 @@ targets = {
     'dns': ('dns_1_0', 'dns_1_1', 'dns_1_2', 'dns_1_3', 'dns_1_4', 'dns_1_5'),
     'password_history': ('password_history_1_1',),
     'sap': ('sap_1_0', 'sap_1_1',),
-    'spread_expire': ('spread_expire_1_1',),
     'task_queue': ('task_queue_1_1',),
     'entity_trait': ('entity_trait_1_1',),
     'hostpolicy': ('hostpolicy_1_1',),
@@ -1986,16 +1985,6 @@ def migrate_to_job_runner_1_2():
     meta.set_metainfo("sqlmodule_job_runner", "1.2")
     db.commit()
     print("Migration to job_runner 1.2 completed successfully")
-
-
-def migrate_to_spread_expire_1_1():
-    assert_db_version("1.0", component="spread_expire")
-    makedb("spread_expire_1_1", "pre")
-    meta = Metainfo.Metainfo(db)
-    meta.del_metainfo('sqlmodule_mailq')
-    meta.set_metainfo("sqlmodule_spread_expire", "1.1")
-    db.commit()
-    print("Migration to spread_expire 1.1 completed successfully")
 
 
 def migrate_to_task_queue_1_1():
