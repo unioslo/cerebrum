@@ -62,7 +62,6 @@ targets = {
     'email': ('email_1_0', 'email_1_1', 'email_1_2', 'email_1_3', 'email_1_4',
               'email_1_5', 'email_1_6'),
     'feide_service': ('feide_service_1_1',),
-    'entity_expire': ('entity_expire_1_0',),
     'ephorte': ('ephorte_1_1', 'ephorte_1_2'),
     'eventlog': ('eventlog_1_1', 'eventlog_1_2'),
     'events': ('events_1_1', ),

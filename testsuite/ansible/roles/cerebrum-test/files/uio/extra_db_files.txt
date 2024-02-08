@@ -5,7 +5,6 @@ mod_distribution_group.sql
 mod_eventlog.sql
 mod_password_history.sql
 bofhd_tables.sql
-mod_entity_expire.sql
 mod_entity_trait.sql
 mod_job_runner.sql
 mod_mount_host.sql

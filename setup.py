@@ -380,7 +380,6 @@ setup(
         'Cerebrum/modules/disk_quota',
         'Cerebrum/modules/dns',
         'Cerebrum/modules/email_report',
-        'Cerebrum/modules/entity_expire',
         'Cerebrum/modules/event',
         'Cerebrum/modules/event_publisher',
         'Cerebrum/modules/exchange',
