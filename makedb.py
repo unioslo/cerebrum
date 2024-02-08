@@ -372,7 +372,6 @@ def check_schema_versions(db, strict=False):
         'events': 'Cerebrum.modules.event_publisher',
         'hostpolicy': 'Cerebrum.modules.hostpolicy',
         'job_runner': 'Cerebrum.modules.job_runner',
-        'legacy_users': 'Cerebrum.modules.legacy_users',
         'otp': 'Cerebrum.modules.otp',
         'note': 'Cerebrum.modules.Note',
         'password_history': 'Cerebrum.modules.pwcheck.history',
