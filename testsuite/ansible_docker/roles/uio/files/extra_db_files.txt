@@ -5,7 +5,6 @@
 --extra-file=mod_eventlog.sql
 --extra-file=mod_password_history.sql
 --extra-file=bofhd_tables.sql
---extra-file=mod_entity_expire.sql
 --extra-file=mod_entity_trait.sql
 --extra-file=mod_job_runner.sql
 --extra-file=mod_mount_host.sql

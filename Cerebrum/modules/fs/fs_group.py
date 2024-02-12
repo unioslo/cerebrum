@@ -19,8 +19,8 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """This module contains functionality for categorizing fs groups
 
-Here is a bit of documentation compiled from the
-populate_fronter_groups-scripts of uio, uia and uit:
+Here is a bit of documentation compiled from the `populate_fronter_groups`
+scripts of uio and uia:
 
 Disse gruppene blir bl.a. brukt ved eksport av data til ClassFronter, og ved
 populering av visse NIS (Ifi).
@@ -75,19 +75,19 @@ kategorier:
   - Grupper (med primærbrukermedlemmer) som brukes ved eksport til
     ClassFronter, har navn på følgende format::
 
-      Rolle ved undenh:     <domene>:fs:<enhetid>:<rolletype>
-      Rolle ved undakt:     <domene>:fs:<enhetid>:<rolletype>:<aktkode>
-      Ansvar und.enh:       <domene>:fs:<enhetid>:enhetsansvar
-      Ansvar und.akt:       <domene>:fs:<enhetid>:aktivitetsansvar:<aktkode>
-      Alle stud. v/enh:     <domene>:fs:<enhetid>:student
-      Alle stud. v/akt:     <domene>:fs:<enhetid>:student:<aktkode>
+    Rolle ved undenh:   <domene>:fs:<enhetid>:<rolletype>
+    Rolle ved undakt:   <domene>:fs:<enhetid>:<rolletype>:<aktkode>
+    Ansvar und.enh:     <domene>:fs:<enhetid>:enhetsansvar
+    Ansvar und.akt:     <domene>:fs:<enhetid>:aktivitetsansvar:<aktkode>
+    Alle stud. v/enh:   <domene>:fs:<enhetid>:student
+    Alle stud. v/akt:   <domene>:fs:<enhetid>:student:<aktkode>
 
   - Ytterligere grupper hvis medlemmer kun er ikke-primære ('sekundære')
     konti. Genereres kun for informatikk-emner, og har navn på formen::
 
-      Ansvar und.enh:       <domene>:fs:<enhetid>:enhetsansvar-sek
-      Ansvar und.akt:       <domene>:fs:<enhetid>:aktivitetsansvar-sek:<aktkode>
-      Alle stud. v/enh:     <domene>:fs:<enhetid>:student-sek
+    Ansvar und.enh:     <domene>:fs:<enhetid>:enhetsansvar-sek
+    Ansvar und.akt:     <domene>:fs:<enhetid>:aktivitetsansvar-sek:<aktkode>
+    Alle stud. v/enh:   <domene>:fs:<enhetid>:student-sek
 
 <rolletype> er en av 12 predefinerte roller (jfr. valid_roles). enhetsansvar
 og aktivitetsansvar-gruppene finnes kun for Ifi, som ønsker sine grupper (for

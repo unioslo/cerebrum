@@ -131,8 +131,6 @@ MAPPING = {
     ('entity', 'ext_id_mod'): ('entity_external_id', 'modify'),
     ('entity_addr', 'del'): ('entity_addr', 'remove'),
     ('entity_cinfo', 'del'): ('entity_cinfo', 'remove'),
-    ('entity_expire', 'del'): ('entity_expire', 'remove'),
-    ('entity_expire', 'mod'): ('entity_expire', 'modify'),
     ('entity_name', 'del'): ('entity_name', 'remove'),
     ('entity_name', 'mod'): ('entity_name', 'modify'),
     ('entity_note', 'del'): ('entity_note', 'remove'),

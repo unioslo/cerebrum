@@ -23,8 +23,6 @@ Roles are typically:
 
 - Learner (students)
 - Instructor (course lecturers and group instructors)
-
-Note: Near-identical with uit/generate_kurs_ldif.py
 """
 from __future__ import unicode_literals
 
