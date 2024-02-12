@@ -13,4 +13,3 @@ mod_stedkode.sql
 mod_ad_attributes.sql
 mod_dns.sql
 mod_hostpolicy.sql
-mod_tsd.sql
