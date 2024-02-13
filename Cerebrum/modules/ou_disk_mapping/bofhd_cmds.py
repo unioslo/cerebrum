@@ -49,15 +49,23 @@ from Cerebrum.modules.bofhd.cmd_param import (
     Command,
     FormatSuggestion,
     SimpleString,
+    YesNo,
     get_format_suggestion_table,
 )
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.help import merge_help_strings
+from Cerebrum.org import perspective_db
 
 from .dbal import OUDiskMapping
 from .utils import resolve_disk
 
 logger = logging.getLogger(__name__)
+
+
+def _text_or_none(value):
+    if value is None:
+        return None
+    return six.text_type(value)
 
 
 class BofhdOUDiskMappingAuth(BofhdAuth):
@@ -76,7 +84,7 @@ class BofhdOUDiskMappingAuth(BofhdAuth):
             return False
         raise PermissionDenied("Not allowed to modify ou disk mapping rules")
 
-    def can_show_ou_disk_mapping(self, operator, ou=None, query_run_any=False):
+    def can_show_ou_disk_mapping(self, operator, query_run_any=False):
         """ Check if the operator can inspect disk mappings for a given ou. """
         return self._can_inspect_ou_disk_mapping(
             operator=operator,
@@ -308,7 +316,7 @@ class BofhdOUDiskMappingCommands(BofhdCommandBase):
                 aff, status = self.const.get_affiliation(aff_value)
             except Errors.NotFoundError:
                 raise CerebrumError("Unknown affiliation: " + repr(aff_value))
-            aff_str = six.text_type(status if status else aff)
+            aff_str = _text_or_none(status) or _text_or_none(aff)
         else:
             aff = status = aff_str = None
 
@@ -360,8 +368,7 @@ class BofhdOUDiskMappingCommands(BofhdCommandBase):
                    if row['aff_code'] else None)
             status = (self.const.PersonAffStatus(row['status_code'])
                       if row['status_code'] else None)
-            aff_str = (six.text_type(status if status else aff)
-                       if aff or status else None)
+            aff_str = _text_or_none(status) or _text_or_none(aff)
 
             # reduce lookups
             if row['ou_id'] != prev_ou_id:
@@ -376,6 +383,9 @@ class BofhdOUDiskMappingCommands(BofhdCommandBase):
                 'affiliation': aff_str,
                 'disk_id': disk.entity_id,
                 'disk_path': disk.path,
+                # useful to identify overrides
+                'affiliation_code': _text_or_none(aff),
+                'status_code': _text_or_none(status),
             })
             yield result
 
@@ -385,35 +395,67 @@ class BofhdOUDiskMappingCommands(BofhdCommandBase):
     all_commands["ou_homedir_list"] = Command(
         ("ou", "homedir_list"),
         SimpleString(help_ref="ou-mapping-ou"),
-        SimpleString(help_ref="ou-mapping-aff", optional=True),
+        YesNo(help_ref="ou-mapping-all", optional=True, default='no'),
         fs=_list_disk_mapping_fs,
         perm_filter="can_show_ou_disk_mapping",
     )
 
-    def ou_homedir_list(self, operator, ou_value, aff_value=None):
+    def ou_homedir_list(self, operator, ou_value, include_duplicates='no'):
         """
-        Get explicit default homedir rules for a given org unit.
+        List default homedir rules affecting a given org unit.
 
         :param operator:
-        :param ou_value: the org unit to get homedir rule(s) for
-        :param aff_value: only fetch rules for a given affiliation
+        :param ou_value:
+            the org unit to get homedir rule(s) for
+        :param include_duplicates:
+            show parent rules that are overridden by children
 
         :returns dict:
             client output
         """
         ou = self._find_ou(ou_value)
-        self.ba.can_show_ou_disk_mapping(operator.get_entity_id(), ou)
+        perspective = perspective_db.get_default_perspective(self.const)
+        include_duplicates = self._get_boolean(include_duplicates)
 
-        if aff_value:
-            try:
-                aff, _ = self.const.get_affiliation(aff_value)
-            except Errors.NotFoundError:
-                raise CerebrumError("Unknown affiliation: " + repr(aff_value))
-        else:
-            aff = NotSet
+        self.ba.can_show_ou_disk_mapping(operator.get_entity_id())
 
-        results = list(self._list_disk_mappings(ou_id=ou.entity_id,
-                                                affiliation=aff))
+        # some utils to exclude "duplicate" rules
+        seen_affs = set()
+
+        def _is_duplicate(result):
+            if None in seen_affs:
+                # we've already seen a catch-all rule
+                return True
+            if result['status_code']:
+                return (result['status_code'] in seen_affs
+                        or result['affiliation_code'] in seen_affs)
+            if result['affiliation_code']:
+                return result['affiliation_code'] in seen_affs
+            # this is a new catch-all rule
+            return False
+
+        def _add_result(result):
+            if result['status_code']:
+                seen_affs.add(result['status_code'])
+            elif result['affiliation_code']:
+                seen_affs.add(result['affiliation_code'])
+            else:
+                seen_affs.add(None)
+
+        # iterative lookup to preserve order
+        results = []
+        for r in self._list_disk_mappings(ou_id=ou.entity_id):
+            results.append(r)
+            _add_result(r)
+
+        for row in perspective_db.find_parents(self.db, perspective,
+                                               ou.entity_id):
+            for res in self._list_disk_mappings(ou_id=row['parent_id']):
+                if not include_duplicates and _is_duplicate(res):
+                    continue
+                results.append(res)
+                _add_result(res)
+
         if not results:
             raise CerebrumError("No matching rules for ou: " + repr(ou_value))
         return results
@@ -676,5 +718,21 @@ HELP_ARGS = {
         'ou-mapping-filter',
         'Enter a ou mapping search filter',
         _ou_mapping_help_blurb,
+    ],
+    "ou-mapping-all": [
+        "ou-mapping-all",
+        "Include all rules (yes/no)",
+        textwrap.dedent(
+            """
+            Include all parent rules.
+
+            This will include rules that will never take effect, as they are
+            overridden by more specific rules.  Useful when refactoring disk
+            mapping rules.
+
+            - "yes" to include all rules
+            - "no" to only include rules that may effect the given org unit
+            """
+        ).strip(),
     ],
 }
