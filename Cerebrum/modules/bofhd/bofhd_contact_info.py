@@ -755,7 +755,7 @@ class BofhdContactCommands(BofhdCommandBase):
         SimpleString(help_ref='entity-contact-value'),
         SimpleString(help_ref='entity-contact-type', optional=True),
         fs=get_format_suggestion_table(
-            ('entity_id', 'Entity Id', 15, 's', True),
+            ('entity_id', 'Entity Id', 15, 'd', True),
             ('source_system', 'Source', 15, 's', True),
             ('contact_type', 'Type', 15, 's', True),
             ('contact_value', 'Value', 24, 's', False),
