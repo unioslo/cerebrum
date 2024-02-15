@@ -40,8 +40,11 @@ from __future__ import (
     unicode_literals,
 )
 
+import six
+
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
+from Cerebrum.org import perspective_db
 
 
 def get_disk_rule(disk_mapping, ou_id, affiliation, status):
@@ -100,22 +103,19 @@ def resolve_disk(disk_mapping,
     :param int perspective: org unit perspective
     """
     db = disk_mapping._db
-    seen_ids = set()
+    candidates = (
+        [ou_id]
+        + [row['parent_id']
+           for row in perspective_db.find_parents(db, perspective, ou_id)]
+    )
 
-    while True:
+    for ou_id in candidates:
         try:
             return get_disk_rule(disk_mapping, ou_id, affiliation, status)
         except Errors.NotFoundError:
             # No match at this ou_id
             pass
 
-        seen_ids.add(ou_id)
-
-        # No matching rule found yet, continue with parent.
-        # This will raise NotFoundError if there aren't any more parents
-        ou_id = get_parent_id(db, ou_id, perspective)
-
-        # org tree cycle protection
-        if ou_id in seen_ids:
-            raise RuntimeError("Org tree cycle! (ou_id=%s, perspective=%s)"
-                               % (repr(ou_id), repr(perspective)))
+    aff_str = six.text_type(affiliation if status is None else status)
+    raise Errors.NotFoundError("No default disk for ou_id=%s, affiliation=%s"
+                               % (ou_id, aff_str))
