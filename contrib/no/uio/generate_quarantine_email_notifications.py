@@ -156,7 +156,7 @@ def generate_event_info(db, event):
         event_info['change_by'] = ac.get_account_name()
     else:
         event_info['change_by'] = event['change_program']
-    event_info['time_stamp'] = event['tstamp'].strftime()
+    event_info['time_stamp'] = event['tstamp'].strftime("%c")
     return event_info
 
 
