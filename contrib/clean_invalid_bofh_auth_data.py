@@ -20,14 +20,9 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """Remove invalid bofh auth data.
 
-The auth_op_target and auth_op_roles tables can contain entries that refers
-to deleted entities. This script find and removed these entries.
-
-Some parts of Cerebrum (see dns/Subnet.py) removes the BofhAuth data on delete.
-We do not want Cerebrum to touch BofhdAuth butt removing it might brake stuff..
-See CRB-2616.
+The `auth_op_target` and `auth_op_roles` tables can contain entries that refers
+to deleted entities.  This script finds and removes these entries.
 """
-
 import argparse
 import logging
 
