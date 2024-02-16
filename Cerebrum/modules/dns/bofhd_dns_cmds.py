@@ -53,7 +53,6 @@ from Cerebrum.modules.dns.Errors import SubnetError
 from Cerebrum.modules.dns.IPUtils import IPCalc, IPUtils
 from Cerebrum.modules.dns.IPv6Utils import IPv6Calc, IPv6Utils
 from Cerebrum.modules.dns.bofhd_dns_utils import DnsBofhdUtils
-from Cerebrum.modules.hostpolicy.PolicyComponent import PolicyComponent
 from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as cl_base
 
 
@@ -749,19 +748,6 @@ class BofhdExtension(BofhdCommandBase):
                 raise CerebrumError("Use 'host cname_remove' to remove cnames")
         except Errors.NotFoundError:
             pass
-        # Remove links to policies if hostpolicy is used:
-        try:
-            policy = PolicyComponent(self.db)
-            for row in policy.search_hostpolicies(dns_owner_id=owner_id):
-                policy.clear()
-                policy.find(row['policy_id'])
-                policy.remove_from_host(owner_id)
-        except CerebrumError:
-            raise
-        except Exception:
-            # This could be due to that hostpolicy isn't implemented at the
-            # instance, will therefore log all errors in the start:
-            self.logger.warn('host_remove policy error', exc_info=True)
         self.mb_utils.ip_free(dns.DNS_OWNER, host_id, force)
         return "OK, DNS-owner %s completely removed" % host_id
 
@@ -805,7 +791,6 @@ class BofhdExtension(BofhdCommandBase):
     #
     all_commands['host_info'] = Command(
         ("host", "info"), HostId(),
-        YesNo(optional=True, help_ref='show_policy'),
         fs=FormatSuggestion([
             # Name line
             ("%-22s %%s\n%-22s contact=%%s\n%-22s comment=%%s" % ("Name:", ' ',
@@ -836,19 +821,13 @@ class BofhdExtension(BofhdCommandBase):
               'srv_target')),
             # Rev-map
             ("  %-20s %s", ('rev_ip', 'rev_name'), "Rev-map override:"),
-            # Hostpolicy
-            ("  %-20s", ('policy_name',), 'Hostpolicies:'),
         ])
     )
 
-    def host_info(self, operator, host_id, policy=False):
+    def host_info(self, operator, host_id):
         arecord = ARecord.ARecord(self.db)
         aaaarecord = AAAARecord.AAAARecord(self.db)
         tmp = host_id.split(".")
-        if policy and policy == 'policy':
-            policy = True
-        else:
-            policy = False
 
         # Ugly way to check if this is IPv4 or IPv6, and selecting
         # appropriate target type.
@@ -1023,11 +1002,6 @@ class BofhdExtension(BofhdCommandBase):
                 'srv_ttl': int_or_none_as_str(srv['ttl']),
                 'srv_target': srv['target_name'],
             })
-        if policy:
-            # Hostpolicies
-            policy = PolicyComponent(self.db)
-            for row in policy.search_hostpolicies(dns_owner_id=owner_id):
-                ret.append({'policy_name': row['policy_name']})
         return ret
 
     #
@@ -1868,10 +1842,6 @@ HELP_DNS_ARGS = {
     'force':
         ['force', 'Force the operation',
          'Enter y to force the operation'],
-    'show_policy':
-        ['policy', 'Show policies? (policy)',
-         'If argument is "policy", all hostpolicies related to the'
-         ' given host will be listed'],
     'allow_dns_underscores':
         ['allow_dns_underscores', 'Allow underscores in DNS entries?',
          'Enter y to allow underscores. If in doubt, do not enter y.'],

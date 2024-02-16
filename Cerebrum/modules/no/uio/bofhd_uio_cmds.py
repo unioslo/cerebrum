@@ -2475,7 +2475,7 @@ class BofhdExtension(BofhdCommonMethods):
     #
     # See hack in list_command
     #
-    def host_info(self, operator, hostname, policy=False):
+    def host_info(self, operator, hostname):
         ret = []
         # More hacks follow.
         # Call the DNS module's host_info command for data:
@@ -2497,7 +2497,7 @@ class BofhdExtension(BofhdCommonMethods):
             self._find = DnsUtils.Find(self.db, zone)
             self.mb_utils = DnsBofhdUtils(self.db, self.logger, zone)
             self.dns_parser = DnsUtils.DnsParser(self.db, zone)
-            ret = host_info(self, operator, hostname, policy=policy)
+            ret = host_info(self, operator, hostname)
         except CerebrumError as e:
             # Even though the DNS module doesn't recognise the host, the
             # standard host_info could still have some info. We should
