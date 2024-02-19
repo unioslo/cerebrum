@@ -141,8 +141,6 @@ ENTITY_TYPE_NAMESPACE = {'account': 'account_names',
 NAME_DOMAINS_THAT_DENY_CHANGE = ()
 
 DEFAULT_OU = None   # Used by bofh "account affadd" if OU is not set
-POSIX_HOME_TEMPLATE_DIR = "/local/etc/newusertemplates"
-POSIX_USERMOD_SCRIPTDIR = "/etc/cerebrum"
 
 DEBUG_HOSTLIST = None
 """If set, a list of hostnames which are safe to run commands on
@@ -1048,9 +1046,8 @@ LDAP_MAIL_DOMAINS = {
 
 # Default settings of the previous names of these variables;
 # retained for the time being for backwards compatibility.
-LDAP_DUMP_DIR = pj(prefix, 'var', 'cache', 'LDAP')
+LDAP_DUMP_DIR = pj(prefix, 'var/cache/LDAP')
 LDAP_ORG_FILE = 'organization.ldif'
-LDAP_POSIX_FILE = 'posix.ldif'
 LDAP_ALIASES = False
 LDAP_ORG_ROOT = None
 LDAP_DUMMY_OU_ATTRS = {'description': ('Other organizational units',)}
@@ -1060,7 +1057,6 @@ LDAP_VISIBLE_PERSON_SELECTOR = True
 LDAP_EDUPERSONAFFILIATION_SELECTOR = []
 LDAP_VISIBLE_PERSON_ATTRS = {}
 LDAP_REWRITE_EMAIL_DOMAIN = {}
-LDAP_ORG_ADD_LDIF_FILE = LDAP_POSIX_ADD_LDIF_FILE = None
 
 # DNS
 DNS_EMAIL_REGEXP = r'^[-+=a-z0-9_.]+@[a-z0-9_-]+[-a-z0-9_.]*\.[a-z]{2,3}$'
