@@ -22,6 +22,12 @@
 Script containing functionality for sending sms to persons in
 task queue related to password change.
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import io
 import logging
@@ -35,18 +41,21 @@ import Cerebrum.logutils.options
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.sms import SMSSender
 from Cerebrum.utils.argutils import add_commit_args
-from Cerebrum.modules.tasks.task_queue import TaskQueue
 from Cerebrum.modules.tasks.queue_processor import QueueProcessor
-from Cerebrum.modules.no.uio.changed_password_notifier import ChangedPasswordQueueHandler
+from Cerebrum.modules.no.uio.changed_password_notifier import (
+    ChangedPasswordQueueHandler
+)
 
 logger = logging.getLogger(__name__)
+
 
 def get_message(uname, time):
     with io.open(path.join(cereconf.TEMPLATE_DIR,
                            'changed_password_notifier.template'), 'r',
                  encoding='UTF-8') as f:
         template = f.read()
-    return template.format(account_name=uname, time= time)
+    return template.format(account_name=uname, time=time)
+
 
 def send_sms(uname, task_iat, phone_number):
     if not phone_number:
@@ -57,9 +66,10 @@ def send_sms(uname, task_iat, phone_number):
         message = get_message(uname, time)
         sms = SMSSender()
         return sms(phone_number, message)
-    except Exception as e:
+    except Exception:
         logger.warning("Failed during execution of sending message")
         return False
+
 
 def task_callback(db, task, dryrun):
     ac = Factory.get('Account')(db)
@@ -69,8 +79,8 @@ def task_callback(db, task, dryrun):
     ac.find_by_name(task.key)
     pe.find(ac.owner_id)
 
-    spec = map(lambda (s): (co.human2constant(s), co.human2constant("MOBILE")),
-               cereconf.SYSTEM_LOOKUP_ORDER)
+    spec = [(co.human2constant(s), co.human2constant("MOBILE"))
+            for s in cereconf.SYSTEM_LOOKUP_ORDER]
     mobile = pe.sort_contact_info(spec, pe.get_contact_info())
 
     # Task is handled when there is no registered phone number to receive sms
@@ -79,17 +89,19 @@ def task_callback(db, task, dryrun):
         return []
 
     person_in_systems = [int(af['source_system']) for af in
-                             pe.list_affiliations(person_id=pe.entity_id)]
-    mobile = filter(lambda x: x['source_system'] in person_in_systems,
-                        mobile)[0]['contact_value']
+                         pe.list_affiliations(person_id=pe.entity_id)]
+    mobile = [x['contact_value'] for x in mobile
+              if x['source_system'] in person_in_systems][0]
 
     if dryrun:
         logger.info('Dryrun for id - %s', task.key)
     else:
         if not send_sms(ac.account_name, task.iat, mobile):
-            raise Exception("Sms to " + str(mobile) + " failed with task key - " +
+            raise Exception("Sms to " + str(mobile) +
+                            " failed with task key - " +
                             task.key)
     return []
+
 
 def run_tasks(dryrun):
     callback = functools.partial(task_callback, dryrun=dryrun)
@@ -103,7 +115,8 @@ def run_tasks(dryrun):
 
 def main(inargs=None):
     parser = argparse.ArgumentParser(
-        description="Handle password change tasks and send sms to people affected",
+        description=("Handle password change tasks and "
+                     "send sms to people affected"),
     )
     add_commit_args(parser)
     Cerebrum.logutils.options.install_subparser(parser)

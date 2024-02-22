@@ -41,7 +41,6 @@ import os
 
 from xml.dom import minidom
 
-import cereconf
 from Cerebrum.Utils import Factory
 
 progname = __file__.split("/")[-1]
@@ -64,7 +63,7 @@ def parse_studconfig_file(config_file):
     There are two places that contain this information
 
     * In ``studconfig.disk_oversikt.diskdef``-elements, within the
-      ``path``-attribute => fully qualified disks.      
+      ``path``-attribute => fully qualified disks.
     * In ``studconfig.disk_oversikt.diskdef``-elements, within the
       ``prefix``-attribute => prefixes that can match any number of
       studentdisks.
@@ -73,31 +72,31 @@ def parse_studconfig_file(config_file):
       Filename of the config-file that is to be parsed
     @type config_file:
       string
-      
+
     @return:
       A tuple, containing two lists:
       * All disks defined with full paths
       * All prefixes that match can studentdisks
     @rtype:
       tuple
-      
+
     """
     disks = []
     disk_prefixes = []
-    
+
     logger.info("Parsing studconfig-file: '%s'" % config_file)
     xmldoc = minidom.parse(config_file)
-    
+
     disksets = xmldoc.getElementsByTagName('disk_oversikt')
-    for set in disksets:        
+    for set in disksets:
         diskdefs = set.getElementsByTagName('diskdef')
         for diskdef in diskdefs:
-            if u'path' in diskdef.attributes.keys():
+            if 'path' in diskdef.attributes.keys():
                 path = diskdef.attributes['path'].value
                 logger.debug("Found disk: '%s'" % path)
                 disks.append(path)
-                
-            if u'prefix' in diskdef.attributes.keys():
+
+            if 'prefix' in diskdef.attributes.keys():
                 prefix = diskdef.attributes['prefix'].value
                 logger.debug("Found prefix: '%s'" % prefix)
                 disk_prefixes.append(prefix)
@@ -116,7 +115,7 @@ def retrieve_all_disks_from_DB():
       Values = disk entity IDs (ints)
     @rtype:
       dictionary
-    
+
     """
     all_disks = {}
     disk = Factory.get("Disk")(db)
@@ -128,7 +127,7 @@ def retrieve_all_disks_from_DB():
 
     logger.info("DB-search done; found %s disks" % len(all_disks))
     return all_disks
-                    
+
 
 def is_student_disk(disk_path, stud_disks, stud_disk_prefixes):
     """Check if the given disk should be designated as a student-disk.
@@ -146,12 +145,12 @@ def is_student_disk(disk_path, stud_disks, stud_disk_prefixes):
       Studentdisks defined by fully qualified paths
     @type stud_disks:
       list
-      
+
     @param stud_disk_prefixes:
       Studentdisks defined by the prefixes of such disks
     @type stud_disk_prefixes:
       list
-      
+
     @return:
       Whether or not the disk in question should be considered a studentdisk
     @rtype:
@@ -161,7 +160,7 @@ def is_student_disk(disk_path, stud_disks, stud_disk_prefixes):
     if disk_path in stud_disks:
         logger.debug("'%s' found as student-disk" % disk_path)
         return True
-        
+
     for prefix in stud_disk_prefixes:
         if disk_path.startswith(prefix):
             logger.debug("'%s' starts with '%s' => studentdisk" %
@@ -178,18 +177,19 @@ def ensure_tagged(disk_id):
       Entity ID of the disk that is to be processed
     @type disk_id:
       int
-      
+
     """
     disk = Factory.get("Disk")(db)
     disk.find(disk_id)
     if not disk.get_trait(constants.trait_student_disk):
-        logger.info("Disk '%s' (%s) not tagged => tagging" % (disk.path, disk_id))
+        logger.info("Disk '%s' (%s) not tagged => tagging" % (disk.path,
+                                                              disk_id))
         disk.populate_trait(constants.trait_student_disk)
         disk.write_db()
     else:
         logger.debug("Disk '%s' (%s) already tagged, as it should be" %
                      (disk.path, disk_id))
-    
+
 
 def ensure_untagged(disk_id):
     """Makes sure that the disk in question is not tagged.
@@ -198,12 +198,13 @@ def ensure_untagged(disk_id):
       Entity ID of the disk that is to be processed
     @type disk_id:
       int
-      
+
     """
     disk = Factory.get("Disk")(db)
     disk.find(disk_id)
     if disk.get_trait(constants.trait_student_disk):
-        logger.info("Disk '%s' (%s) tagged => untagging" % (disk.path, disk_id))
+        logger.info("Disk '%s' (%s) tagged => untagging" % (disk.path,
+                                                            disk_id))
         disk.delete_trait(constants.trait_student_disk)
         disk.write_db()
     else:
@@ -238,7 +239,7 @@ def main(argv=None):
     @return:
       value that program should exit with
     @rtype:
-      int    
+      int
 
     """
     if argv is None:
@@ -273,7 +274,8 @@ def main(argv=None):
 
     ##################################################################
     ### Compile lists of disks in file and in DB
-    stud_disks, stud_disk_prefixes = parse_studconfig_file(options["studconfig-file"])
+    stud_disks, stud_disk_prefixes = parse_studconfig_file(
+                                     options["studconfig-file"])
     db_disks = retrieve_all_disks_from_DB()
 
     ##################################################################
@@ -281,8 +283,10 @@ def main(argv=None):
     all_paths = db_disks.keys()
     for stud_disk in stud_disks:
         # Check if disk with this full name exists in Cerebrum
-        if not stud_disk in all_paths:
-            logger.error("Disk '%s' listed in file, but does not exist in Cerebrum" % stud_disk)
+        if stud_disk not in all_paths:
+            logger.error("Disk '%s' listed in file, "
+                         "but does not exist in Cerebrum",
+                         stud_disk)
 
     for prefix in stud_disk_prefixes:
         # Check if any disk in Cerebrum matches this prefix
@@ -292,7 +296,8 @@ def main(argv=None):
                 in_use = True
         if not in_use:
             # No disks start with this prefix => outdated definition?
-            logger.error("Prefix '%s' does not match any disk in Cerebrum" % prefix)
+            logger.error("Prefix '%s' does not match "
+                         "any disk in Cerebrum", prefix)
 
     ##################################################################
     ### Process disks, tagging/untagging as necessary
@@ -303,17 +308,18 @@ def main(argv=None):
             ensure_tagged(disk_id)
         else:
             ensure_untagged(disk_id)
-            
-    logger.info("A total of %s disks are now tagged as studentdisks" % total_student_disks)
+
+    logger.info("A total of %s disks are now "
+                "tagged as studentdisks", total_student_disks)
 
     ##################################################################
     ### All done! Close of properly
     db.commit()
     return 0
-    
+
 
 if __name__ == "__main__":
-    logger.info("Starting program '%s'" % progname)
+    logger.info("Starting program '%s'", progname)
     return_value = main()
-    logger.info("Program '%s' finished" % progname)
+    logger.info("Program '%s' finished", progname)
     sys.exit(return_value)
