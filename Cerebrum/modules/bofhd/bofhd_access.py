@@ -31,9 +31,7 @@ import cereconf
 
 from Cerebrum import Errors
 from Cerebrum import Utils
-from Cerebrum.group.GroupRoles import GroupRoles
 from Cerebrum.modules import Email
-from Cerebrum.modules.dns.Subnet import Subnet, SubnetError
 from Cerebrum.modules.bofhd.help import merge_help_strings
 from Cerebrum.modules.bofhd.auth import (BofhdAuthOpSet,
                                          BofhdAuthOpTarget,
@@ -61,8 +59,6 @@ class LookupClass(collections.Mapping):
         self.operations = {
             'disk': AccessDisk,
             'group': AccessGroup,
-            'dns': AccessDns,
-            'global_dns': AccessGlobalDns,
             'global_group': AccessGlobalGroup,
             'global_person': AccessGlobalPerson,
             'host': AccessHost,
@@ -94,7 +90,6 @@ class BofhdAccessAuth(BofhdAuth):
                        self.const.auth_grant_group,
                        self.const.auth_grant_host,
                        self.const.auth_grant_maildomain,
-                       self.const.auth_grant_dns,
                        self.const.auth_grant_ou):
                 if self._has_operation_perm_somewhere(operator, op):
                     return True
@@ -366,21 +361,7 @@ class BofhdAccessCommands(BofhdCommonMethods):
     def access_global_ou(self, operator):
         return self._list_access("global_ou")
 
-    #
-    # access global_dns
-    #
-    all_commands['access_global_dns'] = Command(
-        ('access', 'global_dns'),
-        fs=FormatSuggestion(
-            "%-16s %-16s %-9s %s", ("opset", "attr", "type", "name"),
-            hdr="%-16s %-16s %-9s %s" % ("Operation set", "Affiliation",
-                                         "Type", "Name")
-        ))
-
-    def access_global_dns(self, operator):
-        return self._list_access("global_dns")
-
-    # TODO: Define all_commands['access_global_dns']
+    # TODO: Define all_commands['access_global_person']
     def access_global_person(self, operator):
         return self._list_access("global_person")
 
@@ -607,17 +588,6 @@ class BofhdAccessCommands(BofhdCommonMethods):
                                                          ou.institutt,
                                                          ou.avdeling,
                                                          ou.short_name)
-                elif r['target_type'] == co.auth_target_type_dns:
-                    s = Subnet(self.db)
-                    # TODO: should Subnet.find() support ints as input?
-                    try:
-                        s.find('entity_id:%s' % r['entity_id'])
-                    except (Errors.NotFoundError, ValueError, SubnetError):
-                        self.logger.warn("Non-existing entity (subnet) in "
-                                         "auth_op_target %s:%d" %
-                                         (r['target_type'], r['entity_id']))
-                        continue
-                    target_name = "%s/%s" % (s.subnet_ip, s.subnet_mask)
                 else:
                     try:
                         ety = self._get_entity(ident=r['entity_id'])
@@ -635,37 +605,6 @@ class BofhdAccessCommands(BofhdCommonMethods):
                 })
         ret.sort(lambda a, b: (cmp(a['target_type'], b['target_type']) or
                                cmp(a['target'], b['target'])))
-        return ret
-
-    # access dns <dns-target>
-    all_commands['access_dns'] = Command(
-        ('access', 'dns'),
-        SimpleString(),
-        fs=FormatSuggestion(
-            "%-16s %-9s %-9s %s", ("opset", "type", "level", "name"),
-            hdr="%-16s %-9s %-9s %s" % ("Operation set", "Type",
-                                        "Level", "Name")
-        ))
-
-    def access_dns(self, operator, dns_target):
-        ret = []
-        if '/' in dns_target:
-            # Asking for rights on subnet; IP not of interest
-            for accessor in self._list_access("dns", dns_target,
-                                              empty_result=[]):
-                accessor["level"] = "Subnet"
-                ret.append(accessor)
-        else:
-            # Asking for rights on IP; need to provide info about
-            # rights on the IP's subnet too
-            for accessor in self._list_access("dns", dns_target + '/',
-                                              empty_result=[]):
-                accessor["level"] = "Subnet"
-                ret.append(accessor)
-            for accessor in self._list_access("dns", dns_target,
-                                              empty_result=[]):
-                accessor["level"] = "IP"
-                ret.append(accessor)
         return ret
 
     #
@@ -840,17 +779,6 @@ class AccessHost(AccessBase):
                 raise CerebrumError("Syntax error in regexp: {}".format(e))
 
 
-class AccessGlobalDns(AccessBase):
-    def get(self, target_name):
-        if target_name:
-            raise CerebrumError("You can't specify an address")
-        return None, self.am.const.auth_target_type_global_dns, None
-
-    def validate(self, opset, attr):
-        if attr:
-            raise CerebrumError("You can't specify a pattern with global_dns.")
-
-
 class AccessGlobalGroup(AccessBase):
     def get(self, group):
         if group is not None and group != "":
@@ -901,20 +829,6 @@ class AccessGlobalOu(AccessBase):
             int(self.am.const.PersonAffiliation(attr))
         except Errors.NotFoundError:
             raise CerebrumError("Unknown affiliation: %s" % attr)
-
-
-class AccessDns(AccessBase):
-    def get(self, target):
-        sub = Subnet(self.db)
-        sub.find(target.split('/')[0])
-        return (sub.entity_id,
-                self.am.const.auth_target_type_dns,
-                self.am.const.auth_grant_dns)
-
-    def validate(self, opset, attr):
-        # TODO: check if the opset is relevant for a dns-target
-        if attr is not None:
-            raise CerebrumError("Can't specify attribute for dns access")
 
 
 class AccessMaildom(AccessBase):
@@ -975,8 +889,6 @@ HELP_ACCESS_CMDS = {
             "  The meaning of <attr> depends on <type>.",
         'access_disk':
             "List who's authorised to operate on disk <disk>",
-        'access_global_dns':
-            "List who's authorised to operate on all dns targets",
         'access_global_group':
             "List who's authorised to operate on all groups",
         'access_global_host':
@@ -989,8 +901,6 @@ HELP_ACCESS_CMDS = {
             "List who's authorised to operate on group <gname>",
         'access_host':
             "List who's authorised to operate on host <hostname>",
-        'access_dns':
-            "List who's authorised to operate on given dns target",
         'access_list':
             "List everything an account or group can operate on.  Only direct "
             "ownership is reported: the entities an account can access due to "

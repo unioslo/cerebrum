@@ -2078,12 +2078,6 @@ class BofhdAuth(DatabaseAccessor):
                         self.const.auth_target_type_global_ou, victim_id,
                         operation_attr=operation_attr):
                     return True
-            elif target_type == self.const.auth_target_type_dns:
-                if self._has_global_access(
-                        operator, operation,
-                        self.const.auth_target_type_global_dns, victim_id,
-                        operation_attr=operation_attr):
-                    return True
             elif target_type == self.const.auth_target_type_person:
                 if self._has_global_access(
                         operator, operation,

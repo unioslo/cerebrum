@@ -241,30 +241,6 @@ class BofhdExtension(BofhdCommonMethods):
     def get_help_strings(cls):
         return bofhd_core_help.get_help_strings()
 
-    @classmethod
-    def list_commands(cls, attr):
-        """ Fetch all commands in all superclasses. """
-        commands = super(BofhdExtension, cls).list_commands(attr)
-        if attr == 'all_commands':
-            from Cerebrum.modules.dns.bofhd_dns_cmds import (
-                BofhdExtension as Dns)
-            # FIXME: This hack is needed until we have a proper architecture
-            # for bofhd which allows mixins.
-            # We know that the format suggestion in dns has no hdr, so we only
-            # copy str_vars.
-            commands['host_info'] = Command(
-                ("host", "info"),
-                SimpleString(help_ref='string_host'),
-                YesNo(optional=True, help_ref='show_policy'),
-                fs=FormatSuggestion(Dns.all_commands['host_info']
-                                    .get_fs()['str_vars'] +
-                                    [("Hostname:              %s\n"
-                                      "Description:           %s",
-                                      ("hostname", "desc")),
-                                     ("Default disk quota:    %d MiB",
-                                      ("def_disk_quota",))]))
-        return commands
-
     def _email_create_forward_target(self, localaddr, remoteaddr):
         """Helper method for creating a forward target.
 
@@ -2475,50 +2451,26 @@ class BofhdExtension(BofhdCommonMethods):
     #
     # See hack in list_command
     #
-    def host_info(self, operator, hostname, policy=False):
-        ret = []
-        # More hacks follow.
-        # Call the DNS module's host_info command for data:
-        dns_err = None
-        try:
-            from Cerebrum.modules.dns.bofhd_dns_cmds import (
-                BofhdExtension as DnsCmds)
-            from Cerebrum.modules.dns import Utils as DnsUtils
-            from Cerebrum.modules.dns.bofhd_dns_utils import DnsBofhdUtils
-            zone = self.const.DnsZone("uio")
-            # Avoid Python's type checking.  The BofhdExtension this
-            # "self" is an instance of is different from the
-            # BofhdExtension host_info expects.  By using a function
-            # reference, it suffices that "self" we pass in supports
-            # the same API.
-            host_info = DnsCmds.__dict__.get('host_info')
-            # To support the API, we add some stuff to this object.
-            # Ugh.  Better hope this doesn't stomp on anything.
-            self._find = DnsUtils.Find(self.db, zone)
-            self.mb_utils = DnsBofhdUtils(self.db, self.logger, zone)
-            self.dns_parser = DnsUtils.DnsParser(self.db, zone)
-            ret = host_info(self, operator, hostname, policy=policy)
-        except CerebrumError as e:
-            # Even though the DNS module doesn't recognise the host, the
-            # standard host_info could still have some info. We should
-            # therefore continue and see if we could get more info.
-            dns_err = e
-        # Other exceptions are faults and should cause trouble
-        # TODO: make it possible to check if the DNS module are in use by the
-        # active instance.
+    all_commands['host_info'] = Command(
+        ("host", "info"),
+        SimpleString(help_ref='string_host'),
+        fs=FormatSuggestion([
+            ("Hostname:              %s\n" "Description:           %s",
+             ("hostname", "desc")),
+            ("Default disk quota:    %d MiB", ("def_disk_quota",))
+        ]),
+    )
 
-        try:
-            host = self._get_host(hostname)
-        except CerebrumError:
-            # Only return data from the DNS module
-            if dns_err is not None:
-                raise dns_err
-            return ret
-        ret = [{'hostname': hostname,
-                'desc': host.description}] + ret
+    def host_info(self, operator, hostname):
+        ret = []
+        host = self._get_host(hostname)
+        ret = {
+            'hostname': hostname,
+            'desc': host.description
+        }
         hquota = host.get_trait(self.const.trait_host_disk_quota)
         if hquota and hquota['numval']:
-            ret.append({'def_disk_quota': hquota['numval']})
+            ret['def_disk_quota'] = hquota['numval']
         return ret
 
     #

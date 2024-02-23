@@ -115,12 +115,10 @@ class EmailLDAPUiOMixin(EmailLDAP):
         target_id = int(row["target_id"])
         if target_type in (self.const.email_target_Sympa,):
             # host info
-            # IVR 2008-07-24 FIXME: This is really ugly. For now there is no
-            # connection between email server and its name in the DNS
-            # module. We have to hack our way around it. For UiO, simply
-            # appending ".uio.no" should work, but this is a highly
-            # unnecessary assumption. When the DNS module is revamped, we
-            # should be able to replace this ugliness.
+            # IVR 2008-07-24 FIXME: This is really ugly. There is no
+            # connection between email server and its host name. We have to
+            # hack our way around it. For UiO, simply appending ".uio.no"
+            # should work, but this is a highly unnecessary assumption.
             server_id = row["server_id"]
             if server_id is None:
                 return sdict

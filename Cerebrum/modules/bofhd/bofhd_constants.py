@@ -154,7 +154,6 @@ class Constants(Constants.Constants):
     # In the meantime, we define the valid code values as constant
     # strings here.
     auth_target_type_disk = "disk"
-    auth_target_type_dns = "dns"
     auth_target_type_group = "group"
     auth_target_type_host = "host"
     auth_target_type_maildomain = "maildom"
@@ -163,7 +162,6 @@ class Constants(Constants.Constants):
     auth_target_type_account = "account"
     auth_target_type_spread = "spread"
     # These are wildcards, allowing access to _all_ objects of that type
-    auth_target_type_global_dns = "global_dns"
     auth_target_type_global_group = "global_group"
     auth_target_type_global_host = "global_host"
     auth_target_type_global_maildomain = "global_maildom"

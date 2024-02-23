@@ -610,8 +610,8 @@ arg_help = {
          'Legal types: host, disk, group'],
     'string_perm_target_type_access':
         ['type', 'Enter target type',
-         'Legal types: host, disk, group, dns, ou, maildom, global_host, '
-         'global_group, global_person, global_ou, global_dns, global_maildom'],
+         'Legal types: host, disk, group, ou, maildom, global_host, '
+         'global_group, global_person, global_ou, global_maildom'],
     'string_disk_status':
         ['disk_status', 'Enter disk status',
          'Legal values: archived create_failed not_created on_disk'],

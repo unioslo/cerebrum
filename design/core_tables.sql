@@ -231,10 +231,6 @@ GRANT SELECT ON entity_id_seq TO change_entity;
  *   `entity_info' rows with no corresponding entity we need some kind
  *   of garbage collector.
  *
- * TBD: Need separate `entity_type's for
- *   * name reservations (to be kept in the `entity_name' table)
- *   * ldap DNs (to allow these to members of groups)
- *
  * Note: created_at should ideally be NOT NULL, but we're missing some historical
  * data here
  **/
@@ -822,7 +818,7 @@ GRANT INSERT, UPDATE, DELETE ON quarantine_code TO change_code;
 
 /*  host_info
  *
- * name is the DNS name that one must log into to get access to the
+ * name is the hostname that one must log into to get access to the
  * machines disks.
  *
  */
