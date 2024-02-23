@@ -73,7 +73,6 @@ targets = {
     'sap': ('sap_1_0', 'sap_1_1',),
     'task_queue': ('task_queue_1_1',),
     'entity_trait': ('entity_trait_1_1',),
-    'hostpolicy': ('hostpolicy_1_1',),
     'note': ('note_1_1', 'note_1_2'),
     'job_runner': ('job_runner_1_1', 'job_runner_1_2'),
 }
@@ -1896,69 +1895,6 @@ def migrate_to_entity_trait_1_1():
     meta.set_metainfo("sqlmodule_entity_trait", "1.1")
     print("Migration to entity_trait 1.1 completed successfully")
     db.commit()
-
-
-def migrate_to_hostpolicy_1_1():
-    assert_db_version("0.9.19")
-    assert_db_version("1.0", component="hostpolicy")
-    makedb("hostpolicy_1_1", "pre")
-
-    change_map = {
-        'hostpolicy atoms': {
-            'schema': 'hostpolicy_component',
-            'identifier': 'component_id',
-            'change_type': 'hostpolicy_atom_create'
-        },
-        'hostpolicy roles': {
-            'schema': 'hostpolicy_component',
-            'identifier': 'component_id',
-            'change_type': 'hostpolicy_role_create'
-        },
-    }
-
-    sql = """
-    UPDATE entity_info ei
-    SET created_at = hpc.create_date
-    FROM hostpolicy_component hpc
-    WHERE ei.entity_id = hpc.component_id"""
-
-    print("Migrating change_date from hostpolicy_component...")
-    curr = now()
-    db.execute(sql)
-    print("Migrated {} change_dates from hostpolicy_component in {}".format(
-        db.rowcount, time_spent(curr)))
-
-    cl_template = """
-    UPDATE entity_info ei
-    SET created_at = cl.tstamp
-    FROM change_log cl, {schema} x
-    WHERE ei.entity_id = x.{identifier}
-    AND cl.subject_entity = x.{identifier}
-    AND cl.change_type_id = {change_type_id}"""
-
-    for name, config in change_map.items():
-        try:
-            change_type = getattr(co, config['change_type'])
-            change_type_id = int(change_type)
-        except AttributeError:
-            print("No change type {}".format(config['change_type']))
-            raise
-        sql = cl_template.format(schema=config['schema'],
-                                 identifier=config['identifier'],
-                                 change_type_id=change_type_id)
-        print("Setting creation timestamps for {} from change_log...".format(
-            name))
-        curr = now()
-        db.execute(sql)
-        print("Processed {} change log rows for {} in {}".format(
-            db.rowcount, name, time_spent(curr)))
-
-    db.commit()
-    makedb("hostpolicy_1_1", "post")
-    meta = Metainfo.Metainfo(db)
-    meta.set_metainfo("sqlmodule_hostpolicy", "1.1")
-    db.commit()
-    print("Migration to hostpolicy 1.1 completed successfully")
 
 
 def migrate_to_job_runner_1_1():

@@ -197,18 +197,6 @@ MAPPING = {
     ('host', 'srv_rec_add'): ('host_srv_rec', 'add'),
     ('host', 'srv_rec_del'): ('host_srv_rec', 'remove'),
 
-    ('hostpolicy', 'atom_create'): ('hostpolicy_atom', 'create'),
-    ('hostpolicy', 'atom_delete'): ('hostpolicy_atom', 'delete'),
-    ('hostpolicy', 'atom_mod'): ('hostpolicy_atom', 'modify'),
-    ('hostpolicy', 'policy_add'): ('hostpolicy', 'add'),
-    ('hostpolicy', 'policy_remove'): ('hostpolicy', 'remove'),
-    ('hostpolicy', 'relationship_add'): ('hostpolicy_relationship', 'add'),
-    ('hostpolicy', 'relationship_remove'): ('hostpolicy_relationship',
-                                            'remove'),
-    ('hostpolicy', 'role_create'): ('hostpolicy_role', 'create'),
-    ('hostpolicy', 'role_delete'): ('hostpolicy_role', 'delete'),
-    ('hostpolicy', 'role_mod'): ('hostpolicy_role', 'modify'),
-
     ('ou', 'del'): ('ou', 'delete'),
     ('ou', 'mod'): ('ou', 'modify'),
     ('ou', 'set_parent'): ('ou_parent', 'set'),
