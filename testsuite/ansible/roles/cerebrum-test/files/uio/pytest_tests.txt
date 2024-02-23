@@ -9,7 +9,6 @@ test_core/test_core_Utils.py
 test_core/test_utils
 test_extended/test_bofhd_session.py
 test_extended/test_bofhd_utils.py
-test_extended/test_dns
 test_event
 test_gpg
 test_rest

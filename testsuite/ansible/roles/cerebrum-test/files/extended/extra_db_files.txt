@@ -10,5 +10,3 @@ mod_posix_user.sql
 bofhd_auth.sql
 mod_stedkode.sql
 mod_ad_attributes.sql
-mod_dns.sql
-mod_hostpolicy.sql

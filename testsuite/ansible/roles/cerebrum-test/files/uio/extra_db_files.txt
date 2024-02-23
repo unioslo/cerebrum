@@ -12,8 +12,6 @@ mod_note.sql
 bofhd_auth.sql
 mod_stedkode.sql
 mod_ad_attributes.sql
-mod_dns.sql
-mod_hostpolicy.sql
 mod_consent.sql
 mod_ephorte.sql
 mod_voip.sql

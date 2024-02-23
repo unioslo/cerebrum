@@ -9,5 +9,4 @@
 /src/testsuite/tests/test_core/test_utils
 /src/testsuite/tests/test_extended/test_bofhd_session.py
 /src/testsuite/tests/test_extended/test_bofhd_utils.py
-/src/testsuite/tests/test_extended/test_dns
 /src/testsuite/tests/test_event/
