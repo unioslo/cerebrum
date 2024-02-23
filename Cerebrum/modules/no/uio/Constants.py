@@ -29,7 +29,6 @@ from Cerebrum.modules import EmailConstants
 from Cerebrum.modules.PosixConstants import _PosixShellCode
 from Cerebrum.modules.bofhd.bofhd_constants import _AuthRoleOpCode
 from Cerebrum.modules.consent import Consent
-from Cerebrum.modules.dns import DnsConstants
 from Cerebrum.modules.trait.constants import _EntityTraitCode
 from Cerebrum.modules.no.Constants import ConstantsHigherEdu
 
@@ -688,13 +687,3 @@ class Constants(ConstantsHigherEdu):
         entity_type=Constants.Constants.entity_person,
         consent_type=Consent.Constants.consent_opt_in,
         description="Export to Cristin")
-
-    #
-    # DNS Zones
-    #
-    uio_zone = DnsConstants._DnsZoneCode(
-        "uio",
-        ".uio.no.")
-    ifi_zone = DnsConstants._DnsZoneCode(
-        "ifi_uio",
-        ".ifi.uio.no.")
