@@ -363,13 +363,6 @@ class _LegacyDnsChangelogLConstants(cereconst.CLConstants):
     )
 
 
-class _PolicyRelationshipCode(cereconst._CerebrumCode):
-    """Mappings stored in the hostpolicy_relationship_code table"""
-    _lookup_table = (
-        '[:table schema=cerebrum name=hostpolicy_relationship_code]'
-    )
-
-
 class _LegacyHostpolicyConstants(cereconst.Constants):
     entity_hostpolicy_atom = cereconst._EntityTypeCode(
         'hostpolicy_atom',
@@ -384,14 +377,6 @@ class _LegacyHostpolicyConstants(cereconst.Constants):
     hostpolicy_component_namespace = cereconst._ValueDomainCode(
         'hostpol_comp_ns',
         'Domain for hostpolicy-components',
-    )
-    hostpolicy_mutually_exclusive = _PolicyRelationshipCode(
-        "hostpol_mutex",
-        "Source policy and target policy are mutually exclusive",
-    )
-    hostpolicy_contains = _PolicyRelationshipCode(
-        "hostpol_contains",
-        "Source policy contains target policy",
     )
 
 
@@ -450,9 +435,6 @@ class _LegacyHostpolicyChangelogConstants(cereconst.CLConstants):
         'remove',
         'remove policy %(dest)s from host %(subject)s',
     )
-
-
-PolicyRelationshipCode = _PolicyRelationshipCode
 
 
 class LegacyConstants(
