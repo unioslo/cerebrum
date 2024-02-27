@@ -591,7 +591,7 @@ class BaseGroup(EntityQuarantine, EntityExternalId,
           Filter the resulting group list by expiration date.
           If set, return ONLY groups
           that have expired_date set and expired (relative to the call time).
-          N.B. filter_expired and filter_expired are mutually exclusive
+          N.B. filter_expired and expired_only are mutually exclusive
 
         :rtype: iterable (yielding rows with group information)
         :return:
