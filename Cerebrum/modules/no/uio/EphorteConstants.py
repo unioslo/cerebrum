@@ -98,6 +98,7 @@ class EphorteConstants(ConstantsBase):
     ephorte_perm_os = _EphortePermTypeCode('OS', 'Studentombud')
     ephorte_perm_ai = _EphortePermTypeCode('AI', 'Anskaffelse Innkjøp')
     ephorte_perm_af = _EphortePermTypeCode('AF', 'Forskningsavvik')
+    ephorte_perm_am = _EphortePermTypeCode('AM', 'Arbeidsmiljøundersøkelser')
 
     # Values from the ePhorte table ARKIVDEL
     ephorte_arkivdel_avtale_uio = _EphorteArkivdelCode(
