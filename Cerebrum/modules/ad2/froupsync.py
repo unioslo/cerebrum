@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2015 University of Oslo, Norway
+# Copyright 2015-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -144,6 +144,7 @@ import datetime
 
 from collections import defaultdict
 from Cerebrum.utils.funcwrap import memoize
+from Cerebrum.utils.date_compat import get_date
 from .ADSync import GroupSync
 from .CerebrumData import CerebrumGroup
 from Cerebrum.modules.ad2.ADUtils import OUUnknownException
@@ -396,9 +397,9 @@ class AffGroupSync(_FroupSync):
                 days=criteria['grace_period'])
             aff = criteria['affiliation']
             if aff in self.pe2affs(person_id):
-                deleted_date = self.pe2affs(person_id)[aff]
+                deleted_date = get_date(self.pe2affs(person_id)[aff])
                 if (not deleted_date or
-                        deleted_date.pydate() > grace_limit):
+                        deleted_date > grace_limit):
                     return True
         return False
 
@@ -455,8 +456,9 @@ class AffGroupSync(_FroupSync):
                         include_deleted=True,
                         fetchall=False):
                     # Only add persons whose affs are within the grace period
-                    if (not row['deleted_date'] or
-                            row['deleted_date'].pydate() > grace_limit):
+                    deleted_date = get_date(row['deleted_date'])
+                    if (not deleted_date or
+                            deleted_date > grace_limit):
                         for name, enabled in self.pe2accs(row['person_id']):
                             if enabled:
                                 self.add_group_member(group, name)
