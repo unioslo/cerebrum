@@ -120,11 +120,14 @@ def remove_email_forward(db, pe, person, args, config):
 
     if args.send_notification:
         for k, v in removed_forwards.items():
-            sendmail(
-                toaddr=k,
-                fromaddr=config.email_config.sender,
-                subject=config.email_config.subject,
-                body=config.email_config.body_template.format('\n'.join(v)))
+            try:
+                sendmail(
+                    toaddr=k,
+                    fromaddr=config.email_config.sender,
+                    subject=config.email_config.subject,
+                    body=config.email_config.body_template.format('\n'.join(v)))
+            except Exception:
+                logger.error('Failed to send email to %s', k)
 
     db.commit()
     ac.clear()
