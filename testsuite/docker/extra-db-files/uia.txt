@@ -12,8 +12,6 @@
 --extra-file=bofhd_auth.sql
 --extra-file=mod_stedkode.sql
 --extra-file=mod_ad_attributes.sql
---extra-file=mod_dns.sql
---extra-file=mod_hostpolicy.sql
 --extra-file=mod_consent.sql
 --extra-file=mod_ephorte.sql
 --extra-file=mod_voip.sql
