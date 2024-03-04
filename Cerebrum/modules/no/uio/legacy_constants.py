@@ -364,76 +364,26 @@ class _LegacyDnsChangelogLConstants(cereconst.CLConstants):
 
 
 class _LegacyHostpolicyConstants(cereconst.Constants):
-    entity_hostpolicy_atom = cereconst._EntityTypeCode(
+    """
+    Legacy entity-related constants for Cerebrum.modules.hostpolicy.
+
+    They should not be used, or referred to from anywhere.  These constants
+    need to be kept around, as the base entities and entity-related audit log
+    records are still present in the database.
+    """
+    legacy_entity_hostpolicy_atom = cereconst._EntityTypeCode(
         'hostpolicy_atom',
         'hostpolicy_atom - '
         'see table "cerebrum.hostpolicy_component" and friends.',
     )
-    entity_hostpolicy_role = cereconst._EntityTypeCode(
+    legacy_entity_hostpolicy_role = cereconst._EntityTypeCode(
         'hostpolicy_role',
         'hostpolicy_role - '
         'see table "cerebrum.hostpolicy_component" and friends.',
     )
-    hostpolicy_component_namespace = cereconst._ValueDomainCode(
+    legacy_hostpolicy_component_namespace = cereconst._ValueDomainCode(
         'hostpol_comp_ns',
         'Domain for hostpolicy-components',
-    )
-
-
-class _LegacyHostpolicyChangelogConstants(cereconst.CLConstants):
-    # ChangeLog constants
-    hostpolicy_atom_create = cereconst._ChangeTypeCode(
-        'hostpolicy_atom',
-        'create',
-        'create atom %(subject)s',
-    )
-    hostpolicy_atom_mod = cereconst._ChangeTypeCode(
-        'hostpolicy_atom',
-        'modify',
-        'modify atom %(subject)s',
-    )
-    hostpolicy_atom_delete = cereconst._ChangeTypeCode(
-        'hostpolicy_atom',
-        'delete',
-        'delete atom %(subject)s',
-    )
-    hostpolicy_role_create = cereconst._ChangeTypeCode(
-        'hostpolicy_role',
-        'create',
-        'create role %(subject)s',
-    )
-    hostpolicy_role_mod = cereconst._ChangeTypeCode(
-        'hostpolicy_role',
-        'modify',
-        'modify role %(subject)s',
-    )
-    hostpolicy_role_delete = cereconst._ChangeTypeCode(
-        'hostpolicy_role',
-        'delete',
-        'delete role %(subject)s',
-    )
-    hostpolicy_relationship_add = cereconst._ChangeTypeCode(
-        'hostpolicy_relationship',
-        'add',
-        'add relationship %(subject)s -> %(dest)s',
-    )
-    # TODO: type is not given here
-    hostpolicy_relationship_remove = cereconst._ChangeTypeCode(
-        'hostpolicy_relationship',
-        'remove',
-        'remove relationship %(subject)s -> %(dest)s',
-    )
-    # TODO: type is not given here
-
-    hostpolicy_policy_add = cereconst._ChangeTypeCode(
-        'hostpolicy',
-        'add',
-        'add policy %(dest)s to host %(subject)s',
-    )
-    hostpolicy_policy_remove = cereconst._ChangeTypeCode(
-        'hostpolicy',
-        'remove',
-        'remove policy %(dest)s from host %(subject)s',
     )
 
 
@@ -448,7 +398,6 @@ class LegacyConstants(
 
 class LegacyChangelogConstants(
     _LegacyDnsChangelogLConstants,
-    _LegacyHostpolicyChangelogConstants,
     Cerebrum.Constants.CLConstants,
 ):
     """ Legacy constants to keep around for now. """
