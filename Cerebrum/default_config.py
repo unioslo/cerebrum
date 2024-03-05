@@ -1058,39 +1058,6 @@ LDAP_EDUPERSONAFFILIATION_SELECTOR = []
 LDAP_VISIBLE_PERSON_ATTRS = {}
 LDAP_REWRITE_EMAIL_DOMAIN = {}
 
-# DNS
-DNS_EMAIL_REGEXP = r'^[-+=a-z0-9_.]+@[a-z0-9_-]+[-a-z0-9_.]*\.[a-z]{2,3}$'
-# Default number of adresses to reserve at start of a
-# subnet. Additionally, if any addresses are reserved, broadcast
-# (last) address is reserved too. If no entry, max value from
-# dictionary is used.
-DEFAULT_RESERVED_BY_NET_SIZE = {
-    25: 10,
-    26: 3,
-    27: 3,
-    28: 3,
-    29: 3,
-    30: 0,
-    31: 0,
-    32: 0,
-}
-
-# The default DNS zone to use for bofhd commands and others. Must reference to
-# a Cerebrum constant of type DnsZoneCode:
-DNS_DEFAULT_ZONE = 'uio'
-
-DEFAULT_RESERVED_BY_IPv6_NET_SIZE = {64: 4}
-DEFAULT_IPv6_SUBNET_ALLOCATION_START = 0x256
-
-# Suppress the force-option for unknown IPv6 subnets.
-# This needs to be done if an instance does not have any subnets defined.
-# TODO: Remove this at an appropriate time!
-DNS_HOST_A_ADD_ACCEPT_MISSING_IPV6_SUBNET = False
-
-# Location of documentation concerning import of subnets for DNS.
-# Added to mails sent when errors occur.
-DNS_SUBNETIMPORT_ERRORDOC_URL = None
-
 # STATISTICS
 # Various settings used by statistics-programs Lists most significant
 # affiliation to least significant, using their numeric codes.
