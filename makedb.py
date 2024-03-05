@@ -369,7 +369,6 @@ def check_schema_versions(db, strict=False):
         'entity_trait': 'Cerebrum.modules.trait',
         'eventlog': 'Cerebrum.modules.EventLog',
         'events': 'Cerebrum.modules.event_publisher',
-        'hostpolicy': 'Cerebrum.modules.hostpolicy',
         'job_runner': 'Cerebrum.modules.job_runner',
         'otp': 'Cerebrum.modules.otp',
         'note': 'Cerebrum.modules.Note',
