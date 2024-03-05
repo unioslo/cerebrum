@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2002-2019 University of Oslo, Norway
+# Copyright 2002-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -364,7 +364,6 @@ def check_schema_versions(db, strict=False):
         'bofhd_requests': 'Cerebrum.modules.bofhd_requests',
         'changelog': 'Cerebrum.modules.ChangeLog',
         'disk_quota': 'Cerebrum.modules.disk_quota',
-        'dns': 'Cerebrum.modules.dns',
         'email': 'Cerebrum.modules.Email',
         'entity_trait': 'Cerebrum.modules.trait',
         'eventlog': 'Cerebrum.modules.EventLog',

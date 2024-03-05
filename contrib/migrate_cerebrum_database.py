@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2002-2023 University of Oslo, Norway
+# Copyright 2002-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -68,7 +68,6 @@ targets = {
     'gpg': ('gpg_1_1',),
     'stedkode': ('stedkode_1_1', ),
     'posixuser': ('posixuser_1_0', 'posixuser_1_1', ),
-    'dns': ('dns_1_0', 'dns_1_1', 'dns_1_2', 'dns_1_3', 'dns_1_4', 'dns_1_5'),
     'password_history': ('password_history_1_1',),
     'sap': ('sap_1_0', 'sap_1_1',),
     'task_queue': ('task_queue_1_1',),
@@ -732,16 +731,6 @@ def migrate_to_rel_0_9_19():
             'schema': 'ou_info',
             'identifier': 'ou_id',
             'change_type': 'ou_create'
-        },
-        'DNS owners': {  # mod_dns
-            'schema': 'dns_owner',
-            'identifier': 'dns_owner_id',
-            'change_type': 'dns_owner_add'
-        },
-        'DNS subnets': {  # mod_dns
-            'schema': 'dns_subnet',
-            'identifier': 'entity_id',
-            'change_type': 'subnet_create'
         },
     }
 
@@ -1807,56 +1796,6 @@ def migrate_to_posixuser_1_1():
     meta.set_metainfo("sqlmodule_posixuser", "1.1")
     db.commit()
     print("Migration to posixuser 1.1 completed successfully")
-
-
-def migrate_to_dns_1_1():
-    print("\ndone.")
-    assert_db_version("1.0", component='dns')
-    makedb('dns_1_1', 'pre')
-    meta = Metainfo.Metainfo(db)
-    meta.set_metainfo("sqlmodule_dns", "1.1")
-    print("Migration to DNS 1.1 completed successfully")
-    db.commit()
-
-
-def migrate_to_dns_1_2():
-    print("\ndone.")
-    assert_db_version("1.1", component='dns')
-    makedb('dns_1_2', 'pre')
-    meta = Metainfo.Metainfo(db)
-    meta.set_metainfo("sqlmodule_dns", "1.2")
-    print("Migration to DNS 1.2 completed successfully")
-    db.commit()
-
-
-def migrate_to_dns_1_3():
-    print("\ndone.")
-    assert_db_version("1.2", component='dns')
-    makedb('dns_1_3', 'pre')
-    meta = Metainfo.Metainfo(db)
-    meta.set_metainfo("sqlmodule_dns", "1.3")
-    print("Migration to DNS 1.3 completed successfully")
-    db.commit()
-
-
-def migrate_to_dns_1_4():
-    print("\ndone.")
-    assert_db_version("1.3", component='dns')
-    makedb('dns_1_4', 'pre')
-    meta = Metainfo.Metainfo(db)
-    meta.set_metainfo("sqlmodule_dns", "1.4")
-    print("Migration to DNS 1.4 completed successfully")
-    db.commit()
-
-
-def migrate_to_dns_1_5():
-    print("\ndone.")
-    assert_db_version("1.4", component='dns')
-    makedb('dns_1_5', 'pre')
-    meta = Metainfo.Metainfo(db)
-    meta.set_metainfo("sqlmodule_dns", "1.5")
-    print("Migration to DNS 1.5 completed successfully")
-    db.commit()
 
 
 def migrate_to_password_history_1_1():

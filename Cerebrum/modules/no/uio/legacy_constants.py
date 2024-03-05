@@ -31,33 +31,6 @@ from Cerebrum.modules.EntityTrait import _EntityTraitCode
 from Cerebrum.modules.bofhd.bofhd_constants import _AuthRoleOpCode
 
 
-class _FieldTypeCode(cereconst._CerebrumCode):
-    "Mappings stored in the field_type_code table"
-    _lookup_table = '[:table schema=cerebrum name=dns_field_type_code]'
-
-
-class _DnsZoneCode(cereconst._CerebrumCode):
-    _lookup_table = '[:table schema=cerebrum name=dns_zone]'
-
-    _lookup_code_column = 'zone_id'
-    _lookup_str_column = 'name'
-    _lookup_desc_column = 'postfix'
-
-    def _get_name(self):
-        return self.str
-    name = property(_get_name, None, None, "the name")
-
-    def _get_zone_id(self):
-        return int(self)
-    zone_id = property(_get_zone_id, None, None, "the zone_id")
-
-    def _get_postfix(self):
-        if not hasattr(self, '_postfix'):
-            self._postfix = self.description
-        return self._postfix
-    postfix = property(_get_postfix, None, None, "the postfix")
-
-
 class _LegacyDnsConstants(cereconst.Constants):
     """ Common DNS module constants. """
 
@@ -130,11 +103,6 @@ class _LegacyDnsConstants(cereconst.Constants):
         'Machine netgroup in NIS domain "uio"',
     )
 
-    field_type_txt = _FieldTypeCode(
-        'TXT',
-        'TXT Record',
-    )
-
     #
     # Traits
     #
@@ -148,26 +116,6 @@ class _LegacyDnsConstants(cereconst.Constants):
         entity_dns_owner,
         """A freeform comment about the host.""",
     )
-
-    #
-    # Default DNS zone
-    #
-    other_zone = _DnsZoneCode("other", None)
-
-    #
-    # DNS Zones
-    #
-    uio_zone = _DnsZoneCode(
-        "uio",
-        ".uio.no.",
-    )
-    ifi_zone = _DnsZoneCode(
-        "ifi_uio",
-        ".ifi.uio.no.",
-    )
-
-    FieldTypeCode = _FieldTypeCode
-    DnsZone = _DnsZoneCode
 
 
 class _LegacyDnsChangelogLConstants(cereconst.CLConstants):
