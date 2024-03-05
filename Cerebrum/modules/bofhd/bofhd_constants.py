@@ -1,6 +1,6 @@
 # coding: utf-8
 #
-# Copyright 2018 University of Oslo, Norway
+# Copyright 2018-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,7 +18,12 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ Constant types and common constants for the Bofhd module. """
-
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 from Cerebrum import Constants
 
 
@@ -33,8 +38,6 @@ class Constants(Constants.Constants):
 
     auth_grant_disk = _AuthRoleOpCode(
         'grant_disk', 'Grant access to operate on disk')
-    auth_grant_dns = _AuthRoleOpCode(
-        'grant_dns', 'Grant access to operate on DNS targets')
     auth_grant_group = _AuthRoleOpCode(
         'grant_group', 'Grant access to operate on group')
     auth_grant_host = _AuthRoleOpCode(
@@ -148,11 +151,10 @@ class Constants(Constants.Constants):
         'rem_affiliation', "Remove affiliation")
     auth_view_external_id = _AuthRoleOpCode(
         'view_external_ids', "View external IDs")
+
     # These are values used as auth_op_target.target_type.  This table
     # doesn't use a code table to map into integers, so we can't use
-    # the CerebrumCode framework.  TODO: redefine the database table
-    # In the meantime, we define the valid code values as constant
-    # strings here.
+    # the CerebrumCode framework.
     auth_target_type_disk = "disk"
     auth_target_type_group = "group"
     auth_target_type_host = "host"
@@ -161,6 +163,7 @@ class Constants(Constants.Constants):
     auth_target_type_person = "person"
     auth_target_type_account = "account"
     auth_target_type_spread = "spread"
+
     # These are wildcards, allowing access to _all_ objects of that type
     auth_target_type_global_group = "global_group"
     auth_target_type_global_host = "global_host"
@@ -169,4 +172,3 @@ class Constants(Constants.Constants):
     auth_target_type_global_person = "global_person"
     auth_target_type_global_account = "global_account"
     auth_target_type_global_spread = "global_spread"
-
