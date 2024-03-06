@@ -41,6 +41,7 @@ import cereconf
 # Compatibility imports / relocated classes and functions
 import Cerebrum.meta
 import Cerebrum.utils.imap
+import Cerebrum.utils.module
 import Cerebrum.utils.secrets
 from Cerebrum.utils.funcwrap import deprecate
 
@@ -63,21 +64,6 @@ class _NotSet(object):
 
 
 NotSet = _NotSet()
-
-
-def dyn_import(name):
-    """Dynamically import python module ``name``."""
-    try:
-        mod = __import__(name)
-    except ImportError as e:
-        raise ImportError("{0} (module={1})".format(e, name))
-    components = name.split(".")
-    try:
-        for comp in components[1:]:
-            mod = getattr(mod, comp)
-        return mod
-    except AttributeError as e:
-        raise ImportError("{0} (module={1})".format(e, name))
 
 
 # TODO: Deprecate when switching over to Python 3.x
@@ -271,13 +257,7 @@ class Factory(object):
         if isinstance(import_spec, (tuple, list)):
             bases = []
             for c in import_spec:
-                (mod_name, class_name) = c.split("/", 1)
-                mod = dyn_import(mod_name)
-                try:
-                    cls = getattr(mod, class_name)
-                except AttributeError:
-                    raise ImportError("Module '{}' has no class '{}'"
-                                      .format(mod_name, class_name))
+                cls = Cerebrum.utils.module.resolve(c)
                 # The cereconf.CLASS_* tuples control which classes
                 # are used to construct a Factory product class.
                 # Order inside such a tuple is significant for the
@@ -659,3 +639,4 @@ CerebrumIMAP4_SSL = Cerebrum.utils.imap.Imap4SslVersionMixin
 auto_super = Cerebrum.meta.AutoSuper
 mark_update = Cerebrum.meta.MarkUpdate
 read_password = Cerebrum.utils.secrets.legacy_read_password
+dyn_import = Cerebrum.utils.module.import_item
