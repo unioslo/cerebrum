@@ -367,7 +367,7 @@ arg_help = {
     'group_name_src':
         ['src_gname', 'Enter the source group'],
     'group_name_admin':
-        ['gname', 'Enter the name(s) of the admin group(s)'],
+        ['admin_gname', 'Enter the name(s) of the admin group(s)'],
     'group_operation':
         ['op', 'Enter group operation',
          """Three values are legal: union, intersection and difference.
@@ -567,7 +567,8 @@ arg_help = {
         ['dl_desc', 'Enter description, not mandatory if an existing group '
          'is used'],
     'string_spread':
-        ['spread', 'Enter spread. Example: AD_group NIS_fg@uio'],
+        ['spread', 'Enter spread. Example: AD_group NIS_fg@uio',
+         "'spread list' lists possible values"],
     'string_email_host':
         ['hostname', 'Enter e-mail server.  Example: cyrus02'],
     'string_filename':
