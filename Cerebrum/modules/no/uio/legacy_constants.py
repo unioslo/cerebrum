@@ -122,19 +122,17 @@ class _LegacyHostpolicyConstants(_cereconst.Constants):
     need to be kept around, as the base entities and entity-related audit log
     records are still present in the database.
     """
-    legacy_entity_hostpolicy_atom = _cereconst._EntityTypeCode(
+    _legacy_entity_hostpolicy_atom = _cereconst._EntityTypeCode(
         'hostpolicy_atom',
-        'hostpolicy_atom - '
-        'see table "cerebrum.hostpolicy_component" and friends.',
+        "Deprecated entity type - was part of Cerebrum.modules.hostpolicy",
     )
-    legacy_entity_hostpolicy_role = _cereconst._EntityTypeCode(
+    _legacy_entity_hostpolicy_role = _cereconst._EntityTypeCode(
         'hostpolicy_role',
-        'hostpolicy_role - '
-        'see table "cerebrum.hostpolicy_component" and friends.',
+        "Deprecated entity type - was part of Cerebrum.modules.hostpolicy",
     )
-    legacy_hostpolicy_component_namespace = _cereconst._ValueDomainCode(
+    _legacy_hostpolicy_component_namespace = _cereconst._ValueDomainCode(
         'hostpol_comp_ns',
-        'Domain for hostpolicy-components',
+        "Deprecated namespace - was part of Cerebrum.modules.hostpolicy",
     )
 
 

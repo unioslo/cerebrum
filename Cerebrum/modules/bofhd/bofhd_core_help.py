@@ -673,10 +673,6 @@ arg_help = {
         ['yes_no_extrainfo', 'Show extra information? (y/n)'],
     'yes_no_visible':
         ['visible', 'Should it be visible? (y/n)'],
-    'show_policy':
-        ['policy', 'Show policies? (policy)',
-         'If argument is "policy", all hostpolicies related to the given '
-         'host will be listed'],
 }
 
 
