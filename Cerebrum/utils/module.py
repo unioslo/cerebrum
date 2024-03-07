@@ -1,6 +1,6 @@
 # coding: utf-8
 #
-# Copyright 2017 University of Oslo, Norway
+# Copyright 2017-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,19 +18,11 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 # Copyright 2002-2015 University of Oslo, Norway
-""" Python module and import utilities.
-
-This module contains utilities for dynamically importing other modules, and
-some module introspection utilities.
-
-All dynamic loading of modules and classes should eventually be replaced with
-pkg_resources and entry points.
+"""
+Python module introspection and import utilities.
 
 TODO: Replace
-  - `Cerebrum.Utils:dyn_import` -> `load_source`
-  - the class lookup in `Cerebrum.Utils:Factory.make_class` with `load_source`
   - `Cerebrum.Utils:this_module` -> `this_module`
-
 """
 import functools
 import inspect
@@ -70,8 +62,14 @@ def import_item(module_name, item_name=None):
         return module
 
 
+# Regex for `parse`
+#
 # NOTE: We include the pattern flags in the expression here, so that we're
 #       able to do `re.compile(SOURCE_RE.pattern)` later, if needed.
+#
+# TODO: This is no longer *correct* in Python 3, but it's probably good enough
+#       for our use cases.  It can be debated if we *really* need to validate
+#       module/attribute names this thoroughly.
 SOURCE_RE = re.compile(
     r"""(?ix)  # re.IGNORECASE, re.VERBOSE
     ^\s*
@@ -111,7 +109,7 @@ def parse(source):
     """
     match = SOURCE_RE.match(source)
     if not match:
-        raise ValueError("invalid source ({0})".format(source))
+        raise ValueError("invalid source: " + repr(source))
     return tuple(match.group(x) for x in ('module', 'separator', 'item'))
 
 
@@ -119,19 +117,19 @@ def resolve(source):
     """ Load some source string.
 
     :param str source:
-        What to import/fetch (see ``parse_source``)
+        What to import/fetch (see :func:`.parse`)
 
     Examples
     --------
-    Import a module, 'foo.bar':
+    Import a module 'foo.bar':
 
-        my_module = load_source('foo.bar')
+        my_module = resolve("foo.bar")
 
     Fetch a class attribute 'attr' from the class 'Cls' in sub-module
     'mod.sub':
 
-        my_attr = load_source('mod.sub:Cls.attr')
-        my_attr = load_source('mod.sub/Cls.attr')
+        my_attr = resolve("mod.sub:Cls.attr")
+        my_attr = resolve("mod.sub/Cls.attr")
 
     """
     module_name, _, item_name = parse(source)
