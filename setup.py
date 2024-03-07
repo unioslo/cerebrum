@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2002-2022 University of Oslo, Norway
+# Copyright 2002-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -366,7 +366,6 @@ setup(
         'Cerebrum/modules/consent',
         'Cerebrum/modules/cim',
         'Cerebrum/modules/disk_quota',
-        'Cerebrum/modules/dns',
         'Cerebrum/modules/email_report',
         'Cerebrum/modules/event',
         'Cerebrum/modules/event_publisher',
