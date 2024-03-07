@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2020-2022 University of Oslo, Norway
+# Copyright 2020-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -31,11 +31,11 @@ Sources
 -------
 file
     Specify the full path to a file with secret data. Trailing newlines are
-    removed.  Example argument: ``/path/to/file``
+    removed.  Example argument: ``"/path/to/example-file"``
 
 auth-file
     Specify a filename in the ``cereconf.DB_AUTH_DIR`` directory.  Trailing
-    newlines are removed.  Example argument: ``passwd-example-file``
+    newlines are removed.  Example argument: ``"example-file"``
 
 legacy-file
     Specify a password to retrieve from ``cereconf.DB_AUTH_DIR`` using the same
@@ -48,13 +48,13 @@ legacy-file
 
     Example arguments:
 
-    - ``user@system`` (looks up ``<DB_AUTH_DIR>/passwd-user@system``)
-    - ``user@system@host`` (looks up ``<DB_AUTH_DIR>/passwd-user@system@host``)
+    - ``"user@system"`` (``<DB_AUTH_DIR>/passwd-user@system``)
+    - ``"user@system@host"`` (``<DB_AUTH_DIR>/passwd-user@system@host``)
 
 plaintext
     Provide a plaintext secret, as is.  Useful in configuration files where
     providing the plaintext secret is OK (e.g. mock values for tests).  Example
-    argument: ``hunter2``.
+    argument: ``"hunter2"``.
 
 
 To look up a given secret using a given source:
@@ -77,8 +77,15 @@ secrets.  Example:
 
 Note that the *source-argument* may contain ``:`` characters:
 
->>> get_secret_from_string("plaintext::foo:bar:)
+>>> get_secret_from_string("plaintext::foo:bar:")
 ':foo:bar:'
+
+Other examples:
+::
+
+    get_secret_from_string("file:/path/to/foo-secret")
+    get_secret_from_string("auth-file:bar-secret")
+    get_secret_from_string("legacy-file:example-user@example-system@example.org")
 
 
 History
@@ -89,12 +96,21 @@ py:func:`.legacy_read_password` was moved here from
     Commit: d677e7c86851181f29cf9374db57c45c18fbc375
     Date:   Wed Aug 31 14:13:51 2022 +0200
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import io
+import logging
 import os
 
 import cereconf
 
 from Cerebrum.utils.mappings import DecoratorMap
+
+logger = logging.getLogger(__name__)
 
 
 def legacy_read_password(user, system, host=None, encoding='utf-8'):
@@ -126,10 +142,17 @@ def legacy_read_password(user, system, host=None, encoding='utf-8'):
     basename = format_str.format(**format_vars)
     filename = os.path.join(cereconf.DB_AUTH_DIR, basename)
 
+    logger.debug("reading legacy secret from filename=%s", repr(filename))
     with io.open(filename, mode='r', encoding=encoding) as f:
         # .rstrip() removes any trailing newline, if present.
         dbuser, dbpass = f.readline().rstrip('\n').split('\t', 1)
+        if not dbuser == user:
+            logger.warning("invalid secret format in filename=%s - "
+                           "expected username=%s, got username=%s",
+                           repr(filename), repr(user), repr(dbuser))
         assert dbuser == user
+        if not dbpass:
+            logger.warning("empty secret in filename=%s", repr(filename))
         return dbpass
 
 
@@ -146,8 +169,13 @@ def _read_secret_file(value):
     :param str value:
         Filename for fetching a secret.
     """
-    with io.open(value, mode='r', encoding='utf8') as f:
-        return f.read().rstrip('\n')
+    filename = value
+    logger.debug("reading secret from filename=%s", repr(filename))
+    with io.open(filename, mode='r', encoding='utf8') as f:
+        secret = f.read().rstrip('\n')
+        if not secret:
+            logger.warning("empty secret in filename=%s", repr(filename))
+        return secret
 
 
 @sources.register('auth-file')
@@ -161,8 +189,7 @@ def _read_secret_auth_file(value):
         Filename for fetching a secret.
     """
     filename = os.path.join(cereconf.DB_AUTH_DIR, value)
-    with io.open(filename, mode='r', encoding='utf8') as f:
-        return f.read().rstrip('\n')
+    return _read_secret_file(filename)
 
 
 @sources.register('legacy-file')
@@ -218,6 +245,7 @@ def get_secret(source, value):
     :rtype: str
     :returns: Returns a matching secret
     """
+    logger.debug("fetching secret of type=%s", repr(source))
     handler = get_handler(source)
     return handler(value)
 
@@ -251,6 +279,7 @@ def get_secret_from_string(raw_value):
 
 def _main():
     import argparse
+    logging.basicConfig(level=logging.DEBUG)
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -262,7 +291,6 @@ def _main():
     )
 
     args = parser.parse_args()
-
     print(get_secret(args.source, args.value))
 
 
