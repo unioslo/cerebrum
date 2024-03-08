@@ -1,9 +1,0 @@
-===============================
-Static code tests for Cerebrum
-===============================
-
-This folder contains static code tests for Cerebrum. It's intended for use with
-Jenkins. This utility expects Jenkins to check out the Cerebrum repository to
-the ${WORKSPACE} directory.
-
-
