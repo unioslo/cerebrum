@@ -190,6 +190,8 @@ def parse_datetime_tz(rawstr):
             date = aniso8601.parse_datetime(dtstr, delimiter=' ')
         else:
             date = aniso8601.parse_datetime(dtstr)
+    except NotImplementedError as e:
+        raise ValueError("unsupported iso8601 format (%s)" % (e,))
     except ValueError as e:
         # The aniso8601 errors are not always great
         raise ValueError("invalid iso8601 datetime (%s)" % (e,))
@@ -219,9 +221,11 @@ def parse_datetime(rawstr, default_timezone=TIMEZONE):
             date = aniso8601.parse_datetime(dtstr, delimiter=' ')
         else:
             date = aniso8601.parse_datetime(dtstr)
+    except NotImplementedError as e:
+        raise ValueError("unsupported iso8601 format (%s)" % (e,))
     except ValueError as e:
         # The aniso8601 errors are not always great
-        raise ValueError("invalid iso8601 date (%s)" % (e,))
+        raise ValueError("invalid iso8601 datetime (%s)" % (e,))
 
     if not date.tzinfo:
         # No timezone given, assume default_timezone
@@ -238,7 +242,13 @@ def parse_date(dtstr):
     :rtype: datetime.date
     :return: A date object.
     """
-    return aniso8601.parse_date(str(dtstr))
+    try:
+        return aniso8601.parse_date(str(dtstr))
+    except NotImplementedError as e:
+        raise ValueError("unsupported iso8601 format (%s)" % (e,))
+    except ValueError as e:
+        # The aniso8601 errors are not always great
+        raise ValueError("invalid iso8601 date (%s)" % (e,))
 
 
 def parse_time(dtstr):
@@ -249,7 +259,13 @@ def parse_time(dtstr):
 
     :return: A time object.
     """
-    return aniso8601.parse_time(str(dtstr))
+    try:
+        return aniso8601.parse_time(str(dtstr))
+    except NotImplementedError as e:
+        raise ValueError("unsupported iso8601 format (%s)" % (e,))
+    except ValueError as e:
+        # The aniso8601 errors are not always great
+        raise ValueError("invalid iso8601 time (%s)" % (e,))
 
 
 #
