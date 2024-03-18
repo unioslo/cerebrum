@@ -148,8 +148,6 @@ command_help = {
             'View/print all the password altered this session',
         'misc_reload':
             'Re-read server config file (use with care)',
-        'misc_samba_mount':
-            'Maps disk to logon-server (for use with Samba)',
         'misc_verify_password':
             'Check whether an account has a given password',
         'misc_password_issues':
