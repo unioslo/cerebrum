@@ -1,1 +1,0 @@
-/src/cerebrum/testsuite/tests/test_rest/

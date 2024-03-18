@@ -1,6 +1,0 @@
-mod_changelog.sql
-mod_password_history.sql
-mod_ad_attributes.sql
-mod_entity_trait.sql
-mod_posix_user.sql
-mod_ephorte.sql
