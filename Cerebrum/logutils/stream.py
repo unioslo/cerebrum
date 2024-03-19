@@ -65,7 +65,7 @@ class CerelogStreamWriter(codecs.StreamWriter, object):
 
         # We force strings to unicode, so we won't have to deal with encoding
         # crap later.
-        if self.incoming_encodings and isinstance(obj, str):
+        if self.incoming_encodings and isinstance(obj, bytes):
             # The problem at this point is: what is the encoding in which obj
             # is represented? There is no way we can know this for sure, since
             # we have no idea what the environment of python is...

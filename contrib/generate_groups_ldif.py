@@ -40,8 +40,12 @@ import functools
 import json
 import logging
 import operator
-import cPickle as pickle  # noqa: N813
 import time
+
+try:
+    import cPickle as pickle  # noqa: N813
+except ImportError:
+    import pickle
 
 import Cerebrum.logutils
 import Cerebrum.logutils.options
