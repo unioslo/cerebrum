@@ -46,32 +46,33 @@ class Parameter(object):
     def __init__(self, optional=False, default=None, repeat=False,
                  help_ref=None):
         """
-        optional   : boolean if argument is optional
-        default    : string or callable method to get the default value
-                     for this parameter.  If None, the value has no default
-                     value
-        repeat     : boolean if object is repeatable
-        help_ref   : to override the help_ref defined in the class
-        """
+        :param bool optional:
+            if argument is optional (default: False)
 
-        for k, v in list(locals().items()):
-            attr = '_' + k
-            if v is None:
-                # If a constructor argument is None, it should only
-                # become an instance attribute iff this would not
-                # shadow any class attribute with the same name.
-                if not hasattr(self, attr):
-                    setattr(self, attr, None)
-                else:
-                    pass
-            else:
-                setattr(self, attr, v)
+        :param str default:
+            string with default value.
+
+            Note that any non-text default value will result in the integer `1`
+            being the default.
+
+            (default: class defined `_default`, or None)
+
+        :param bool repeat:
+            if argument can be repeated more than once
+            (default: False)
+
+        :param str help_ref:
+            reference to alternative argument help texts
+            (default: class defined `_help_ref`).
+        """
+        self._optional = optional
+        self._default = default or getattr(self, '_default', None)
+        self._repeat = repeat
+        self._help_ref = help_ref or getattr(self, '_help_ref', None)
 
     def get_struct(self, help_ref):
         ret = {}
-        for k in ('_optional', '_repeat', '_type', '_help_ref'
-                  # '_prompt',
-                  ):
+        for k in ('_optional', '_repeat', '_type', '_help_ref'):
             if getattr(self, k) is not None and getattr(self, k) != 0:
                 ret[k[1:]] = getattr(self, k)
         ret['prompt'] = self.getPrompt(help_ref)
@@ -79,15 +80,16 @@ class Parameter(object):
             if isinstance(self._default, six.string_types):
                 ret['default'] = self._default
             else:
+                # TODO: this is very strange behaviour?
+                # We should identify any non-text defaults (warnings.warn?),
+                # eliminate them, and disallow anything but text here.
+                # OR, implement a callback, as originally planned.
                 ret['default'] = 1  # = call get_default_param
         return ret
 
     def getPrompt(self, help_ref):  # noqa: N802
         arg_help = help_ref.arg_help
         if self._help_ref not in arg_help:
-            # TODO: Fix
-            # bofhd_ref.logger.warn("Missing arg_help item <%s>",
-            #                       self._help_ref)
             return ""
         return arg_help[self._help_ref][1]
 
