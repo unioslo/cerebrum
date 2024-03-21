@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003-2023 University of Oslo, Norway
+# Copyright 2003-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -26,6 +26,7 @@ from __future__ import (
     unicode_literals,
 )
 import logging
+import sys
 
 from .errors import CerebrumError
 
@@ -322,24 +323,15 @@ _arg_help = {
 }
 
 
-class PrintLog(object):
-    """ Mock logger, prints to stdout. """
-
-    def error(self, msg):
-        """ Prints a log entry with level ERROR. """
-        print("ERROR: %s" % (msg,))
-
-    def warn(self, msg):
-        """ Prints a log entry with level WARNING. """
-        print("WARN: %s" % (msg,))
-
-    def info(self, msg):
-        """ Prints a log entry with level INFO. """
-        print("INFO: %s" % (msg,))
-
-    def debug(self, msg):
-        """ Prints a log entry with level DEBUG. """
-        print("DEBUG: %s" % (msg,))
+def create_print_logger():
+    fmt = logging.Formatter("%(levelname)s: %(message)s")
+    handler = logging.StreamHandler(stream=sys.stdout)
+    handler.setFormatter(fmt)
+    log = logger.getChild("PrintLog")
+    log.addHandler(handler)
+    log.setLevel(logging.DEBUG)
+    log.propagate = False
+    return log
 
 
 def merge_help_strings(*tuples):
@@ -373,12 +365,15 @@ class Help(object):
         self.group_help = _group_help
         self.command_help = _command_help
         self.arg_help = _arg_help
-        self.logger = logger or PrintLog()
+        if logger:
+            self.logger = logger
+        else:
+            self.logger = create_print_logger()
         for cls in cmd_instances:
             self.update_from_extension(cls)
 
     def update_from_extension(self, extension_cls):
-        u""" Update help data from a BofhdExtension. """
+        """ Update help data from a BofhdExtension. """
         # TODO: Assert exension_cls type?
         (group_help,
          cmd_help,
@@ -402,7 +397,7 @@ class Help(object):
         is whatever Command.get_struct() returned when the mapping was
         made"""
         ret = {}
-        for k in all_commands.keys():
+        for k in list(all_commands.keys()):
             ret.setdefault(all_commands[k][0][0], {})[k] = all_commands[k]
         return ret
 
@@ -420,7 +415,7 @@ class Help(object):
 
         """
         known_commands = self._map_all_commands(all_commands)
-        keys = self.group_help.keys()
+        keys = list(self.group_help.keys())
         keys.sort()
         ret = self.group_help['general'].strip() + "\n"
         keys.remove('general')
@@ -492,7 +487,7 @@ class Help(object):
             return "Unkown command group: %s" % group
         ret = "   %-10s - %s\n" % (group, self.group_help[group])
         known_commands = self._map_all_commands(all_commands)
-        call_func_keys = self.command_help[group].keys()
+        call_func_keys = list(self.command_help[group].keys())
         call_func_keys.sort()
         if group not in known_commands:
             return "Unkown command group: %s" % group
@@ -506,14 +501,12 @@ class Help(object):
 
     def get_cmd_help(self, all_commands, maingrp, subgrp, filter=1):
         """ TODO: Document. """
-        for call_func in all_commands.keys():
+        for call_func in list(all_commands.keys()):
             if all_commands[call_func][0] == (maingrp, subgrp):
-                sub_cmd, args, help = self._cmd_help(all_commands[call_func],
-                                                     call_func)
-                return "%-8s %-10s - %-30s : %s\n" % (maingrp,
-                                                      sub_cmd,
-                                                      " ".join(args),
-                                                      help)
+                sub_cmd, args, help_ = self._cmd_help(all_commands[call_func],
+                                                      call_func)
+                return ("%-8s %-10s - %-30s : %s\n"
+                        % (maingrp, sub_cmd, " ".join(args), help_))
 
     def get_arg_help(self, help_ref):
         """TODO: Better docstring.
@@ -536,43 +529,38 @@ class Help(object):
         return self.arg_help[help_ref][1]
 
     def check_consistency(self, all_commands):
-        """ TODO: Better docstring.
+        """
+        Check for missing or superfluous help texts.
 
-        Simple consistency check for the help text.  Checks that:
-        - all commands have a help text
-        - no help text are defined that are not used
-        - no help_attrs are defined that are not used.
-        Any missing help_attrs would raise a KeyError in
-        get_commands(), so this is not checked.
+        Simple consistency check for the help text.  Logs any issues with:
 
-        Note that the check only tests data in all_commands.  Thus
-        arg_help entries from prompt_func is not detected.
+        - Commands without a command help text
+        - Command help texts that aren't used (debug2)
+        - Argument help texts that aren't used (debug2)
 
+        Note that the check only tests data in a `all_commands`-like dict
+        ({function_name: command_object, ...}).  Help entries that are only
+        used from e.g. a `prompt_func` will not be detected.
         """
         # Make a semi deep copy of command_help (copy of the main dict is not
         # enough, have to copy the sub elements too):
         ch = dict((group, self.command_help[group].copy())
                   for group in self.command_help)
-        used_arg_help = {}
-        for k in self.arg_help.keys():
-            used_arg_help[k] = 0
-        for call_func in all_commands.keys():
+        unused_arg_help = set(self.arg_help.keys())
+        for call_func in list(all_commands.keys()):
             grp = all_commands[call_func][0][0]
             if ch.get(grp, {}).get(call_func, None) is not None:
-                del(ch[grp][call_func])
+                del ch[grp][call_func]
             else:
-                self.logger.warn("Missing help for %s" % call_func)
+                self.logger.warn("Missing help for %s", repr(call_func))
             if len(all_commands[call_func]) > 1:
                 if isinstance(all_commands[call_func][1], (tuple, list)):
                     for arg in all_commands[call_func][1]:
-                        used_arg_help[arg['help_ref']] = 1
-        for k in used_arg_help.keys():
-            if used_arg_help[k]:
-                del(used_arg_help[k])
-        self.logger.debug2("Unused arg_help: %s" % used_arg_help.keys())
+                        unused_arg_help.discard(arg['help_ref'])
+        self.logger.debug2("Unused arg_help: %s", repr(unused_arg_help))
         for k in ch.keys():
             if ch[k]:
-                self.logger.debug2("Unused help for %s" % ch[k].keys())
+                self.logger.debug2("Unused help for %s", repr(ch[k].keys()))
 
 
 def test(args=None):
