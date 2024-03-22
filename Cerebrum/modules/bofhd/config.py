@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
+#
 # Copyright 2002-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -40,6 +40,21 @@ from __future__ import (
 )
 import io
 
+import six
+
+import Cerebrum.utils.module
+
+
+def _parse_extension(value):
+    """ parse a single line of bofhd config. """
+    mod, _, cls = Cerebrum.utils.module.parse(value)
+    if not cls:
+        raise ValueError("missing class")
+    if "." in cls:
+        # bofhd has no support for fetching object attribtues (for now)
+        raise ValueError("invalid class: " + repr(cls))
+    return (mod, cls)
+
 
 class BofhdConfig(object):
 
@@ -54,18 +69,17 @@ class BofhdConfig(object):
     def load_from_file(self, filename):
         """ Load config file. """
         with io.open(filename, encoding='utf-8') as f:
-            for lineno, line in enumerate(f, 1):
-                line = line.strip()
+            for lineno, raw_line in enumerate(f, 1):
+                line = raw_line.strip()
                 if not line or line.startswith('#'):
                     continue
                 try:
-                    mod, cls = line.split("/", 1)
-                except Exception:
-                    mod, cls = None, None
-                if not mod or not cls:
-                    raise Exception("Parse error in '%s' on line %d: %r" %
-                                    (filename, lineno, line))
-                self._exts.append((mod, cls))
+                    ext = _parse_extension(line)
+                except ValueError as e:
+                    raise ValueError(
+                        "Error in '%s', line %d: %s (%s)" %
+                        (filename, lineno, six.text_type(e), repr(line)))
+                self._exts.append(ext)
 
     def extensions(self):
         """ All extensions from config. """

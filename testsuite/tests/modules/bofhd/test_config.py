@@ -99,7 +99,7 @@ def test_bofhd_config_error(config_with_error):
     assert config_with_error in msg
 
     # the error should include the line number
-    assert "on line 4:" in msg
+    assert "line 4:" in msg
 
     # the error should include the line content
     assert "foo.bar" in msg
