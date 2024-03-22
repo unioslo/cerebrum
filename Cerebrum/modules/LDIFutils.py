@@ -148,7 +148,7 @@ def entry_string(dn, attrs, add_rdn=True):
         result = ["dn: ", dn, "\n"]
 
     extend = result.extend
-    attrs = attrs.items()
+    attrs = list(attrs.items())
     attrs.sort()         # not necessary, but minimizes changes in file
     for attr, vals in attrs:
         for val in _attrval2iter[type(vals)](vals):
@@ -291,7 +291,7 @@ def map_constants(constname, values, return_type=None):
     if values is not None:
         if not isinstance(values, (list, tuple)):
             values = (values,)
-        values = map(_decode_const, (constname,) * len(values), values)
+        values = [_decode_const(constname, v) for v in values]
         if return_type is not list and len(values) == 1:
             values = values[0]
     if return_type is int and not isinstance(values, six.integer_types):

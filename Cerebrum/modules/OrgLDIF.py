@@ -385,7 +385,7 @@ class OrgLDIF(object):
         self.traverse_ou_children(outfile, self.root_ou_id, None)
         if self.root_ou_id is not None:
             self.traverse_ou_children(outfile, None, None)
-        loops = [i for i in self.ou_tree.iteritems() if i[0] not in self.ou2DN]
+        loops = [i for i in self.ou_tree.items() if i[0] not in self.ou2DN]
         if loops:
             logger.warn(
                 "Loops in org.unit tree; ignored {parent:[children]} = %s",
@@ -878,7 +878,7 @@ class OrgLDIF(object):
         round_timer = make_timer(logger)
         rounds = 0
         exported = 0
-        for person_id, row in self.person_cache.iteritems():
+        for person_id, row in six.iteritems(self.person_cache):
             if rounds % 10000 == 0 and rounds != 0:
                 round_timer("...processed %d rows..." % rounds)
             rounds += 1
@@ -1208,7 +1208,7 @@ class OrgLDIF(object):
                 cont_tab[key].extend(c_list)
             else:
                 cont_tab[key] = c_list
-        for key, c_list in cont_tab.iteritems():
+        for key, c_list in cont_tab.items():
             cont_tab[key] = attr_unique(
                 filter(verify, [c for c in c_list if c not in ('', '0')]),
                 normalize=normalize)
@@ -1228,13 +1228,13 @@ class OrgLDIF(object):
         if type(selector) is not dict:
             return self.internal_simple_selector(selector_type, selector)
         mapping = {}
-        for affiliations, aff_info in selector.iteritems():
+        for affiliations, aff_info in selector.items():
             if type(affiliations) is not tuple:
                 affiliations = (affiliations,)
             if type(aff_info) is not dict:
                 aff_info = {(True,): aff_info}
             status_ssels = []
-            for statuses, ssel in aff_info.iteritems():
+            for statuses, ssel in aff_info.items():
                 if type(statuses) is not tuple:
                     statuses = (statuses,)
                 ssel = self.internal_simple_selector(selector_type, ssel)
@@ -1436,7 +1436,7 @@ def _split_name(fullname=None, givenname=None, lastname=None):
                     last.insert(0, full.pop())
             if not got_given:
                 given.extend(full)
-    return [' '.join(n) for n in given, last]
+    return [' '.join(n) for n in (given, last)]
 
 
 class OrgLdifGroupMixin(OrgLDIF):
