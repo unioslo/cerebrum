@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2002-2023 University of Oslo, Norway
+# Copyright 2002-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -24,7 +24,18 @@ The errors defined in this class are errors that the bofhd server can
 communicate to the client.
 
 All client implementations should be aware of these exception types.
+
+TODO: We should probably codify various catch/reraise routines here.  E.g. most
+of the try/except from the handler.
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+
+import six
 
 
 class CerebrumError(Exception):
@@ -41,6 +52,7 @@ class PermissionDenied(CerebrumError):
     pass
 
 
+@six.python_2_unicode_compatible
 class UnknownError(CerebrumError):
     """
     An unknown error has occured.
@@ -66,8 +78,10 @@ class UnknownError(CerebrumError):
         self._msg = msg or ''
 
     def __str__(self):
-        return "Unknown error (%s): %s" % (getattr(self._type, '__name__', ''),
-                                           self._msg)
+        return (
+            "Unknown error (%s): %s"
+            % (getattr(self._type, '__name__', ''), self._msg)
+        )
 
 
 class ServerRestartedError(CerebrumError):
