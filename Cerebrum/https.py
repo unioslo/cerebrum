@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright 2014-2017 University of Oslo, Norway
+#
+# Copyright 2014-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -16,25 +17,35 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" This module contains subclasses of httplib and urllib2 with support for:
+"""
+This module contains subclasses of httplib and urllib2 with support for:
+
     - Require and validate server-side certificates
     - Verify hostname against certificate
 
 Note that the classes in this module makes assubmtions on how the parent
 classes (from httplib and urrlib2) works internally. When we go for a newer
-version of python, this must be taken into account. """
-
-
-import httplib
+version of python, this must be taken into account.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import operator
-import os.path
+import os
 import socket
 import ssl
-import urllib2
-
-from backports import ssl_match_hostname
 from collections import OrderedDict
 from warnings import warn
+
+import six
+from six.moves import http_client
+from six.moves.urllib import request as urllib_request
+from six.moves.urllib import error as urllib_error
+
+from backports import ssl_match_hostname
 
 
 SSLError = ssl.SSLError
@@ -54,6 +65,7 @@ SSL_VERSION = OrderedDict(
 DEFAULT_SSL_VERSION = 'TLSv1'
 
 
+@six.python_2_unicode_compatible
 class SSLConfig(object):
 
     """ Configuration object for SSL parameters.
@@ -176,7 +188,7 @@ class SSLConfig(object):
 
         """
         # Legacy support: If given a constant (int), look up the name:
-        for k, v in SSL_VERSION.items():
+        for k, v in list(SSL_VERSION.items()):
             if ssl_version == v:
                 ssl_version = k
 
@@ -221,7 +233,8 @@ class SSLConfig(object):
             # certificate.
             return
 
-        if cert is None and self._wrap_param['cert_reqs'] == SSLConfig.OPTIONAL:
+        if (cert is None
+                and self._wrap_param['cert_reqs'] == SSLConfig.OPTIONAL):
             # It's ok that the peer did not provide a certificate,
             # and without a certificate there's nothing to verify.
             #
@@ -258,16 +271,15 @@ class SSLConfig(object):
 
         return ssl.wrap_socket(sock, **params)
 
-    def __unicode__(self):
-        """ Return a unicode representation of this object. """
-        return u'SSLConfig(%s, %s)' % (
-            u', '.join(('%s=%s' % (k, v) for k, v in
-                       self._wrap_param.iteritems())),
-            u'verify_hostname=%s' % self._do_verify_hostname)
-
     def __str__(self):
         """ Return a string representation of this object. """
-        return unicode(self).encode('utf-8')
+        return 'SSLConfig(%s, %s)' % (
+            ', '.join((
+                '%s=%s' % (k, v)
+                for k, v in self._wrap_param.items()
+            )),
+            'verify_hostname=%s' % (self._do_verify_hostname,),
+        )
 
 
 # Backwards compability:
@@ -275,7 +287,7 @@ for const, value in SSL_VERSION.items():
     setattr(SSLConfig, const, value)
 
 
-class HTTPSConnection(httplib.HTTPSConnection, object):
+class HTTPSConnection(http_client.HTTPSConnection, object):
 
     """ HTTPSConnection that can validate SSL certificates. """
 
@@ -356,35 +368,36 @@ class HTTPSConnection(httplib.HTTPSConnection, object):
             raise TypeError('ssl_config must be an instance of SSLConfig')
         if not isinstance(timeout, (int, float, type(None))):
             raise TypeError('timeout must be an int, float or None')
-        return type('ConfiguredHTTPSConnection',
+        name = str('ConfiguredHTTPSConnection')  # PY2+PY3 hack
+        return type(name,
                     tuple(cls.mro()),
                     dict(ssl_config=ssl_config, default_timeout=timeout))
 
 
-class HTTPSHandler(urllib2.HTTPSHandler, object):
+class HTTPSHandler(urllib_request.HTTPSHandler, object):
+    """
+    HTTPSHandler that enables use of any HTTPConnection-like class.
 
-    """ HTTPSHandler that enables use of any HTTPConnection-like class.
-
-    Note: This class re-raises urllib2.URLError as ssl.SSLError on SSL-related
-    failures. """
-
+    Note: This class re-raises urllib.error.URLError as ssl.SSLError on
+          SSL-related failures.
+    """
     def __init__(self, ssl_connection=HTTPSConnection, **kwargs):
         """ Enable override of the ssl connection object.
 
         :param type ssl_connection: The HTTP(S) connection class to use.
             Default: HTTPSConnection
 
-        For more, see urllib2.HTTPSHandler.
+        For more, see urllib.request.HTTPSHandler.
 
         """
         self.ssl_connection = ssl_connection
         super(HTTPSHandler, self).__init__(**kwargs)
 
     def https_open(self, req):
-        """ See urllib2.HTTPSHandler. """
+        """ See urllib.request.HTTPSHandler. """
         try:
             return self.do_open(self.ssl_connection, req)
-        except urllib2.URLError as err:
+        except urllib_error.URLError as err:
             # I want to throw SSLErrors! This means SSLErrors will start their
             # tracebacks here but all other exceptions should be fine.
             if hasattr(err, 'reason') and isinstance(err.reason, ssl.SSLError):
