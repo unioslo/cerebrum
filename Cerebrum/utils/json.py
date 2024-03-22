@@ -105,7 +105,6 @@ class JSONEncoder(json.encoder.JSONEncoder):
         * constants
         * Entity
     """
-
     def __init__(self, ensure_ascii=False, sort_keys=True, **kw):
         """Construct JSONEncoder, set some other defaults"""
         super(JSONEncoder, self).__init__(ensure_ascii=False,
@@ -123,15 +122,26 @@ class JSONEncoder(json.encoder.JSONEncoder):
         return super(JSONEncoder, self).default(o)
 
     def iterencode(self, *rest, **kw):
-        e = self.encoding
+        if six.PY2:
+            return self._py2_iterencode(*rest, **kw)
+        # No encoding fixes needed for PY3
+        return super(JSONEncoder, self).iterencode(*rest, **kw)
+
+    def _py2_iterencode(self, *rest, **kw):
+        """
+        Decode iterencode output to unicode.
+
+        PY2: JSONEncoder.iterencode encodes strings as UTF-8 bytestrings, and
+        we want the output to be unicode for future compatibility.
+        """
+        encoding = getattr(self, "encoding", None) or "UTF-8"
 
         def fixer(x):
-            if type(x) is str:
-                return x.decode(e)
+            if type(x) is bytes:
+                return x.decode(encoding)
             else:
                 return x
-        if e is None:
-            e = 'UTF-8'
+
         return (fixer(x)
                 for x in super(JSONEncoder, self).iterencode(*rest, **kw))
 

@@ -29,7 +29,10 @@ from __future__ import (
 
 import datetime
 
+import pytz
 import six
+
+from Cerebrum.utils import date as date_utils
 from Cerebrum.utils import json
 
 
@@ -81,10 +84,36 @@ class MxLike(object):
         return self._dt.time()
 
 
-def test_mxdatetime():
-    assert json.dumps(
-        MxLike(2018, 1, 1, 12, 0, 0)) == '"2018-01-01T12:00:00+01:00"'
-    assert json.dumps(MxLike(2018, 1, 1, 0, 0, 0)) == '"2018-01-01"'
+def test_mx_datetime():
+    mx_dt = MxLike(2018, 1, 1, 12, 0, 0)
+    mx_repr = '"2018-01-01T12:00:00+01:00"'
+    assert json.dumps(mx_dt) == mx_repr
+
+
+def test_mx_date():
+    mx_dt = MxLike(2018, 1, 1, 0, 0, 0)
+    mx_repr = '"2018-01-01"'
+    assert json.dumps(mx_dt) == mx_repr
+
+
+def test_datetime_naive():
+    dt = datetime.datetime(1998, 6, 28, 23, 30, 11, 987654)
+    iso_repr = '"1998-06-28T23:30:11.987654+02:00"'
+    assert json.dumps(dt) == iso_repr
+
+
+def test_datetime_tz():
+    dt = date_utils.apply_timezone(
+        datetime.datetime(1998, 6, 28, 23, 30, 11, 987654),
+        pytz.UTC)
+    iso_repr = '"1998-06-28T23:30:11.987654+00:00"'
+    assert json.dumps(dt) == iso_repr
+
+
+def test_date():
+    dt = datetime.date(1998, 6, 28)
+    iso_repr = '"1998-06-28"'
+    assert json.dumps(dt) == iso_repr
 
 
 def test_constants(factory):
@@ -110,3 +139,9 @@ def test_entity(initial_account, factory):
             initial_account.entity_id,
             json.dumps(co.entity_account),
             six.text_type(initial_account)))
+
+
+def test_text():
+    txt = "blåbærøl"
+    txt_repr = '"%s"' % (txt,)
+    assert json.dumps(txt) == txt_repr
