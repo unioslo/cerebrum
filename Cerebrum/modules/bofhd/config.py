@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2002-2018 University of Oslo, Norway
+# Copyright 2002-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,7 +18,8 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" Server implementation config for bofhd.
+"""
+Server implementation config for bofhd.
 
 History
 -------
@@ -31,13 +32,13 @@ moved to a separate module after:
     Date:  Fri Mar 18 10:34:58 2016 +0100
 
 """
-from __future__ import print_function
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import io
-
-
-def _format_class(module, name):
-    """ Format a line for the config. """
-    return u'{0}/{1}'.format(module, name)
 
 
 class BofhdConfig(object):
@@ -59,7 +60,7 @@ class BofhdConfig(object):
                     continue
                 try:
                     mod, cls = line.split("/", 1)
-                except:
+                except Exception:
                     mod, cls = None, None
                 if not mod or not cls:
                     raise Exception("Parse error in '%s' on line %d: %r" %
@@ -72,18 +73,24 @@ class BofhdConfig(object):
             yield mod, cls
 
 
-if __name__ == '__main__':
+def _main(argv=None):
     import argparse
     parser = argparse.ArgumentParser(
-        description="Parse config and output classes")
+        description="Parse config and output classes",
+    )
     parser.add_argument(
         'config',
         metavar='FILE',
-        help='Bofhd configuration file')
+        help='Bofhd configuration file',
+    )
 
     args = parser.parse_args()
 
     config = BofhdConfig(filename=args.config)
     print('Command classes:')
     for mod, name in config.extensions():
-        print('-', _format_class(mod, name))
+        print("- {0}/{1}".format(mod, name))
+
+
+if __name__ == '__main__':
+    _main()
