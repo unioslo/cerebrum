@@ -1,7 +1,11 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-""" Tests for Cerebrum.modules.bofhd.session """
-from __future__ import print_function, unicode_literals
+""" Tests for `Cerebrum.modules.bofhd.session` """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import pytest
 
@@ -26,7 +30,7 @@ def database(database):
 
 @pytest.fixture
 def np_type(constant_module):
-    u""" A new, unique group spread. """
+    """ A new, unique group spread. """
     code = constant_module._AccountCode
     np_type = code('6c96aa56a57d0831',
                    description='test_bofhd_session account')
@@ -71,9 +75,9 @@ def test_ip_to_long(session_module):
 def test_ip_subnet_slash_to_range(session_module):
     """ Cerebrum.modules.bofhd.session.ip_subnet_to_slash_range. """
     test = session_module.ip_subnet_slash_to_range
-    assert test('127.0.0.0/8') == (2130706432L, 2147483647L)
-    assert test('127.0.0.0/31') == (2130706432L, 2130706433L)
-    assert test('127.0.0.0/1') == (0L, 2147483647L)
+    assert test('127.0.0.0/8') == (2130706432, 2147483647)
+    assert test('127.0.0.0/31') == (2130706432, 2130706433)
+    assert test('127.0.0.0/1') == (0, 2147483647)
 
 
 def test_ip_subnet_slash_to_range_big(session_module):
