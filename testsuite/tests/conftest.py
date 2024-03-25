@@ -8,6 +8,7 @@ import sys
 import types
 
 import pytest
+import six
 
 import Cerebrum.logutils
 
@@ -113,8 +114,15 @@ def constant_module(database):
     Constants._CerebrumCode.sql = property(lambda *args: database)
     # Clear the constants cache of each _CerebrumCode class, to avoid caching
     # intvals that doesn't exist in the database.
+
+    # issubclass fails on non-types, and PY2 has two meta types
+    if six.PY2:
+        meta_types = (type, types.ClassType)
+    else:
+        meta_types = (type,)
+
     for item in vars(Constants).values():
-        if (isinstance(item, (type, types.ClassType))
+        if (isinstance(item, meta_types)
                 and issubclass(item, Constants._CerebrumCode)):
             item._cache = dict()
     return Constants
