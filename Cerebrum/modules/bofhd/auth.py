@@ -208,9 +208,13 @@ QUARANTINE_AUTOMATIC
 QUARANTINE_STRICTLY_AUTOMATIC
     A list of quarantines that *cannot* be altered manually (see
     `can_*_quarantine`)
-
 """
-
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import re
 
 import six
@@ -218,7 +222,6 @@ import six
 import cereconf
 
 from Cerebrum import Cache
-from Cerebrum import Constants
 from Cerebrum import Errors
 from Cerebrum import Person
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
@@ -228,24 +231,6 @@ from Cerebrum.Utils import argument_to_sql
 from Cerebrum.group.GroupRoles import GroupRoles
 from Cerebrum.meta import MarkUpdateMixin
 from Cerebrum.modules.bofhd.errors import PermissionDenied
-
-
-class AuthConstants(Constants._CerebrumCode):
-    """Defines an operation constant.
-
-    # TODO: this looks like a duplicate of utils._AuthRoleOpCode.  Cleanup!
-
-    Operations are saying what an operator is allowed to do. The operations are
-    handled inside the `BofhdAuth` class' methods.
-
-    Note that operations are not connected to operators directly. The
-    operations are put inside *operation sets* (OpSets), which again are linked
-    to operation targets, and is then either connected to the operator
-    directly, or is most likely connected through a regular group the operator
-    is member of.
-    """
-
-    _lookup_table = '[:table schema=cerebrum name=auth_op_code]'
 
 
 class BofhdAuthOpSet(MarkUpdateMixin, DatabaseAccessor):

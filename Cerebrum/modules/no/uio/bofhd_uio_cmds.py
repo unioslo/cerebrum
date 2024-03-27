@@ -44,8 +44,7 @@ from Cerebrum.modules.bofhd import bofhd_external_id
 from Cerebrum.modules.bofhd import bofhd_group_roles
 from Cerebrum.modules.bofhd import bofhd_ou_cmds
 from Cerebrum.modules.bofhd import parsers
-from Cerebrum.modules.bofhd.auth import (AuthConstants,
-                                         BofhdAuthOpSet,
+from Cerebrum.modules.bofhd.auth import (BofhdAuthOpSet,
                                          BofhdAuthOpTarget,
                                          BofhdAuthRole)
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
@@ -2577,7 +2576,7 @@ class BofhdExtension(BofhdCommonMethods):
         aos.find_by_name(name)
         ret = []
         for r in aos.list_operations():
-            c = AuthConstants(int(r['op_code']))
+            c = self.const.AuthRoleOp(int(r['op_code']))
             ret.append({
                 'op': text_type(c),
                 'op_id': r['op_id'],
