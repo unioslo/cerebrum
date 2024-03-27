@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-
-# Copyright 2002-2020 University of Oslo, Norway
+#
+# Copyright 2002-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,6 +17,12 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import cereconf
 
@@ -38,52 +44,57 @@ class BofhdUtils(object):
     # TODO: Lookup by e-mail address -- but how to do that without
     # requiring mod_email?
     def get_target(self, name, default_lookup="account", restrict_to=None):
-        """The user input should be a name on the form
-            [LOOKUP ':'] IDENTIFIER
-        The name of the lookup type can be abbreviated by the user.
-        If the user doesn't include a lookup type, default_lookup
-        will be used.
+        """
+        Look up entity by type and value.
 
-        Valid lookup types are
-             'account' (name of user => Account or PosixUser)
-             'person' (name of user => Person)
-             'fnr' (external ID, Norwegian SSN => Person)
-             'group' (name of group => Group or PosixGroup)
-             'host' (name of host => Host)
-             'id' (entity ID => any)
-             'external_id' (i.e. employee or studentnr)
-             'stedkode' (stedkode => OU)
+        This method looks up entities from user input formatted as:
+
+            [LOOKUP ':'] IDENTIFIER
+
+        The name of the lookup type can be abbreviated by the user.  If the
+        user doesn't include a lookup type, a `default_lookup` will be used.
+
+        Valid lookup types are:
+
+          - 'account' (name of user => Account or PosixUser)
+          - 'person' (name of user => Person)
+          - 'fnr' (external ID, Norwegian SSN => Person)
+          - 'group' (name of group => Group or PosixGroup)
+          - 'host' (name of host => Host)
+          - 'id' (entity ID => any)
+          - 'external_id' (i.e. employee or studentnr)
+          - 'stedkode' (stedkode => OU)
 
         If name is actually an integer, 'id' lookup is always chosen.
 
-        If restrict_to isn't set, it will be initialised according to
-        default_lookup.  It should be a list containing the names of
-        acceptable classes, and a CerebrumError will be raised if the
+        If `restrict_to` isn't set, it will be initialised according to
+        `default_lookup`.  It should be a list containing the names of
+        acceptable classes, and a `CerebrumError` will be raised if the
         resulting entity isn't among them.  The class names must be
-        known to Factory.  To accept all kinds of objects, pass
+        known to `Factory`.  To accept all kinds of objects, pass
         restrict_to=[].
 
-        restrict_to can lead to a cast operation.  E.g., if Person is
+        `restrict_to` can lead to a cast operation.  E.g., if Person is
         acceptable, but the user specified an account, the account's
         owner will be returned.
 
         The return value is an instantiated object of the appropriate
-        class.  If no entity is found, CerebrumError is raised.
-
+        class.  If no entity is found, a `CerebrumError` is raised.
         """
 
         # This mapping restricts the possible values get_target returns.
-        entity_lookup_types = {"account": ("Account",),
-                               "fnr": ("Person",),
-                               "group": ("Group",),
-                               "host": ("Host",),
-                               "disk": ("Disk",),
-                               "stedkode": ("OU",),
-                               "person": ("Person",),
-                               "entity_id": None,
-                               "id": None,
-                               "external_id": None,
-                               }
+        entity_lookup_types = {
+            "account": ("Account",),
+            "fnr": ("Person",),
+            "group": ("Group",),
+            "host": ("Host",),
+            "disk": ("Disk",),
+            "stedkode": ("OU",),
+            "person": ("Person",),
+            "entity_id": None,
+            "id": None,
+            "external_id": None,
+        }
 
         def get_target_find_lookup(name, default_lookup):
             if isinstance(name, int):
@@ -262,7 +273,9 @@ class BofhdUtils(object):
             except ValueError:
                 raise CerebrumError("Expected a six-digit stedkode")
             except Errors.NotFoundError:
-                raise CerebrumError("Could not find Organizational Unit with stedkode=%s" % stedkode)
+                raise CerebrumError(
+                    "Could not find Organizational Unit with stedkode=%s"
+                    % repr(stedkode))
             return ou
 
         #
