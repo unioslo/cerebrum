@@ -154,56 +154,6 @@ def is_str_or_unicode_test():
     assert Utils.is_str_or_unicode(unicode(None))
 
 
-def test_messages_type():
-    """ Utils.messages correct class. """
-    m = Utils.Messages(text={})
-    assert isinstance(m, Utils.Messages)
-    assert isinstance(m, dict)
-
-
-def test_messages_fetch_exists():
-    """ Utils.Messages fetch exising word/fallback word. """
-    # Word in primary and fallback
-    assert Utils.Messages(text={'foo': {'no': 'bar_no', 'en': 'bar_en'}},
-                          lang='no', fallback='en')['foo'] == 'bar_no'
-    # Word only in primary
-    assert Utils.Messages(text={'foo': {'no': 'bar_no', }},
-                          lang='no', fallback='en')['foo'] == 'bar_no'
-    # Word only in fallback
-    assert Utils.Messages(text={'foo': {'en': 'bar_en', }},
-                          lang='no', fallback='en')['foo'] == 'bar_en'
-
-
-def test_messages_missing_key():
-    """ Utils.Messages fetch non-exising key. """
-    with pytest.raises(KeyError):
-        Utils.Messages(text={}, lang='no', fallback='en')['foo']
-
-
-def test_messages_missing_lang():
-    """ Utils.Messages fetch non-exising lang. """
-    with pytest.raises(KeyError):
-        Utils.Messages(
-            text={'foo': {'se': 'bar_se'}},
-            lang='en',
-            fallback='no',
-        )['foo']
-
-
-def test_messages_set_key():
-    """ Utils.Messages set key. """
-    m = Utils.Messages(text={}, lang='no', fallback='en')
-    m['foo'] = {'no': 'bar_no'}
-    assert m['foo'] == 'bar_no'
-
-
-def test_messages_set_invalid():
-    """ Utils.Messages set key to invalid value. """
-    with pytest.raises(NotImplementedError):
-        m = Utils.Messages(text={}, lang='foo', fallback='bar')
-        m['key'] = 'value'
-
-
 def test_argument_to_sql_droptables():
     """ Utils.argument_to_sql with Bobby Tables. """
     binds = {}

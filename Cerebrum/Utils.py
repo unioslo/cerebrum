@@ -572,66 +572,6 @@ def make_timer(logger, msg=None):
     return timer
 
 
-class Messages(dict):
-    """
-    Class for handling text in different languages.
-
-    Should be filled with messages in different languages, and the message in
-    either the set language or the fallback language is returned.
-
-        msgs = Messages(lang='no', fallback='en')
-
-    The preferred way of adding text to Messages is through template files,
-    e.g.  a python file with a large python dict on the format:
-
-        {'key1':    {'en': 'This is a test',
-                     'no': 'Dette er en test',
-                     'nn': 'Dette er ein test'},
-         'key2':    {...},}
-
-    Messages could be given on the form:
-
-        msgs['key1'] = {'en': 'This is a test', 'no': 'Dette er en test'}
-
-    and the correct string is returned by:
-
-        >>> msgs['key1']
-        'This is a test'
-
-    """
-
-    def __init__(self, text=None, lang='en', fallback='en', logger=None):
-        self.logger = logger or Factory.get_logger()
-        self.lang = lang
-        self.fallback = fallback
-        dict.__init__(self)
-        if text:
-            self.update(text)
-
-    def __setitem__(self, key, value):
-        if isinstance(value, dict):
-            dict.__setitem__(self, key, value)
-        else:
-            raise NotImplementedError("Supports only dicts for now")
-
-    def __getitem__(self, key):
-        """
-        Returns a text string by given key in either the set language, or the
-        fallback language if it didn't exist.
-
-        Throws out a KeyError if the text doesn't exist for the fallback
-        language either. TODO: or should it return something else instead, e.g.
-        the key, and log it?
-        """
-        try:
-            return dict.__getitem__(self, key)[self.lang]
-        except KeyError:
-            self.logger.warn(
-                "Message for key '%s' doesn't exist for lang '%s'",
-                key, self.lang)
-        return dict.__getitem__(self, key)[self.fallback]
-
-
 # Compatibility names
 #
 # These names were historically defined in Cerebrum.Utils, but have been moved
