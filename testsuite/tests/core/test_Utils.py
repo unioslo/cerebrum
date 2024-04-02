@@ -53,8 +53,12 @@ def test_format_exception_context1():
         raise ValueError("ioshivfq")
     except ValueError:
         message = Utils.format_exception_context(*sys.exc_info())
-        assert re.search(r"Exception <type 'exceptions.ValueError'> occured "
-                         r"\(in context.*:", message)
+        pattern = " ".join((
+            "Exception",
+            r"(?:<type 'exceptions.ValueError'>|<class 'ValueError'>)",
+            r"occured \(in context.*:",
+        ))
+        assert re.search(pattern, message)
         assert "ioshivfq" in message
 
 
