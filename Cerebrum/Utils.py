@@ -46,21 +46,23 @@ import Cerebrum.utils.secrets
 from Cerebrum.utils.funcwrap import deprecate
 
 
-class _NotSet(object):
-    """This class shouldn't be referred to directly, import the
-    singleton, 'NotSet', instead.  It should be used as the default
-    value of keyword arguments which need to distinguish between the
-    caller specifying None and not specifying it at all."""
+class _NotSet(Cerebrum.meta.SingletonMixin):
+    """
+    An alternative `None`-like singleton.
 
-    def __new__(cls):
-        if '_the_instance' not in cls.__dict__:
-            cls._the_instance = object.__new__(cls)
-        return cls._the_instance
+    This class implements a falsy singleton value.  It's intended as a default
+    keyword argument for parameters that assigns a special meaning to `None`.
 
-    def __nonzero__(self):
+    Do not use this class directly, you should only need the *NotSet* object
+    that is assigned below this class.
+    """
+    __slots__ = ()
+
+    def __bool__(self):
         return False
 
-    __slots__ = ()
+    # PY2 backwards compatibility
+    __nonzero__ = __bool__
 
 
 NotSet = _NotSet()
