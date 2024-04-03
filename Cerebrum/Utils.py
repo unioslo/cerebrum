@@ -29,12 +29,10 @@ from __future__ import (
 
 import collections
 import os
-import random
 import select
 import sys
 import time
 import traceback
-from string import ascii_lowercase, digits
 from subprocess import Popen, PIPE
 
 import six
@@ -48,7 +46,6 @@ import Cerebrum.utils.imap
 import Cerebrum.utils.module
 import Cerebrum.utils.secrets
 import Cerebrum.utils.text_compat
-from Cerebrum.utils.funcwrap import deprecate
 
 
 class _NotSet(Cerebrum.meta.SingletonMixin):
@@ -275,25 +272,6 @@ class Factory(object):
         """
         import Cerebrum.logutils
         return Cerebrum.logutils.get_logger(name=name, _stacklevel=3)
-
-
-@deprecate("Cerebrum.Utils.random_string is deprecated")
-def random_string(length, characters=ascii_lowercase + digits):
-    """
-    Generate a random string of a given length using the given characters.
-
-    :param int length: the desired string length
-    :param str characters: a set of characters to use
-
-    :return str: returns a string of random characters
-    """
-    # Create a local random object for increased randomness
-    # "Use os.urandom() or SystemRandom if you require a
-    # cryptographically secure pseudo-random number generator."
-    # docs.python.org/2.7/library/random.html#random.SystemRandom
-    lrandom = random.SystemRandom()
-    # pick "length" number of letters, then combine them to a string
-    return ''.join([lrandom.choice(characters) for _ in range(length)])
 
 
 def exception_wrapper(functor, exc_list=None, return_on_exc=None, logger=None):
