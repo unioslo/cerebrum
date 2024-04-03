@@ -127,33 +127,6 @@ def dyn_import_test():
     assert Utils.dyn_import(x) is sys.modules[x]
 
 
-def is_str_test():
-    """ Utils.is_str accepts str, rejects unicode and others. """
-    assert Utils.is_str('Hello world!')
-    assert not Utils.is_str(u'Hello world!')
-    assert not Utils.is_str(None)
-    assert Utils.is_str(str(None))
-    assert not Utils.is_str(unicode(None))
-
-
-def is_unicode_test():
-    """ Utils.is_unicode accepts unicode, rejects str and others. """
-    assert not Utils.is_unicode('Hello world!')
-    assert Utils.is_unicode(u'Hello world!')
-    assert not Utils.is_unicode(None)
-    assert not Utils.is_unicode(str(None))
-    assert Utils.is_unicode(unicode(None))
-
-
-def is_str_or_unicode_test():
-    """ Utils.is_str_or_unicode accepts unicode, str, rejects others. """
-    assert Utils.is_str_or_unicode('Hello world!')
-    assert Utils.is_str_or_unicode(u'Hello world!')
-    assert not Utils.is_str_or_unicode(None)
-    assert Utils.is_str_or_unicode(str(None))
-    assert Utils.is_str_or_unicode(unicode(None))
-
-
 def test_argument_to_sql_droptables():
     """ Utils.argument_to_sql with Bobby Tables. """
     binds = {}

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2002-2023 University of Oslo, Norway
+# Copyright 2002-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,19 +17,23 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
 """
 This module contains a number of core utilities used everywhere in the tree.
 """
-from __future__ import unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import collections
 import os
 import random
+import select
 import sys
 import time
 import traceback
-import unicodedata
 from string import ascii_lowercase, digits
 from subprocess import Popen, PIPE
 
@@ -43,6 +47,7 @@ import Cerebrum.meta
 import Cerebrum.utils.imap
 import Cerebrum.utils.module
 import Cerebrum.utils.secrets
+import Cerebrum.utils.text_compat
 from Cerebrum.utils.funcwrap import deprecate
 
 
@@ -66,29 +71,6 @@ class _NotSet(Cerebrum.meta.SingletonMixin):
 
 
 NotSet = _NotSet()
-
-
-# TODO: Deprecate when switching over to Python 3.x
-def is_str(x):
-    """Checks if a given variable is a string, but not a unicode string."""
-    return isinstance(x, bytes)
-
-
-# TODO: Deprecate when switching over to Python 3.x
-def is_str_or_unicode(x):
-    """Checks if a given variable is a string (str or unicode)."""
-    return isinstance(x, six.string_types)
-
-
-# TODO: Deprecate when switching over to Python 3.x
-def is_unicode(x):
-    """Checks if a given variable is a unicode string."""
-    return isinstance(x, six.text_type)
-
-
-def remove_control_characters(s):
-    """Remove unicode control characters."""
-    return "".join(ch for ch in s if unicodedata.category(ch)[0] != "C")
 
 
 def spawn_and_log_output(
@@ -123,7 +105,6 @@ def spawn_and_log_output(
     :return: spawned programme's exit status
     """
     # select on pipes and Popen3 only works in Unix.
-    from select import select
     exit_success = 0
     logger = Factory.get_logger()
     if cereconf.DEBUG_HOSTLIST is not None:
@@ -146,7 +127,7 @@ def spawn_and_log_output(
         # the buffering in Python's file object.  This works OK since
         # select() will return "readable" for an unread EOF, and
         # Python won't read the EOF until the buffers are exhausted.
-        ready, _, _ = select(descriptor.keys(), [], [])
+        ready, _, _ = select.select(list(descriptor.keys()), [], [])
         for fd in ready:
             line = fd.readline()
             if line == '':
@@ -170,22 +151,6 @@ def spawn_and_log_output(
             logger.error("[%d] Return value was %d from command %r",
                          pid, status, cmd)
     return status
-
-
-# TODO: Deprecate when switching over to Python 3.x
-def to_unicode(obj, encoding='utf-8'):
-    """ Decode obj to unicode if it is a str."""
-    if is_str(obj):
-        return obj.decode(encoding)
-    return obj
-
-
-# TODO: Deprecate when switching over to Python 3.x
-def unicode2str(obj, encoding='utf-8'):
-    """Encode unicode object to a str with the given encoding."""
-    if is_unicode(obj):
-        return obj.encode(encoding)
-    return obj
 
 
 class Factory(object):
@@ -582,3 +547,4 @@ auto_super = Cerebrum.meta.AutoSuper
 mark_update = Cerebrum.meta.MarkUpdate
 read_password = Cerebrum.utils.secrets.legacy_read_password
 dyn_import = Cerebrum.utils.module.import_item
+unicode2str = Cerebrum.utils.text_compat.to_str
