@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2002-2023 University of Oslo, Norway
+# Copyright 2002-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,20 +17,22 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
 """
 This module contains a number of core utilities used everywhere in the tree.
 """
-from __future__ import unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import collections
 import os
-import random
+import select
 import sys
 import time
 import traceback
-import unicodedata
-from string import ascii_lowercase, digits
 from subprocess import Popen, PIPE
 
 import six
@@ -43,50 +45,29 @@ import Cerebrum.meta
 import Cerebrum.utils.imap
 import Cerebrum.utils.module
 import Cerebrum.utils.secrets
-from Cerebrum.utils.funcwrap import deprecate
+import Cerebrum.utils.text_compat
 
 
-class _NotSet(object):
-    """This class shouldn't be referred to directly, import the
-    singleton, 'NotSet', instead.  It should be used as the default
-    value of keyword arguments which need to distinguish between the
-    caller specifying None and not specifying it at all."""
+class _NotSet(Cerebrum.meta.SingletonMixin):
+    """
+    An alternative `None`-like singleton.
 
-    def __new__(cls):
-        if '_the_instance' not in cls.__dict__:
-            cls._the_instance = object.__new__(cls)
-        return cls._the_instance
+    This class implements a falsy singleton value.  It's intended as a default
+    keyword argument for parameters that assigns a special meaning to `None`.
 
-    def __nonzero__(self):
+    Do not use this class directly, you should only need the *NotSet* object
+    that is assigned below this class.
+    """
+    __slots__ = ()
+
+    def __bool__(self):
         return False
 
-    __slots__ = ()
+    # PY2 backwards compatibility
+    __nonzero__ = __bool__
 
 
 NotSet = _NotSet()
-
-
-# TODO: Deprecate when switching over to Python 3.x
-def is_str(x):
-    """Checks if a given variable is a string, but not a unicode string."""
-    return isinstance(x, bytes)
-
-
-# TODO: Deprecate when switching over to Python 3.x
-def is_str_or_unicode(x):
-    """Checks if a given variable is a string (str or unicode)."""
-    return isinstance(x, six.string_types)
-
-
-# TODO: Deprecate when switching over to Python 3.x
-def is_unicode(x):
-    """Checks if a given variable is a unicode string."""
-    return isinstance(x, six.text_type)
-
-
-def remove_control_characters(s):
-    """Remove unicode control characters."""
-    return "".join(ch for ch in s if unicodedata.category(ch)[0] != "C")
 
 
 def spawn_and_log_output(
@@ -121,7 +102,6 @@ def spawn_and_log_output(
     :return: spawned programme's exit status
     """
     # select on pipes and Popen3 only works in Unix.
-    from select import select
     exit_success = 0
     logger = Factory.get_logger()
     if cereconf.DEBUG_HOSTLIST is not None:
@@ -144,7 +124,7 @@ def spawn_and_log_output(
         # the buffering in Python's file object.  This works OK since
         # select() will return "readable" for an unread EOF, and
         # Python won't read the EOF until the buffers are exhausted.
-        ready, _, _ = select(descriptor.keys(), [], [])
+        ready, _, _ = select.select(list(descriptor.keys()), [], [])
         for fd in ready:
             line = fd.readline()
             if line == '':
@@ -168,22 +148,6 @@ def spawn_and_log_output(
             logger.error("[%d] Return value was %d from command %r",
                          pid, status, cmd)
     return status
-
-
-# TODO: Deprecate when switching over to Python 3.x
-def to_unicode(obj, encoding='utf-8'):
-    """ Decode obj to unicode if it is a str."""
-    if is_str(obj):
-        return obj.decode(encoding)
-    return obj
-
-
-# TODO: Deprecate when switching over to Python 3.x
-def unicode2str(obj, encoding='utf-8'):
-    """Encode unicode object to a str with the given encoding."""
-    if is_unicode(obj):
-        return obj.encode(encoding)
-    return obj
 
 
 class Factory(object):
@@ -308,25 +272,6 @@ class Factory(object):
         """
         import Cerebrum.logutils
         return Cerebrum.logutils.get_logger(name=name, _stacklevel=3)
-
-
-@deprecate("Cerebrum.Utils.random_string is deprecated")
-def random_string(length, characters=ascii_lowercase + digits):
-    """
-    Generate a random string of a given length using the given characters.
-
-    :param int length: the desired string length
-    :param str characters: a set of characters to use
-
-    :return str: returns a string of random characters
-    """
-    # Create a local random object for increased randomness
-    # "Use os.urandom() or SystemRandom if you require a
-    # cryptographically secure pseudo-random number generator."
-    # docs.python.org/2.7/library/random.html#random.SystemRandom
-    lrandom = random.SystemRandom()
-    # pick "length" number of letters, then combine them to a string
-    return ''.join([lrandom.choice(characters) for _ in range(length)])
 
 
 def exception_wrapper(functor, exc_list=None, return_on_exc=None, logger=None):
@@ -570,66 +515,6 @@ def make_timer(logger, msg=None):
     return timer
 
 
-class Messages(dict):
-    """
-    Class for handling text in different languages.
-
-    Should be filled with messages in different languages, and the message in
-    either the set language or the fallback language is returned.
-
-        msgs = Messages(lang='no', fallback='en')
-
-    The preferred way of adding text to Messages is through template files,
-    e.g.  a python file with a large python dict on the format:
-
-        {'key1':    {'en': 'This is a test',
-                     'no': 'Dette er en test',
-                     'nn': 'Dette er ein test'},
-         'key2':    {...},}
-
-    Messages could be given on the form:
-
-        msgs['key1'] = {'en': 'This is a test', 'no': 'Dette er en test'}
-
-    and the correct string is returned by:
-
-        >>> msgs['key1']
-        'This is a test'
-
-    """
-
-    def __init__(self, text=None, lang='en', fallback='en', logger=None):
-        self.logger = logger or Factory.get_logger()
-        self.lang = lang
-        self.fallback = fallback
-        dict.__init__(self)
-        if text:
-            self.update(text)
-
-    def __setitem__(self, key, value):
-        if isinstance(value, dict):
-            dict.__setitem__(self, key, value)
-        else:
-            raise NotImplementedError("Supports only dicts for now")
-
-    def __getitem__(self, key):
-        """
-        Returns a text string by given key in either the set language, or the
-        fallback language if it didn't exist.
-
-        Throws out a KeyError if the text doesn't exist for the fallback
-        language either. TODO: or should it return something else instead, e.g.
-        the key, and log it?
-        """
-        try:
-            return dict.__getitem__(self, key)[self.lang]
-        except KeyError:
-            self.logger.warn(
-                "Message for key '%s' doesn't exist for lang '%s'",
-                key, self.lang)
-        return dict.__getitem__(self, key)[self.fallback]
-
-
 # Compatibility names
 #
 # These names were historically defined in Cerebrum.Utils, but have been moved
@@ -640,3 +525,4 @@ auto_super = Cerebrum.meta.AutoSuper
 mark_update = Cerebrum.meta.MarkUpdate
 read_password = Cerebrum.utils.secrets.legacy_read_password
 dyn_import = Cerebrum.utils.module.import_item
+unicode2str = Cerebrum.utils.text_compat.to_str

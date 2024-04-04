@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2002-2023 University of Oslo, Norway
+# Copyright 2002-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -39,10 +39,10 @@ import cereconf
 from Cerebrum import Errors
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.Utils import Factory
-from Cerebrum.Utils import argument_to_sql, prepare_string
 from Cerebrum.Utils import NotSet
-from Cerebrum.Utils import to_unicode
+from Cerebrum.Utils import argument_to_sql, prepare_string
 from Cerebrum.meta import MarkUpdateMixin
+from Cerebrum.utils import text_compat
 
 
 def _entity_row_exists(db, table, binds):
@@ -634,42 +634,61 @@ class EntityNameWithLanguage(Entity):
     def add_name_with_language(self, name_variant, name_language, name):
         """Add or update a specific language name."""
 
-        binds = {"name_variant": int(name_variant),
-                 "name_language": int(name_language),
-                 "name": name,
-                 "entity_id": self.entity_id}
-        change_params = {'name_variant': int(name_variant),
-                         'name_language':
-                         int(self.const.LanguageCode(name_language)),
-                         'name': name}
-        existing = self.search_name_with_language(entity_id=self.entity_id,
-                                                  name_variant=name_variant,
-                                                  name_language=name_language)
+        binds = {
+            "name_variant": int(name_variant),
+            "name_language": int(name_language),
+            "name": name,
+            "entity_id": int(self.entity_id),
+        }
+        change_params = {
+            'name_variant': int(name_variant),
+            'name_language': int(self.const.LanguageCode(name_language)),
+            'name': name,
+        }
+        existing = self.search_name_with_language(
+            entity_id=int(self.entity_id),
+            name_variant=int(name_variant),
+            name_language=int(name_language),
+        )
         if existing:
             # If the names are equal, stop now and do NOT flood the change log.
+            # TODO: Note the potential latin-1 decoding done here (for legacy
+            # reasons).  It's probably not needed any more, and if any decoding
+            # is to be done, it should be done *before* this point.
             m = existing[0]
-            if to_unicode(m["name"], "latin-1") == to_unicode(name, "latin-1"):
+            if m["name"] == text_compat.to_text(name, encoding="latin-1"):
                 return
 
-            rv = self.execute("""
-            UPDATE [:table schema=cerebrum name=entity_language_name]
-            SET name = :name
-            WHERE entity_id = :entity_id AND
-                  name_variant = :name_variant AND
-                  name_language = :name_language
-            """, binds)
+            self.execute(
+                """
+                UPDATE [:table schema=cerebrum name=entity_language_name]
+                SET name = :name
+                WHERE entity_id = :entity_id
+                  AND name_variant = :name_variant
+                  AND name_language = :name_language
+                """,
+                binds,
+            )
             self._db.log_change(
-                self.entity_id, self.clconst.entity_name_mod, None,
-                change_params=change_params)
+                self.entity_id,
+                self.clconst.entity_name_mod,
+                None,
+                change_params=change_params,
+            )
         else:
-            rv = self.execute("""
-            INSERT INTO [:table schema=cerebrum name=entity_language_name]
-            VALUES (:entity_id, :name_variant, :name_language, :name)
-            """, binds)
+            self.execute(
+                """
+                INSERT INTO [:table schema=cerebrum name=entity_language_name]
+                VALUES (:entity_id, :name_variant, :name_language, :name)
+                """,
+                binds,
+            )
             self._db.log_change(
-                self.entity_id, self.clconst.entity_name_add, None,
-                change_params=change_params)
-            return rv
+                self.entity_id,
+                self.clconst.entity_name_add,
+                None,
+                change_params=change_params,
+            )
 
     def delete_name_with_language(self, name_variant=None, name_language=None,
                                   name=None):

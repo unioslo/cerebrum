@@ -23,6 +23,10 @@ class InitMixin(object):
             setattr(self, attr, value)
 
 
+#
+# AutoSuper tests
+#
+
 @pytest.fixture(scope='module')
 def super_base_cls():
     # We create classes from metaclasses in fixtures, simply because the code
@@ -64,6 +68,10 @@ def test_super_attr_value(super_base_cls, super_foo_cls, super_bar_cls):
     assert getattr(obj, '_SuperFoo__super').overload == super_base_cls.overload
     assert getattr(obj, '_SuperBar__super').overload == super_foo_cls.overload
 
+
+#
+# MarkUpdate tests
+#
 
 @pytest.fixture(scope='module')
 def update_base_cls():
@@ -214,3 +222,73 @@ def test_xerox(update_foo_cls, update_bar_cls, update_bar_obj):
     assert bar.foo_3 == 3
     assert bar.bar_3 == 'c'
     assert not hasattr(bar, 'foo_4')
+
+
+#
+# Singleton tests
+#
+
+def test_singleton_metaclass():
+    """ The SingletonMixin class is a SingletonMeta object. """
+
+    class Singleton(Cerebrum.meta.SingletonMixin):
+        pass
+
+    assert isinstance(Singleton, Cerebrum.meta.SingletonMeta)
+
+
+def test_singleton_class():
+    """ The singleton instance is a SingletonMixin object. """
+
+    class Singleton(Cerebrum.meta.SingletonMixin):
+        pass
+
+    my_singleton = Singleton()
+    assert isinstance(my_singleton, Cerebrum.meta.SingletonMixin)
+
+
+def test_singleton_is_singleton():
+    """ Re-initializing a singleton returns the singleton object. """
+
+    class Singleton(Cerebrum.meta.SingletonMixin):
+        pass
+
+    first_object = Singleton()
+    second_object = Singleton()
+    assert second_object is first_object
+
+
+def test_singleton_multiple():
+    """ Different SingletonMixin classes results in different singletons. """
+
+    class Foo(Cerebrum.meta.SingletonMixin):
+        pass
+
+    class Bar(Cerebrum.meta.SingletonMixin):
+        pass
+
+    foo = Foo()
+    bar = Bar()
+    assert bar is not foo
+
+
+def test_singleton_init():
+    """ Initializing a singleton should work like any object. """
+
+    class Singleton(Cerebrum.meta.SingletonMixin, InitMixin):
+        pass
+
+    my_singleton = Singleton(foo=1, bar=2)
+    assert my_singleton.foo == 1
+    assert my_singleton.bar == 2
+
+
+def test_singleton_reinit():
+    """ Singleton re-init is ignored and returns the first defined object. """
+
+    class Singleton(Cerebrum.meta.SingletonMixin, InitMixin):
+        pass
+
+    Singleton(foo=1)
+    second_object = Singleton(foo=2)
+    assert second_object.foo == 1

@@ -329,3 +329,32 @@ class MarkUpdateMixin(six.with_metaclass(MarkUpdate), object):
     def clear(self):
         pass
 
+
+class SingletonMeta(type):
+    """
+    A metaclass that tries to ensure that only one object can exist of a given
+    class.  Instantiating a new object from the class should always result in
+    the same object.
+
+    Note that there are no *thread locks*.  Singleton classes should be defined
+    at import, and any singleton should be instantiated immediately after
+    defining the singleton class.
+
+    Note that this level of meta-programming to define a singleton is usually
+    overkill.  It's often enough to just do ``my_singleton = object()``, unless
+    you need any special behaviour from your singleton object.
+    """
+    def __call__(cls, *args, **kwargs):
+        instance_attr = "_singleton_instance"
+        if hasattr(cls, instance_attr):
+            # return the existing singleton instance
+            return getattr(cls, instance_attr)
+        # create and return a new singleton instance
+        instance = super(SingletonMeta, cls).__call__(*args, **kwargs)
+        setattr(cls, instance_attr, instance)
+        return instance
+
+
+class SingletonMixin(six.with_metaclass(SingletonMeta), object):
+    """ An object subclass with the SingletonMeta metaclass.  """
+    pass
