@@ -120,22 +120,25 @@ SMS_NUMBER_SELECTOR = []
 SMS_NUMBER_SELECTOR_PRIVATE = []
 
 # System type and phone type to be used in welcome sms
-SMS_WELCOME_TYPE_NUMBER_SELECTOR = [('system_dfo_sap', 'PRIVATEMOBILE'),
-                                    ('system_dfo_sap', 'MOBILE'),
-                                    ('system_sap', 'PRIVATEMOBILE'),
-                                    ('system_sap', 'MOBILE'),
-                                    ('system_fs', 'MOBILE')]
+SMS_WELCOME_TYPE_NUMBER_SELECTOR = []
+
 # Look for things like person name by evaluating source systems in in
 # this order
 SYSTEM_LOOKUP_ORDER = ("system_manual",)
+
 #  Generate a full-name to display in this order
-NAME_LOOKUP_ORDER = (("name_full",),
-                     ("name_first", "name_last"))
+NAME_LOOKUP_ORDER = (
+    ("name_full",),
+    ("name_first", "name_last"),
+)
+
 DEFAULT_GECOS_NAME = "name_full"
 
-ENTITY_TYPE_NAMESPACE = {'account': 'account_names',
-                         'group': 'group_names',
-                         'host': 'host_names'}
+ENTITY_TYPE_NAMESPACE = {
+    'account': 'account_names',
+    'group': 'group_names',
+    'host': 'host_names',
+}
 
 # Tuple of value_domain_code code_strs that denies update_entity_name
 NAME_DOMAINS_THAT_DENY_CHANGE = ()
