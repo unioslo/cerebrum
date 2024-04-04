@@ -45,13 +45,13 @@ import inspect
 import io
 import os
 import random
-from six import reraise
 import shutil
 from string import ascii_lowercase, digits
 from warnings import warn as _warn
 
-import cereconf
+import six
 
+import cereconf
 from Cerebrum.utils.funcwrap import deprecate
 
 
@@ -228,14 +228,14 @@ class AtomicFileWriter(object):
         # An exception of type exc_type was raised
         try:
             self.__file.close()
-        except:
+        except Exception:
             pass
-        reraise(exc_type, exc_value, traceback)
+        six.reraise(exc_type, exc_value, traceback)
 
     @classmethod
     def __generate_tmpname(cls, realname):
         random.seed()
-        for attempt in xrange(cls.tmpfile_ext_tries):
+        for attempt in six.moves.range(cls.tmpfile_ext_tries):
             name = os.path.extsep.join(
                 (realname,
                  ''.join([random.choice(cls.tmpfile_ext_chars) for n
@@ -267,23 +267,32 @@ class AtomicFileWriter(object):
         self.__replace = bool(value)
 
     @property
-    @_copydoc(file.mode)
+    @_copydoc(io.FileIO.mode)
     def mode(self):
         return self.__file.mode
 
     @property
-    @_copydoc(file.errors)
     def errors(self):
+        """
+        The error setting of the file encoder.
+
+        See `io.open()` and `codecs.Codec` for details.
+        """
         return self.__file.errors
 
     @property
-    @_copydoc(file.encoding)
     def encoding(self):
+        """
+        The encoding of the file stream.
+
+        See `io.open()` for details.
+        """
         return self.__file.encoding
 
     @property
     def discarded(self):
-        """ True if any changes was discarded without replacing the target file.
+        """
+        True if any changes was discarded without replacing the target file.
 
         This can happen if AtomicFileWriter is configured NOT to replace the
         target file when no changes are present.
@@ -332,7 +341,7 @@ class AtomicFileWriter(object):
         """
         pass
 
-    @_copydoc(file.close)
+    @_copydoc(io.FileIO.close)
     def close(self):
         """ In addition to the normal close behaviour:
 
@@ -368,11 +377,11 @@ class AtomicFileWriter(object):
                 self.__replaced = True
         return ret
 
-    @_copydoc(file.flush)
+    @_copydoc(io.FileIO.flush)
     def flush(self):
         return self.__file.flush()
 
-    @_copydoc(file.write)
+    @_copydoc(io.FileIO.write)
     def write(self, data):
         return self.__file.write(data)
 
@@ -414,7 +423,7 @@ class SimilarSizeWriter(AtomicFileWriter):
 
     @property
     def max_pct_change(self):
-        u""" change max_pct_change for the new file, in percent. """
+        """ change max_pct_change for the new file, in percent. """
         try:
             return self.__percentage * self.__factor
         except AttributeError:
@@ -479,7 +488,7 @@ class SimilarLineCountWriter(AtomicFileWriter):
 
     @property
     def max_line_change(self):
-        u""" change limit for the new file, in lines. """
+        """ change limit for the new file, in lines. """
         try:
             return self.__limit
         except AttributeError:
@@ -528,7 +537,7 @@ class MinimumSizeWriter(AtomicFileWriter):
 
     @property
     def min_size(self):
-        u""" minimum file size for the changed file, in bytes. """
+        """ minimum file size for the changed file, in bytes. """
         try:
             return self.__limit
         except AttributeError:

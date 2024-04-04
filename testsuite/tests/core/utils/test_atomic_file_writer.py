@@ -44,11 +44,15 @@ def file_module(cereconf):
     return atomicfile
 
 
-@pytest.fixture(params=['AtomicFileWriter',
-                        'MinimumSizeWriter',
-                        'SimilarLineCountWriter',
-                        'SimilarSizeWriter'])
-def AtomicFileWriter(file_module, request):
+@pytest.fixture(
+    params=[
+        'AtomicFileWriter',
+        'MinimumSizeWriter',
+        'SimilarLineCountWriter',
+        'SimilarSizeWriter',
+    ],
+)
+def test_cls(file_module, request):
     cls = getattr(file_module, request.param)
 
     def init(*args, **kwargs):
@@ -56,31 +60,6 @@ def AtomicFileWriter(file_module, request):
         writer.validate = False
         return writer
     return init
-
-
-@pytest.fixture
-def MinimumSizeWriter(file_module):
-    return getattr(file_module, 'MinimumSizeWriter')
-
-
-@pytest.fixture
-def SimilarSizeWriter(file_module):
-    return getattr(file_module, 'SimilarSizeWriter')
-
-
-@pytest.fixture
-def SimilarLineCountWriter(file_module):
-    return getattr(file_module, 'SimilarLineCountWriter')
-
-
-@pytest.fixture
-def MixedWriter(file_module):
-    ssize = getattr(file_module, 'SimilarLineCountWriter')
-    minsize = getattr(file_module, 'MinimumSizeWriter')
-
-    class MixedSizeWriter(ssize, minsize):
-        pass
-    return MixedSizeWriter
 
 
 def generate_text(num_chars):
@@ -118,7 +97,7 @@ def new_file(write_dir):
 def text_file(write_dir, text):
     """ Creates a new file with `text` as contents. """
     fd, name = tempfile.mkstemp(dir=write_dir)
-    os.write(fd, text)
+    os.write(fd, text.encode("utf-8"))
     os.close(fd)
     yield name
     os.unlink(name)
@@ -134,30 +113,30 @@ def match_contents(filename, expected):
     return current == expected
 
 
-def test_writer_warns_if_validation_disabled(AtomicFileWriter, new_file):
+def test_writer_warns_if_validation_disabled(test_cls, new_file):
     from Cerebrum.utils.atomicfile import FileWriterWarning
     with pytest.warns(FileWriterWarning):
-        af = AtomicFileWriter(new_file)
+        af = test_cls(new_file)
     assert af.validate is False
 
 
 @pytest.mark.filterwarnings(_ignore_rule)
-def test_writer_prop_name(AtomicFileWriter, new_file):
-    af = AtomicFileWriter(new_file)
+def test_writer_prop_name(test_cls, new_file):
+    af = test_cls(new_file)
     assert af.name == new_file
 
 
 @pytest.mark.filterwarnings(_ignore_rule)
-def test_writer_prop_closed(AtomicFileWriter, new_file):
-    af = AtomicFileWriter(new_file)
+def test_writer_prop_closed(test_cls, new_file):
+    af = test_cls(new_file)
     assert not af.closed
     af.close()
     assert af.closed
 
 
 @pytest.mark.filterwarnings(_ignore_rule)
-def test_writer_prop_tmpname(AtomicFileWriter, new_file):
-    af = AtomicFileWriter(new_file)
+def test_writer_prop_tmpname(test_cls, new_file):
+    af = test_cls(new_file)
     assert os.path.exists(af.tmpname)
     assert not os.path.exists(new_file)
     af.close()
@@ -166,8 +145,8 @@ def test_writer_prop_tmpname(AtomicFileWriter, new_file):
 
 
 @pytest.mark.filterwarnings(_ignore_rule)
-def test_writer_prop_discarded(AtomicFileWriter, text_file, text):
-    af = AtomicFileWriter(text_file)
+def test_writer_prop_discarded(test_cls, text_file, text):
+    af = test_cls(text_file)
     assert not af.discarded
     af.write(text)
     assert not af.discarded
@@ -176,9 +155,9 @@ def test_writer_prop_discarded(AtomicFileWriter, text_file, text):
 
 
 @pytest.mark.filterwarnings(_ignore_rule)
-def test_writer_prop_replace(AtomicFileWriter, text_file, text, more_text):
+def test_writer_prop_replace(test_cls, text_file, text, more_text):
     """ Check that content is only written to a tmpfile if replace=False. """
-    af = AtomicFileWriter(text_file, replace_equal=True)
+    af = test_cls(text_file, replace_equal=True)
     af.replace = False
     af.write(more_text)
     af.close()
@@ -188,8 +167,8 @@ def test_writer_prop_replace(AtomicFileWriter, text_file, text, more_text):
 
 
 @pytest.mark.filterwarnings(_ignore_rule)
-def test_writer_prop_replaced(AtomicFileWriter, new_file, text):
-    af = AtomicFileWriter(new_file)
+def test_writer_prop_replaced(test_cls, new_file, text):
+    af = test_cls(new_file)
     assert not af.replaced
     af.write(text)
     assert not af.replaced
@@ -197,9 +176,9 @@ def test_writer_prop_replaced(AtomicFileWriter, new_file, text):
     assert af.replaced
 
 
-def test_new_file_write(AtomicFileWriter, new_file, text):
+def test_new_file_write(test_cls, new_file, text):
     # Write 'text' to a new file (non-existing filename)
-    af = AtomicFileWriter(new_file)
+    af = test_cls(new_file)
     af.write(text)
     af.flush()
 
@@ -210,9 +189,9 @@ def test_new_file_write(AtomicFileWriter, new_file, text):
 
 
 @pytest.mark.filterwarnings(_ignore_rule)
-def test_new_file_close(AtomicFileWriter, new_file, text):
+def test_new_file_close(test_cls, new_file, text):
     # Write 'text' to a new file (non-existing filename)
-    af = AtomicFileWriter(new_file)
+    af = test_cls(new_file)
     af.write(text)
     af.close()
 
@@ -222,9 +201,9 @@ def test_new_file_close(AtomicFileWriter, new_file, text):
     assert match_contents(new_file, text)
 
 
-def test_replace_write(AtomicFileWriter, text, text_file, more_text):
+def test_replace_write(test_cls, text, text_file, more_text):
     # Write 'replace' to a file with contents 'text', without closing
-    af = AtomicFileWriter(text_file)
+    af = test_cls(text_file)
     af.write(more_text)
 
     # Read contents from file, assert that it hasn't been replaced
@@ -232,9 +211,9 @@ def test_replace_write(AtomicFileWriter, text, text_file, more_text):
 
 
 @pytest.mark.filterwarnings(_ignore_rule)
-def test_replace_close(AtomicFileWriter, text, text_file, more_text):
+def test_replace_close(test_cls, text, text_file, more_text):
     # Write 'replace' to a file with contents 'text', and close the file
-    af = AtomicFileWriter(text_file)
+    af = test_cls(text_file)
     af.write(more_text)
     af.close()
 
@@ -243,15 +222,15 @@ def test_replace_close(AtomicFileWriter, text, text_file, more_text):
 
 
 @pytest.mark.filterwarnings(_ignore_rule)
-def test_context_pass(AtomicFileWriter, text, text_file, more_text):
-    with AtomicFileWriter(text_file) as af:
+def test_context_pass(test_cls, text, text_file, more_text):
+    with test_cls(text_file) as af:
         af.write(more_text)
     assert match_contents(text_file, more_text)
 
 
-def test_context_fail(AtomicFileWriter, text, text_file, more_text):
+def test_context_fail(test_cls, text, text_file, more_text):
     try:
-        with AtomicFileWriter(text_file) as af:
+        with test_cls(text_file) as af:
             af.write(more_text)
             raise _MockFailure()
     except _MockFailure:
@@ -259,8 +238,8 @@ def test_context_fail(AtomicFileWriter, text, text_file, more_text):
     assert match_contents(text_file, text)
 
 
-def test_append_write(AtomicFileWriter, text, text_file, more_text):
-    af = AtomicFileWriter(text_file, mode='a')
+def test_append_write(test_cls, text, text_file, more_text):
+    af = test_cls(text_file, mode='a')
     af.write(more_text)
 
     # Read contents from file, assert that it hasn't been replaced
@@ -268,8 +247,8 @@ def test_append_write(AtomicFileWriter, text, text_file, more_text):
 
 
 @pytest.mark.filterwarnings(_ignore_rule)
-def test_append_close(AtomicFileWriter, text, text_file, more_text):
-    af = AtomicFileWriter(text_file, mode='a')
+def test_append_close(test_cls, text, text_file, more_text):
+    af = test_cls(text_file, mode='a')
     af.write(more_text)
     af.close()
 
@@ -279,9 +258,14 @@ def test_append_close(AtomicFileWriter, text, text_file, more_text):
     assert match_contents(text_file, text + more_text)
 
 
-def test_minimum_size_pass(MinimumSizeWriter, text, new_file):
+@pytest.fixture
+def min_size_cls(file_module):
+    return getattr(file_module, 'MinimumSizeWriter')
 
-    af = MinimumSizeWriter(new_file)
+
+def test_minimum_size_pass(min_size_cls, text, new_file):
+
+    af = min_size_cls(new_file)
     af.min_size = len(text) - 1
 
     af.write(text)
@@ -290,9 +274,9 @@ def test_minimum_size_pass(MinimumSizeWriter, text, new_file):
     assert match_contents(new_file, text)
 
 
-def test_minimum_size_fail(MinimumSizeWriter, file_module, new_file, text):
+def test_minimum_size_fail(min_size_cls, file_module, new_file, text):
 
-    af = MinimumSizeWriter(new_file)
+    af = min_size_cls(new_file)
     af.min_size = len(text) + 1
 
     af.write(text)
@@ -303,14 +287,19 @@ def test_minimum_size_fail(MinimumSizeWriter, file_module, new_file, text):
     assert not os.path.exists(new_file)
 
 
-def test_similar_size_pass(SimilarSizeWriter, text, text_file, more_text):
+@pytest.fixture
+def similar_size_cls(file_module):
+    return getattr(file_module, 'SimilarSizeWriter')
+
+
+def test_similar_size_pass(similar_size_cls, text, text_file, more_text):
     change = 100 * abs(float(len(more_text)) / float(len(text)) - 1.0)
     limit = int(math.ceil(change)) + 1
 
     print('Actual change: {:.1f}%'.format(change))
     print('Limit: {:d}%'.format(limit))
 
-    af = SimilarSizeWriter(text_file)
+    af = similar_size_cls(text_file)
     af.max_pct_change = limit
     af.write(more_text)
     af.close()
@@ -319,14 +308,14 @@ def test_similar_size_pass(SimilarSizeWriter, text, text_file, more_text):
 
 
 def test_similar_size_fail(
-        SimilarSizeWriter, file_module, text, text_file, more_text):
+        similar_size_cls, file_module, text, text_file, more_text):
     change = 100 * abs(float(len(more_text)) / float(len(text)) - 1.0)
     limit = int(math.floor(change)) - 1
 
     print('Actual change: {:.1f}%'.format(change))
     print('Limit: {:d}%'.format(limit))
 
-    af = SimilarSizeWriter(text_file)
+    af = similar_size_cls(text_file)
     af.max_pct_change = limit
     af.write(more_text)
 
@@ -336,9 +325,9 @@ def test_similar_size_fail(
     assert match_contents(text_file, text)
 
 
-def test_similar_size_new(SimilarSizeWriter, text, new_file):
+def test_similar_size_new(similar_size_cls, text, new_file):
 
-    af = SimilarSizeWriter(new_file)
+    af = similar_size_cls(new_file)
     af.max_pct_change = 0
     af.write(text)
     af.close()
@@ -347,8 +336,13 @@ def test_similar_size_new(SimilarSizeWriter, text, new_file):
     assert match_contents(new_file, text)
 
 
-def test_line_count_fail(SimilarLineCountWriter, file_module, text, text_file):
-    af = SimilarLineCountWriter(text_file)
+@pytest.fixture
+def similar_line_cls(file_module):
+    return getattr(file_module, 'SimilarLineCountWriter')
+
+
+def test_line_count_fail(similar_line_cls, file_module, text, text_file):
+    af = similar_line_cls(text_file)
     af.max_line_change = 1
 
     lines = text.split("\n")
@@ -364,8 +358,8 @@ def test_line_count_fail(SimilarLineCountWriter, file_module, text, text_file):
     assert match_contents(text_file, text)
 
 
-def test_line_count_pass(SimilarLineCountWriter, text, text_file):
-    af = SimilarLineCountWriter(text_file)
+def test_line_count_pass(similar_line_cls, text, text_file):
+    af = similar_line_cls(text_file)
     af.max_line_change = 1
 
     lines = text.split("\n")
@@ -378,8 +372,18 @@ def test_line_count_pass(SimilarLineCountWriter, text, text_file):
     assert match_contents(text_file, new_content)
 
 
-def test_mixed_writer_pass(MixedWriter, text_file, text):
-    af = MixedWriter(text_file, mode='a')
+@pytest.fixture
+def mixed_cls(file_module):
+    ssize = getattr(file_module, 'SimilarLineCountWriter')
+    minsize = getattr(file_module, 'MinimumSizeWriter')
+
+    class MixedSizeWriter(ssize, minsize):
+        pass
+    return MixedSizeWriter
+
+
+def test_mixed_writer_pass(mixed_cls, text_file, text):
+    af = mixed_cls(text_file, mode='a')
     af.max_line_change = 1
     af.min_size = 1
     line = "\nanother line"
@@ -389,8 +393,8 @@ def test_mixed_writer_pass(MixedWriter, text_file, text):
     assert match_contents(text_file, text + line)
 
 
-def test_mixed_writer_fail_size(MixedWriter, file_module, text_file, text):
-    af = MixedWriter(text_file, mode='a')
+def test_mixed_writer_fail_size(mixed_cls, file_module, text_file, text):
+    af = mixed_cls(text_file, mode='a')
     af.max_line_change = 1
     line = "\nanother line"
     af.min_size = len(text) + len(line) + 10
@@ -402,8 +406,8 @@ def test_mixed_writer_fail_size(MixedWriter, file_module, text_file, text):
     assert match_contents(text_file, text)
 
 
-def test_mixed_writer_fail_change(MixedWriter, file_module, text_file, text):
-    af = MixedWriter(text_file, mode='a')
+def test_mixed_writer_fail_change(mixed_cls, file_module, text_file, text):
+    af = mixed_cls(text_file, mode='a')
     line = "\nanother line"
     af.max_line_change = 0
     af.min_size = 1
