@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-
-# Copyright 2002-2023 University of Oslo, Norway
+#
+# Copyright 2002-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -79,18 +79,16 @@ from __future__ import (
 import io
 import socket
 import warnings
-from SimpleXMLRPCServer import SimpleXMLRPCRequestHandler
 from xml.parsers.expat import ExpatError
 
 import six
+from six.moves import xmlrpc_server
 
 import cereconf
 
-from Cerebrum import (
-    Errors,
-    QuarantineHandler,
-    https,
-)
+import Cerebrum.Errors
+import Cerebrum.https
+from Cerebrum import QuarantineHandler
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import statsd
 from Cerebrum.modules.bofhd import protocol
@@ -121,7 +119,7 @@ def exc_to_text(e):
     return text
 
 
-class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
+class BofhdRequestHandler(xmlrpc_server.SimpleXMLRPCRequestHandler, object):
 
     """Class defining all XML-RPC-callable methods.
 
@@ -130,7 +128,7 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
 
     """
     def db_get(self):
-        u""" A transactional database connection. """
+        """ A transactional database connection. """
         try:
             return self.__db
         except AttributeError:
@@ -138,7 +136,7 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
             return self.__db
 
     def db_close(self):
-        u""" Closes database connection in `self.db`. """
+        """ Closes database connection in `self.db`. """
         try:
             self.__db.close()
             del self.__db
@@ -146,14 +144,14 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
             pass
 
     def db_rollback(self):
-        u""" Rolls back database transaction in `self.db`. """
+        """ Rolls back database transaction in `self.db`. """
         try:
             return self.__db.rollback()
         except AttributeError:
             return None
 
     def db_commit(self):
-        u""" Commits database transaction in `self.db`. """
+        """ Commits database transaction in `self.db`. """
         try:
             return self.__db.commit()
         except AttributeError:
@@ -233,7 +231,7 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
             self.logger.info('timeout: %s from %s',
                              exc_to_text(e), format_addr(self.client_address))
             self.close_connection = 1
-        except https.SSLError as e:
+        except Cerebrum.https.SSLError as e:
             # SSLError could be a timeout, or it could be some other form of
             # error
             self.logger.info('SSLError: %s from %s',
@@ -243,6 +241,8 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
     def send_xmlrpc(self, message):
         try:
             payload = protocol.dumps(message)
+            if isinstance(payload, six.text_type):
+                payload = payload.encode("utf-8")
         except Exception:
             self.logger.error("Unable to serialize XML-RPC: %r",
                               message, exc_info=True)
@@ -377,7 +377,7 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
         with stats_client.pipeline() as stats:
             try:
                 account.find_by_name(uname)
-            except Errors.NotFoundError:
+            except Cerebrum.Errors.NotFoundError:
                 stats.incr('deny-creds')
                 self.logger.info(
                     'Failed login for %r from %r: unknown username',
@@ -448,7 +448,7 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
             inst = cls(self.db, self.logger)
             commands = inst.get_commands(ident)
             # Check if implementation is available (see server.load_extensions)
-            for key, cmd in commands.iteritems():
+            for key, cmd in list(commands.items()):
                 if not key:
                     continue
                 if key not in self.server.classmap:
@@ -564,7 +564,7 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
         entity_id = self.check_session_validity(session)
         self.db.cl_init(change_by=entity_id)
 
-        self.logger.info(u'Run command: %s (%r) by %i', cmd, args, entity_id)
+        self.logger.info('Run command: %s (%r) by %i', cmd, args, entity_id)
         if cmd not in self.server.classmap:
             raise CerebrumError("Illegal command {!r}".format(cmd))
 

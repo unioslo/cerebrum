@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
 #
-# Copyright 2009-2023 University of Oslo, Norway
+# Copyright 2009-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -25,6 +25,13 @@ bofhd instances at all installations. This file should only include such
 generic functionality. Push institution-specific extensions to
 modules/no/<institution>/bofhd_<institution>_cmds.py.
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+
 import six
 
 import cereconf
@@ -67,10 +74,10 @@ class BofhdCommandBase(object):
     # Each subclass defines its own class attribute containing the relevant
     # commands.
     all_commands = {}
-    u""" All available commands. """
+    """ All available commands. """
 
     authz = None
-    u""" authz implementation. """
+    """ authz implementation. """
 
     @classmethod
     def get_format_suggestion(cls, command_name):
@@ -110,13 +117,13 @@ class BofhdCommandBase(object):
 
     @property
     def db(self):
-        u""" Database connection. """
+        """ Database connection. """
         # Needs to be read-only
         return self.__db
 
     @property
     def ba(self):
-        u""" BofhdAuth. """
+        """ BofhdAuth. """
         try:
             return self.__ba
         except AttributeError:
@@ -127,7 +134,7 @@ class BofhdCommandBase(object):
 
     @property
     def const(self):
-        u""" Constants. """
+        """ Constants. """
         try:
             return self.__const
         except AttributeError:
@@ -136,7 +143,7 @@ class BofhdCommandBase(object):
 
     @property
     def clconst(self):
-        u""" CLConstants. """
+        """ CLConstants. """
         try:
             return self.__clconst
         except AttributeError:
@@ -145,12 +152,12 @@ class BofhdCommandBase(object):
 
     @property
     def logger(self):
-        u""" Logger. """
+        """ Logger. """
         return self.__logger
 
     @classmethod
     def list_commands(cls, attr):
-        u""" Fetch all commands in all superclasses stored in a given attribute.
+        """ Fetch all commands in all superclasses stored in a given attribute.
 
         Note:
             If cls.parent_commands is True, this method will try to include
@@ -163,7 +170,7 @@ class BofhdCommandBase(object):
 
         def merge(other_commands):
             # Update my_commands with other_commands
-            for key, command in other_commands.iteritems():
+            for key, command in other_commands.items():
                 if key not in gathered:
                     gathered[key] = command
 
@@ -175,10 +182,11 @@ class BofhdCommandBase(object):
             try:
                 for cand in cls.__bases__:
                     if hasattr(cand, 'list_commands'):
-                        cmds = dict(
-                            filter(
-                                lambda t: t[0] not in omit_commands,
-                                cand.list_commands(attr).items()))
+                        cmds = {
+                            name: cmd
+                            for name, cmd in cand.list_commands(attr).items()
+                            if name not in omit_commands
+                        }
                         merge(cmds)
             except IndexError:
                 pass
@@ -210,7 +218,7 @@ class BofhdCommandBase(object):
         visible_commands = dict()
         ident = int(account_id)
 
-        for key, command in self.list_commands('all_commands').iteritems():
+        for key, command in self.list_commands('all_commands').items():
             if command is not None:
                 if command.perm_filter:
                     try:
@@ -280,7 +288,7 @@ class BofhdCommandBase(object):
         if isinstance(human_repr, six.integer_types):
             id_type, ident = "id", human_repr
         # strings (they could still be numeric IDs, though)
-        elif isinstance(human_repr, basestring):
+        elif isinstance(human_repr, six.string_types):
             if human_repr.isdigit():
                 id_type, ident = "id", human_repr
             elif ":" in human_repr:
@@ -442,7 +450,7 @@ class BofhdCommandBase(object):
     def _get_disk(self, path, host_id=None, raise_not_found=True):
         disk = Factory.get('Disk')(self.db)
         try:
-            if isinstance(path, basestring):
+            if isinstance(path, six.string_types):
                 disk.find_by_path(path, host_id)
             else:
                 disk.find(path)
@@ -543,7 +551,7 @@ class BofhdCommandBase(object):
             if idtype == 'name':
                 account.find_by_name(account_id, self.const.account_namespace)
             elif idtype == 'id':
-                if (isinstance(account_id, basestring) and
+                if (isinstance(account_id, six.string_types) and
                         not account_id.isdigit()):
                     raise CerebrumError("Entity id %r must be a number" %
                                         account_id)
@@ -614,8 +622,8 @@ class BofhdCommandBase(object):
         # FIXME: Is this a sensible default behaviour?
         if not isinstance(entity, Entity.EntitySpread):
             return ""
-        return u",".join(six.text_type(self.const.Spread(x['spread']))
-                         for x in entity.get_spread())
+        return ",".join(six.text_type(self.const.Spread(x['spread']))
+                        for x in entity.get_spread())
 
     def _get_person(self, idtype, id):
         """ Get person. """
@@ -632,7 +640,7 @@ class BofhdCommandBase(object):
             if isinstance(idtype, _CerebrumCode):
                 person.find_by_external_id(idtype, id)
             elif idtype in ('entity_id', 'id'):
-                if isinstance(id, basestring) and not id.isdigit():
+                if isinstance(id, six.string_types) and not id.isdigit():
                     raise CerebrumError("Entity id must be a number")
                 person.find(id)
             else:
@@ -843,7 +851,7 @@ class BofhdCommonMethods(BofhdCommandBase):
             raise CerebrumError("User is already deleted")
         account.deactivate()
         account.write_db()
-        return u"User %s is deactivated" % account.account_name
+        return "User %s is deactivated" % (account.account_name,)
 
     ##
     # Group methods

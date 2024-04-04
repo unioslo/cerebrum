@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-
-# Copyright 2020 University of Oslo
+#
+# Copyright 2020-2024 University of Oslo
 #
 # This file is part of Cerebrum.
 #
@@ -17,16 +17,23 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""
+Bofhd uses XML-RPC over HTTP to communicate with clients.
 
-"""bofhd uses an XML/RPC-over-HTTP wire protocol defined in this file."""
-
-from __future__ import unicode_literals
-
+This module implements some protocol-specific methods, like translating
+exceptions to XMLRPC faults.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import collections
 import warnings
-import xmlrpclib
 
 import six
+from six.moves import xmlrpc_client
 
 from Cerebrum.utils import unicodestring
 from Cerebrum.modules.bofhd.errors import (
@@ -41,11 +48,11 @@ def dumps(obj):
     """Serializes an XML-RPC response."""
     if isinstance(obj, Exception):
         code, message = _format_xmlrpc_fault(obj)
-        fault = xmlrpclib.Fault(code, message)
-        return xmlrpclib.dumps(fault, methodresponse=True)
+        fault = xmlrpc_client.Fault(code, message)
+        return xmlrpc_client.dumps(fault, methodresponse=True)
     else:
         payload = sanitize(obj)
-        return xmlrpclib.dumps((payload,), methodresponse=True)
+        return xmlrpc_client.dumps((payload,), methodresponse=True)
 
 
 def loads(s):
@@ -53,7 +60,7 @@ def loads(s):
     Deserializes an XML-RPC request,
     returning a tuple of (`method`, `params`).
     """
-    params, method = xmlrpclib.loads(s)
+    params, method = xmlrpc_client.loads(s)
     return method, params
 
 
@@ -76,9 +83,11 @@ def sanitize(obj):
     string values that are not used for purposes of layout, such
     as tabular, carriage return, and line feed.
     """
-    if isinstance(obj, six.string_types):
-        s = _ensure_unicode(obj)
-        return unicodestring.strip_control_characters(s, exclude="\t\r\n")
+    if isinstance(obj, bytes):
+        obj = _ensure_unicode(obj)
+
+    if isinstance(obj, six.text_type):
+        return unicodestring.strip_control_characters(obj, exclude="\t\r\n")
     elif isinstance(obj, dict):
         return {k: sanitize(v) for k, v in obj.items()}
     elif isinstance(obj, collections.Iterable):
@@ -106,11 +115,12 @@ def _format_xmlrpc_fault(exc):
 
 
 def _ensure_unicode(obj):
-    """Ensure string representation is Unicode."""
-    if isinstance(obj, six.text_type):
-        return obj
-    try:
-        return six.text_type(obj)
-    except UnicodeError:
-        warnings.warn("Invalid Unicode: %r" % obj, UnicodeWarning)
-        return obj.decode("utf-8", "replace")
+    """ Ensure string output -> unicode objects. """
+    if isinstance(obj, bytes):
+        try:
+            return obj.decode("utf-8")
+        except UnicodeDecodeError:
+            warnings.warn("invalid unicode: {0}".format(repr(obj)),
+                          UnicodeWarning)
+            return obj.decode("utf-8", "replace")
+    return six.text_type(obj)

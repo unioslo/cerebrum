@@ -1,39 +1,45 @@
 # -*- coding: utf-8 -*-
-
-# Copyright 2020 University of Oslo
-#
-# This file is part of Cerebrum.
-#
-# Cerebrum is free software; you can redistribute it and/or modify it
-# under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# Cerebrum is distributed in the hope that it will be useful, but
-# WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-# General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with Cerebrum; if not, write to the Free Software Foundation,
-# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+""" Tests for `Cerebrum.modules.bofhd.protocol` """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+import textwrap
 
 import pytest
 import six
 
-from Cerebrum.modules.bofhd.protocol import sanitize
+from Cerebrum.modules.bofhd import errors as bofhd_errors
+from Cerebrum.modules.bofhd import protocol as bofhd_proto
 
 
-@pytest.mark.parametrize("s", ("foo", six.text_type("foo")))
+#
+# sanitize()
+#
+
+CHAR_TAB = 0x09
+CHAR_CR = 0x0A
+CHAR_LF = 0x0D
+CONTROL_CHARS = set(six.unichr(u) for u in six.moves.range(0x00, 0x1F))
+CONTROL_CHARS_KEEP = set(six.unichr(u) for u in (CHAR_TAB, CHAR_CR, CHAR_LF))
+CONTROL_CHARS_SKIP = CONTROL_CHARS - CONTROL_CHARS_KEEP
+
+
+@pytest.mark.parametrize("s", ("foo".encode("ascii"), "foo"))
 def test_sanitize_string_coercion(s):
-    assert isinstance(sanitize(s), six.text_type)
+    assert isinstance(bofhd_proto.sanitize(s), six.text_type)
 
 
-@pytest.mark.parametrize("rune", six.moves.range(0x00, 0x1F))
-def test_sanitize_strip_control_characters(rune):
-    # skip TAB, CR, and LF
-    if rune not in (0x09, 0x0A, 0x0D):
-        assert sanitize(unichr(rune)) == six.text_type("")
+@pytest.mark.parametrize("char", list(sorted(CONTROL_CHARS_SKIP)))
+def test_sanitize_strip_control_characters(char):
+    assert bofhd_proto.sanitize(char) == ""
+
+
+@pytest.mark.parametrize("char", list(sorted(CONTROL_CHARS_KEEP)))
+def test_sanitize_preserve_line_feeds(char):
+    assert bofhd_proto.sanitize(char) == char
 
 
 @pytest.mark.parametrize("actual,expected", (
@@ -42,24 +48,93 @@ def test_sanitize_strip_control_characters(rune):
     ("\x08bar", "bar"),
 ))
 def test_sanitize_mixed_control_characters(actual, expected):
-    assert sanitize(actual) == expected
+    assert bofhd_proto.sanitize(actual) == expected
 
 
-@pytest.mark.parametrize("rune", ("\t", "\r", "\n"))
-def test_sanitize_preserve_line_feeds(rune):
-    assert sanitize(rune) == rune
+def test_sanitize_lists():
+    lst = ["foo", ["bar"]]
+    assert bofhd_proto.sanitize(lst) == lst
 
 
-@pytest.mark.parametrize("seq", (["foo", ["bar"]], ("foo", ("bar",))))
-def test_sanitize_collection(seq):
-    assert sanitize(seq) == [six.text_type("foo"), [six.text_type("bar")]]
+def test_sanitize_tuples():
+    assert bofhd_proto.sanitize(("foo", ("bar",))) == ["foo", ["bar"]]
 
 
 def test_sanitize_dict():
-    assert sanitize({u"foo": {u"bar": "baz"}}) == {u"foo": {u"bar": u"baz"}}
+    d = {"foo": {"bar": "baz"}}
+    assert bofhd_proto.sanitize(d) == d
 
 
 @pytest.mark.parametrize("t", (None, True, object()))
 def test_sanitize_other_types(t):
-    assert type(sanitize(t)) == type(t)
-    assert sanitize(t) == t
+    assert type(bofhd_proto.sanitize(t)) == type(t)
+    assert bofhd_proto.sanitize(t) == t
+
+
+#
+# loads()/dumps()
+#
+
+
+def test_dumps_response():
+    resp = {"foo": ["bar", 3]}
+
+    assert bofhd_proto.dumps(resp) == textwrap.dedent(
+        """
+        <?xml version='1.0'?>
+        <methodResponse>
+        <params>
+        <param>
+        <value><struct>
+        <member>
+        <name>foo</name>
+        <value><array><data>
+        <value><string>bar</string></value>
+        <value><int>3</int></value>
+        </data></array></value>
+        </member>
+        </struct></value>
+        </param>
+        </params>
+        </methodResponse>
+        """
+    ).lstrip()
+
+
+XMLRPC_FAULT_FMT = textwrap.dedent(
+    """
+    <?xml version='1.0'?>
+    <methodResponse>
+    <fault>
+    <value><struct>
+    <member>
+    <name>faultCode</name>
+    <value><int>{code:d}</int></value>
+    </member>
+    <member>
+    <name>faultString</name>
+    <value><string>{value}</string></value>
+    </member>
+    </struct></value>
+    </fault>
+    </methodResponse>
+    """
+).lstrip()
+
+
+def test_dumps_generic_exception():
+    msg = "invalid value: 'foo'"
+    exc = ValueError(msg)
+    assert bofhd_proto.dumps(exc) == XMLRPC_FAULT_FMT.format(
+        code=2,
+        value=("ValueError:" + msg),
+    )
+
+
+def test_dumps_bofhd_error():
+    msg = "invalid value: 'foo'"
+    exc = bofhd_errors.CerebrumError(msg)
+    assert bofhd_proto.dumps(exc) == XMLRPC_FAULT_FMT.format(
+        code=1,
+        value=("Cerebrum.modules.bofhd.errors.CerebrumError:" + msg),
+    )

@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-# Copyright 2002-2016 University of Oslo, Norway
+#
+# Copyright 2002-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -31,21 +30,32 @@ moved to a separate module after:
     Date:  Fri Mar 18 10:34:58 2016 +0100
 
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import logging
 import signal
 import socket
-import SocketServer
 import sys
 import time
 
-from Cerebrum import Utils
+import six
+from six.moves import socketserver
+
+import Cerebrum.https
+import Cerebrum.utils.module
 from Cerebrum import Cache
-from Cerebrum import https
-from Cerebrum.Utils import Factory
 from Cerebrum.utils.funcwrap import memoize
 from Cerebrum.modules.bofhd.handler import BofhdRequestHandler, format_addr
 from Cerebrum.modules.bofhd.help import Help
 from Cerebrum.modules.statsd import config as statsd_config
+
+
+if six.PY3:
+    from importlib import reload
 
 
 logger = logging.getLogger(__name__)
@@ -56,20 +66,25 @@ class BofhdServerImplementation(object):
     Common Server implementation.
 
     To get a functional server implementation, this class should be mixed in
-    with a py:class:`SocketServer.BaseServer` implementation. E.g.:
+    with a py:class:`socketserver.BaseServer` implementation. E.g.:
 
     ::
 
         BofhdServer = type(
             'BofhdServer',
-            (BofhdServerImplementation, SocketServer.TCPServer),
+            (BofhdServerImplementation, socketserver.TCPServer),
             {})
 
     """
 
     def __init__(
-            self, bofhd_config=None, logRequests=False, logger=None, **kws):
-        """ Set up a new bofhd server.
+            self,
+            bofhd_config=None,
+            logRequests=False,  # noqa: N803
+            logger=None,
+            **kws):
+        """
+        Set up a new bofhd server.
 
         :param BofhdConfig bofhd_config:
             A bofhd extension configuration.
@@ -88,7 +103,7 @@ class BofhdServerImplementation(object):
     @property
     @memoize
     def classmap(self):
-        u""" Map of command_names and implementation classes.
+        """ Map of command_names and implementation classes.
 
         Each key is an implemented and callable command, and the value is its
         implementation class.
@@ -137,7 +152,7 @@ class BofhdServerImplementation(object):
             return statsd_config.StatsConfig()
 
     def _log_help_text_mismatch(self):
-        u""" Verify consistency of `self.cmdhelp`.
+        """ Verify consistency of `self.cmdhelp`.
 
         Reports mismatch between loaded extensions and available help texts
         using the logger.
@@ -149,13 +164,13 @@ class BofhdServerImplementation(object):
             cmds_for_help.update(
                 dict((cmdname, command.get_struct(self.cmdhelp))
                      for cmdname, command
-                     in cls.list_commands('all_commands').iteritems()
+                     in list(cls.list_commands('all_commands').items())
                      if command and cmdname and self.classmap[cmdname] == cls))
 
         self.__help.check_consistency(cmds_for_help)
 
     def _log_command_mismatch(self):
-        u""" Verify consistency of `self.classmap`.
+        """ Verify consistency of `self.classmap`.
 
         Reports mismatch between loaded extensions and available commands using
         the logger.
@@ -164,7 +179,7 @@ class BofhdServerImplementation(object):
             return '{0.__module__}/{0.__name__}'.format(cls)
         for cls in self.extensions:
             commands = cls.list_commands('all_commands')
-            for key, cmd in commands.iteritems():
+            for key, cmd in list(commands.items()):
                 if not key:
                     self.logger.warn('Skipping: Unnamed command %r', cmd)
                     continue
@@ -191,6 +206,7 @@ class BofhdServerImplementation(object):
         self.extensions = getattr(self, 'extensions', set())
         for cls in self.extensions:
             # Reload existing modules
+            # TODO: This is generally a bad idea
             reload(sys.modules[cls.__module__])
         self.extensions = set()
 
@@ -198,21 +214,15 @@ class BofhdServerImplementation(object):
         self.commands.clear()
 
         for module_name, class_name in self.__config.extensions():
-            mod = Utils.dyn_import(module_name)
-            # TODO: Make dyn_import support class name
-            try:
-                cls = getattr(mod, class_name)
-            except AttributeError:
-                raise ImportError("Module '{}' has no class '{}'"
-                                  .format(module_name, class_name))
+            cls = Cerebrum.utils.module.import_item(module_name, class_name)
             self.extensions.add(cls)
 
             # Map commands to BofhdExtensions
             # NOTE: Any duplicate command will be overloaded by later
             #       BofhdExtensions.
-            for rpc in cls.list_commands('all_commands').keys():
+            for rpc in list(cls.list_commands('all_commands').keys()):
                 self.classmap[rpc] = cls
-            for rpc in cls.list_commands('hidden_commands').keys():
+            for rpc in list(cls.list_commands('hidden_commands').keys()):
                 self.classmap[rpc] = cls
 
         # Check that all calls are implemented
@@ -292,7 +302,7 @@ class _SigAlrmTimeout(object):
         del self._prev_handler
 
 
-class _TCPServer(SocketServer.TCPServer, object):
+class _TCPServer(socketserver.TCPServer, object):
     """SocketServer.TCPServer as a new-style class."""
     # Must override __init__ here to make the super() call work with only kw
     # args.
@@ -302,7 +312,7 @@ class _TCPServer(SocketServer.TCPServer, object):
     def __init__(
             self,
             server_address=None,
-            RequestHandlerClass=BofhdRequestHandler,
+            RequestHandlerClass=BofhdRequestHandler,  # noqa: N803
             bind_and_activate=True,
             get_request_timeout=get_request_timeout,
             **kws):
@@ -350,14 +360,14 @@ class _TCPServer(SocketServer.TCPServer, object):
         if self.verify_request(request, client_address):
             try:
                 self.process_request(request, client_address)
-            except:
+            except Exception:
                 self.handle_error(request, client_address)
                 self.shutdown_request(request)
         else:
             self.shutdown_request(request)
 
 
-class _ThreadingMixIn(SocketServer.ThreadingMixIn, object):
+class _ThreadingMixIn(socketserver.ThreadingMixIn, object):
     """SocketServer.ThreadingMixIn as a new-style class."""
 
     def process_request_thread(self, request, client_address):
@@ -415,7 +425,7 @@ class SSLServer(_TCPServer):
             If bind and activate should be performed on init.
 
         """
-        assert isinstance(ssl_config, https.SSLConfig)
+        assert isinstance(ssl_config, Cerebrum.https.SSLConfig)
         self.ssl_config = ssl_config
 
         # We cannot let the superclss perform bind_and_activate before we wrap
