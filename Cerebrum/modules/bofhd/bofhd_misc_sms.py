@@ -73,11 +73,6 @@ We should re-work some things related to SMS messages:
 2. Duplicated code - The number selection routines are duplicated in scripts
    that sends sms.  We should implement some common, reusable contact info
    selection routines.
-
-3. The auth class inherits from the UiO BofhdAuth implementation.  This module
-   should implement an abstract set of commands, and the auth should inherit
-   from the common BofhdAuth class.  Each instance should inherit and mixin
-   their own auth, like the other, genric bofhd command classes.
 """
 from __future__ import (
     absolute_import,
@@ -93,6 +88,7 @@ import textwrap
 import cereconf
 
 from Cerebrum import Errors
+from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.cmd_param import (
     AccountName,
@@ -103,20 +99,30 @@ from Cerebrum.modules.bofhd.cmd_param import (
     SimpleString,
 )
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
-from Cerebrum.modules.no.uio.bofhd_auth import BofhdAuth
 from Cerebrum.utils import date as date_utils
 from Cerebrum.utils.sms import SMSSender
 
 logger = logging.getLogger(__name__)
 
 
-class BofhdAuth(BofhdAuth):
+class BofhdSmsAuth(BofhdAuth):
     """
     Defines methods that are used by bofhd to determine wheter
     an operator is allowed to perform a given action.
 
     This class only contains special cases for SMS commands.
     """
+
+    def can_send_freetext_sms_message(self, operator, query_run_any=False):
+        if self.is_superuser(operator):
+            return True
+
+        if self._has_operation_perm_somewhere(
+                operator, self.const.auth_misc_sms_message):
+            return True
+        if query_run_any:
+            return False
+        raise PermissionDenied("User does not have access")
 
     def can_send_welcome_sms(self, operator, query_run_any=False):
         # Superusers can see and run command
@@ -132,11 +138,11 @@ class BofhdAuth(BofhdAuth):
         raise PermissionDenied("Not allowed to send Welcome SMS")
 
 
-class BofhdExtension(BofhdCommonMethods):
+class BofhdSmsCommands(BofhdCommonMethods):
     """ Various SMS-related bofhd commands. """
 
     all_commands = {}
-    authz = BofhdAuth
+    authz = BofhdSmsAuth
 
     @classmethod
     def get_help_strings(cls):
@@ -307,7 +313,7 @@ class BofhdExtension(BofhdCommonMethods):
         if getattr(cereconf, 'SMS_DISABLE', False):
             # SMSSender will do the same check, and log the same thing, but it
             # will also log the message.
-            self.logger.info(
+            logger.info(
                 'SMS disabled in cereconf, would have '
                 'sent password to %r', mobile)
             return {'number': mobile}

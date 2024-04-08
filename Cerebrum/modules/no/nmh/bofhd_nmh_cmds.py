@@ -36,6 +36,7 @@ from Cerebrum.modules.bofhd import bofhd_contact_info
 from Cerebrum.modules.bofhd import bofhd_core_help
 from Cerebrum.modules.bofhd import bofhd_email
 from Cerebrum.modules.bofhd import bofhd_group_roles
+from Cerebrum.modules.bofhd import bofhd_misc_sms
 from Cerebrum.modules.bofhd import bofhd_ou_cmds
 from Cerebrum.modules.bofhd import cmd_param
 from Cerebrum.modules.bofhd.auth import BofhdAuth
@@ -355,3 +356,11 @@ class _OuAuth(NmhAuth, bofhd_ou_cmds.OuAuth):
 
 class OuCommands(bofhd_ou_cmds.OuCommands):
     authz = _OuAuth
+
+
+class _SmsAuth(NmhAuth, bofhd_misc_sms.BofhdSmsAuth):
+    pass
+
+
+class SmsCommands(bofhd_misc_sms.BofhdSmsCommands):
+    authz = _SmsAuth

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2002-2023 University of Oslo, Norway
+# Copyright 2002-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -42,6 +42,7 @@ from Cerebrum.modules.audit import bofhd_history_cmds
 from Cerebrum.modules.bofhd import bofhd_core_help
 from Cerebrum.modules.bofhd import bofhd_external_id
 from Cerebrum.modules.bofhd import bofhd_group_roles
+from Cerebrum.modules.bofhd import bofhd_misc_sms
 from Cerebrum.modules.bofhd import bofhd_ou_cmds
 from Cerebrum.modules.bofhd import parsers
 from Cerebrum.modules.bofhd.auth import (AuthConstants,
@@ -6362,6 +6363,10 @@ class OuCommands(bofhd_ou_cmds.OuCommands):
 
 class PasswordIssuesCommands(bofhd_pw_issues.BofhdExtension):
     authz = bofhd_auth.PasswordIssuesAuth
+
+
+class SmsCommands(bofhd_misc_sms.BofhdSmsCommands):
+    authz = bofhd_auth.SmsAuth
 
 
 class TraitCommands(bofhd_trait_cmds.TraitCommands):

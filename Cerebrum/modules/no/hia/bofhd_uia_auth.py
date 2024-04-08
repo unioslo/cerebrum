@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003-2021 University of Oslo, Norway
+# Copyright 2003-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -24,6 +24,7 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules.apikeys import bofhd_apikey_cmds
 from Cerebrum.modules.audit import bofhd_history_cmds
 from Cerebrum.modules.bofhd import bofhd_group_roles
+from Cerebrum.modules.bofhd import bofhd_misc_sms
 from Cerebrum.modules.bofhd import bofhd_ou_cmds
 from Cerebrum.modules.bofhd import bofhd_user_create_unpersonal
 from Cerebrum.modules.bofhd.auth import BofhdAuth
@@ -43,18 +44,6 @@ class UiaAuth(EntityNoteBofhdAuth, BofhdAuth):
 
     This class only contains special cases for UiA.
     """
-
-    def can_send_welcome_sms(self, operator, query_run_any=False):
-        # Superusers can see and run command
-        if self.is_superuser(operator):
-            return True
-        # Group members can see and run command
-        if self.is_group_member(operator, 'cerebrum-password'):
-            return True
-        # Hide command if not in the above groups
-        if query_run_any:
-            return False
-        raise PermissionDenied("Not allowed to send Welcome SMS")
 
     def can_add_affiliation(self, operator, person=None, ou=None, aff=None,
                             aff_status=None, query_run_any=False):
@@ -240,6 +229,19 @@ class HistoryAuth(UiaAuth, bofhd_history_cmds.BofhdHistoryAuth):
 
 class OuAuth(UiaAuth, bofhd_ou_cmds.OuAuth):
     pass
+
+
+class SmsAuth(UiaAuth, bofhd_misc_sms.BofhdSmsAuth):
+
+    def can_send_welcome_sms(self, operator, query_run_any=False):
+        # Group members can see and run command
+        if self.is_group_member(operator, 'cerebrum-password'):
+            return True
+
+        return super(SmsAuth, self).can_send_welcome_sms(
+            operator,
+            query_run_any=query_run_any,
+        )
 
 
 class TraitAuth(UiaAuth, bofhd_trait_cmds.TraitAuth):
