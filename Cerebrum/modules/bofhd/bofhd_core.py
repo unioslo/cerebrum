@@ -293,13 +293,16 @@ class BofhdCommandBase(object):
                 id_type, ident = "id", human_repr
             elif ":" in human_repr:
                 id_type, ident = human_repr.split(":", 1)
-                assert len(ident) > 0, "Invalid id: %s (type %s)" % (ident,
-                                                                     id_type)
             else:
                 id_type, ident = "name", human_repr
         else:
             raise CerebrumError("Unknown id type %s for id %r" %
                                 (type(human_repr), human_repr))
+
+        if not ident:
+            raise CerebrumError("Empty id for type %s (%r)"
+                                % (id_type, human_repr))
+
         if id_type == "id":
             try:
                 ident = int(ident)
