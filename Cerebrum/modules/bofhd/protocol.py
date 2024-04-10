@@ -35,13 +35,13 @@ import warnings
 import six
 from six.moves import xmlrpc_client
 
-from Cerebrum.utils import unicodestring
 from Cerebrum.modules.bofhd.errors import (
     CerebrumError,
     ServerRestartedError,
     SessionExpiredError,
     UnknownError,
 )
+from Cerebrum.utils import text_utils
 
 
 def dumps(obj):
@@ -87,7 +87,7 @@ def sanitize(obj):
         obj = _ensure_unicode(obj)
 
     if isinstance(obj, six.text_type):
-        return unicodestring.strip_control_characters(obj, exclude="\t\r\n")
+        return text_utils.strip_control_characters(obj, exclude="\t\r\n")
     elif isinstance(obj, dict):
         return {k: sanitize(v) for k, v in obj.items()}
     elif isinstance(obj, collections.Iterable):
