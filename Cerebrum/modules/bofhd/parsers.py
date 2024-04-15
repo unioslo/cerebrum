@@ -199,18 +199,32 @@ def parse_datetime(raw_value, optional=False):
 
 # A text blurb that can be used in help_refs for arguments that allow this
 parse_datetime_help_blurb = """
- - "today":  current date @ midnight *
- - "now":    current date @ current time
- - datetime: iso-8601 datetime (T-separator optional),
-             e.g. "2020-02-26 13:37" *, "2020-02-26T10:37:01.000Z",
-             "2022-W04-2T12+0200"
- - date:     iso-8601 date @ midnight *,
-             e.g. "2020-02-26", "2020-057", "2020-W09-3"
- - time:     current date @ time *,  in iso-8601 extended legacy format,
-             e.g.  "14:37", "23:15:00.000" (not "1437", "T1437", "T14:37")
+"today"
+    The literal text "today", selects current date @ midnight *
 
-*  All times are in local server time ({tz}), if not specified.
-""".lstrip('\n').format(tz=date_utils.TIMEZONE)
+"now"
+    The literal text "now", selects current date @ current time *
+
+datetime
+    An ISO-8601 datetime (T-separator optional).
+
+    E.g. "2020-02-26 13:37" *, "2020-02-26T10:37:01.000Z",
+         "2022-W04-2T12+0200"
+
+date
+    An ISO-8601 date @ midnight *,
+
+    E.g. "2020-02-26", "2020-057", "2020-W09-3"
+
+time
+    An ISO-8601 time, selects current date @ time *
+
+    Time must be provided in extended legacy format, e.g.:
+    "14:37" or "23:15:00.000" (not "1437", "T1437", "T14:37")
+
+*  All times are in local server time ({tz}), unless specified using ISO-8601
+   format.
+""".lstrip().format(tz=date_utils.TIMEZONE)
 
 
 def parse_date(raw_value, optional=False):
@@ -231,11 +245,15 @@ def parse_date(raw_value, optional=False):
 # A text blurb that can be used in help_refs for arguments that uses
 # parse_date()
 parse_date_help_blurb = """
- - "today":  current date, according to server time
-             ({tz})
- - date:     iso-8601 date, e.g. "2020-02-26", "2020-057",
-             "2020-W09-3"
-""".lstrip('\n').format(tz=date_utils.TIMEZONE)
+"today"
+    The literal text "today", selects current date,
+    according to server time
+
+date
+    An ISO-8601 date
+
+    E.g. "2020-02-26", "2020-057", "2020-W09-3"
+""".lstrip().format(tz=date_utils.TIMEZONE)
 
 
 def parse_legacy_date_range(raw_value):

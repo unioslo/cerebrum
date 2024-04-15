@@ -49,7 +49,6 @@ group_help = {
     'perm': 'Control of Privileges in Cerebrum',
     'person': 'Person related commands',
     'pquota': 'Pquota related commands',
-    'quarantine': 'Quarantine related commands',
     'spread': 'Spread related commands',
     'user': 'Account building and manipulation',
 }
@@ -217,13 +216,6 @@ command_help = {
         'person_student_info': 'View student information for a person',
         'person_set_user_priority': 'Change account priorities for a person',
         'person_dfosap_import': 'Trigger manual import of person from DFO-SAP',
-    },
-    'quarantine': {
-        'quarantine_disable': 'Temporarily remove a quarantine',
-        'quarantine_list': 'List defined quarantine types',
-        'quarantine_remove': 'Remove a quarantine from a Cerebrum entity',
-        'quarantine_set': 'Quarantine a given entity',
-        'quarantine_show': 'View active quarantines for a given entity',
     },
     'spread': {
         'spread_add': 'Assign a new spread for an entity',
@@ -435,6 +427,26 @@ arg_help = {
         'Enter entity ID',
         "Numeric ID of the entity you wish to process.",
     ],
+    'entity_type': [
+        # This is the default help text for cmd_param.EntityType, which is
+        # usually paired with a cmd_param.Id, and uses
+        # BofhdCommandBase._get_entity() for lookup.
+        "entity_type",
+        "Entity Type",
+        textwrap.dedent(
+            """
+            Specify an entity type.  Typical values:
+
+             - account
+             - group
+             - person
+             - stedkode
+
+            Some commands may accept more types, while others only accepts a
+            subset of the examples given here.
+            """
+        ).strip(),
+    ],
     'external_id_type': [
         'external_id_type',
         'Enter external id type',
@@ -510,9 +522,39 @@ arg_help = {
         "Example: A (= all)",
     ],
     'id': [
+        # This is the default help text for cmd_param.Id, which is usually
+        # paired with a cmd_param.EntityType, and uses
+        # BofhdCommandBase._get_entity() for lookup.
         'id',
-        'Enter id',
-        "Enter a group's internal id",
+        'Enter identifier',
+        textwrap.dedent(
+            """
+            Enter a Cerebrum entity identifier.
+
+            The identifier format depends on the entity type.
+
+            For groups and accounts:
+
+              - <entity-id>
+              - id:<entity-id>
+              - <entity-name>
+              - name:<entity-name>
+
+            For org units:
+
+              - <stedkode>
+
+            For persons:
+
+              - <username>
+              - id:<entity-id>
+
+              Person lookup may also support a selection of
+              <id-type>:<id-value> mappings.
+
+            Note that some entity types may not be supported by the command.
+            """
+        ).strip()
     ],
     'id:entity_ext': [
         'entity_id',

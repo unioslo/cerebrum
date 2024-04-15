@@ -26,6 +26,7 @@ from Cerebrum.modules.audit import bofhd_history_cmds
 from Cerebrum.modules.bofhd import bofhd_group_roles
 from Cerebrum.modules.bofhd import bofhd_misc_sms
 from Cerebrum.modules.bofhd import bofhd_ou_cmds
+from Cerebrum.modules.bofhd import bofhd_quarantines
 from Cerebrum.modules.bofhd import bofhd_user_create_unpersonal
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.bofhd_access import BofhdAccessAuth
@@ -229,6 +230,13 @@ class HistoryAuth(UiaAuth, bofhd_history_cmds.BofhdHistoryAuth):
 
 class OuAuth(UiaAuth, bofhd_ou_cmds.OuAuth):
     pass
+
+
+class QuarantineAuth(UiaAuth, bofhd_quarantines.BofhdQuarantineAuth):
+    # TODO: These should not be attributes, but constant values
+    GUEST_OWNER_TRAITS = (
+        "trait_guest_owner",
+    )
 
 
 class SmsAuth(UiaAuth, bofhd_misc_sms.BofhdSmsAuth):
