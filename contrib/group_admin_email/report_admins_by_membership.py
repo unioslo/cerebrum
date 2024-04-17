@@ -185,8 +185,8 @@ def cache_one_accounts_groups(db, ac, account_name):
     return account_id2groups
 
 
-def cache_info(db, fields, nr_of_admins=None):
-    cacher = GroupAdminCacher(db, BRUKERINFO_GROUP_MANAGE_LINK)
+def cache_info(db, fields, nr_of_admins=None, filter_expired=True):
+    cacher = GroupAdminCacher(db, BRUKERINFO_GROUP_MANAGE_LINK, filter_expired)
     return cacher.cache_admins_by_membership(
         fields,
         nr_of_admins=nr_of_admins
