@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003-2023 University of Oslo, Norway
+# Copyright 2003-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -215,6 +215,7 @@ from __future__ import (
     print_function,
     unicode_literals,
 )
+import logging
 import re
 
 import six
@@ -231,6 +232,8 @@ from Cerebrum.Utils import argument_to_sql
 from Cerebrum.group.GroupRoles import GroupRoles
 from Cerebrum.meta import MarkUpdateMixin
 from Cerebrum.modules.bofhd.errors import PermissionDenied
+
+logger = logging.getLogger(__name__)
 
 
 class BofhdAuthOpSet(MarkUpdateMixin, DatabaseAccessor):
@@ -1091,7 +1094,7 @@ class BofhdAuth(DatabaseAccessor):
                 operator, self.const.auth_quarantine_disable,
                 self.const.auth_target_type_global_host,
                 None, get_all_op_attrs=True):
-            attr = row.get('operation_attr')
+            attr = row['operation_attr']
             # No operation attributes means that all quarantines are allowed
             # TODO: This can be removed when all opsets for all instances
             # has a populated qua_disable dict.
@@ -1134,7 +1137,7 @@ class BofhdAuth(DatabaseAccessor):
                 operator, self.const.auth_quarantine_remove,
                 self.const.auth_target_type_global_host,
                 None, get_all_op_attrs=True):
-            attr = row.get('operation_attr')
+            attr = row['operation_attr']
             # No operation attributes means that all quarantines are allowed
             # TODO: This can be removed when all opsets for all instances
             # has a populated qua_remove dict.
@@ -1164,7 +1167,7 @@ class BofhdAuth(DatabaseAccessor):
                 operator, self.const.auth_quarantine_set,
                 self.const.auth_target_type_global_host,
                 None, get_all_op_attrs=True):
-            attr = row.get('operation_attr')
+            attr = row['operation_attr']
             # No operation attributes means that all quarantines are allowed
             # TODO: This can be removed when all opsets for all instances
             # has a populated qua_add dict.
@@ -1305,7 +1308,7 @@ class BofhdAuth(DatabaseAccessor):
                 operator, self.const.auth_create_group,
                 self.const.auth_target_type_global_group,
                 None, get_all_op_attrs=True):
-            attr = row.get('operation_attr')
+            attr = row['operation_attr']
             # No operation attribute means that all groupnames are allowed:
             if not attr:
                 return True
@@ -1403,7 +1406,7 @@ class BofhdAuth(DatabaseAccessor):
                 operator, self.const.auth_search_group,
                 self.const.auth_target_type_global_group,
                 None, get_all_op_attrs=True):
-            attr = row.get('operation_attr')
+            attr = row['operation_attr']
             # No operation attribute means that all groupnames are allowed:
             if not attr:
                 return True
@@ -1774,7 +1777,6 @@ class BofhdAuth(DatabaseAccessor):
         if query_run_any:
             return self._has_operation_perm_somewhere(
                 operator, self.const.auth_view_history)
-
         # Check if user has been granted an op-set that allows viewing the
         # entity's history in some specific fashion.
         for row in self._list_target_permissions(
@@ -1782,7 +1784,7 @@ class BofhdAuth(DatabaseAccessor):
                 # TODO Should the auth target type be generalized?
                 self.const.auth_target_type_global_group,
                 None, get_all_op_attrs=True):
-            attr = row.get('operation_attr')
+            attr = row['operation_attr']
 
             # Op-set allows viewing history for this entity type
             # We need try/except here as self.const.EntityType will throw
@@ -1805,7 +1807,6 @@ class BofhdAuth(DatabaseAccessor):
                         return True
                 except Exception:
                     pass
-
         if entity.entity_type == self.const.entity_account:
             if self._no_account_home(operator, entity):
                 return True
@@ -1998,7 +1999,6 @@ class BofhdAuth(DatabaseAccessor):
 
     def _query_target_permissions(self, operator, operation, target_type,
                                   target_id, victim_id, operation_attr=None):
-        logger = Factory.get_logger()
         logger.warn("Deprecated function _query_target_permissions. " +
                     "Use _has_target_permissions or _list_target_permissions.")
         return self._has_target_permissions(
