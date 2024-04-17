@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003-2021 University of Oslo, Norway
+# Copyright 2003-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -30,6 +30,7 @@ from Cerebrum.modules.audit import bofhd_history_cmds
 from Cerebrum.modules.bofhd import bofhd_access
 from Cerebrum.modules.bofhd import bofhd_external_id
 from Cerebrum.modules.bofhd import bofhd_group_roles
+from Cerebrum.modules.bofhd import bofhd_misc_sms
 from Cerebrum.modules.bofhd import bofhd_ou_cmds
 from Cerebrum.modules.bofhd import bofhd_user_create_unpersonal
 from Cerebrum.modules.bofhd.auth import BofhdAuth
@@ -435,6 +436,10 @@ class OtpAuth(UioAuth, bofhd_otp_cmds.OtpAuth):
             return True
         else:
             return super(OtpAuth, self)._is_otp_protected(person)
+
+
+class SmsAuth(UioAuth, bofhd_misc_sms.BofhdSmsAuth):
+    pass
 
 
 class TraitAuth(UioAuth, bofhd_trait_cmds.TraitAuth):

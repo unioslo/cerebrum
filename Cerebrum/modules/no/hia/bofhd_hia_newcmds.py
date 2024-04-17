@@ -1,6 +1,6 @@
 # encoding: utf-8
 #
-# Copyright 2006-2023 University of Oslo, Norway
+# Copyright 2006-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -40,6 +40,7 @@ from Cerebrum.modules.apikeys import bofhd_apikey_cmds
 from Cerebrum.modules.audit import bofhd_history_cmds
 from Cerebrum.modules.bofhd import bofhd_email
 from Cerebrum.modules.bofhd import bofhd_group_roles
+from Cerebrum.modules.bofhd import bofhd_misc_sms
 from Cerebrum.modules.bofhd import bofhd_ou_cmds
 from Cerebrum.modules.bofhd import cmd_param
 from Cerebrum.modules.bofhd.bofhd_access import BofhdAccessCommands
@@ -1462,6 +1463,10 @@ class HistoryCommands(bofhd_history_cmds.BofhdHistoryCmds):
 
 class OuCommands(bofhd_ou_cmds.OuCommands):
     authz = bofhd_uia_auth.OuAuth
+
+
+class SmsCommands(bofhd_misc_sms.BofhdSmsCommands):
+    authz = bofhd_uia_auth.SmsAuth
 
 
 class TraitCommands(bofhd_trait_cmds.TraitCommands):
