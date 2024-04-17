@@ -233,9 +233,9 @@ class OuAuth(UiaAuth, bofhd_ou_cmds.OuAuth):
 
 
 class QuarantineAuth(UiaAuth, bofhd_quarantines.BofhdQuarantineAuth):
-    # TODO: These should not be attributes, but constant values
+
     GUEST_OWNER_TRAITS = (
-        "trait_guest_owner",
+        "guest_owner",
     )
 
 

@@ -440,10 +440,10 @@ class PasswordIssuesAuth(UioAuth):
 
 
 class QuarantineAuth(UioAuth, bofhd_quarantines.BofhdQuarantineAuth):
-    # TODO: These should not be attributes, but cosntant values
+
     GUEST_OWNER_TRAITS = (
-        "trait_guest_owner",
-        "trait_uio_guest_owner",
+        "guest_owner",
+        "guest_owner_uio",
     )
 
 

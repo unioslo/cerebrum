@@ -427,10 +427,7 @@ class OuCommands(bofhd_ou_cmds.OuCommands):
 
 
 class _QuarantineAuth(NihAuth, bofhd_quarantines.BofhdQuarantineAuth):
-    # TODO: These should not be attributes, but constant values
-    GUEST_OWNER_TRAITS = (
-        "trait_guest_owner",
-    )
+    pass
 
 
 class QuarantineCommands(bofhd_quarantines.BofhdQuarantineCommands):

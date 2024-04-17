@@ -75,6 +75,7 @@ from Cerebrum.modules.bofhd.bofhd_core_help import get_help_strings
 from Cerebrum.modules.bofhd.bofhd_utils import format_time, default_format_day
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.help import merge_help_strings
+from Cerebrum.modules.trait.constants import _EntityTraitCode
 
 
 logger = logging.getLogger(__name__)
@@ -104,32 +105,18 @@ def _get_quarantine_type(const, value, user_input=False, optional=False):
 class BofhdQuarantineAuth(BofhdAuth):
     """ Auth for quarantine commands. """
 
-    # Persoal traits that indicates that this object is a guest.
-    #
-    # TODO: Move the actual traits to individual instance-specific subclasses.
-    #       They are here for now, because they've always been here.
-    GUEST_OWNER_TRAITS = (
-        "trait_guest_owner",
-        "trait_uio_guest_owner",
-    )
+    # Personal traits that indicates that this object is a guest.
+    GUEST_OWNER_TRAITS = ()
 
     def _entity_is_guestuser(self, entity):
         """
         Helper - check if entity is considered a guest user of some sort.
         """
-        # this is a bit ugly - these checks should only be implemented if we
-        # actually have these traits.
-        #
-        # TODO: We should also access traits like these by *name*, not by
-        # absolute value.
-        #
-        for trait in self.GUEST_OWNER_TRAITS:
-            try:
-                if entity.get_trait(getattr(self.const, trait)):
-                    return True
-            except AttributeError:
-                pass
-        return None
+        for trait_value in self.GUEST_OWNER_TRAITS:
+            trait_code = self.const.get_constant(_EntityTraitCode, trait_value)
+            if entity.get_trait(trait_code):
+                return True
+        return False
 
     #
     # Partial permission check helpers
@@ -184,7 +171,7 @@ class BofhdQuarantineAuth(BofhdAuth):
                 target_type=self.const.auth_target_type_global_host,
                 target_id=None,
                 get_all_op_attrs=True):
-            attr = row.get('operation_attr')
+            attr = row['operation_attr']
 
             # If no operation attributes are given in the opset, then all
             # quarantines are allowed.
