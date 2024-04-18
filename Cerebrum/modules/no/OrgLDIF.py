@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2004-2022 University of Oslo, Norway
+# Copyright 2004-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -41,8 +41,12 @@ py:class:`.NorEduSmsAuthnMixin`
 py:class:`.NorEduAzureAuthnMixin`
     Mixin to enable Azure-AD authentication in Feide.
 """
-from __future__ import unicode_literals
-
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import io
 import json
 import logging
@@ -259,7 +263,7 @@ class NorEduOrgLdifMixin(OrgLDIF):
         if not dn:
             return parent_dn, None
 
-        for attr in entry.keys():
+        for attr in list(entry.keys()):
             if attr == 'ou' or attr.startswith('ou;'):
                 entry[attr] = attr_unique(entry[attr], normalize_string)
         self.fill_ou_entry_contacts(entry)
@@ -743,7 +747,8 @@ class OrgLdifCourseMixin(NorEduOrgLdifMixin):
     def _init_person_course(self):
         """Populate dicts with a person's course information."""
         timer = make_timer(logger, 'Processing person courses...')
-        self._person2urnlist = pickle.load(file(self.person_course_filename))
+        with io.open(self.person_course_filename, "rb") as f:
+            self._person2urnlist = pickle.loads(f.read())
         timer("...person courses done.")
 
     def init_person_dump(self, *args, **kwargs):
