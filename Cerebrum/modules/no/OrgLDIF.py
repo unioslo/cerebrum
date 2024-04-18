@@ -789,16 +789,17 @@ class OrgLdifEntitlementsMixin(NorEduOrgLdifMixin):
 
     def _init_person_entitlements(self):
         """ Load person entitlements file. """
-        if hasattr(self, '_person_entitlements'):
+        if hasattr(self, '_entity_to_entitlements'):
             logger.warning('Person entitlements already loaded!')
             return
 
-        timer = make_timer(logger, 'Loading person entitlements...')
+        timer = make_timer(logger, 'Loading entitlements cache...')
         with io.open(self.entitlements_file, encoding='utf-8') as stream:
             e_dict = json.loads(stream.read())
-        self._person_entitlements = {int(p_id): e_list
-                                     for p_id, e_list in e_dict.items()}
-        timer("...person entitlements done.")
+        self._entity_to_entitlements = {
+            int(entity_id): urn_list
+            for entity_id, urn_list in e_dict.items()}
+        timer("... entitlements cache done.")
 
     def init_person_dump(self, *args, **kwargs):
         # API-method: Init person data
@@ -807,18 +808,30 @@ class OrgLdifEntitlementsMixin(NorEduOrgLdifMixin):
             self._init_person_entitlements()
 
     def make_person_entry(self, row, person_id):
-        # API-method: Generate person object
         dn, entry, alias_info = super(OrgLdifEntitlementsMixin,
                                       self).make_person_entry(row, person_id)
 
-        # Add or extend entitlements
-        if (self.entitlements_file and dn and
-                person_id in self._person_entitlements):
-            entitlements = self._person_entitlements[person_id]
-            if 'eduPersonEntitlement' in entry:
-                entry['eduPersonEntitlement'].update(entitlements)
-            else:
-                entry['eduPersonEntitlement'] = set(entitlements)
+        # early abort if we have no object
+        if not dn:
+            return dn, entry, alias_info
+
+        # early abort if we have no entitlement cache
+        if not self.entitlements_file:
+            return dn, entry, alias_info
+
+        entitlement_ids = [person_id, int(row['account_id'])]
+        entitlements = set()
+
+        # Collect entitlements from file cache
+        for entity_id in entitlement_ids:
+            if entity_id in self._entity_to_entitlements:
+                entitlements.update(self._entity_to_entitlements[entity_id])
+
+        # Add or extend entitlements attribute
+        if 'eduPersonEntitlement' in entry:
+            entry['eduPersonEntitlement'].update(entitlements)
+        else:
+            entry['eduPersonEntitlement'] = entitlements
 
         return dn, entry, alias_info
 
