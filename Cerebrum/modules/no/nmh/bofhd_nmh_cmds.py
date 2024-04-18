@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2006-2023 University of Oslo, Norway
+# Copyright 2006-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -38,6 +38,7 @@ from Cerebrum.modules.bofhd import bofhd_email
 from Cerebrum.modules.bofhd import bofhd_group_roles
 from Cerebrum.modules.bofhd import bofhd_misc_sms
 from Cerebrum.modules.bofhd import bofhd_ou_cmds
+from Cerebrum.modules.bofhd import bofhd_quarantines
 from Cerebrum.modules.bofhd import cmd_param
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
@@ -135,11 +136,6 @@ uio_commands = [
     'person_list_user_priorities',
     'person_set_name',
     'person_set_user_priority',
-    'quarantine_disable',
-    'quarantine_list',
-    'quarantine_remove',
-    'quarantine_set',
-    'quarantine_show',
     'spread_add',
     'spread_list',
     'spread_remove',
@@ -356,6 +352,14 @@ class _OuAuth(NmhAuth, bofhd_ou_cmds.OuAuth):
 
 class OuCommands(bofhd_ou_cmds.OuCommands):
     authz = _OuAuth
+
+
+class _QuarantineAuth(NmhAuth, bofhd_quarantines.BofhdQuarantineAuth):
+    pass
+
+
+class QuarantineCommands(bofhd_quarantines.BofhdQuarantineCommands):
+    authz = _QuarantineAuth
 
 
 class _SmsAuth(NmhAuth, bofhd_misc_sms.BofhdSmsAuth):

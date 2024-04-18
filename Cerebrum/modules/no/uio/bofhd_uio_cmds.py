@@ -44,6 +44,7 @@ from Cerebrum.modules.bofhd import bofhd_external_id
 from Cerebrum.modules.bofhd import bofhd_group_roles
 from Cerebrum.modules.bofhd import bofhd_misc_sms
 from Cerebrum.modules.bofhd import bofhd_ou_cmds
+from Cerebrum.modules.bofhd import bofhd_quarantines
 from Cerebrum.modules.bofhd import parsers
 from Cerebrum.modules.bofhd.auth import (BofhdAuthOpSet,
                                          BofhdAuthOpTarget,
@@ -54,7 +55,6 @@ from Cerebrum.modules.bofhd.bofhd_utils import (
     copy_func,
     date_to_string,
     default_format_day,
-    format_time,
     exc_to_text,
     get_quarantine_status,
 )
@@ -83,7 +83,6 @@ from Cerebrum.modules.bofhd.cmd_param import (
     PersonSearchType,
     PosixGecos,
     PosixShell,
-    QuarantineType,
     SimpleString,
     SourceSystem,
     Spread,
@@ -3935,169 +3934,6 @@ class BofhdExtension(BofhdCommonMethods):
             })
         return ret
 
-    #
-    # quarantine disable
-    #
-    all_commands['quarantine_disable'] = Command(
-        ("quarantine", "disable"),
-        EntityType(default="account"),
-        Id(),
-        QuarantineType(),
-        # TODO: We should update the help text to include info from
-        # parsers.parse_date_help_blurb
-        # TODO: Wouldn't it be better to ask for number of days to postpone
-        # quarantine?
-        Date(),
-        perm_filter='can_disable_quarantine',
-    )
-
-    def quarantine_disable(self, operator, entity_type, id, qtype, date):
-        entity = self._get_entity(entity_type, id)
-        # Note: Giving an *empty* date resets disable_until, i.e. re-enables a
-        # previously disabled quarantine.
-        date = parsers.parse_date(date, optional=True)
-        qconst = self._get_constant(self.const.Quarantine, qtype, "quarantine")
-        self.ba.can_disable_quarantine(operator.get_entity_id(), entity, qtype)
-
-        if not entity.get_entity_quarantine(qtype=qconst):
-            raise CerebrumError("%s does not have a quarantine of type %s" % (
-                self._get_name_from_object(entity), text_type(qtype)))
-
-        limit_days = getattr(cereconf, 'BOFHD_QUARANTINE_DISABLE_LIMIT', None)
-        if date and limit_days:
-            limit = datetime.timedelta(days=int(limit_days))
-            if date > datetime.date.today() + limit:
-                # TODO: This should be a bofhd.errors.CerebrumError
-                return ("Quarantines can only be disabled for %d days"
-                        % limit.days)
-        if date and date < datetime.date.today():
-            raise CerebrumError("Date can't be in the past")
-        entity.disable_entity_quarantine(qconst, date)
-        if not date:
-            return "OK, reactivated quarantine %s for %s" % (
-                text_type(qconst), self._get_name_from_object(entity))
-        return "OK, disabled quarantine %s for %s" % (
-            text_type(qconst), self._get_name_from_object(entity))
-
-    #
-    # quarantine list
-    #
-    all_commands['quarantine_list'] = Command(
-        ("quarantine", "list"),
-        fs=FormatSuggestion(
-            "%-16s  %1s  %-17s %s", ('name', 'lock', 'shell', 'desc'),
-            hdr="%-15s %-4s %-17s %s" % ('Name', 'Lock', 'Shell',
-                                         'Description')
-        ))
-
-    def quarantine_list(self, operator):
-        ret = []
-        for c in self.const.fetch_constants(self.const.Quarantine):
-            lock = 'N'
-            shell = '-'
-            rule = cereconf.QUARANTINE_RULES.get(text_type(c), {})
-            if 'lock' in rule:
-                lock = 'Y'
-            if 'shell' in rule:
-                shell = rule['shell'].split("/")[-1]
-            ret.append({
-                'name': text_type(c),
-                'lock': lock,
-                'shell': shell,
-                'desc': c.description,
-            })
-        return ret
-
-    #
-    # quarantine remove
-    #
-    all_commands['quarantine_remove'] = Command(
-        ("quarantine", "remove"),
-        EntityType(default="account"),
-        Id(),
-        QuarantineType(),
-        perm_filter='can_remove_quarantine')
-
-    def quarantine_remove(self, operator, entity_type, id, qtype):
-        entity = self._get_entity(entity_type, id)
-        qconst = self._get_constant(self.const.Quarantine, qtype, "quarantine")
-        self.ba.can_remove_quarantine(operator.get_entity_id(), entity, qconst)
-
-        if not entity.get_entity_quarantine(qtype=qconst):
-            raise CerebrumError("%s does not have a quarantine of type %s" % (
-                self._get_name_from_object(entity), text_type(qconst)))
-
-        entity.delete_entity_quarantine(qconst)
-
-        return "OK, removed quarantine %s for %s" % (
-            text_type(qconst), self._get_name_from_object(entity))
-
-    #
-    # quarantine set
-    #
-    all_commands['quarantine_set'] = Command(
-        ("quarantine", "set"),
-        EntityType(default="account"),
-        Id(repeat=True),
-        QuarantineType(),
-        SimpleString(help_ref="string_why"),
-        # TODO: We should update the help text to include info from
-        # parsers.parse_date_help_blurb
-        SimpleString(help_ref="quarantine_start_date", default="today",
-                     optional=True),
-        perm_filter='can_set_quarantine',
-    )
-
-    def quarantine_set(self, operator, entity_type, id, qtype, why,
-                       start_date=None):
-        entity = self._get_entity(entity_type, id)
-        qconst = self._get_constant(self.const.Quarantine, qtype, "quarantine")
-        start_date = (parsers.parse_date(start_date, optional=True)
-                      or datetime.date.today())
-        self.ba.can_set_quarantine(operator.get_entity_id(), entity, qconst)
-        rows = entity.get_entity_quarantine(qtype=qconst)
-        if rows:
-            raise CerebrumError("%s already has a quarantine of type %s" % (
-                self._get_name_from_object(entity), text_type(qconst)))
-        try:
-            entity.add_entity_quarantine(qconst, operator.get_entity_id(), why,
-                                         start_date)
-        except AttributeError:
-            raise CerebrumError("Quarantines cannot be set on %r" %
-                                entity_type)
-        return "OK, set quarantine %s for %s" % (
-            text_type(qconst), self._get_name_from_object(entity))
-
-    # quarantine show
-    all_commands['quarantine_show'] = Command(
-        ("quarantine", "show"),
-        EntityType(default="account"),
-        Id(),
-        fs=FormatSuggestion(
-            "%-14s %-16s %-16s %-14s %-8s %s",
-            ('type', format_time('start'), format_time('end'),
-             format_day('disable_until'), 'who', 'why'),
-            hdr="%-14s %-16s %-16s %-14s %-8s %s" %
-            ('Type', 'Start', 'End', 'Disable until', 'Who', 'Why')
-        ),
-        perm_filter='can_show_quarantines')
-
-    def quarantine_show(self, operator, entity_type, id):
-        ret = []
-        entity = self._get_entity(entity_type, id)
-        self.ba.can_show_quarantines(operator.get_entity_id(), entity)
-        for r in entity.get_entity_quarantine():
-            acc = self._get_account(r['creator_id'], idtype='id')
-            ret.append({
-                'type': text_type(self.const.Quarantine(r['quarantine_type'])),
-                'start': r['start_date'],
-                'end': r['end_date'],
-                'disable_until': r['disable_until'],
-                'who': acc.account_name,
-                'why': r['description'],
-            })
-        return ret
-
     def _get_posix_account(self, account_id):
         """Helper function to try getting a PosixUser-object from an
         Account-id. Ideally this should be doable from self._get_entity,
@@ -6362,6 +6198,10 @@ class OuCommands(bofhd_ou_cmds.OuCommands):
 
 class PasswordIssuesCommands(bofhd_pw_issues.BofhdExtension):
     authz = bofhd_auth.PasswordIssuesAuth
+
+
+class QuarantineCommands(bofhd_quarantines.BofhdQuarantineCommands):
+    authz = bofhd_auth.QuarantineAuth
 
 
 class SmsCommands(bofhd_misc_sms.BofhdSmsCommands):
