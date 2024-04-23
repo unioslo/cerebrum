@@ -32,6 +32,7 @@ from Cerebrum.modules.bofhd import bofhd_external_id
 from Cerebrum.modules.bofhd import bofhd_group_roles
 from Cerebrum.modules.bofhd import bofhd_misc_sms
 from Cerebrum.modules.bofhd import bofhd_ou_cmds
+from Cerebrum.modules.bofhd import bofhd_perm_cmds
 from Cerebrum.modules.bofhd import bofhd_quarantines
 from Cerebrum.modules.bofhd import bofhd_user_create_unpersonal
 from Cerebrum.modules.bofhd.auth import BofhdAuth
@@ -436,6 +437,10 @@ class OtpAuth(UioAuth, bofhd_otp_cmds.OtpAuth):
 
 
 class PasswordIssuesAuth(UioAuth):
+    pass
+
+
+class PermAuth(UioAuth, bofhd_perm_cmds.BofhdPermAuth):
     pass
 
 

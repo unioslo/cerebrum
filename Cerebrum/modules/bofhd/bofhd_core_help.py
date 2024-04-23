@@ -46,7 +46,6 @@ group_help = {
     'group': "Group commands",
     'host': "Host related commands",
     'misc': 'Miscellaneous commands',
-    'perm': 'Control of Privileges in Cerebrum',
     'person': 'Person related commands',
     'pquota': 'Pquota related commands',
     'spread': 'Spread related commands',
@@ -169,22 +168,6 @@ command_help = {
             'Check whether an account has a given password'
         ),
         'misc_password_issues': 'Find out why a password cannot be changed',
-    },
-    'perm': {
-        'perm_opset_list': 'List defined opsets',
-        'perm_opset_show': 'View definition of the given opset',
-        'perm_target_list': 'List auth_op_target data of the given type',
-        'perm_add_target': 'Define a new auth_op_target',
-        'perm_add_target_attr': 'Add attributes to an auth target',
-        'perm_del_target': 'Remove an auth_op_target',
-        'perm_del_target_attr': 'Removes attributes for a given target',
-        'perm_list': 'List an entitys permissions',
-        'perm_grant': 'Add an entry to auth_role',
-        'perm_revoke': 'Remove an entry from auth_role',
-        'perm_who_owns': 'Show owner of a target',
-        'perm_who_has_perm': (
-            'Show who has the given op_set permission somewhere'
-        ),
     },
     'person': {
         'person_accounts': 'View the accounts a person owns',
@@ -556,16 +539,6 @@ arg_help = {
             """
         ).strip()
     ],
-    'id:entity_ext': [
-        'entity_id',
-        'Enter entity_id, example: group:foo',
-        textwrap.dedent(
-            """
-            Enter an entity_id either as number or as
-            group:name / account:name
-            """
-        ).strip(),
-    ],
     'id:gid:name': [
         'group',
         'Enter an existing entity',
@@ -644,10 +617,6 @@ arg_help = {
               - 'stedkode' (stedkode => OU)
             """
         ).strip(),
-    ],
-    'id:op_target': [
-        'op_target_id',
-        'Enter op_target_id',
     ],
     'include_lms': [
         'lms-group y/n',
@@ -867,11 +836,6 @@ arg_help = {
             """
         ).strip(),
     ],
-    'string_attribute': [
-        'attr',
-        'Enter attribute',
-        "Experts only.  See the documentation for details",
-    ],
     'string_description': [
         'description',
         'Enter description',
@@ -936,25 +900,10 @@ arg_help = {
         'Enter non-personal account type',
         "Type of non-personal account.",
     ],
-    'string_op_set': [
-        'op_set_name',
-        'Enter name of operation set',
-        "Experts only. See the documentation for details",
-    ],
     'string_old_priority': [
         'old_priority',
         'Enter old priority value',
         "Select the old priority value",
-    ],
-    'string_perm_target': [
-        'id|type',
-        'Enter target id or type',
-        'Legal types: host, disk, group',
-    ],
-    'string_perm_target_type': [
-        'type',
-        'Enter target type',
-        'Legal types: host, disk, group',
     ],
     'string_perm_target_type_access': [
         'type',
