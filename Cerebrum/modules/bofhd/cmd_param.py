@@ -511,15 +511,13 @@ def get_format_suggestion_table(*args, **kwargs):
     header = "\n".join((" | ".join(headers), " + ".join(separators)))
     row = " | ".join(placeholders)
 
-    formats = (row, tuple(field_names))
+    formats = [(row, tuple(field_names))]
     if limit_key:
         # Include a special sentinel "row" informing that there are more
         # entries, and that the results has been truncated
-        formats = [
-            formats,
+        formats.append(
             ("...\nLimited to %d results", (limit_key,))
-        ]
-
+        )
     return FormatSuggestion(formats, hdr=header)
 
 

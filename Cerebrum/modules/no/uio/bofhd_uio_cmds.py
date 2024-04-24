@@ -44,10 +44,10 @@ from Cerebrum.modules.bofhd import bofhd_external_id
 from Cerebrum.modules.bofhd import bofhd_group_roles
 from Cerebrum.modules.bofhd import bofhd_misc_sms
 from Cerebrum.modules.bofhd import bofhd_ou_cmds
+from Cerebrum.modules.bofhd import bofhd_perm_cmds
 from Cerebrum.modules.bofhd import bofhd_quarantines
 from Cerebrum.modules.bofhd import parsers
-from Cerebrum.modules.bofhd.auth import (BofhdAuthOpSet,
-                                         BofhdAuthOpTarget,
+from Cerebrum.modules.bofhd.auth import (BofhdAuthOpTarget,
                                          BofhdAuthRole)
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.bofhd_user_create import BofhdUserCreateMethod
@@ -188,18 +188,6 @@ class BofhdExtension(BofhdCommonMethods):
                 self.__ct2details[int(r['change_type_id'])] = [
                     r['category'], r['type'], r['msg_string']]
             return self.__ct2details
-
-    @property
-    def num2op_set_name(self):
-        # TODO: Do we really need this cache?
-        try:
-            return self.__num2opset
-        except AttributeError:
-            self.__num2opset = dict()
-            aos = BofhdAuthOpSet(self.db)
-            for r in aos.list():
-                self.__num2opset[int(r['op_set_id'])] = r['name']
-            return self.__num2opset
 
     def fixup_imaplib(self):
         def nonblocking_open(self, host=None, port=None):
@@ -2536,293 +2524,6 @@ class BofhdExtension(BofhdCommonMethods):
                 return ("The password is obsolete, it was set on %s" %
                         old_password['set_at'])
         return "Incorrect password"
-
-    #
-    # perm opset_list
-    #
-    all_commands['perm_opset_list'] = Command(
-        ("perm", "opset_list"),
-        fs=FormatSuggestion(
-            "%-6i %s", ("id", "name"),
-            hdr="Id     Name"),
-        perm_filter='is_superuser')
-
-    def perm_opset_list(self, operator):
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise PermissionDenied("Currently limited to superusers")
-        aos = BofhdAuthOpSet(self.db)
-        ret = []
-        for r in aos.list():
-            ret.append({'id': r['op_set_id'],
-                        'name': r['name']})
-        return ret
-
-    #
-    # perm opset_show
-    #
-    all_commands['perm_opset_show'] = Command(
-        ("perm", "opset_show"),
-        SimpleString(help_ref="string_op_set"),
-        fs=FormatSuggestion(
-            "%-6i %-16s %s", ("op_id", "op", "attrs"),
-            hdr="%-6s %-16s %s" % ("Id", "op", "Attributes")
-        ),
-        perm_filter='is_superuser')
-
-    def perm_opset_show(self, operator, name):
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise PermissionDenied("Currently limited to superusers")
-        aos = BofhdAuthOpSet(self.db)
-        aos.find_by_name(name)
-        ret = []
-        for r in aos.list_operations():
-            c = self.const.AuthRoleOp(int(r['op_code']))
-            ret.append({
-                'op': text_type(c),
-                'op_id': r['op_id'],
-                'attrs': ", ".join(["%s" % r2['attr'] for r2 in
-                                    aos.list_operation_attrs(r['op_id'])]),
-            })
-        return ret
-
-    #
-    # perm target_list
-    #
-    all_commands['perm_target_list'] = Command(
-        ("perm", "target_list"),
-        SimpleString(help_ref="string_perm_target"),
-        Id(optional=True),
-        fs=FormatSuggestion(
-            "%-8i %-15i %-10s %-18s %s",
-            ("tgt_id", "entity_id", "target_type", "name", "attrs"),
-            hdr="%-8s %-15s %-10s %-18s %s" %
-            ("TargetId", "TargetEntityId", "TargetType", "TargetName", "Attrs")
-        ),
-        perm_filter='is_superuser')
-
-    def perm_target_list(self, operator, target_type, entity_id=None):
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise PermissionDenied("Currently limited to superusers")
-        aot = BofhdAuthOpTarget(self.db)
-        ret = []
-        if target_type.isdigit():
-            rows = aot.list(target_id=target_type)
-        else:
-            rows = aot.list(target_type=target_type, entity_id=entity_id)
-        for r in rows:
-            if r['target_type'] == 'group':
-                name = self._get_entity_name(r['entity_id'],
-                                             self.const.entity_group)
-            elif r['target_type'] == 'disk':
-                name = self._get_entity_name(r['entity_id'],
-                                             self.const.entity_disk)
-            elif r['target_type'] == 'host':
-                name = self._get_entity_name(r['entity_id'],
-                                             self.const.entity_host)
-            else:
-                name = "unknown"
-            ret.append({
-                'tgt_id': r['op_target_id'],
-                'entity_id': r['entity_id'],
-                'name': name,
-                'target_type': r['target_type'],
-                'attrs': r['attr'] or '<none>',
-            })
-        return ret
-
-    #
-    # perm add_target
-    #
-    all_commands['perm_add_target'] = Command(
-        ("perm", "add_target"),
-        SimpleString(help_ref="string_perm_target_type"),
-        Id(),
-        SimpleString(help_ref="string_attribute", optional=True),
-        perm_filter='is_superuser')
-
-    def perm_add_target(self, operator, target_type, entity_id, attr=None):
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise PermissionDenied("Currently limited to superusers")
-        if entity_id.isdigit():
-            entity_id = int(entity_id)
-        else:
-            raise CerebrumError("Integer entity_id expected; got %r" %
-                                (entity_id,))
-        aot = BofhdAuthOpTarget(self.db)
-        aot.populate(entity_id, target_type, attr)
-        aot.write_db()
-        return "OK, target id=%d" % aot.op_target_id
-
-    #
-    # perm del_target
-    #
-    all_commands['perm_del_target'] = Command(
-        ("perm", "del_target"),
-        Id(help_ref="id:op_target"),
-        perm_filter='is_superuser')
-
-    def perm_del_target(self, operator, op_target_id, attr):
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise PermissionDenied("Currently limited to superusers")
-        aot = BofhdAuthOpTarget(self.db)
-        aot.find(op_target_id)
-        aot.delete()
-        return "OK, target %s, attr=%s deleted" % (op_target_id, attr)
-
-    #
-    # perm list
-    #
-    all_commands['perm_list'] = Command(
-        ("perm", "list"),
-        Id(help_ref='id:entity_ext'),
-        fs=FormatSuggestion(
-            "%-8s %-8s %-8i", ("entity_id", "op_set_id", "op_target_id"),
-            hdr="%-8s %-8s %-8s" % ("entity_id", "op_set_id", "op_target_id")
-        ),
-        perm_filter='is_superuser')
-
-    def perm_list(self, operator, entity_id):
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise PermissionDenied("Currently limited to superusers")
-        if entity_id.startswith("group:"):
-            entities = [self._get_group(entity_id.split(":")[-1]).entity_id, ]
-        elif entity_id.startswith("account:"):
-            account = self._get_account(entity_id.split(":")[-1])
-            group = self.Group_class(self.db)
-            entities = [account.entity_id]
-            entities.extend([x["group_id"] for x in
-                            group.search(member_id=account.entity_id,
-                                         indirect_members=False)])
-        else:
-            if not entity_id.isdigit():
-                raise CerebrumError("Expected entity-id")
-            entities = [int(entity_id)]
-        bar = BofhdAuthRole(self.db)
-        ret = []
-        for r in bar.list(entities):
-            ret.append({'entity_id': self._get_entity_name(r['entity_id']),
-                        'op_set_id': self.num2op_set_name[int(r['op_set_id'])],
-                        'op_target_id': r['op_target_id']})
-        return ret
-
-    #
-    # perm grant
-    #
-    all_commands['perm_grant'] = Command(
-        ("perm", "grant"),
-        Id(),
-        SimpleString(help_ref="string_op_set"),
-        Id(help_ref="id:op_target"),
-        perm_filter='is_superuser')
-
-    def perm_grant(self, operator, entity_id, op_set_name, op_target_id):
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise PermissionDenied("Currently limited to superusers")
-        bar = BofhdAuthRole(self.db)
-        aos = BofhdAuthOpSet(self.db)
-        aos.find_by_name(op_set_name)
-
-        bar.grant_auth(entity_id, aos.op_set_id, op_target_id)
-        return "OK, granted %s@%s to %s" % (op_set_name, op_target_id,
-                                            entity_id)
-
-    #
-    # perm revoke
-    #
-    all_commands['perm_revoke'] = Command(
-        ("perm", "revoke"),
-        Id(),
-        SimpleString(help_ref="string_op_set"),
-        Id(help_ref="id:op_target"),
-        perm_filter='is_superuser')
-
-    def perm_revoke(self, operator, entity_id, op_set_name, op_target_id):
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise PermissionDenied("Currently limited to superusers")
-        bar = BofhdAuthRole(self.db)
-        aos = BofhdAuthOpSet(self.db)
-        aos.find_by_name(op_set_name)
-        bar.revoke_auth(entity_id, aos.op_set_id, op_target_id)
-        return "OK, revoked  %s@%s from %s" % (op_set_name, op_target_id,
-                                               entity_id)
-
-    #
-    # perm who_has_perm
-    #
-    all_commands['perm_who_has_perm'] = Command(
-        ("perm", "who_has_perm"),
-        SimpleString(help_ref="string_op_set"),
-        fs=FormatSuggestion(
-            "%-8s %-8s %-8i", ("entity_id", "op_set_id", "op_target_id"),
-            hdr="%-8s %-8s %-8s" % ("entity_id", "op_set_id", "op_target_id")
-        ),
-        perm_filter='is_superuser')
-
-    def perm_who_has_perm(self, operator, op_set_name):
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise PermissionDenied("Currently limited to superusers")
-        aos = BofhdAuthOpSet(self.db)
-        aos.find_by_name(op_set_name)
-        bar = BofhdAuthRole(self.db)
-        ret = []
-        for r in bar.list(op_set_id=aos.op_set_id):
-            ret.append({'entity_id': self._get_entity_name(r['entity_id']),
-                        'op_set_id': self.num2op_set_name[int(r['op_set_id'])],
-                        'op_target_id': r['op_target_id']})
-        return ret
-
-    #
-    # perm who_owns
-    #
-    all_commands['perm_who_owns'] = Command(
-        ("perm", "who_owns"),
-        Id(help_ref="id:entity_ext"),
-        fs=FormatSuggestion(
-            "%-8s %-8s %-8i", ("entity_id", "op_set_id", "op_target_id"),
-            hdr="%-8s %-8s %-8s" % ("entity_id", "op_set_id", "op_target_id")
-        ),
-        perm_filter='is_superuser')
-
-    def perm_who_owns(self, operator, id):
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise PermissionDenied("Currently limited to superusers")
-        bar = BofhdAuthRole(self.db)
-        if id.startswith("group:"):
-            group = self._get_group(id.split(":")[-1])
-            aot = BofhdAuthOpTarget(self.db)
-            target_ids = []
-            for r in aot.list(target_type='group', entity_id=group.entity_id):
-                target_ids.append(r['op_target_id'])
-        elif id.startswith("account:"):
-            account = self._get_account(id.split(":")[-1])
-            disk = Utils.Factory.get('Disk')(self.db)
-            try:
-                tmp = account.get_home(self.const.spread_uio_nis_user)
-                disk.find(tmp[0])
-            except Errors.NotFoundError:
-                raise CerebrumError("Unknown disk for user")
-            aot = BofhdAuthOpTarget(self.db)
-            target_ids = []
-            for r in aot.list(target_type='global_host'):
-                target_ids.append(r['op_target_id'])
-            for r in aot.list(target_type='disk', entity_id=disk.entity_id):
-                target_ids.append(r['op_target_id'])
-            for r in aot.list(target_type='host', entity_id=disk.host_id):
-                if (not r['attr'] or re.match(r['attr'],
-                                              disk.path.split("/")[-1])):
-                    target_ids.append(r['op_target_id'])
-        else:
-            if not id.isdigit():
-                raise CerebrumError("Expected target-id")
-            target_ids = [int(id)]
-        if not target_ids:
-            raise CerebrumError("No target_ids for %s" % id)
-        ret = []
-        for r in bar.list_owners(target_ids):
-            ret.append({'entity_id': self._get_entity_name(r['entity_id']),
-                        'op_set_id': self.num2op_set_name[int(r['op_set_id'])],
-                        'op_target_id': r['op_target_id']})
-        return ret
 
     #
     # person accounts
@@ -6198,6 +5899,42 @@ class OuCommands(bofhd_ou_cmds.OuCommands):
 
 class PasswordIssuesCommands(bofhd_pw_issues.BofhdExtension):
     authz = bofhd_auth.PasswordIssuesAuth
+
+
+class PermCommands(bofhd_perm_cmds.BofhdPermCommands):
+    authz = bofhd_auth.PermAuth
+
+    def _find_target_ids(self, entity):
+        """ Find all targets that cause "ownership" of entity. """
+        target_ids = super(PermCommands, self)._find_target_ids(entity)
+
+        aot = bofhd_auth.BofhdAuthOpTarget(self.db)
+
+        # uio-specific disk ownership:
+        # Anyone who has privileged access to a disk also has privileged
+        # acccess to accounts with homedirs there
+        if entity.entity_type == self.const.entity_account:
+            disk = Utils.Factory.get('Disk')(self.db)
+            try:
+                tmp = entity.get_home(self.const.spread_uio_nis_user)
+                disk.find(tmp['disk_id'])
+            except Errors.NotFoundError:
+                self.logger.warn("Unknown disk for account_id=%r",
+                                 entity.entity_id)
+                return target_ids
+
+            for r in aot.list(target_type='global_host'):
+                target_ids.add(r['op_target_id'])
+
+            for r in aot.list(target_type='disk',
+                              entity_id=int(disk.entity_id)):
+                target_ids.add(r['op_target_id'])
+
+            for r in aot.list(target_type='host', entity_id=int(disk.host_id)):
+                if (not r['attr'] or re.match(r['attr'],
+                                              disk.path.split("/")[-1])):
+                    target_ids.add(r['op_target_id'])
+        return target_ids
 
 
 class QuarantineCommands(bofhd_quarantines.BofhdQuarantineCommands):
