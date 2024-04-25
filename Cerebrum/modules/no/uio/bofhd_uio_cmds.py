@@ -1648,7 +1648,6 @@ class BofhdExtension(BofhdCommonMethods):
         perm_filter='can_search_group')
 
     def group_search(self, operator, filter):
-        self.ba.can_search_group(operator.get_entity_id(), filter=filter)
         group = self.Group_class(self.db)
         if filter == "":
             raise CerebrumError("No filter specified")
@@ -1663,12 +1662,15 @@ class BofhdExtension(BofhdCommonMethods):
             else:
                 filter_type = 'name'
                 pattern = rule
+                filter = filter_type + ':' + pattern
             if filter_type not in filters:
                 raise CerebrumError("Unknown filter type: %r" % filter_type)
             filters[filter_type] = pattern
         if filters['name'] == '*' and len(rules) == 1:
             raise CerebrumError("Please provide a more specific filter")
         # remap code_str to the actual constant object (the API requires it)
+
+        self.ba.can_search_group(operator.get_entity_id(), filter=filter)
         if filters['spread']:
             filters['spread'] = self._get_constant(self.const.Spread,
                                                    filters["spread"])
