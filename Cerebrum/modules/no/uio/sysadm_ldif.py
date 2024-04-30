@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2020-2022 University of Oslo, Norway
+# Copyright 2020-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -21,20 +20,27 @@
 """
 OrgLDIF module for generating a sysadm ldif.
 """
-from __future__ import print_function, unicode_literals
-
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import logging
 
 from Cerebrum.Utils import make_timer
 from Cerebrum.modules.feide.ldif_mixins import NorEduAuthnLevelMixin
 from Cerebrum.modules.no.OrgLDIF import NorEduSmsAuthnMixin
+from Cerebrum.modules.no.OrgLDIF import OrgLdifEntitlementsMixin
 
 from . import sysadm_utils
 
 logger = logging.getLogger(__name__)
 
 
-class SysAdmOrgLdif(NorEduAuthnLevelMixin, NorEduSmsAuthnMixin):
+class SysAdmOrgLdif(NorEduAuthnLevelMixin,
+                    NorEduSmsAuthnMixin,
+                    OrgLdifEntitlementsMixin):
     """
     Mixin for exporting system administrator accounts (*-drift).
 
