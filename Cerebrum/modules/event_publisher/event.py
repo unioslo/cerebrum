@@ -1,6 +1,6 @@
 # encoding: utf-8
 #
-# Copyright 2017-2023 University of Oslo, Norway
+# Copyright 2017-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,12 +17,25 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" An abstract event that can be stored in the database. """
+"""
+Events that can be queued in the events table.
+
+This module defines the :class:`.Event`, an abstract notification event that we
+can store in the *events* table for later publishing.
+
+The event stores data that is de-coupled from the rest of the database.  This
+includes re-mapping our *change type* to :class:`.EventType`, and referring to
+cerebrum entities with :class:`.EntityRef` objects.
+
+The *Event* object should contain all neccessary data for the messages that are
+to be published, as we don't want to look up (potentially out-of-date) data
+when publishing these events.
+"""
 from __future__ import (
     absolute_import,
     division,
     print_function,
-    # TODO: unicode_literals,
+    unicode_literals,
 )
 
 import itertools
@@ -50,7 +63,7 @@ class _VerbSingleton(type):
 
 @six.add_metaclass(_VerbSingleton)
 class EventType(reprutils.ReprFieldMixin):
-    """Holds an event type."""
+    """ The event type definition - each *verb* results in a singleton. """
 
     __slots__ = ('verb', 'description')
 
@@ -76,51 +89,63 @@ class EventType(reprutils.ReprFieldMixin):
         return hash(self.verb)
 
 
-# Define event types:
+# Define common event types:
 
-ADD = EventType('add', 'Add an object to subject')
-CREATE = EventType('create', 'Create a new subject')
-ACTIVATE = EventType('activate', 'Subject has no longer quarantines in system')
-MODIFY = EventType('modify', 'Attributes has changed')
-DEACTIVATE = EventType('deactivate', 'Quarantine is activated')
-DELETE = EventType('delete', 'Subject is deleted')
-REMOVE = EventType('remove', 'Remove an object from subject')
-PASSWORD = EventType('password', 'Subject has changed password')
-JOIN = EventType('join', 'Join two objects')
+CREATE = EventType("create", "Create a new subject")
+MODIFY = EventType("modify", "Attributes has changed")
+DELETE = EventType("delete", "Subject is deleted")
+
+ACTIVATE = EventType("activate", "Subject has no longer quarantines in system")
+DEACTIVATE = EventType("deactivate", "Quarantine is activated")
+
+ADD = EventType("add", "Add an object to subject")
+REMOVE = EventType("remove", "Remove an object from subject")
+
+PASSWORD = EventType("password", "Subject has changed password")
+JOIN = EventType("join", "Join two objects")
 
 
-class EntityRef(object):
-    """ Representation of a single entity.
-
-    The entity_id can be used internally to identify which object we reference
-
-    The entity_type and ident is used to generate a reference to the object
-    that other systems can use.
+class EntityRef(reprutils.ReprFieldMixin):
     """
+    Representation of a single subject or object.
 
-    __slots__ = ('ident', 'entity_type', 'entity_id')
+    The *entity_id* can be used internally to identify which subject or object
+    an Event refers to.
+
+    The *entity_type* and *ident* is used to generate a reference to the
+    subject or object for other systems.
+    """
+    __slots__ = ('_values',)
+    fields = ('entity_id', 'entity_type', 'ident')
+
+    repr_id = False
+    repr_module = False
+    repr_fields = fields
 
     def __init__(self, entity_id, entity_type, ident):
-        self.entity_id = int(entity_id)
-        self.entity_type = entity_type
-        self.ident = ident
+        self._values = (int(entity_id), entity_type, ident)
 
-    def __repr__(self):
-        return ("<{0.__class__.__name__}"
-                " id={0.entity_id!r}"
-                " type={0.entity_type!r}"
-                " ident={0.ident!r}>").format(self)
+    @property
+    def entity_id(self):
+        return self._values[0]
+
+    @property
+    def entity_type(self):
+        return self._values[1]
+
+    @property
+    def ident(self):
+        return self._values[2]
+
+    def __hash__(self):
+        return hash(self._values)
 
     def __eq__(self, other):
         return (isinstance(other, EntityRef) and
                 self.entity_id == other.entity_id)
 
     def to_dict(self):
-        return {
-            'ident': self.ident,
-            'entity_id': self.entity_id,
-            'entity_type': self.entity_type,
-        }
+        return dict(zip(self.fields, self._values))
 
 
 class DateTimeDescriptor(reprutils.ReprEvalMixin):
