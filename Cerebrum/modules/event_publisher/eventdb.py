@@ -1,6 +1,6 @@
 # encoding: utf-8
 #
-# Copyright 2017-2021 University of Oslo, Norway
+# Copyright 2017-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,9 +18,14 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ mod_events database accessor. """
-from __future__ import absolute_import
-
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import json
+
 import six
 
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
@@ -56,15 +61,15 @@ class EventsAccessor(DatabaseAccessor):
         """
         binds = dict()
         query = """
-        INSERT INTO [:table schema=cerebrum name=events]
-          (event_id, event_type, schedule,
-           subject_id, subject_ident, subject_type,
-           event_data)
-        VALUES
-          (:event_id, :event_type, :schedule,
-           :subject_id, :subject_ident, :subject_type,
-           :event_data)
-        RETURNING event_id
+          INSERT INTO [:table schema=cerebrum name=events]
+            (event_id, event_type, schedule,
+             subject_id, subject_ident, subject_type,
+             event_data)
+          VALUES
+            (:event_id, :event_type, :schedule,
+             :subject_id, :subject_ident, :subject_type,
+             :event_data)
+          RETURNING event_id
         """
 
         binds['event_id'] = int(self.nextval('events_seq'))
@@ -80,19 +85,21 @@ class EventsAccessor(DatabaseAccessor):
     def get_event(self, event_id):
         return self.query_1(
             """
-            SELECT * FROM [:table schema=cerebrum name=events]
-            WHERE event_id = :event_id
+              SELECT * FROM [:table schema=cerebrum name=events]
+              WHERE event_id = :event_id
             """,
-            {'event_id': int(event_id)})
+            {'event_id': int(event_id)},
+        )
 
     def delete_event(self, event_id):
         return self.query_1(
             """
-            DELETE FROM [:table schema=cerebrum name=events]
-            WHERE event_id = :event_id
-            RETURNING event_id
+              DELETE FROM [:table schema=cerebrum name=events]
+              WHERE event_id = :event_id
+              RETURNING event_id
             """,
-            {'event_id': int(event_id)})
+            {'event_id': int(event_id)},
+        )
 
     def lock_event(self, event_id):
         """Lock an event for processing.
@@ -104,13 +111,14 @@ class EventsAccessor(DatabaseAccessor):
         """
         return self.query_1(
             """
-            UPDATE [:table schema=cerebrum name=events]
-            SET taken_time = now()
-            WHERE event_id = :event_id
-            AND taken_time IS NULL
-            RETURNING event_id
+              UPDATE [:table schema=cerebrum name=events]
+              SET taken_time = now()
+              WHERE event_id = :event_id
+              AND taken_time IS NULL
+              RETURNING event_id
             """,
-            {'event_id': int(event_id)})
+            {'event_id': int(event_id)},
+        )
 
     def release_event(self, event_id):
         """Release a locked/taken event.
@@ -125,20 +133,23 @@ class EventsAccessor(DatabaseAccessor):
         """
         self.query_1(
             """
-            UPDATE [:table schema=cerebrum name=events]
-            SET taken_time = NULL
-            WHERE event_id = :event_id
-            RETURNING event_id
+              UPDATE [:table schema=cerebrum name=events]
+              SET taken_time = NULL
+              WHERE event_id = :event_id
+              RETURNING event_id
             """,
-            {'event_id': int(event_id)})
+            {'event_id': int(event_id)},
+        )
 
     def release_all(self):
         """Release all locked events."""
         self.execute(
             """
-            UPDATE [:table schema=cerebrum name=events]
-            SET taken_time = NULL
-            WHERE taken_time IS NOT NULL""")
+              UPDATE [:table schema=cerebrum name=events]
+              SET taken_time = NULL
+              WHERE taken_time IS NOT NULL
+            """,
+        )
 
     def fail_count_inc(self, event_id):
         """ Increment the failed count on an event
@@ -150,12 +161,13 @@ class EventsAccessor(DatabaseAccessor):
         """
         self.query_1(
             """
-            UPDATE [:table schema=cerebrum name=events]
-            SET failed = failed + 1
-            WHERE event_id = :event_id
-            RETURNING event_id
+              UPDATE [:table schema=cerebrum name=events]
+              SET failed = failed + 1
+              WHERE event_id = :event_id
+              RETURNING event_id
             """,
-            {'event_id': int(event_id)})
+            {'event_id': int(event_id)},
+        )
 
     def fail_count_reset(self, event_id):
         """Reset the failed count on an event
@@ -167,12 +179,13 @@ class EventsAccessor(DatabaseAccessor):
         """
         return self.query_1(
             """
-            UPDATE [:table schema=cerebrum name=events]
-            SET failed = 0
-            WHERE event_id = :event_id
-            RETURNING event_id
+              UPDATE [:table schema=cerebrum name=events]
+              SET failed = 0
+              WHERE event_id = :event_id
+              RETURNING event_id
             """,
-            {'event_id': int(event_id)})
+            {'event_id': int(event_id)},
+        )
 
     def get_unprocessed(
             self,
@@ -204,8 +217,8 @@ class EventsAccessor(DatabaseAccessor):
         :return: A sequence of unprocessed database rows
         """
         query_fmt = """
-        SELECT * FROM [:table schema=cerebrum name=events]
-        {where!s}
+          SELECT * FROM [:table schema=cerebrum name=events]
+          {where}
         """
         binds = dict()
         criteria = list()
@@ -246,21 +259,26 @@ class EventsAccessor(DatabaseAccessor):
 def from_row(row):
     """ Initialize object from a dbrow-like dict. """
     event_type = EventType.get_verb(row['event_type'])
-    init = {'subject': EntityRef(row['subject_id'],
-                                 row['subject_type'],
-                                 row['subject_ident']),
-            'timestamp': row['timestamp'],
-            'scheduled': row['schedule'], }
+    init = {
+        'subject': EntityRef(
+            row['subject_id'],
+            row['subject_type'],
+            row['subject_ident'],
+        ),
+        'timestamp': row['timestamp'],
+        'scheduled': row['schedule'],
+    }
 
+    event_data = None
     if row['event_data']:
         event_data = json.loads(row['event_data'])
-    else:
-        event_data = dict()
+    if event_data is None:
+        event_data = {}
 
-    init['objects'] = [EntityRef(o['object_id'],
-                                 o['object_type'],
-                                 o['object_ident'])
-                       for o in event_data.get('objects', [])]
+    init['objects'] = [
+        EntityRef(o['object_id'], o['object_type'], o['object_ident'])
+        for o in event_data.get('objects', [])
+    ]
 
     for keyword in ('attributes', 'context'):
         init[keyword] = event_data.get(keyword) or None
