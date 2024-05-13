@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2015-2017 University of Oslo, Norway
+# Copyright 2015-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,14 +18,33 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" Module used by publisher to convert 'raw' events into exportable messages.
-
-General idea: The eventlog module creates a dict containing the message data.
-Then the EventFilter is called with the data, and generates Event objects that
-can be formatted and published.
-
 """
-from __future__ import absolute_import, print_function
+Module used by publisher to convert 'raw' events into exportable messages.
+
+This module contains mappers to turn changelog records into events for
+publishing.
+
+General behaviour:
+
+1. :class:`.eventlog.EventLog` uses :class:`.EventFilter` to create an
+   :class:`.event.Event` object.
+
+2. The *EventFilter* calls the appropriate filter function for the change type
+
+3. If the filter function returns an Event object, then an event is queued for
+   publishing - otherwise the changelog won't result in an event
+
+Note that the individual event may be *merged* with other events, outside the
+control of this module.  E.g. an entity *create* followed by an entity *modify*
+will be turned into a single entity *create* if it all happens in a single
+transaction.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import datetime
 import logging
@@ -35,10 +54,11 @@ from collections import OrderedDict
 import six
 
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.event_publisher.utils import get_entity_ref
 from Cerebrum.utils.date import parse_datetime
 from Cerebrum.utils.date_compat import get_datetime_tz
+
 from . import event
+from .utils import get_entity_ref
 
 logger = logging.getLogger(__name__)
 
@@ -89,7 +109,8 @@ class EventFilter(object):
         self.db = db
 
     def __call__(self, message, change_type, **kwargs):
-        """ Generate an event.
+        """
+        Generate an event.
 
         :param dict message: Message data.
         :param ChangeTypeCode change_type: The change type.
@@ -171,12 +192,12 @@ def _rename_key(msg, field, new_field):
 
 def _make_common_args(msg):
     """ prepare common data from msg into kwargs for Event. """
-    common_args = dict()
+    common_args = {}
     for k in ('subject', 'objects', 'context', ):
         if msg.get(k):
             common_args[k] = msg[k]
     try:
-        schedule = msg.get('data', dict()).get('schedule')
+        schedule = (msg.get('data') or {}).get('schedule')
     except AttributeError:
         pass
     else:
@@ -442,7 +463,7 @@ def _parse_quarantine_add_start(rawstr):
 def quarantine_add(msg, **kwargs):
     common = _make_common_args(msg)
     start = msg['data'].get('start')
-    if isinstance(start, (str, unicode, )):
+    if isinstance(start, six.string_types):
         try:
             start = _parse_quarantine_add_start(start)
         except ValueError:
@@ -468,8 +489,13 @@ def quarantine_del(msg, **kwargs):
 
 @EventFilter.register('quarantine', 'modify')
 def quarantine_mod(msg, **kwargs):
-    # TBD: Is this really ACTIVATE? Or is it DEACTIVATE? Is this relative to
-    # the point in time the quarantine should be enforced?
+    # TODO: This should be re-worked.  Depending on the previous value and the
+    # current disable date, this could be any combination of:
+    #
+    # - no event:  E.g. the user was deactivated, still is deactivated
+    # - one event:  E.g. deactivate because we remove a disable-until date
+    # - two events:  E.g. activate because we set disable-until, and schedule
+    #                a deactivate because of the future disable-until date
     common = _make_common_args(msg)
     return event.Event(event.ACTIVATE,
                        **common)
@@ -502,18 +528,42 @@ def group_rem(msg, **kwargs):
 @EventFilter.register('group', 'modify')
 def group_mod(msg, **kwargs):
     common = _make_common_args(msg)
+
+    attrs = set()
+    for key in (msg.get('data') or {}):
+        # TODO: Because of how the `Group.write_db()` calls `log_change`, the
+        # attributes are named `old_*`, where `*` is the actual attribute.  We
+        # should probably fix this, but we don't know if any consumer is built
+        # to look at these incorrectly named attributes:
+        #
+        # if key != "old_" and key.startswith("old_"):
+        #     attrs.add(key[4:])
+        # else:
+        #     attrs.add(key)
+        #
+        attrs.add(key)
+
     return event.Event(event.MODIFY,
-                       attributes=msg.get('data', []),
+                       attributes=attrs,
                        **common)
 
 
 @EventFilter.register('group', 'delete')
-def group_destroy(msg, **kwargs):
+def group_destroy(msg, db=None, **kwargs):
+    co = Factory.get('Constants')(db)
     common = _make_common_args(msg)
-    # We may be missing some data here, as it has been deleted, so let's
-    # manipulate the 'subject' part of our message.
-    common['subject'].ident = msg.get('data', {}).get('name', None)
-    common['subject'].entity_type = 'group'
+
+    # We may be missing some data here, as we build the subject part from
+    # potentially deleted data.  However, we know the entity type, and the
+    # `log_change` call usually includes the actual group name:
+    #
+    group_name = msg.get('data', {}).get('name', None)
+    common['subject'] = event.EntityRef(
+        common['subject'].entity_id,
+        six.text_type(co.entity_group),
+        group_name or common['subject'].ident,
+    )
+
     return event.Event(event.DELETE,
                        **common)
 

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2016-2023 University of Oslo, Norway
+# Copyright 2016-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,10 +18,13 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
-Implementation of SCIM messages.
+SCIM message formatters for event-publisher events.
+
+This module implements a configurable formatter that can generate routing key
+and SCIM message body for events in the event publisher queue.
 
 See `<https://tools.ietf.org/html/draft-hunt-idevent-scim-00#section-2.2>`_ for
-more info.
+more info on SCIM event messages.
 """
 from __future__ import (
     absolute_import,
@@ -46,62 +49,76 @@ from Cerebrum.utils import text_compat
 
 
 class EntityTypeToApiRouteMapConfig(Configuration):
-    """Configuration for Entity Type -> API Route"""
-
+    """
+    Configuration for mapping subject entity type to subject api url.
+    """
     entity = ConfigDescriptor(
         String,
-        default='entities',
-        doc='API Route for entities')
+        default="entities",
+        doc="API URL slug for the entity collection",
+    )
 
     person = ConfigDescriptor(
         String,
-        default='persons',
-        doc='API Route for person entities')
+        default="persons",
+        doc="API URL slug for the person collection",
+    )
 
     account = ConfigDescriptor(
         String,
-        default='accounts',
-        doc='API Route for account entities')
+        default="accounts",
+        doc="API URL slug for the account collection",
+    )
 
     group = ConfigDescriptor(
         String,
-        default='groups',
-        doc='API Route for group entities')
+        default="groups",
+        doc="API URL slug for the group collection",
+    )
 
     ou = ConfigDescriptor(
         String,
-        default='ous',
-        doc='API Route for OU entities')
+        default="ous",
+        doc="API URL slug for the org unit collection",
+    )
 
 
 class ScimFormatterConfig(Configuration):
-    """Configuration for scim events"""
+    """ Configuration for scim event messages. """
 
     issuer = ConfigDescriptor(
         String,
-        default='cerebrum',
-        doc='Issuer field in scim')
+        default="cerebrum",
+        doc="Issuer field in SCIM event messages",
+    )
 
     urltemplate = ConfigDescriptor(
         String,
-        default='https://cerebrum.example.com/v1/{entity_type}/{entity_id}',
-        doc='Format string for URL (use {entity_type} and {entity_id} as '
-            'placeholders')
+        default="https://cerebrum.example.com/v1/{entity_type}/{entity_id}",
+        doc=(
+            "Template URL to an entity"
+            " (format string with placeholders {entity_type} and {entity_id})"
+        ),
+    )
 
     keytemplate = ConfigDescriptor(
         String,
-        default='no.uio.cerebrum.scim.{entity_type}.{event}',
-        doc=('Format string for routing key (use {entity_type} and {event} '
-             'as placeholders'))
+        default="no.uio.cerebrum.scim.{entity_type}.{event}",
+        doc=(
+            "Template routing key for events"
+            " (format string with placeholders {entity_type} and {event})"
+        ),
+    )
 
     entity_type_map = ConfigDescriptor(
         Namespace,
-        config=EntityTypeToApiRouteMapConfig)
+        config=EntityTypeToApiRouteMapConfig,
+    )
 
     uri_prefix = ConfigDescriptor(
         String,
-        default='urn:ietf:params:event:SCIM',
-        doc='Default URI Prefix for SCIM-events'
+        default="urn:ietf:params:event:SCIM",
+        doc="URI prefix for SCIM events",
     )
 
 
