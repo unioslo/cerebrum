@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2002-2022 University of Oslo, Norway
+# Copyright 2002-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -39,6 +39,12 @@ py:meth:`.AuthBaseClass.verify(plaintext, cryptstring)`
     cryptstring must be unicode/text objects.
 
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import base64
 import crypt
 import hashlib
@@ -106,7 +112,7 @@ def crypt_bytes(plaintext, salt, encoding='utf-8'):
     return to_text(cryptstring)
 
 
-_crypt_salt_chars = to_bytes(string.ascii_letters + string.digits + "./")
+_crypt_salt_chars = string.ascii_letters + string.digits + "./"
 
 
 def generate_salt(length, prefix=''):
@@ -123,14 +129,14 @@ def generate_salt(length, prefix=''):
     :returns bytes:
         Returns a salt bytestring.
     """
-    prefix = to_bytes(prefix)
     # Create a local random object for increased randomness:
     # > Use os.urandom() or SystemRandom if you require a
     # > cryptographically secure pseudo-random number generator.
     # > - <docs.python.org/2.7/library/random.html#random.SystemRandom>
     lrandom = random.SystemRandom()
-    salt = b''.join([lrandom.choice(_crypt_salt_chars) for _ in range(length)])
-    return prefix + salt
+    salt = "".join(lrandom.choice(_crypt_salt_chars)
+                   for _ in range(length))
+    return to_bytes(prefix + salt)
 
 
 class AuthBaseClass(object):
