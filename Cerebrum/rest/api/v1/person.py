@@ -38,7 +38,7 @@ from Cerebrum.modules.otp.otp_types import (PersonOtpUpdater,
 from Cerebrum.modules.otp.otp_db import sql_search
 
 from Cerebrum.rest.api import db, auth, fields, utils, validator
-from Cerebrum.rest.api.v1 import models
+from Cerebrum.rest.api.v1 import group, models
 
 api = Namespace('persons', description='Person operations')
 
@@ -350,6 +350,51 @@ class PersonAddressListResource(Resource):
             del addr['entity_id']
             data.append(addr)
         return data
+
+
+@api.route('/<int:id>/groups')
+@api.doc(params={'id': 'Person entity ID'})
+class PersonGroupListResource(Resource):
+    """Resource for person group memberships."""
+
+    person_groups_filter = api.parser()
+    person_groups_filter.add_argument(
+        'indirect_memberships',
+        type=utils.str_to_bool,
+        dest='indirect_members',
+        help='If true, include indirect group memberships.')
+    person_groups_filter.add_argument(
+        'filter_expired',
+        type=utils.str_to_bool,
+        help='If false, include expired groups.')
+    person_groups_filter.add_argument(
+        'expired_only',
+        type=utils.str_to_bool,
+        help='If true, only include expired groups.')
+
+    @api.marshal_with(group.GroupListItem, as_list=True, envelope='groups')
+    @api.doc(expect=[person_groups_filter])
+    @auth.require()
+    def get(self, id):
+        """List groups a person is a member of."""
+        pe = find_person(id)
+        args = self.person_groups_filter.parse_args()
+        filters = {key: value for (key, value) in args.items()
+                   if value is not None}
+        filters['member_id'] = pe.entity_id
+
+        gr = Factory.get('Group')(db.connection)
+
+        groups = list()
+        for row in gr.search(**filters):
+            group = dict(row)
+            group.update({
+                'id': group['name'],
+                'name': group['name'],
+                'description': group['description']
+            })
+            groups.append(group)
+        return groups
 
 
 @api.route('/<int:id>/otp/default', endpoint='person-otp-secret')
