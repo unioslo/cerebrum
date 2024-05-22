@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2018 University of Oslo, Norway
+# Copyright 2018-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -46,9 +46,13 @@ class UnicodeType(object):
 
     def get_default_encoding(self):
         """ guess encoding for arguments. """
-        return filter(None, [locale.getdefaultlocale()[1],
-                             sys.getfilesystemencoding(),
-                             sys.getdefaultencoding()]).pop(0)
+        return [
+            encoding
+            for encoding in (
+                locale.getdefaultlocale()[1],
+                sys.getfilesystemencoding(),
+                sys.getdefaultencoding(),
+            ) if encoding][0]
 
     def __call__(self, value):
         if isinstance(value, bytes):
@@ -211,6 +215,19 @@ class ExtendAction(argparse.Action):
 
     This means that the `type` argument should be set to something that returns
     a sequence of items to add to the namespace value.
+
+    This action should generally *not* be used in new scripts, as it's
+    preferrable to use multiple append-actions to achieve the same result.
+    This is mainly to preserve backwards compatibility in legacy scripts.
+
+    Example:
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            '--items',
+            dest='items',
+            action=ExtendAction,
+            type=str.split(','),
+        )
     """
 
     def __init__(self, option_strings, dest, default=None, type=None,
@@ -221,7 +238,7 @@ class ExtendAction(argparse.Action):
             nargs=None,
             const=None,
             default=default,
-            type=type or (lambda x: x),
+            type=type,
             choices=None,
             required=required,
             help=help,
@@ -230,7 +247,7 @@ class ExtendAction(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):
         items = list(getattr(namespace, self.dest, None) or ())
         items.extend(values)
-        setattr(namespace, self.dest, self.type(items))
+        setattr(namespace, self.dest, items)
 
 
 class ExtendConstAction(argparse.Action):
@@ -244,12 +261,14 @@ class ExtendConstAction(argparse.Action):
             '--preset-a',
             dest='items',
             action=ExtendConstAction,
-            const=['foo', 'bar', 'baz'])
+            const=['foo', 'bar', 'baz'],
+        )
         parser.add_argument(
             '--preset-b',
             dest='items',
             action=ExtendConstAction,
-            const=['bar', 'baz'])
+            const=['bar', 'baz'],
+        )
     """
 
     def __init__(self, option_strings, dest, const, default=None,
@@ -261,8 +280,8 @@ class ExtendConstAction(argparse.Action):
             dest=dest,
             nargs=0,
             const=const,
-            default=default or [],
-            type=type or (lambda x: x),
+            default=default,
+            type=type,
             choices=None,
             required=required,
             help=help,
@@ -271,7 +290,7 @@ class ExtendConstAction(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):
         items = list(getattr(namespace, self.dest, None) or ())
         items.extend(self.const)
-        setattr(namespace, self.dest, self.type(items))
+        setattr(namespace, self.dest, items)
 
 
 def add_commit_args(parser, default=False, commit_desc=None):
@@ -288,12 +307,19 @@ def add_commit_args(parser, default=False, commit_desc=None):
         '--dryrun',
         dest='commit',
         action='store_false',
-        help='Run in dryrun mode' + ('' if default else ' (default)'))
+        help="{msg}{default_hint}".format(
+            msg="Run in dryrun mode",
+            default_hint=("" if default else " (default)"),
+        ),
+    )
     commit_mutex.add_argument(
         '--commit',
         dest='commit',
         action='store_true',
-        help=(commit_desc or 'Commit changes to the database') + (
-            '' if not default else ' (default)'))
+        help="{msg}{default_hint}".format(
+            msg=(commit_desc or "Commit changes to the database"),
+            default_hint=(" (default)" if default else ""),
+        ),
+    )
     commit_mutex.set_defaults(commit=default)
     return parser
