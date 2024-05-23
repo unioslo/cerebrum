@@ -50,13 +50,13 @@ GUEST_MAX_DAYS = 30
 # A group to be used as the owner of all guest acocunts by default.  Any member
 # of this group is given superuser-like permissions over guest accounts.
 #
-# This group should *not* be used to indicate who is responsible for the guest -
-# this is done in a separate trait.
+# This group should *not* be used to indicate who is responsible for the guest
+# - this is done in a separate trait.
 #
 GUEST_OWNER_GROUP = "guestaccounts"
 
 
-# Geust type definitions.
+# Guest type definitions.
 #
 # Defines guest account name prefixes, and guest account default spreads.
 #
@@ -158,7 +158,7 @@ GUEST_MAX_LENGTH_USERNAME = 19
 
 # Require mobile number
 #
-# If set to True, new guest accounts *must* have an mobile number for
+# If set to True, new guest accounts *must* have a mobile number for
 # receiving SMS messages.
 #
 GUEST_REQUIRE_MOBILE = False

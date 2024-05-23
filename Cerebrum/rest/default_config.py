@@ -45,13 +45,13 @@ DRYRUN = False
 #
 # Default interface and port for dev servers
 #
-HOST = 'localhost'
+HOST = "localhost"
 PORT = 8000
 
 #
-# Flask appication name
+# Flask application name
 #
-APPNAME = 'cerebrum-rest'
+APPNAME = "cerebrum-rest"
 
 #
 # Disable 404 suggestions from flask-restplus
@@ -72,11 +72,11 @@ AUTH = [
     #   curl -H 'X-Key: example' ...
     #
     # {
-    #     'name': 'HeaderAuth',
-    #     'header': 'X-Key',
+    #     'name': "HeaderAuth",
+    #     'header': "X-Key",
     #     'keys': {
     #         # Valid header values, and which acocunt they should map to
-    #         'example': 'bootstrap_account',
+    #         # 'example': cereconf.INITIAL_ACCOUNTNAME,
     #     },
     # },
 
@@ -86,15 +86,17 @@ AUTH = [
     {
         'name': 'BasicAuth',
         'realm': cereconf.INSTITUTION_DOMAIN_NAME,
-        'whitelist': ['bootstrap_account'],
+        'whitelist': [
+            # cereconf.INITIAL_ACCOUNTNAME,
+        ],
     },
 
     # ApiSubscriptionAuth - authenticate using the `Cerebrum.modules.apikeys`
     # module.  This is used in production setups, along with *PROXY_AUTH*.
     #
     # {
-    #     'name': 'ApiSubscriptionAuth',
-    #     'header': 'X-Api-Subscription',
+    #     'name': "ApiSubscriptionAuth",
+    #     'header': "X-Api-Subscription",
     # },
 ]
 
@@ -105,7 +107,7 @@ AUTH = [
 # In these cases we would usually want the proxy authenticate itself.
 #
 # If `PROXY_AUTH['enable']` is set, *all* calls to the API will require Basic
-# auth with the provided usernaem and realm before regular auth is performed.
+# auth with the provided username and realm before regular auth is performed.
 # The proxy username and password is validated against a known username and
 # password in `cereconf.DB_AUTH_DIR`.
 #
@@ -114,3 +116,10 @@ PROXY_AUTH = {
     'username': "",
     'realm': "",
 }
+
+#
+# Trusted hosts
+# A list of known reverse-proxy IPs that we trust to set IP forwarding headers
+# correctly.  These IPs will be omitted from logs.
+#
+TRUSTED_HOSTS = []
