@@ -38,6 +38,7 @@ from Cerebrum.modules.bofhd import bofhd_contact_info
 from Cerebrum.modules.bofhd import bofhd_group_roles
 from Cerebrum.modules.bofhd import bofhd_misc_sms
 from Cerebrum.modules.bofhd import bofhd_ou_cmds
+from Cerebrum.modules.bofhd import bofhd_quarantines
 from Cerebrum.modules.bofhd import cmd_param
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
@@ -447,6 +448,14 @@ class _OuAuth(HiofAuth, bofhd_ou_cmds.OuAuth):
 
 class OuCommands(bofhd_ou_cmds.OuCommands):
     authz = _OuAuth
+
+
+class _QuarantineAuth(HiofAuth, bofhd_quarantines.BofhdQuarantineAuth):
+    pass
+
+
+class QuarantineCommands(bofhd_quarantines.BofhdQuarantineCommands):
+    authz = _QuarantineAuth
 
 
 class _SmsAuth(HiofAuth, bofhd_misc_sms.BofhdSmsAuth):
