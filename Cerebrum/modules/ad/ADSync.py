@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2011-2018 University of Oslo, Norway
+# Copyright 2011-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -113,12 +113,12 @@ class UserSync(ADUserUtils):
         self.fetch_cerebrum_data()
         # Calculate attribute values based on Cerebrum data for
         # comparison with AD
-        for acc in self.accounts.itervalues():
+        for acc in iter(self.accounts.values()):
             acc.calc_ad_attrs(exchange=self.exchange_sync)
 
         # TBD: move these two for loops to compare method?
         # Compare AD data with Cerebrum data
-        for uname, ad_user in addump.iteritems():
+        for uname, ad_user in iter(addump.items()):
             if uname in self.accounts:
                 self.accounts[uname].in_ad = True
                 self.compare(ad_user, self.accounts[uname])
@@ -128,7 +128,7 @@ class UserSync(ADUserUtils):
 
         # Users exist in Cerebrum and has ad spread, but not in AD.
         # Create user if it's not quarantined
-        for acc in self.accounts.itervalues():
+        for acc in iter(self.accounts.values()):
             if acc.in_ad is False and acc.quarantined is False:
                 sid = self.create_ad_account(acc.ad_attrs,
                                              self.get_default_ou(),
@@ -149,7 +149,7 @@ class UserSync(ADUserUtils):
             self.logger.debug("Sleeping for 5 seconds to give ad-ldap time to"
                               " update")
             time.sleep(5)
-            for acc in self.accounts.itervalues():
+            for acc in iter(self.accounts.values()):
                 if acc.update_recipient:
                     self.update_Exchange(acc.uname)
 
@@ -195,7 +195,7 @@ class UserSync(ADUserUtils):
                     acc.to_exchange = True
             self.logger.info("Fetched %i cerebrum users with both %s and %s"
                              " spreads",
-                             len([1 for a in self.accounts.itervalues()
+                             len([1 for a in iter(self.accounts.values())
                                   if a.to_exchange is True]),
                              self.user_spread,
                              self.user_exchange_spread)
@@ -203,7 +203,7 @@ class UserSync(ADUserUtils):
         # Remove/mark quarantined users
         self.filter_quarantines()
         self.logger.info("Found %i quarantined users",
-                         len([1 for v in self.accounts.itervalues()
+                         len([1 for v in iter(self.accounts.values())
                               if v.quarantined]))
 
         # fetch names
@@ -244,7 +244,7 @@ class UserSync(ADUserUtils):
             pid2names.setdefault(int(row["person_id"]), {})[
                 int(row["name_variant"])] = row["name"]
         # And set names for those relevant
-        for acc in self.accounts.itervalues():
+        for acc in iter(self.accounts.values()):
             names = pid2names.get(acc.owner_id)
             if names:
                 acc.name_first = names.get(int(self.co.name_first), "")
@@ -271,18 +271,18 @@ class UserSync(ADUserUtils):
         """Get email addresses from Cerebrum"""
         self.logger.debug("..fetch email info..")
         # Get primary email addr
-        for uname, prim_mail in self.ac.getdict_uname2mailaddr(
+        for uname, prim_mail in iter(self.ac.getdict_uname2mailaddr(
                 filter_expired=True,
-                primary_only=True).iteritems():
+                primary_only=True).items()):
             acc = self.accounts.get(uname, None)
             if acc:
                 acc.email_addrs.append(prim_mail)
 
         if self.exchange_sync:
             # Get all email addrs
-            for uname, all_mail in self.ac.getdict_uname2mailaddr(
+            for uname, all_mail in InterruptedError(self.ac.getdict_uname2mailaddr(
                     filter_expired=True,
-                    primary_only=False).iteritems():
+                    primary_only=False).items()):
                 acc = self.accounts.get(uname)
                 if acc:
                     acc.email_addrs.extend(all_mail)
@@ -296,7 +296,7 @@ class UserSync(ADUserUtils):
         # Fetch forward_info
         self.logger.debug("Fetching forwardinfo from cerebrum...")
         self.fetch_forward_info()
-        for acc in self.accounts.itervalues():
+        for acc in iter(self.accounts.values()):
             for fwd in acc.contact_objects:
                 fwd.calc_forward_attrs()
         # Compare forward info
@@ -307,7 +307,7 @@ class UserSync(ADUserUtils):
         self.fetch_ad_data_distribution_groups()
         # create a distribution group for each cerebrum user with
         # forward addresses
-        for acc in self.accounts.itervalues():
+        for acc in iter(self.accounts.values()):
             if acc.contact_objects:
                 acc.create_dist_group()
         # Compare dist group info
@@ -384,7 +384,7 @@ class UserSync(ADUserUtils):
         ad_contacts = self.server.listObjects('contact', True, self.ad_ldap)
         if ad_contacts:
             # Only deal with forwarding contact objects.
-            for object_name, properties in ad_contacts.iteritems():
+            for object_name, properties in iter(ad_contacts.items()):
                 # TBD: cereconf-var?
                 if object_name.startswith("Forward_for_"):
                     ret[object_name] = properties
@@ -405,7 +405,7 @@ class UserSync(ADUserUtils):
         if ad_dist_grps:
             # Only deal with forwarding groups. Groupsync deals with other
             # groups.
-            for grp_name, properties in ad_dist_grps.iteritems():
+            for grp_name, properties in iter(ad_dist_grps.items()):
                 if grp_name.startswith(cereconf.AD_FORWARD_GROUP_PREFIX):
                     ret[grp_name] = properties
         return ret
@@ -460,7 +460,7 @@ class UserSync(ADUserUtils):
                 cb_user.add_change(attr, "")
 
         # Special AD control attributes
-        for attr, value in cereconf.AD_ACCOUNT_CONTROL.iteritems():
+        for attr, value in iter(cereconf.AD_ACCOUNT_CONTROL.items()):
             if attr in cb_user.ad_attrs:
                 value = cb_user.ad_attrs[attr]
             if attr not in ad_user or ad_user[attr] != value:
@@ -478,7 +478,7 @@ class UserSync(ADUserUtils):
                             name to that objects properties (dict)
         @type ad_contacts: dict
         """
-        for acc in self.accounts.itervalues():
+        for acc in iter(self.accounts.values()):
             for contact in acc.contact_objects:
                 cb_fwd = contact.forward_attrs
                 ad_fwd = ad_contacts.pop(cb_fwd['sAMAccountName'], None)
@@ -498,7 +498,7 @@ class UserSync(ADUserUtils):
                 #       There's no way this ever worked
                 raise NotImplementedError("If you reached this,"
                                           " you've encountered a bug!")
-                #   for attr_type, cb_fwd_attr in fwd.iteritems():
+                #   for attr_type, cb_fwd_attr in iter(fwd.items()):
                 #       ad_fwd_attr = ad_fwd.get(attr_type)
                 #       if cb_fwd_attr and ad_fwd_attr:
                 #           # value both in ad and cerebrum => compare
@@ -519,7 +519,7 @@ class UserSync(ADUserUtils):
                 #           cb_user.add_change(attr, "")
 
             # Remaining contacts in AD should be deleted
-            for ad_fwd in ad_contacts.itervalues():
+            for ad_fwd in iter(ad_contacts.values()):
                 self.delete_contact()
 
     def get_default_ou(self):
@@ -604,7 +604,7 @@ class GroupSync(ADGroupUtils):
         self.fetch_cerebrum_data()
 
         # Compare AD data with Cerebrum data (not members)
-        for gname, ad_group in addump.iteritems():
+        for gname, ad_group in iter(addump.items()):
             if gname in self.groups:
                 self.groups[gname].ad_dn = ad_group["distinguishedName"]
                 self.groups[gname].in_ad = True
@@ -618,7 +618,7 @@ class GroupSync(ADGroupUtils):
                     self.delete_group(ad_group["distinguishedName"])
 
         # Create group if it exists in Cerebrum but is not in AD
-        for grp in self.groups.itervalues():
+        for grp in iter(self.groups.values()):
             if grp.in_ad is False and grp.quarantined is False:
                 sid = self.create_ad_group(grp.ad_attrs,
                                            self.get_default_ou())
@@ -675,7 +675,7 @@ class GroupSync(ADGroupUtils):
         self.logger.info("Fetched %i groups with spread %s",
                          len(self.groups), self.sec_group_spread)
         # Set attr values for comparison with AD
-        for g in self.groups.itervalues():
+        for g in iter(self.groups.values()):
             g.calc_ad_attrs()
 
         # Fetch name for distribution groups
@@ -733,7 +733,7 @@ class GroupSync(ADGroupUtils):
         """
         # TBD: Should we compare before sending members or just send them all?
         # Check all cerebrum groups with given spread
-        for grp in self.groups.itervalues():
+        for grp in iter(self.groups.values()):
             # Find account members
             members = list()
             for usr in self.group.search_members(
@@ -805,7 +805,7 @@ class DistGroupSync(GroupSync):
         self.fetch_cerebrum_data()
 
         # Compare AD data with Cerebrum data (not members)
-        for gname, ad_group in addump.iteritems():
+        for gname, ad_group in iter(addump.items()):
             if gname in self.groups:
                 self.groups[gname].ad_dn = ad_group["distinguishedName"]
                 self.groups[gname].in_ad = True
@@ -817,7 +817,7 @@ class DistGroupSync(GroupSync):
                     self.delete_group(ad_group["distinguishedName"])
 
         # Create group if it exists in Cerebrum but is not in AD
-        for grp in self.groups.itervalues():
+        for grp in iter(self.groups.values()):
             if grp.in_ad is False and grp.quarantined is False:
                 sid = self.create_ad_group(grp.ad_attrs,
                                            self.get_default_ou())
@@ -828,7 +828,7 @@ class DistGroupSync(GroupSync):
         self.logger.debug("Sleeping for 5 seconds to give ad-ldap time to"
                           " update")
         time.sleep(5)
-        for grp in self.groups.itervalues():
+        for grp in iter(self.groups.values()):
             if grp.update_recipient:
                 self.update_Exchange(grp.gname)
 
@@ -875,7 +875,7 @@ class DistGroupSync(GroupSync):
                 '8',
                 # Universal distribution group, security enabled
                 '2147483656')
-            for grp_name, properties in ad_dist_grps.iteritems():
+            for grp_name, properties in iter(ad_dist_grps.items()):
                 if 'groupType' not in properties:
                     continue
                 if str(properties['groupType']) in dist_group_types:
@@ -895,7 +895,7 @@ class DistGroupSync(GroupSync):
         self.logger.info("Fetched %i groups with spread %s",
                          len(self.groups), self.dist_group_spread)
         # Set attr values for comparison with AD
-        for g in self.groups.itervalues():
+        for g in iter(self.groups.values()):
             g.calc_ad_attrs()
 
     def cb_group(self, gname, group_id, description):

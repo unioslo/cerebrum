@@ -989,7 +989,7 @@ def has_config(config, configclass):
     """
     if isinstance(config, dict):
         # We only need the values, not the attribute names
-        config = config.itervalues()
+        config = iter(config.values())
     for c in config:
         if isinstance(c, configclass):
             return True
@@ -1021,7 +1021,7 @@ def get_config_by_type(config, configclass):
     ret = []
     if isinstance(config, dict):
         # We only need the values, not the attribute names
-        config = config.itervalues()
+        config = iter(config.values())
     for c in config:
         if isinstance(c, configclass):
             ret.append(c)

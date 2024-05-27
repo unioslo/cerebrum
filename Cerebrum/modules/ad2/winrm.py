@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2012-2023 University of Oslo, Norway
+# Copyright 2012-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -671,7 +671,7 @@ class WinRMProtocol(object):
         # Rewrite the attribs if they use shortcut prefixes, as ElementTree
         # demands the full definition URLs, e.g.
         #   s:mustUnderstand -> {https://w3.org...}mustUnderstand:
-        for name, attrib in attribs.copy().iteritems():
+        for name, attrib in iter(attribs.copy().items()):
             names = name.split(':', 1)
             if len(names) > 1:
                 attribs['{%s}%s' % (namespaces[names[0]], names[1])] = attrib
@@ -1983,7 +1983,7 @@ class PowershellClient(WinRMClient):
         if isinstance(data, dict):
             # Dicts are returned as "Hash Tables" for powershell
             ret = []
-            for k, v in data.iteritems():
+            for k, v in six.iteritems(data):
                 k, v = self.escape_to_string(k), self.escape_to_string(v)
                 if not k or not v:
                     self.logger.debug4("PowershellClient.escape_to_string: "
@@ -2145,7 +2145,7 @@ class PowershellClient(WinRMClient):
         else:
             o = self.get_data(commandid)
             out = o.get('stdout')
-            for otype, data in o.iteritems():
+            for otype, data in six.iteritems(o):
                 if data and otype != 'stdout':
                     other[otype] = data
             del o, otype, data
@@ -2334,7 +2334,7 @@ class PowershellClient(WinRMClient):
         else:
             o = self.get_data(commandid)
             out = o.get('stdout')
-            for otype, data in o.iteritems():
+            for otype, data in six.iteritems(o):
                 if data and otype != 'stdout':
                     other[otype] = data
             del o, otype, data

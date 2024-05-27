@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright 2011-2018 University of Oslo, Norway
+# Copyright 2011-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -33,6 +33,7 @@ TODO:
 
 import time
 import xmlrpclib
+import six
 
 import cereconf
 
@@ -101,7 +102,7 @@ class ADUtils(object):
             # Set attributes in AD
             # Check that no values in changes == None.
             # That is an error and shouldn't be sent
-            for k, v in changes.iteritems():
+            for k, v in list(changes.items()):
                 if v is None:
                     del changes[k]
             self.logger.info("Setting attributes for %r: %r", dn, changes)
@@ -137,7 +138,7 @@ class ADUtils(object):
             ad_attr.sort()
 
         # Now we can compare the attrs
-        if all(isinstance(v, basestring) for v in (ad_attr, cb_attr)):
+        if all(isinstance(v, six.string_types) for v in (ad_attr, cb_attr)):
             # Don't care about case
             if cb_attr.lower() != ad_attr.lower():
                 return cb_attr

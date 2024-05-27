@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2011-2023 University of Oslo, Norway
+# Copyright 2011-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -361,7 +361,7 @@ class ADclient(PowershellClient):
 
         return '%s -Credential $cred %s %s' % (
             command,
-            ' '.join('-%s %s' % (k, v) for k, v in kwargs.iteritems()),
+            ' '.join('-%s %s' % (k, v) for k, v in iter(kwargs.items())),
             ' '.join('-%s' % v for v in novalueargs))
 
     def get_data(self, commandid, signal=True, timeout_retries=50):
@@ -598,7 +598,7 @@ class ADclient(PowershellClient):
 
         """
         attr_map_reverse = dict((value, key) for key, value in
-                                self.attribute_write_map.iteritems())
+                                iter(self.attribute_write_map.items()))
         other_set = True
         if other is None:
             other = dict()
@@ -611,7 +611,7 @@ class ADclient(PowershellClient):
                 # Some attribute keys are unfortunately not the same when
                 # reading and writing, so we need to translate those here
                 yield dict((attr_map_reverse.get(key, key), value)
-                           for key, value in obj.iteritems())
+                           for key, value in iter(obj.items()))
         finally:
             # Check for other ouput:
             if not other_set:
@@ -740,7 +740,7 @@ class ADclient(PowershellClient):
         if filters:
             extra = 'Filter {%s}' % ' -and '.join("%s -eq '%s'" % (k, v)
                                                   for k, v in
-                                                  filters.iteritems())
+                                                  iter(filters.items()))
         cmd = "{} | ConvertTo-Json".format(
                self._generate_ad_command('Get-ADObject', parameters, extra))
         out = self.run(cmd)
@@ -846,7 +846,7 @@ class ADclient(PowershellClient):
         # Add the attributes, but mapped to correctly name used in AD:
         if attributes:
             attributes = dict((self.attribute_write_map.get(name, name), value)
-                              for name, value in attributes.iteritems()
+                              for name, value in iter(attributes.items())
                               if value
                               or isinstance(value, (bool, float))
                               or isinstance(value, six.integer_types))
@@ -1005,7 +1005,7 @@ class ADclient(PowershellClient):
                     return False
 
                 success = True
-                for atrname, values in attrs.iteritems():
+                for atrname, values in iter(attrs.items()):
                     # Stuff un-itrable types (or types that we do not want to
                     # iterate, like strings) into a list. It does not handle
                     # generators.
@@ -1105,7 +1105,7 @@ class ADclient(PowershellClient):
         # Sort the attributes (add, remove, update).
         # Some attributes are named differently when reading and writing in AD,
         # so we need to map them properly.
-        for k, v in attributes.iteritems():
+        for k, v in iter(attributes.items()):
             if 'remove' in v:
                 removes[self.attribute_write_map.get(k, k)] = v['remove']
             if 'add' in v:
@@ -1127,7 +1127,7 @@ class ADclient(PowershellClient):
         if fullupdates:
             clears = set()
             updates = dict()
-            for k, v in fullupdates.iteritems():
+            for k, v in iter(fullupdates.items()):
                 # Attributes in AD with existing values must first be cleared
                 if old_attributes.get(k, NotSet) != NotSet:
                     clears.add(self.attribute_write_map.get(k, k))
@@ -1638,7 +1638,7 @@ class ADclient(PowershellClient):
             if not kwargs[k]:
                 del kwargs[k]
         self.logger.info("Executing script %s, args: %s", script, kwargs)
-        params = ' '.join('-%s %s' % (x[0], x[1]) for x in kwargs.iteritems())
+        params = ' '.join('-%s %s' % (x[0], x[1]) for x in iter(kwargs.items()))
         cmd = '& %(cmd)s %(params)s' % {'cmd': self.escape_to_string(script),
                                         'params': params}
         if self.dryrun:
