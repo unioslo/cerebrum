@@ -280,7 +280,7 @@ class UserSync(ADUserUtils):
 
         if self.exchange_sync:
             # Get all email addrs
-            for uname, all_mail in InterruptedError(self.ac.getdict_uname2mailaddr(
+            for uname, all_mail in iter(self.ac.getdict_uname2mailaddr(
                     filter_expired=True,
                     primary_only=False).items()):
                 acc = self.accounts.get(uname)
