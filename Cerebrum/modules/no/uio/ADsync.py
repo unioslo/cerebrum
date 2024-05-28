@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2006-2023 University of Oslo, Norway
+# Copyright 2006-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -127,7 +127,7 @@ class ADFullUserSync(ADutils.ADuserUtil):
 
         # Assigning homeDirectory to users
         users_wo_homedir = defaultdict(int)
-        for k, v in user_dict.iteritems():
+        for k, v in iter(user_dict.items()):
             if k in uname2disk:
                 home_srv = hid2hostname[uname2disk[k]['host_id']]
                 # The new disks requires a somewhat longer path:
@@ -195,7 +195,7 @@ class ADFullUserSync(ADutils.ADuserUtil):
         self.logger.debug("%i accounts with spread %r after quarantine filter",
                           len(tmp_ret), spread)
         a = 0
-        for u in tmp_ret.itervalues():
+        for u in iter(tmp_ret.values()):
             if u['ACCOUNTDISABLE']:
                 a += 1
         self.logger.debug("Number of disabled accounts: %i", a)
@@ -235,7 +235,7 @@ class ADFullUserSync(ADutils.ADuserUtil):
                              ''.join((row['name'], cereconf.AD_GROUP_POSTFIX)))
                             for row in self.pg.search(spread=groupspread))
         i = 0
-        for k, v in tmp_ret.iteritems():
+        for k, v in iter(tmp_ret.items()):
             if k in posixusers:
                 v['uidNumber'] = posixusers[k]['posix_uid'] or ''
                 v['gidNumber'] = groupid2gid[posixusers[k]['gid']] or ''
@@ -252,7 +252,7 @@ class ADFullUserSync(ADutils.ADuserUtil):
 
         # Sort by users' DFG:
         bydfg = dict()
-        for k, v in tmp_ret.iteritems():
+        for k, v in iter(tmp_ret.items()):
             gname = v.get('primaryGroup_groupname')
             bydfg.setdefault(gname, set()).add(v['TEMPuname'])
         self.logger.debug("Users spread around %d DFGs", len(bydfg))
@@ -268,7 +268,7 @@ class ADFullUserSync(ADutils.ADuserUtil):
                           bydfg.get(None, ()))
         # Find the number of users with a personal dfg:
         personal_dfg = 0
-        for k, v in tmp_ret.iteritems():
+        for k, v in iter(tmp_ret.items()):
             gname = '%s-gruppe' % v['TEMPuname']
             if gname == v.get('primaryGroup_groupname'):
                 personal_dfg += 1
@@ -279,7 +279,7 @@ class ADFullUserSync(ADutils.ADuserUtil):
         # Indexing user dict on username instead of entity id
         #
         userdict_ret = {}
-        for k, v in tmp_ret.iteritems():
+        for k, v in iter(tmp_ret.items()):
             userdict_ret[v['TEMPuname']] = v
             del v['TEMPuname']
             del v['TEMPownerId']
@@ -297,7 +297,7 @@ class ADFullUserSync(ADutils.ADuserUtil):
         #
         # Assign derived attributes
         #
-        for k, v in userdict_ret.iteritems():
+        for k, v in iter(userdict_ret.items()):
             # TODO: derive domain part from LDAP DC components
             v['userPrincipalName'] = k + "@uio.no"
             v['homeDrive'] = "M:"
@@ -474,7 +474,7 @@ class ADFullUserSync(ADutils.ADuserUtil):
         # Keys in dict from cerebrum must match fields to be populated in AD.
         changelist = []
 
-        for usr, dta in adusrs.iteritems():
+        for usr, dta in iter(adusrs.items()):
 
             if is_blacklisted(adusrs[usr]['distinguishedName']):
                 # User is blacklisted. We do not care if it exists in Cerebrum,
@@ -779,7 +779,7 @@ class ADFullGroupSync(ADutils.ADgroupUtil):
             groupid2uids.setdefault(row['gid'], []).append(
                 str(row['posix_uid']))
         i = 0
-        for gname, gdata in grp_dict.iteritems():
+        for gname, gdata in iter(grp_dict.items()):
             if gdata['grp_id'] in groupid2gid:
                 gdata['gidNumber'] = groupid2gid[gdata['grp_id']]
                 gdata['msSFU30Name'] = gname
@@ -789,7 +789,7 @@ class ADFullGroupSync(ADutils.ADgroupUtil):
         self.logger.debug("Number of groups with posix GID: %d", i)
 
         i = 0
-        for gdata in grp_dict.itervalues():
+        for gdata in iter(grp_dict.values()):
             if 'gidNumber' not in gdata:
                 i += 1
         self.logger.debug("Number of groups without posix GID: %d", i)

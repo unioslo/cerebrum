@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2016-2023 University of Oslo, Norway
+# Copyright 2016-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -141,7 +141,7 @@ class AddressType(object):
         'OTHER_STREET': 'otherVisitingAddress'
     }
 
-    _rev_map = dict((v, k) for k, v in _map.iteritems())
+    _rev_map = dict((v, k) for k, v in iter(_map.items()))
 
     @classmethod
     def serialize(cls, strval):

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2016-2018 University of Oslo, Norway
+# Copyright 2016-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -69,7 +69,7 @@ class GroupVisibility(object):
         'N': 'none',
     }
 
-    _rev_map = dict((v, k) for k, v in _map.iteritems())
+    _rev_map = dict((v, k) for k, v in iter(_map.items()))
 
     @classmethod
     def serialize(cls, strval):

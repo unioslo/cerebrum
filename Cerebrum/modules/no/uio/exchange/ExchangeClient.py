@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2013-2017 University of Oslo, Norway
+# Copyright 2013-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -377,7 +377,7 @@ class ExchangeClient(PowershellClient):
         return 'Invoke-Command { %s %s %s } -Session $ses;' % (
             command,
             ' '.join('-%s %s' % (k, self.escape_to_string(v))
-                     for k, v in kwargs.iteritems()),
+                     for k, v in iter(kwargs.items())),
             ' '.join('-%s' % v for v in novalueargs))
 
     def kill_session(self):

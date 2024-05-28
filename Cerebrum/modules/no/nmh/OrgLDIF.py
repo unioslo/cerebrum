@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2006-2022 University of Oslo, Norway
+# Copyright 2006-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -151,7 +151,7 @@ class NmhOrgLdif(NorEduOrgLdifMixin):
                 cont_tab[int(row['entity_id'])].append(alias)
 
         return dict((key, attr_unique(values, normalize=normalize))
-                    for key, values in cont_tab.iteritems())
+                    for key, values in iter(cont_tab.items()))
 
     def make_person_entry(self, row, person_id):
         """Override the production of a person entry to output.

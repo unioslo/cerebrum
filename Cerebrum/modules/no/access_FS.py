@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2002-2019 University of Oslo, Norway
+# Copyright 2002-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -31,7 +31,9 @@ import cereconf
 import time
 import xml.sax
 import collections
+import functools
 import operator
+import six
 
 from Cerebrum import database as Database
 from Cerebrum import Errors
@@ -88,7 +90,7 @@ class VersionSpec(object):
             raise Errors.ProgrammingError("Specified FS version None")
         if isinstance(ver, Version):
             return ver
-        if isinstance(ver, basestring):
+        if isinstance(ver, six.string_types):
             if '.' in ver:
                 return VersionSpec.assert_version(ver.split('.'))
             return Version(int(ver), 0, 0)
@@ -119,7 +121,7 @@ class VersionSpec(object):
                 self.end_open == other.end_open)
 
     def __hash__(self):
-        return reduce(operator.xor, map(hash,
+        return functools.reduce(operator.xor, map(hash,
                                         [self.start, self.end,
                                          self.start_open, self.end_open]))
 
@@ -202,7 +204,7 @@ def parse_version_spec(spec):
     """
     if isinstance(spec, VersionSpec):
         return spec
-    if isinstance(spec, basestring):
+    if isinstance(spec, six.string_types):
         if spec[0] in '<>=':
             closed = spec[1] == '='
             ver = spec[1+closed:].split('.')
@@ -467,7 +469,7 @@ class Person(FSObject):
         :param fodselsdato, personnr: Identifies person.
         :param phone: The telephone number
         """
-        if not isinstance(kind, basestring):
+        if not isinstance(kind, six.string_types):
             kind = kind[0]
         qry = """
         INSERT INTO fs.persontelefon (institusjonsnr_eier,
@@ -493,7 +495,7 @@ class Person(FSObject):
         :param fodselsdato, personnr: Identifies person.
         :param phone: The telephone number
         """
-        if not isinstance(kind, basestring):
+        if not isinstance(kind, six.string_types):
             kind = kind[0]
         binds = {'fodselsdato': fodselsdato,
                  'personnr': personnr,
@@ -2091,7 +2093,7 @@ class roles_xml_parser(non_nested_xml_parser):
         target = None
         not_target = set()
         possible_targets = set()
-        for col, targs in col2target.iteritems():
+        for col, targs in iter(col2target.items()):
             if col in data:
                 del data[col]
                 if targs is None:

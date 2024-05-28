@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2004-2022 University of Oslo, Norway
+# Copyright 2004-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -97,7 +97,7 @@ class UiaOrgLdif(OrgLdifEntitlementsMixin,
                 cont_tab[int(row['entity_id'])].append(alias)
 
         return dict((key, attr_unique(values, normalize=normalize))
-                    for key, values in cont_tab.iteritems())
+                    for key, values in iter(cont_tab.items()))
 
     def init_person_titles(self):
         """Extends the person_titles dict with employment titles available via

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2007-2023 University of Oslo, Norway
+# Copyright 2007-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -190,7 +190,7 @@ class BofhdExtension(BofhdCommonMethods):
         """
         account = self._get_account(uname, idtype='name')
         ret = []
-        for spread, attr_map in account.get_ad_attrs().iteritems():
+        for spread, attr_map in iter(account.get_ad_attrs().items()):
             spread = self._get_constant(self.const.Spread, spread, 'spread')
             for attr_type, attr_val in attr_map.items():
                 ret.append({
