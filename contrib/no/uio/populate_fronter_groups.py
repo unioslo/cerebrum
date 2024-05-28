@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003-2021 University of Oslo, Norway
+# Copyright 2003-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -106,7 +106,7 @@ def extract_all_roles(enhet_id, roles_mapping, sted, stprog=""):
     for coll in (roles_mapping.get(key, dict()),
                  roles_mapping.get("sted:" + sted, dict()),
                  roles_mapping.get("stprog:" + stprog, dict())):
-        for role, people in coll.iteritems():
+        for role, people in iter(coll.items()):
             for p in people:
                 if p not in result:
                     result.append(p)

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2006-2018 University of Oslo, Norway
+# Copyright 2006-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -357,8 +357,8 @@ def fetch_external_ids(db_person):
 
     # stage 2 -- remove the source system from all the values. We do not need
     # the source system anymore.
-    for e_dict in tmp.itervalues():
-        for key, value in e_dict.iteritems():
+    for e_dict in iter(tmp.values()):
+        for key, value in iter(e_dict.items()):
             e_dict[key] = value[1]  # strip away the source system
 
     return tmp

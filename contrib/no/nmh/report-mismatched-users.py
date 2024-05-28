@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2010-2018 University of Oslo, Norway
+# Copyright 2010-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -329,7 +329,7 @@ def load_group_members(db, aff2groups):
 
     group = Factory.get("Group")(db)
     result = dict()
-    for group_id in aff2groups.itervalues():
+    for group_id in iter(aff2groups.values()):
         if group_id in result:
             continue
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2007-2018 University of Oslo, Norway
+# Copyright 2007-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -322,7 +322,7 @@ class Job(object):
         @param new_attrs: attr type -> attr value mapping
         @type  new_attrs: dict
         """
-        for attr_type, attr_val in new_attrs.iteritems():
+        for attr_type, attr_val in iter(new_attrs.items()):
             # Before populating spread we must check if there are old
             # values. Account might have attributes for more than one
             # spread. Those must not be deleted

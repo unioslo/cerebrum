@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2002-2019 University of Oslo, Norway
+# Copyright 2002-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -406,7 +406,7 @@ def send_notify_email(new_cere_ous, to_email_addrs):
             sendmail(to_email, sender, subject, body)
 
         except SMTPRecipientsRefused as ref:
-            for email, cond in ref.recipients.iteritems():
+            for email, cond in iter(ref.recipients.items()):
                 logger.info("Failed to notify '%s': %s", email, cond)
             continue
 

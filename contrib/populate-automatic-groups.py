@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2007-2021 University of Oslo, Norway
+# Copyright 2007-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -749,7 +749,7 @@ def synchronise_groups(current_groups, new_groups, spreads,
     """
     group = Factory.get("Group")(database)
 
-    for group_id, new_members in new_groups.iteritems():
+    for group_id, new_members in iter(new_groups.items()):
         try:
             group.clear()
             group.find(group_id)
@@ -1171,7 +1171,7 @@ class gnode(object):
         stream.write(" " * indent)
         stream.write(self.prepare_output(indent + INDENT_STEP))
         stream.write("\n")
-        for child in self._group_children.itervalues():
+        for child in iter(self._group_children.values()):
             child.output(stream, indent + INDENT_STEP)
 
 

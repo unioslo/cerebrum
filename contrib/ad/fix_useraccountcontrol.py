@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2014 University of Oslo, Norway
+# Copyright 2014-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -254,7 +254,7 @@ def main():
         usage(1)
 
     # Make use of config file settings, if not set otherwise by arguments
-    for key, value in adconf.SYNCS[sync_type].iteritems():
+    for key, value in iter(adconf.SYNCS[sync_type].items()):
         if not configuration.has_key(key):
             configuration[key] = value
 

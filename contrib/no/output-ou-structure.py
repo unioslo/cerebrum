@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2011-2023 University of Oslo, Norway
+# Copyright 2011-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -141,7 +141,7 @@ def set_has_cycles(nodes):
     """
 
     has_cycles = False
-    remaining = set(nodes.itervalues())
+    remaining = set(iter(nodes.values()))
     while remaining:
         n = remaining.pop()
         has_cycles |= detect_cycles_from_node(n, remaining)
@@ -219,7 +219,7 @@ class Node(object):
 
     def children(self):
         """Return all children nodes sorted by node_id."""
-        return sort_nodes(self._children.itervalues())
+        return sort_nodes(iter(self._children.values()))
 
 
 def build_node_from_file(xml_ou):
