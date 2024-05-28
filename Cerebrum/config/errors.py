@@ -43,7 +43,7 @@ class ConfigurationError(Exception):
     def __str__(self):
         return "Errors in {}".format(
             ', '.join(('{!r} ({}: {})'.format(k, type(v).__name__, v)
-                       for k, v in self.errors.iteritems())))
+                       for k, v in iter(self.errors.items()))))
 
     def __repr__(self):
         return "{}({!r})".format(

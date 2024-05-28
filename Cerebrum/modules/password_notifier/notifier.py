@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2016-2023 University of Oslo, Norway
+# Copyright 2016-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -986,7 +986,7 @@ def _send_mail(mail_to, mail_from, subject, body,
             debug=debug_enabled)
     except smtplib.SMTPRecipientsRefused as e:
         failed_recipients = e.recipients
-        for mail, condition in failed_recipients.iteritems():
+        for mail, condition in iter(failed_recipients.items()):
             logger.exception("Failed when notifying %s (%s): %s",
                              mail_to, mail, condition)
         return False

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2005-2018 University of Oslo, Norway
+# Copyright 2005-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -225,7 +225,7 @@ class NameContainer(object):
             self._names[kind] = [name, ]
 
     def iternames(self):
-        return self._names.iteritems()
+        return iter(self._names.items())
 
     def get_name(self, kind, default=None):
         tmp = self._names.get(kind, default)
@@ -418,13 +418,13 @@ class DataEntity(NameContainer):
             self._addresses[address.kind] = address
 
     def iterids(self):
-        return self._external_ids.iteritems()
+        return iter(self._external_ids.items())
 
     def itercontacts(self):
         return iter(self._contacts)
 
     def iteraddress(self):
-        return self._addresses.iteritems()
+        return iter(self._addresses.items())
 
     def get_contact(self, kind, default=list()):
         result = list()

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2006-2023 University of Oslo, Norway
+# Copyright 2006-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -438,7 +438,7 @@ class CreatePersonProcessor(EventProcessor):
                   + str(self._source_system))
             return
 
-        for source, persons in self._persons_by_source_system.iteritems():
+        for source, persons in iter(self._persons_by_source_system.items()):
             print("Created persons from source system: " + source)
             for p_id in persons:
                 tmp = "  id:%8s" % p_id

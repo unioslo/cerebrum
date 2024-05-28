@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2018 University of Oslo, Norway
+# Copyright 2018-2024 University of Oslo, Norway
 #
 
 # This file is part of Cerebrum.
@@ -146,7 +146,7 @@ def _pretty_jobs_presenter(jobs, args):
         raise NotImplementedError("not implemented yet...")
 
     elif args.list_verbose:
-        for name, job in sorted(jobs.get_jobs().iteritems()):
+        for name, job in sorted(iter(jobs.get_jobs().items())):
             print("Job: %s:" % name)
             print("  Command: %s" % job.get_pretty_cmd())
             if job.pre:

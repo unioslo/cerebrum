@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003-2023 University of Oslo, Norway
+# Copyright 2003-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -65,7 +65,7 @@ class CheckSpaceOrNull(PasswordChecker):
         """Check that only valid characters are allowed."""
         errors = []
 
-        for char, err in self._password_illegal_chars.iteritems():
+        for char, err in iter(self._password_illegal_chars.items()):
             if char in password:
                 errors.append(err)
         return errors
