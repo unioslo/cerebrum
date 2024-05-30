@@ -4269,8 +4269,8 @@ class BofhdExtension(BofhdCommonMethods):
         self.ba.can_view_user(operator.get_entity_id(), account)
         if (account.is_deleted() and
                 not self.ba.is_superuser(operator.get_entity_id())):
-            raise CerebrumError("User '{}' is deleted".format(
-                account.account_name))
+            raise CerebrumError("User '{}' is deleted; expired {}".format(
+                account.account_name, account.expire_date))
         affiliations = []
         for row in account.get_account_types(filter_expired=False):
             ou = self._get_ou(ou_id=row['ou_id'])
