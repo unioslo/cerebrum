@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2023 University of Oslo, Norway
+# Copyright 2023-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -86,7 +85,7 @@ def _get_stdout(encoding):
 
 def _get_stderr(encoding):
     """ Get text or byte access to stderr. """
-    bytestream = sys.stdout.buffer if _PY3 else sys.stderr
+    bytestream = sys.stderr.buffer if _PY3 else sys.stderr
     if encoding:
         codec = codecs.lookup(encoding)
         return codec.streamwriter(bytestream)

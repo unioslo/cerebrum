@@ -248,8 +248,54 @@ def test_stdout_byte_context(capsys):
 
 
 #
+# Writing to stderr
+#
+# This is basically the same as stdout - we just need to ensure it actually
+# goest to the right location if we enable it...
+#
+
+def test_stderr_text_stream(capsys):
+    fd = file_stream.open_output_stream(filename="<stderr>",
+                                        encoding=ENCODING,
+                                        stdout=None,
+                                        stderr="<stderr>")
+    fd.write(TEXT_SNIPPET)
+    out, err = capsys.readouterr()
+    assert err == TEXT_SNIPPET
+
+
+def test_stderr_byte_stream(capsys):
+    fd = file_stream.open_output_stream(filename="<stderr>",
+                                        encoding=None,
+                                        stdout=None,
+                                        stderr="<stderr>")
+    fd.write(BYTE_SNIPPET)
+    out, err = capsys.readouterr()
+    assert err == TEXT_SNIPPET
+
+
+#
+# Test premature close of context
+#
+
+def test_close_input_context(text_file):
+    with file_stream.get_input_context(text_file, encoding=ENCODING) as fd:
+        # explicit close before the context closes fd:
+        fd.close()
+    assert fd.closed
+
+
+def test_close_output_context(new_file):
+    with file_stream.get_output_context(new_file, encoding=ENCODING) as fd:
+        # explicit close before the context closes fd:
+        fd.close()
+    assert fd.closed
+
+
+#
 # Some expected errors - not sure we really need to test this?
 #
+
 def test_text_to_byte_stream(new_file):
     with file_stream.get_output_context(new_file, encoding=None) as fd:
         # TODO: Do we want to change this somehow in the file context?
