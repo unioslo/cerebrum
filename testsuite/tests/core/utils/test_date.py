@@ -1,9 +1,37 @@
+# encoding: utf-8
+""" Tests for mod:`Cerebrum.utils.date` """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import datetime
 
 import pytest
 import pytz
 
 from Cerebrum.utils import date
+
+
+# Some known datetime objects
+
+
+UTC_TZ = pytz.UTC
+LOCAL_TZ = pytz.timezone("Europe/Oslo")
+EPOCH_NAIVE = datetime.datetime(1970, 1, 1, 0)
+EPOCH_AWARE_UTC = UTC_TZ.localize(EPOCH_NAIVE)
+EPOCH_AWARE_LOCAL = EPOCH_AWARE_UTC.astimezone(LOCAL_TZ)
+
+
+@pytest.fixture
+def datetime_utc_aware():
+    return datetime.datetime.now(tz=pytz.UTC)
+
+
+#
+# test to_seconds
+#
 
 
 @pytest.mark.parametrize(
@@ -19,9 +47,9 @@ def test_to_seconds(args, result):
     assert date.to_seconds(**args) == result
 
 
-def test_parse_date():
-    raw = '2000-10-16'
-    assert date.parse_date(raw) == datetime.date(2000, 10, 16)
+#
+# test utcnow/now
+#
 
 
 def test_utcnow_has_tzinfo():
@@ -29,14 +57,65 @@ def test_utcnow_has_tzinfo():
     assert now.tzinfo is not None
 
 
-@pytest.fixture
-def datetime_utc_naive():
-    return datetime.datetime.utcnow()
+def test_now_is_localized():
+    # A bit of a hacky test, but it ensures date.now() creates a localized dt
+    assert str(date.now().tzinfo) == str(date.TIMEZONE)
 
 
-@pytest.fixture
-def datetime_utc_aware():
-    return datetime.datetime.now(tz=pytz.UTC)
+def test_now_is_correct(datetime_utc_aware):
+    # A bit of a hacky test, but it ensures date.now() creates a correct dt
+    assert (date.now() - datetime_utc_aware) < datetime.timedelta(seconds=10)
+
+
+def test_now_custom_tz(datetime_utc_aware):
+    # A bit of a hacky test, but it ensures date.now() accepts a tz-argument,
+    # and that the argument may be a string
+    diff = abs(date.now("UTC") - datetime_utc_aware)
+    assert date.now("UTC").tzinfo == UTC_TZ
+    assert diff < datetime.timedelta(seconds=10)
+
+
+#
+# test timezone operations
+#
+
+
+def test_to_timezone():
+    converted = date.to_timezone(EPOCH_AWARE_LOCAL, tz="UTC")
+    assert converted == EPOCH_AWARE_UTC
+    assert converted.tzinfo == EPOCH_AWARE_UTC.tzinfo
+
+
+def test_apply_timezone_without_tzinfo():
+    with pytest.raises(ValueError):
+        date.to_timezone(EPOCH_NAIVE, tz="UTC")
+
+
+def test_apply_timezone():
+    converted = date.apply_timezone(EPOCH_NAIVE, tz="UTC")
+    assert converted == EPOCH_AWARE_UTC
+    assert converted.tzinfo == EPOCH_AWARE_UTC.tzinfo
+
+
+def test_apply_timezone_with_tzinfo():
+    with pytest.raises(ValueError):
+        date.apply_timezone(EPOCH_AWARE_UTC, tz="UTC")
+
+
+def test_strip_timezone():
+    converted = date.strip_timezone(EPOCH_AWARE_UTC)
+    assert converted.tzinfo is None
+    assert converted == EPOCH_NAIVE
+
+
+def test_strip_timezone_without_tzinfo():
+    with pytest.raises(ValueError):
+        date.strip_timezone(EPOCH_NAIVE)
+
+
+#
+# test parsers
+#
 
 
 def test_parse_datetime_tz_with_offset(datetime_utc_aware):
@@ -70,25 +149,75 @@ def test_parse_datetime(value):
     assert dt.tzinfo is not None
 
 
-UTC_TZ = pytz.UTC
-LOCAL_TZ = pytz.timezone("Europe/Oslo")
+@pytest.mark.parametrize(
+    "value",
+    [
+        "",
+        "not a date",
+        '2000-10-16',  # a valid date w/o time
+        "T",  # just a delimiter
+        "+1-10-16T12",  # "extended" or relative year - NotImplementedError
+        "2000-10-16T12:15:60",  # leap second
+    ]
+)
+def test_parse_datetime_error(value):
+    default_timezone = pytz.UTC
+    with pytest.raises(ValueError):
+        date.parse_datetime(value, default_timezone=default_timezone)
 
-epoch_naive = datetime.datetime(1970, 1, 1, 0)
-epoch_aware_utc = UTC_TZ.localize(epoch_naive)
-epoch_aware_local = epoch_aware_utc.astimezone(LOCAL_TZ)
+
+def test_parse_date():
+    raw = '2000-10-16'
+    assert date.parse_date(raw) == datetime.date(2000, 10, 16)
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "",
+        "not a date",
+        "-10-16",  # "extended" or relative year - NotImplementedError
+    ]
+)
+def test_parse_date_error(value):
+    with pytest.raises(ValueError):
+        date.parse_date(value)
+
+
+def test_parse_time():
+    raw = '12:21'
+    assert date.parse_time(raw) == datetime.time(12, 21, 0)
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "",
+        "not a date",
+        ":10:16",  # "extended" or relative year - NotImplementedError
+    ]
+)
+def test_parse_time_error(value):
+    with pytest.raises(ValueError):
+        date.parse_time(value)
+
+
+#
+# test timestamp
+#
 
 
 def test_to_timestamp_naive():
     # Naive datetime values are assumed to be in the ``default_timezone``,
     # which is usually what you want.  This means that e.g.
     # ``to_timestamp(datetime.datetime.now())`` gives a correct timestamp.
-    assert date.to_timestamp(epoch_naive, default_timezone=UTC_TZ) == 0.0
+    assert date.to_timestamp(EPOCH_NAIVE, default_timezone=UTC_TZ) == 0.0
 
     # our chosen LOCAL_TZ was at epoch one hour behind:
-    assert date.to_timestamp(epoch_naive, default_timezone=LOCAL_TZ) == -3600.0
+    assert date.to_timestamp(EPOCH_NAIVE, default_timezone=LOCAL_TZ) == -3600.0
 
 
-@pytest.mark.parametrize("aware", (epoch_aware_utc, epoch_aware_local))
+@pytest.mark.parametrize("aware", (EPOCH_AWARE_UTC, EPOCH_AWARE_LOCAL))
 def test_to_timestamp_aware(aware):
     # The ``default_timezone`` is ignored for tz-aware datetime objects.
     assert date.to_timestamp(aware, default_timezone=LOCAL_TZ) == 0.0
@@ -100,7 +229,7 @@ def test_from_timestamp(tz):
     aware = date.from_timestamp(0, tz=tz)
 
     # Should be the same time as our tz-aware epoch ...
-    assert aware == epoch_aware_utc
+    assert aware == EPOCH_AWARE_UTC
     # .. and in our chosen time zone
     assert aware.tzinfo.zone == tz.zone
 
