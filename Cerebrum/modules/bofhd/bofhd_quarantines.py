@@ -146,10 +146,10 @@ class BofhdQuarantineAuth(BofhdAuth):
         """ Raise PermissionDenied if entity is not an account. """
         # Can only grant access to accounts through opsets
         if entity.entity_type != self.const.entity_account:
-            entity_type_text = self.const.get_constant(_EntityTypeCode,
-                                                       entity.entity_type)
+            entity_type = self.const.get_constant(_EntityTypeCode,
+                                                  entity.entity_type)
             raise PermissionDenied("No access to quarantines for entity type: "
-                                   + entity_type_text)
+                                   + six.text_type(entity_type))
 
     def _check_quarantine_access(self, operator, operation, entity,
                                  quarantine):
@@ -528,10 +528,10 @@ class BofhdQuarantineCommands(BofhdCommandBase):
             entity.add_entity_quarantine(quarantine, operator.get_entity_id(),
                                          reason, start_date)
         except AttributeError:
-            entity_type_text = self.const.get_constant(_EntityTypeCode,
-                                                       entity.entity_type)
-            raise CerebrumError(
-                "Quarantines cannot be set on " + entity_type_text)
+            entity_type = self.const.get_constant(_EntityTypeCode,
+                                                  entity.entity_type)
+            raise CerebrumError("Quarantines cannot be set on "
+                                + six.text_type(entity_type))
 
         # TODO: This should be replaced by structured output and a
         #       FormatSuggestion
