@@ -113,7 +113,7 @@ class UserSync(ADUserUtils):
         self.fetch_cerebrum_data()
         # Calculate attribute values based on Cerebrum data for
         # comparison with AD
-        for acc in iter(self.accounts.values()):
+        for acc in self.accounts.values():
             acc.calc_ad_attrs(exchange=self.exchange_sync)
 
         # TBD: move these two for loops to compare method?
