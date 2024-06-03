@@ -13,12 +13,17 @@ import codecs
 import io
 import os
 import sys
-import shutil
 import tempfile
 
 import pytest
 
 from Cerebrum.utils import file_stream
+
+
+# inherited conftest fixtures:
+#
+# - `write_dir` - a directory to write temporary files into (scope=module)
+# - `new_file` - a non-existing filename in `write_dir`
 
 
 TEXT_SNIPPET = """
@@ -61,31 +66,6 @@ def _stdin_snippet(monkeypatch):
         # `buffer` attribute.
         setattr(stream, "buffer", stream.stream)
     monkeypatch.setattr("sys.stdin", stream)
-
-
-@pytest.fixture(scope='module')
-def write_dir():
-    """ Fixture that creates a temporary directory for this test module. """
-    tempdir = tempfile.mkdtemp()
-    yield tempdir
-    # `rm -r` the temp-dir after after all tests have completed, to ensure all
-    # files are cleared out.
-    shutil.rmtree(tempdir)
-
-
-@pytest.fixture
-def new_file(write_dir):
-    """ Fixture to get a new temporary filename for use in a test. """
-    # Create and remove a temp file.  This generates a name for us, and ensures
-    # that the file *can* exist.
-    fd, name = tempfile.mkstemp(dir=write_dir)
-    os.close(fd)
-    os.unlink(name)
-    # `name` is now the path to a non-existing tmp-file
-    yield name
-    # remove the file if the test created it
-    if os.path.exists(name):
-        os.unlink(name)
 
 
 @pytest.fixture
