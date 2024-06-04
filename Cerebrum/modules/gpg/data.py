@@ -27,7 +27,7 @@ import six
 from Cerebrum import DatabaseAccessor
 from Cerebrum import Entity
 from Cerebrum.Utils import argument_to_sql
-from Cerebrum.utils.funcwrap import memoize
+from Cerebrum.utils.descriptors import lazy_property
 
 from .config import GpgEncrypter, load_config
 
@@ -250,8 +250,7 @@ class EntityMixin(Entity.Entity):
 class EntityGPGData(EntityMixin):
     """Mixin for attaching GPG data to entities."""
 
-    @property
-    @memoize
+    @lazy_property
     def _gpg_encrypter(self):
         """ encryption config for add_gpg_data() """
         config = load_config()
