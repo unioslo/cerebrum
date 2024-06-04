@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2011-2023 University of Oslo, Norway
+# Copyright 2011-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -75,7 +75,7 @@ def get_accounts(db, affiliations):
 
     logger.info("ignoring %d persons without primary accounts",
                 no_primary_account)
-    logger.info("found %d primary accounts", all_accounts)
+    logger.info("found %d primary accounts", len(all_accounts))
     return all_accounts
 
 
