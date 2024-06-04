@@ -1,7 +1,13 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-""" Tests for Cerebrum.modules.gpg.data """
-
+"""
+Tests for mod:`Cerebrum.modules.gpg.data`
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import datetime
 import pytest
 
@@ -147,6 +153,11 @@ def test_delete_no_match(gpg_message, gpg_data):
     assert len(list(deleted)) == 0
 
 
+def test_delete_require_args(gpg_data):
+    with pytest.raises(TypeError):
+        gpg_data.delete()
+
+
 def test_search_by_tag(gpg_message, gpg_data):
     results = gpg_data.search(tag=gpg_message['tag'])
     assert [dict(d) for d in results] == [gpg_message]
@@ -202,7 +213,7 @@ def test_add_gpg_data_valid_tags(entity):
 
 
 def test_add_gpg_data_invalid_tag(entity):
-    with pytest.raises(ValueError, message="expecting ValueError"):
+    with pytest.raises(ValueError):
         entity.add_gpg_data("nope", "disregard this")
 
 

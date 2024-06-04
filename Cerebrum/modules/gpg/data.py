@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2016-2020 University of Oslo, Norway
+# Copyright 2016-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -20,6 +20,12 @@
 """
 Accessors for the mod_gpg tables.
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import logging
 
 import six
@@ -30,7 +36,6 @@ from Cerebrum.Utils import argument_to_sql
 from Cerebrum.utils.descriptors import lazy_property
 
 from .config import GpgEncrypter, load_config
-
 
 logger = logging.getLogger(__name__)
 
@@ -243,7 +248,7 @@ class EntityMixin(Entity.Entity):
 
     def delete(self):
         gpg_data = GpgData(self._db)
-        gpg_data.delete(entity_id=self.entity_id)
+        gpg_data.delete(entity_id=int(self.entity_id))
         return super(EntityMixin, self).delete()
 
 
@@ -268,7 +273,7 @@ class EntityGPGData(EntityMixin):
         gpg_data = GpgData(self._db)
         message_ids = []
         for t, r, m in self._gpg_encrypter.encrypt_message(tag, data):
-            row = gpg_data.add_message(entity_id=self.entity_id,
+            row = gpg_data.add_message(entity_id=int(self.entity_id),
                                        tag=t, recipient=r, encrypted=m)
             message_ids.append(row['message_id'])
         return message_ids
