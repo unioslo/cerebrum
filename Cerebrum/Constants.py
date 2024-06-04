@@ -75,7 +75,6 @@ import cereconf
 from Cerebrum import Errors
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.Utils import Factory
-from Cerebrum.utils import context
 
 logger = logging.getLogger(__name__)
 
@@ -1047,6 +1046,7 @@ class _ChangeTypeCode(_CerebrumCode):
 
     @classmethod
     def formatter(cls, param_type):
+        # TODO: Is this even used?
         def fun(fn):
             cls.param_formatters[param_type] = fn
             return fn
@@ -1097,12 +1097,13 @@ def format_cl_string(co, s):
 
 @_ChangeTypeCode.formatter('entity')
 def format_cl_entity(co, e):
-    with context.entity.entity(e) as ent:
-        try:
-            ret = ent.get_subclassed_object()
-        except ValueError:
-            ret = ent
-        return six.text_type(ret)
+    entity = Factory.get("Entity")(co._db)
+    entity.find(e)
+    try:
+        obj = entity.get_subclassed_object()
+    except ValueError:
+        obj = entity
+    return six.text_type(obj)
 
 
 @_ChangeTypeCode.formatter('homedir')
@@ -1141,8 +1142,9 @@ def format_cl_spread(co, code):
 
 @_ChangeTypeCode.formatter('ou')
 def format_cl_ou(co, val):
-    with context.entity.ou(val) as ou:
-        return six.text_type(ou)
+    ou = Factory.get("OU")(co._db)
+    ou.find(val)
+    return six.text_type(ou)
 
 
 @_ChangeTypeCode.formatter('affiliation')

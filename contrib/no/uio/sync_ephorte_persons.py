@@ -52,7 +52,6 @@ from Cerebrum.modules.no.uio.Ephorte import EphorteRole
 from Cerebrum.modules.no.uio.EphorteWS import EphorteWSError
 from Cerebrum.utils import date as date_utils
 from Cerebrum.utils import date_compat
-from Cerebrum.utils.context import entity
 from Cerebrum.utils.funcwrap import memoize
 
 
@@ -98,8 +97,9 @@ def get_username(pe):
     :rtype: text
     :return: The primary accounts user name
     """
-    with entity.account.find(pe.get_primary_account()) as ac:
-        return ac.account_name
+    ac = Factory.get("Account")(pe._db)
+    ac.find(pe.get_primary_account())
+    return ac.account_name
 
 
 def get_user_id(pe):
@@ -116,8 +116,7 @@ def get_user_id(pe):
     user_id = _person_to_user_id.get(pe.entity_id)
 
     if user_id is None:
-        with entity.account.find(pe.get_primary_account()) as ac:
-            user_id = ac.account_name
+        user_id = get_username(pe)
         _person_to_user_id[pe.entity_id] = user_id
 
     return user_id
@@ -133,8 +132,10 @@ def get_sko(ou_id):
     :rtype: str
     :return: The six-digit stedkode
     """
-    with entity.ou.find(ou_id) as ou:
-        return six.text_type(ou)
+    # ick - gobals
+    ou_obj = Factory.get("OU")(db)
+    ou_obj.find(ou_id)
+    return six.text_type(ou_obj)
 
 
 def ou_has_ephorte_spread(ou_id):
