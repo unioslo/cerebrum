@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2016-2018 University of Oslo, Norway
+# Copyright 2016-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -22,38 +22,32 @@
 
 This program reports on persons with affiliation in the MANUAL source system.
 """
-
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import argparse
-import csv
 import datetime
 import logging
 import os
-import sys
 
+import six
 from jinja2 import Environment, FileSystemLoader
-from six import text_type
 
 import cereconf
 
 import Cerebrum.logutils
 import Cerebrum.logutils.options
-import Cerebrum.utils.csvutils as _csvutils
 from Cerebrum.Utils import Factory
-from Cerebrum.utils.argutils import codec_type
 from Cerebrum.modules.no.Stedkode import OuCache
+from Cerebrum.utils import csvutils
+from Cerebrum.utils import file_stream
+from Cerebrum.utils.argutils import codec_type
 
 logger = logging.getLogger(__name__)
 now = datetime.datetime.now
-
-
-class CsvDialect(csv.excel):
-    """Specifying the CSV output dialect the script uses.
-
-    See the module `csv` for a description of the settings.
-
-    """
-    delimiter = ';'
-    lineterminator = '\n'
 
 
 def get_manual_users(db, stats=None, ignore_quarantined=False):
@@ -74,27 +68,31 @@ def get_manual_users(db, stats=None, ignore_quarantined=False):
 
     def _u(db_value):
         if db_value is None:
-            return text_type('')
+            return six.text_type('')
         if isinstance(db_value, bytes):
             return db_value.decode(db.encoding)
-        return text_type(db_value)
+        return six.text_type(db_value)
 
     ou_cache = OuCache(db)
 
     # TODO: Dynamic exemptions
-    EXEMPT_AFFILIATIONS = [
+    # TODO: Is this right?  This excludes *everyone* at UiO?
+    exempt_affiliations = [
         const.affiliation_ansatt,  # ANSATT
         const.affiliation_student,  # STUDENT
         const.affiliation_tilknyttet  # TILKNYTTET
     ]
-    EXEMPT_AFFILIATION_STATUSES = [
+    exempt_affiliation_statuses = [
         const.affiliation_manuell_ekstern,  # MANUELL/ekstern
         const.affiliation_manuell_alumni  # MANUELL/alumni
     ]
 
+    # TODO: Should probably build lookup tables for accounts and quarantines,
+    # rather than doing new db-lookups per row
+
     for person_row in person.list_affiliated_persons(
-            aff_list=EXEMPT_AFFILIATIONS,
-            status_list=EXEMPT_AFFILIATION_STATUSES or None,
+            aff_list=exempt_affiliations,
+            status_list=exempt_affiliation_statuses,
             inverted=True):
 
         person.clear()
@@ -109,13 +107,13 @@ def get_manual_users(db, stats=None, ignore_quarantined=False):
         person_ou_list = list()
         for paff_row in person_affiliations:
             if (
-                    paff_row[0] in EXEMPT_AFFILIATIONS
-                    or paff_row[1] in EXEMPT_AFFILIATION_STATUSES
+                    paff_row[0] in exempt_affiliations
+                    or paff_row[1] in exempt_affiliation_statuses
             ):
                 has_exempted = True
                 break
             person_ou_list.append(ou_cache.format_ou(paff_row[2]))
-            person_affiliations_list.append(text_type(paff_row[1]))
+            person_affiliations_list.append(six.text_type(paff_row[1]))
 
         if has_exempted:
             # This person has at least one exempted affiliation / status
@@ -133,14 +131,15 @@ def get_manual_users(db, stats=None, ignore_quarantined=False):
             for row in account.get_account_types(filter_expired=False):
                 account_affiliations.append(
                     u'{affiliation}@{ou}'.format(
-                        affiliation=text_type(
+                        affiliation=six.text_type(
                             const.PersonAffiliation(row['affiliation'])),
                         ou=ou_cache.format_ou(row['ou_id'])))
             if not account_affiliations:
                 account_affiliations.append('EMPTY')
-            quarantines = [text_type(const.Quarantine(q['quarantine_type']))
-                           for q in
-                           account.get_entity_quarantine(only_active=True)]
+            quarantines = [
+                six.text_type(const.Quarantine(q['quarantine_type']))
+                for q in account.get_entity_quarantine(only_active=True)
+            ]
             if ignore_quarantined and quarantines:
                 continue
 
@@ -162,47 +161,44 @@ def get_manual_users(db, stats=None, ignore_quarantined=False):
                 ' of total %(person_count)d persons processed', stats)
 
 
-def write_csv_report(stream, codec, users):
+def write_csv_report(stream, encoding, users):
     """ Write a CSV report to an open bytestream. """
     # number_of_users = sum(len(users) for users in no_aff.values())
 
-    output = codec.streamwriter(stream)
-    output.write('# Encoding: %s\n' % codec.name)
-    output.write('# Generated: %s\n' % now().strftime('%Y-%m-%d %H:%M:%S'))
+    stream.write('# Encoding: %s\n' % (encoding,))
+    stream.write('# Generated: %s\n' % now().strftime('%Y-%m-%d %H:%M:%S'))
     # output.write('# Number of users found: %d\n' % number_of_users)
     fields = ['person_ou_list', 'person_affiliations', 'person_name',
               'account_name', 'account_affiliations', 'account_quarantines']
 
-    writer = _csvutils.UnicodeDictWriter(output, fields, dialect=CsvDialect)
+    writer = csvutils.UnicodeDictWriter(stream, fields,
+                                        dialect=csvutils.CerebrumDialect)
     writer.writeheader()
     writer.writerows(users)
 
 
-def write_html_report(stream, codec, users, summary):
+def write_html_report(stream, users, summary):
     """ Write an HTML report to an open bytestream. """
-    output = codec.streamwriter(stream)
-
-    env = Environment(
-        loader=FileSystemLoader(os.path.join(os.path.dirname(__file__),
-                                             'templates')))
+    template_path = os.path.join(os.path.dirname(__file__), 'templates')
+    env = Environment(loader=FileSystemLoader(template_path))
     template = env.get_template('simple_list_overview.html')
 
-    output.write(
+    stream.write(
         template.render({
             'headers': (
-                ('person_ou_list', u'Person OU list'),
-                ('person_affiliations', u'Persont affiliations'),
-                ('person_name', u'Name'),
-                ('account_name', u'Account name'),
-                ('account_affiliations', u'Account affiliations')),
-            'title': u'Manual affiliations report ({})'.format(
+                ('person_ou_list', 'Person OU list'),
+                ('person_affiliations', 'Persont affiliations'),
+                ('person_name', 'Name'),
+                ('account_name', 'Account name'),
+                ('account_affiliations', 'Account affiliations')),
+            'title': 'Manual affiliations report ({})'.format(
                 now().strftime('%Y-%m-%d %H:%M:%S')),
-            'prelist': u'<h3>Manual affiliations report</h3>',
-            'postlist': u'<p>{}</p>'.format(summary),
+            'prelist': '<h3>Manual affiliations report</h3>',
+            'postlist': '<p>{}</p>'.format(summary),
             'items': users,
         })
     )
-    output.write('\n')
+    stream.write('\n')
 
 
 DEFAULT_ENCODING = 'utf-8'
@@ -213,34 +209,35 @@ def main(inargs=None):
     parser.add_argument(
         '-o', '--output',
         metavar='FILE',
-        type=argparse.FileType('w'),
-        default='-',
-        help='output file for html report, defaults to stdout')
+        default=file_stream.DEFAULT_STDOUT_NAME,
+        help="write html output to %(metavar)s (default: stdout)",
+    )
     parser.add_argument(
         '-e', '--output-encoding',
         dest='codec',
         default=DEFAULT_ENCODING,
         type=codec_type,
-        help="output file encoding, defaults to %(default)s")
-
+        help="output file encoding, defaults to %(default)s",
+    )
     parser.add_argument(
         '--csv',
         metavar='FILE',
-        type=argparse.FileType('w'),
         default=None,
-        help='output file for csv report, if needed')
+        help="write csv output to %(metavar)s, if needed",
+    )
     parser.add_argument(
         '--csv-encoding',
         dest='csv_codec',
         default=DEFAULT_ENCODING,
         type=codec_type,
-        help="output file encoding, defaults to %(default)s")
-
+        help="output file encoding, defaults to %(default)s",
+    )
     parser.add_argument(
         '--ignore-quarantined',
         dest='ignore_quarantined',
         action='store_true',
-        help="Ignore quarantined accounts in report")
+        help="Ignore quarantined accounts in report",
+    )
 
     Cerebrum.logutils.options.install_subparser(parser)
     args = parser.parse_args(inargs)
@@ -249,7 +246,7 @@ def main(inargs=None):
     db = Factory.get('Database')()
 
     logger.info('Start of script %s', parser.prog)
-    logger.debug("args: %r", args)
+    logger.debug("args: %s", repr(args))
 
     stats = dict()
     manual_users = get_manual_users(db, stats,
@@ -259,19 +256,21 @@ def main(inargs=None):
                                  key=lambda x: x['person_ou_list'])
     summary = ('{manual_count} accounts for {total_person_count} persons of'
                ' total {person_count} persons processed').format(**stats)
-    write_html_report(args.output, args.codec, sorted_manual_users, summary)
 
-    args.output.flush()
-    if args.output is not sys.stdout:
-        args.output.close()
-    logger.info('HTML report written to %s', args.output.name)
+    html_filename = args.output
+    html_encoding = args.codec.name
+    with file_stream.get_output_context(html_filename,
+                                        encoding=html_encoding) as f:
+        write_html_report(f, sorted_manual_users, summary)
+        logger.info('HTML report written to %s', f.name)
 
     if args.csv:
-        write_csv_report(args.csv, args.csv_codec, sorted_manual_users)
-        args.csv.flush()
-        if args.csv is not sys.stdout:
-            args.csv.close()
-        logger.info('CSV report written to %s', args.csv.name)
+        csv_filename = args.csv
+        csv_encoding = args.csv_codec.name
+        with file_stream.get_output_context(csv_filename,
+                                            encoding=csv_encoding) as f:
+            write_csv_report(f, csv_encoding, sorted_manual_users)
+            logger.info('CSV report written to %s', f.name)
 
     logger.info('Done with script %s', parser.prog)
 

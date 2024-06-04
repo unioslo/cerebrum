@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2005-2019 University of Oslo, Norway
+# Copyright 2005-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,178 +19,200 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
-Remove external id from a given source system
+Remove external id from a given source system.
 
-This script removes a given type of external ids from a provided source
-system for all persons who has the same type of external_id
-from one of the systems defined in cereconf.SYSTEM_LOOKUP_ORDER.
+This script removes a given external id-type from a provided source system for
+persons with the same id-type (and optionally, the same id-value) in other
+autoritative system.
 
-The script may be run for removing externalid_fodselsnr from MIGRATE
-if a person at the same time has externalid_fodselsnr from e.g. SAP.
+A typical use-case is to remove temporary or obsolete ids, but wanting to keep
+them if they would otherwise be lost.
 
-Example:
+Configuration
+-------------
+Only duplicates in ``cereconf.SYSTEM_LOOKUP_ORDER`` will be considered.
 
-  python remove_src_extid.py -s system_fs -e externalid_fodselsnr
+Example
+-------
+Generate a report of ids that *would* be deleted by running in dryrun mode:
+::
+
+    <script> -s SAP -t NO_BIRTHNO --ignore-value --dryrun --output report.csv
+
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import argparse
 import logging
-import sys
-import time
 
-from six import text_type
+import six
 from functools import partial
 
-from Cerebrum import Errors
-from Cerebrum import logutils
+import Cerebrum.logutils
+import Cerebrum.logutils.options
 from Cerebrum.Utils import Factory
 from Cerebrum.utils import argutils
-from Cerebrum.utils.atomicfile import AtomicFileWriter
-from Cerebrum.utils.csvutils import CerebrumDialect, UnicodeWriter
-
-from cereconf import SYSTEM_LOOKUP_ORDER
+from Cerebrum.utils import csvutils
+from Cerebrum.utils import file_stream
 
 logger = logging.getLogger(__name__)
 
 
-class SrcExtidRemover(object):
-    def __init__(self, co, pe, ssys, external_id_type):
-        self.co = co
-        self.pe = pe
-        self.ssys = ssys
-        self.external_id_type = external_id_type
-        self.other_ssys = set(
-            co.human2constant(s) for s in SYSTEM_LOOKUP_ORDER) - set([self.ssys])
-        log_ents = ['Checking:'] + [text_type(s) for s in self.other_ssys]
-        logger.debug(' '.join(log_ents))
-        self.dump = []
-        self.stream = None
+def find_candidate_ids(db, source_system, id_type):
+    """ Find persons with *id_type* from *source_system*. """
+    pe = Factory.get("Person")(db)
+    entity_type = pe.const.entity_person
+    for row in pe.search_external_ids(
+            source_system=source_system,
+            id_type=id_type,
+            entity_type=entity_type,
+            fetchall=False):
+        yield (int(row['entity_id']), int(row['external_id']))
 
-    def get_persons(self):
-        """
-        :return generator:
-            A generator that yields persons with the given id types.
-        """
-        logger.debug('get_persons ...')
-        for row in self.pe.search_external_ids(source_system=self.ssys,
-                                             id_type=self.external_id_type,
-                                             entity_type=self.co.entity_person,
-                                             fetchall=False):
-            yield {
-                'entity_id': int(row['entity_id']),
-                'ext_id': int(row['external_id']),
-            }
 
-    def in_other_ssys(self):
-        """
-        :return bool:
-            True iff external id exists in any other relevant source system
-        """
-        for o_ssys in self.other_ssys:
-            if self.pe.get_external_id(o_ssys, self.external_id_type):
-                return True
-        return False
+def get_duplicate_lookup(db, exclude_system, id_type, ignore_value=False):
+    """ Get a lookup to check if a given id entry exists in other systems.  """
+    co = Factory.get('Constants')(db)
+    other_systems = (set(co.get_system_lookup_order())
+                     - set([exclude_system]))
 
-    def remover(self):
-        """
-        delete external id from source system if it exists in
-        """
-        logger.debug('start remover ...')
-        for i, person in enumerate(self.get_persons()):
-            self.pe.clear()
-            self.pe.find(person['entity_id'])
-            if self.in_other_ssys():
-                self.pe._delete_external_id(self.ssys, self.external_id_type)
-                self.dump.append(person)
-            if not (i+1)%10000:
-                logger.debug(' remover: Treated {} entities'.format(i+1))
+    logger.info("Considering duplicates from %s",
+                ", ".join(sorted([six.text_type(s) for s in other_systems])))
 
-    def get_output_stream(self, filename, codec):
-        """ Get a unicode-compatible stream to write. """
-        if filename == '-':
-            self.stream = sys.stdout
+    entries = find_candidate_ids(db, other_systems, id_type)
+    if ignore_value:
+        duplicates = set(p_id for p_id, _ in entries)
+    else:
+        duplicates = set(entries)
+
+    def is_duplicate(entry):
+        if ignore_value:
+            value, _ = entry
         else:
-            self.stream = AtomicFileWriter(filename,
-                                           mode='w',
-                                           encoding=codec.name)
+            value = entry
+        return value in duplicates
 
-    def write_csv_report(self):
-        """ Write a CSV report to a stream.
+    return is_duplicate
 
-        :param stream: file-like object that can write unicode strings
-        :param persons: iterable with mappings that has keys ('ext_id', 'name')
-        """
-        writer = UnicodeWriter(self.stream, dialect=CerebrumDialect)
-        for person in self.dump:
-            writer.writerow((person['ext_id'],
-                             person['entity_id'],
-                             time.strftime('%m/%d/%Y %H:%M:%S')))
-        self.stream.flush()
-        if self.stream is not sys.stdout:
-            self.stream.close()
+
+def delete_external_id(db, person_id, source_system, id_type):
+    pe = Factory.get("Person")(db)
+    pe.find(person_id)
+    pe._delete_external_id(source_system, id_type)
+
+
+def write_csv_report(filename, entries):
+    with file_stream.get_output_context(filename, encoding="utf-8") as f:
+        writer = csvutils.UnicodeWriter(f, dialect=csvutils.CerebrumDialect)
+        writer.writerow(("person_id", "external_id"))
+        for t in sorted(entries):
+            writer.writerow(t)
+        f.flush()
+        logger.info('Report written to %s', f.name)
+
+
+def remove_duplicates(db, source_system, id_type, ignore_value=False):
+    """
+    Delete all *id_type* from *source_system* that exists in other systems.
+
+    :param source_system: The source system to delete from
+    :param id_type: The id type to delete
+    :param bool ignore_value:
+        Ignore the value seen in other systems.
+
+        The default behaviour is to only delete the id if it exists with the
+        same value in other systems.  Setting this to ``True`` will delete the
+        id-type even if the id-value seen in other systems differs.
+
+    :returns list:
+        Returns tuples of (person_id, id_value) for all deleted ids.
+    """
+    is_duplicate = get_duplicate_lookup(db, source_system, id_type,
+                                        ignore_value)
+
+    logger.debug("Finding candidate ids...")
+    candidates = sorted(
+        set(find_candidate_ids(db, source_system, id_type)))
+
+    deleted = []
+    logger.info("Considering %d ids of type %s from %s",
+                len(candidates), six.text_type(id_type),
+                six.text_type(source_system))
+    for i, entry in enumerate(candidates, 1):
+        if is_duplicate(entry):
+            person_d = dict(zip(['entity_id', 'ext_id'], entry))
+            delete_external_id(db, person_d['entity_id'], source_system,
+                               id_type)
+            deleted.append(entry)
+
+        if not (i % 1000):
+            logger.debug("... processed %d candidates", i)
+
+    logger.info("Deleted %d of %d candidates",
+                len(deleted), len(candidates))
+    return deleted
 
 
 def main(inargs=None):
     parser = argparse.ArgumentParser(description=__doc__)
     source_arg = parser.add_argument(
-        '-s', '--source-system',
-        default='SAP',
-        metavar='SYSTEM',
-        help='Source system to remove id number from')
+        "-s", "--source-system",
+        default="SAP",
+        metavar="SYSTEM",
+        help="Source system to remove from (default: %(default)s)",
+    )
     id_type_arg = parser.add_argument(
-        '-e', '--external-id-type',
-        default='NO_BIRTHNO',
-        metavar='IDTYPE',
-        help='External ID type')
-    parser.add_argument(
-        '-c', '--commit',
-        action='store_true',
-        dest='commit',
-        default=False,
-        help='Commit changes (default: log changes, do not commit)'
+        "-t", "--id-type",
+        default="NO_BIRTHNO",
+        metavar="IDTYPE",
+        help="Id type to remove (default: %(default)s",
     )
     parser.add_argument(
-        '-o', '--output',
-        metavar='FILE',
-        default='-',
-        help='The file to print the report to, defaults to stdout')
+        "--ignore-value",
+        action="store_true",
+        default="false",
+        help="Remove id-types even if the value is different in other systems",
+    )
     parser.add_argument(
-        '--codec',
-        dest='codec',
-        default='utf-8',
-        type=argutils.codec_type,
-        help="Output file encoding, defaults to %(default)s")
+        "-o", "--output",
+        metavar="FILE",
+        default=file_stream.DEFAULT_STDOUT_NAME,
+        help="write csv report to %(metavar)s (default: stdout)",
+    )
+    argutils.add_commit_args(parser)
+    Cerebrum.logutils.options.install_subparser(parser)
 
-    logutils.options.install_subparser(parser)
     args = parser.parse_args(inargs)
-    db = Factory.get('Database')()
-    co = Factory.get('Constants')(db)
-    pe = Factory.get('Person')(db)
-    db.cl_init(change_program='remove_src_fnrs')
+    Cerebrum.logutils.autoconf("tee", args)
+
+    db = Factory.get("Database")()
+    co = Factory.get("Constants")(db)
+    db.cl_init(change_program=parser.prog)
 
     get_const = partial(argutils.get_constant, db, parser)
-    ssys = get_const(co.AuthoritativeSystem,
-                     args.source_system,
-                     source_arg)
-    external_id_type = get_const(co.EntityExternalId,
-                                 args.external_id_type,
-                                 id_type_arg)
-    logutils.autoconf('cronjob', args)
-    logger.info('Start of script {}'.format(parser.prog))
-    logger.debug('args: {}'.format(args))
-    logger.info('source_system: {}'.format(text_type(ssys)))
-    logger.info('external_id_type: {}'.format(text_type(external_id_type)))
-    SER = SrcExtidRemover(co, pe, ssys, external_id_type)
-    SER.remover()
-    SER.get_output_stream(args.output, args.codec)
-    SER.write_csv_report()
-    logger.info('Report written to %s', SER.stream.name)
+    source_system = get_const(co.AuthoritativeSystem, args.source_system,
+                              source_arg)
+    id_type = get_const(co.EntityExternalId, args.id_type, id_type_arg)
+
+    logger.info("Start %s", parser.prog)
+    logger.debug("args: %s", repr(args))
+
+    deleted = remove_duplicates(db, source_system, id_type, args.ignore_value)
+    write_csv_report(args.output, deleted)
+
     if args.commit:
         db.commit()
         logger.debug('Committed all changes')
     else:
         db.rollback()
         logger.debug('Rolled back all changes')
-    logger.info('Script %s is done', parser.prog)
+
+    logger.info("Done %s", parser.prog)
+
 
 if __name__ == '__main__':
     main()

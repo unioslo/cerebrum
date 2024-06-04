@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2015-2023 University of Oslo, Norway
+# Copyright 2015-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -25,9 +25,16 @@ travel-portal.
 The output format: title, first name, last name, FEIDE id, e-mail address,
 telephone number, social security number (or equivalent).
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import argparse
 import csv
 import logging
+import textwrap
 
 import six
 
@@ -35,8 +42,9 @@ import cereconf
 import Cerebrum.logutils
 import Cerebrum.logutils.options
 import Cerebrum.utils.argutils
+from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.utils import csvutils as _csvutils
+from Cerebrum.utils import csvutils
 from Cerebrum.utils.atomicfile import AtomicFileWriter
 
 logger = logging.getLogger(__name__)
@@ -48,40 +56,11 @@ class BergHansenDialect(csv.excel):
     See the module `csv` for a description of the settings.
 
     """
-    delimiter = ';'
-    lineterminator = '\n'
-
-
-def _parse_codes(db, codes):
-    co = Factory.get('Constants')(db)
-    if codes is None:
-        return None
-    elif isinstance(codes, six.string_types):
-        return co.human2constant(codes)
-    else:
-        return [co.human2constant(x) for x in codes]
-
-
-def _strip_n_parse_source_system(db, codes):
-    co = Factory.get('Constants')(db)
-
-    def _fuck_it(code):
-        if ':' in code:
-            (ss, c) = code.split(':')
-            return (co.human2constant(ss), _parse_codes(db, c))
-        else:
-            return (None, _parse_codes(db, code))
-
-    if codes is None:
-        return None
-    elif isinstance(codes, six.string_types):
-        return _fuck_it(codes)
-    else:
-        return [_fuck_it(x) for x in codes]
+    delimiter = str(";")
+    lineterminator = str("\n")
 
 
 def _construct_feide_id(db, pe):
-    from Cerebrum import Errors
     ac = Factory.get('Account')(db)
     try:
         ac.find(pe.get_primary_account())
@@ -100,19 +79,24 @@ def _get_primary_emailaddress(db, pe):
         return None
 
 
-def _get_phone(db, pe, source_system, telephone_types):
-    phones = []
-    for (ss, tt) in telephone_types:
-        phones.extend(
-            pe.get_contact_info(
-                source=ss, type=tt))
+def _get_phone(db, pe, telephone_types):
+    phones = list(pe.get_contact_info(type=telephone_types))
 
     if telephone_types:
+        sort_map = {}
+        for tt in telephone_types:
+            if int(tt) in sort_map:
+                continue
+            sort_map[int(tt)] = len(sort_map)
         sort_map = dict(
-            zip([int(t) for t in set([t for (s, t) in telephone_types])],
-                range(len(telephone_types))))
+            zip(
+                # TODO: This isn't consistent sorting at all
+                [int(t) for t in set(telephone_types)],
+                range(len(telephone_types))
+            )
+        )
+        phones.sort(key=lambda r: sort_map[r['contact_type']])
 
-        phones.sort(key=lambda x: sort_map[x['contact_type']])
     return None if not phones else phones[0]['contact_value']
 
 
@@ -153,7 +137,7 @@ def get_person_info(db, person, source_system,
         'title': 'Mr' if pe.gender == co.gender_male else 'Ms',
         'feide_id': _construct_feide_id(db, pe),
         'email_address': _get_primary_emailaddress(db, pe),
-        'phone': _get_phone(db, pe, source_system, telephone_types)
+        'phone': _get_phone(db, pe, telephone_types)
     }
 
 
@@ -171,18 +155,19 @@ def write_file(filename, codec, persons, skip_incomplete, skip_header=False):
     with AtomicFileWriter(filename,
                           mode='w',
                           encoding=codec.name) as stream:
-        writer = _csvutils.UnicodeDictWriter(stream, fields,
-                                             dialect=BergHansenDialect)
+        writer = csvutils.UnicodeDictWriter(stream, fields,
+                                            dialect=BergHansenDialect)
 
         if not skip_header:
             writer.writeheader()
 
-        for i, person in enumerate(persons, 1):
+        for person in persons:
             if skip_incomplete and not all(person.values()):
                 continue
             person = dict(map(lambda t: (t[0], '' if t[1] is None else t[1]),
                               person.items()))
             writer.writerow(person)
+            i += 1
     logger.info('Wrote %d users to file %s', i, filename)
 
 
@@ -199,68 +184,97 @@ def main(inargs=None):
     """
     parser = argparse.ArgumentParser(description=__doc__)
 
+    # TODO: Change the `nargs` arguments into repeatable `append` actions
     parser.add_argument(
         '-f', '--file',
         dest='filename',
         required=True,
         metavar='<filename>',
-        help='Write export data to %(metavar)s')
+        help='Write export data to %(metavar)s',
+    )
     parser.add_argument(
         '-e', '--encoding',
         dest='codec',
         default=DEFAULT_ENCODING,
         type=Cerebrum.utils.argutils.codec_type,
-        help="output file encoding, defaults to %(default)s")
+        help="output file encoding, defaults to %(default)s",
+    )
 
-    parser.add_argument('-a', '--affiliations',
-                        nargs='*',
-                        metavar='affiliation',
-                        required=True,
-                        help='Affiliations to select users by')
-    parser.add_argument('--source-system',
-                        dest='source_system',
-                        metavar='source-system',
-                        help='Source systems to select name and SSN from')
-    parser.add_argument('--telephone-types',
-                        nargs='*',
-                        metavar='phone-type',
-                        help='Telephone types to export, in prioritized '
-                             'order. An authorative system can be defined as '
-                             'a number-source. I.e: SAP:MOBILE')
-    parser.add_argument('--skip-incomplete',
-                        dest='skip_incomplete',
-                        action='store_true',
-                        default=False,
-                        help='Do not export persons that does not have all '
-                             'fields')
-    parser.add_argument('--skip-header',
-                        dest='skip_header',
-                        action='store_true',
-                        default=False,
-                        help='Do not write field description in export-file')
+    parser.add_argument(
+        '-a', '--affiliations',
+        nargs='*',
+        metavar='affiliation',
+        required=True,
+        help='Affiliations to select users by',
+    )
+    parser.add_argument(
+        '--source-system',
+        dest='source_system',
+        metavar='source-system',
+        required=True,
+        help='Source systems to select name and SSN from',
+    )
+    parser.add_argument(
+        '--telephone-types',
+        nargs='*',
+        metavar='phone-type',
+        help=textwrap.dedent(
+            """
+            Telephone types to export, in prioritized
+            order, e.g. MOBILE PRIVATEMOBILE
+            """
+        ).strip(),
+    )
+    parser.add_argument(
+        '--skip-incomplete',
+        dest='skip_incomplete',
+        action='store_true',
+        default=False,
+        help='Do not export persons that does not have all fields',
+    )
+    parser.add_argument(
+        '--skip-header',
+        dest='skip_header',
+        action='store_true',
+        default=False,
+        help='Do not write field description in export-file',
+    )
 
     Cerebrum.logutils.options.install_subparser(parser)
     args = parser.parse_args(inargs)
     Cerebrum.logutils.autoconf('cronjob', args)
 
+    logger.info("Start: %s", parser.prog)
+    logger.debug("args: %s", repr(args))
+
     db = Factory.get('Database')()
+    co = Factory.get('Constants')(db)
+    affiliations = [co.get_constant(co.PersonAffiliation, a)
+                    for a in args.affiliations]
+    source_system = co.get_constant(co.AuthoritativeSystem, args.source_system)
+    phone_types = [
+        co.get_constant(co.ContactInfo, p)
+        for p in (args.telephone_types or [])
+    ] or None
 
-    logger.info("START with args: %r", args)
+    affiliated_persons = set(get_affiliated(db, source_system, affiliations))
+    logger.info("Found %d affiliated persons to include",
+                len(affiliated_persons))
 
-    write_file(args.filename,
-               args.codec,
-               (get_person_info(
-                   db, pid,
-                   _parse_codes(db, args.source_system),
-                   _strip_n_parse_source_system(db, args.telephone_types))
-                   for pid in set(get_affiliated(
-                       db,
-                       _parse_codes(db, args.source_system),
-                       _parse_codes(db, args.affiliations)))),
-               args.skip_incomplete,
-               args.skip_header)
+    person_generator = (
+        get_person_info(db, pid, source_system, phone_types)
+        for pid in sorted(affiliated_persons)
+    )
 
-    logger.info("DONE")
+    write_file(
+        args.filename,
+        args.codec,
+        person_generator,
+        args.skip_incomplete,
+        args.skip_header,
+    )
+
+    logger.info("Done")
 
 
 if __name__ == '__main__':
