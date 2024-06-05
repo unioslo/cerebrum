@@ -1,24 +1,6 @@
 # encoding: utf-8
-#
-# Copyright 2018-2023 University of Oslo, Norway
-#
-# This file is part of Cerebrum.
-#
-# Cerebrum is free software; you can redistribute it and/or modify it
-# under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# Cerebrum is distributed in the hope that it will be useful, but
-# WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-# General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with Cerebrum; if not, write to the Free Software Foundation,
-# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
-Tests for ``Cerebrum.utils.json``
+Tests for mod:`Cerebrum.utils.json`
 """
 from __future__ import (
     absolute_import,
@@ -26,9 +8,10 @@ from __future__ import (
     print_function,
     unicode_literals,
 )
-
 import datetime
+import io
 
+import pytest
 import pytz
 import six
 
@@ -84,25 +67,25 @@ class MxLike(object):
         return self._dt.time()
 
 
-def test_mx_datetime():
+def test_dump_mx_datetime():
     mx_dt = MxLike(2018, 1, 1, 12, 0, 0)
     mx_repr = '"2018-01-01T12:00:00+01:00"'
     assert json.dumps(mx_dt) == mx_repr
 
 
-def test_mx_date():
+def test_dump_mx_date():
     mx_dt = MxLike(2018, 1, 1, 0, 0, 0)
     mx_repr = '"2018-01-01"'
     assert json.dumps(mx_dt) == mx_repr
 
 
-def test_datetime_naive():
+def test_dump_datetime_naive():
     dt = datetime.datetime(1998, 6, 28, 23, 30, 11, 987654)
     iso_repr = '"1998-06-28T23:30:11.987654+02:00"'
     assert json.dumps(dt) == iso_repr
 
 
-def test_datetime_tz():
+def test_dump_datetime_tz():
     dt = date_utils.apply_timezone(
         datetime.datetime(1998, 6, 28, 23, 30, 11, 987654),
         pytz.UTC)
@@ -110,38 +93,122 @@ def test_datetime_tz():
     assert json.dumps(dt) == iso_repr
 
 
-def test_date():
+def test_dump_date():
     dt = datetime.date(1998, 6, 28)
     iso_repr = '"1998-06-28"'
     assert json.dumps(dt) == iso_repr
 
 
-def test_constants(factory):
-    co = factory.get('Constants')(None)
-    assert json.dumps(co.entity_account) == (
-        '{{"__cerebrum_object__": "code", '
-        '"code": {d}, '
-        '"str": "{c}", '
-        '"table": "{t}"}}').format(
-            c=co.entity_account,
-            d=int(co.entity_account),
-            t=co.EntityType._lookup_table)
+def test_dump_entity(const, initial_account):
+    output = json.dumps(initial_account, sort_keys=True)
 
-
-def test_entity(initial_account, factory):
-    co = factory.get('Constants')(None)
-    assert json.dumps(initial_account) == (
+    assert output == (
         '{{"__cerebrum_object__": "entity", '
         '"entity_id": {}, '
         '"entity_type": {}, '
         '"str": "{}"}}'
-        .format(
-            initial_account.entity_id,
-            json.dumps(co.entity_account),
-            six.text_type(initial_account)))
+    ).format(
+        initial_account.entity_id,
+        json.dumps(const.entity_account),
+        six.text_type(initial_account),
+    )
 
 
-def test_text():
+def test_load_entity(database, const, initial_account):
+    text = """
+      {{
+        "__cerebrum_object__": "entity",
+        "entity_id": {},
+        "entity_type": {},
+        "str": {}
+      }}
+    """.format(
+        json.dumps(initial_account.entity_id),
+        json.dumps(const.entity_account),
+        json.dumps(six.text_type(initial_account)),
+    )
+    # Note: This is a bit ugly, as loads() initializes and uses a global db
+    # connection, bypassing all our fixtures.
+    assert json.loads(text) == initial_account
+
+
+def test_dump_constant(const):
+    output = json.dumps(const.entity_account, sort_keys=True)
+    assert output == (
+        '{{"__cerebrum_object__": "code", '
+        '"code": {d}, '
+        '"str": "{c}", '
+        '"table": "{t}"}}'
+    ).format(
+        c=const.entity_account,
+        d=int(const.entity_account),
+        t=const.EntityType._lookup_table,
+    )
+
+
+def test_load_constant(const):
+    text = """
+      {{
+        "__cerebrum_object__": "code",
+        "code": {d},
+        "str": "{c}",
+        "table": "{t}"
+      }}
+    """.format(
+        c=const.entity_account,
+        d=int(const.entity_account),
+        t=const.EntityType._lookup_table,
+    )
+    # Note: This is a bit ugly, as loads() initializes and uses a global db
+    # connection, bypassing all our fixtures.
+    assert json.loads(text) == const.entity_account
+
+
+def test_load_invalid_constant(const):
+    text = '{"__cerebrum_object__": "code"}'
+    with pytest.raises(ValueError):
+        json.loads(text)
+
+
+def test_dump_set():
+    assert json.dumps(set((4, 1, 8))) == "[1, 4, 8]"
+
+
+def test_dump_tuple():
+    assert json.dumps((4, 1, 8)) == "[4, 1, 8]"
+
+
+def test_dump_unsupported():
+    with pytest.raises(TypeError):
+        assert json.dumps(object())
+
+
+def test_load_unsupported():
+    text = '{"__cerebrum_object__": "unsupported-object-type"}'
+    with pytest.raises(ValueError) as exc_info:
+        json.loads(text)
+    err = six.text_type(exc_info.value)
+    assert err.startswith("No handler for decoding")
+
+
+def test_dump_text():
     txt = "blåbærøl"
     txt_repr = '"%s"' % (txt,)
     assert json.dumps(txt) == txt_repr
+
+
+def test_dump_to_file():
+    obj = {"hello": "world", "lst": [1, 2, 3]}
+    expected = '{"hello": "world", "lst": [1, 2, 3]}'
+    with io.StringIO() as fd:
+        json.dump(obj, fd, sort_keys=True)
+        output = fd.getvalue()
+    assert output == expected
+
+
+def test_load_from_file():
+    text = '{"hello": "world", "lst": [1, 2, 3]}'
+    expected = {"hello": "world", "lst": [1, 2, 3]}
+    with io.StringIO(text) as fd:
+        obj = json.load(fd)
+    assert obj == expected

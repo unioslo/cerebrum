@@ -1,6 +1,6 @@
 # encoding: utf-8
 #
-# Copyright 2018-2023 University of Oslo, Norway
+# Copyright 2018-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,10 +18,37 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
-Utilities for JSON handling
+Utilities for JSON handling.
 
 Normally, standard JSON functionality should be used, but these functions
 will amend standard behaviour with Cerebrum specific logic.
+
+TODO
+----
+We should make this module a bit more flexible.  We may not always want
+to serialize *constants* the way they are serialized here, but still want the
+date/datetime serialization.  This module should implement a simple framework
+that lets us mix-and-match serializers.
+
+There's an issue with loading cerebrum objects (entities, constants), where we
+must set up and use a global database connection to fetch the actual objects.
+The design supports providing our own db connection when loading objects, but
+this has two other problems:
+
+- The database connection we provide is then set as the new, global database
+  connection for future loads
+
+- The functinality for providing a db connection or constants as keyword
+  arguments *db* or *const* is broken - it won't work as the keyword arguments
+  are passed on to the built-in json decoder.  The only way to actually provide
+  these objects, is to give load(s) an initialized `CerebrumObject` as
+  *object_hook*.
+
+Generally, the idea of auto-loading these serialized values isn't great.
+It's hard to generalize handling of missing/deprecated constants, or deleted
+entities here.  It's probably _better_ to standardize on a serialized format,
+and maybe implement a wrapper object that can later help look up these values,
+if needed.
 """
 from __future__ import (
     absolute_import,
@@ -156,19 +183,6 @@ def dump(obj, fp, ensure_ascii=False, sort_keys=True, cls=JSONEncoder,
          *args, **kw):
     return json.dump(obj, fp, ensure_ascii=ensure_ascii,
                      sort_keys=sort_keys, cls=cls, *args, **kw)
-
-
-@six.python_2_unicode_compatible
-class FakeConst(object):
-    def __init__(self, i, s):
-        self.i = i
-        self.s = s
-
-    def __str__(self):
-        return self.s
-
-    def __int__(self):
-        return self.i
 
 
 class CerebrumObject(object):
