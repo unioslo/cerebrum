@@ -20,23 +20,28 @@
 # Copyright 2002-2015 University of Oslo, Norway
 """
 Python module introspection and import utilities.
-
-TODO: Replace
-  - `Cerebrum.Utils:this_module` -> `this_module`
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import functools
 import inspect
 import re
+import sys
 
-try:
-    # PY > 3.3
+if sys.version_info >= (3, 3):
+    # PY3: importlib.machinery.SourceFileLoader introduced in 3.3
     from importlib.machinery import SourceFileLoader
 
     def _load_source(name, path):
         return SourceFileLoader(name, path).load_module()
-
-except ImportError:
+else:
     from imp import load_source as _load_source
+
+from . import text_compat
 
 
 def import_item(module_name, item_name=None):
@@ -222,7 +227,9 @@ def make_class(import_spec, name=None, hint=None):
     # Requirement for constructing a class with 'type'
     bases.append(object)
 
-    # Construct class
-    cls_name = '_dynamic_' + (name or bases[0].__name__)
+    # Format a class name - doesn't have to be limited to ascii, but we
+    # probably *want* it to be
+    cls_name = text_compat.to_str('_dynamic_' + (name or bases[0].__name__),
+                                  encoding="ascii")
     bases = tuple(bases)
     return type(cls_name, bases, {})
