@@ -1,15 +1,28 @@
 # coding: utf-8
-""" Unit tests for AtomicFileWriter and related file writers. """
-from __future__ import print_function, unicode_literals
+"""
+Unit tests for :mod:`Cerebrum.utils.atomicfile`
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import pytest
 
 import math
 import os
 import random
-import shutil
 import string
 import tempfile
+
+
+# inherited conftest fixtures:
+#
+# - `cereconf` - the cereconf module (top-level conftest)
+# - `write_dir` - a directory to write temporary files into (scope=module)
+# - `new_file` - a non-existing filename in `write_dir`
 
 
 class _MockFailure(Exception):
@@ -19,17 +32,6 @@ class _MockFailure(Exception):
 
 # Filter rule to ignore atomic file warnings:
 _ignore_rule = 'ignore::Cerebrum.utils.atomicfile.FileWriterWarning'
-
-
-@pytest.fixture(scope='module')
-def write_dir():
-    """ Creates a temp dir for use by this test module. """
-    tempdir = tempfile.mkdtemp()
-    yield tempdir
-    # `rm -r` the temp-dir after after all tests have completed, to clear out
-    # any residue temp-files from uncompleted AtomicFileWriter write/close
-    # cycles.
-    shutil.rmtree(tempdir)
 
 
 @pytest.fixture(autouse=True)
@@ -64,8 +66,7 @@ def test_cls(file_module, request):
 
 def generate_text(num_chars):
     choice = string.ascii_letters + " \n"
-    return u''.join(
-        [random.choice(choice) for i in range(num_chars)])
+    return "".join(random.choice(choice) for i in range(num_chars))
 
 
 @pytest.fixture(params=[70], ids=lambda p: 'text({})'.format(p))
@@ -80,20 +81,7 @@ def more_text(request):
     return generate_text(request.param)
 
 
-@pytest.yield_fixture
-def new_file(write_dir):
-    """ Gets a `filename` that doesn't exist, and removes it if created. """
-    fd, name = tempfile.mkstemp(dir=write_dir)
-    os.close(fd)
-    os.unlink(name)
-    # `name` is now the path to a non-existing tmp-file
-    yield name
-    # Remove the file, if created by test
-    if os.path.exists(name):
-        os.unlink(name)
-
-
-@pytest.yield_fixture
+@pytest.fixture
 def text_file(write_dir, text):
     """ Creates a new file with `text` as contents. """
     fd, name = tempfile.mkstemp(dir=write_dir)
