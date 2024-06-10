@@ -54,7 +54,7 @@ legacy-file
 plaintext
     Provide a plaintext secret, as is.  Useful in configuration files where
     providing the plaintext secret is OK (e.g. mock values for tests).  Example
-    argument: ``"hunter2"``.
+    argument: ``"hunter2``.
 
 
 To look up a given secret using a given source:
@@ -69,14 +69,11 @@ Secret strings makes it possible to encode *source* and a *source-argument* as
 a single string value, with format ``<source>:<source-argument>``.
 
 This is typically used in config files to allow multiple types of lookup of
-secrets.  Example:
+secrets:
 
 >>> config = {"user": "AzureDiamond", "pass": "plaintext:hunter2"}
 >>> get_secret_from_string(config["pass"])
 'hunter2'
-
-Note that the *source-argument* may contain ``:`` characters:
-
 >>> get_secret_from_string("plaintext::foo:bar:")
 ':foo:bar:'
 
@@ -146,11 +143,10 @@ def legacy_read_password(user, system, host=None, encoding='utf-8'):
     with io.open(filename, mode='r', encoding=encoding) as f:
         # .rstrip() removes any trailing newline, if present.
         dbuser, dbpass = f.readline().rstrip('\n').split('\t', 1)
-        if not dbuser == user:
+        if dbuser != user:
             logger.warning("invalid secret format in filename=%s - "
                            "expected username=%s, got username=%s",
                            repr(filename), repr(user), repr(dbuser))
-        assert dbuser == user
         if not dbpass:
             logger.warning("empty secret in filename=%s", repr(filename))
         return dbpass
