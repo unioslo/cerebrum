@@ -96,6 +96,7 @@ from Cerebrum.modules.bofhd_requests import bofhd_requests_cmds
 from Cerebrum.modules.bofhd_requests.request import BofhdRequests
 from Cerebrum.modules.bofhd.help import Help, merge_help_strings
 from Cerebrum.modules.bofhd import bofhd_access
+from Cerebrum.modules.consent import bofhd_consent_cmds
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.disk_quota import DiskQuota
 from Cerebrum.modules.no.uio.access_FS import FS
@@ -5869,6 +5870,10 @@ class ApiKeyCommands(bofhd_apikey_cmds.BofhdApiKeyCommands):
 
 class BofhdRequestCommands(bofhd_requests_cmds.BofhdExtension):
     authz = bofhd_auth.BofhdRequestsAuth
+
+
+class ConsentCommands(bofhd_consent_cmds.BofhdExtension):
+    authz = bofhd_auth.ConsentAuth
 
 
 class CreateUnpersonalCommands(bofhd_user_create_unpersonal.BofhdExtension):
