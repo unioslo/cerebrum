@@ -58,7 +58,7 @@ def import_item(module_name, item_name=None):
         module otherwise.
     """
     # This method is adopted from `pkg_resources.EntryPoint.resolve`.
-    module = __import__(module_name, fromlist=['__name__'], level=0)
+    module = __import__(module_name, fromlist=[str('__name__')], level=0)
 
     if item_name:
         attrs = item_name.split('.')
