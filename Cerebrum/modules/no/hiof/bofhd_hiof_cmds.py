@@ -190,7 +190,7 @@ class BofhdExtension(BofhdCommonMethods):
         """
         account = self._get_account(uname, idtype='name')
         ret = []
-        for spread, attr_map in iter(account.get_ad_attrs().items()):
+        for spread, attr_map in six.iteritems(account.get_ad_attrs()):
             spread = self._get_constant(self.const.Spread, spread, 'spread')
             for attr_type, attr_val in attr_map.items():
                 ret.append({

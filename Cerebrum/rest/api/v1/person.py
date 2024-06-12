@@ -27,7 +27,7 @@ from __future__ import (
 
 from flask import url_for
 from flask_restx import Namespace, Resource, abort
-from six import text_type
+import six
 
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
@@ -141,7 +141,7 @@ class AddressType(object):
         'OTHER_STREET': 'otherVisitingAddress'
     }
 
-    _rev_map = dict((v, k) for k, v in iter(_map.items()))
+    _rev_map = dict((v, k) for k, v in six.iteritems(_map))
 
     @classmethod
     def serialize(cls, strval):
@@ -326,9 +326,9 @@ class PersonConsentListResource(Resource):
             consent = db.const.EntityConsent(row['consent_code'])
             consent_type = db.const.ConsentType(consent.consent_type)
             consents.append({
-                'name': text_type(consent),
+                'name': six.text_type(consent),
                 'description': consent.description,
-                'type': text_type(consent_type),
+                'type': six.text_type(consent_type),
                 'set_at': row['set_at'],
                 'expires': None,
             })

@@ -2093,7 +2093,7 @@ class roles_xml_parser(non_nested_xml_parser):
         target = None
         not_target = set()
         possible_targets = set()
-        for col, targs in iter(col2target.items()):
+        for col, targs in six.iteritems(col2target):
             if col in data:
                 del data[col]
                 if targs is None:

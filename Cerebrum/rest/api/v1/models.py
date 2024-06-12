@@ -22,6 +22,8 @@
 
 from __future__ import unicode_literals
 
+import six
+
 from Cerebrum.rest.api import db, fields
 
 from . import api
@@ -87,7 +89,7 @@ class ExternalIdType(object):
         'GREG_PID': 'gregPersonId',
     }
 
-    _rev_map = dict((v, k) for k, v in iter(_map.items()))
+    _rev_map = dict((v, k) for k, v in six.iteritems(_map))
 
     @classmethod
     def serialize(cls, strval):
