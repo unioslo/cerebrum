@@ -671,7 +671,7 @@ class WinRMProtocol(object):
         # Rewrite the attribs if they use shortcut prefixes, as ElementTree
         # demands the full definition URLs, e.g.
         #   s:mustUnderstand -> {https://w3.org...}mustUnderstand:
-        for name, attrib in iter(attribs.copy().items()):
+        for name, attrib in six.iteritems(attribs.copy()):
             names = name.split(':', 1)
             if len(names) > 1:
                 attribs['{%s}%s' % (namespaces[names[0]], names[1])] = attrib

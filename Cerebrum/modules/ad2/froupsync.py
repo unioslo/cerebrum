@@ -246,7 +246,7 @@ class _FroupSync(GroupSync):
         """ Prevents superclass' fetch method to be called. """
         entities = getattr(self, 'entities', dict())
         self.logger.debug("Found %d groups in Cerebrum", len(entities))
-        for group in iter(entities.values()):
+        for group in six.itervalues(entities):
             self.logger.debug2("Cerebrum group %r with %d members",
                                group.entity_name,
                                len(getattr(group, 'members', set())))
@@ -359,7 +359,7 @@ class AffGroupSync(_FroupSync):
         super(AffGroupSync, self).configure(config_args)
 
         template = config_args.get('affiliation_groups', dict())
-        for group, criterias in iter(template.items()):
+        for group, criterias in six.iteritems(template):
             for criteria in criterias:
                 criteria['affiliation'] = (
                     self.co.AuthoritativeSystem(criteria['affiliation'][0]),
@@ -447,7 +447,7 @@ class AffGroupSync(_FroupSync):
         'affiliation_groups' config setting.
 
         """
-        for group, criterias in iter(self.config['affiliation_groups'].items()):
+        for group, criterias in six.iteritems(self.config['affiliation_groups']):
             for criteria in criterias:
                 grace_limit = datetime.date.today() - datetime.timedelta(
                     days=criteria['grace_period'])
@@ -475,7 +475,7 @@ class ConsentGroupSync(_FroupSync):
 
         self.config['consent_groups'] = dict()
         template = config_args.get('consent_groups', dict())
-        for group, consents in iter(template.items()):
+        for group, consents in six.iteritems(template):
             self.config['consent_groups'][group] = [
                 self.co.EntityConsent(c) for c in consents]
         self.logger.debug("config[consent_groups]: %r",
@@ -509,7 +509,7 @@ class ConsentGroupSync(_FroupSync):
 
         # Decide which consents this person has
         memberships = defaultdict(lambda: False)
-        for group, consents in iter(self.config['consent_groups'].items()):
+        for group, consents in six.iteritems(self.config['consent_groups']):
             for consent in consents:
                 if self.pe.get_consent_status(consent):
                     memberships[group] = True
@@ -540,7 +540,7 @@ class ConsentGroupSync(_FroupSync):
         'consent_groups' config setting.
 
         """
-        for group, consents in iter(self.config['consent_groups'].items()):
+        for group, consents in six.iteritems(self.config['consent_groups']):
             for row in self.pe.list_consents(
                     consent_code=consents,
                     entity_type=self.co.entity_person):

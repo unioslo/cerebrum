@@ -409,7 +409,7 @@ class BaseSync(object):
             converted = dict((self.co.EntityType(e_type),
                               self.co.EntityExternalId(sid_type))
                              for e_type, sid_type
-                             in iter(self.sidtype_map.items()))
+                             in six.iteritems(self.sidtype_map))
             self.sidtype_map = converted
 
         # We define the group scope and type for new groups.
@@ -1231,7 +1231,7 @@ class BaseSync(object):
 
         """
         ret = {}
-        for atr, atrconfig in iter(self.config['attributes'].items()):
+        for atr, atrconfig in six.iteritems(self.config['attributes']):
             value = ent.attributes.get(atr, None)
             ad_value = ad_object.get(atr, None)
             # Filter/convert the value from AD before getting compared:
@@ -2853,7 +2853,7 @@ class GroupSync(BaseSync):
         """
         self.id2extraentity = dict()
         # Need to process spreads one by one, since each has its config
-        for spread_var in iter(self.config['group_member_spreads'].values()):
+        for spread_var in six.itervalues(self.config['group_member_spreads']):
             spread = spread_var['spread']
             self.logger.debug("Fetch members for spread: %s", spread)
             mem_sync = spread_var['sync']
@@ -2993,7 +2993,7 @@ class GroupSync(BaseSync):
         # Go through all group memberships and add those relevant for AD in the
         # proper groups, either directly or indirectly:
         i = 0
-        for group_id, members in iter(groups.items()):
+        for group_id, members in six.iteritems(groups):
             # Target the parent groups if the group is not supposed to be in
             # AD:
             if group_id in self.id2entity:

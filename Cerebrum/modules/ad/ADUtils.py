@@ -102,7 +102,7 @@ class ADUtils(object):
             # Set attributes in AD
             # Check that no values in changes == None.
             # That is an error and shouldn't be sent
-            for k, v in list(changes.items()):
+            for k, v in six.iteritems(changes):
                 if v is None:
                     del changes[k]
             self.logger.info("Setting attributes for %r: %r", dn, changes)
