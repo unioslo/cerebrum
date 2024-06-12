@@ -264,7 +264,7 @@ class DatabaseErrorWrapper(object):
                 crb_exc_value.__cause__ = exc_value
 
                 # Piggy-back extra attributes
-                for attr, value in iter(self.extra_attrs.items()):
+                for attr, value in six.iteritems(self.extra_attrs):
                     setattr(crb_exc_value, attr, value)
 
                 six.reraise(crb_exc_type, crb_exc_value, traceback)

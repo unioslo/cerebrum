@@ -431,7 +431,7 @@ class Jobs(six.with_metaclass(UniqueActionAttrs), object):
         # construct a graph (bunch of interlinked nodes + a dict to
         # access them)
         graph = dict()
-        for name, job in iter(joblist.items()):
+        for name, job in six.iteritems(joblist):
             graph[name] = _Node(name, job.pre, job.post)
 
         # remap names to object (it'll be easier later)

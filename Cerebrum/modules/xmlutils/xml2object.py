@@ -225,7 +225,7 @@ class NameContainer(object):
             self._names[kind] = [name, ]
 
     def iternames(self):
-        return iter(self._names.items())
+        return six.iteritems(self._names)
 
     def get_name(self, kind, default=None):
         tmp = self._names.get(kind, default)
@@ -418,13 +418,13 @@ class DataEntity(NameContainer):
             self._addresses[address.kind] = address
 
     def iterids(self):
-        return iter(self._external_ids.items())
+        return six.iteritems(self._external_ids)
 
     def itercontacts(self):
         return iter(self._contacts)
 
     def iteraddress(self):
-        return iter(self._addresses.items())
+        return six.iteritems(self._addresses)
 
     def get_contact(self, kind, default=list()):
         result = list()

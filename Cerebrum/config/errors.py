@@ -4,6 +4,8 @@
 
 from __future__ import unicode_literals
 
+import six
+
 
 class ConfigurationError(Exception):
     """An exception that groups multiple exceptions in a _Configuration."""
@@ -43,7 +45,7 @@ class ConfigurationError(Exception):
     def __str__(self):
         return "Errors in {}".format(
             ', '.join(('{!r} ({}: {})'.format(k, type(v).__name__, v)
-                       for k, v in iter(self.errors.items()))))
+                       for k, v in six.iteritems(self.errors))))
 
     def __repr__(self):
         return "{}({!r})".format(

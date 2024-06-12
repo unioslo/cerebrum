@@ -48,6 +48,7 @@ import collections
 import datetime
 import json
 import logging
+import six
 import textwrap
 
 import cereconf
@@ -438,7 +439,7 @@ class CreatePersonProcessor(EventProcessor):
                   + str(self._source_system))
             return
 
-        for source, persons in iter(self._persons_by_source_system.items()):
+        for source, persons in six.iteritems(self._persons_by_source_system):
             print("Created persons from source system: " + source)
             for p_id in persons:
                 tmp = "  id:%8s" % p_id

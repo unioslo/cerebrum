@@ -986,7 +986,7 @@ def _send_mail(mail_to, mail_from, subject, body,
             debug=debug_enabled)
     except smtplib.SMTPRecipientsRefused as e:
         failed_recipients = e.recipients
-        for mail, condition in iter(failed_recipients.items()):
+        for mail, condition in six.iteritems(failed_recipients):
             logger.exception("Failed when notifying %s (%s): %s",
                              mail_to, mail, condition)
         return False

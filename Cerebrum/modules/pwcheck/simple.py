@@ -65,7 +65,7 @@ class CheckSpaceOrNull(PasswordChecker):
         """Check that only valid characters are allowed."""
         errors = []
 
-        for char, err in iter(self._password_illegal_chars.items()):
+        for char, err in six.iteritems(self._password_illegal_chars):
             if char in password:
                 errors.append(err)
         return errors
