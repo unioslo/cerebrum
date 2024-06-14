@@ -20,7 +20,7 @@
 """
 Utilities for generating usernames.
 
-TODO: This probably belongs in a `Cerebrum.acocunt.username` module,
+TODO: This probably belongs in a `Cerebrum.account.username` module,
 and not in `Cerebrum.utils`
 """
 from __future__ import (
