@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2017 University of Oslo, Norway
+# Copyright 2017-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,7 +17,18 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""Utilities for generating usernames."""
+"""
+Utilities for generating usernames.
+
+TODO: This probably belongs in a `Cerebrum.account.username` module,
+and not in `Cerebrum.utils`
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import re
 
 from Cerebrum.utils import transliterate
@@ -30,28 +40,26 @@ def suggest_usernames(fname, lname, maxlen=8,
     Returns a tuple with 15 username suggestions based
     on the person's first and last name.
 
-    :param domain: value domain code
-    :type domain: str
+    :param str fname:
+        first name (and any middle names)
 
-    :param fname: first name (and any middle names)
-    :type fname: str
+    :param str lname:
+        last name
 
-    :param lname: last name
-    :type lname: str
+    :param int maxlen:
+        maximum length of a username (default: 8)
 
-    :param maxlen: maximum length of a username (default: 8)
-    :type maxlen: int
+    :param str suffix:
+        str to append to every generated username (default: '')
 
-    :param suffix: str to append to every generated username (default: '')
-    :type suffix: str
+    :param str prefix:
+        string to add to every generated username (default: '')
 
-    :param prefix: string to add to every generated username (default: '')
-    :type prefix: str
+    :param validate_func:
+        callable object to use for username validation
 
-    :param validate_func: callable object to use for username validation
-                          validate_func takes 1 argument (username)
-                          (default: None - no validation will be performed)
-    :type validate_func: collections.Callable, None
+        validate_func takes 1 argument (username)
+        (default: None - no validation will be performed)
     """
     goal = 15  # We may return more than this
     maxlen -= len(suffix)
@@ -110,7 +118,6 @@ def suggest_usernames(fname, lname, maxlen=8,
     # ssllllll ssilllll sslllll ssilllll     ssl ssil
     #
     # ("ss" means firstinit, "i" means initial, "l" means last name)
-
     if len(firstinit) > 1:
         llen = min(len(lname), maxlen - len(firstinit))
         for j in range(llen, 0, -1):
