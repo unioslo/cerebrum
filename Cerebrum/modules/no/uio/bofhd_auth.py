@@ -40,6 +40,7 @@ from Cerebrum.modules.bofhd.bofhd_contact_info import BofhdContactAuth
 from Cerebrum.modules.bofhd.bofhd_email import BofhdEmailAuth
 from Cerebrum.modules.bofhd.errors import PermissionDenied
 from Cerebrum.modules.bofhd_requests.bofhd_requests_auth import RequestsAuth
+from Cerebrum.modules.consent import bofhd_consent_auth
 from Cerebrum.modules.otp import bofhd_otp_cmds
 from Cerebrum.modules.ou_disk_mapping import bofhd_cmds
 from Cerebrum.modules.trait import bofhd_trait_cmds
@@ -389,6 +390,10 @@ class AccessAuth(UioAuth, bofhd_access.BofhdAccessAuth):
 
 
 class ApiKeyAuth(UioAuth, bofhd_apikey_cmds.BofhdApiKeyAuth):
+    pass
+
+
+class ConsentAuth(UioAuth, bofhd_consent_auth.BofhdConsentAuth):
     pass
 
 
