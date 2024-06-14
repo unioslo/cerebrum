@@ -23,7 +23,7 @@ The `Cerebrum.utils` sub-package contains various standalone utils.
 The utilities here should be general functions and classes.  If you think "this
 could be used outside Cerebrum", then it probably belongs in here.
 
-Util modules typically implements one or more:
+Util modules typically implement one or more:
 
 - reusable code snippets
 - standards and default values
