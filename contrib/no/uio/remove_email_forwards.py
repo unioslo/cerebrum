@@ -48,11 +48,11 @@ class FPECriteriaConfig(Configuration):
     affiliation = ConfigDescriptor(
         String,
         default="affiliation_ansatt",
-        doc="Affiliation to aplly criteria by.")
+        doc="Affiliation to apply criteria by.")
 
     source_system = ConfigDescriptor(
         String,
-        default='system_sap',
+        default='system_dfo_sap',
         doc="The source system used for lookup of affiliations.")
 
 
@@ -139,9 +139,13 @@ def iterate_persons(db, args, config):
     affiliation = co.human2constant(config.fpe.affiliation)
     all_persons = pe.list_affiliated_persons(aff_list=affiliation)
     for person in all_persons:
-        pe.find(person.get("person_id"))
-        remove_email_forward(db, pe, person, args, config)
-        pe.clear()
+        try:
+            pe.find(person['person_id'])
+            remove_email_forward(db, pe, person, args, config)
+        except NotFoundError:
+            logger.error("Person %s not found", person['person_id'])
+        finally:
+            pe.clear()
 
 
 def main(args=None):
