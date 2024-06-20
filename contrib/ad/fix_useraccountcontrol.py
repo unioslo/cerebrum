@@ -27,6 +27,7 @@ Fix if necessary.
 from __future__ import print_function
 
 import getopt
+import six
 import sys
 
 import adconf
@@ -254,7 +255,7 @@ def main():
         usage(1)
 
     # Make use of config file settings, if not set otherwise by arguments
-    for key, value in iter(adconf.SYNCS[sync_type].items()):
+    for key, value in six.iteritems(adconf.SYNCS[sync_type]):
         if not configuration.has_key(key):
             configuration[key] = value
 

@@ -749,7 +749,7 @@ def synchronise_groups(current_groups, new_groups, spreads,
     """
     group = Factory.get("Group")(database)
 
-    for group_id, new_members in iter(new_groups.items()):
+    for group_id, new_members in six.iteritems(new_groups):
         try:
             group.clear()
             group.find(group_id)
@@ -1171,7 +1171,7 @@ class gnode(object):
         stream.write(" " * indent)
         stream.write(self.prepare_output(indent + INDENT_STEP))
         stream.write("\n")
-        for child in iter(self._group_children.values()):
+        for child in six.itervalues(self._group_children):
             child.output(stream, indent + INDENT_STEP)
 
 

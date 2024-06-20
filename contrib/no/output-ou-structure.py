@@ -141,7 +141,7 @@ def set_has_cycles(nodes):
     """
 
     has_cycles = False
-    remaining = set(iter(nodes.values()))
+    remaining = set(six.itervalues(nodes))
     while remaining:
         n = remaining.pop()
         has_cycles |= detect_cycles_from_node(n, remaining)
@@ -219,7 +219,7 @@ class Node(object):
 
     def children(self):
         """Return all children nodes sorted by node_id."""
-        return sort_nodes(iter(self._children.values()))
+        return sort_nodes(six.itervalues(self._children))
 
 
 def build_node_from_file(xml_ou):

@@ -34,6 +34,7 @@ NB! This script should only be used during migration.
 
 from __future__ import print_function
 import getopt
+import six
 import sys
 import io
 
@@ -145,7 +146,7 @@ def main():
     if mapping_file:
         with io.open(mapping_file, 'w') as f:
             of = f.read()
-        for v in iter(personinfo.values()):
+        for v in six.itervalues(personinfo):
             of.write('%s;%s;%s\n' % (v.get('fnr',''), v.get('old',''),
                                      v.get('new','')))
         of.close()

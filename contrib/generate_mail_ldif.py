@@ -49,6 +49,7 @@ import argparse
 import base64
 import contextlib
 import logging
+import six
 from time import time as now
 
 import cereconf
@@ -94,7 +95,7 @@ def dict_to_ldif_string(d):
 
     format = "%s: %s\n"
     result = list()
-    for key, value in iter(d.items()):
+    for key, value in six.iteritems(d):
         if isinstance(value, (list, tuple, set)):
             result.extend(format % (key, tmp) for tmp in value)
         else:

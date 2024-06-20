@@ -23,6 +23,7 @@
 import argparse
 import locale
 import re
+import six
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
@@ -121,7 +122,7 @@ def sync_contact_info(db, contact_cache, contact_source):
     co = Factory.get('Constants')(db)
 
     # Insert missing contact info from source
-    for pers_id, val in iter(contact_source.items()):
+    for pers_id, val in six.iteritems(contact_source):
         try:
             person = get_person(db, pers_id)
         except Errors.NotFoundError:
@@ -151,7 +152,7 @@ def sync_contact_info(db, contact_cache, contact_source):
         person.write_db()
 
     # Clean up contact info missing in source
-    for pers_id, types in iter(contact_cache.items()):
+    for pers_id, types in six.iteritems(contact_cache):
         for c_type in types:
             if pers_id in contact_source and c_type in contact_source[pers_id]:
                 continue

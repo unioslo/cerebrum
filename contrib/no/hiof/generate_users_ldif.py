@@ -46,6 +46,7 @@ cereconf.LDAP_USER
 """
 import argparse
 import logging
+import six
 
 import cereconf
 import Cerebrum.logutils
@@ -107,7 +108,7 @@ class UserLDIF(object):
         fd.write(container_entry_string('USER'))
 
         logger.info('Generating export...')
-        for account_id, vlan_vpn in iter(self.id2vlan_vpn.items()):
+        for account_id, vlan_vpn in six.iteritems(self.id2vlan_vpn):
             try:
                 uname = self.account_names[account_id]
             except KeyError:

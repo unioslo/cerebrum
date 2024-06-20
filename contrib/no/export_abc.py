@@ -57,7 +57,7 @@ import argparse
 import logging
 import time
 
-from six import text_type
+import six
 
 import cereconf
 
@@ -82,7 +82,7 @@ def text_decoder(encoding, allow_none=True):
             return None
         if isinstance(value, bytes):
             return value.decode(encoding)
-        return text_type(value)
+        return six.text_type(value)
     return to_text
 
 
@@ -100,7 +100,7 @@ def output_ou(sko):
 
     xmlwriter.startElement("org")
     out("orgid",
-        text_type(cereconf.DEFAULT_INSTITUSJONSNR),
+        six.text_type(cereconf.DEFAULT_INSTITUSJONSNR),
         {"orgidtype": "institusjonsnummer"})
     out("ouid", sko, {"ouidtype": "sko"})
     xmlwriter.endElement("org")
@@ -113,7 +113,7 @@ def make_sko(fakultet, institutt, avdeling):
 
 def make_id(*rest):
     """Make an ID out of a sequence."""
-    return u":".join([text_type(x) for x in rest])
+    return u":".join([six.text_type(x) for x in rest])
 
 
 def fnr_to_external_id(fnr, person, person_info):
@@ -184,7 +184,7 @@ def _cache_id_types():
     _id_type_cache["affiliation"] = dict()
     for tmp in c.fetch_constants(c.PersonAffStatus):
         aff, status = int(tmp.affiliation), int(tmp)
-        _id_type_cache["affiliation"][aff, status] = text_type(tmp.description)
+        _id_type_cache["affiliation"][aff, status] = six.text_type(tmp.description)
 
 
 def get_name_type(name_type):
@@ -197,7 +197,7 @@ def get_contact_type(name):
 
 def get_person_id_type(external_id):
     # FIXME: Perhaps we ought to validate whatever is fed in here.
-    return text_type(external_id)
+    return six.text_type(external_id)
 
 
 def get_affiliation_type(affiliation, status):
@@ -357,8 +357,8 @@ def fetch_external_ids(db_person):
 
     # stage 2 -- remove the source system from all the values. We do not need
     # the source system anymore.
-    for e_dict in iter(tmp.values()):
-        for key, value in iter(e_dict.items()):
+    for e_dict in six.itervalues(tmp):
+        for key, value in six.iteritems(e_dict):
             e_dict[key] = value[1]  # strip away the source system
 
     return tmp
@@ -421,9 +421,9 @@ def cache_person_info(db_person, db_account):
         # Helper function for ordering items.
         def lookup_order_index(system):
             i = 0
-            system = text_type(constants.AuthoritativeSystem(system))
+            system = six.text_type(constants.AuthoritativeSystem(system))
             for x in cereconf.SYSTEM_LOOKUP_ORDER:
-                if text_type(getattr(constants, x)) == system:
+                if six.text_type(getattr(constants, x)) == system:
                     return i
                 else:
                     i = i + 1
@@ -732,8 +732,8 @@ def sort_affiliations(sequence):
         if not sko:
             logger.warn("Aiee! There is an affiliation %s:%s with ou_id %s "
                         "but there is no sko for that ou_id",
-                        text_type(row["affiliation"]),
-                        text_type(row["status"]),
+                        six.text_type(row["affiliation"]),
+                        six.text_type(row["status"]),
                         row["ou_id"])
             continue
 

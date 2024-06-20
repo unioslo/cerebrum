@@ -322,7 +322,7 @@ class Job(object):
         @param new_attrs: attr type -> attr value mapping
         @type  new_attrs: dict
         """
-        for attr_type, attr_val in iter(new_attrs.items()):
+        for attr_type, attr_val in six.iteritems(new_attrs):
             # Before populating spread we must check if there are old
             # values. Account might have attributes for more than one
             # spread. Those must not be deleted

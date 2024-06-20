@@ -406,7 +406,7 @@ def send_notify_email(new_cere_ous, to_email_addrs):
             sendmail(to_email, sender, subject, body)
 
         except SMTPRecipientsRefused as ref:
-            for email, cond in iter(ref.recipients.items()):
+            for email, cond in six.iteritems(ref.recipients):
                 logger.info("Failed to notify '%s': %s", email, cond)
             continue
 

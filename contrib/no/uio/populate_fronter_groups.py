@@ -34,6 +34,7 @@ import locale
 import logging
 import os
 import re
+import six
 import sys
 import time
 
@@ -106,7 +107,7 @@ def extract_all_roles(enhet_id, roles_mapping, sted, stprog=""):
     for coll in (roles_mapping.get(key, dict()),
                  roles_mapping.get("sted:" + sted, dict()),
                  roles_mapping.get("stprog:" + stprog, dict())):
-        for role, people in iter(coll.items()):
+        for role, people in six.iteritems(coll):
             for p in people:
                 if p not in result:
                     result.append(p)

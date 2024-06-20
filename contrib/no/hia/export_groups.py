@@ -21,6 +21,7 @@
 """ Export groups. """
 import argparse
 import os
+import six
 import sys
 
 from Cerebrum.Utils import Factory
@@ -110,7 +111,7 @@ def main():
         groups_and_members = make_groups_list(args.flat, grps)
 
         logger.info("Writing groups file.")
-        for k, v in iter(groups_and_members.items()):
+        for k, v in six.iteritems(groups_and_members):
             stream.write(k + ';' + v)
             stream.write(u'\n')
     logger.info("All done.")

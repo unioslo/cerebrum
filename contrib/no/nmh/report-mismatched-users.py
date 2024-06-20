@@ -329,7 +329,7 @@ def load_group_members(db, aff2groups):
 
     group = Factory.get("Group")(db)
     result = dict()
-    for group_id in iter(aff2groups.values()):
+    for group_id in six.itervalues(aff2groups):
         if group_id in result:
             continue
 
