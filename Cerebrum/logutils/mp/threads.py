@@ -1,20 +1,54 @@
 # -*- coding: utf-8 -*-
+#
+# Copyright 2019-2024 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
 Threads for processing and monitoring log record queues.
 """
-from __future__ import print_function, unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import logging
 import threading
 
 from six.moves.queue import Queue
 
+try:
+    from setproctitle import setthreadtitle
+except ImportError:
+    def setthreadtitle(*args, **kwargs):
+        pass
+
 logger = logging.getLogger(__name__)
 
 
 class _StoppableThread(threading.Thread):
 
+    default_name = None
+
     def __init__(self, **kwargs):
+        name = kwargs.pop('name', self.default_name)
+        if name:
+            kwargs['name'] = name
         super(_StoppableThread, self).__init__(**kwargs)
         self.__stop = threading.Event()
 
@@ -31,8 +65,10 @@ class _StoppableThread(threading.Thread):
 class LogRecordThread(_StoppableThread):
     """ A thread for listening on a Queue with serialized LogRecords. """
 
+    # Timeout for listening on the log queue
     timeout = 1
-    """ Timeout for listening on the log queue """
+
+    default_name = "log-queue-proc"
 
     def __init__(self, channel, timeout=timeout, **kwargs):
         """
@@ -47,6 +83,8 @@ class LogRecordThread(_StoppableThread):
 
     def run(self):
         logger.info('Logger thread started')
+        if self.name:
+            setthreadtitle(self.name)
         while not self.is_stopped():
             try:
                 record = self.channel.poll(timeout=self.timeout)
@@ -88,6 +126,7 @@ class QueueMonitorThread(_StoppableThread):
     threshold_info = 5
 
     default_level = logging.DEBUG
+    default_name = "log-queue-mon"
 
     def __init__(self,
                  queue,
@@ -114,6 +153,8 @@ class QueueMonitorThread(_StoppableThread):
 
     def run(self):
         logger.info('Queue monitor thread started')
+        if self.name:
+            setthreadtitle(self.name)
         while not self.is_stopped(self.interval):
             size = self.queue.qsize()
 
