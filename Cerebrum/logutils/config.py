@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2017-2023 University of Oslo, Norway
+# Copyright 2017-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -73,9 +73,14 @@ from Cerebrum.config.settings import String, Boolean, Iterable, Choice
 # Make it possible to override sys.prefix for configuration path purposes
 sys_prefix = os.getenv('CEREBRUM_SYSTEM_PREFIX', sys.prefix)
 
-DEFAULT_LOGDIR = os.path.join(sys_prefix, 'var', 'log', 'cerebrum')
-DEFAULT_PRESET_DIR = os.path.join(sys_prefix, 'etc', 'cerebrum',
-                                  'logger-presets')
+DEFAULT_LOGDIR = os.path.join(
+    sys_prefix,
+    'var/log/cerebrum',
+)
+DEFAULT_PRESET_DIR = os.path.join(
+    sys_prefix,
+    'etc/cerebrum/logger-presets',
+)
 
 # Make it possible to override DEFAULT_LOGGING_CONFIG
 DEFAULT_LOGGING_CONFIG = os.getenv('CEREBRUM_DEFAULT_LOGGING_CONFIG', 'logenv')
@@ -84,6 +89,8 @@ DEFAULT_CAPTURE_EXC = True
 DEFAULT_CAPTURE_WARN = True
 DEFAULT_LEVEL_EXC = 'ERROR'
 DEFAULT_LEVEL_WARN = 'WARNING'
+DEFAULT_SENTRY_ENABLE = False
+
 
 # Note: This will not include custom levels
 if six.PY2:
@@ -116,7 +123,8 @@ class WarningFilterItem(String):
         ('message', lambda v: True),
         ('category', lambda v: True),
         ('module', lambda v: True),
-        ('lineno', lambda v: not v or v.isdigit()))
+        ('lineno', lambda v: not v or v.isdigit()),
+    )
 
     def __init__(self):
         # disallow arguments
@@ -143,13 +151,15 @@ class WarningsConfig(Configuration):
     enable = ConfigDescriptor(
         Boolean,
         default=DEFAULT_CAPTURE_WARN,
-        doc="If the logger should capture warnings")
+        doc="If the logger should capture warnings",
+    )
 
     level = ConfigDescriptor(
         Choice,
         choices=LOGLEVELS,
         default=DEFAULT_LEVEL_WARN,
-        doc="Which log level to log warnings with")
+        doc="Which log level to log warnings with",
+    )
 
     filters = ConfigDescriptor(
         Iterable,
@@ -161,7 +171,8 @@ class WarningsConfig(Configuration):
             'once::ImportWarning',
             'once::BytesWarning',
         ],
-        doc="Ordered list of warning filters")
+        doc="Ordered list of warning filters",
+    )
 
 
 class ExceptionsConfig(Configuration):
@@ -169,13 +180,34 @@ class ExceptionsConfig(Configuration):
     enable = ConfigDescriptor(
         Boolean,
         default=DEFAULT_CAPTURE_EXC,
-        doc="If the logger should capture unhandled exceptions")
+        doc="If the logger should capture unhandled exceptions",
+    )
 
     level = ConfigDescriptor(
         Choice,
         choices=LOGLEVELS,
         default=DEFAULT_LEVEL_EXC,
-        doc="Which log level to log unhandled exceptions with")
+        doc="Which log level to log unhandled exceptions with",
+    )
+
+
+class SentryConfig(Configuration):
+    """ Configuration for the sentry-sdk logging module. """
+
+    enable = ConfigDescriptor(
+        Boolean,
+        default=DEFAULT_SENTRY_ENABLE,
+        doc="If errors should be sent to sentry",
+    )
+
+    dsn = ConfigDescriptor(
+        String,
+        default="",
+        doc=(
+            "Which Sentry project to use. "
+            "Required if sentry logging is enabled."
+        ),
+    )
 
 
 class LoggerConfig(Configuration):
@@ -184,31 +216,40 @@ class LoggerConfig(Configuration):
     logdir = ConfigDescriptor(
         String,
         default=DEFAULT_LOGDIR,
-        doc="Root directory for log files (cerebrum handlers only)")
+        doc="Root directory for log files (cerebrum handlers only)",
+    )
 
     presets = ConfigDescriptor(
         Iterable,
         template=String(),
-        default=[DEFAULT_PRESET_DIR, ],
-        doc="Directories with logger preset configurations")
+        default=[DEFAULT_PRESET_DIR],
+        doc="Directories with logger preset configurations",
+    )
 
     merge = ConfigDescriptor(
         Boolean,
         default=False,
-        doc="Merge logger presets before applying"
-            " (ini-style configs not supported)")
+        doc=(
+            "Merge logger presets before applying"
+            " (ini-style configs not supported)"
+        ),
+    )
 
     common_preset = ConfigDescriptor(
         String,
         default='',
-        doc="Common logger preset."
+        doc=(
+            "Common logger preset."
             " This named preset will always be applied, if available."
-            " Set to an empty string to disable.")
+            " Set to an empty string to disable."
+        ),
+    )
 
     require_preset = ConfigDescriptor(
         Boolean,
         default=False,
-        doc="Fail if the named logger configuration file is missing.")
+        doc="Fail if the named logger configuration file is missing.",
+    )
 
 
 class LoggingEnvironment(Configuration):
@@ -216,15 +257,23 @@ class LoggingEnvironment(Configuration):
 
     logging = ConfigDescriptor(
         Namespace,
-        config=LoggerConfig)
+        config=LoggerConfig,
+    )
 
     exceptions = ConfigDescriptor(
         Namespace,
-        config=ExceptionsConfig)
+        config=ExceptionsConfig,
+    )
 
     warnings = ConfigDescriptor(
         Namespace,
-        config=WarningsConfig)
+        config=WarningsConfig,
+    )
+
+    sentry = ConfigDescriptor(
+        Namespace,
+        config=SentryConfig,
+    )
 
 
 def get_config(config_file=None, namespace=DEFAULT_LOGGING_CONFIG):
@@ -503,11 +552,22 @@ def setup_warnings(warn_config):
     logger.debug("Warnings config {!r}".format(warn_config))
 
 
+def setup_sentry_sdk(sentry_config):
+    if sentry_config.enable:
+        if not sentry_config.dsn:
+            raise ValueError("Missing sentry sdk dns")
+        from . import sentry
+        sentry.sentry_init(sentry_config.dsn)
+    logger.debug("Sentry %s",
+                 "enabled" if sentry_config.enable else "disabled")
+
+
 def configure(config, logger_name, logger_level=None):
     logger_level = logger_level or logging.NOTSET
     setup_logging(config.logging, logger_name, logger_level)
     setup_excepthook(config.exceptions)
     setup_warnings(config.warnings)
+    setup_sentry_sdk(config.sentry)
 
 
 if __name__ == '__main__':
