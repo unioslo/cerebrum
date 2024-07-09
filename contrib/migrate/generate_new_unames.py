@@ -144,8 +144,7 @@ def main():
     personinfo = create_accounts(maxlen)
 
     if mapping_file:
-        with io.open(mapping_file, 'w') as f:
-            of = f.read()
+        of = open(mapping_file, 'w')
         for v in six.itervalues(personinfo):
             of.write('%s;%s;%s\n' % (v.get('fnr',''), v.get('old',''),
                                      v.get('new','')))
