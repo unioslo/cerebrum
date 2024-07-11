@@ -96,6 +96,7 @@ from Cerebrum.modules.bofhd_requests import bofhd_requests_cmds
 from Cerebrum.modules.bofhd_requests.request import BofhdRequests
 from Cerebrum.modules.bofhd.help import Help, merge_help_strings
 from Cerebrum.modules.bofhd import bofhd_access
+from Cerebrum.modules.consent import bofhd_consent_cmds
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.disk_quota import DiskQuota
 from Cerebrum.modules.no.uio.access_FS import FS
@@ -4269,8 +4270,8 @@ class BofhdExtension(BofhdCommonMethods):
         self.ba.can_view_user(operator.get_entity_id(), account)
         if (account.is_deleted() and
                 not self.ba.is_superuser(operator.get_entity_id())):
-            raise CerebrumError("User '{}' is deleted".format(
-                account.account_name))
+            raise CerebrumError("User '{}' is deleted; expired {}".format(
+                account.account_name, account.expire_date))
         affiliations = []
         for row in account.get_account_types(filter_expired=False):
             ou = self._get_ou(ou_id=row['ou_id'])
@@ -5869,6 +5870,10 @@ class ApiKeyCommands(bofhd_apikey_cmds.BofhdApiKeyCommands):
 
 class BofhdRequestCommands(bofhd_requests_cmds.BofhdExtension):
     authz = bofhd_auth.BofhdRequestsAuth
+
+
+class ConsentCommands(bofhd_consent_cmds.BofhdExtension):
+    authz = bofhd_auth.ConsentAuth
 
 
 class CreateUnpersonalCommands(bofhd_user_create_unpersonal.BofhdExtension):

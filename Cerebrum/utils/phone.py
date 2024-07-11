@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-
-# Copyright 2020 University of Oslo
+#
+# Copyright 2020-2024 University of Oslo
 #
 # This file is part of Cerebrum.
 #
@@ -17,7 +17,6 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
 """
 Interface for phone number parsing, validation, and formatting.
 
@@ -29,15 +28,22 @@ http://www.iso.org/iso/country_codes/iso_3166_code_lists/country_names_and_code_
 Exposes a subset of Google's phonenumbers library:
 https://github.com/daviddrysdale/python-phonenumbers/
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 from warnings import warn
 
 import phonenumbers
 import six
 
-import cereconf
+from . import text_compat
 
 
+# TODO: This should be a ValueError subclass
 class NumberParseException(Exception):
     """Raised when failing to parse a putative phone number."""
 
@@ -122,8 +128,12 @@ def parse(number, region=None):
         If region is supplied, but not a valid upper case, two-letter
         CLDR region code.
     """
+    # PY3: This is only needed to handle bytestrings, which *really* shouldn't
+    # be an issue.  Let's stay on the cautious side though:
+    numval = text_compat.to_text(number)
+
     try:
-        numobj = phonenumbers.parse(number, region=region)
+        numobj = phonenumbers.parse(numval, region=region)
         return PhoneNumber(numobj)
     except phonenumbers.NumberParseException as e:
         raise NumberParseException(e)
@@ -140,7 +150,8 @@ def format(numobj, format=E164):
 
 
 # TODO(andretol):
-# We wouldn't need this function if ../modules/no/access_FS.py:/_phone_to_country
+# We wouldn't need this function if
+# `Cerebrum.modules.no.access_FS:_phone_to_country`
 # didn't implement an insane number validation algorithm of its own.
 def country2region(country_code):
     """

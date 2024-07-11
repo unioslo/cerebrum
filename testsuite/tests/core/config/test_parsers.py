@@ -1,52 +1,73 @@
-#!/usr/bin/env python
 # encoding: utf-8
-""" Unit tests for Cerebrum.config.parsers. """
-
-import pytest
+""" Unit tests for :mod:`Cerebrum.config.parsers`. """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+import json
 import tempfile
 from contextlib import closing
+
+import pytest
 
 from Cerebrum.config import parsers
 
 
 @pytest.fixture
 def source_data():
-    return {"origin": {"x": 1,
-                       "y": 2, },
-            "vectors": [{"x": 5,
-                         "y": 3, },
-                        {"x": 0,
-                         "y": -8, }], }
+    return {
+        "origin": {"x": 1, "y": 2},
+        "vectors": [
+            {"x": 5, "y": 3},
+            {"x": 0, "y": -8},
+        ],
+    }
 
 
-# parsers module tests
-
-
-@pytest.yield_fixture
+@pytest.fixture
 def invalid_parser():
-    p = type('NonParser', (object, ), {'loads': None,
-                                       'dumps': lambda: None,
-                                       'read': lambda: None,
-                                       'write': lambda: None, })
+    p = type(
+        str("NonParser"),
+        (object,),
+        {
+            'loads': None,
+            'dumps': lambda: None,
+            'read': lambda: None,
+            'write': lambda: None,
+        },
+    )
     yield p
-    for k in parsers._parsers.keys():
+    for k in list(parsers._parsers):
         if parsers._parsers[k] is p:
             del parsers._parsers[k]
 
 
-@pytest.yield_fixture
+@pytest.fixture
 def valid_parser():
-    p = type('Parser', (object, ), {'loads': lambda: None,
-                                    'dumps': lambda: None,
-                                    'read': lambda: None,
-                                    'write': lambda: None, })
+    p = type(
+        str("Parser"),
+        (object,),
+        {
+            'loads': lambda: None,
+            'dumps': lambda: None,
+            'read': lambda: None,
+            'write': lambda: None,
+        },
+    )
     name = 'asd-asd-asd'
     assert name not in parsers._parsers
     parsers._parsers[name] = p
     yield name, p
-    for k in parsers._parsers.keys():
+    for k in list(parsers._parsers):
         if parsers._parsers[k] is p:
             del parsers._parsers[k]
+
+
+#
+# Test parser registry
+#
 
 
 def test_set_parser(valid_parser):
@@ -87,21 +108,25 @@ def test_abstract_parser_errors(tmpfile):
             getattr(parser, method)(*args)
 
 
+def test_list_extensions():
+    ext = parsers.list_extensions()
+    assert len(ext) > 0
+    assert "json" in ext
+
+
 # JSON tests
 
 
 @pytest.fixture
 def jsondata(source_data):
-    json = pytest.importorskip("json")
     return json.dumps(source_data)
 
 
 def json2data(jsonstr):
-    json = pytest.importorskip("json")
     return json.loads(jsonstr)
 
 
-@pytest.yield_fixture
+@pytest.fixture
 def jsonfile(jsondata):
     """ Create a temporary config file with a file reference. """
     with closing(tempfile.NamedTemporaryFile(mode='w', delete=True)) as f:
@@ -157,7 +182,7 @@ def yaml2data(yamlstr):
     return yaml.load(yamlstr, Loader=yaml.FullLoader)
 
 
-@pytest.yield_fixture
+@pytest.fixture
 def yamlfile(yamldata):
     """ Create a temporary config file with a file reference. """
     with closing(tempfile.NamedTemporaryFile(mode='w', delete=True)) as f:
@@ -197,3 +222,60 @@ def test_yaml_write(yamlparser, source_data, tmpfile):
         contents = f.read()
 
     assert yaml2data(contents) == source_data
+
+
+# Python parser tests
+#
+# Our Python parser only supports loading data from files.
+
+PY_DATA = {
+    "origin": {"x": 1, "y": 2},
+    "vectors": [
+        {"x": 5, "y": 3},
+        {"x": 0, "y": -8},
+    ],
+}
+
+PY_SOURCE = """
+import os  # modules are excluded
+_non_public = 3  # undescore names are excluded
+
+origin = {"x": 1, "y": 2}
+vectors = [
+    {"x": 5, "y": 3},
+    {"x": 0, "y": -8},
+]
+"""
+
+
+@pytest.fixture
+def pyfile():
+    """ Create a temporary config file with a file reference. """
+    with closing(tempfile.NamedTemporaryFile(mode='w', delete=True)) as f:
+        f.write(PY_SOURCE)
+        f.flush()
+        yield f.name
+
+
+def test_py_loads():
+    pyparser = parsers.PyParser
+    with pytest.raises(NotImplementedError):
+        pyparser.loads(PY_SOURCE)
+
+
+def test_py_dumps():
+    pyparser = parsers.PyParser
+    with pytest.raises(NotImplementedError):
+        pyparser.dumps(PY_DATA)
+
+
+def test_py_read(pyfile):
+    pyparser = parsers.PyParser
+    parsed = pyparser.read(pyfile)
+    assert parsed == PY_DATA
+
+
+def test_py_write(tmpfile):
+    pyparser = parsers.PyParser
+    with pytest.raises(NotImplementedError):
+        pyparser.write(PY_DATA, tmpfile)

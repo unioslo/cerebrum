@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2005-2021 University of Oslo, Norway
+# Copyright 2005-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -21,6 +21,7 @@
 """ Export groups. """
 import argparse
 import os
+import six
 import sys
 
 from Cerebrum.Utils import Factory
@@ -110,7 +111,7 @@ def main():
         groups_and_members = make_groups_list(args.flat, grps)
 
         logger.info("Writing groups file.")
-        for k, v in groups_and_members.iteritems():
+        for k, v in six.iteritems(groups_and_members):
             stream.write(k + ';' + v)
             stream.write(u'\n')
     logger.info("All done.")

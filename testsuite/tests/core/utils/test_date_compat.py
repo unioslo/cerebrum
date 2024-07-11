@@ -1,25 +1,5 @@
 # encoding: utf-8
-#
-# Copyright 2021-2023 University of Oslo, Norway
-#
-# This file is part of Cerebrum.
-#
-# Cerebrum is free software; you can redistribute it and/or modify it
-# under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# Cerebrum is distributed in the hope that it will be useful, but
-# WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-# General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with Cerebrum; if not, write to the Free Software Foundation,
-# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""
-Tests for ``Cerebrum.utils.date_compat``
-"""
+""" Tests for mod:`Cerebrum.utils.date_compat` """
 from __future__ import (
     absolute_import,
     division,
@@ -149,6 +129,15 @@ def mxlike_delta(delta):
     return _MockDelta(delta)
 
 
+@pytest.fixture
+def mxlike_format(local_dt):
+    """ mx-like strval from the `local_dt` """
+    return ".".join((
+        local_dt.strftime("%Y-%m-%d %H:%M:%S"),
+        local_dt.strftime('%f')[:2],
+    ))
+
+
 # identify mx datetime like objects
 
 def test_is_mx_datetime_hit(mxlike_dt):
@@ -165,6 +154,7 @@ def test_is_mx_date_hit(mxlike_date):
 
 def test_is_mx_date_miss(mxlike_dt):
     assert not date_compat.is_mx_date(mxlike_dt)
+    assert not date_compat.is_mx_date(object())
 
 
 def test_is_mx_delta_hit(mxlike_delta):
@@ -312,3 +302,23 @@ def test_get_timedelta_from_days():
     days = 3
     delta = datetime.timedelta(days=days)
     assert date_compat.get_timedelta(days) == delta
+
+
+# mx-datetime compatibility helper tests
+
+
+def test_to_mx_format(mxlike_dt, mxlike_format):
+    assert date_compat.to_mx_format(mxlike_dt, tz=LOCAL_TZ) == mxlike_format
+
+
+def test_parse_fs_xml_date(mxlike_format, local_date):
+    assert date_compat.parse_fs_xml_date(mxlike_format) == local_date
+
+
+def test_parse_fs_xml_date_allow_empty():
+    assert date_compat.parse_fs_xml_date("", allow_empty=True) is None
+
+
+def test_parse_fs_xml_date_disallow_empty():
+    with pytest.raises(ValueError):
+        date_compat.parse_fs_xml_date("", allow_empty=False)

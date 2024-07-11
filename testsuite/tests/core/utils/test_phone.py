@@ -1,62 +1,62 @@
 # -*- coding: utf-8 -*-
-
-# Copyright 2020 University of Oslo
-#
-# This file is part of Cerebrum.
-#
-# Cerebrum is free software; you can redistribute it and/or modify it
-# under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# Cerebrum is distributed in the hope that it will be useful, but
-# WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-# General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with Cerebrum; if not, write to the Free Software Foundation,
-# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
 """
-The purpose of these tests is to test the interface of Cerebrum.utils.phone.
-They is not intended as an exhaustive source for phone number parsing.
+Unit tests for mod:`Cerebrum.utils.phone`
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import phonenumbers
 import pytest
-import six
 
 from Cerebrum.utils import phone
 
 
-@pytest.mark.parametrize("valid_type", ["123", six.text_type("123"), b"123"])
-def test_valid_type(valid_type):
-    phone.parse(valid_type, region="NO")
+def _get_type_id(value):
+    return type(value).__name__
 
 
-@pytest.mark.parametrize("invalid_type", [None, True, (), [], {}, object()])
-def test_invalid_type(invalid_type):
-    with pytest.raises((TypeError, AttributeError, phone.NumberParseException)):
-        phone.parse(invalid_type)
+@pytest.mark.parametrize(
+    "value",
+    ["123", "123".encode("ascii")],
+    ids=_get_type_id,
+)
+def test_valid_type(value):
+    phone.parse(value, region="NO")
+
+
+@pytest.mark.parametrize(
+    "value",
+    [None, True, (), [], {}, object()],
+    ids=_get_type_id,
+)
+def test_invalid_type(value):
+    with pytest.raises(phone.NumberParseException):
+        phone.parse(value)
 
 
 def test_too_short():
+    expect_type = phone.NumberParseException.NOT_A_NUMBER
     with pytest.raises(phone.NumberParseException) as excinfo:
         phone.parse("")
-    assert excinfo.value.error_type == phone.NumberParseException.NOT_A_NUMBER
+    assert excinfo.value.error_type == expect_type
 
 
 def test_too_long():
+    expect_type = phone.NumberParseException.TOO_LONG
     with pytest.raises(phone.NumberParseException) as excinfo:
         phone.parse("0" * 42, region="NO")
-    assert excinfo.value.error_type == phone.NumberParseException.TOO_LONG
+    assert excinfo.value.error_type == expect_type
 
 
 def test_no_country_code():
+    expect_type = phone.NumberParseException.INVALID_COUNTRY_CODE
     with pytest.raises(phone.NumberParseException) as excinfo:
         phone.parse("123", region=None)
-    assert excinfo.value.error_type == phone.NumberParseException.INVALID_COUNTRY_CODE
+    assert excinfo.value.error_type == expect_type
 
 
 def test_parse_return_value():
@@ -70,23 +70,29 @@ def test_region():
     assert numobj.country_code == country_code
 
 
-@pytest.mark.parametrize("invalid_region_type", [True, (), [], {}, object()])
-def  test_invalid_region_type(invalid_region_type):
+@pytest.mark.parametrize(
+    "value",
+    [True, (), [], {}, object()],
+    ids=_get_type_id,
+)
+def test_invalid_region_type(value):
     with pytest.raises((TypeError, phone.NumberParseException)):
-        phone.parse("123", region=invalid_region_type)
+        phone.parse("123", region=value)
 
 
 @pytest.mark.parametrize("invalid_region", ["", "a", "no", "gb", "NOR", "ABC"])
-def  test_invalid_region_value(invalid_region):
+def test_invalid_region_value(invalid_region):
+    expect_type = phone.NumberParseException.INVALID_COUNTRY_CODE
     with pytest.raises(phone.NumberParseException) as excinfo:
         phone.parse("123", region=invalid_region)
-    assert excinfo.value.error_type == phone.NumberParseException.INVALID_COUNTRY_CODE
+    assert excinfo.value.error_type == expect_type
 
 
 def test_unknown_region():
+    expect_type = phone.NumberParseException.INVALID_COUNTRY_CODE
     with pytest.raises(phone.NumberParseException) as excinfo:
         phone.parse("123", region="XX")
-    assert excinfo.value.error_type == phone.NumberParseException.INVALID_COUNTRY_CODE
+    assert excinfo.value.error_type == expect_type
 
 
 def test_country_code_overrides_region():
@@ -116,25 +122,33 @@ def test_repr():
     assert "national_number=123" in s
 
 
-@pytest.mark.parametrize("country_code,region", [("+47", "NO"), ("0047", "NO")])
+@pytest.mark.parametrize("country_code,region",
+                         [("+47", "NO"), ("0047", "NO")])
 def test_country_code_formats(country_code, region):
     numobj = phone.parse("{} {}".format(country_code, "123"), region=region)
     assert numobj.country_code == phonenumbers.country_code_for_region(region)
 
 
-@pytest.mark.parametrize("invalid_type", [True, (), [], {}, object()])
-def test_is_valid_invalid_type(invalid_type):
+@pytest.mark.parametrize(
+    "value",
+    [True, (), [], {}, object()],
+    ids=_get_type_id,
+)
+def test_is_valid_invalid_type(value):
     with pytest.raises(AttributeError):
-        phone.is_valid(invalid_type)
+        phone.is_valid(value)
 
 
 # interestingly, emergency service numbers are considered invalid
-@pytest.mark.parametrize("number,region", [
-    ("110", "NO"),
-    ("112", "NO"),
-    ("113", "NO"),
-    ("999", "GB"),
-])
+@pytest.mark.parametrize(
+    "number,region",
+    [
+        ("110", "NO"),
+        ("112", "NO"),
+        ("113", "NO"),
+        ("999", "GB"),
+    ],
+)
 def test_invalid_number(number, region):
     numobj = phone.parse(number, region=region)
     assert not phone.is_valid(numobj)
@@ -173,7 +187,8 @@ def test_format_e164(number, region, expected_formatting):
 ])
 def test_format_international(number, region, expected_formatting):
     numobj = phone.parse(number, region=region)
-    assert phone.format(numobj, format=phone.INTERNATIONAL) == expected_formatting
+    value = phone.format(numobj, format=phone.INTERNATIONAL)
+    assert value == expected_formatting
 
 
 @pytest.mark.parametrize("number,region,expected_formatting", [

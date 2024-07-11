@@ -1,6 +1,25 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-""" Cerebrum config serializing module.
+#
+# Copyright 2015-2024 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""
+Common API for serializing and deserializing config files.
 
 This module contains classes that wraps libraries for reading and writing
 serializing formats with a common API.
@@ -9,68 +28,32 @@ The API (_AbstractConfigParser) consists of four methods:
 
 dumps(data)
     Convert a basic data structure to a serialized string.
+
 loads(string)
     Convert a serialized string into a basic data structure.
+
 read(filename)
     Read a serialized file and unserialize.
+
 write(data, filename)
     Serialize a data structure and write to file.
 """
-from __future__ import print_function
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
+import json
 import os
-from io import BytesIO
+import types
 
-# TODO: Split this into multiple modules
-#
-#   suggested structure
-#
-#     ./parsers/__init__.py -- {set,get,register}_parsers(), entry point lookup
-#     ./parsers/base.py -- AbstractConfigParser
-#     ./parsers/<module>.py -- yaml-parser
+from Cerebrum.utils.module import load_source
 
-# TODO: Implement discovery by entry_points
-#
-#   We should implement parsers as 'plugins', and use setuptools/pkg_resources
-#   to install and fetch implementations.
-#
-#     pkg_resources.iter_entry_points('Cerebrum.config.parsers') -> list of
-#     entry points.
-#
-#   example implementation of a plugin lookup
-#
-#     def find_parser(ext):
-#         " example implementation "
-#         for ep in pkg_resources.iter_entry_points('Cerebrum.config.parsers',
-#                                                   name=ext):
-#             # iterate through entry points named 'ext'
-#             try:
-#                 return ep.load()
-#             except:
-#                 # maybe missing dependency? Let's try another if it exists
-#                 continue
-#         raise NotImplementedError("No parser found")
-#
-#   installing new plugins:
-#
-#       setup(
-#         ...
-#         entry_points={
-#           'Cerebrum.config.parsers': [
-#             'json = Cerebrum.modules.parsers.json:JsonParser',
-#             'yml = Cerebrum.modules.parsers.yaml:YamlParser',
-#             'yaml = Cerebrum.modules.parsers.yaml:YamlParser',
-#           ],
-#         },
-#       )
-
-# TODO: YAML 1.2 support
-#
-#   Look into replacing, or supplementing the YAML-parser with ruamel.yaml, for
-#   YAML 1.2 support (http://yaml.readthedocs.io/en/)
+# TODO: Implement registry using Cerebrum.utils.mappings
 
 _parsers = {}
-""" Known file format parsers. """
 
 
 class _AbstractConfigParser(object):
@@ -184,25 +167,20 @@ def list_extensions():
     return list(_parsers.keys())
 
 
-try:
-    import json
+@register_extension('json')
+class JsonParser(_AbstractConfigParser):
+    """ JSON Parser API.
 
-    @register_extension('json')
-    class JsonParser(_AbstractConfigParser):
-        """ JSON Parser API.
+    Wraps the json module with a common API.
+    """
 
-        Wraps the json module with a common API.
-        """
+    @classmethod
+    def loads(cls, data):
+        return json.loads(data)
 
-        @classmethod
-        def loads(cls, data):
-            return json.loads(data)
-
-        @classmethod
-        def dumps(cls, data):
-            return json.dumps(data)
-except ImportError:
-    pass
+    @classmethod
+    def dumps(cls, data):
+        return json.dumps(data)
 
 
 try:
@@ -232,133 +210,51 @@ except ImportError:
     pass
 
 
-try:
-    import bson
+# TODO: We probably don't want to *register* this module,
+# as it could lead to code execution from configs.
+#
+# @register_extension('py')
+class PyParser(_AbstractConfigParser):
+    """ This is a special parser implementation that reads (imports) a
+    python module, and turns it into a dict with the module globals.
 
-    @register_extension('bson')
-    class BsonParser(_AbstractConfigParser):
-        """ BSON Parser API.
+    NOTE: It can only read python files, not strings, and it cannot write
+    or dump. Also, it should be used with care, as the python files can
+    execute anything.
 
-        Wraps the bson module with a common API.
-        """
+    Names in the module globals that starts with underscore (_) will be
+    excluded. Also, certain value types are excluded (`EXCLUDE_TYPES`).
+    """
 
-        @classmethod
-        def loads(cls, data):
-            return bson.loads(data)
-
-        @classmethod
-        def dumps(cls, data):
-            return bson.dumps(data)
-except ImportError:
-    pass
-
-
-try:
-    # PY2
-    from ConfigParser import RawConfigParser
-    from collections import OrderedDict
-except ImportError:
-    from configparser import RawConfigParser
-
-
-# TODO: Do we want this?
-# @register_extension('ini', 'conf', 'cfg')
-class IniParser(_AbstractConfigParser):
-    """ .ini/.conf ConfigParser-like files. """
-
-    @classmethod
-    def _readfp(cls, fp, filename=None):
-        config = RawConfigParser()
-        config.readfp(fp, filename)
-        data = OrderedDict()
-        for section in config.sections():
-            data[section] = OrderedDict()
-            for k, v in config.items(section):
-                data[section][k] = v
-        return data
-
-    @classmethod
-    def _writefp(cls, fp, data):
-        config = RawConfigParser()
-        for section_name, section in data.items():
-            config.add_section(section_name)
-            for k, v in section.items():
-                config.set(section_name, k, v)
-        config.write(fp)
+    # Exclude ModuleType, as this will mostly be imports. In configs, these
+    # should probably be imported with a '_' prefix in the scope anyway,
+    # but let's exclude them if we forget.
+    EXCLUDE_TYPES = (types.ModuleType, )
 
     @classmethod
     def read(cls, filename):
-        with open(filename, 'r') as fp:
-            return cls._readfp(fp, filename)
+        module = load_source('_input_file', filename)
+        data = {}
+        for attr in dir(module):
+            if attr.startswith('_'):
+                continue
+            value = getattr(module, attr)
+            if isinstance(value, cls.EXCLUDE_TYPES):
+                continue
+            data[attr] = value
+        return data
 
     @classmethod
     def write(cls, data, filename):
-        with open(filename, 'w') as fp:
-            return cls._writefp(fp, data)
+        raise NotImplementedError("Cannot write python modules")
 
     @classmethod
     def loads(cls, data):
-        strfp = BytesIO(data)
-        return cls._readfp(strfp)
+        raise NotImplementedError("Not implemented")
 
     @classmethod
     def dumps(cls, data):
-        strfp = BytesIO()
-        cls._writefp(strfp, data)
-        strfp.seek(0)
-        return strfp.read()
-
-
-try:
-    # PY2-only
-    import imp
-    import types
-
-    # TODO: Do we want this?
-    # @register_extension('py')
-    class PyParser(_AbstractConfigParser):
-        """ This is a special parser implementation that reads (imports) a
-        python module, and turns it into a dict with the module globals.
-
-        NOTE: It can only read python files, not strings, and it cannot write
-        or dump. Also, it should be used with care, as the python files can
-        execute anything.
-
-        Names in the module globals that starts with underscore (_) will be
-        excluded. Also, certain value types are excluded (`EXCLUDE_TYPES`).
-        """
-
-        # Exclude ModuleType, as this will mostly be imports. In configs, these
-        # should probably be imported with a '_' prefix in the scope anyway,
-        # but let's exclude them if we forget.
-        EXCLUDE_TYPES = (types.ModuleType, )
-
-        @classmethod
-        def read(cls, filename):
-            module = imp.load_source('_input_file', filename)
-            data = dict()
-            for attr in dir(module):
-                if attr.startswith('_'):
-                    continue
-                value = getattr(module, attr)
-                if isinstance(value, cls.EXCLUDE_TYPES):
-                    continue
-                data[attr] = value
-            return data
-
-        @classmethod
-        def write(cls, data, filename):
-            raise NotImplementedError("Cannot write python modules")
-
-        @classmethod
-        def loads(cls, data, filename):
-            raise NotImplementedError("Not implemented")
-
-        @classmethod
-        def dumps(cls, data):
-            raise NotImplementedError("Cannot write python code")
-except:
-    pass
+        raise NotImplementedError("Cannot write python code")
 
 
 # python -m Cerebrum.config.parsers

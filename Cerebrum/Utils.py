@@ -42,7 +42,6 @@ import cereconf
 
 # Compatibility imports / relocated classes and functions
 import Cerebrum.meta
-import Cerebrum.utils.imap
 import Cerebrum.utils.module
 import Cerebrum.utils.secrets
 import Cerebrum.utils.text_compat
@@ -520,7 +519,6 @@ def make_timer(logger, msg=None):
 # These names were historically defined in Cerebrum.Utils, but have been moved
 # to different modules and given PEP-8 compatible names.
 #
-CerebrumIMAP4_SSL = Cerebrum.utils.imap.Imap4SslVersionMixin
 auto_super = Cerebrum.meta.AutoSuper
 mark_update = Cerebrum.meta.MarkUpdate
 read_password = Cerebrum.utils.secrets.legacy_read_password

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2013-2015 University of Oslo, Norway
+# Copyright 2013-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,7 +17,8 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" Configuration framework for Cerebrum and Cerebrum-modules.
+"""
+Configuration framework for Cerebrum and Cerebrum-modules.
 
 This package contains an abstract configuration module. It consists of:
 
@@ -65,6 +66,12 @@ documentation:
 >  config file, which should exist in this directory.
 
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 
 # TODO: This is currently used by `Cerebrum.modules.event_publisher`.
@@ -90,5 +97,3 @@ def get_config(component):
 
     with open(fname, 'r') as f:
         return json.load(f)
-
-

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2012-2023 University of Oslo, Norway
+# Copyright 2012-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -50,6 +50,7 @@ from __future__ import (
 import argparse
 import datetime
 import logging
+import textwrap
 
 import six
 
@@ -61,6 +62,7 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.AccountPolicy import AccountPolicy
 from Cerebrum.utils import date_compat
+from Cerebrum.utils import argutils
 
 logger = logging.getLogger(__name__)
 
@@ -367,25 +369,8 @@ def process(generate_account, affiliations, ignore_affs, source_systems):
         generate_account(person, affiliations)
 
 
-class ExtendAction(argparse.Action):
-    """ Like the 'append'-action, but uses `list.extend`.
-
-    This means that the `type` argument should be set to something that returns
-    a sequence of items to add to the namespace value.
-    """
-
-    def __init__(self, option_strings, dest, default=None, type=None,
-                 required=False, help=None, metavar=None):
-        super(ExtendAction, self).__init__(option_strings=option_strings,
-                                           dest=dest, nargs=None, const=None,
-                                           default=default or [], type=type,
-                                           choices=None, required=required,
-                                           help=help, metavar=metavar)
-
-    def __call__(self, parser, namespace, values, option_string=None):
-        items = getattr(namespace, self.dest, [])[:]
-        items.extend(values)
-        setattr(namespace, self.dest, items)
+def csv_type(value):
+    return [v for v in value.split(",") if v]
 
 
 def make_parser():
@@ -395,44 +380,65 @@ def make_parser():
         '--aff',
         dest='affs',
         required=True,
-        action=ExtendAction,
-        type=lambda arg: arg.split(','),
+        action=argutils.ExtendAction,
+        type=csv_type,
         metavar='AFFILIATIONS',
-        help='Only persons with the given affiliations and/or '
-             'statuses will get an account. Can be comma separated. '
-             'Example: "ANSATT,TILKNYTTET/ekstern,STUDENT/fagperson"')
+        help=textwrap.dedent(
+            """
+            Only persons with the given affiliations and/or
+            statuses will get an account.  Can be comma separated.
+            Example: "ANSATT,TILKNYTTET/ekstern,STUDENT/fagperson"
+            """
+        ).strip(),
+    )
     parser.add_argument(
         '--new-trait',
         dest='traits',
-        action=ExtendAction,
-        type=lambda arg: arg.split(','),
+        action=argutils.ExtendAction,
+        type=csv_type,
         metavar='TRAITNAMES',
-        help='If set, gives every new account the given trait(s). '
-             'Usable e.g. for sending a welcome SMS for every new account.')
+        help=textwrap.dedent(
+            """
+            If set, gives every new account the given trait(s).
+            Usable e.g. for sending a welcome SMS for every new account.
+            """
+        ).strip(),
+    )
     parser.add_argument(
         '--spread',
         dest='spreads',
-        action=ExtendAction,
-        type=lambda arg: arg.split(','),
+        action=argutils.ExtendAction,
+        type=csv_type,
         metavar='SPREADS',
-        help='Spreads to add to new accounts. Can be comma separated.')
+        help='Spreads to add to new accounts. Can be comma separated.',
+    )
     parser.add_argument(
         '--ignore-affs',
-        action=ExtendAction,
-        type=lambda arg: arg.split(','),
+        action=argutils.ExtendAction,
+        type=csv_type,
         metavar='AFFILIATIONS',
-        help='Affiliations and/or statuses that will not generate accounts '
-             'on their own, and also will not be copied from person to new '
-             'account even if the person has other affiliations. Can be comma '
-             'separated. Example: "ANSATT/bilag,MANUELL"')
+        help=textwrap.dedent(
+            """
+            Affiliations and/or statuses that will not generate accounts
+            on their own, and also will not be copied from person to new
+            account even if the person has other affiliations.  Can be comma
+            separated.  Example: "ANSATT/bilag,MANUELL"
+            """
+        ).strip(),
+    )
     parser.add_argument(
         '--remove-quarantines',
         dest='remove_quars',
-        action=ExtendAction,
-        type=lambda arg: arg.split(','),
+        action=argutils.ExtendAction,
+        type=csv_type,
         metavar='QUARANTINE',
-        help='Quarantines to removes when restoring old accounts. '
-             'Avoid automatic quarantines.')
+        help=textwrap.dedent(
+            """
+            Quarantines to removes when restoring old accounts.
+            Avoid automatic quarantines.
+            """
+        ).strip(),
+    )
     parser.add_argument(
         '--with-posix',
         action='store_true',
@@ -441,48 +447,54 @@ def make_parser():
     parser.add_argument(
         '--source-systems',
         dest='source_systems',
-        action=ExtendAction,
-        type=lambda arg: arg.split(','),
-        help='Specify source system from which to generate accounts. '
-             'If none given, all source systems will be considered.')
+        action=argutils.ExtendAction,
+        type=csv_type,
+        help=textwrap.dedent(
+            """
+            Specify source system from which to generate accounts.
+            If none given, all source systems will be considered.
+            """
+        ).strip(),
+    )
     posix_dfg = parser.add_mutually_exclusive_group()
     posix_dfg.add_argument(
         '--posix-dfg',
         metavar='POSIXGROUP',
-        help='POSIX GID - default file group')
+        help='POSIX GID - default file group',
+    )
     # TODO: posix uio has no real effect - by *not* giving a posix-dfg, we'll
     # get this behaviour.  This is just a sanity check, remove?
     posix_dfg.add_argument(
         '--posix-uio',
         action='store_true',
         default=False,
-        help="Use the default setup for UiO to set dfg for posix users"
+        help="Use the default setup for UiO to set dfg for posix users",
     )
     parser.add_argument(
         '--home-spread',
         metavar='SPREAD',
         default=cereconf.DEFAULT_HOME_SPREAD,
-        help='The spread for the new home directory. Defaults to '
-             'cereconf.DEFAULT_HOME_SPREAD')
+        help=textwrap.dedent(
+            """
+            The spread for the new home directory.  Defaults to
+            `cereconf.DEFAULT_HOME_SPREAD`
+            """
+        ).strip(),
+    )
     homedir = parser.add_mutually_exclusive_group()
     homedir.add_argument(
         '--home-disk',
         metavar='PATH',
-        help="Path to disk to put new accounts' home directory")
+        help="Path to disk to put new accounts' home directory",
+    )
     homedir.add_argument(
         '--home-auto',
         action='store_true',
-        help="Set homedir automatically using the OU Disk Mapping module"
-    )
-    parser.add_argument(
-        '--commit',
-        action='store_true',
-        default=False,
-        help='Actually commit the work. The default is dryrun.',
+        help="Set homedir automatically using the OU Disk Mapping module",
     )
 
+    argutils.add_commit_args(parser)
     Cerebrum.logutils.options.install_subparser(parser)
-
     return parser
 
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2012-2018 University of Oslo, Norway
+# Copyright 2012-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -23,27 +23,33 @@
 This program reports users on disk without affiliations, and any quarantines
 that are ACTIVE for that user.
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import argparse
-import csv
 import datetime
 import logging
-import sys
+import textwrap
 
+import six
 from jinja2 import Environment
-from six import text_type
 
 import Cerebrum.logutils
 import Cerebrum.logutils.options
-import Cerebrum.utils.csvutils as _csvutils
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
+from Cerebrum.utils import csvutils
+from Cerebrum.utils import file_stream
 from Cerebrum.utils.argutils import codec_type, get_constant
 
 logger = logging.getLogger(__name__)
 now = datetime.datetime.now
 
 # TODO: Move to actual template, or at least use a base template
-template = u"""
+template = """
 {# HTML template for 'generate_accounts_without_affiliations.py'
  # Note: this template requires a custom filter, sort_by_quarantine
 -#}
@@ -124,16 +130,6 @@ template = u"""
 """.strip()
 
 
-class CsvDialect(csv.excel):
-    """Specifying the CSV output dialect the script uses.
-
-    See the module `csv` for a description of the settings.
-
-    """
-    delimiter = ';'
-    lineterminator = '\n'
-
-
 def get_accs_wo_affs(db, target_spread, check_accounts=False):
     """ Search disks for users owned by persons without affiliations.
 
@@ -164,9 +160,9 @@ def get_accs_wo_affs(db, target_spread, check_accounts=False):
     def _row_to_quar(row):
         """ list_entity_quarantines row to dict """
         return {
-            'type': text_type(co.Quarantine(row['quarantine_type'])),
+            'type': six.text_type(co.Quarantine(row['quarantine_type'])),
             'description': _u(row['description']),
-            'date_set': text_type(row['start_date'].strftime('%Y-%m-%d')),
+            'date_set': six.text_type(row['start_date'].strftime('%Y-%m-%d')),
         }
 
     no_aff = {}
@@ -228,30 +224,28 @@ def get_accs_wo_affs(db, target_spread, check_accounts=False):
     return no_aff
 
 
-def do_sort_by_quarantine(l):
+def do_sort_by_quarantine(lst):
     """ Sort by 'has quarantine'. """
-    return sorted(l, cmp=lambda a, b: cmp(len(a['quarantine']),
-                                          len(b['quarantine'])))
+    return sorted(lst, key=lambda d: len(d['quarantine']))
 
 
-def write_csv_report(stream, codec, no_aff, check_accounts):
+def write_csv_report(stream, encoding, no_aff, check_accounts):
     """ Write a CSV report to an open bytestream. """
     number_of_users = sum(len(users) for users in no_aff.values())
 
-    output = codec.streamwriter(stream)
-    output.write('# Encoding: %s\n' % codec.name)
-    output.write('# Generated: %s\n' % now().strftime('%Y-%m-%d %H:%M:%S'))
-    output.write('# Number of users found: %d\n' % number_of_users)
+    stream.write('# Encoding: %s\n' % (encoding,))
+    stream.write('# Generated: %s\n' % now().strftime('%Y-%m-%d %H:%M:%S'))
+    stream.write('# Number of users found: %d\n' % number_of_users)
 
-    writer = _csvutils.UnicodeWriter(output, dialect=CsvDialect)
+    writer = csvutils.UnicodeWriter(stream, dialect=csvutils.CerebrumDialect)
 
     for disk_path in sorted(no_aff):
         for user in do_sort_by_quarantine(no_aff[disk_path]):
             quarantine = user['quarantine'] or ''
             if quarantine:
-                quarantine = ','.join(quarantine.get(a) or ''
-                                      for a in ('type', 'description',
-                                                'date_set'))
+                quarantine = ','.join(
+                    quarantine.get(a) or ''
+                    for a in ('type', 'description', 'date_set'))
             writer.writerow((
                 disk_path,
                 user['account_name'],
@@ -261,9 +255,8 @@ def write_csv_report(stream, codec, no_aff, check_accounts):
     return
 
 
-def write_html_report(stream, codec, no_aff, check_accounts):
+def write_html_report(stream, encoding, no_aff, check_accounts):
     """ Write an HTML report to an open bytestream. """
-    output = codec.streamwriter(stream)
     template_env = Environment(trim_blocks=True, lstrip_blocks=True)
     template_env.filters['sort_by_quarantine'] = do_sort_by_quarantine
 
@@ -274,16 +267,16 @@ def write_html_report(stream, codec, no_aff, check_accounts):
     else:
         criteria = 'without person affiliations'
     report = template_env.from_string(template)
-    output.write(
+    stream.write(
         report.render({
             'disks': no_aff,
             'num_accounts': number_of_users,
             'criteria': criteria,
             'when': now().strftime('%Y-%m-%d %H:%M:%S'),
-            'encoding': codec.name,
+            'encoding': encoding,
         })
     )
-    output.write('\n')
+    stream.write('\n')
 
 
 FORMATS = {
@@ -301,32 +294,40 @@ def main(inargs=None):
     parser.add_argument(
         '-o', '--output',
         metavar='FILE',
-        type=argparse.FileType('w'),
-        default='-',
-        help='The file to print the report to, defaults to stdout')
+        default=file_stream.DEFAULT_STDOUT_NAME,
+        help="write output to %(metavar)s (default: stdout)",
+    )
     parser.add_argument(
         '-f', '--output-format',
-        choices=FORMATS.keys(),
+        choices=sorted(FORMATS.keys()),
         default=DEFAULT_FORMAT,
-        help='Output file format, defaults to %(default)s')
+        help='Output file format, defaults to %(default)s',
+    )
     parser.add_argument(
         '-e', '--encoding',
         dest='codec',
         default=DEFAULT_ENCODING,
         type=codec_type,
-        help="Output file encoding, defaults to %(default)s")
+        help="Output file encoding, defaults to %(default)s",
+    )
     spread_arg = parser.add_argument(
         '-s', '--spread',
         metavar='SPREAD',
         default=DEFAULT_SPREAD,
-        help='Spread to filter users by, defaults to %(default)s')
+        help='Spread to filter users by, defaults to %(default)s',
+    )
     parser.add_argument(
         '-a', '--check-accounts',
         action='store_true',
         default=False,
-        help='Find accounts without affiliations, but where the owner'
-             ' has affiliations.  The default is to find accounts of persons'
-             ' without affiliations')
+        help=textwrap.dedent(
+            """
+            Find accounts without affiliations, but where the owner
+            has affiliations.  The default is to find accounts of persons
+            without affiliations.
+            """
+        ).strip(),
+    )
 
     Cerebrum.logutils.options.install_subparser(parser)
     args = parser.parse_args(inargs)
@@ -340,21 +341,21 @@ def main(inargs=None):
 
     logger.info('Start of script %s', parser.prog)
     logger.debug("args: %r", args)
-    logger.info("spread: %s", text_type(spread))
+    logger.info("spread: %s", six.text_type(spread))
 
     # Search for accounts without affiliations
     no_aff = get_accs_wo_affs(db, spread, args.check_accounts)
 
     # Generate report of results
+    filename = args.output
+    encoding = args.codec.name
     writer = FORMATS[args.output_format]
-    writer(args.output, args.codec, no_aff, args.check_accounts)
-    args.output.flush()
 
-    # If the output is being written to file, close the filehandle
-    if args.output is not sys.stdout:
-        args.output.close()
+    with file_stream.get_output_context(filename, encoding=encoding) as f:
+        writer(f, encoding, no_aff, args.check_accounts)
+        f.flush()
+        logger.info('Report written to %s', f.name)
 
-    logger.info('Report written to %s', args.output.name)
     logger.info('Done with script %s', parser.prog)
 
 

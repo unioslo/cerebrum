@@ -1,10 +1,24 @@
+# -*- coding: utf-8 -*-
+"""
+Unit tests for mod:`Cerebrum.utils.secrets`
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+import io
 import os
-import shutil
-import tempfile
 
 import pytest
 
 from Cerebrum.utils import secrets
+
+# these tests uses the conftest fixtures:
+#
+# - 'write_dir' - as cereconf.DB_AUTH_DIR
+# - 'new_file' - as password file in some tests
 
 
 class _LegacyFile(object):
@@ -47,20 +61,18 @@ legacy_host = _LegacyFile(user="AzureDiamond", passwd="hunter2",
 
 
 @pytest.fixture(autouse=True)
-def _patch_cereconf(cereconf):
+def _patch_cereconf(cereconf, write_dir):
     """ cereconf with a temporary DB_AUTH_DIR. """
-    tempdir = tempfile.mkdtemp(suffix='crb-test-auth-dir')
 
     for data in (legacy_sys, legacy_host):
         # place a legacy file in DB_AUTH_DIR
-        with open(os.path.join(tempdir, data.filename), 'w') as f:
+        with io.open(os.path.join(write_dir, data.filename), mode="w",
+                     encoding="utf-8") as f:
             f.write(data.content)
             # add some trailing newlines
             f.write("\n\n")
 
-    cereconf.DB_AUTH_DIR = tempdir
-    yield cereconf
-    shutil.rmtree(tempdir)
+    cereconf.DB_AUTH_DIR = write_dir
 
 
 @pytest.mark.parametrize('data',
@@ -107,16 +119,13 @@ example_content = "hello, world!"
 
 
 @pytest.fixture
-def example_file():
+def example_file(new_file):
     """ filename of a file with *example_content* outside DB_AUTH_DIR """
-    fd, name = tempfile.mkstemp()
-    with os.fdopen(fd, 'w') as f:
+    with io.open(new_file, mode="w", encoding="utf-8") as f:
         f.write(example_content)
         # add trailing newlines
         f.write("\n\n")
-    # the os.fdopen context mgr calls f.close() - no need for os.close(fd)
-    yield name
-    os.unlink(name)
+    return new_file
 
 
 def test_file_handler(example_file):
