@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 #
-# Copyright 2009-2018 University of Oslo, Norway
+# Copyright 2009-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -260,7 +260,7 @@ class CfTree(object):
         """Create an iterator for the specific group type in the CF-tree.
         """
 
-        for seq in (self._cf_id2node.itervalues(),
+        for seq in (six.itervalues(self._cf_id2node),
                     (self._person_group_holder,)):
             for group in seq:
                 if (group_type is None or
@@ -624,12 +624,12 @@ class CfStructureGroup(CfGroupInterface):
             child._parent = self
 
     def iterate_children(self, child_type=None):
-        for child in self._structure_children.itervalues():
+        for child in six.itervalues(self._structure_children):
             if child_type is None or isinstance(child, child_type):
                 yield child
 
     def iterate_permissions(self):
-        return self._permissions.itervalues()
+        return six.itervalues(self._permissions)
 
     def register_permissions(self, cf_group):
         assert isinstance(cf_group, CfMemberGroup)
@@ -1191,7 +1191,7 @@ def output_person_address(data, printer):
 
     address = data["address"]
     # No non-empty address field. That happens sometimes.
-    if not [x for x in address.itervalues() if bool(x)]:
+    if not [x for x in six.itervalues(address) if bool(x)]:
         return
 
     printer.startElement("adr")

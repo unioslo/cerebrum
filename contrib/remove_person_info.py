@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2018-2023 University of Oslo, Norway
+# Copyright 2018-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -30,6 +30,7 @@ import argparse
 import collections
 import functools
 import logging
+import six
 
 import Cerebrum.logutils
 from Cerebrum.utils.date_compat import get_date
@@ -110,13 +111,13 @@ def perform(cleaner, committer, logger, person, constants, selection):
         committer()
 
 
-def _collect_candidates(collector, constants, source_system, (ss, attr)):
+def _collect_candidates(collector, constants, source_system, attr):
     candidates = collections.defaultdict(list)
     for row in collector(
             entity_type=constants.entity_person,
             source_system=source_system):
         candidates[row['entity_id']].append(
-            (ss, row[attr]))
+            ('source_system', row[attr]))
     return candidates
 
 
@@ -124,16 +125,14 @@ def select_addresses(person, source_system, constants):
     return _collect_candidates(person.list_entity_addresses,
                                constants,
                                source_system,
-                               ('source_system',
-                                'address_type'))
+                                'address_type')
 
 
 def select_contact_info(person, source_system, constants):
     return _collect_candidates(person.list_contact_info,
                                constants,
                                source_system,
-                               ('source_system',
-                                'contact_type'))
+                                'contact_type')
 
 
 def select_titles(person, source_system, constants):
@@ -181,7 +180,7 @@ def select_by_affiliation(person, source_system, grace=0):
         cfd[r['person_id']].append(get_date(r['deleted_date']))
 
     dont_alter = set()
-    for (pid, dates) in cfd.iteritems():
+    for (pid, dates) in six.iteritems(cfd):
         if any([(not date or date > grace_date) for date in dates]):
             dont_alter.add(pid)
     return set(cfd.keys()) - set(dont_alter)

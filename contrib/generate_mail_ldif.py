@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003-2019 University of Oslo, Norway
+# Copyright 2003-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -49,6 +49,7 @@ import argparse
 import base64
 import contextlib
 import logging
+import six
 from time import time as now
 
 import cereconf
@@ -94,7 +95,7 @@ def dict_to_ldif_string(d):
 
     format = "%s: %s\n"
     result = list()
-    for key, value in d.iteritems():
+    for key, value in six.iteritems(d):
         if isinstance(value, (list, tuple, set)):
             result.extend(format % (key, tmp) for tmp in value)
         else:

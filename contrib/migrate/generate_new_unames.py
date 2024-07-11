@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2011 University of Oslo, Norway
+# Copyright 2011-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -34,7 +34,9 @@ NB! This script should only be used during migration.
 
 from __future__ import print_function
 import getopt
+import six
 import sys
+import io
 
 import cereconf
 from Cerebrum import Errors
@@ -142,8 +144,8 @@ def main():
     personinfo = create_accounts(maxlen)
 
     if mapping_file:
-        of = file(mapping_file, 'w')
-        for v in personinfo.itervalues():
+        of = open(mapping_file, 'w')
+        for v in six.itervalues(personinfo):
             of.write('%s;%s;%s\n' % (v.get('fnr',''), v.get('old',''),
                                      v.get('new','')))
         of.close()
