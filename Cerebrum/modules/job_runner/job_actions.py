@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2004-2023 University of Oslo, Norway
+# Copyright 2004-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -431,7 +431,7 @@ class Jobs(six.with_metaclass(UniqueActionAttrs), object):
         # construct a graph (bunch of interlinked nodes + a dict to
         # access them)
         graph = dict()
-        for name, job in joblist.iteritems():
+        for name, job in six.iteritems(joblist):
             graph[name] = _Node(name, job.pre, job.post)
 
         # remap names to object (it'll be easier later)

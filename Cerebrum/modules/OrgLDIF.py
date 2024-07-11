@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2004-2020 University of Oslo, Norway
+# Copyright 2004-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -21,6 +21,7 @@
 from __future__ import unicode_literals
 from __future__ import print_function
 
+import io
 import logging
 import os
 import pickle
@@ -1466,7 +1467,8 @@ class OrgLdifGroupMixin(OrgLDIF):
     def _init_person_groups(self):
         """Populate dict with a persons group information."""
         timer = make_timer(logger, 'Processing person groups...')
-        self._person2group = pickle.load(file(self.person_group_filename))
+        with io.open(self.person_group_filename, "rb") as f:
+            self._person2group = pickle.loads(f.read())
         timer("...person groups done.")
 
     def init_person_dump(self, *args, **kwargs):

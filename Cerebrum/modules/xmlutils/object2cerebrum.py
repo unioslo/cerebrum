@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2005-2023 University of Oslo, Norway
+# Copyright 2005-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -28,6 +28,7 @@ from __future__ import unicode_literals
 import collections
 import cereconf
 import datetime
+import six
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
@@ -652,7 +653,7 @@ class XML2Cerebrum:
         tmp = cereconf.OU_USAGE_SPREAD
         # IVR 2008-01-31 TBD: obvious optimization -- do not calculate this
         # set every time.
-        all_usage_spreads = self._load_usage_spreads(tmp.itervalues(),
+        all_usage_spreads = self._load_usage_spreads(six.itervalues(tmp),
                                                      self.constants.entity_ou)
         ou_usage_spreads = self._load_usage_spreads(
             # select those usage codes, that are actually 'mappable'
