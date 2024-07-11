@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2016-2018 University of Oslo, Norway
+# Copyright 2016-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -25,7 +25,7 @@ from __future__ import unicode_literals
 from flask_restx import Namespace, Resource, abort
 from flask_restx import fields as base_fields
 from werkzeug.exceptions import NotFound
-from six import text_type
+import six
 
 from Cerebrum.rest.api import db, auth, utils
 from Cerebrum.rest.api import fields as crb_fields
@@ -38,7 +38,7 @@ api = Namespace('groups', description='Group operations')
 
 
 def find_group(identifier, idtype='name'):
-    if idtype == 'name' and isinstance(identifier, text_type):
+    if idtype == 'name' and isinstance(identifier, six.text_type):
         identifier = identifier
     try:
         try:
@@ -48,7 +48,7 @@ def find_group(identifier, idtype='name'):
         except utils.EntityLookupError:
             group = utils.get_group(identifier=identifier, idtype=idtype)
     except utils.EntityLookupError as e:
-        raise NotFound(text_type(e))
+        raise NotFound(six.text_type(e))
     return group
 
 
@@ -56,7 +56,7 @@ def find_entity(entity_id):
     try:
         entity = utils.get_entity(identifier=entity_id, idtype='entity_id')
     except utils.EntityLookupError as e:
-        raise NotFound(text_type(e))
+        raise NotFound(six.text_type(e))
     return entity
 
 
@@ -69,7 +69,7 @@ class GroupVisibility(object):
         'N': 'none',
     }
 
-    _rev_map = dict((v, k) for k, v in _map.iteritems())
+    _rev_map = dict((v, k) for k, v in six.iteritems(_map))
 
     @classmethod
     def serialize(cls, strval):

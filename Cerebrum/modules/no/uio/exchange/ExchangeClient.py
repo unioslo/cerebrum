@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2013-2017 University of Oslo, Norway
+# Copyright 2013-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -31,7 +31,7 @@ from __future__ import unicode_literals
 import re
 import string
 
-from six import string_types, text_type
+import six
 
 from urllib2 import URLError
 
@@ -326,7 +326,7 @@ class ExchangeClient(PowershellClient):
         :rtype: string
         :return: A string that could be used in powershell commands directly.
         """
-        if isinstance(data, string_types) and not data:
+        if isinstance(data, six.string_types) and not data:
             return "''"
         else:
             return super(ExchangeClient, self).escape_to_string(data)
@@ -377,7 +377,7 @@ class ExchangeClient(PowershellClient):
         return 'Invoke-Command { %s %s %s } -Session $ses;' % (
             command,
             ' '.join('-%s %s' % (k, self.escape_to_string(v))
-                     for k, v in kwargs.iteritems()),
+                     for k, v in six.iteritems(kwargs)),
             ' '.join('-%s' % v for v in novalueargs))
 
     def kill_session(self):
@@ -823,7 +823,7 @@ class ExchangeClient(PowershellClient):
         try:
             out = self.run(cmd)
         except PowershellException as e:
-            raise ExchangeException(text_type(e))
+            raise ExchangeException(six.text_type(e))
         if 'stderr' in out:
             raise ExchangeException(out['stderr'])
         else:
