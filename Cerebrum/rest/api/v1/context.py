@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2016-2018 University of Oslo, Norway
+# Copyright 2016-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,8 +17,17 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""
+Context API.
 
-from __future__ import unicode_literals
+Implements endpoints and utils for contexts (spreads).
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 from flask_restx import Namespace, Resource, abort
 
@@ -35,14 +43,24 @@ api = Namespace('contexts', description='Context operations')
 Context = api.model('Context', {
     'context': fields.base.String(
         attribute='spread',
-        description='Context name'),
+        description='Context name',
+    ),
     'description': fields.base.String(
-        description='Context description'),
+        description='Context description',
+    ),
     'entity_type': fields.Constant(
         ctype='EntityType',
         attribute='entity_type',
-        description=''),
+        description='',
+    ),
 })
+
+
+#
+# Resource <contexts>/
+#
+# With optional filtering (e.g. <contexts>/?context=foo&context=bar
+#
 
 
 @api.route('/', endpoint='contexts')
@@ -54,7 +72,8 @@ class ContextListResource(Resource):
         'entity_types',
         type=validator.String(),
         action='append',
-        help='Filter by entity type(s)')
+        help='Filter by entity type(s)',
+    )
 
     @api.marshal_list_with(Context)
     @api.doc(expect=[context_search_filter])
@@ -62,9 +81,11 @@ class ContextListResource(Resource):
     def get(self):
         """List contexts"""
         args = self.context_search_filter.parse_args()
-        filters = {key: value for (key, value) in args.items() if
-                   value is not None}
-
+        filters = {
+            key: value
+            for (key, value) in args.items()
+            if value is not None
+        }
         entity_types = None
 
         if 'entity_types' in filters:
