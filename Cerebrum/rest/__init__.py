@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2016 University of Oslo, Norway
+# Copyright 2016-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,4 +17,22 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" The Cerebrum.rest sub package contains the Cerebrum REST API. """
+"""
+The Cerebrum API.
+
+This module and it's submodules provides the Cerebrum API.  This API is built
+using mainly *flask* and *flask-restx*.
+
+:mod:`Cerebrum.rest.api`
+    Contains the main app factory, as well as common modules for auth, io,
+    database integration, etc...
+
+:mod:`Cerebrum.rest.api.v1`
+    Contains the actual API endpoints.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
