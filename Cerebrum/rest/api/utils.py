@@ -133,38 +133,27 @@ def get_group(identifier, idtype=None, grtype='Group'):
     return group
 
 
-def get_entity(identifier, entype=None):
+def get_entity(identifier):
     """Fetches an entity.
 
     :param int identifier: The entity-id of the entity to be retrived
-    :param text/None entype:
-        The entity type. If None, 'identifier' is assumed to be numeric, and
-        the subclassed object is returned.
 
-    :rtype:
-        Entity or one of its subclasses
-    :return:
-        The entity object
+    :rtype: Entity or one of its subclasses
+    :return: The entity object
     """
     if identifier is None:
         raise EntityLookupError("Missing identifier")
-    if entype == 'account':
-        return get_account(identifier, idtype="entity_id")
-    if entype == 'group':
-        return get_group(identifier, idtype="entity_id")
-    if entype is None:
-        try:
-            int(identifier)
-        except ValueError:
-            raise EntityLookupError("Expected numeric identifier")
-        en = Factory.get('Entity')(db.connection)
-        try:
-            return en.get_subclassed_object(identifier)
-        except Errors.NotFoundError:
-            raise EntityLookupError(
-                "Could not find an Entity with entity_id={}".format(
-                    identifier))
-    raise EntityLookupError("Invalid entity type {}".format(entype))
+    try:
+        int(identifier)
+    except ValueError:
+        raise EntityLookupError("Expected numeric identifier")
+    en = Factory.get('Entity')(db.connection)
+    try:
+        return en.get_subclassed_object(identifier)
+    except Errors.NotFoundError:
+        raise EntityLookupError(
+            "Could not find an Entity with entity_id={}".format(
+                identifier))
 
 
 def get_entity_name(entity):

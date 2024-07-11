@@ -133,8 +133,7 @@ class AccountResource(Resource):
             primary_email = ac.get_primary_mailaddress()
         except Errors.NotFoundError:
             primary_email = None
-        owner_name = utils.get_entity_name(
-            utils.get_entity(ac.owner_id, idtype='entity_id'))
+        owner_name = utils.get_entity_name(utils.get_entity(ac.owner_id))
         return {
             'name': ac.account_name,
             'id': ac.entity_id,

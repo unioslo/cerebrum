@@ -61,7 +61,7 @@ def find_group(identifier, idtype='name'):
 
 def find_entity(entity_id):
     try:
-        entity = utils.get_entity(identifier=entity_id, idtype='entity_id')
+        entity = utils.get_entity(entity_id)
     except utils.EntityLookupError as e:
         raise NotFound(six.text_type(e))
     return entity
