@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2015-2023 University of Oslo, Norway
+# Copyright 2015-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -302,7 +302,7 @@ class ADclientMock(ADUtils.ADclient):
         # Add the attributes, but mapped to correctly name used in AD:
         if attributes:
             attributes = dict((self.attribute_write_map.get(name, name), value)
-                              for name, value in attributes.iteritems()
+                              for name, value in six.iteritems(attributes)
                               if value
                               or isinstance(value, (bool, float))
                               or isinstance(value, six.integer_types))
@@ -388,7 +388,7 @@ class ADclientMock(ADUtils.ADclient):
         var = self._cache.get(adid)
         try:
             # TODO: Are there more types that should be handeled?
-            if isinstance(var, basestring):
+            if isinstance(var, six.string_types):
                 raise TypeError
             return lambda: (e for e in var)
         except TypeError:
@@ -595,7 +595,7 @@ class ADclientMock(ADUtils.ADclient):
 
         """
         self.logger.info("Executing script %s, args: %s", script, kwargs)
-        params = ' '.join('-%s %s' % (x[0], x[1]) for x in kwargs.iteritems())
+        params = ' '.join('-%s %s' % (x[0], x[1]) for x in six.iteritems(kwargs))
         cmd = '& %(cmd)s %(params)s' % {'cmd': self.escape_to_string(script),
                                         'params': params}
         self.logger.debug("Mock would have ran '%s'" % cmd)
