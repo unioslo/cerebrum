@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
 # Copyright 2016-2024 University of Oslo, Norway
@@ -18,14 +17,22 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" RESTful Cerebrum group API. """
+"""
+Groups API.
 
-from __future__ import unicode_literals
+Endpoints, models and utils for dealing with groups in the API.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
+import six
 from flask_restx import Namespace, Resource, abort
 from flask_restx import fields as base_fields
 from werkzeug.exceptions import NotFound
-import six
 
 from Cerebrum.rest.api import db, auth, utils
 from Cerebrum.rest.api import fields as crb_fields
@@ -69,7 +76,7 @@ class GroupVisibility(object):
         'N': 'none',
     }
 
-    _rev_map = dict((v, k) for k, v in six.iteritems(_map))
+    _rev_map = dict((v, k) for k, v in _map.items())
 
     @classmethod
     def serialize(cls, strval):
@@ -80,18 +87,38 @@ class GroupVisibility(object):
         return db.const.GroupVisibility(cls._rev_map[input_.lower()])
 
 
+# Common group fields
+# TODO: This could maybe be solved better with
+# `api.clone(Group, {})` or `api.inherit(Group, {})`/
 _group_fields = {
-    'id': base_fields.Integer(description='group id'),
-    'name': base_fields.String(description='group name'),
-    'visibility': crb_fields.Constant(ctype='GroupVisibility',
-                                      transform=GroupVisibility.serialize,
-                                      description='group visibility'),
-    'description': base_fields.String(description='group description'),
-    'created_at': crb_fields.DateTime(dt_format='iso8601',
-                                      description='creation timestamp'),
-    'expire_date': crb_fields.DateTime(dt_format='iso8601',
-                                       description='expire date'),
+    'id': base_fields.Integer(
+        description='group id',
+    ),
+    'name': base_fields.String(
+        description='group name',
+    ),
+    'visibility': crb_fields.Constant(
+        ctype='GroupVisibility',
+        transform=GroupVisibility.serialize,
+        description='group visibility',
+    ),
+    'description': base_fields.String(
+        description='group description',
+    ),
+    'created_at': crb_fields.DateTime(
+        dt_format='iso8601',
+        description='creation timestamp',
+    ),
+    'expire_date': crb_fields.DateTime(
+        dt_format='iso8601',
+        description='expire date',
+    ),
 }
+
+
+#
+# Resource <groups>/<name>
+#
 
 
 Group = api.model('Group', {
@@ -106,70 +133,16 @@ Group = api.model('Group', {
 
     'contexts': base_fields.List(
         crb_fields.Constant(ctype='Spread'),
-        description='Visible in these contexts'),
+        description='Visible in these contexts',
+    ),
     'moderators': crb_fields.href(
         '.group-moderators',
-        description='URL to the resource containing group moderators'),
+        description='URL to the resource containing group moderators',
+    ),
     'members': crb_fields.href(
         '.group-members-list',
-        description='URL to the resource containing group members'),
-})
-
-
-PosixGroup = api.model('PosixGroup', {
-    'href': crb_fields.href('.posixgroup'),
-    'id': _group_fields['id'],
-    'posix': base_fields.Boolean(
-        description='Is this a POSIX group?'),
-    'posix_gid': base_fields.Integer(
-        default=None,
-        description='Group POSIX GID'),
-})
-
-
-GroupListItem = api.model('GroupListItem', {
-    'href': crb_fields.href('.group'),
-    'id': base_fields.Integer(
-        default=None,
-        attribute='group_id',
-        description='group id'),
-    'name': _group_fields['name'],
-
-    'visibility': _group_fields['visibility'],
-    'description': _group_fields['description'],
-    'created_at': _group_fields['created_at'],
-    'expire_date': _group_fields['expire_date'],
-})
-
-
-GroupMember = api.model('GroupMember', {
-    'href': base_fields.String(
-        description='path to member resource'),
-    'id': base_fields.Integer(
-        attribute='member_id',
-        description='member id'),
-    'type': crb_fields.Constant(
-        ctype='EntityType',
-        attribute='member_type',
-        description='member type'),
-    'name': base_fields.String(
-        description='member name'),
-})
-
-
-GroupModerator = api.model('GroupModerator', {
-    'href': base_fields.String(
-        description='url to moderator resource'),
-    'id': base_fields.String(
-        description='moderator id'),
-    'type': crb_fields.Constant(
-        ctype='EntityType',
-        description='moderator type'),
-    'name': base_fields.String(
-        description='moderator name'),
-    'roles': base_fields.List(
-        base_fields.String,
-        description='moderator roles')
+        description='URL to the resource containing group members',
+    ),
 })
 
 
@@ -221,7 +194,7 @@ class GroupResource(Resource):
     new_group_parser = api.parser()
     new_group_parser.add_argument(
         'visibility',
-        choices=GroupVisibility._rev_map.keys(),
+        choices=set(GroupVisibility._rev_map.keys()),
         required=True,
         location=('form', 'json'),
         case_sensitive=False,
@@ -276,35 +249,6 @@ class GroupResource(Resource):
             result_code = 201
         return self.group_info(group), result_code
 
-    # TODO: Do we want PATCH?
-    #
-    #   # PATCH /<group>
-    #   #
-    #   update_group_parser = new_group_parser.copy()
-    #
-    #   @db.autocommit
-    #   @auth.require()
-    #   @api.expect(update_group_parser)
-    #   @api.response(200, 'group updated', Group)
-    #   @api.response(404, 'group not found')
-    #   @api.marshal_with(Group)
-    #   def patch(self, name):
-    #       """ Alter group attributes. """
-    #       args = self.update_group_parser.parse_args()
-    #       group = find_group(name)
-    #
-    #       changes = False
-    #       if group.description != args['description']:
-    #           group.description = args['description']
-    #           changes = True
-    #       if group.visibility != args['visibility']:
-    #           group.visibility = args['visibility']
-    #           changes = True
-    #       if changes:
-    #           group.write_db()
-    #
-    #       return self.group_info(group)
-
     # DELETE /<group>
     #
     @db.autocommit
@@ -318,6 +262,35 @@ class GroupResource(Resource):
         group = find_group(name)
         group.delete()
         return '', 204
+
+
+#
+# Resources <groups>/<name>/moderators/
+# and       <groups>/<name>/moderators/<role>/<moderator-id>
+#
+# Note that these are currently *broken*.  Will need to be re-designed for
+# group-roles.
+#
+
+
+GroupModerator = api.model('GroupModerator', {
+    'href': base_fields.String(
+        description='url to moderator resource',
+    ),
+    'id': base_fields.String(
+        description='moderator id',
+    ),
+    'type': crb_fields.Constant(
+        ctype='EntityType',
+        description='moderator type'),
+    'name': base_fields.String(
+        description='moderator name',
+    ),
+    'roles': base_fields.List(
+        base_fields.String,
+        description='moderator roles',
+    ),
+})
 
 
 @api.route('/<string:name>/moderators/', endpoint='group-moderators')
@@ -338,17 +311,17 @@ class GroupModeratorListResource(Resource):
         moderators = []
         for admin in roles.search_admins(group_id=group.entity_id):
             admin_name = utils.get_entity_name(admin['admin_id'])
-            moderators.append(
-                {
-                    'type': admin['admin_type'],
-                    'id': admin['admin_id'],
-                    'name': admin_name,
-                    'roles': 'Group-admin',
-                    'href': utils.href_from_entity_type(admin['moderator_type'],
-                                                        admin['moderator_id'],
-                                                        admin_name)
-                }
-            )
+            moderators.append({
+                'type': admin['admin_type'],
+                'id': admin['admin_id'],
+                'name': admin_name,
+                'roles': 'Group-admin',
+                'href': utils.href_from_entity_type(
+                    admin['moderator_type'],
+                    admin['moderator_id'],
+                    admin_name,
+                ),
+            })
         return moderators
 
 
@@ -383,6 +356,11 @@ class GroupModeratorResource(Resource):
         roles.remove_admin_from_group(admin_id, group.entity_id)
 
 
+#
+# Resource <groups>/<name>/contexts/<context>
+#
+
+
 @api.route('/<string:name>/contexts/<string:context>',
            endpoint='group-contexts')
 @api.doc(params={'name': 'group name', 'context': 'group context'})
@@ -392,7 +370,7 @@ class GroupContextResource(Resource):
     def get_spread(self, value):
         # TODO: If not str/bytes, constants will try to look up the constant
         # using 'code = value'
-        c = db.const.Spread(bytes(value))
+        c = db.const.Spread(six.text_type(value))
         try:
             int(c)
         except Errors.NotFoundError:
@@ -443,6 +421,31 @@ class GroupContextResource(Resource):
             gr.delete_spread(spread)
 
 
+#
+# Resources <groups>/<name>/members/
+# and       <groups>/<name>/members/<member-id>
+#
+
+
+GroupMember = api.model('GroupMember', {
+    'href': base_fields.String(
+        description='path to member resource',
+    ),
+    'id': base_fields.Integer(
+        attribute='member_id',
+        description='member id',
+    ),
+    'type': crb_fields.Constant(
+        ctype='EntityType',
+        attribute='member_type',
+        description='member type',
+    ),
+    'name': base_fields.String(
+        description='member name',
+    ),
+})
+
+
 @api.route('/<string:name>/members/', endpoint='group-members-list')
 class GroupMemberListResource(Resource):
     """Resource for list of members of groups."""
@@ -454,17 +457,20 @@ class GroupMemberListResource(Resource):
         'type',
         type=validator.String(),
         dest='member_type',
-        help='Filter by entity type.')
+        help='Filter by entity type.',
+    )
     group_member_filter.add_argument(
         'context',
         type=validator.String(),
         dest='member_spread',
-        help='Filter by context. Accepts * and ? as wildcards.')
+        help='Filter by context. Accepts * and ? as wildcards.',
+    )
     group_member_filter.add_argument(
         'filter_expired',
         type=bool,
         dest='member_filter_expired',
-        help='If false, include members that are expired.')
+        help='If false, include members that are expired.',
+    )
 
     @auth.require()
     @api.marshal_with(GroupMember, as_list=True, envelope='members')
@@ -531,7 +537,7 @@ class GroupMemberListResource(Resource):
     @api.response(200, 'members added')
     @api.response(404, 'group or member not found')
     def put(self, name):
-        """ Ensure that the supplied member list are the only members of the group. """
+        """ Set the member list to the provided set of members. """
         args = self.group_members_parser.parse_args()
 
         group = find_group(name)
@@ -619,6 +625,24 @@ class GroupMemberResource(Resource):
         return '', 204
 
 
+#
+# Resource <groups>/<name>/posix
+#
+
+
+PosixGroup = api.model('PosixGroup', {
+    'href': crb_fields.href('.posixgroup'),
+    'id': _group_fields['id'],
+    'posix': base_fields.Boolean(
+        description='Is this a POSIX group?',
+    ),
+    'posix_gid': base_fields.Integer(
+        default=None,
+        description='Group POSIX GID',
+    ),
+})
+
+
 @api.route('/<string:name>/posix', endpoint='posixgroup')
 class PosixGroupResource(Resource):
     """Resource for the POSIX information of a group."""
@@ -637,8 +661,33 @@ class PosixGroupResource(Resource):
             'name': name,
             'id': gr.entity_id,
             'posix': hasattr(gr, 'posix_gid'),
-            'posix_gid': getattr(gr, 'posix_gid', None)
+            'posix_gid': getattr(gr, 'posix_gid', None),
         }
+
+
+#
+# Resource collection <groups>/
+#
+# Effectively a group search.  Any search/listing that matches a lot of groups
+# will probably end with a GatewayTimeout.
+#
+
+
+# Should probably be named GroupSearchResult...
+GroupListItem = api.model('GroupListItem', {
+    'href': crb_fields.href('.group'),
+    'id': base_fields.Integer(
+        default=None,
+        attribute='group_id',
+        description='group id',
+    ),
+    'name': _group_fields['name'],
+
+    'visibility': _group_fields['visibility'],
+    'description': _group_fields['description'],
+    'created_at': _group_fields['created_at'],
+    'expire_date': _group_fields['expire_date'],
+})
 
 
 @api.route('/', endpoint='group-list')
@@ -651,40 +700,48 @@ class GroupListResource(Resource):
     group_search_filter.add_argument(
         'name',
         type=validator.String(),
-        help='Filter by name. Accepts * and ? as wildcards.')
+        help='Filter by name. Accepts * and ? as wildcards.',
+    )
     group_search_filter.add_argument(
         'description',
         type=validator.String(),
-        help='Filter by description. Accepts * and ? as wildcards.')
+        help='Filter by description. Accepts * and ? as wildcards.',
+    )
     group_search_filter.add_argument(
         'context',
         type=validator.String(),
         dest='spread',
-        help='Filter by context.')
+        help='Filter by context.',
+    )
     group_search_filter.add_argument(
         'member_id',
         type=int,
         action='append',
         help='Filter by memberships. Only groups that have member_id as a '
              'member will be returned. If member_id is a sequence, the group '
-             'is returned if any of the IDs are a member of it.')
+             'is returned if any of the IDs are a member of it.',
+    )
     group_search_filter.add_argument(
         'indirect_members',
         type=bool,
         help='If true, alter the behavior of the member_id filter to also '
-             'include groups where member_id is an indirect member.')
+             'include groups where member_id is an indirect member.',
+    )
     group_search_filter.add_argument(
         'filter_expired',
         type=bool,
-        help='If false, include expired groups.')
+        help='If false, include expired groups.',
+    )
     group_search_filter.add_argument(
         'expired_only',
         type=bool,
-        help='If true, only include expired groups.')
+        help='If true, only include expired groups.',
+    )
     group_search_filter.add_argument(
         'creator_id',
         type=int,
-        help='Filter by creator entity ID.')
+        help='Filter by creator entity ID.',
+    )
 
     @auth.require()
     @api.marshal_with(GroupListItem, as_list=True, envelope='groups')
