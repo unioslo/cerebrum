@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2016 University of Oslo, Norway
+# Copyright 2016-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,31 +18,41 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ Application context utils."""
-
-from __future__ import unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 from flask import g
 
 
 class ContextValue(object):
-    """ A simple app context data descriptor.
+    """
+    Application context value.
+
+    This is a a data descriptor that stores its value on `flask.g`.  This
+    provides easy access to app-specific named values.
 
     >>> from flask import Flask
     >>> app = Flask('doctest')
     >>> class Example(object):
-    ...     foo = ContextValue('foo')
-    >>> Example.foo
-    ContextValue('foo')
+    ...     value = ContextValue("example_value")
+
+    >>> Example.value
+    ContextValue('example_value')
 
     >>> e = Example()
     >>> with app.app_context():
-    ...     e.foo = 'foo'
-    ...     str(e.foo)
+    ...     e.value = str("foo")
+    ...     e.value
     'foo'
+
     >>> with app.app_context():
-    ...     del e.foo
-    ...     str(e.foo)
-    'None'
+    ...     del e.value
+    ...     e.value
+    None
     """
 
     def __init__(self, name, default=None):

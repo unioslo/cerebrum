@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2016-2023 University of Oslo, Norway
+# Copyright 2016-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -133,16 +133,13 @@ def get_group(identifier, idtype=None, grtype='Group'):
     return group
 
 
-def get_entity(identifier=None, entype=None, idtype=None):
+def get_entity(identifier, entype=None):
     """Fetches an entity.
 
-    :param text/int identifier:
-        The identifier for the entity to be retrived
+    :param int identifier: The entity-id of the entity to be retrived
     :param text/None entype:
         The entity type. If None, 'identifier' is assumed to be numeric, and
         the subclassed object is returned.
-    :param text idtype:
-        The identifier type
 
     :rtype:
         Entity or one of its subclasses
@@ -152,27 +149,21 @@ def get_entity(identifier=None, entype=None, idtype=None):
     if identifier is None:
         raise EntityLookupError("Missing identifier")
     if entype == 'account':
-        return get_account(idtype=idtype, identifier=identifier)
-    # if entype == 'person':
-    #     return self._get_person(*self._map_person_id(identifier))
+        return get_account(identifier, idtype="entity_id")
     if entype == 'group':
-        return get_group(identifier, idtype=idtype, grtype=entype)
-    # if entype == 'stedkode':
-    #     return self._get_ou(stedkode=identifier)
-    # if entype == 'host':
-    #     return self._get_host(identifier)
+        return get_group(identifier, idtype="entity_id")
     if entype is None:
         try:
             int(identifier)
         except ValueError:
             raise EntityLookupError("Expected numeric identifier")
-        en = Factory.get(b'Entity')(db.connection)
+        en = Factory.get('Entity')(db.connection)
         try:
             return en.get_subclassed_object(identifier)
         except Errors.NotFoundError:
             raise EntityLookupError(
-                "Could not find an Entity with {}={}".format(idtype,
-                                                             identifier))
+                "Could not find an Entity with entity_id={}".format(
+                    identifier))
     raise EntityLookupError("Invalid entity type {}".format(entype))
 
 
@@ -210,19 +201,31 @@ def str_to_bool(value):
 
 
 def href_from_entity_type(entity_type, entity_id, entity_name=None):
-    """Generate an href matching the type of an entity
+    """
+    Generate an href matching the type of an entity
 
-    :param int entity_type: int value entity type constant
-    :param int entity_id: The entity id of the entity
-    :param str entity_name: Name if we already have
+    :param int entity_type: Entity type constant or int-value
+    :param int entity_id: Entity Id
+    :param str entity_name: Optional name of account or group to save a lookup
+
     :return: None or href pointing to entity
     """
     if entity_type == db.const.entity_person:
-        return url_for('.person', id=entity_id)
-    elif entity_type == db.const.entity_group:
-        return url_for('.group',
-                       name=entity_name or get_entity_name(entity_id))
-    elif entity_type == db.const.entity_account:
-        return url_for('.account',
-                       name=entity_name or get_entity_name(entity_id))
+        return url_for(
+            '.person',
+            id=entity_id,
+        )
+
+    if entity_type == db.const.entity_group:
+        return url_for(
+            '.group',
+            name=entity_name or get_entity_name(entity_id),
+        )
+
+    if entity_type == db.const.entity_account:
+        return url_for(
+            '.account',
+            name=entity_name or get_entity_name(entity_id),
+        )
+
     return None
