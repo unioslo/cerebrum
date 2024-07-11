@@ -62,6 +62,7 @@ import sys
 
 import six
 
+import cereconf
 from Cerebrum.config import loader
 from Cerebrum.config import parsers
 from Cerebrum.config.configuration import (ConfigDescriptor,
@@ -207,6 +208,12 @@ class SentryConfig(Configuration):
             "Which Sentry project to use. "
             "Required if sentry logging is enabled."
         ),
+    )
+
+    environment = ConfigDescriptor(
+        String,
+        default=getattr(cereconf, "ENVIRONMENT", None),
+        doc="Override the Cerebrum environment in Sentry",
     )
 
 
@@ -555,9 +562,12 @@ def setup_warnings(warn_config):
 def setup_sentry_sdk(sentry_config):
     if sentry_config.enable:
         if not sentry_config.dsn:
-            raise ValueError("Missing sentry sdk dns")
+            raise ValueError("Missing sentry sdk dsn")
         from . import sentry
-        sentry.sentry_init(sentry_config.dsn)
+        sentry.sentry_init(
+            dsn=sentry_config.dsn,
+            environment=sentry_config.environment,
+        )
     logger.debug("Sentry %s",
                  "enabled" if sentry_config.enable else "disabled")
 

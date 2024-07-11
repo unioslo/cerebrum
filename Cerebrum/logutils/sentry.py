@@ -19,6 +19,14 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
 Sentry setup.
+
+Configuration
+-------------
+See :cls:`.config.SentryConfig` and :func:`.config.setup_sentry_sdk` for
+details on how :func:`.sentry_init` is usually called.
+
+The *dsn* setting will normally be set in a `logenv` config.  The *environment*
+setting will usually default to ``cereconf.ENVIRONMENT``
 """
 from __future__ import (
     absolute_import,
@@ -38,7 +46,7 @@ from sentry_sdk.integrations.stdlib import StdlibIntegration
 from sentry_sdk.integrations.threading import ThreadingIntegration
 
 
-def sentry_init(dsn):
+def sentry_init(dsn, environment=None):
     """
     Initialize and enable Sentry integrations
 
@@ -78,6 +86,7 @@ def sentry_init(dsn):
 
     sentry_sdk.init(
         dsn=dsn,
+        environment=environment,
 
         # auto_enabling_integrations:
         #
