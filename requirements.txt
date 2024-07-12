@@ -23,9 +23,9 @@ pytest==4.3.1
 python-ldap
 pytz
 PyYAML
-raven
 requests
 rpclib==2.7.0-beta
+sentry-sdk<2
 six>=1.10
 statsd==3.2.2
 sqlparse==0.3.0

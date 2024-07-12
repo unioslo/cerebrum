@@ -41,6 +41,13 @@ from sys import prefix
 # localized datetime values.
 TIMEZONE = 'Europe/Oslo'
 
+# Environment
+#
+# This value *should* be set to a string to identify the current environment.
+# For production, this is usually something like "cerebrum-<foo>"
+#
+ENVIRONMENT = None
+
 # Files containing the authentication data needed for database access
 # are kept in this directory.
 DB_AUTH_DIR = pj(prefix, 'etc', 'passwords')

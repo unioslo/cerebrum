@@ -78,11 +78,13 @@ class LogManager(object):
 
         self.thread_log = mp.threads.LogRecordThread(
             self.log_channel,
-            timeout=self.poll_timeout)
+            timeout=self.poll_timeout,
+        )
 
         self.thread_mon = mp.threads.QueueMonitorThread(
             self.log_queue,
-            interval=self.monitor_interval)
+            interval=self.monitor_interval,
+        )
 
         # Store the initial settings for propagate, level
         self.init_access = store_logger_params(
@@ -233,6 +235,8 @@ class LoggingApplication(WSGIApplication):
 
 def main():
     """Start Gunicorn with Cerebrum-logging and a generic WSGI application."""
+    # TODO: Can we pass stuff to our log config here?  We'd want to set up our
+    # flask integration, etc...
     try:
         Cerebrum.logutils.autoconf('gunicorn', None)
         mgr = LogManager()

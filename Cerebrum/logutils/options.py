@@ -48,6 +48,7 @@ OPTION_CAPTURE_EXC = 'logger_capture_exc'
 OPTION_CAPTURE_WARN = 'logger_capture_warn'
 OPTION_LOGGER_LEVEL = 'logger_level'
 OPTION_LOGGER_NAME = 'logger_name'
+OPTION_SENTRY = 'sentry_enable'
 
 
 def install_subparser(parser):
@@ -107,6 +108,22 @@ def install_subparser(parser):
         metavar='LEVEL',
         dest=OPTION_LOGGER_LEVEL,
         help="Override logger level",
+    )
+
+    sentry_mutex = subparser.add_mutually_exclusive_group()
+    sentry_mutex.add_argument(
+        '--logger-sentry',
+        dest=OPTION_SENTRY,
+        default=None,
+        action='store_true',
+        help="Enable sentry",
+    )
+    sentry_mutex.add_argument(
+        '--logger-no-sentry',
+        dest=OPTION_SENTRY,
+        default=None,
+        action='store_false',
+        help="Disable sentry",
     )
 
     return subparser
