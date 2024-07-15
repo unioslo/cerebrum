@@ -7,7 +7,7 @@ import logging
 
 def reset_logger(logger):
     """ Reset a logger.  """
-    old_handlers = logger.handlers
+    old_handlers = getattr(logger, "handlers") or []
 
     logger.level = logging.NOTSET
     logger.handlers = []
