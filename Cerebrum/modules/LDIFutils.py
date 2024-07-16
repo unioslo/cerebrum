@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2004-2023 University of Oslo, Norway
+# Copyright 2004-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -44,11 +44,27 @@ from Cerebrum.Utils import Factory
 from Cerebrum.utils.atomicfile import AtomicFileWriter
 from Cerebrum.utils.atomicfile import SimilarSizeWriter
 from Cerebrum.utils.funcwrap import deprecate
+from Cerebrum.utils import text_compat
+
+
+logger = logging.getLogger(__name__)
+
 
 # Attributes whose values should always be base64-encoded.
 # May be modified by the applications.
 base64_attrs = {'userPassword': 0, 'authPassword': 0}
 
+# Strings that:
+#
+# - Starts with space*, colon, or less-than
+# - Contains non-printable ascii** chars
+# - Ends with space*
+#
+# * needs_base64_readable considers all whitespace, including tabs, newlines,
+#   etc, while needs_base64_safe only considers the regular space char
+#
+# ** needs_base64_safe also considers all 8-bit characters as non-printable
+#
 needs_base64_readable = re.compile('\\A[\\s:<]|[\0-\37\177]|\\s\\Z').search
 needs_base64_safe = re.compile('\\A[ :<]|[\0-\37\177-\377]| \\Z').search
 
@@ -59,7 +75,11 @@ needs_base64_safe = re.compile('\\A[ :<]|[\0-\37\177-\377]| \\Z').search
 # - needs_base64_safe: Encode all 8-bit data as well.
 needs_base64 = needs_base64_readable
 
-logger = logging.getLogger(__name__)
+
+def to_base64(value, encoding="utf-8"):
+    raw_value = text_compat.to_bytes(value, encoding)
+    b64_value = b64encode(raw_value)
+    return text_compat.to_text(b64_value)
 
 
 _dummy = object()
@@ -84,42 +104,67 @@ def ldapconf(tree, attr, default=_dummy, module=cereconf):
     return val
 
 
+# TODO: How do we use these text patterns on bytes in PY3?
+
 # Match an escaped character in a DN; group 1 will match the character.
-dn_escaped_re = re.compile('\\\\([0-9a-fA-F]{2}|[<>,;+"#\\\\=\\s])')
+dn_escaped_re = re.compile(r'\\([0-9a-fA-F]{2}|[<>,;+"#\\=\s])')
 
 # Match a character which must be escaped in a DN.
 dn_escape_re = re.compile('\\A[\\s#]|["+,;<>\\\\=\0\r\n]|\\s\\Z')
 
 
 def unescape_match(match):
-    """Unescape the hex-escaped character in <match object>.group(1).
+    """
+    Get the ldap_hexlify representation of a matched string or character
 
-    Used e.g. with dn_escaped_re.sub(unescape_match, <attr value in DN>)."""
+    Typically used with ``dn_escaped_re.sub(unescape_match, <attr value>)``
+    """
     escaped = match.group(1)
     if len(escaped) == 1:
         return escaped
     return binascii.a2b_hex(escaped)
 
 
-def hex_escape_match(match):
-    """Return the '\\hex' representation of a match object for a character.
+def ldap_hexlify(bytestr):
+    """
+    Turn a bytestring into a hex-escaped sequence.
 
-    Used e.g. with dn_escape_re.sub(hex_escape_match, <attr value>)."""
+    >>> LDIFutils.ldap_hexlify("foo")
+    '\\66\\6f\\6f'
+    """
+    if not isinstance(bytestr, bytes):
+        bytestr = text_compat.to_bytes(bytestr)
+    hexstr = binascii.hexlify(bytestr).decode("ascii")
+    pairs = (hexstr[i:i+2] for i in range(0, len(hexstr), 2))
+    return "".join("\\" + p for p in pairs)
+
+
+def hex_escape_match(match):
+    """
+    Get the ldap_hexlify representation of a matched string or character
+
+    Typically used with ``dn_escape_re.sub(hex_escape_match, <attr value>)``
+    """
     text = match.group()
-    if isinstance(text, six.text_type):
-        text = text.encode('utf-8')
-    return '\\' + binascii.b2a_hex(text)
+    return ldap_hexlify(text)
 
 
 def entry_string(dn, attrs, add_rdn=True):
     r"""Return a string with an LDIF entry with the specified DN and ATTRS.
 
-    DN is the entry name: A string 'rdn (i.e. relative DN),parent DN'.
-    ATTRS is a dict {attribute name: value or sequence of values}.
+    :param str dn:
+        DN is the entry name: A string 'rdn (i.e. relative DN),parent DN'.
 
-    If ADD_RDN, add the values in the rdn to the attributes if necessary.
-    This feature is rudimentary:  Fails with \+ and \, in the DN.  Considers
-    attr names case-sensitive, attr values as caseIgnore Directory Strings."""
+    :param dict attrs:
+        ATTRS is a dict {attribute name: value or sequence of values}.
+
+    :param bool add_rdn:
+        If ADD_RDN, add the values in the rdn to the attributes if necessary.
+
+        This feature is rudimentary:  Fails with \+ and \, in the DN.
+        Considers attr names case-sensitive, attr values as caseIgnore
+        Directory Strings.
+    """
     if add_rdn:
         attrs = attrs.copy()
         # DN = RDN or "RDN,parentDN".  RDN = "attr=rval+attr=rval+...".
@@ -142,23 +187,24 @@ def entry_string(dn, attrs, add_rdn=True):
                     attrs[attr] = (rval, old)
 
     need_b64 = needs_base64
-    if need_b64(dn):
-        result = ["dn:: ", b64encode(dn.encode('utf-8')), "\n"]
-    else:
-        result = ["dn: ", dn, "\n"]
+    lines = []
 
-    extend = result.extend
+    def add_attr(attr, value):
+        if attr in base64_attrs or need_b64(value):
+            lines.append("{}:: {}".format(attr, to_base64(value)))
+        else:
+            lines.append("{}: {}".format(attr, value))
+
+    add_attr("dn", dn)
+
     attrs = list(attrs.items())
     attrs.sort()         # not necessary, but minimizes changes in file
     for attr, vals in attrs:
         for val in _attrval2iter[type(vals)](vals):
-            if attr in base64_attrs or need_b64(val):
-                extend((attr, ":: ", b64encode(val.encode('utf-8')), "\n"))
-            else:
-                extend((attr, ": ", val, "\n"))
+            add_attr(attr, val)
 
-    result.append("\n")
-    return "".join(result)
+    lines.extend(("", ""))  # trailing newlines
+    return "\n".join(lines)
 
 
 # For entry_string() attrs: map {type: function producing sequence/iterator}
