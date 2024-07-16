@@ -427,7 +427,11 @@ class OuCommands(bofhd_ou_cmds.OuCommands):
 
 
 class _QuarantineAuth(NihAuth, bofhd_quarantines.BofhdQuarantineAuth):
-    pass
+    RESTRICTED_QUARANTINES = (
+        "auto_no_aff",
+        "svakt_passord",
+        "system",
+    )
 
 
 class QuarantineCommands(bofhd_quarantines.BofhdQuarantineCommands):
