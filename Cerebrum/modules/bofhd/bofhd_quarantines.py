@@ -108,6 +108,8 @@ class BofhdQuarantineAuth(BofhdAuth):
     # Personal traits that indicates that this object is a guest.
     GUEST_OWNER_TRAITS = ()
 
+    RESTRICTED_QUARANTINES = ()
+
     def _entity_is_guestuser(self, entity):
         """
         Helper - check if entity is considered a guest user of some sort.
@@ -185,16 +187,17 @@ class BofhdQuarantineAuth(BofhdAuth):
         # Does operator have access to an opset that grants access to this
         # specific entity (by e.g. being a local admin at a given org unit
         # where the entity belongs)?
-        try:
-            return self.has_privileged_access_to_account_or_person(
-                operator=operator,
-                operation=operation,
-                entity=entity,
-                operation_attr=quarantine_text,
-            )
-        except PermissionDenied:
-            # We want to formulate our own PermissionDenied error message
-            pass
+        if quarantine_text not in self.RESTRICTED_QUARANTINES:
+            try:
+                return self.has_privileged_access_to_account_or_person(
+                    operator=operator,
+                    operation=operation,
+                    entity=entity,
+                    operation_attr=quarantine_text,
+                )
+            except PermissionDenied:
+                # We want to formulate our own PermissionDenied error message
+                pass
 
         raise PermissionDenied(
             "No access to modify quarantine %s for this account"
