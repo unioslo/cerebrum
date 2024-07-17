@@ -23,7 +23,7 @@ pytest==4.3.1
 python-ldap
 pytz
 PyYAML
-requests
+requests~=2.27.1  # Last version to support 2.7 (dropped in 2.28.0)
 rpclib==2.7.0-beta
 sentry-sdk<2
 six>=1.10
