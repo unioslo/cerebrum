@@ -38,7 +38,7 @@ from __future__ import (
     unicode_literals,
 )
 
-import operator
+import functools
 import re
 import string
 
@@ -46,6 +46,7 @@ import six
 
 from Cerebrum.Errors import NotFoundError
 from Cerebrum.Utils import Factory
+from Cerebrum.utils import text_compat
 
 from .checker import pwchecker, PasswordChecker, l33t_speak
 
@@ -65,7 +66,7 @@ class CheckSpaceOrNull(PasswordChecker):
         """Check that only valid characters are allowed."""
         errors = []
 
-        for char, err in six.iteritems(self._password_illegal_chars):
+        for char, err in self._password_illegal_chars.items():
             if char in password:
                 errors.append(err)
         return errors
@@ -94,9 +95,12 @@ class CheckASCIICharacters(PasswordChecker):
         self._requirement = _('Can contain only a-z, A-Z, digits, '
                               'and: {special_characters}').format(
                                   special_characters=string.punctuation)
-        self.allowed_chars = (string.ascii_letters +
-                              string.digits +
-                              string.punctuation + ' ').decode('utf-8')
+        self.allowed_chars = text_compat.to_text(
+            string.ascii_letters
+            + string.digits
+            + string.punctuation
+            + ' '
+        )
 
     def check_password(self, password, account=None):
         """
@@ -111,8 +115,7 @@ class CheckASCIICharacters(PasswordChecker):
             if character not in self.allowed_chars:
                 errors.append(
                     _('Password can not contain the character: '
-                      '{character}').decode('utf-8').format(
-                          character=character))
+                      '{character}').format(character=character))
         return errors
 
 
@@ -206,9 +209,9 @@ class CheckSimpleCharacterGroups(PasswordChecker):
         """
         counters = {}
         for group in self.character_groups:
-            counters[group] = map(lambda x: x in group, password).count(True)
-        if map(lambda x: x >= self.min_chars_per_group,
-               counters.values()).count(True) < self.min_groups:
+            counters[group] = [x in group for x in password].count(True)
+        groups = [x >= self.min_chars_per_group for x in counters.values()]
+        if groups.count(True) < self.min_groups:
             return [_(
                 'Password must contain at least {min_chars_per_group} '
                 'character(s) for each of at least {min_groups} '
@@ -256,23 +259,7 @@ class CheckSimpleEntropyCalculator(PasswordChecker):
         """
         Make sure that the password contains enough entropy points
         """
-        plength = len(password)
-        entropy_value = 0
-        # "The entropy of the first character is four bits"
-        entropy_value += len(password[0:1]) * 4
-        # "The entropy of the next seven characters are two bits per character"
-        entropy_value += len(password[1:8]) * 2
-        # "The ninth through the twentieth character has 1.5 bits of entropy
-        # per character"
-        entropy_value += int(len(password[8:20]) * 1.5)  # use only the int
-        # "Characters 21 and above have one bit of entropy per character."
-        if plength > 20:
-            entropy_value += (plength - 20)
-        different_groups, chars_per_group = self.__character_groups(password)
-        if chars_per_group >= self.min_groups:
-            entropy_value += 8
-        elif different_groups >= self.min_groups:
-            entropy_value += 6
+        entropy_value = self.get_entropy(password)
         if entropy_value < self.min_required_entropy:
             return [
                 _('Password has only {entropy_value} '
@@ -282,8 +269,20 @@ class CheckSimpleEntropyCalculator(PasswordChecker):
 
     def __character_groups(self, seq):
         """
-        Returns a (character groups used,
-        min. amount of characters for each of those groups)-tuple
+        Calculate number of character groups used:
+
+        :param seq: string, or sequence of characters
+
+        :returns tuple:
+            Returns two group sizes:
+
+            - The first value counts the number of character groups used
+              overall (with at least one character in each group)
+
+            - The second value counts the number of character groups with
+              at least *min_chars_per_group* characters.
+              If *min_chars_per_group* == 1, then this is the same value as the
+              first.
         """
         counters = {
             six.text_type(string.ascii_lowercase): 0,
@@ -300,6 +299,28 @@ class CheckSimpleEntropyCalculator(PasswordChecker):
         chars_per_group = [
             v for v in different_groups if v >= self.min_chars_per_group]
         return (len(different_groups), len(chars_per_group))
+
+    def get_entropy(self, password):
+        """ Calculate password entropy """
+        entropy_value = 0
+        # "The entropy of the first character is four bits"
+        entropy_value += len(password[0:1]) * 4
+        # "The entropy of the next seven characters are two bits per character"
+        entropy_value += len(password[1:8]) * 2
+        # "The ninth through the twentieth character has 1.5 bits of entropy
+        # per character"
+        entropy_value += int(len(password[8:20]) * 1.5)  # use only the int
+        # "Characters 21 and above have one bit of entropy per character."
+        plength = len(password)
+        if plength > 20:
+            entropy_value += (plength - 20)
+        # Bonuses for using different caracter groups
+        different_groups, chars_per_group = self.__character_groups(password)
+        if chars_per_group >= self.min_groups:
+            entropy_value += 8
+        elif different_groups >= self.min_groups:
+            entropy_value += 6
+        return entropy_value
 
 
 @pwchecker('length')
@@ -422,20 +443,21 @@ class CheckCharacterSequence(PasswordChecker):
         """Check for sequences of closely related characters."""
         errors = []
         passwd = password.lower()
-        ordpw = map(ord, passwd)
+        ordpw = [ord(ch) for ch in passwd]
 
-        def find_adjacent_runs(seq):
+        def find_adjacent_runs(ordinals):
+            seq = [a - b for a, b in zip(ordinals[1:], ordinals[:-1])]
+
             def fun(tot, elt):
                 if tot and tot[-1][0] == elt:
                     tot[-1][1] += 1
                 else:
                     tot.append([elt, 1])
                 return tot
-            return reduce(fun, seq, [])
+            return functools.reduce(fun, seq, [])
 
         # A sequence of closely related ASCII characters.
-        for diff, num in find_adjacent_runs(
-                map(operator.sub, ordpw[1:], ordpw[:-1])):
+        for diff, num in find_adjacent_runs(ordpw):
             if diff in (-1, 1) and num >= self.char_seq_length:
                 errors.append(_('Password cannot contain characters in '
                                 'alpabetical or numerical order'))
@@ -463,7 +485,7 @@ class CheckCharacterSequence(PasswordChecker):
         for row in keyboard_rows:
             mapper = dict([(key, val+1) for val, key in enumerate(row)])
             pw = [mapper.get(x, -1) for x in passwd]
-            runs = find_adjacent_runs(map(operator.sub, pw[1:], pw[:-1]))
+            runs = find_adjacent_runs(pw)
             for diff, num in runs:
                 if diff in (-1, 1) and num >= self.char_seq_length:
                     errors.append(_(
@@ -574,11 +596,8 @@ class CheckOwnerNameExactMixin(PasswordChecker):
 
         for row in person.get_names():
             for name in row["name"].split():
-                if (
-                        self.min_length and len(filter(
-                            lambda x: x not in self.initial_chars,
-                            name)) < self.min_length
-                ):
+                chars = [x for x in name if x not in self.initial_chars]
+                if (self.min_length and len(chars) < self.min_length):
                     # the name is too short. Skip the check.
                     continue
                 if name.lower() in password:
