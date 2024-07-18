@@ -56,22 +56,50 @@ def additional_words():
         yield w
 
 
-def look(fh, key, dictn, fold):
+def get_word_normalizer(dict_order, case_fold):
     """
-    Quick port of look.pl (distributed with perl 4)
+    Get text normalizer for comparing dictionaries and input.
 
-    http://cpansearch.perl.org/src/ZEFRAM/Perl4-CoreLibs-0.003/lib/look.pl
+    :param bool dict_order:
+        Only compare "regular" text (word chars and internal whitespace)
+    :param bool case_fold:
+        Compare case-insensitively
+
+    :returns callable:
+        A text transform function.
     """
-    # TODO: Speedup could be gained for by remembering where in
-    # the file we ended up last time
+
+    def normalize(text):
+        text = text.strip()
+        if case_fold:
+            text = text.lower()
+        if dict_order:
+            text = re.sub(r'[^\w\s]', '', text)
+        return text
+    return normalize
+
+
+def look(fh, key, dict_order, case_fold):
+    """
+    Seek to a line starting with *key* in *fh*.
+
+    This is basically a port of look.pl (distributed with perl 4)
+    <http://cpansearch.perl.org/src/ZEFRAM/Perl4-CoreLibs-0.003/lib/look.pl>
+
+    :param file fh: An open, seekable file-like object
+    :param str key: A text to search for
+    :param bool dict_order: same as :func:`.get_word_normalizer`
+    :param bool case_fold: same as :func:`.get_word_normalizer`
+    """
+    normalize = get_word_normalizer(dict_order, case_fold)
     blksize = os.statvfs(fh.name)[0]
     if blksize < 1 or blksize > 65536:
         blksize = 8192
-    if dictn:
-        key = re.sub(r'[^\w\s]', '', key)
-    if fold:
-        key = key.lower()
+    key = normalize(key)
     max = int(os.path.getsize(fh.name) // blksize)
+    # For large files, we could get a speedup from repeated lookups here by:
+    #  1. Getting the previous seek position as a parameter
+    #  2. Calculating min = start // blksize
     min = 0
     # "binary search" for a file position somewhere before our word
     while (max - min > 1):
@@ -80,11 +108,7 @@ def look(fh, key, dictn, fold):
         if mid:
             line = fh.readline()
         line = fh.readline()
-        line.strip()
-        if dictn:
-            line = re.sub(r'[^\w\s]', '', line)
-        if fold:
-            line = line.lower()
+        line = normalize(line)
         if line < key:
             min = mid
         else:
@@ -97,11 +121,7 @@ def look(fh, key, dictn, fold):
         line = fh.readline()
         if len(line) == 0:
             break
-        line = line.strip()
-        if dictn:
-            line = re.sub(r'[^\w\s]', '', line)
-        if fold:
-            line = line.lower()
+        line = normalize(line)
         if line >= key:
             break
         min = fh.tell()
@@ -121,12 +141,13 @@ def is_word_in_dicts(dictionaries,
 
     :param list dictionaries: A list of dictionary files
     :param list words: A list of similar words to try
-    :param bool dict_order: ...
-    :param bool case_fold: ...
+    :param bool dict_order: same as :func:`.get_word_normalizer`
+    :param bool case_fold: same as :func:`.get_word_normalizer`
 
     :return bool: True if any word is found in any dictionary.
     """
-    words = [w for w in words if len(w) > 3]
+    normalize = get_word_normalizer(dict_order, case_fold)
+    words = [normalize(w) for w in words if len(w) > 3]
     if len(words) == 0:
         return False
     words.sort()
@@ -137,17 +158,13 @@ def is_word_in_dicts(dictionaries,
             while (1):
                 line = f.readline()
                 if len(line) == 0:
-                    return False
-                line = line.rstrip()
-                if case_fold:
-                    line = line.lower()
-                if dict_order:
-                    line = re.sub(r'[^\w\s]', '', line)
+                    break
+                line = normalize(line)
                 for word in words:
                     if line.startswith(word):
                         return True
                 if line > words[-1]:
-                    return False
+                    break
     return False
 
 
