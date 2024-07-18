@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2016-2023 University of Oslo, Norway
+# Copyright 2016-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -37,11 +37,14 @@ import six
 import cereconf
 
 
-locale_dir = getattr(cereconf,
-                     'GETTEXT_LOCALEDIR',
-                     os.path.join(sys.prefix, 'share', 'locale'))
+default_locale_dir = os.path.join(sys.prefix, 'share/locale')
+locale_dir = getattr(cereconf, 'GETTEXT_LOCALEDIR', default_locale_dir)
 gettext_domain = getattr(cereconf, 'GETTEXT_DOMAIN', 'cerebrum')
-gettext.install(gettext_domain, locale_dir, unicode=True)
+
+if six.PY2:
+    gettext.install(gettext_domain, locale_dir, unicode=True)
+else:
+    gettext.install(gettext_domain, locale_dir)
 
 
 class PasswordNotGoodEnough(Exception):
@@ -83,10 +86,10 @@ _checkers_loaded = False
 def load_checkers():
     global _checkers_loaded
     if not _checkers_loaded:
-        from . import simple
-        from . import dictionary
-        from . import history_checks
-        from . import phrase
+        from . import simple  # noqa: F401
+        from . import dictionary  # noqa: F401
+        from . import history_checks  # noqa: F401
+        from . import phrase  # noqa: F401
         _checkers_loaded = True
 
 
