@@ -13,6 +13,7 @@ import gettext
 import pytest
 
 from Cerebrum.modules.pwcheck import checker
+from Cerebrum.utils import text_compat
 
 
 #
@@ -37,5 +38,5 @@ def test_translate(cereconf, lang, text):
     tr = gettext.translation(checker.gettext_domain,
                              localedir=checker.locale_dir,
                              languages=[lang, "en"])
-    msg = tr.gettext(test_message)
+    msg = text_compat.to_text(tr.gettext(test_message))
     assert msg == text
