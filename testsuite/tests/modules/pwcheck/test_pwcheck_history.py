@@ -16,7 +16,7 @@ from Cerebrum.modules.pwcheck import history
 from Cerebrum.testutils import datasource
 
 
-class TestAccount(history.PasswordHistoryMixin, Account.Account):
+class PasswordHistoryAccount(history.PasswordHistoryMixin, Account.Account):
     """ Account with password history. """
     # TODO: PasswordHistoryMixin should probably just inherit Account.Account
     # to begin with.
@@ -49,7 +49,7 @@ def account_creator(database, const, account_ds, initial_account):
 
         for account_dict in account_ds(limit=limit):
 
-            account = TestAccount(database)
+            account = PasswordHistoryAccount(database)
             if owner_type == const.entity_person:
                 account_type = None
             else:
