@@ -8,22 +8,12 @@ from __future__ import (
     print_function,
     unicode_literals,
 )
-import functools
-import io
-import os
-import shutil
-import tempfile
-import textwrap
 
 import gettext
 import pytest
 
 from Cerebrum.modules.pwcheck import checker
 from Cerebrum.modules.pwcheck import simple
-
-
-# Encoding for file contents
-ENCODING = "utf-8"
 
 
 @pytest.fixture(autouse=True)
