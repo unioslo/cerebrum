@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2016-2018 University of Oslo, Norway
+# Copyright 2016-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,22 +17,36 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" Generic search API. """
+"""
+Search APIs.
 
-from __future__ import unicode_literals
+Endpoints for various searches.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 from flask_restx import Namespace, Resource, abort
 from flask_restx import fields as base_fields
 
+from Cerebrum import Errors
 from Cerebrum.Entity import EntityExternalId
 from Cerebrum.Utils import Factory
-from Cerebrum import Errors
 
 from Cerebrum.rest.api import db, auth, validator
 from Cerebrum.rest.api import fields as crb_fields
 from Cerebrum.rest.api.v1 import models
 
 api = Namespace('search', description='Search operations')
+
+
+#
+# Resource <search>/persons/affiliations
+#
+
 
 PersonResult = api.model(
     "PersonResult",
@@ -42,6 +55,7 @@ PersonResult = api.model(
         "href": crb_fields.href(endpoint=".person"),
     },
 )
+
 
 def stedkode_string_validator(value):
     if not value.isdigit() or len(value) != 6:
@@ -86,14 +100,17 @@ class AffSearchResource(Resource):
         pe = Factory.get("Person")(db.connection)
         if search_filters.get("affiliation"):
             try:
-                aff, status = db.const.get_affiliation(search_filters["affiliation"])
+                aff, status = db.const.get_affiliation(
+                    search_filters["affiliation"])
                 filters["affiliation"] = aff
                 if status:
                     filters["status"] = status
             except Errors.NotFoundError:
                 abort(
                     400,
-                    "Invalid affiliation: {aff}".format(aff=search_filters["affiliation"]),
+                    "Invalid affiliation: {aff}".format(
+                        aff=search_filters["affiliation"],
+                    ),
                 )
         if search_filters.get("location"):
             ou = Factory.get("OU")(db.connection)
@@ -103,26 +120,39 @@ class AffSearchResource(Resource):
             except Errors.NotFoundError:
                 abort(
                     400,
-                    "Invalid location {sko}".format(sko=search_filters["location"])
+                    "Invalid location {sko}".format(
+                        sko=search_filters["location"],
+                    )
                 )
-        return [{"id": i["person_id"]} for i in pe.list_affiliations(**filters)]
+        return [{"id": i["person_id"]}
+                for i in pe.list_affiliations(**filters)]
+
+
+#
+# Resource <search>/persons/external-ids
+#
+# Search for persons by external id values
+#
 
 
 ExternalIdItem = api.model('ExternalIdItem', {
-    'href': crb_fields.href(
-        endpoint='.person'),
+    'href': crb_fields.href(endpoint='.person'),
     'person_id': base_fields.Integer(
         description='Person ID',
-        attribute='entity_id'),
+        attribute='entity_id',
+    ),
     'source_system': crb_fields.Constant(
         ctype='AuthoritativeSystem',
-        description='Source system'),
+        description='Source system',
+    ),
     'id_type': crb_fields.Constant(
         ctype='EntityExternalId',
         transform=models.ExternalIdType.serialize,
-        description='External ID type'),
+        description='External ID type',
+    ),
     'external_id': base_fields.String(
-        description='External ID value')
+        description='External ID value',
+    ),
 })
 
 
@@ -137,17 +167,20 @@ class ExternalIdResource(Resource):
         'source_system',
         type=validator.String(),
         action='append',
-        help='Filter by one or more source systems.')
+        help='Filter by one or more source systems.',
+    )
     extid_search_filter.add_argument(
         'id_type',
         type=validator.String(),
         action='append',
-        help='Filter by one or more ID types.')
+        help='Filter by one or more ID types.',
+    )
     extid_search_filter.add_argument(
         'external_id',
         type=validator.String(),
         required=True,
-        help='Filter by external ID.')
+        help='Filter by external ID.',
+    )
 
     @auth.require()
     @api.doc(expect=[extid_search_filter])

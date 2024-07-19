@@ -17,7 +17,11 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" Person API. """
+"""
+Persons API.
+
+Endpoints, models and utils for dealing with persons in the API.
+"""
 from __future__ import (
     absolute_import,
     division,
@@ -25,18 +29,15 @@ from __future__ import (
     unicode_literals,
 )
 
+import six
 from flask import url_for
 from flask_restx import Namespace, Resource, abort
-import six
 
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
+from Cerebrum.modules.otp import otp_db
+from Cerebrum.modules.otp import otp_types
 from Cerebrum.modules.otp.mixins import OtpPersonMixin
-from Cerebrum.modules.otp.otp_types import (PersonOtpUpdater,
-                                            get_policy,
-                                            validate_secret)
-from Cerebrum.modules.otp.otp_db import sql_search
-
 from Cerebrum.rest.api import db, auth, fields, utils, validator
 from Cerebrum.rest.api.v1 import models
 
@@ -48,140 +49,53 @@ def find_person(id):
     try:
         pe.find(id)
     except Errors.NotFoundError:
-        abort(404, message=u"No such person with entity_id={}".format(id))
+        abort(404, message="No such person with entity_id={}".format(id))
     return pe
 
 
-PersonAffiliation = api.model('PersonAffiliation', {
-    'affiliation': fields.Constant(
-        ctype='PersonAffiliation',
-        description='Affiliation type'),
-    'status': fields.Constant(
-        ctype='PersonAffStatus',
-        description='Affiliation status'),
-    'ou': fields.base.Nested(
-        models.OU,
-        description='Organizational unit'),
-    'create_date': fields.DateTime(
-        dt_format='iso8601',
-        description='Creation date'),
-    'last_date': fields.DateTime(
-        dt_format='iso8601',
-        description='Last seen in source system'),
-    'deleted_date': fields.DateTime(
-        dt_format='iso8601',
-        description='Deletion date'),
-    'source_system': fields.Constant(
-        ctype='AuthoritativeSystem',
-        description='Source system'),
-})
+#
+# Resource <persons>/<person-id>
+#
+
 
 PersonName = api.model('PersonName', {
     'source_system': fields.Constant(
         ctype='AuthoritativeSystem',
-        description='Source system'),
+        description='Source system',
+    ),
     'variant': fields.Constant(
         ctype='PersonName',
         attribute='name_variant',
-        description='Name variant'),
+        description='Name variant',
+    ),
     'name': fields.base.String(
-        description='Name value'),
+        description='Name value',
+    ),
 })
 
-PersonAccount = api.model('PersonAccount', {
-    'href': fields.href('.account'),
-    'id': fields.base.String(
-        description='Account ID'),
-    'name': fields.base.String(
-        description='Account name'),
-    'primary': fields.base.Boolean(
-        description='Is this a primary account?'),
-})
 
 Person = api.model('Person', {
     'href': fields.href('.person'),
     'id': fields.base.Integer(
         default=None,
-        description='Person entity ID'),
+        description='Person entity ID',
+    ),
     'birth_date': fields.DateTime(
         dt_format='iso8601',
-        description='Birth date'),
+        description='Birth date',
+    ),
     'created_at': fields.DateTime(
         dt_format='iso8601',
-        description='Creation timestamp'),
+        description='Creation timestamp',
+    ),
     'names': fields.base.List(
         fields.base.Nested(PersonName),
-        description='Names'),
+        description='Names',
+    ),
     'contexts': fields.base.List(
         fields.Constant(ctype='Spread'),
-        description='Visible in these contexts'),
-})
-
-PersonAffiliationList = api.model('PersonAffiliationList', {
-    'affiliations': fields.base.List(
-        fields.base.Nested(PersonAffiliation),
-        description='List of person affiliations')
-})
-
-PersonAccountList = api.model('PersonAccountList', {
-    'accounts': fields.base.List(
-        fields.base.Nested(PersonAccount),
-        description='List of accounts'),
-})
-
-
-class AddressType(object):
-    """ Address type translation. """
-
-    _map = {
-        'POST': 'postalAddress',
-        'OTHER_POST': 'otherPostalAddress',
-        'PRIVPOST': 'privatePostalAddress',
-        'STREET': 'visitingAddress',
-        'OTHER_STREET': 'otherVisitingAddress'
-    }
-
-    _rev_map = dict((v, k) for k, v in six.iteritems(_map))
-
-    @classmethod
-    def serialize(cls, strval):
-        return cls._map[strval]
-
-    @classmethod
-    def unserialize(cls, input_):
-        return db.const.Address(cls._rev_map[input_.lower()])
-
-
-PersonAddress = api.model('PersonAddress', {
-    'source_system': fields.Constant(
-        ctype='AuthoritativeSystem',
-        description='Source system'),
-    'address_type': fields.Constant(
-        ctype='Address',
-        description='Address type',
-        transform=AddressType.serialize
+        description='Visible in these contexts',
     ),
-    'address_text': fields.base.String(
-        default=None,
-        description='Address text'
-    ),
-    'p_o_box': fields.base.String(
-        default=None,
-        description='Postal box'
-    ),
-    'postal_number': fields.base.String(
-        default=None,
-        description='Postal number'
-    ),
-    'city': fields.base.String(
-        default=None,
-        description='City'
-    ),
-    'country': fields.base.String(
-        default=None,
-        description='Country'
-    ),
-
 })
 
 
@@ -189,6 +103,7 @@ PersonAddress = api.model('PersonAddress', {
 @api.doc(params={'id': 'Person entity ID'})
 class PersonResource(Resource):
     """Resource for a single person."""
+
     @auth.require()
     @api.marshal_with(Person)
     def get(self, id):
@@ -199,19 +114,66 @@ class PersonResource(Resource):
 
         def name_dict(row):
             return {
-                k: v for k, v in row.items()
-                if k in name_keys}
+                k: row[k]
+                for k in row
+                if k in name_keys
+            }
 
         # Filter out appropriate fields from db_row objects
-        names = [name_dict(r) for r in pe.get_names()]
+        names = [name_dict(dict(r)) for r in pe.get_names()]
 
         return {
             'id': pe.entity_id,
             'contexts': [row['spread'] for row in pe.get_spread()],
             'birth_date': pe.birth_date,
             'created_at': pe.created_at,
-            'names': names
+            'names': names,
         }
+
+
+#
+# Resource <persons>/<person-id>/affiliations
+#
+
+
+PersonAffiliation = api.model('PersonAffiliation', {
+    'affiliation': fields.Constant(
+        ctype='PersonAffiliation',
+        description='Affiliation type',
+    ),
+    'status': fields.Constant(
+        ctype='PersonAffStatus',
+        description='Affiliation status',
+    ),
+    'ou': fields.base.Nested(
+        models.OU,
+        description='Organizational unit',
+    ),
+    'create_date': fields.DateTime(
+        dt_format='iso8601',
+        description='Creation date',
+    ),
+    'last_date': fields.DateTime(
+        dt_format='iso8601',
+        description='Last seen in source system',
+    ),
+    'deleted_date': fields.DateTime(
+        dt_format='iso8601',
+        description='Deletion date',
+    ),
+    'source_system': fields.Constant(
+        ctype='AuthoritativeSystem',
+        description='Source system',
+    ),
+})
+
+
+PersonAffiliationList = api.model('PersonAffiliationList', {
+    'affiliations': fields.base.List(
+        fields.base.Nested(PersonAffiliation),
+        description='List of person affiliations',
+    ),
+})
 
 
 @api.route('/<int:id>/affiliations', endpoint='person-affiliations')
@@ -232,18 +194,26 @@ class PersonAffiliationListResource(Resource):
     def get(self, id):
         """List person affiliations."""
         args = self.person_affiliations_filter.parse_args()
-        filters = {key: value for (key, value) in args.items()
-                   if value is not None}
+        filters = {
+            key: value
+            for (key, value) in args.items()
+            if value is not None
+        }
 
         pe = find_person(id)
         affiliations = list()
 
         for row in pe.get_affiliations(**filters):
             aff = dict(row)
-            aff['ou'] = {'id': aff.pop('ou_id', None), }
+            aff['ou'] = {'id': aff.pop('ou_id', None)}
             affiliations.append(aff)
 
         return {'affiliations': affiliations}
+
+
+#
+# Resource <persons>/<person-id>/contacts
+#
 
 
 @api.route('/<int:id>/contacts', endpoint='person-contacts')
@@ -256,6 +226,11 @@ class PersonContactInfoListResource(Resource):
         """Get person contact information."""
         pe = find_person(id)
         return {'contacts': pe.get_contact_info()}
+
+
+#
+# Resource <persons>/<person-id>/external-ids
+#
 
 
 @api.route('/<int:id>/external-ids', endpoint='person-externalids')
@@ -274,13 +249,42 @@ class PersonExternalIdListResource(Resource):
                 'external_id': row['external_id'],
                 'source_system': row['source_system'],
             }
-            for row in pe.get_external_id()]
+            for row in pe.get_external_id()
+        ]
+
+
+#
+# Resource <persons>/<person-id>/accounts
+#
+
+
+PersonAccount = api.model('PersonAccount', {
+    'href': fields.href('.account'),
+    'id': fields.base.String(
+        description='Account ID',
+    ),
+    'name': fields.base.String(
+        description='Account name',
+    ),
+    'primary': fields.base.Boolean(
+        description='Is this a primary account?',
+    ),
+})
+
+
+PersonAccountList = api.model('PersonAccountList', {
+    'accounts': fields.base.List(
+        fields.base.Nested(PersonAccount),
+        description='List of accounts',
+    ),
+})
 
 
 @api.route('/<int:id>/accounts', endpoint='person-accounts')
 @api.doc(params={'id': 'Person entity ID'})
 class PersonAccountListResource(Resource):
     """Resource for person accounts."""
+
     @auth.require()
     @api.marshal_with(PersonAccountList)
     def get(self, id):
@@ -299,6 +303,11 @@ class PersonAccountListResource(Resource):
             })
 
         return {'accounts': accounts}
+
+
+#
+# Resource <persons>/<person-id>/consents
+#
 
 
 @api.route('/<int:id>/consents', endpoint='person-consents')
@@ -335,6 +344,67 @@ class PersonConsentListResource(Resource):
         return consents
 
 
+#
+# Resource <persons>/<person-id>/addresses
+#
+
+
+class AddressType(object):
+    """ Address type translation. """
+
+    _map = {
+        'POST': 'postalAddress',
+        'OTHER_POST': 'otherPostalAddress',
+        'PRIVPOST': 'privatePostalAddress',
+        'STREET': 'visitingAddress',
+        'OTHER_STREET': 'otherVisitingAddress'
+    }
+
+    _rev_map = dict((v, k) for k, v in _map.items())
+
+    @classmethod
+    def serialize(cls, strval):
+        return cls._map[strval]
+
+    @classmethod
+    def unserialize(cls, input_):
+        return db.const.Address(cls._rev_map[input_.lower()])
+
+
+PersonAddress = api.model('PersonAddress', {
+    'source_system': fields.Constant(
+        ctype='AuthoritativeSystem',
+        description='Source system',
+    ),
+    'address_type': fields.Constant(
+        ctype='Address',
+        description='Address type',
+        transform=AddressType.serialize,
+    ),
+    'address_text': fields.base.String(
+        default=None,
+        description='Address text',
+    ),
+    'p_o_box': fields.base.String(
+        default=None,
+        description='Postal box',
+    ),
+    'postal_number': fields.base.String(
+        default=None,
+        description='Postal number',
+    ),
+    'city': fields.base.String(
+        default=None,
+        description='City',
+    ),
+    'country': fields.base.String(
+        default=None,
+        description='Country',
+    ),
+
+})
+
+
 @api.route('/<int:id>/addresses', endpoint='person-addresses')
 @api.doc(params={'id': 'Person entity ID'})
 class PersonAddressListResource(Resource):
@@ -344,7 +414,7 @@ class PersonAddressListResource(Resource):
     def get(self, id):
         """Get the addresses of a person."""
         pe = find_person(id)
-        addrs = map(dict, pe.get_entity_address())
+        addrs = [dict(r) for r in pe.get_entity_address()]
         data = []
         for addr in addrs:
             del addr['entity_id']
@@ -352,10 +422,15 @@ class PersonAddressListResource(Resource):
         return data
 
 
+#
+# Resource <persons>/<person-id>/otp/<policy>
+#
+
+
 @api.route('/<int:id>/otp/default', endpoint='person-otp-secret')
 @api.doc(params={'id': 'Person entity ID'})
 class PersonSetOTPSecret(Resource):
-    """ Validate and save OPT secret for a person """
+    """ Validate and save OTP secret for a person """
 
     secret_parser = api.parser()
     secret_parser.add_argument(
@@ -373,7 +448,7 @@ class PersonSetOTPSecret(Resource):
         if not isinstance(pe, OtpPersonMixin):
             abort(501, "OTP functionality not supported at this instance")
 
-        otp_data = sql_search(db.connection, person_id=pe.entity_id)
+        otp_data = otp_db.sql_search(db.connection, person_id=pe.entity_id)
         has_secret = True if otp_data else False
 
         return {'id': pe.entity_id, "has_secret": has_secret}
@@ -392,12 +467,12 @@ class PersonSetOTPSecret(Resource):
         secret = args.secret
 
         try:
-            validate_secret(secret)
+            otp_types.validate_secret(secret)
         except ValueError:
             abort(400, message='invalid secret')
 
-        otp_policy = get_policy()
-        updater = PersonOtpUpdater(db.connection, otp_policy)
+        otp_policy = otp_types.get_policy()
+        updater = otp_types.PersonOtpUpdater(db.connection, otp_policy)
         updater.update(pe.entity_id, secret)
 
         return None, 204
@@ -411,12 +486,12 @@ class PersonSetOTPSecret(Resource):
         if not isinstance(pe, OtpPersonMixin):
             abort(501, "OTP functionality not supported at this instance")
 
-        otp_data = sql_search(db.connection, person_id=pe.entity_id)
+        otp_data = otp_db.sql_search(db.connection, person_id=pe.entity_id)
         if not otp_data:
             abort(404, message='person has no stored secrets')
 
-        otp_policy = get_policy()
-        updater = PersonOtpUpdater(db.connection, otp_policy)
+        otp_policy = otp_types.get_policy()
+        updater = otp_types.PersonOtpUpdater(db.connection, otp_policy)
         updater.clear_all(pe.entity_id)
 
         return None, 204

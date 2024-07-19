@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2016-2023 University of Oslo, Norway
+# Copyright 2016-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,6 +19,9 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
 E-mail address API.
+
+Implements endpoints and utils for the :mod:`Cerebrum.modules.Email` module.
+Note that this API is not available unless the email module is enabled.
 """
 from __future__ import (
     absolute_import,
@@ -97,19 +100,24 @@ def list_email_addresses(ea):
 
 EmailAddress = api.model('EmailAddress', {
     'value': fields.base.String(
-        description='The email address'),
+        description='The email address',
+    ),
     'type': fields.base.String(
-        description="Email address target type, i.e. 'forward', 'account"),
+        description="Email address target type, i.e. 'forward', 'account",
+    ),
     'target_entity_type': fields.base.String(
-        description="Email address target entity type"),
+        description="Email address target entity type",
+    ),
     'target_entity_name': fields.base.String(
-        description="Email address target entity name"),
+        description="Email address target entity name",
+    ),
 })
 
 EmailAddresses = api.model('EmailAddresses', {
     'addresses': fields.base.List(
         fields.base.Nested(EmailAddress),
-        description='List of addresses'),
+        description='List of addresses',
+    ),
 })
 
 
