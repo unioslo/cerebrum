@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003-2023 University of Oslo, Norway
+# Copyright 2003-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -204,7 +204,6 @@ class PasswordHistoryMixin(ClearPasswordHistoryMixin):
                     tmp = password[:m]+chr(r)
                 else:
                     tmp = chr(r)+password[m+1:]
-                tmp = old_encode_for_history(name, tmp)
                 variants.append(tmp)
         old_passwords = [r['hash'] for r in ph.get_history(entity_id)]
         return check_passwords_history(variants, old_passwords, name)
