@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2020-2022 University of Oslo, Norway
+# Copyright 2020-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -20,12 +20,14 @@
 """
 Account mixin to provide VoIP auth methods for UiO.
 """
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
-
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import hashlib
+
 import six
 
 import cereconf
@@ -59,15 +61,24 @@ class VoipAuthAccountMixin(Account.Account):
     def encrypt_password(self, method, plaintext, salt=None, binary=False):
         if method == self.const.auth_type_ha1_md5:
             realm = cereconf.AUTH_HA1_REALM
-            return encrypt_ha1_md5(
-                self.account_name, realm, plaintext, salt, binary)
+            return encrypt_ha1_md5(self.account_name, realm, plaintext,
+                                   salt=salt, binary=binary)
+
         return super(VoipAuthAccountMixin, self).encrypt_password(
-            method, plaintext, salt=salt, binary=binary)
+            method,
+            plaintext,
+            salt=salt,
+            binary=binary,
+        )
 
     def verify_password(self, method, plaintext, cryptstring):
         if method == self.const.auth_type_ha1_md5:
             realm = cereconf.AUTH_HA1_REALM
-            return verify_ha1_md5(
-                self.account_name, realm, plaintext, cryptstring)
+            return verify_ha1_md5(self.account_name, realm, plaintext,
+                                  cryptstring)
+
         return super(VoipAuthAccountMixin, self).verify_password(
-            method, plaintext, cryptstring)
+            method,
+            plaintext,
+            cryptstring,
+        )
