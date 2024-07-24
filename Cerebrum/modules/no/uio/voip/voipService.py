@@ -18,7 +18,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
-This module implements database access to the *voip_service* tables.
+This module implements database access to the *voip_service* table.
 
 Each VoipAddress must be owned by an entity - and the VoipService is that owner
 entity for for non-personal phone addresses.  Non-personal addresses includes
