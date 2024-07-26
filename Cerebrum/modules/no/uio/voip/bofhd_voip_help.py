@@ -25,6 +25,8 @@ from __future__ import (
     unicode_literals,
 )
 
+import textwrap
+
 
 group_help = {
     "voip": "voip-module related commands.",
@@ -109,19 +111,42 @@ arg_help = {
     "voip_client_info_code": [
         "voip_client_info_code",
         "Enter voip_client info code",
-        "Enter voip_client info code (e.g. phone model)",
+        textwrap.dedent(
+            """
+            Enter voip client info code.
+
+            This is typically the phone model for hardphones.
+            Enter "softphone" for softphone clients.
+
+            Use `client list_info_code` to list available values.
+            """
+        ).lstrip(),
+
     ],
     "voip_client_type_code": [
         "voip_client_type_code",
         "Enter voip_client type code",
-        "Enter voip_client type code (soft/hardphone)",
+        textwrap.dedent(
+            """
+            Enter voip client type code.
+
+            Values:
+
+            - voip_softphone
+            - voip_hardphone
+            """
+        ).lstrip(),
     ],
     "voip_service_type": [
         "service-type",
         "Enter voip service type",
-        "Enter voip service type "
-        "(i.e. typically a location of a voip service. "
-        "See voip service_type_list)",
+        textwrap.dedent(
+            """
+            Enter voip service type.
+
+            Use `voup service_type_list` to see available values.
+            """
+        ).lstrip(),
     ],
     "ou": [
         "ou",
@@ -140,7 +165,30 @@ arg_help = {
     "voip_address": [
         "voip_address",
         "Enter a voip address identifier",
-        "Enter a voip address identifier (id, owner id, etc.)",
+        textwrap.dedent(
+            """
+            Look up voip address by:
+
+            - [id:]<entity-id> (voip address, voip service, person)
+            - <voip number> (e.g. phone number, email)
+            - <username>
+            - <service descripion>
+            """
+        ).lstrip(),
+    ],
+    "voip-address-search": [
+        "voip-address-search",
+        "Enter a voip address search term",
+        textwrap.dedent(
+            """
+            Search for voip addresses by:
+
+            - <entity-id> (voip address, voip service, person)
+            - <voip number> (e.g. phone number, email)
+            - <username>
+            - <service descripion>
+            """
+        ).lstrip(),
     ],
     "voip_extension_full": [
         "extension",
@@ -155,13 +203,69 @@ arg_help = {
     "voip_owner": [
         "voip_owner",
         "Enter voip owner (person or voip_service)",
-        "Enter voip owner designation "
-        "(either a person or a voip_service)",
+        textwrap.dedent(
+            """
+            Enter voip owner designation (either a person or a voip_service).
+
+            Tries to find:
+
+            - [id:]<entity-id> (person)
+            - <national-id> (person)
+            - <account-name> (person)
+            - [id:]<entity-id> (service)
+            - <exact description> (service)
+            """
+        ).lstrip(),
     ],
     "voip_service": [
         "voip_service",
         "Enter a voip service identifier",
-        "Enter a voip service identifier (id, description, etc.)",
+        textwrap.dedent(
+            """
+            Enter a voip service identifier
+
+            - [id:]<entity-id>
+            - <exact description>
+
+            Use `voip service_find to get the entity-id from a partial
+            description.
+            """
+        ).lstrip(),
+    ],
+    "voip-service-desc": [
+        "voip-service-desc",
+        "Service description",
+        textwrap.dedent(
+            """
+            Enter a description of the service.
+
+            Setting or updating
+                When setting the description - use a short, unique, and
+                descriptive text.
+
+            Identifying
+                When identifying a service - you need the exact description, as
+                set previously.
+            """
+        ).lstrip(),
+    ],
+    "voip-service-search": [
+        "voip-service-search",
+        "Service search term",
+        textwrap.dedent(
+            """
+            Enter a search term for find service by.
+
+            Enter digits to search for
+
+            - service entity-id
+            - ou entity-id
+            - location code (stedkode)
+
+            Otherwise, the search will look for (partially) matching
+            descriptions.
+            """
+        ).lstrip(),
     ],
     "priority": [
         "priority",
@@ -176,6 +280,24 @@ arg_help = {
     "voip_client": [
         "voip_client",
         "Enter voip client identifier",
-        "Enter voip client identifier (id, mac)",
+        textwrap.dedent(
+            """
+            Enter voip client identifier (id, mac)
+
+            - <entity-id> (without "id:" prefix)
+            - <mac-address>
+            """
+        ).lstrip(),
+    ],
+    "voip-client-secret": [
+        "voip-client-secret",
+        "Enter new sip-secret",
+        textwrap.dedent(
+            """
+            Enter a new sip-secret for the client.
+
+            At least 15 characters.
+            """
+        ).lstrip(),
     ],
 }
