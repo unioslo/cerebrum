@@ -45,12 +45,13 @@ class BofhdVoipAuth(auth.BofhdAuth):
 
     @property
     def voip_sysadmins(self):
-        return tuple(getattr(cereconf, "BOFHD_VOIP_ADMINS", []))
+        return getattr(cereconf, "BOFHD_VOIP_ADMINS", None)
 
     def _is_voip_admin(self, account_id):
         if self.is_superuser(account_id):
             return True
-        return account_id in self._get_group_members(self.voip_sysadmins)
+        return (self.voip_sysadmins
+                and account_id in self._get_group_members(self.voip_sysadmins))
 
     ########################################################################
     # voip_address related permissions
