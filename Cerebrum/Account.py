@@ -1348,14 +1348,12 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
     def get_account_name(self):
         return self.account_name
 
-    def make_passwd(self, uname, phrase=False, checkers=None):
+    def make_passwd(self, uname):
         """Generate a random password"""
+        # TODO: We should re-consider this - importing and using modules from
+        # `Cerebrum.modules` in the core account class is a bit messy
         password_generator = PasswordGenerator()
-        if phrase:
-            password = password_generator.generate_dictionary_passphrase()
-        else:
-            password = password_generator.generate_password()
-        return password
+        return password_generator.generate_password()
 
     def suggest_unames(self, person, maxlen=8, suffix=""):
         """Returns a tuple with 15 (unused) username suggestions based
