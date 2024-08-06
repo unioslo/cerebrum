@@ -202,12 +202,6 @@ BOFHD_SUPERUSER_GROUP
 HOME_SPREADS
     Spreads that are used on home directories, users with one of these spreads
     are *not* affected by BOFHD_STUDADM_GROUP.
-QUARANTINE_AUTOMATIC
-    A list of quarantines that should not be altered manually (see
-    `can_*_quarantine`)
-QUARANTINE_STRICTLY_AUTOMATIC
-    A list of quarantines that *cannot* be altered manually (see
-    `can_*_quarantine`)
 """
 from __future__ import (
     absolute_import,
@@ -1061,137 +1055,6 @@ class BofhdAuth(DatabaseAccessor):
         if self.is_superuser(operator):
             return True
         return True
-
-    def can_disable_quarantine(self, operator, entity=None,
-                               qtype=None, query_run_any=False):
-        if query_run_any:
-            if self.is_superuser(operator):
-                return True
-            return self._has_operation_perm_somewhere(
-                operator, self.const.auth_quarantine_disable)
-        if six.text_type(qtype) in cereconf.QUARANTINE_STRICTLY_AUTOMATIC:
-            raise PermissionDenied('Not allowed, automatic quarantine')
-        if self.is_superuser(operator):
-            return True
-
-        # Special rule for guestusers. Only superuser are allowed to
-        # alter quarantines for these users.
-        if self._entity_is_guestuser(entity):
-            raise PermissionDenied("No access")
-        if not(isinstance(entity, Factory.get('Account'))):
-            raise PermissionDenied("No access")
-
-        for row in self._list_target_permissions(
-                operator, self.const.auth_quarantine_disable,
-                self.const.auth_target_type_global_host,
-                None, get_all_op_attrs=True):
-            attr = row['operation_attr']
-            # No operation attributes means that all quarantines are allowed
-            # TODO: This can be removed when all opsets for all instances
-            # has a populated qua_disable dict.
-            if not attr:
-                return True
-            if six.text_type(qtype) == attr:
-                return True
-
-        return self.has_privileged_access_to_account_or_person(
-            operator, self.const.auth_quarantine_disable, entity,
-            operation_attr=six.text_type(qtype))
-
-    def can_remove_quarantine(self, operator, entity=None, qtype=None,
-                              query_run_any=False):
-        if query_run_any:
-            if self.is_superuser(operator):
-                return True
-            return self._has_operation_perm_somewhere(
-                operator, self.const.auth_quarantine_remove)
-        if six.text_type(qtype) in cereconf.QUARANTINE_STRICTLY_AUTOMATIC:
-            raise PermissionDenied('Not allowed, automatic quarantine')
-        # TBD: should superusers be allowed to remove automatic quarantines?
-        if self.is_superuser(operator):
-            return True
-        if six.text_type(qtype) in cereconf.QUARANTINE_AUTOMATIC:
-            raise PermissionDenied('Not allowed, automatic quarantine')
-
-        # Special rule for guestusers. Only superuser are allowed to
-        # alter quarantines for these users.
-        if self._entity_is_guestuser(entity):
-            raise PermissionDenied("No access")
-        if not(isinstance(entity, Factory.get('Account'))):
-            raise PermissionDenied("No access")
-        # this is a hack
-        else:
-            if self._no_account_home(operator, entity):
-                return True
-
-        for row in self._list_target_permissions(
-                operator, self.const.auth_quarantine_remove,
-                self.const.auth_target_type_global_host,
-                None, get_all_op_attrs=True):
-            attr = row['operation_attr']
-            # No operation attributes means that all quarantines are allowed
-            # TODO: This can be removed when all opsets for all instances
-            # has a populated qua_remove dict.
-            if not attr:
-                return True
-            if six.text_type(qtype) == attr:
-                return True
-
-        return self.has_privileged_access_to_account_or_person(
-            operator, self.const.auth_quarantine_remove, entity,
-            operation_attr=six.text_type(qtype))
-
-    def can_set_quarantine(self, operator, entity=None, qtype=None,
-                           query_run_any=False):
-        if query_run_any:
-            if self.is_superuser(operator):
-                return True
-            return self._has_operation_perm_somewhere(
-                operator, self.const.auth_quarantine_set)
-        if six.text_type(qtype) in cereconf.QUARANTINE_STRICTLY_AUTOMATIC:
-            raise PermissionDenied('Not allowed, automatic quarantine')
-        if self.is_superuser(operator):
-            return True
-        if six.text_type(qtype) in cereconf.QUARANTINE_AUTOMATIC:
-            raise PermissionDenied('Not allowed, automatic quarantine')
-        for row in self._list_target_permissions(
-                operator, self.const.auth_quarantine_set,
-                self.const.auth_target_type_global_host,
-                None, get_all_op_attrs=True):
-            attr = row['operation_attr']
-            # No operation attributes means that all quarantines are allowed
-            # TODO: This can be removed when all opsets for all instances
-            # has a populated qua_add dict.
-            if not attr:
-                return True
-            if six.text_type(qtype) == attr:
-                return True
-
-        # TODO 2003-07-04: Bård is going to comment this
-        if not(isinstance(entity, Factory.get('Account'))):
-            raise PermissionDenied("No access")
-        else:
-            if self._no_account_home(operator, entity):
-                return True
-        return self.has_privileged_access_to_account_or_person(
-            operator, self.const.auth_quarantine_set, entity,
-            operation_attr=six.text_type(qtype))
-
-    def can_show_quarantines(self, operator, entity=None,
-                             query_run_any=False):
-        if self.is_superuser(operator):
-            return True
-        if query_run_any:
-            return True
-        if not(isinstance(entity, Factory.get('Account'))):
-            raise PermissionDenied("No access")
-        # this is a hack
-        if self._no_account_home(operator, entity):
-            return True
-        if self.is_owner_of_account(operator, entity):
-            return True
-        return self.has_privileged_access_to_account_or_person(
-                    operator, self.const.auth_quarantine_show, entity)
 
     def can_create_disk(self, operator, host=None, query_run_any=False):
         if self.is_superuser(operator):
@@ -2396,15 +2259,6 @@ class BofhdAuth(DatabaseAccessor):
         disk = Factory.get('Disk')(self._db)
         disk.find(disk_id)
         return disk
-
-    def _entity_is_guestuser(self, entity):
-        for trait in ('trait_guest_owner', 'trait_uio_guest_owner'):
-            try:
-                if entity.get_trait(getattr(self.const, trait)):
-                    return True
-            except AttributeError:
-                pass
-        return None
 
     def can_get_external_id(self, operator, entity, extid_type, source_sys,
                             query_run_any=False):

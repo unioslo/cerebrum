@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2016-2018 University of Oslo, Norway
+# Copyright 2016-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,7 +18,8 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 # Copyright 2002-2015 University of Oslo, Norway
-""" This module contains file writers and other file related tools.
+"""
+This module contains file writers and other file related tools.
 
 cereconf
 --------
@@ -40,6 +41,7 @@ SIMILARSIZE_LIMIT_MULTIPLIER
     warnings via the logger.
 
 """
+
 import filecmp
 import inspect
 import io
@@ -52,7 +54,6 @@ from warnings import warn as _warn
 import six
 
 import cereconf
-from Cerebrum.utils.funcwrap import deprecate
 
 
 def _copydoc(obj, replace=False):
@@ -69,7 +70,7 @@ def _copydoc(obj, replace=False):
 
 
 def _random_string(length, characters=ascii_lowercase + digits):
-    """Generate a random string of given length using the given characters."""
+    """ Generate a random string of given length using the given characters."""
     random.seed()
     # pick "length" number of letters, then combine them to a string
     return ''.join([random.choice(characters) for _ in range(length)])
@@ -369,7 +370,7 @@ class AtomicFileWriter(object):
 
             if ((not self.__replace_equal) and
                     os.path.exists(self.name) and
-                    filecmp.cmp(self.tmpname, self.name, shallow=0)):
+                    filecmp.cmp(self.tmpname, self.name, shallow=False)):
                 os.unlink(self.tmpname)
                 self.__discarded = True
             elif self.replace:
@@ -387,7 +388,8 @@ class AtomicFileWriter(object):
 
 
 class SimilarSizeWriter(AtomicFileWriter):
-    """This file writer will fail if the file size changes too much.
+    """
+    This file writer will fail if the file size changes too much.
 
     Clients will normally govern the exact limits for 'similar size'
     themselves, but there are times when it is convenient to have
@@ -411,15 +413,12 @@ class SimilarSizeWriter(AtomicFileWriter):
     SIMILARSIZE_CHECK_DISABLED.
 
     """
-    # TODO: Deprecate SIMILARSIZE_SIZE_LIMIT_MULTIPLIER
-    # TODO: Deprecate SIMILARSIZE_CHECK_DISABLED?
 
     DEFAULT_FACTOR = 1.0
 
     def __init__(self, *args, **kwargs):
         super(SimilarSizeWriter, self).__init__(*args, **kwargs)
-        self.__factor = getattr(cereconf, 'SIMILARSIZE_SIZE_LIMIT_MULTIPLIER',
-                                self.DEFAULT_FACTOR)
+        self.__factor = self.DEFAULT_FACTOR
 
     @property
     def max_pct_change(self):
@@ -432,30 +431,16 @@ class SimilarSizeWriter(AtomicFileWriter):
     @max_pct_change.setter
     def max_pct_change(self, percent):
         self.__percentage = float(percent)
-        if self.__factor != self.DEFAULT_FACTOR:
-            _fwarn("SIMILARSIZE_SIZE_LIMIT_MULTIPLIER is set to a value other"
-                   " than {:.1f}; change limit will be {:.1f}% rather than the"
-                   " explicitly set {:.1f}".format(
-                       self.DEFAULT_FACTOR,
-                       self.__percentage * self.__factor,
-                       self.__percentage))
 
     @max_pct_change.deleter
     def max_pct_change(self):
         del self.__percentage
 
-    @deprecate("use `validate = <True|False>`")
-    def set_checks_enabled(self, new_enabled_status):
-        self.validate = new_enabled_status
-
-    @deprecate("use `max_pct_change = <percent>`")
-    def set_size_change_limit(self, percentage):
-        self.max_pct_change = percentage
 
     def validate_output(self):
         super(SimilarSizeWriter, self).validate_output()
 
-        if getattr(cereconf, 'SIMILARSIZE_CHECK_DISABLED', False):
+        if cereconf.SIMILARSIZE_CHECK_DISABLED:
             _fwarn("Similar size check disabled by global setting"
                    " 'cereconf.SIMILARSIZE_CHECK_DISABLED'")
             return

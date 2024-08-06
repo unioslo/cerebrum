@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2013-2021 University of Oslo, Norway
+# Copyright 2013-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -21,28 +21,32 @@
 """
 Generate a JSON cache of entitlements granted by group membership.
 
-The resulting file contains a list of entitlements for each active
-primary user account (person id):
-
+The cache contains a list of entitlements for each entity.  Only non-expired
+members are included.  The result is a JSON file with the following structure:
 ::
 
     {
-      <person-id>: [<entitlement-uri>, ...],
+      <member-id>: [<entitlement-uri>, ...],
       ...
     }
 
 The cache is used to populate the multivalued ldap attribute
 *eduPersonEntitlement* by
-:py:class:`Cerebrum.modules.no.OrgLdif.OrgLdifEntitlementsMixin`
+:class:`Cerebrum.modules.no.OrgLdif.OrgLdifEntitlementsMixin`
 """
-from __future__ import unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import argparse
 import json
 import logging
 from collections import defaultdict
 
-from six import text_type
+import six
 
 import cereconf
 
@@ -67,28 +71,15 @@ def get_entitlement_groups(db):
         yield (group['entity_id'], group['strval'])
 
 
-def get_account_owners(db):
-    """ Get primary account owner mapping.
-
-    :rtype: generator
-    :returns:
-        An iterable with (<account-id>, <person-id>) pairs.
-    """
-    ac = Factory.get('Account')(db)
-
-    for account in ac.list_accounts_by_type(primary_only=True):
-        yield (account['account_id'], account['person_id'])
-
-
-def map_entitlements_to_persons(db):
+def map_entitlements(db):
     """ Get entitlements mapping.
 
-    This function gets all primary user accounts that are the members of
-    the groups with 'entitlement' trait, determines which persons accounts
-    belong to and composes a dictionary of entitlements per person.
+    This function gets all entitlement group members, and maps them to their
+    entitlement.  The return value is basically the whole entitlement cache
+    that this script generates.
 
     :returns:
-        A mapping from person_id to entitlement uri list:
+        A mapping from entity_id to entitlement uri list:
 
         {321: ["urn:mace:example.org:foo:bar", ...], ...}
     """
@@ -97,9 +88,6 @@ def map_entitlements_to_persons(db):
 
     logger.info('fetching entitlement groups...')
     entitlement_groups = dict(get_entitlement_groups(db))
-
-    logger.info('fetching primary accounts...')
-    primary_accounts = dict(get_account_owners(db))
 
     logger.info('fetching group memberships...')
     entitlement_map = defaultdict(set)
@@ -110,22 +98,13 @@ def map_entitlements_to_persons(db):
                                           member_filter_expired=True,
                                           indirect_members=True)
         for member in group_members:
-            if member['member_type'] == co.entity_person:
-                person_id = member['member_id']
-
-            elif member['member_type'] == co.entity_account:
-                if not member['member_id'] in primary_accounts:
-                    # Non-primary accounts are excluded
-                    continue
-                # There is only one primary account per person
-                person_id = primary_accounts[member['member_id']]
-
-            entitlement_map[person_id].add(uri)
+            member_id = int(member['member_id'])
+            entitlement_map[member_id].add(uri)
 
     # sort entitlement uri lists
     pretty_map = {}
-    for person_id in entitlement_map:
-        pretty_map[person_id] = sorted(entitlement_map[person_id])
+    for entity_id in entitlement_map:
+        pretty_map[entity_id] = sorted(entitlement_map[entity_id])
     return pretty_map
 
 
@@ -135,7 +114,7 @@ def main(inargs=None):
     )
     parser.add_argument(
         '-o', '--output',
-        type=text_type,
+        type=six.text_type,
         default=cereconf.LDAP_PERSON.get('entitlements_file', ''),
         dest='output',
         help='output file (default: %(default)s)',
@@ -154,15 +133,16 @@ def main(inargs=None):
     db = Factory.get('Database')()
 
     logger.info('Caching entitlements...')
-    entitlements_per_person = map_entitlements_to_persons(db)
+    entity_to_entitlements = map_entitlements(db)
 
     logger.info('Writing to %s', args.output)
-    data = json.dumps(entitlements_per_person,
-                      ensure_ascii=True,
-                      # sort + pretty print to compare runs with diff:
-                      indent=2,
-                      sort_keys=True)
-
+    data = json.dumps(
+        entity_to_entitlements,
+        ensure_ascii=True,
+        # sort + pretty print to compare runs with diff:
+        indent=2,
+        sort_keys=True,
+    )
     # PY2/PY3 workaround:
     # `json.dumps(obj, ensure_ascii=True)` will always return:
     #   - ascii bytestring in PY2

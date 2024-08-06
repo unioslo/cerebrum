@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright 2020 University of Oslo, Norway
+
+# Copyright 2020-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -263,7 +264,7 @@ class DatabaseErrorWrapper(object):
                 crb_exc_value.__cause__ = exc_value
 
                 # Piggy-back extra attributes
-                for attr, value in self.extra_attrs.iteritems():
+                for attr, value in six.iteritems(self.extra_attrs):
                     setattr(crb_exc_value, attr, value)
 
                 six.reraise(crb_exc_type, crb_exc_value, traceback)

@@ -1,12 +1,30 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+#
+# Copyright 2015-2024 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ Cerebrum configuration module.
 
 This module contains the core of the Cerebrum configuration framework. It
 consists of:
 
 Configuration
-    The Configuration class is an config schema framework. Actual configuration
+    The Configuration class is a config schema framework. Actual configuration
     implementations consists of Configuration-subclasses with ConfigDescriptor
     attributes.
 
@@ -46,7 +64,12 @@ Namespace
     >>> class MyConfiguration(Configuration):
     >>>     my_namespace = ConfigDescriptor(Namespace, config=MyNamespace)
 """
-from __future__ import print_function, unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 from collections import OrderedDict
 
 import six
@@ -96,6 +119,35 @@ def flatten_dict(d, prefix=''):
             yield newkey, d[k]
 
 
+def next_attr(path):
+    """
+    Splits *path* by the path separator `.`
+
+    When accessing settings in nested namespaces, this helper function gets the
+    next namespace to fetch:
+
+    >>> next_attr("foo.bar.baz")
+    ("foo", "bar.baz")
+    >>> next_attr("foo")
+    ("foo", None)
+
+    :param str item:
+        The setting to get. E.g. 'bar' or 'foo.bar.baz'.
+
+    :return tuple:
+        Returns a tuple with (str, str) or (str, NoneType).
+
+    :raise TypeError:
+        If `item` is not a string.
+    """
+    if not isinstance(path, six.string_types):
+        raise TypeError("Setting path must be string, not " + repr(type(path)))
+    if '.' in path:
+        return path.split('.', 1)
+    return (path, None)
+
+
+@six.python_2_unicode_compatible
 class Configuration(object):
     """ An abstract configuration. """
 
@@ -107,54 +159,24 @@ class Configuration(object):
         """
         self.load_dict(init)
 
-    @staticmethod
-    def __split_path(item):
-        """ Splits `item` by the path separator ('.').
-
-        This is a helper function to help recusing when accessing a
-        dot-separated setting (`config['foo.bar'] = 3`)
-
-        :param str item:
-            The setting to get. E.g. 'bar' or 'foo.bar.baz'.
-
-        :return tuple:
-            Returns a tuple with (str, str) or (str, NoneType).
-
-            If the `item` is the name of a setting, e.g. 'foo', the return
-            value will be ('foo', None).
-
-            If the `item` is the name of a namespaced setting, e.g.
-            'foo.bar.baz', the return value will be ('foo', 'bar.baz').
-
-        :raise TypeError:
-            If `item` is not a string.
-        """
-        if not isinstance(item, six.string_types):
-            raise TypeError(
-                'Config settings must be strings, not {}'.format(type(item)))
-        rest = None
-        if '.' in item:
-            item, rest = item.split('.', 1)
-        return item, rest
-
     @classmethod
     def list_settings(cls):
         """ Lists all settings in this class. """
-        return filter(
-            lambda attr: isinstance(getattr(cls, attr), settings.Setting),
-            dir(cls))
+        return [attr for attr in dir(cls)
+                if isinstance(getattr(cls, attr), settings.Setting)]
 
     @classmethod
     def get_setting(cls, item):
         """ Gets a setting instance. """
-        attr, rest = cls.__split_path(item)
+        attr, rest = next_attr(item)
         setting = getattr(cls, attr)
         if rest:
             value = setting.get_value()
             if not isinstance(value, Configuration):
                 raise AttributeError(
-                    '{!r} object in {!r} has no setting'
-                    ' {!r}'.format(type(value).__name__, attr, rest))
+                    "{!r} object in {!r} has no setting"
+                    " {!r}".format(type(value).__name__, attr, rest)
+                )
             return value.get_setting(rest)
         return setting
 
@@ -165,7 +187,7 @@ class Configuration(object):
             s = cls.get_setting(attr)
             if isinstance(s, Namespace):
                 for nsattr in s._cls.list_ns_settings():
-                    yield '{}.{}'.format(attr, nsattr)
+                    yield "{}.{}".format(attr, nsattr)
             else:
                 yield attr
 
@@ -178,7 +200,7 @@ class Configuration(object):
         :raise KeyError:
             If item does not exist.
         """
-        attr, rest = self.__split_path(item)
+        attr, rest = next_attr(item)
         try:
             value = getattr(self, attr)
             if rest and not isinstance(value, Configuration):
@@ -315,33 +337,36 @@ class Configuration(object):
         return True
 
     def __eq__(self, other):
+        # TODO: Does this have any real use?
         if type(self) != type(other):
             return False
         if any(n not in other for n in self):
             return False
         return all(self[n] == other[n] for n in self)
 
+    def __ne__(self, other):
+        # TODO: Does this have any real use?
+        return not self.__eq__(other)
+
     def __len__(self):
         return len([n for n in self])
 
-    def __nonzero__(self):
+    def __bool__(self):
         # TODO: Does this have any real use?
         return bool(len(self))
 
+    # PY2 backwards compatibility
+    __nonzero__ = __bool__
+
     def __repr__(self):
-        return '{}(init={!r})'.format(
-            self.__class__.__name__,
-            self.dump_dict())
+        name = self.__class__.__name__
+        init = repr(self.dump_dict())
+        return "{}(init={})".format(name, init)
 
     def __str__(self):
-        return '{}({})'.format(
-            self.__class__.__name__,
-            ', '.join((key for key in self)))
-
-    def __unicode__(self):
-        return '{}({})'.format(
-            self.__class__.__name__,
-            ', '.join((key for key in self)))
+        name = self.__class__.__name__
+        keys = ', '.join((key for key in self))
+        return "{}({})".format(name, keys)
 
 
 class Namespace(settings.Setting):
@@ -487,9 +512,10 @@ class ConfigDescriptor(object):
         setting.reset_value()
 
 
-if __name__ == '__main__':
-
-    # An example
+def _main_demo():
+    """
+    A short example.
+    """
 
     class Coordinate(Configuration):
 
@@ -525,9 +551,14 @@ if __name__ == '__main__':
 
         items = ConfigDescriptor(
             settings.Iterable,
-            setting=settings.String(maxlen=10, doc='10 chars'),
+            template=settings.String(maxlen=10, doc='10 chars'),
             max_items=10,
             doc='A list of strings')
 
-    print("Documentation for Configuration 'Example'\n")
+    print("Documentation for Configuration 'Example'")
+    print()
     print(Example.documentation())
+
+
+if __name__ == '__main__':
+    _main_demo()

@@ -1,5 +1,11 @@
 # encoding: utf-8
 """ Unit tests for settings type Secret. """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import re
 
 import pytest
@@ -57,6 +63,19 @@ def test_setting_doc(setting):
     """ Check that a the documentation includes our custom description. """
     assert setting.doc.startswith(str(type(setting)))
     assert re.search("description: Test", setting.doc, flags=re.M)
+
+
+def test_setting_validate_empty(setting):
+    """ Check that a default, empty value is valid. """
+    with pytest.raises(TypeError):
+        setting.validate(None)
+
+
+def test_setting_validate_empty_allowed():
+    """ Check that a default, empty value is valid. """
+    setting = secrets.Secret(doc="Test", default=None)
+    setting.validate(None)
+    assert True  # reached without exception
 
 
 values = [

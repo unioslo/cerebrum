@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013 University of Oslo, Norway
+#
+# Copyright 2013-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -16,7 +17,8 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""Default Cerebrum settings for Active Directory and the AD synchronisations.
+"""
+Default Cerebrum settings for Active Directory and the AD synchronisations.
 
 Overrides should go in a local, instance specific file named:
 
@@ -25,19 +27,29 @@ Overrides should go in a local, instance specific file named:
 Each setting should be well commented in this file, to inform developers and
 sysadmin about the usage and consequences of the setting.
 
+TODO: This should be moved to ``Cerebrum.modules.ad2.adconf``, but that would
+      also require all existing configs to be updated.
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 # Import the basic configuration helpers:
-from Cerebrum.modules.ad2 import ConfigUtils
+from Cerebrum.modules.ad2 import ConfigUtils  # noqa: F401
 
 # The SYNCS dict contains settings that are specific to a given sync type. The
-# key is normally the name of a spread that should be used for sync with AD, but
-# it could also be just an identifier if the sync can't match against one
+# key is normally the name of a spread that should be used for sync with AD,
+# but it could also be just an identifier if the sync can't match against one
 # spread.
 #
 # Note that these settings could be overriden in subclasses of the basic sync,
-# and they could also be overridden in parameters when running the sync scripts.
-SYNCS = dict()
+# and they could also be overridden in parameters when running the sync
+# scripts.
+SYNCS = {}
+
 # The available settings for each element of SYNCS:
 #
 # - sync_classes (list):
@@ -74,8 +86,8 @@ SYNCS = dict()
 #       'kaos.local'
 #
 # - dryrun (bool):
-#   If the sync should actually do something, or just be in read-only mode. Note
-#   that you are still required to have a connection to the AD server, as
+#   If the sync should actually do something, or just be in read-only mode.
+#   Note that you are still required to have a connection to the AD server, as
 #   information is read from it, but just not written back.
 #   Default:
 #       False
@@ -161,11 +173,11 @@ SYNCS = dict()
 #   communicating with. The Domain Controllers control the AD domain, and the
 #   sync is communicating with a DC, but through the WinRM server.
 #
-#   Normally, this should NOT be specified, as the sync will ask AD for the best
-#   DC to talk with. We then use AD's regular load balancing, and avoid adding
-#   too much load on one DC. Only use this setting for special cases, for
-#   instance where you need to talk to a DC in another domain than the WinRM
-#   server is located in.
+#   Normally, this should NOT be specified, as the sync will ask AD for the
+#   best DC to talk with. We then use AD's regular load balancing, and avoid
+#   adding too much load on one DC. Only use this setting for special cases,
+#   for instance where you need to talk to a DC in another domain than the
+#   WinRM server is located in.
 #
 #   Examples:
 #       dc1.otherdomain.localhost
@@ -181,9 +193,9 @@ SYNCS = dict()
 # - search_ou (str):
 #   The OU in AD that is used for searching for all objects that we should
 #   update. If set too wide, we would find to many objects that we care about,
-#   thus slowing down the sync. If set too narrow, we would not find all objects
-#   that we should be updating, which would make the sync go and search for each
-#   such object separately, thus slowing the sync down even further.
+#   thus slowing down the sync. If set too narrow, we would not find all
+#   objects that we should be updating, which would make the sync go and search
+#   for each such object separately, thus slowing the sync down even further.
 #   Example:
 #       OU=Cerebrum,DC=kaos,DC=local
 #
@@ -191,13 +203,13 @@ SYNCS = dict()
 #   A list of OUs in AD that the sync should ignore. Objects put in these OUs
 #   should not be updated.
 #
-#   Note that objects outside of the 'search_ou' are not touched unless they are
-#   named the same as a Cerebrum entity that is set to be synced with AD. The
-#   'ignore_ou' could contain both OUs inside and outside of 'search_ou'.
+#   Note that objects outside of the 'search_ou' are not touched unless they
+#   are named the same as a Cerebrum entity that is set to be synced with AD.
+#   The 'ignore_ou' could contain both OUs inside and outside of 'search_ou'.
 #
 #   It is responsibility of the sysadmin's of the AD domain to not create
-#   objects in AD that matches Cerebrum entities, as this creates conflicts that
-#   could get complicated.
+#   objects in AD that matches Cerebrum entities, as this creates conflicts
+#   that could get complicated.
 #
 #   TODO: Not decided if passwords should be set for ignored accounts. Update
 #   this doc when the decision is made.
@@ -252,9 +264,9 @@ SYNCS = dict()
 #       False
 #
 # - move_objects (bool):
-#   If objects that are not in the correct OU should be moved to the correct OU.
-#   Note that objects that are put in a sub-OU of their target_ou will not be
-#   moved upwards in the base sync.
+#   If objects that are not in the correct OU should be moved to the correct
+#   OU.  Note that objects that are put in a sub-OU of their target_ou will not
+#   be moved upwards in the base sync.
 #   Default:
 #       False
 #
@@ -282,8 +294,8 @@ SYNCS = dict()
 #   the quicksync would take forever the first time.
 #
 # - attributes (dict):
-#   What AD attributes the sync should update in AD. Attributes not in this list
-#   will not be modified, i.e. ignored, by the AD sync.
+#   What AD attributes the sync should update in AD. Attributes not in this
+#   list will not be modified, i.e. ignored, by the AD sync.
 #
 #   The dict's keys must be the name of the attribute that should be updated,
 #   and the value must be an instantiated object from classes under
@@ -310,19 +322,19 @@ SYNCS = dict()
 #   DistinguishedName.
 #
 #   The sync might not have access to modify all attributes, and some
-#   attributes, like the SID and Name, are read-only, and needs to be updated in
-#   other ways.
+#   attributes, like the SID and Name, are read-only, and needs to be updated
+#   in other ways.
 #
 #
 # - useraccountcontrol (dict):
 #
 #   TODO: Not sure how this should behave, yet!
 #
-#   The UserAccountControl controls what user control settings we should update.
-#   Those not defined here gets ignored by us. If the variable is empty, all
-#   control settings gets ignored, except enabling and disabling accounts which
-#   is handled in other ways. The keys must be valid UAC settings, and the
-#   values are the boolean settings we require to set.
+#   The UserAccountControl controls what user control settings we should
+#   update.  Those not defined here gets ignored by us. If the variable is
+#   empty, all control settings gets ignored, except enabling and disabling
+#   accounts which is handled in other ways. The keys must be valid UAC
+#   settings, and the values are the boolean settings we require to set.
 #
 #   Examples:
 #       {'PasswordNotRequired': False,
@@ -333,8 +345,8 @@ SYNCS = dict()
 #   dict where the keys are event identifiers in the sync. Do not confuse this
 #   with change_log events. The value is the absolute path to the script to
 #   execute, that is located on the Windows server we connect to, named in the
-#   setting "server". The scripts must be executable by powershell, and it's the
-#   AD sysadmin's responsibility that the scripts work as they should.
+#   setting "server". The scripts must be executable by powershell, and it's
+#   the AD sysadmin's responsibility that the scripts work as they should.
 #
 #   - new_object: When an object has been created in AD.
 #   - TODO
@@ -352,8 +364,9 @@ SYNCS = dict()
 #   This variable is only available for the GroupSync. Defines the scope of the
 #   group, i.e. where the group is available. Values:
 #
-#   - 'global': The group is available in the given AD domain. It could not have
-#     universal groups as members, and accounts must be from the same domain.
+#   - 'global': The group is available in the given AD domain. It could not
+#     have universal groups as members, and accounts must be from the same
+#     domain.
 #
 #   - 'universal': The group is available in all AD domains in the same forest.
 #

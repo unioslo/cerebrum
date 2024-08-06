@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2020-2021 University of Oslo, Norway
+# Copyright 2020-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -20,6 +20,12 @@
 """
 Utilities for grouping items in iterables.
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import operator
 
 

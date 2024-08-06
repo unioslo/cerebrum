@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2018 University of Oslo, Norway
+# Copyright 2018-2024 University of Oslo, Norway
 #
 
 # This file is part of Cerebrum.
@@ -27,7 +27,7 @@ import importlib
 import os
 import sys
 
-from six import text_type
+import six
 
 from .times import fmt_time
 
@@ -146,7 +146,7 @@ def _pretty_jobs_presenter(jobs, args):
         raise NotImplementedError("not implemented yet...")
 
     elif args.list_verbose:
-        for name, job in sorted(jobs.get_jobs().iteritems()):
+        for name, job in sorted(six.iteritems(jobs.get_jobs())):
             print("Job: %s:" % name)
             print("  Command: %s" % job.get_pretty_cmd())
             if job.pre:
@@ -176,7 +176,7 @@ def dump_jobs(scheduled_jobs, details=0):
         info = []
         if details > 0:
             if jobs[name].when:
-                info.append(text_type(jobs[name].when))
+                info.append(six.text_type(jobs[name].when))
         if details > 1:
             if jobs[name].max_freq:
                 info.append(

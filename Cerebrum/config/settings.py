@@ -1,6 +1,24 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-""" Cerebrum setting module.
+#
+# Copyright 2015-2024 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""
+Cerebrum setting module.
 
 Settings are validators and containers for individual configuration values.
 
@@ -10,7 +28,12 @@ and unserializing.
 In addition, all settings contains a `doc` attribute that should contain a
 string that describes the behavior of the setting and its uses.
 """
-from __future__ import unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import os
 import re
@@ -24,18 +47,49 @@ except ImportError:
 
 import six
 
+import Cerebrum.meta
 
-class NotSetType(object):
+
+def _safe_sort(items, types=None):
+    """ Sort mixed, uncomparable types somewhat safely and consistently. """
+    # This is mainly for generating a consistently ordered list of choices from
+    # e.g.:
+    #   Choice(choices=set(("pi", 3, 3.14)))
+
+    # generate sorting lookup table to prioritize preset types
+    weights = {}
+    for cls in (types or ()):
+        if cls not in weights:
+            weights[cls] = len(weights)
+
+    # identify remaining types
+    seen_types = {}
+    for item in items:
+        item_type = type(item)
+        if item_type not in weights and item_type not in seen_types:
+            seen_types[item_type] = "{}.{}".format(item_type.__module__,
+                                                   item_type.__name__)
+
+    # sort remaining types by module and class name, and update lut
+    for cls in sorted(seen_types.keys(), key=seen_types.__getitem__):
+        if cls not in weights:
+            weights[cls] = len(weights)
+
+    return sorted(items, key=lambda i: (weights[type(i)], i))
+
+
+@six.python_2_unicode_compatible
+class NotSetType(Cerebrum.meta.SingletonMixin):
     """A NotSet type that indicates that nothing has been set."""
 
-    def __nonzero__(self):
+    def __bool__(self):
         return False
 
-    def __str__(self):
-        return 'NotSet'
+    # PY2 backwards compatibility
+    __nonzero__ = __bool__
 
-    def __unicode__(self):
-        return 'NotSet'
+    def __str__(self):
+        return "NotSet"
 
     def __repr__(self):
         return str(self)
@@ -465,7 +519,7 @@ class Choice(Setting):
     @property
     def doc_struct(self):
         doc = super(Choice, self).doc_struct
-        doc['choices'] = repr(sorted(self._choices))
+        doc['choices'] = repr(_safe_sort(self._choices))
         return doc
 
 

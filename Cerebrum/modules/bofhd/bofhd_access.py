@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2014-2016 University of Oslo, Norway
+# Copyright 2014-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,27 +17,42 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" This is a bofhd module for access commands.
-
 """
+This module contains the access command group and commands for bofhd.
 
-import re
-import six
+.. important::
+   These classes should not be used directly.  Always make subclasses of
+   BofhdCommandBase classes, and add a proper auth class/mixin to the class
+   authz.
+
+The `access` commands can be used to inspect and modify permissions in bofhd.
+These commands are closely related to the :mod:`.bofhd_perm_cmds` command
+module.  These two modules should be reviewed and probably merged to one
+unified command group.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import collections
 import logging
+import re
+import six
 
 import cereconf
 
 from Cerebrum import Errors
 from Cerebrum import Utils
 from Cerebrum.modules import Email
-from Cerebrum.modules.bofhd.help import merge_help_strings
-from Cerebrum.modules.bofhd.auth import (BofhdAuthOpSet,
-                                         BofhdAuthOpTarget,
-                                         BofhdAuthRole)
+from Cerebrum.modules.bofhd.auth import (
+    BofhdAuth,
+    BofhdAuthOpSet,
+    BofhdAuthOpTarget,
+    BofhdAuthRole,
+)
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
-from Cerebrum.modules.bofhd.auth import BofhdAuth
-from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.cmd_param import (
     AccountName,
     Command,
@@ -49,42 +63,28 @@ from Cerebrum.modules.bofhd.cmd_param import (
     OpSet,
     OU,
     SimpleString,
+    get_format_suggestion_table,
 )
+from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
+from Cerebrum.modules.bofhd.help import merge_help_strings
 
 logger = logging.getLogger(__name__)
 
 
-class LookupClass(collections.Mapping):
-    def __init__(self):
-        self.operations = {
-            'disk': AccessDisk,
-            'group': AccessGroup,
-            'global_group': AccessGlobalGroup,
-            'global_person': AccessGlobalPerson,
-            'host': AccessHost,
-            'global_host': AccessGlobalHost,
-            'maildom': AccessMaildom,
-            'global_maildom': AccessGlobalMaildom,
-            'ou': AccessOu,
-            'global_ou': AccessGlobalOu,
-        }
-
-    def __len__(self):
-        return len(self.operations)
-
-    def __getitem__(self, item):
-        return self.operations[item]
-
-    def __iter__(self):
-        return iter(self.operations)
-
-
 class BofhdAccessAuth(BofhdAuth):
     """Auth for access * commands"""
+
     def can_grant_access(self, operator, operation=None, target_type=None,
                          target_id=None, opset=None, query_run_any=False):
+        """
+        Check if operator can grant a role/opset to an entity.
+
+        If :mod:`.bofhd_perm_cmds` are in use, then `perm grant` (and
+        `can_add_auth_role` will allow for this as well.
+        """
         if self.is_superuser(operator):
             return True
+
         if query_run_any:
             for op in (self.const.auth_grant_disk,
                        self.const.auth_grant_group,
@@ -94,57 +94,43 @@ class BofhdAccessAuth(BofhdAuth):
                 if self._has_operation_perm_somewhere(operator, op):
                     return True
             return False
-        if opset is not None:
-            opset = opset.name
-        if self._has_target_permissions(operator, operation,
-                                        target_type, target_id,
-                                        None, operation_attr=opset):
+
+        if operation is None:
+            # operation is typically empty for global targets
+            raise PermissionDenied("Currently limited to superusers")
+
+        op_attr = None if opset is None else opset.name
+        if self._has_target_permissions(
+                operator=operator,
+                operation=operation,
+                target_type=target_type,
+                target_id=target_id,
+                victim_id=None,
+                operation_attr=op_attr):
             return True
-        raise PermissionDenied("No access to %s" % target_type)
 
-    def list_alterable_entities(self, operator, target_type):
-        """Find entities of `target_type` that `operator` can moderate.
+        if op_attr:
+            raise PermissionDenied("No access to %s on %s"
+                                   % (op_attr, target_type))
 
-        'Moderate' in this context is equivalent with `auth_operation_set`
-        defined in `cereconf.BOFHD_AUTH_GROUPMODERATOR`.
+        raise PermissionDenied("No access to %s" % (target_type,))
 
-        :param int operator:
-          The account on behalf of which the query is to be executed.
-
-        :param str target_type:
-          The kind of entities for which permissions are checked. The only
-          permissible values are 'group', 'disk', 'host' and 'maildom'.
-
+    def can_list_account_access(self, operator,
+                                account_id=None, query_run_any=False):
         """
-        legal_target_types = ('group', 'disk', 'host', 'maildom')
-
-        if target_type not in legal_target_types:
-            raise ValueError("Illegal target_type <%s>" % target_type)
-
-        operator_id = int(operator)
-        opset = BofhdAuthOpSet(self._db)
-        opset.find_by_name(cereconf.BOFHD_AUTH_GROUPMODERATOR)
-
-        sql = """
-        SELECT aot.entity_id
-        FROM [:table schema=cerebrum name=auth_op_target] aot,
-             [:table schema=cerebrum name=auth_role] ar
-        WHERE (
-            ar.entity_id = :operator_id OR
-            -- do NOT replace with EXISTS, it's much more expensive
-            ar.entity_id IN (
-                SELECT gm.group_id
-                FROM [:table schema=cerebrum name=group_member] gm
-                WHERE gm.member_id = :operator_id
-            ))
-        AND ar.op_target_id = aot.op_target_id
-        AND aot.target_type = :target_type
-        AND ar.op_set_id = :op_set_id
+        Access control for access_list_alterable
         """
+        if query_run_any:
+            return True
 
-        return self.query(sql, {"operator_id": operator_id,
-                                "target_type": target_type,
-                                "op_set_id": opset.op_set_id})
+        if self.is_superuser(operator):
+            return True
+
+        if operator == account_id:
+            return True
+
+        raise PermissionDenied(
+            "You do not have permission for this operation")
 
 
 class BofhdAccessCommands(BofhdCommonMethods):
@@ -158,31 +144,45 @@ class BofhdAccessCommands(BofhdCommonMethods):
     def get_help_strings(cls):
         return merge_help_strings(
             super(BofhdAccessCommands, cls).get_help_strings(),
-            (HELP_ACCESS_GROUP, HELP_ACCESS_CMDS, HELP_ACCESS_ARGS))
+            (HELP_ACCESS_GROUP, HELP_ACCESS_CMDS, HELP_ACCESS_ARGS),
+        )
+
+    # Format suggestion for results directly from `_access_list` helper
+    _access_list_fs = get_format_suggestion_table(
+        ("opset", "Operation set", 16, "s", True),
+        ("type", "Type", 10, "s", True),
+        ("name", "Name", 30, "s", True),
+    )
+
     #
     # access disk <path>
     #
     all_commands['access_disk'] = Command(
         ('access', 'disk'),
         DiskId(),
-        fs=FormatSuggestion(
-            "%-16s %-9s %s", ("opset", "type", "name"),
-            hdr="%-16s %-9s %s" % ("Operation set", "Type", "Name")
-        ))
+        fs=_access_list_fs,
+    )
 
     def access_disk(self, operator, path):
         disk = self._get_disk(path)[0]
         result = []
+
+        # check for access to all disks on disk-host
         host = Utils.Factory.get('Host')(self.db)
         try:
             host.find(disk.host_id)
-            for r in self._list_access("host", host.name, empty_result=[]):
-                if r['attr'] == '' or re.search("/%s$" % r['attr'], path):
-                    result.append(r)
         except Errors.NotFoundError:
             pass
-        result.extend(self._list_access("disk", path, empty_result=[]))
-        return result or "None"
+        else:
+            for r in self._list_access("host", host.name):
+                if r['attr'] == '' or re.search("/%s$" % r['attr'], path):
+                    result.append(r)
+
+        # check for specific access to disk
+        result.extend(self._list_access("disk", path))
+        if not result:
+            raise CerebrumError("No access granted to disk: " + repr(path))
+        return result
 
     #
     # access group <group>
@@ -190,13 +190,14 @@ class BofhdAccessCommands(BofhdCommonMethods):
     all_commands['access_group'] = Command(
         ('access', 'group'),
         GroupName(help_ref='group_name_id'),
-        fs=FormatSuggestion(
-            "%-16s %-9s %s", ("opset", "type", "name"),
-            hdr="%-16s %-9s %s" % ("Operation set", "Type", "Name")
-        ))
+        fs=_access_list_fs,
+    )
 
     def access_group(self, operator, group):
-        return self._list_access("group", group)
+        results = self._list_access("group", group)
+        if not results:
+            raise CerebrumError("No access granted to group: " + repr(group))
+        return results
 
     #
     # access host <hostname>
@@ -204,14 +205,21 @@ class BofhdAccessCommands(BofhdCommonMethods):
     all_commands['access_host'] = Command(
         ('access', 'host'),
         SimpleString(help_ref="string_host"),
-        fs=FormatSuggestion(
-            "%-16s %-16s %-9s %s", ("opset", "attr", "type", "name"),
-            hdr="%-16s %-16s %-9s %s" % ("Operation set", "Pattern", "Type",
-                                         "Name")
-        ))
+        fs=get_format_suggestion_table(
+            # TODO: this is _access_list_fs with an extra attr column
+            #       maybe just include attr in _access_list_fs ?
+            ("opset", "Operation set", 16, "s", True),
+            ("attr", "Pattern", 16, "s", True),
+            ("type", "Type", 10, "s", True),
+            ("name", "Name", 30, "s", True),
+        ),
+    )
 
     def access_host(self, operator, host):
-        return self._list_access("host", host)
+        results = self._list_access("host", host)
+        if not results:
+            raise CerebrumError("No access granted to host: " + repr(host))
+        return results
 
     #
     # access maildom <maildom>
@@ -219,14 +227,15 @@ class BofhdAccessCommands(BofhdCommonMethods):
     all_commands['access_maildom'] = Command(
         ('access', 'maildom'),
         SimpleString(help_ref="email_domain"),
-        fs=FormatSuggestion(
-            "%-16s %-9s %s", ("opset", "type", "name"),
-            hdr="%-16s %-9s %s" % ("Operation set", "Type", "Name")
-        ))
+        fs=_access_list_fs,
+    )
 
     def access_maildom(self, operator, maildom):
-        # TODO: Is this an email command? Should it be moved to bofhd_email?
-        return self._list_access("maildom", maildom)
+        results = self._list_access("maildom", maildom)
+        if not results:
+            raise CerebrumError("No access granted to email domain: "
+                                + repr(maildom))
+        return results
 
     #
     # access ou <ou>
@@ -234,14 +243,21 @@ class BofhdAccessCommands(BofhdCommonMethods):
     all_commands['access_ou'] = Command(
         ('access', 'ou'),
         OU(),
-        fs=FormatSuggestion(
-            "%-16s %-16s %-9s %s", ("opset", "attr", "type", "name"),
-            hdr="%-16s %-16s %-9s %s" % ("Operation set", "Affiliation",
-                                         "Type", "Name")
-        ))
+        fs=get_format_suggestion_table(
+            # TODO: this is _access_list_fs with an extra attr column
+            #       maybe just include attr in _access_list_fs ?
+            ("opset", "Operation set", 16, "s", True),
+            ("attr", "Affiliation", 16, "s", True),
+            ("type", "Type", 10, "s", True),
+            ("name", "Name", 30, "s", True),
+        ),
+    )
 
     def access_ou(self, operator, ou):
-        return self._list_access("ou", ou)
+        results = self._list_access("ou", ou)
+        if not results:
+            raise CerebrumError("No access granted to org unit: " + repr(ou))
+        return results
 
     #
     # access user <account>
@@ -249,12 +265,14 @@ class BofhdAccessCommands(BofhdCommonMethods):
     all_commands['access_user'] = Command(
         ('access', 'user'),
         AccountName(),
-        fs=FormatSuggestion(
-            "%-14s %-5s %-20s %-7s %-9s %s",
-            ("opset", "target_type", "target", "attr", "type", "name"),
-            hdr="%-14s %-5s %-20s %-7s %-9s %s" %
-            ("Operation set", "TType", "Target", "Attr", "Type", "Name")
-        ))
+        fs=get_format_suggestion_table(
+            ("opset", "Operation set", 14, "s", True),
+            ("target_type", "TType", 5, "s", True),
+            ("target", "Target", 20, "s", True),
+            ("attr", "Attr", 7, "s", True),
+            ("name", "Name", 20, "s", True),
+        ),
+    )
 
     def access_user(self, operator, user):
         # This is more tricky than the others, we want to show anyone with
@@ -287,25 +305,26 @@ class BofhdAccessCommands(BofhdCommonMethods):
         # Look through disks
         ret = []
         for d in disks.keys():
-            for entry in self._list_access("disk", d, empty_result=[]):
+            for entry in self._list_access("disk", d):
                 entry['target_type'] = "disk"
                 entry['target'] = disks[d]
                 ret.append(entry)
         # Look through hosts:
         for h in hosts.keys():
-            for candidate in self._list_access("host", h, empty_result=[]):
+            for candidate in self._list_access("host", h):
                 candidate['target_type'] = "host"
                 candidate['target'] = self._get_host(h).name
                 if candidate['attr'] == "":
                     ret.append(candidate)
                     continue
-                for dir in hosts[h]:
-                    if re.match(candidate['attr'], dir):
+                for path in hosts[h]:
+                    if re.match(candidate['attr'], path):
                         ret.append(candidate)
                         break
         # TODO: check user's ou(s)
-        ret.sort(lambda x, y: (cmp(x['opset'].lower(), y['opset'].lower()) or
-                               cmp(x['name'], y['name'])))
+        ret.sort(key=lambda r: (r['opset'].lower(), r['name']))
+        if not ret:
+            raise CerebrumError("No access granted to user: " + repr(user))
         return ret
 
     #
@@ -313,57 +332,63 @@ class BofhdAccessCommands(BofhdCommonMethods):
     #
     all_commands['access_global_group'] = Command(
         ('access', 'global_group'),
-        fs=FormatSuggestion(
-            "%-16s %-9s %s", ("opset", "type", "name"),
-            hdr="%-16s %-9s %s" % ("Operation set", "Type", "Name")
-        ))
+        fs=_access_list_fs,
+    )
 
     def access_global_group(self, operator):
-        return self._list_access("global_group")
+        results = self._list_access("global_group")
+        if not results:
+            raise CerebrumError("No access granted to global group")
+        return results
 
     #
     # access global_host
     #
     all_commands['access_global_host'] = Command(
         ('access', 'global_host'),
-        fs=FormatSuggestion(
-            "%-16s %-9s %s", ("opset", "type", "name"),
-            hdr="%-16s %-9s %s" % ("Operation set", "Type", "Name")
-        ))
+        fs=_access_list_fs,
+    )
 
     def access_global_host(self, operator):
-        return self._list_access("global_host")
+        results = self._list_access("global_host")
+        if not results:
+            raise CerebrumError("No access granted to global host")
+        return results
 
     #
     # access global_maildom
     #
     all_commands['access_global_maildom'] = Command(
         ('access', 'global_maildom'),
-        fs=FormatSuggestion(
-            "%-16s %-9s %s", ("opset", "type", "name"),
-            hdr="%-16s %-9s %s" % ("Operation set", "Type", "Name")
-        ))
+        fs=_access_list_fs,
+    )
 
     def access_global_maildom(self, operator):
-        return self._list_access("global_maildom")
+        results = self._list_access("global_maildom")
+        if not results:
+            raise CerebrumError("No access granted to global email domain")
+        return results
 
     #
     # access global_ou
     #
     all_commands['access_global_ou'] = Command(
         ('access', 'global_ou'),
-        fs=FormatSuggestion(
-            "%-16s %-16s %-9s %s", ("opset", "attr", "type", "name"),
-            hdr="%-16s %-16s %-9s %s" % ("Operation set", "Affiliation",
-                                         "Type", "Name")
-        ))
+        fs=_access_list_fs,
+    )
 
     def access_global_ou(self, operator):
-        return self._list_access("global_ou")
+        results = self._list_access("global_ou")
+        if not results:
+            raise CerebrumError("No access granted to global org unit")
+        return results
 
-    # TODO: Define all_commands['access_global_person']
+    # TODO: Define all_commands['access_global_person'] ?
     def access_global_person(self, operator):
-        return self._list_access("global_person")
+        results = self._list_access("global_person")
+        if not results:
+            raise CerebrumError("No access granted to global person")
+        return results
 
     #
     # access grant <opset name> <who> <type> <on what> [<attr>]
@@ -375,7 +400,8 @@ class BofhdAccessCommands(BofhdCommonMethods):
         EntityType(default='group', help_ref="auth_entity_type"),
         SimpleString(optional=True, help_ref="auth_target_entity"),
         SimpleString(optional=True, help_ref="auth_attribute"),
-        perm_filter='can_grant_access')
+        perm_filter='can_grant_access',
+    )
 
     def access_grant(self, operator, opset, group, entity_type,
                      target_name=None, attr=None):
@@ -392,7 +418,8 @@ class BofhdAccessCommands(BofhdCommonMethods):
         EntityType(default='group', help_ref="auth_entity_type"),
         SimpleString(optional=True, help_ref="auth_target_entity"),
         SimpleString(optional=True, help_ref="auth_attribute"),
-        perm_filter='can_grant_access')
+        perm_filter='can_grant_access',
+    )
 
     def access_revoke(self, operator, opset, group, entity_type,
                       target_name=None, attr=None):
@@ -404,18 +431,24 @@ class BofhdAccessCommands(BofhdCommonMethods):
     #
     all_commands['access_list_opsets'] = Command(
         ('access', 'list_opsets'),
-        fs=FormatSuggestion("%s", ("opset",), hdr="Operation set"))
+        fs=FormatSuggestion(
+            "%s", ("opset",),
+            hdr="Operation set",
+        ),
+    )
 
     def access_list_opsets(self, operator):
         baos = BofhdAuthOpSet(self.db)
         ret = []
         for r in baos.list():
             ret.append({'opset': r['name']})
-        ret.sort(lambda x, y: cmp(x['opset'].lower(), y['opset'].lower()))
+        ret.sort(key=lambda r: r['opset'].lower())
         return ret
 
     #
     # access list_alterable [group] [username]
+    #
+    # Note: This command is used from Brukerinfo
     #
     hidden_commands['access_list_alterable'] = Command(
         ('access', 'list_alterable'),
@@ -423,7 +456,8 @@ class BofhdAccessCommands(BofhdCommonMethods):
         AccountName(optional=True),
         fs=FormatSuggestion(
             "%s %s", ("entity_name", "description")
-        )
+        ),
+        perm_filter='can_list_account_access',
     )
 
     def access_list_alterable(self, operator, target_type='group',
@@ -436,10 +470,9 @@ class BofhdAccessCommands(BofhdCommonMethods):
             account = self._get_account(access_holder, actype="PosixUser")
             account_id = account.entity_id
 
-        if not (account_id == operator.get_entity_id() or
-                self.ba.is_superuser(operator.get_entity_id())):
-            raise PermissionDenied("You do not have permission for this"
-                                   " operation")
+        self.ba.can_list_account_access(operator.get_entity_id(),
+                                        account_id=account_id)
+
         result = []
         matches = self.Group_class(self.db).search(
             admin_id=account_id,
@@ -458,7 +491,7 @@ class BofhdAccessCommands(BofhdCommonMethods):
             try:
                 group = self._get_group(row['group_id'])
             except Errors.NotFoundError:
-                self.logger.warn(
+                logger.warn(
                     "Non-existent entity (%s) referenced from auth_op_target",
                     row["entity_id"])
                 continue
@@ -477,35 +510,34 @@ class BofhdAccessCommands(BofhdCommonMethods):
     all_commands['access_show_opset'] = Command(
         ('access', 'show_opset'),
         OpSet(),
-        fs=FormatSuggestion(
-            "%-16s %-16s %s", ("op", "attr", "desc"),
-            hdr="%-16s %-16s %s" % ("Operation", "Attribute", "Description")
-        ))
+        fs=get_format_suggestion_table(
+            ("op", "Operation", 16, "s", True),
+            ("attr", "Attribute", 16, "s", True),
+            ("desc", "Description", 30, "s", True),
+        ),
+    )
 
-    def access_show_opset(self, operator, opset=None):
-        baos = BofhdAuthOpSet(self.db)
-        try:
-            baos.find_by_name(opset)
-        except Errors.NotFoundError:
-            raise CerebrumError("Unknown operation set: '{}'".format(opset))
-        ret = []
-        for r in baos.list_operations():
-            entry = {
-                'op': six.text_type(self.const.AuthRoleOp(r['op_code'])),
-                'desc': self.const.AuthRoleOp(r['op_code']).description,
-            }
-            attrs = []
-            for r2 in baos.list_operation_attrs(r['op_id']):
-                attrs += [r2['attr']]
-            if not attrs:
-                attrs = [""]
-            for a in attrs:
-                entry_with_attr = entry.copy()
-                entry_with_attr['attr'] = a
-                ret += [entry_with_attr]
-        ret.sort(lambda x, y: (cmp(x['op'], y['op']) or
-                               cmp(x['attr'], y['attr'])))
-        return ret
+    def access_show_opset(self, operator, opset):
+        baos = self._get_opset(opset)
+
+        results = []
+        for op_row in baos.list_operations():
+            op = self.const.AuthRoleOp(op_row['op_code'])
+
+            # we want one row per attr ...
+            attrs = [op_attr['attr']
+                     for op_attr in baos.list_operation_attrs(op_row['op_id'])]
+
+            # ... or just one row if no attrs
+            for a in (attrs or [""]):
+                results.append({
+                    'op': six.text_type(op),
+                    'desc': op.description,
+                    'attr': a,
+                })
+
+        results.sort(key=lambda r: (r['op'], r['attr']))
+        return results
 
     # TODO
     #
@@ -528,12 +560,13 @@ class BofhdAccessCommands(BofhdCommonMethods):
         ('access', 'list'),
         SimpleString(help_ref='id:target:group'),
         SimpleString(help_ref='string_perm_target_type_access', optional=True),
-        fs=FormatSuggestion(
-            "%-14s %-16s %-30s %-7s",
-            ("opset", "target_type", "target", "attr"),
-            hdr="%-14s %-16s %-30s %-7s" %
-            ("Operation set", "Target type", "Target", "Attr")
-        ))
+        fs=get_format_suggestion_table(
+            ("opset", "Operation set", 14, "s", True),
+            ("target_type", "Target type", 16, "s", True),
+            ("target", "Target", 30, "s", True),
+            ("attr", "Attr", 7, "s", True),
+        ),
+    )
 
     def access_list(self, operator, owner, target_type=None):
         """
@@ -569,10 +602,10 @@ class BofhdAccessCommands(BofhdCommonMethods):
                     try:
                         ed.find(r['entity_id'])
                     except (Errors.NotFoundError, ValueError):
-                        self.logger.warn("Non-existing entity (e-mail domain) "
-                                         "in auth_op_target {}:{:d}"
-                                         .format(r['target_type'],
-                                                 r['entity_id']))
+                        logger.warn("Non-existing entity (e-mail domain) "
+                                    "in auth_op_target %s:%d",
+                                    r['target_type'],
+                                    r['entity_id'])
                         continue
                     target_name = ed.email_domain_name
                 elif r['target_type'] == co.auth_target_type_ou:
@@ -580,9 +613,9 @@ class BofhdAccessCommands(BofhdCommonMethods):
                     try:
                         ou.find(r['entity_id'])
                     except (Errors.NotFoundError, ValueError):
-                        self.logger.warn("Non-existing entity (ou) in "
-                                         "auth_op_target %s:%d" %
-                                         (r['target_type'], r['entity_id']))
+                        logger.warn("Non-existing entity (ou) in "
+                                    "auth_op_target %s:%d",
+                                    r['target_type'], r['entity_id'])
                         continue
                     target_name = "%02d%02d%02d (%s)" % (ou.fakultet,
                                                          ou.institutt,
@@ -593,9 +626,9 @@ class BofhdAccessCommands(BofhdCommonMethods):
                         ety = self._get_entity(ident=r['entity_id'])
                         target_name = self._get_name_from_object(ety)
                     except (Errors.NotFoundError, ValueError):
-                        self.logger.warn("Non-existing entity in "
-                                         "auth_op_target %s:%d" %
-                                         (r['target_type'], r['entity_id']))
+                        logger.warn("Non-existing entity in "
+                                    "auth_op_target %s:%d",
+                                    r['target_type'], r['entity_id'])
                         continue
                 ret.append({
                     'opset': aos.name,
@@ -603,23 +636,26 @@ class BofhdAccessCommands(BofhdCommonMethods):
                     'target': target_name,
                     'attr': r['attr'] or "",
                 })
-        ret.sort(lambda a, b: (cmp(a['target_type'], b['target_type']) or
-                               cmp(a['target'], b['target'])))
+        ret.sort(key=lambda r: (r['target_type'], r['target']))
         return ret
 
     #
     # Helper methods
     #
 
-    def _list_access(self, target_type, target_name=None, empty_result="None"):
-        target_id, target_type, target_auth = self._get_access_id(target_type,
-                                                                  target_name)
-        ret = []
+    def _list_access(self, target_type, target_name=None):
+        """ List all opsets + attrs that grants access to a given target. """
+        # Look up target data with Access* class
+        target_getter = _TargetTypeMap.get_helper(target_type)(self.db)
+        target_id, target_type, _ = target_getter.get(target_name)
+
         ar = BofhdAuthRole(self.db)
         aos = BofhdAuthOpSet(self.db)
+
+        ret = []
         for r in self._get_auth_op_target(target_id, target_type,
                                           any_attr=True):
-            attr = str(r['attr'] or '')
+            attr = r['attr'] or ""
             for r2 in ar.list(op_target_id=r['op_target_id']):
                 aos.clear()
                 aos.find(r2['op_set_id'])
@@ -631,35 +667,30 @@ class BofhdAccessCommands(BofhdCommonMethods):
                         ety.entity_type)),
                     'name': self._get_name_from_object(ety),
                 })
-        ret.sort(lambda a, b: (cmp(a['opset'], b['opset']) or
-                               cmp(a['name'], b['name'])))
-        return ret or empty_result
+
+        ret.sort(key=lambda r: (r['opset'], r['name']))
+        return ret
 
     def _manipulate_access(self, change_func, operator, opset, group,
                            entity_type, target_name, attr):
-        """This function does no validation of types itself.  It uses
-        _get_access_id() to get a (target_type, entity_id) suitable for
-        insertion in auth_op_target.  Additional checking for validity
-        is done by _validate_access().
-
-        Those helper functions look for a function matching the
-        target_type, and call it.  There should be one
-        _get_access_id_XXX and one _validate_access_XXX for each known
-        target_type.
-
-        """
+        """ Grant or revoke access to a given target.  """
         opset = self._get_opset(opset)
         gr = self.util.get_target(group, default_lookup="group",
                                   restrict_to=['Account', 'Group'])
-        target_id, target_type, target_auth = self._get_access_id(
-            entity_type, target_name)
-        operator_id = operator.get_entity_id()
-        if target_auth is None and not self.ba.is_superuser(operator_id):
-            raise PermissionDenied("Currently limited to superusers")
-        else:
-            self.ba.can_grant_access(operator_id, target_auth,
-                                     target_type, target_id, opset)
-        self._validate_access(entity_type, opset, attr)
+
+        # Look up target data with Access* class
+        target_getter = _TargetTypeMap.get_helper(entity_type)(self.db)
+        target_id, target_type, target_auth = target_getter.get(target_name)
+
+        self.ba.can_grant_access(
+            operator=operator.get_entity_id(),
+            operation=target_auth,
+            target_type=target_type,
+            target_id=target_id,
+            opset=opset,
+        )
+        validator = _TargetTypeMap.get_helper(entity_type)
+        validator(self.db).validate(attr)
         return change_func(gr.entity_id, opset, target_id, target_type, attr,
                            group, target_name)
 
@@ -678,33 +709,24 @@ class BofhdAccessCommands(BofhdCommonMethods):
                  the given target entity.
 
         """
-        lookup = LookupClass()
-        if target_type in lookup:
-            lookupclass = lookup[target_type](self.db)
-            return lookupclass.get(target_name)
-        else:
-            raise CerebrumError("Unknown id type {}".format(target_type))
-
-    def _validate_access(self, target_type, opset, attr):
-        lookup = LookupClass()
-        if target_type in lookup:
-            lookupclass = lookup[target_type](self.db)
-            return lookupclass.validate(opset, attr)
-        else:
-            raise CerebrumError("Unknown type %s" % target_type)
+        cls = _TargetTypeMap.get_helper(target_type)
+        return cls(self.db).get(target_name)
 
     def _revoke_auth(self, entity_id, opset, target_id, target_type, attr,
                      entity_name, target_name):
-        op_target_id = self._get_auth_op_target(target_id, target_type, attr)
-        if not op_target_id:
-            raise CerebrumError("No one has matching access to {}"
-                                .format(target_name))
         ar = BofhdAuthRole(self.db)
-        rows = ar.list(entity_id, opset.op_set_id, op_target_id)
+
+        op_target_id = self._get_auth_op_target(target_id, target_type, attr)
+        if op_target_id:
+            rows = ar.list(entity_id, opset.op_set_id, op_target_id)
+        else:
+            # There isn't even an op_target, we can't have any matching roles
+            rows = []
         if len(rows) == 0:
-            return "%s doesn't have %s access to %s %s" % (
-                entity_name, opset.name, six.text_type(target_type),
-                target_name)
+            raise CerebrumError(
+                "%s doesn't have %s access to %s %s"
+                % (entity_name, opset.name, six.text_type(target_type),
+                   target_name))
         ar.revoke_auth(entity_id, opset.op_set_id, op_target_id)
         # See if the op_target has any references left, delete it if not.
         rows = ar.list(op_target_id=op_target_id)
@@ -726,49 +748,76 @@ class BofhdAccessCommands(BofhdCommonMethods):
             return "OK, granted %s access %s to %s %s" % (
                 entity_name, opset.name, six.text_type(target_type),
                 target_name)
-        return "%s already has %s access to %s %s" % (
-            entity_name, opset.name, six.text_type(target_type), target_name)
+        raise CerebrumError(
+            "%s already has %s access to %s %s"
+            % (entity_name, opset.name, six.text_type(target_type),
+               target_name))
 
 
 class AccessBase(object):
+    """ Abstract util to look up targets, and validate new targets. """
+
     def __init__(self, db):
         self.db = db
         child_logger = logger.getChild(type(self).__name__)
         # TODO: Find a better way to pass the needed helper methods in here
         self.am = BofhdCommonMethods(self.db, child_logger)
 
+    @property
+    def const(self):
+        return self.am.const
+
+    def get(self, target_name):
+        # Look up auth target info for a given target of this type
+        # Returns a tuple with (<entity-id>, <target-type>, <grant-op-code>)
+        # <target-type> *must* be given, while <entity-id> or <grant-op-code>
+        # may not exist
+        #
+        # If no <grant-op-code> is returned, then only superusers can grant
+        # access to this target-type
+        #
+        # If no <entity> exists for the given target-type/ident, then no
+        # entity-id is returned.
+        raise NotImplementedError()
+
+    def validate(self, attr):
+        # Validate an attribute for use with a given target
+        # Should raise an exception if the attribute is unacceptable
+        raise NotImplementedError()
+
 
 class AccessDisk(AccessBase):
+
     def get(self, target_name):
         return (self.am._get_disk(target_name)[1],
                 self.am.const.auth_target_type_disk,
                 self.am.const.auth_grant_disk)
 
-    def validate(self, opset, attr):
-        # TODO: check if the opset is relevant for a disk
+    def validate(self, attr):
         if attr is not None:
             raise CerebrumError("Can't specify attribute for disk access")
 
 
 class AccessGroup(AccessBase):
+
     def get(self, target):
         target = self.am._get_group(target)
         return (target.entity_id, self.am.const.auth_target_type_group,
                 self.am.const.auth_grant_group)
 
-    def validate(self, opset, attr):
-        # TODO: check if the opset is relevant for a group
+    def validate(self, attr):
         if attr is not None:
             raise CerebrumError("Can't specify attribute for group access")
 
 
 class AccessHost(AccessBase):
+
     def get(self, target_name):
         target = self.am._get_host(target_name)
         return (target.entity_id, self.am.const.auth_target_type_host,
                 self.am.const.auth_grant_host)
 
-    def validate(self, opset, attr):
+    def validate(self, attr):
         if attr is not None:
             if attr.count('/'):
                 raise CerebrumError("The disk pattern should only contain "
@@ -780,46 +829,50 @@ class AccessHost(AccessBase):
 
 
 class AccessGlobalGroup(AccessBase):
+
     def get(self, group):
         if group is not None and group != "":
-            raise CerebrumError("Cannot set domain for global access")
-        return None, self.am.const.auth_target_type_global_group, None
+            raise CerebrumError("Cannot set group for global access")
+        return (None, self.am.const.auth_target_type_global_group, None)
 
-    def validate(self, opset, attr):
+    def validate(self, attr):
         if attr is not None:
             raise CerebrumError("Can't specify attribute for global group")
 
 
 class AccessGlobalHost(AccessBase):
+
     def get(self, target_name):
         if target_name is not None and target_name != "":
             raise CerebrumError("You can't specify a hostname")
-        return None, self.am.const.auth_target_type_global_host, None
+        return (None, self.am.const.auth_target_type_global_host, None)
 
-    def validate(self, opset, attr):
+    def validate(self, attr):
         if attr is not None:
             raise CerebrumError(
                 "You can't specify a pattern with global_host.")
 
 
 class AccessGlobalMaildom(AccessBase):
+
     def get(self, dom):
         if dom is not None and dom != '':
             raise CerebrumError("Cannot set domain for global access")
-        return None, self.am.const.auth_target_type_global_maildomain, None
+        return (None, self.am.const.auth_target_type_global_maildomain, None)
 
-    def validate(self, opset, attr):
+    def validate(self, attr):
         if attr is not None:
             raise CerebrumError("No attribute with global maildom.")
 
 
 class AccessGlobalOu(AccessBase):
+
     def get(self, ou):
         if ou is not None and ou != '':
             raise CerebrumError("Cannot set OU for global access")
-        return None, self.am.const.auth_target_type_global_ou, None
+        return (None, self.am.const.auth_target_type_global_ou, None)
 
-    def validate(self, opset, attr):
+    def validate(self, attr):
         if not attr:
             # This is a policy decision, and should probably be
             # elsewhere.
@@ -832,6 +885,7 @@ class AccessGlobalOu(AccessBase):
 
 
 class AccessMaildom(AccessBase):
+
     def get(self, dom):
         ed = Email.EmailDomain(self.db)
         try:
@@ -842,18 +896,19 @@ class AccessMaildom(AccessBase):
                 self.am.const.auth_target_type_maildomain,
                 self.am.const.auth_grant_maildomain)
 
-    def validate(self, opset, attr):
+    def validate(self, attr):
         if attr is not None:
             raise CerebrumError("No attribute with maildom.")
 
 
 class AccessOu(AccessBase):
+
     def get(self, ou):
         ou = self.am._get_ou(stedkode=ou)
         return (ou.entity_id, self.am.const.auth_target_type_ou,
                 self.am.const.auth_grant_ou)
 
-    def validate(self, opset, attr):
+    def validate(self, attr):
         if attr is not None:
             try:
                 int(self.am.const.PersonAffiliation(attr))
@@ -867,10 +922,43 @@ class AccessGlobalPerson(AccessBase):
         #     raise CerebrumError("Cannot set domain for global access")
         return None, self.am.const.auth_target_type_global_person, None
 
-    def validate(self, opset, attr):
+    def validate(self, attr):
         if attr:
             raise CerebrumError(
                 "You can't specify a pattern with global_person.")
+
+
+class _TargetTypeMap(collections.Mapping):
+    """ Mapping class for AccessBase implementations. """
+
+    operations = {
+        'disk': AccessDisk,
+        'group': AccessGroup,
+        'global_group': AccessGlobalGroup,
+        'global_person': AccessGlobalPerson,
+        'host': AccessHost,
+        'global_host': AccessGlobalHost,
+        'maildom': AccessMaildom,
+        'global_maildom': AccessGlobalMaildom,
+        'ou': AccessOu,
+        'global_ou': AccessGlobalOu,
+    }
+
+    def __len__(self):
+        return len(self.operations)
+
+    def __getitem__(self, item):
+        return self.operations[item]
+
+    def __iter__(self):
+        return iter(self.operations)
+
+    @classmethod
+    def get_helper(cls, target_type):
+        if target_type in cls.operations:
+            return cls.operations[target_type]
+        else:
+            raise CerebrumError("Unknown target type: " + repr(target_type))
 
 
 #

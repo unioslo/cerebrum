@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2016-2020 University of Oslo, Norway
+# Copyright 2016-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,11 +17,27 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""Mixin for saving account passwords as GPG data."""
+"""
+Mixin for saving account passwords as GPG data.
+
+This module provides an account mixin, :class:`.AccountPasswordEncrypterMixin`,
+which tries to encrypt all new passwords using GPG.
+
+The password is encrypted for *two* tags: *password*, and *password-base64*.
+The latter encodes the password using base64 before encryption.  See
+:mod:`.config` for info on how to configure gpg-keys/recipients for these
+gpg-messages.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import base64
 
-from six import text_type
+import six
 
 from Cerebrum.Account import Account
 from .data import GpgData, EntityGPGData
@@ -33,13 +49,13 @@ class AccountPasswordEncrypterMixin(Account, EntityGPGData):
     def set_password(self, plaintext):
         super(AccountPasswordEncrypterMixin, self).set_password(plaintext)
 
-        assert isinstance(plaintext, text_type)
+        assert isinstance(plaintext, six.text_type)
 
         plaintext = plaintext.encode('utf-8')
 
         # remove old values
         gpg_data = GpgData(self._db)
-        gpg_data.delete(entity_id=self.entity_id,
+        gpg_data.delete(entity_id=int(self.entity_id),
                         tag=['password', 'password-base64'])
 
         # add new passwords

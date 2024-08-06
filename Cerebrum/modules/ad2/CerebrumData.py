@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2011-2018 University of Oslo, Norway
+# Copyright 2011-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -58,6 +58,8 @@ be compared with attributes from data objects from AD.
 """
 
 import cereconf
+
+import six
 
 from Cerebrum.Utils import NotSet
 from Cerebrum.modules.ad2 import ConfigUtils
@@ -190,7 +192,7 @@ class CerebrumEntity(object):
         self.set_attribute('Name', self.ad_id)
         self.set_attribute('DistinguishedName', self.dn)
         # Attributes defined by the config:
-        for atrname, config in self.config['attributes'].iteritems():
+        for atrname, config in six.iteritems(self.config['attributes']):
             # Some attributes are not configured, but e.g. defined as None in
             # the config. We expect those to be handled by subclasses and ignore
             # them here:
@@ -255,7 +257,7 @@ class CerebrumEntity(object):
                 else:
                     # TODO: now it's not sorted, need to make use of the
                     #       default order from cereconf!
-                    for value in sources.itervalues():
+                    for value in six.itervalues(sources):
                         return value
         elif isinstance(config, ConfigUtils.PersonNameAttr):
             # PersonName
@@ -270,7 +272,7 @@ class CerebrumEntity(object):
                             return value
                 else:
                     # TODO: Use default order for source_systems.
-                    for value in vinfos.itervalues():
+                    for value in six.itervalues(vinfos):
                         return value
         elif isinstance(config, ConfigUtils.NameAttr):
             # EntityName or PersonName
@@ -286,7 +288,7 @@ class CerebrumEntity(object):
                 else:
                     # Not sorted by language, fetch first.
                     # TODO: Need to use a default order for this!
-                    for name in vinfos.itervalues():
+                    for name in six.itervalues(vinfos):
                         return name
         elif isinstance(config, ConfigUtils.ExternalIdAttr):
             # External IDs
@@ -301,7 +303,7 @@ class CerebrumEntity(object):
                             return sys
                 else:
                     # TODO: use default sort order from config!
-                    for s in infos.itervalues():
+                    for s in six.itervalues(infos):
                         return s
         elif isinstance(config, ConfigUtils.AddressAttr):
             # Addresses
@@ -317,7 +319,7 @@ class CerebrumEntity(object):
                 else:
                     # TODO: now it's not sorted, need to make use of the
                     # default order from cereconf!
-                    for s in ainfos.itervalues():
+                    for s in six.itervalues(ainfos):
                         return s
         elif isinstance(config, ConfigUtils.ADAttributeAttr):
             # AD attributes from Cerebrum's attribute table

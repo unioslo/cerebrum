@@ -32,12 +32,15 @@ from Cerebrum.modules.bofhd import bofhd_external_id
 from Cerebrum.modules.bofhd import bofhd_group_roles
 from Cerebrum.modules.bofhd import bofhd_misc_sms
 from Cerebrum.modules.bofhd import bofhd_ou_cmds
+from Cerebrum.modules.bofhd import bofhd_perm_cmds
+from Cerebrum.modules.bofhd import bofhd_quarantines
 from Cerebrum.modules.bofhd import bofhd_user_create_unpersonal
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.bofhd_contact_info import BofhdContactAuth
 from Cerebrum.modules.bofhd.bofhd_email import BofhdEmailAuth
 from Cerebrum.modules.bofhd.errors import PermissionDenied
 from Cerebrum.modules.bofhd_requests.bofhd_requests_auth import RequestsAuth
+from Cerebrum.modules.consent import bofhd_consent_auth
 from Cerebrum.modules.otp import bofhd_otp_cmds
 from Cerebrum.modules.ou_disk_mapping import bofhd_cmds
 from Cerebrum.modules.trait import bofhd_trait_cmds
@@ -390,11 +393,11 @@ class ApiKeyAuth(UioAuth, bofhd_apikey_cmds.BofhdApiKeyAuth):
     pass
 
 
-class ExtidAuth(UioAuth, bofhd_external_id.BofhdExtidAuth):
+class ConsentAuth(UioAuth, bofhd_consent_auth.BofhdConsentAuth):
     pass
 
 
-class PasswordIssuesAuth(UioAuth):
+class ExtidAuth(UioAuth, bofhd_external_id.BofhdExtidAuth):
     pass
 
 
@@ -436,6 +439,30 @@ class OtpAuth(UioAuth, bofhd_otp_cmds.OtpAuth):
             return True
         else:
             return super(OtpAuth, self)._is_otp_protected(person)
+
+
+class PasswordIssuesAuth(UioAuth):
+    pass
+
+
+class PermAuth(UioAuth, bofhd_perm_cmds.BofhdPermAuth):
+    pass
+
+
+class QuarantineAuth(UioAuth, bofhd_quarantines.BofhdQuarantineAuth):
+
+    GUEST_OWNER_TRAITS = (
+        "guest_owner",
+        "guest_owner_uio",
+    )
+
+    RESTRICTED_QUARANTINES = (
+        "auto_no_aff"
+        "cert",
+        "radius",
+        "svakt_passord",
+        "system",
+    )
 
 
 class SmsAuth(UioAuth, bofhd_misc_sms.BofhdSmsAuth):

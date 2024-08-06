@@ -1,5 +1,11 @@
-""" Tests for Cerebrum.utils.backoff. """
-
+# encoding: utf-8
+""" Tests for :mod:`Cerebrum.utils.backoff`. """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 from datetime import timedelta
 
 import pytest
@@ -89,6 +95,6 @@ def test_truncate_1hr(value, result):
 def test_backoff(step, timeout):
     get_backoff = Cerebrum.utils.backoff.Backoff(
         Cerebrum.utils.backoff.Exponential(2),
-        Cerebrum.utils.backoff.Factor(timedelta(hours=1) / 16),
+        Cerebrum.utils.backoff.Factor(timedelta(hours=1) // 16),
         Cerebrum.utils.backoff.Truncate(timedelta(hours=12)))
     assert get_backoff(step) == timeout

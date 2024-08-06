@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-""" Tests for `Cerebrum.utils.text_utils. """
+""" Tests for mod:`Cerebrum.utils.text_utils.` """
 from __future__ import (
     absolute_import,
     division,

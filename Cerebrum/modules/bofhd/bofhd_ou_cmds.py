@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2021 University of Oslo, Norway
+# Copyright 2021-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,7 +18,12 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ This module contains ou related commands in bofhd. """
-from __future__ import unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import logging
 
@@ -39,10 +44,12 @@ from Cerebrum.modules.bofhd.cmd_param import (
     OU,
     SimpleString,
     Spread,
+    get_format_suggestion_table,
 )
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.help import merge_help_strings
 from Cerebrum.modules.bofhd.utils import BofhdUtils
+from Cerebrum.org import perspective_db
 
 
 logger = logging.getLogger(__name__)
@@ -202,11 +209,11 @@ class OuCommands(BofhdCommandBase):
     def _ou_search_by_dfo_id(self, pattern):
         """ ou search helper - seach for ou by DFØ id. """
         ou = Factory.get('OU')(self.db)
-        for r in ou.search_external_ids(id_type=self.const.externalid_dfo_ou_id,
-                                        external_id=pattern,
-                                        fetchall=False):
+        for r in ou.search_external_ids(
+                id_type=self.const.externalid_dfo_ou_id,
+                external_id=pattern,
+                fetchall=False):
             yield int(r["entity_id"])
-
 
     def _ou_search_spread_match(self, ou, spread_filter):
         """ ou search helper - check if ou spreads matches spread_filter. """
@@ -260,7 +267,6 @@ class OuCommands(BofhdCommandBase):
             raise CerebrumError('No matches for %s' % repr(pattern))
 
         return sorted(output, key=lambda r: (r['stedkode'], r['ou_id']))
-
 
     #
     # ou info <stedkode/entity_id>
@@ -424,9 +430,10 @@ class OuCommands(BofhdCommandBase):
     all_commands['ou_names'] = Command(
         ("ou", "names"),
         OU(help_ref='ou_stedkode_or_id'),
-        fs=FormatSuggestion(
-            [("%-12s  %-6s  %s", ('type', 'lang', 'value'))],
-            hdr='%-12s  %-6s  %s' % ('Type', 'Lang', 'Value'),
+        fs=get_format_suggestion_table(
+            ("type", "Type", 12, "s", True),
+            ("lang", "Lang", 6, "s", True),
+            ("value", "Value", 36, "s", True),
         ),
     )
 
@@ -464,75 +471,67 @@ class OuCommands(BofhdCommandBase):
     def ou_tree(self, operator, target,
                 ou_perspective=default_ou_perspective,
                 language=default_ou_language):
-        def _is_root(ou, perspective):
-            if ou.get_parent(perspective) in (ou.entity_id, None):
-                return True
-            return False
 
         language = self._get_language(language)
         perspective = self._get_perspective(ou_perspective)
 
-        output = []
-
         target_ou = self.util.get_target(target,
                                          default_lookup='stedkode',
                                          restrict_to=['OU'])
-        ou = Factory.get('OU')(self.db)
 
-        # TODO: generalize and use Cerebrum.modules.no.orgera.ou_utils to find
-        # parents and children
-        data = {
-            'parents': [],
-            'target': [target_ou.entity_id],
-            'children': []
-        }
+        # List all parents in order [target - 1, ..., root]
+        parents = [
+            r['parent_id']
+            for r in perspective_db.find_parents(
+                db=self.db,
+                perspective=int(perspective),
+                ou_id=int(target_ou.entity_id),
+            )
+        ]
+        # present results in the opposite order, i.e.:
+        #   [root, root + 1, ..., target - 1]
+        parents.reverse()
 
-        prev_parent = None
+        # List direct children
+        children = [
+            r['ou_id']
+            for r in perspective_db.find_children(
+                db=self.db,
+                perspective=int(perspective),
+                ou_id=int(target_ou.entity_id),
+                depth=1,
+            )
+        ]
 
-        try:
-            while True:
-                if prev_parent:
-                    ou.clear()
-                    ou.find(prev_parent)
+        def _get_ou_data(ou_id, distance, indent):
+            ou = Factory.get('OU')(self.db)
+            ou.find(int(ou_id))
+            return {
+                # distance: grandparent has distance=-2, parent has
+                # distance=-1, the target itself has distance=0, and children
+                # have distance=1
+                'distance': distance,
+                'entity_id': int(ou.entity_id),
+                # indent: an indent hint, which can be used to directly
+                # pretty-print the ou tree branch that this method returns
+                'indent': indent,
+                'stedkode': _format_ou_sko(ou),
+                'name': self._format_ou_name_full(ou, language),
+            }
 
-                    if _is_root(ou, perspective):
-                        break
+        output = []
 
-                    prev_parent = ou.get_parent(perspective)
-                    data['parents'].insert(0, prev_parent)
-                else:
-                    if _is_root(target_ou, perspective):
-                        break
+        # collect ou data with indent-hints
+        for num, ou_id in enumerate(parents):
+            indent = num * "  "
+            distance = (- len(parents)) + num
+            output.append(_get_ou_data(ou_id, distance, indent))
 
-                    prev_parent = target_ou.get_parent(perspective)
-                    data['parents'].insert(0, prev_parent)
-        except Exception:
-            raise CerebrumError("Error getting OU structure for %s."
-                                "Is the OU valid?" % target)
-
-        for c in target_ou.list_children(perspective):
-            data['children'].append(c)
-
-        for d in data:
-            if d == 'target':
-                indent = '* ' + (len(data['parents']) - 1) * '  '
-            elif d == 'children':
-                indent = (len(data['parents']) + 1) * '  '
-                if len(data['parents']) == 0:
-                    indent += '  '
-
-            for num, item in enumerate(data[d]):
-                ou.clear()
-                ou.find(item)
-
-                if d == 'parents':
-                    indent = num * '  '
-
-                output.append({
-                    'indent': indent,
-                    'stedkode': _format_ou_sko(ou),
-                    'name': self._format_ou_name_full(ou, language),
-                })
+        indent = "* " + ((len(parents) or 1) - 1) * "  "
+        output.append(_get_ou_data(target_ou.entity_id, 0, indent))
+        for ou_id in children:
+            indent = ((len(parents) or 1) + 1) * "  "
+            output.append(_get_ou_data(ou_id, 1, indent))
 
         return output
 
@@ -553,13 +552,22 @@ class OuCommands(BofhdCommandBase):
             int(id_type)
         except Errors.NotFoundError:
             raise CerebrumError("No such external id")
+        source_system = self.const.system_manual
         ou = self._get_ou(stedkode=stedkode)
+
+        # TODO: Deprecate and replace with entity_extid_set
+        #       Would need to add BofhdExtidCommands subclasses to configs with
+        #       OuCommands.
+        #
+        # raise CerebrumError(
+        #     "Deprecated: use `entity extid_set id:%d %s %s <id>`"
+        #     % (ou.entity_id, six.text_type(source_system),
+        #        six.text_type(id_type)))
 
         self.ba.can_set_ou_id(operator.get_entity_id(),
                               entity=ou,
                               id_type=id_type)
 
-        source_system = self.const.system_manual
         ou.affect_external_id(source_system, id_type)
         ou.populate_external_id(source_system, id_type, id_value)
         ou.write_db()
@@ -581,13 +589,22 @@ class OuCommands(BofhdCommandBase):
             int(id_type)
         except Errors.NotFoundError:
             raise CerebrumError("No such external id")
+        source_system = self.const.system_manual
         ou = self._get_ou(stedkode=stedkode)
+
+        # TODO: Deprecate and replace with entity_extid_clear
+        #       Would need to add BofhdExtidCommands subclasses to configs with
+        #       OuCommands.
+        #
+        # raise CerebrumError(
+        #     "Deprecated: use `entity extid_clear id:%d %s %s"
+        #     % (ou.entity_id, six.text_type(source_system),
+        #        six.text_type(id_type)))
 
         self.ba.can_clear_ou_id(operator.get_entity_id(),
                                 entity=ou,
                                 id_type=id_type)
 
-        source_system = self.const.system_manual
         if ou.get_external_id(source_system=source_system, id_type=id_type):
             ou.affect_external_id(source_system, id_type)
             ou.write_db()

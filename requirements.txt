@@ -3,8 +3,8 @@ backports.ssl-match-hostname
 cffi
 cx-Oracle~=7.3.0
 egenix-mx-base  # If it fails: pip install --force-reinstall --ignore-installed --no-binary :all: egenix-mx-base
-Flask==1.1.1
-flask-restx~=0.2.0
+Flask==1.1.4
+flask-restx==0.5.1
 gunicorn==19.10.0
 Jinja2
 jsonschema~=3.2  # Last version with Py2 support (dropped in 4.0.0)
@@ -23,9 +23,9 @@ pytest==4.3.1
 python-ldap
 pytz
 PyYAML
-raven
-requests
+requests~=2.27.1  # Last version to support 2.7 (dropped in 2.28.0)
 rpclib==2.7.0-beta
+sentry-sdk<2
 six>=1.10
 statsd==3.2.2
 sqlparse==0.3.0

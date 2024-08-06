@@ -1,6 +1,6 @@
 # coding: utf-8
 #
-# Copyright 2017-2019 University of Oslo, Norway
+# Copyright 2017-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -69,7 +69,7 @@ from __future__ import (
     absolute_import,
     division,
     print_function,
-    # TODO: unicode_literals,
+    unicode_literals,
 )
 import calendar
 import datetime
@@ -124,7 +124,7 @@ def now(tz=TIMEZONE):
     """
     if not isinstance(tz, datetime.tzinfo):
         tz = pytz.timezone(tz)
-    return datetime.datetime.now(tz=TIMEZONE)
+    return datetime.datetime.now(tz=tz)
 
 
 def to_timezone(aware, tz=TIMEZONE):
@@ -172,17 +172,9 @@ def strip_timezone(aware):
 # Strict ISO-8601 parsers
 #
 
-def parse_datetime_tz(rawstr):
-    """
-    Parse an ISO8601 datetime string, and require timezone.
 
-    The datetime may be delimited by ' ' or 'T'.
-
-    :param rawstr: An ISO8601 formatted datetime string with timezone.
-
-    :rtype: datetime.datetime
-    :return: A timezone-aware datetime objet.
-    """
+def _parse_datetime(rawstr):
+    """ helper for *parse_datetime* and *parse_datetime_tz*. """
     dtstr = str(rawstr)
     # Allow use of space as separator
     try:
@@ -195,7 +187,21 @@ def parse_datetime_tz(rawstr):
     except ValueError as e:
         # The aniso8601 errors are not always great
         raise ValueError("invalid iso8601 datetime (%s)" % (e,))
+    return date
 
+
+def parse_datetime_tz(rawstr):
+    """
+    Parse an ISO8601 datetime string, and require timezone.
+
+    The datetime may be delimited by ' ' or 'T'.
+
+    :param rawstr: An ISO8601 formatted datetime string with timezone.
+
+    :rtype: datetime.datetime
+    :return: A timezone-aware datetime objet.
+    """
+    date = _parse_datetime(rawstr)
     if not date.tzinfo:
         raise ValueError("invalid iso8601 datetime (missing timezone)")
     return date
@@ -214,19 +220,7 @@ def parse_datetime(rawstr, default_timezone=TIMEZONE):
     :rtype: datetime.datetime
     :return: A timezone-aware datetime objet.
     """
-    dtstr = str(rawstr)
-    # Allow use of space as separator
-    try:
-        if 'T' not in dtstr:
-            date = aniso8601.parse_datetime(dtstr, delimiter=' ')
-        else:
-            date = aniso8601.parse_datetime(dtstr)
-    except NotImplementedError as e:
-        raise ValueError("unsupported iso8601 format (%s)" % (e,))
-    except ValueError as e:
-        # The aniso8601 errors are not always great
-        raise ValueError("invalid iso8601 datetime (%s)" % (e,))
-
+    date = _parse_datetime(rawstr)
     if not date.tzinfo:
         # No timezone given, assume default_timezone
         date = apply_timezone(date, tz=default_timezone)
@@ -261,8 +255,6 @@ def parse_time(dtstr):
     """
     try:
         return aniso8601.parse_time(str(dtstr))
-    except NotImplementedError as e:
-        raise ValueError("unsupported iso8601 format (%s)" % (e,))
     except ValueError as e:
         # The aniso8601 errors are not always great
         raise ValueError("invalid iso8601 time (%s)" % (e,))

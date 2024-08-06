@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2011-2017 University of Oslo, Norway
+# Copyright 2011-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,7 +19,8 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-"""Generic module for basic synchronisation with Active Directory.
+"""
+Generic module for basic synchronisation with Active Directory.
 
 A synchronisation script must create an instance of such a sync class from this
 file, or an instance' subclass. It should then feed it with configuration
@@ -55,6 +56,8 @@ import time
 import uuid
 
 import adconf
+
+import six
 
 from Cerebrum import Entity, Errors
 from Cerebrum.modules import CLHandler, Email
@@ -406,7 +409,7 @@ class BaseSync(object):
             converted = dict((self.co.EntityType(e_type),
                               self.co.EntityExternalId(sid_type))
                              for e_type, sid_type
-                             in self.sidtype_map.iteritems())
+                             in six.iteritems(self.sidtype_map))
             self.sidtype_map = converted
 
         # We define the group scope and type for new groups.
@@ -991,7 +994,7 @@ class BaseSync(object):
         """Use Cerebrum data to calculate the needed attributes.
 
         """
-        for ent in self.entities.itervalues():
+        for ent in six.itervalues(self.entities):
             ent.calculate_ad_values()
 
     def cache_entity(self, entity_id, entity_name, *args, **kwargs):
@@ -1228,7 +1231,7 @@ class BaseSync(object):
 
         """
         ret = {}
-        for atr, atrconfig in self.config['attributes'].iteritems():
+        for atr, atrconfig in six.iteritems(self.config['attributes']):
             value = ent.attributes.get(atr, None)
             ad_value = ad_object.get(atr, None)
             # Filter/convert the value from AD before getting compared:
@@ -1357,9 +1360,9 @@ class BaseSync(object):
         # Do a count of how many it is, for debuggin
         self.logger.debug("Found %d entities not found in AD",
                           len(filter(lambda x: not x.in_ad,
-                                     self.entities.itervalues())))
+                                     six.itervalues(self.entities))))
         i = 0
-        for ent in self.entities.itervalues():
+        for ent in six.itervalues(self.entities):
             if ent.in_ad:
                 continue
 
@@ -1879,7 +1882,7 @@ class UserSync(BaseSync):
         # Create a mapping of owner id to user objects
         self.logger.debug("Fetch owner information...")
         self.owner2ent = dict()
-        for ent in self.entities.itervalues():
+        for ent in six.itervalues(self.entities):
             self.owner2ent.setdefault(ent.owner_id, []).append(ent)
         self.logger.debug("Mapped %d entity owners", len(self.owner2ent))
 
@@ -2322,7 +2325,7 @@ class UserSync(BaseSync):
         targetid2entityid = dict((r['target_id'], r['target_entity_id']) for r
                                  in self.mailtarget.list_email_targets_ext(
                                      target_entity_id=ids))
-        for target_id, entity_id in targetid2entityid.iteritems():
+        for target_id, entity_id in six.iteritems(targetid2entityid):
             ent = self.entities.get(entity_id)
             if ent:
                 ent.maildata['target_id'] = target_id
@@ -2850,7 +2853,7 @@ class GroupSync(BaseSync):
         """
         self.id2extraentity = dict()
         # Need to process spreads one by one, since each has its config
-        for spread_var in self.config['group_member_spreads'].itervalues():
+        for spread_var in six.itervalues(self.config['group_member_spreads']):
             spread = spread_var['spread']
             self.logger.debug("Fetch members for spread: %s", spread)
             mem_sync = spread_var['sync']
@@ -2990,7 +2993,7 @@ class GroupSync(BaseSync):
         # Go through all group memberships and add those relevant for AD in the
         # proper groups, either directly or indirectly:
         i = 0
-        for group_id, members in groups.iteritems():
+        for group_id, members in six.iteritems(groups):
             # Target the parent groups if the group is not supposed to be in
             # AD:
             if group_id in self.id2entity:
@@ -3133,7 +3136,7 @@ class MailTargetSync(BaseSync):
         # Map from target_id to entity_id:
         targetid2entityid = dict((r['target_id'], r['target_entity_id']) for r
                                  in self.mailtarget.list_email_targets_ext())
-        for target_id, entity_id in targetid2entityid.iteritems():
+        for target_id, entity_id in six.iteritems(targetid2entityid):
             ent = self.entities.get(entity_id)
             if ent:
                 ent.maildata['target_id'] = target_id

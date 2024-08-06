@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2016-2018 University of Oslo, Norway
+# Copyright 2016-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,58 +17,86 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" API models. """
+"""
+Common API models.
 
-from __future__ import unicode_literals
+TODO: These should probably be moved into e.g. an `entity` module together
+with generic utils for dealing with these resources.
+
+Maybe we should have generic `entities/` endpoints for some of these things,
+with redirects for e.g. `entitites/<id>/quarantines/<type>` to
+`accounts/<name>/quarantines/<type>` if the given entity is an account.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 from Cerebrum.rest.api import db, fields
 
 from . import api
 
+
 # Model for data from entity.get_contact_info()
 EntityContactInfo = api.model('EntityContactInfo', {
     'value': fields.base.String(
         attribute='contact_value',
-        description='Value'),
+        description='Value',
+    ),
     'alias': fields.base.String(
         attribute='contact_alias',
-        description='Alias'),
+        description='Alias',
+    ),
     'preference': fields.base.Integer(
         attribute='contact_pref',
-        description='Preference/priority, 1 = highest'),
+        description='Preference/priority, 1 = highest',
+    ),
     'type': fields.Constant(
         ctype='ContactInfo',
         attribute='contact_type',
-        description='Type'),
+        description='Type',
+    ),
     'entity_id': fields.base.Integer(
-        description='Entity ID'),
+        description='Entity ID',
+    ),
     'description': fields.base.String(
-        description='Description'),
+        description='Description',
+    ),
     'source_system': fields.Constant(
         ctype='AuthoritativeSystem',
-        description='Source system'),
-    'last_modified': fields.DateTime(dt_format='iso8601',
-                                     description='Last modified timestamp'),
+        description='Source system',
+    ),
+    'last_modified': fields.DateTime(
+        dt_format='iso8601',
+        description='Last modified timestamp',
+    ),
 })
 
 EntityContactInfoList = api.model('EntityContactInfoList', {
     'contacts': fields.base.List(
         fields.base.Nested(EntityContactInfo),
-        description='Contact information'),
+        description='Contact information',
+    ),
 })
 
 
 EntityOwner = api.model('EntityOwner', {
     'id': fields.base.Integer(
         default=None,
-        description='Entity ID'),
+        description='Entity ID',
+    ),
     'type': fields.Constant(
         ctype='EntityType',
-        description='Entity type'),
+        description='Entity type',
+    ),
     'href': fields.base.String(
-        description='URL to resource'),
+        description='URL to resource',
+    ),
     'name': fields.base.String(
-        description='Name'),
+        description='Name',
+    ),
 })
 
 
@@ -87,7 +114,7 @@ class ExternalIdType(object):
         'GREG_PID': 'gregPersonId',
     }
 
-    _rev_map = dict((v, k) for k, v in _map.iteritems())
+    _rev_map = dict((v, k) for k, v in _map.items())
 
     @classmethod
     def serialize(cls, strval):
@@ -99,20 +126,23 @@ class ExternalIdType(object):
 
     @classmethod
     def valid_types(cls):
-        return cls._rev_map.keys()
+        return list(cls._rev_map.keys())
 
 
 # Model for data from entity.get_external_id()
 EntityExternalId = api.model('EntityExternalId', {
     'external_id': fields.base.String(
-        description='External ID'),
+        description='External ID',
+    ),
     'id_type': fields.Constant(
         ctype='EntityExternalId',
         transform=ExternalIdType.serialize,
-        description='External ID type'),
+        description='External ID type',
+    ),
     'source_system': fields.Constant(
         ctype='AuthoritativeSystem',
-        description='Source system'),
+        description='Source system',
+    ),
 })
 
 
@@ -120,20 +150,26 @@ EntityExternalId = api.model('EntityExternalId', {
 EntityQuarantine = api.model('EntityQuarantine', {
     'type': fields.Constant(
         ctype='Quarantine',
-        description='Type of quarantine'),
+        description='Type of quarantine',
+    ),
     'comment': fields.base.String(
-        description='Reason of quarantine'),
+        description='Reason of quarantine',
+    ),
     'start': fields.DateTime(
         dt_format='iso8601',
-        description='Quarantine start date'),
+        description='Quarantine start date',
+    ),
     'end': fields.DateTime(
         dt_format='iso8601',
-        description='Quarantine end date'),
+        description='Quarantine end date',
+    ),
     'disable_until': fields.DateTime(
         dt_format='iso8601',
-        description='Quarantine disabled until'),
+        description='Quarantine disabled until',
+    ),
     'active': fields.base.Boolean(
-        description='Quarantine currently active'),
+        description='Quarantine currently active',
+    ),
 })
 
 
@@ -141,15 +177,19 @@ EntityTrait = api.model('EntityTrait', {
     'trait': fields.Constant(
         ctype='EntityTrait',
         attribute='code',
-        description='Trait type'),
+        description='Trait type',
+    ),
     'string': fields.base.String(
         attribute='strval',
-        description='Trait string value'),
+        description='Trait string value',
+    ),
     'number': fields.base.Integer(
         attribute='numval',
-        description='Trait number value'),
+        description='Trait number value',
+    ),
     'date': fields.DateTime(
-        description='Trait date value'),
+        description='Trait date value',
+    ),
 })
 
 
@@ -158,36 +198,46 @@ EntityNameWithLanguage = api.model('EntityNameWithLanguage', {
     'variant': fields.Constant(
         ctype='EntityNameCode',
         attribute='name_variant',
-        description='Name variant'),
+        description='Name variant',
+    ),
     'language': fields.Constant(
         ctype='LanguageCode',
         attribute='name_language',
-        description='Language'),
+        description='Language',
+    ),
     'name': fields.base.String(
-        description='Name'),
+        description='Name',
+    ),
 })
 
 
 EntityConsent = api.model('EntityConsent', {
     'name': fields.base.String(
-        description='Consent name'),
+        description='Consent name',
+    ),
     'description': fields.base.String(
-        description='Consent description'),
+        description='Consent description',
+    ),
     'type': fields.base.String(
-        description='Consent type'),
+        description='Consent type',
+    ),
     'set_at': fields.DateTime(
         dt_format='iso8601',
-        description='Consent set at'),
+        description='Consent set at',
+    ),
     'expires': fields.DateTime(
         dt_format='iso8601',
-        description='Consent expires at'),
+        description='Consent expires at',
+    ),
 })
 
 
 # Model for referencing OUs by ID
 OU = api.model('OU', {
     'href': fields.href(
-        '.ou', description='OU resource URL'),
+        '.ou', description='OU resource URL',
+    ),
     'id': fields.base.Integer(
-        description='OU entity ID'),
+        description='OU entity ID',
+    ),
 })

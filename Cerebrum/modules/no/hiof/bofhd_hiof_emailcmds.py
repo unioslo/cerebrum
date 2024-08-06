@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2007-2018 University of Oslo, Norway
+# Copyright 2007-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,12 +18,6 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ HiOF bohfd email module. """
-import imaplib
-import socket
-
-from six import text_type
-
-import cereconf
 
 from Cerebrum import Utils
 from Cerebrum import Errors
@@ -33,8 +27,6 @@ from Cerebrum.modules.bofhd import cmd_param
 from Cerebrum.modules.bofhd.bofhd_utils import copy_command
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.help import merge_help_strings
-from Cerebrum.modules.no.uio.bofhd_uio_cmds import ConnectException
-from Cerebrum.modules.no.uio.bofhd_uio_cmds import TimeoutException
 
 
 def format_day(field):

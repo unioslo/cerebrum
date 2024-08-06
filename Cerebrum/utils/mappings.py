@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2020 University of Oslo, Norway
+# Copyright 2020-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -21,18 +21,23 @@
 """
 This module contains common implementations of the collections.mapping API.
 """
-
+import sys
 import warnings
-try:
-    # PY3: collections.Mapping disappears in 3.8
-    from collections.abc import Mapping as _Mapping
-except ImportError:
-    from collections import Mapping as _Mapping
+
+
+if sys.version_info >= (3, 3):
+    # PY3: collections.abc is introduced in 3.3,
+    #      and collections.Mapping disappears in 3.8.
+    #      The six.moves.collection_abc import is broken in some versions, so
+    #      better to avoid it.
+    from collections.abc import Mapping
+else:
+    from collections import Mapping
 
 import six
 
 
-class SimpleMap(_Mapping):
+class SimpleMap(Mapping):
     """
     A simple mapping base class.
 

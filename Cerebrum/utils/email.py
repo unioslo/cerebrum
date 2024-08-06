@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2004-2018 University of Oslo, Norway
+# Copyright 2004-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,8 +18,8 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" Utilities for sending e-mail.
-
+"""
+Utilities for sending e-mail.
 
 cereconf
 --------
@@ -36,27 +36,51 @@ cereconf
 
 TODO
 ----
-- Clean up the sendmail and mail_template functions.
-- Consider removing possibility for using different sender/receivers than
-  what's in the email headers.
-- Consider using a global, default sender email address (no-reply)
-- Replace all use of mail_template with proper (jinja2) template rendering and
-  just sendmail/send_message?
+Separate formatting and sending
+    We should split our functions (``sendmail``, ``mail_template``) into
+    preparing messages and sending messages.  Rough suggestion:
 
+    1. Define a PreparedMessage class to wrap a MIMEBase message object,
+       along with *SMTP.sendmail* arguments.
+
+    2. Change ``mail_template`` and ``sendmail`` to create a PreparedMessage
+       rather than actually sending mail
+
+    3. Rewrite ``send_message`` to take a single PreparedMessage and send it
+       using the wrapped arguments.
+
+Simplify sendmail
+    Do we really need to separate between our headers (To, Cc) and our actual
+    recipients?
+
+Global sender
+    We should consider using a global, *default* sender email address, e.g. a
+    ``cereconf.SMTP_DEFAULT_SENDER = "Cerebrum <noreply@usit.uio.no>"``
+    so that we don't have to specify this to everything that sends mail.
+
+Better templates
+    The templating system should ideally be replaced with simple jinja2
+    templates.
 """
-
-from __future__ import absolute_import
-
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import copy
 import io
 import logging
 import smtplib
 import re
+import os
 from email.header import Header
 from email.mime.text import MIMEText
 from email.utils import formatdate, getaddresses
 
 import six
+
+from . import text_compat
 
 import cereconf
 
@@ -124,7 +148,7 @@ def legacy_validate_lp(localpart):
     if localpart.count(".."):
         raise ValueError("invalid atom in localpart (..)")
     # No "specials" (RFC 2822 3.2.1)
-    specials = re.findall(r'[()<>[]:;@\\,]', localpart)
+    specials = re.findall(r'[()<>\[\]:;@\\,]', localpart)
     if specials:
         raise ValueError("invalid chars in localpart: " + repr(set(specials)))
 
@@ -161,23 +185,18 @@ def legacy_validate_domain(domain):
                              % repr(domain))
 
 
-def get_charset(message, default='ascii'):
-    """
-    :type message: email.message.Message
-    :return str: returns the charset name
-    """
-    charset = message.get_charset()
-    return str(charset) if charset else default
-
-
 def render_message(message):
     """ Get a formatted string from an email message object.
 
     :type message: email.message.Message
     :return six.text_type: returns the raw email message
     """
-    email_bytes = message.as_string()
-    return email_bytes.decode(get_charset(message))
+    raw_msg = message.as_string()
+    if isinstance(raw_msg, bytes):
+        # PY2
+        charset = message.get_charset()
+        return raw_msg.decode(str(charset) if charset else "ascii")
+    return raw_msg
 
 
 def sendmail(toaddr, fromaddr, subject, body, cc=None,
@@ -254,9 +273,9 @@ def mail_template(recipient, template_file, sender=None, cc=None,
         If ``True``, don't send email - just return the email contents.
     """
     if not template_file.startswith('/'):
-        template_file = cereconf.TEMPLATE_DIR + "/" + template_file
+        template_file = os.path.join(cereconf.TEMPLATE_DIR, template_file)
     with io.open(template_file, encoding=charset, mode='r') as f:
-        message = u''.join(f.readlines())
+        message = f.read()
 
     substitute = dict(substitute or ())
     substitute['RECIPIENT'] = recipient
@@ -265,21 +284,22 @@ def mail_template(recipient, template_file, sender=None, cc=None,
 
     for key, value in substitute.items():
         try:
-            if not isinstance(value, six.text_type):
-                value = six.text_type(value)
+            value = text_compat.to_text(value)
             message = message.replace("${%s}" % key, value)
         except Exception:
             logger.error("unable to insert key %r into template %r",
                          key, template_file)
             raise
 
-    headers, body = message.split('\n\n', 1)
+    headers, body = message.split("\n\n", 1)
     msg = MIMEText(body, _charset=charset)
     # Date is always set, and shouldn't be in the template
     msg['Date'] = formatdate(localtime=True)
-    preset_fields = {'from': sender,
-                     'to': recipient,
-                     'subject': '<none>'}
+    preset_fields = {
+        'from': sender,
+        'to': recipient,
+        'subject': "<none>",
+    }
     for header in headers.split('\n'):
         field, value = map(six.text_type.strip, header.split(':', 1))
         field = field.lower()
@@ -386,7 +406,10 @@ def _send_message(smtp_obj, msg,
     msg_copy = copy.copy(msg)
     del msg_copy['Bcc']
     del msg_copy['Resent-Bcc']
-    flatmsg = msg_copy.as_string()
+    if six.PY2:
+        flatmsg = msg_copy.as_string()
+    else:
+        flatmsg = msg_copy.as_bytes()
     logger.info("sending email to %r", to_addrs)
     result = smtp_obj.sendmail(from_addr, to_addrs, flatmsg, mail_options,
                                rcpt_options)

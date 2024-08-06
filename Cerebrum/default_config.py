@@ -41,6 +41,13 @@ from sys import prefix
 # localized datetime values.
 TIMEZONE = 'Europe/Oslo'
 
+# Environment
+#
+# This value *should* be set to a string to identify the current environment.
+# For production, this is usually something like "cerebrum-<foo>"
+#
+ENVIRONMENT = None
+
 # Files containing the authentication data needed for database access
 # are kept in this directory.
 DB_AUTH_DIR = pj(prefix, 'etc', 'passwords')
@@ -1143,62 +1150,6 @@ SMS_DISABLE = False
 # A mapping of building codes to their addresses. Used by the SAP import of
 # people, for adding OFFICE adresses and room numbers.
 BUILDING_CODES = {}
-
-#
-# Guest accounts
-#
-
-# Note that these configuration variables should be put in their own file,
-# guestconfig.py, in the same location as cereconf.py.
-
-# The maximum number of days a guest account can live. The set expire date for
-# guest accounts can not be longer than this. It is, however, possible to set
-# it lower than this.
-GUEST_MAX_DAYS = 30
-
-# The different types of guests. This is a dict where each element is a type
-# with the different settings for the given type of guest accounts. The dict's
-# keys are the guest group that the account should be added to. Possible
-# variables:
-#
-#  - prefix -   Prefix for the usernames. Used when creating guest accounts.
-#               Must be set.
-#  - spreads -  A list of spreads to add to the guest account at creation.
-#               Optional.
-#
-# Example:
-#  {'gueststudent':  {'prefix': 'guests-',
-#                     'spread': ('stud_account@AD',),},
-#   'guestemployee': {'prefix': 'guesta-',
-#                     'spread': ('account@AD',),},
-GUEST_TYPES = {}
-
-# The default GUEST_TYPES choice. This will be presented as the default choice
-# when using 'guest create' and then giving arguments interactively.
-GUEST_TYPES_DEFAULT = ''
-
-# The group that stands as the 'owner' of the guest accounts. Note that this is
-# the owner group, and not the 'responsible' for the guest, which is a
-# different thing which is stored in a trait.
-GUEST_OWNER_GROUP = 'guestaccounts'
-
-# The maximum number of simultaneously active guest accounts a given person
-# could create. Superusers are still able to create more than this.
-GUEST_MAX_PER_PERSON = 100
-
-# The message that should be sent to guest accounts that are registered with a
-# mobile phone number. Some input variables are needed, like 'username',
-# 'password' and 'expire' with the expire date, formated like YYYY-MM-DD.
-GUEST_WELCOME_SMS = ('Welcome.\n'
-                     'Your username is: %(username)s\n'
-                     'Your password is: %(password)s\n'
-                     'The account will expire at %(expire)s')
-
-# The maximum length of the username of guest accounts. Used to restrict the
-# length of usernames when generating them, to conform with limits of some
-# systems
-GUEST_MAX_LENGTH_USERNAME = 20
-
 
 # This switch decides if users are allowed to supply a phone number to send SMS
 # to, in bofhd commands that sends SMS-es.

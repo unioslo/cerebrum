@@ -1,7 +1,6 @@
-#!/usr/bin/env python2
 # encoding: utf-8
 #
-# Copyright 2015 University of Oslo, Norway
+# Copyright 2015-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,143 +17,98 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-u""" This is an auth module for use with bofhd_consent_cmds. """
-
-import cereconf
+"""
+Auth implementation for mod:`.bofhd_consent_cmds`.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd import auth
 from Cerebrum.modules.bofhd.errors import PermissionDenied
 
 
-class BofhdAuth(auth.BofhdAuth):
-    u""" Methods to control command access. """
+def _get_account_by_id(db, account_id):
+    account = Factory.get('Account')(db)
+    account.find(account_id)
+    return account
 
-    def _get_operator_account(self, operator):
-        u""" Get the operator account.
 
-        :param int operator: The operator entity_id.
+class BofhdConsentAuth(auth.BofhdAuth):
+    """ Methods to control command access. """
 
-        :return Cerebrum.Account: The operator account.
+    def _can_modify_consent(self, operator_id, entity):
+        """ Check if operator can modify consents for entity.  """
+        curr_user = _get_account_by_id(self._db, operator_id)
 
-        """
-        account = Factory.get('Account')(self._db)
-        account.find(operator)
-        return account
+        if curr_user.entity_id == entity.entity_id:
+            return True
 
-    def is_entity(self, operator, entity):
-        u""" Checks if operator is entity.
+        if curr_user.entity_id == getattr(entity, "owner_id", None):
+            return True
 
-        :param int operator: The operator entity_id
-        :param Cerebrum.Entity entity: The entity to check.
+        if curr_user.owner_id == entity.entity_id:
+            return True
 
-        :return bool:
-            True if operator has the same entity_id as entity.
-
-        """
-        op_acc = self._get_operator_account(operator)
-        return op_acc.entity_id == getattr(entity, 'entity_id', None)
-
-    def is_entity_owner(self, operator, entity):
-        u""" Checks if operator is the owner of entity.
-
-        :param int operator: The operator entity_id
-        :param Cerebrum.Entity entity: The entity to check.
-
-        :return bool:
-            True if operator is the owner_id of entity.
-
-        """
-        op_acc = self._get_operator_account(operator)
-        return op_acc.entity_id == getattr(entity, 'owner_id', None)
-
-    def is_owned_by_entity(self, operator, entity):
-        u""" Checks if entity is the owner of operator.
-
-        :param int operator: The operator entity_id
-        :param Cerebrum.Entity entity: The entity to check.
-
-        :return bool:
-            True if entity is the owner_id of operator.
-
-        """
-        op_acc = self._get_operator_account(operator)
-        return op_acc.owner_id == getattr(entity, 'entity_id', None)
+        raise PermissionDenied(
+            "Not allowed to see or change consent on this %s (id=%s)"
+            % (self.const.EntityType(entity.entity_type), entity.entity_id))
 
     def can_set_consent(self, operator, entity=None, query_run_any=False):
-        u""" Checks if operator can set consent for entity.
+        """
+        Checks if operator can set consent for entity.
 
-        :param int operator:
-            The operator entity_id.
-        :param Cerebrum.Entity entity:
-            The entity to check.
-        :param bool query_run_any:
-            If client is fetching list of allowed commands.
+        :param int operator: entity_id of operator
+        :param Cerebrum.Entity entity: entity object to check
+        :param bool query_run_any: to check if command should be listed
 
-        :return bool: True if authorization is granted.
-
-        :raise PermissionDenied: If authorization is denied.
-
+        :return bool: True if authorization is granted
+        :raise PermissionDenied: If authorization is denied
         """
         if query_run_any:
-            return True  # Should be available to everyone
-
-        if self.is_entity(operator, entity):
+            # Command is available to everyone
             return True
-        if self.is_entity_owner(operator, entity):
-            return True
-        if self.is_owned_by_entity(operator, entity):
-            return True
-        raise PermissionDenied(
-            "Not allowed to see or change consent on this %s (entity_id=%s)." %
-            (self.const.EntityType(entity.entity_type), entity.entity_id))
+        return self._can_modify_consent(operator, entity)
 
     def can_unset_consent(self, operator, entity=None, query_run_any=False):
-        u""" Checks if operator can remove consent for entity.
-
-        :param int operator:
-            The operator entity_id.
-        :param Cerebrum.Entity entity:
-            The entity to check.
-        :param bool query_run_any:
-            If client is fetching list of allowed commands.
-
-        :return bool: True if authorization is granted.
-
-        :raise PermissionDenied: If authorization is denied.
-
         """
-        # The same rules should apply to unsetting:
-        return self.can_set_consent(operator,
-                                    entity=entity,
-                                    query_run_any=query_run_any)
+        Checks if operator can remove consent for entity.
 
-    def can_show_consent_info(
-            self, operator, entity=None, query_run_any=False):
-        u""" Checks if operator can list consents set for entity.
+        :param int operator: entity_id of operator
+        :param Cerebrum.Entity entity: entity object to check
+        :param bool query_run_any: to check if command should be listed
 
-        :param int operator:
-            The operator entity_id.
-        :param Cerebrum.Entity entity:
-            The entity to check.
-        :param bool query_run_any:
-            If client is fetching list of allowed commands.
-
-        :return bool: True if authorization is granted.
-
-        :raise PermissionDenied: If authorization is denied.
-
+        :return bool: True if authorization is granted
+        :raise PermissionDenied: If authorization is denied
         """
+        if query_run_any:
+            # Command is available to everyone
+            return True
+        return self._can_modify_consent(operator, entity)
+
+    def can_show_consent_info(self, operator, entity=None,
+                              query_run_any=False):
+        """
+        Checks if operator can list consents set for entity.
+
+        :param int operator: entity_id of operator
+        :param Cerebrum.Entity entity: entity object to check
+        :param bool query_run_any: to check if command should be listed
+
+        :return bool: True if authorization is granted
+        :raise PermissionDenied: If authorization is denied
+        """
+        if query_run_any:
+            # Command is available to everyone
+            return True
         if self.is_superuser(operator, query_run_any=query_run_any):
             return True
-        # The same rules should apply to viewing:
-        return self.can_set_consent(operator,
-                                    entity=entity,
-                                    query_run_any=query_run_any)
+        return self._can_modify_consent(operator, entity)
 
     def can_list_consents(self, operator, query_run_any=False):
-        u""" Checks if operator can list all consent types. """
+        """ Checks if operator can list all consent types. """
         return True
-
-if __name__ == '__main__':
-    del cereconf

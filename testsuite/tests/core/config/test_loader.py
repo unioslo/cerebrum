@@ -1,19 +1,25 @@
 #!/usr/bin/env python
 # encoding: utf-8
 """ Unit tests for Cerebrum.config.loader. """
-
-import pytest
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import os
 import stat
+
+import pytest
 
 
 @pytest.fixture
 def loader(monkeypatch, config_dir, tmpdir):
     mod = pytest.importorskip("Cerebrum.config.loader")
     # Set the default config dir to our test configs
-    monkeypatch.setattr(mod, 'default_dir', config_dir)
+    monkeypatch.setattr(mod, 'DEFAULT_DIR', config_dir)
     # set user_dir to an empty directory
-    monkeypatch.setattr(mod, 'user_dir', str(tmpdir))
+    monkeypatch.setattr(mod, 'USER_DIR', str(tmpdir))
     return mod
 
 
@@ -23,7 +29,7 @@ def config_cls():
     return mod.Config
 
 
-@pytest.yield_fixture
+@pytest.fixture
 def no_r(tmpdir):
     old_stat = os.stat(str(tmpdir))
     # chmod a-r
@@ -35,7 +41,7 @@ def no_r(tmpdir):
     os.chmod(str(tmpdir), old_stat.st_mode)
 
 
-@pytest.yield_fixture
+@pytest.fixture
 def no_x(tmpdir):
     old_stat = os.stat(str(tmpdir))
     # chmod a-x

@@ -42,6 +42,7 @@ from Cerebrum.modules.bofhd import bofhd_email
 from Cerebrum.modules.bofhd import bofhd_group_roles
 from Cerebrum.modules.bofhd import bofhd_misc_sms
 from Cerebrum.modules.bofhd import bofhd_ou_cmds
+from Cerebrum.modules.bofhd import bofhd_quarantines
 from Cerebrum.modules.bofhd import cmd_param
 from Cerebrum.modules.bofhd.bofhd_access import BofhdAccessCommands
 from Cerebrum.modules.bofhd.bofhd_contact_info import BofhdContactCommands
@@ -139,11 +140,6 @@ copy_uio = [
     'person_set_id',
     'person_set_name',
     'person_set_user_priority',
-    'quarantine_disable',
-    'quarantine_list',
-    'quarantine_remove',
-    'quarantine_set',
-    'quarantine_show',
     'spread_add',
     'spread_list',
     'spread_remove',
@@ -1463,6 +1459,10 @@ class HistoryCommands(bofhd_history_cmds.BofhdHistoryCmds):
 
 class OuCommands(bofhd_ou_cmds.OuCommands):
     authz = bofhd_uia_auth.OuAuth
+
+
+class QuarantineCommands(bofhd_quarantines.BofhdQuarantineCommands):
+    authz = bofhd_uia_auth.QuarantineAuth
 
 
 class SmsCommands(bofhd_misc_sms.BofhdSmsCommands):

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2016-2023 University of Oslo, Norway
+# Copyright 2016-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,7 +18,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
-This module defines all necessary config for the publishing AMQP client.
+This module defines all necessary config for the event publisher.
 
 Example YAML-config, ``event_daemon.yaml``:
 ::
@@ -54,71 +54,101 @@ from __future__ import (
     print_function,
     unicode_literals,
 )
+import textwrap
 
-from Cerebrum.config.loader import read, read_config
-from Cerebrum.config.configuration import (Namespace,
-                                           Configuration,
-                                           ConfigDescriptor)
+from Cerebrum.config import loader
+from Cerebrum.config.configuration import (
+    ConfigDescriptor,
+    Configuration,
+    Namespace,
+)
 from Cerebrum.config.settings import Integer
 from Cerebrum.modules.amqp.config import PublisherConfig
+from Cerebrum.utils.date import to_seconds
 
 from .scim import ScimFormatterConfig
 
 
-# AMQP client config
-
 class EventCollectorConfig(Configuration):
-    """ Configuration of the event collector. """
+    """
+    Configuration of the event collector.
+
+    The event collector catches events that are already in the queue for being
+    published, but we haven't been notified about for some reason.
+
+    Most of these will be failed events that we want to retry.  It runs
+    periodically, and this config decides how often we collect and publish
+    these events.
+    """
 
     run_interval = ConfigDescriptor(
         Integer,
         minval=1,
         default=180,
-        doc='How often (in seconds) we fetch events')
+        doc="How often (in seconds) we fetch/look for events to publish",
+    )
+
+    failed_delay = ConfigDescriptor(
+        Integer,
+        minval=1,
+        default=to_seconds(minutes=20),
+        doc=textwrap.dedent(
+            """
+            How long should we wait (in seconds) before re-trying a failed
+            event.
+            """
+        ).strip(),
+    )
 
     failed_limit = ConfigDescriptor(
         Integer,
         minval=1,
         default=10,
-        doc='How many times we try to re-queue an event')
-
-    failed_delay = ConfigDescriptor(
-        Integer,
-        minval=1,
-        default=20*60,
-        doc=('How long (seconds) should we wait before processesing the '
-             'event again'))
+        doc="How many times we re-try to publish an event before giving up.",
+    )
 
     unpropagated_delay = ConfigDescriptor(
         Integer,
         minval=1,
-        default=90*60,
-        doc=('How old (seconds) should an event not registered as '
-             'processesed be before we enqueue it'))
+        default=to_seconds(hours=1, minutes=30),
+        doc=textwrap.dedent(
+            """
+            How old should an event be (in seconds) before we publish it.  This
+            mainly deals with events where we've missed the notification for
+            some reason.
+            """
+        ).strip(),
+    )
 
 
 class EventDaemonConfig(Configuration):
+    """
+    The full config file structure for our event publisher daemon.
+    """
 
     event_publisher = ConfigDescriptor(
         Namespace,
-        config=PublisherConfig)
+        config=PublisherConfig,
+    )
 
     event_formatter = ConfigDescriptor(
         Namespace,
-        config=ScimFormatterConfig)
+        config=ScimFormatterConfig,
+    )
 
     event_daemon_collector = ConfigDescriptor(
         Namespace,
-        config=EventCollectorConfig)
+        config=EventCollectorConfig,
+    )
 
 
 def _load_partial_config(cls, root_name, filepath):
     """ Try to load a given config into a config class `cls`. """
     config = cls()
     if filepath:
-        config.load_dict(read_config(filepath))
+        config.load_dict(loader.read_config(filepath))
     else:
-        read(config, root_name)
+        loader.read(config, root_name)
     config.validate()
     return config
 

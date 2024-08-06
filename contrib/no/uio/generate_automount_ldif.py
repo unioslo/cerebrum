@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright 2003-2018 University of Oslo, Norway
+#
+# Copyright 2003-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,21 +18,33 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
 """
-Generate an LDIF file with automount information for all disks with
-a host and at least one user."""
+Generate LDIF with disk automount info.
+
+Generates an LDIF file with automount information for all disks with
+a host and at least one user.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import argparse
-from six import text_type
+import logging
 
+import Cerebrum.logutils
+import Cerebrum.logutils.options
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.LDIFutils import (ldapconf,
-                                        entry_string,
-                                        ldif_outfile,
-                                        container_entry_string)
+from Cerebrum.modules.LDIFutils import (
+    container_entry_string,
+    entry_string,
+    ldapconf,
+    ldif_outfile,
+)
 
-logger = Factory.get_logger("cronjob")
+logger = logging.getLogger(__name__)
 
 
 def generate_automount(f):
@@ -62,7 +75,7 @@ def generate_automount(f):
 
     f.write(container_entry_string('AUTOMOUNT_MASTER'))
 
-    for path in paths:
+    for path in sorted(paths):
         entry = {}
         entry['objectClass'] = ['top', 'automount']
         dn = "cn={},{}".format(
@@ -92,21 +105,28 @@ def generate_automount(f):
         f.write(entry_string(dn, entry))
 
 
-def main():
+def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         '-o', '--output',
-        type=text_type,
         dest='output',
-        help='output file')
-    args = parser.parse_args()
+        help='output file',
+    )
+    Cerebrum.logutils.options.install_subparser(parser)
+
+    args = parser.parse_args(argv)
+    Cerebrum.logutils.autoconf("cronjob", args)
+
+    logger.info("start %s", parser.prog)
+    logger.debug("args %s", repr(args))
 
     f = ldif_outfile('AUTOMOUNT', args.output)
     logger.info('Starting automount export to %s', f.name)
     f.write(container_entry_string('AUTOMOUNT'))
     generate_automount(f)
     f.close()
-    logger.info('Done')
+
+    logger.info("done %s", parser.prog)
 
 
 if __name__ == '__main__':

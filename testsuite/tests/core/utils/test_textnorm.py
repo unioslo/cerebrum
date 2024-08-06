@@ -1,30 +1,18 @@
-#!/usr/bin/env python
 # encoding: utf-8
-#
-# Copyright 2018 University of Oslo, Norway
-#
-# This file is part of Cerebrum.
-#
-# Cerebrum is free software; you can redistribute it and/or modify it
-# under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# Cerebrum is distributed in the hope that it will be useful, but
-# WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-# General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with Cerebrum; if not, write to the Free Software Foundation,
-# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" Tests for Cerebrum.utils.funcwrap function wrappers. """
-
-from __future__ import unicode_literals, print_function
-
+"""
+Tests for mod:`Cerebrum.utils.textnorm`
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import codecs
 import io
+
 import pytest
+import six
 
 from Cerebrum.utils import textnorm
 
@@ -44,6 +32,42 @@ def test_normalize_codec_init():
 def test_normalize_invalid_form():
     with pytest.raises(ValueError):
         textnorm.UnicodeNormalizer('NFE')
+
+
+@pytest.fixture
+def nfc():
+    return textnorm.UnicodeNormalizer('NFC', False)
+
+
+def test_normalize_form_get(nfc):
+    assert nfc.form == "NFC"
+
+
+def test_normalize_form_set(nfc):
+    nfc.form = "NFD"
+    assert nfc.form == "NFD"
+
+
+def test_normalize_form_invalid(nfc):
+    with pytest.raises(ValueError):
+        nfc.form = "NFE"
+
+
+def test_normalize_form_del(nfc):
+    del nfc.form
+    assert nfc.form is None
+
+
+def test_normalize_repr(nfc):
+    expect = (
+        "Cerebrum.utils.textnorm.UnicodeNormalizer("
+        + repr(nfc.form) + ", codec=False)"
+    )
+    assert repr(nfc) == expect
+
+
+def test_normalize_str(nfc):
+    assert six.text_type(nfc) == nfc.form
 
 
 # tuples with (testname, normalization form, input, expected output)
@@ -75,6 +99,14 @@ def test_normalize(form, data, expect):
     assert norm == expect
 
 
+def test_normalize_bytes():
+    # Ref TODO in the textnorm module - should this rather cause an error?
+    normalize = textnorm.UnicodeNormalizer("NFC")
+    text = "blåbærøl"
+    byte_input = text.encode("utf-8")
+    assert normalize(byte_input) == text
+
+
 @norm_params
 def test_normalize_codec_compat(form, data, expect):
     normalize = textnorm.UnicodeNormalizer(form, codec=True)
@@ -83,45 +115,45 @@ def test_normalize_codec_compat(form, data, expect):
 
 
 @pytest.fixture
-def Codec():
+def utf8_codec():
     return codecs.lookup('utf-8')
 
 
-def test_normalizing_codec_patch(Codec):
-    textnorm.NormalizingCodec.patch(Codec.streamreader)
-    textnorm.NormalizingCodec.patch(Codec.streamwriter)
+def test_normalizing_codec_patch(utf8_codec):
+    textnorm.NormalizingCodec.patch(utf8_codec.streamreader)
+    textnorm.NormalizingCodec.patch(utf8_codec.streamwriter)
 
 
 @norm_params
-def test_normalizing_codec_wrap(Codec, form, data, expect):
+def test_normalizing_codec_wrap(utf8_codec, form, data, expect):
 
     @textnorm.NormalizingCodec.wrap(encode=form, decode=form)
     class FooCodec(codecs.Codec):
 
         def encode(self, input, errors='strict'):
-            return Codec.encode(input, errors)
+            return utf8_codec.encode(input, errors)
 
         def decode(self, input, errors='strict'):
-            return Codec.decode(input, errors)
+            return utf8_codec.decode(input, errors)
 
     codec = FooCodec()
 
-    assert codec.encode(data)[0] == expect.encode(Codec.name)
-    assert codec.decode(data.encode(Codec.name))[0] == expect
+    assert codec.encode(data)[0] == expect.encode(utf8_codec.name)
+    assert codec.decode(data.encode(utf8_codec.name))[0] == expect
 
 
 @norm_params
-def test_normalizing_codec_read(Codec, form, data, expect):
-    Reader = textnorm.NormalizingCodec.patch(Codec.streamreader,
+def test_normalizing_codec_read(utf8_codec, form, data, expect):
+    reader = textnorm.NormalizingCodec.patch(utf8_codec.streamreader,
                                              decode=form)
-    with Reader(io.BytesIO(data.encode(Codec.name))) as stream:
+    with reader(io.BytesIO(data.encode(utf8_codec.name))) as stream:
         assert stream.read() == expect
 
 
 @norm_params
-def test_normalizing_codec_write(Codec, form, data, expect):
-    NormWriter = textnorm.NormalizingCodec.patch(Codec.streamwriter,
-                                                 encode=form)
-    with NormWriter(io.BytesIO()) as bytestream:
+def test_normalizing_codec_write(utf8_codec, form, data, expect):
+    norm_writer = textnorm.NormalizingCodec.patch(utf8_codec.streamwriter,
+                                                  encode=form)
+    with norm_writer(io.BytesIO()) as bytestream:
         bytestream.write(data)
-        assert bytestream.getvalue() == expect.encode(Codec.name)
+        assert bytestream.getvalue() == expect.encode(utf8_codec.name)

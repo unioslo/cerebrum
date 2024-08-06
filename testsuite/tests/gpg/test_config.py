@@ -46,3 +46,20 @@ def test_encrypter_get_invalid_recipients(gpg_encrypter):
     tag = 'this-tag-should-not-exist-f99a63edeebbe1cc'
     with pytest.raises(ValueError):
         assert gpg_encrypter.get_recipients(tag)
+
+
+def test_encrypter_encrypt(gpg_encrypter, gpg_key):
+    messages = list(
+        gpg_encrypter.encrypt_message("foo", "super secret message"))
+    assert len(messages) == 1
+    assert len(messages[0]) == 3
+    tag, key, gpg_message = messages[0]
+    assert tag == "foo"
+    assert key == gpg_key
+    assert gpg_message
+
+
+def test_encrypter_encrypt_empty(gpg_encrypter):
+    messages = list(
+        gpg_encrypter.encrypt_message("bar", "super secret message"))
+    assert len(messages) == 0

@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # encoding: utf-8
 #
-# Copyright 2015 University of Oslo, Norway
+# Copyright 2015-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,25 +17,39 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""
+This module contains simple file locking tools.
 
-"""This module contains simple file locking tools."""
-
+The code is based on <https://github.com/derpston/python-simpleflock/>, which
+is published under the terms of WTFPL <http://www.wtfpl.net/>.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import errno
 import fcntl
 import os
 import time
 
 
-# Based on https://github.com/derpston/python-simpleflock/blob/master/src/simpleflock.py
-class SimpleFlock(object):
-    """Provides the simplest possible interface to flock-based file locking.
-    Intended for use with the `with` syntax. It will create/truncate/delete the
-    lock file as necessary."""
+DEFAULT_TIMEOUT = 60
 
-    def __init__(self, path, lock_type=None, timeout=None):
+
+class SimpleFlock(object):
+    """
+    Provides the simplest possible interface to flock-based file locking.
+
+    Intended for use as a context manager (``with`` syntax).
+    It will create/truncate/delete the lock file as necessary.
+    """
+
+    def __init__(self, path, lock_type, timeout=None):
         self._path = path
         if lock_type is None:
-            raise LockError('Must specify lock_type')
+            raise LockError("Must specify lock_type")
         self.lock_type = lock_type
         self._timeout = timeout
         self._fd = None
@@ -53,10 +66,11 @@ class SimpleFlock(object):
                 # Resource temporarily unavailable
                 if ex.errno != errno.EAGAIN:
                     raise
-                elif self._timeout is not None and time.time() > (
-                        start_lock_search + self._timeout):
+                elif (self._timeout is not None
+                      and time.time() > (start_lock_search + self._timeout)):
                     # Exceeded the user-specified timeout.
-                    raise LockError('Timeout exceeded for lock {!r}'.format(self._path))
+                    raise LockError("Timeout exceeded for lock "
+                                    + repr(self._path))
 
             # It would be nice to avoid an arbitrary sleep here, but spinning
             # without a delay is also undesirable.
@@ -68,11 +82,11 @@ class SimpleFlock(object):
         self._fd = None
 
         # Try to remove the lock file, but don't try too hard because it is
-        # unnecessary. This is mostly to help the user see whether a lock
+        # unnecessary.  This is mostly to help the user see whether a lock
         # exists by examining the filesystem.
         try:
             os.unlink(self._path)
-        except:
+        except Exception:
             pass
 
 
@@ -82,7 +96,8 @@ class LockError(Exception):
 
 class ReadLock(SimpleFlock):
     """Acquires a shared file lock."""
-    def __init__(self, path, timeout=60):
+
+    def __init__(self, path, timeout=DEFAULT_TIMEOUT):
         super(ReadLock, self).__init__(path,
                                        lock_type=fcntl.LOCK_SH,
                                        timeout=timeout)
@@ -90,7 +105,8 @@ class ReadLock(SimpleFlock):
 
 class WriteLock(SimpleFlock):
     """Acquires an exclusive file lock."""
-    def __init__(self, path, timeout=60):
+
+    def __init__(self, path, timeout=DEFAULT_TIMEOUT):
         super(WriteLock, self).__init__(path,
                                         lock_type=fcntl.LOCK_EX,
                                         timeout=timeout)

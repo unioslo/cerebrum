@@ -1,6 +1,7 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2020-2022 University of Oslo, Norway
+# Copyright 2020-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -41,10 +42,16 @@ A short example to show how :class:`.Secret` can be used:
         'password': 'file:/etc/secret_password',
     })
 
-    # Fetch secret from configuration.
+    # Fetch credentials from configuration.
+    username = config.username
     password = get_secret_from_string(config.password)
 """
-from __future__ import print_function
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import six
 
