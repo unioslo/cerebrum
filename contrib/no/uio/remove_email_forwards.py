@@ -169,6 +169,8 @@ def main(args=None):
     prog_name = parser.prog.rsplit('.', 1)[0]
     logger.info(args.send_notification)
 
+    logger.info('Starting {}'.format(prog_name))
+
     db = Factory.get('Database')()
     db.cl_init(change_program=prog_name)
 
@@ -179,7 +181,7 @@ def main(args=None):
 
     iterate_persons(db, args, config)
 
-    logger.info('Starting {}'.format(prog_name))
+    logger.info('Done {}'.format(prog_name))
 
 
 if __name__ == "__main__":
