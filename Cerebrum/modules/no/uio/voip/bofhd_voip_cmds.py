@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
 #
-# Copyright 2010-2023 University of Oslo, Norway
+# Copyright 2010-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,6 +18,14 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """This module implements a bofhd extension for the voip module."""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+import logging
+
 import six
 
 import cereconf
@@ -25,30 +33,20 @@ import cereconf
 from Cerebrum import Errors
 from Cerebrum.Entity import EntityContactInfo
 from Cerebrum.Utils import Factory
+from Cerebrum.modules.bofhd import cmd_param
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
-from Cerebrum.modules.bofhd.cmd_param import Command
-from Cerebrum.modules.bofhd.cmd_param import FormatSuggestion
-from Cerebrum.modules.bofhd.cmd_param import OU
-from Cerebrum.modules.bofhd.cmd_param import SimpleString
-from Cerebrum.modules.bofhd.cmd_param import YesNo
 from Cerebrum.modules.bofhd.errors import CerebrumError
 from Cerebrum.modules.no.fodselsnr import InvalidFnrError
 from Cerebrum.modules.no.fodselsnr import personnr_ok
-from Cerebrum.modules.no.uio.voip import bofhd_voip_auth
-from Cerebrum.modules.no.uio.voip import bofhd_voip_help
-from Cerebrum.modules.no.uio.voip.cmd_param import ContactTypeParameter
-from Cerebrum.modules.no.uio.voip.cmd_param import MacAddress
-from Cerebrum.modules.no.uio.voip.cmd_param import PriorityParameter
-from Cerebrum.modules.no.uio.voip.cmd_param import VoipAddressParameter
-from Cerebrum.modules.no.uio.voip.cmd_param import VoipClientInfoCode
-from Cerebrum.modules.no.uio.voip.cmd_param import VoipClientParameter
-from Cerebrum.modules.no.uio.voip.cmd_param import VoipClientTypeCode
-from Cerebrum.modules.no.uio.voip.cmd_param import VoipOwnerParameter
-from Cerebrum.modules.no.uio.voip.cmd_param import VoipServiceParameter
-from Cerebrum.modules.no.uio.voip.cmd_param import VoipServiceTypeCode
-from Cerebrum.modules.no.uio.voip.voipAddress import VoipAddress
-from Cerebrum.modules.no.uio.voip.voipClient import VoipClient
-from Cerebrum.modules.no.uio.voip.voipService import VoipService
+
+from . import bofhd_voip_auth
+from . import bofhd_voip_help
+from . import cmd_param as voip_param
+from .voipAddress import VoipAddress
+from .voipClient import VoipClient
+from .voipService import VoipService
+
+logger = logging.getLogger(__name__)
 
 
 class BofhdVoipCommands(BofhdCommonMethods):
@@ -151,8 +149,8 @@ class BofhdVoipCommands(BofhdCommonMethods):
                 service.find(self._get_entity_id(designation))
                 return service
             except Errors.NotFoundError:
-                raise CerebrumError("Could not find voip service with id=%r" %
-                                    designation)
+                raise CerebrumError("Could not find voip service with id=%s" %
+                                    repr(designation))
 
         ids = service.search_voip_service_by_description(designation,
                                                          exact_match=True)
@@ -161,7 +159,7 @@ class BofhdVoipCommands(BofhdCommonMethods):
             return service
 
         raise CerebrumError("Could not uniquely determine voip_service "
-                            "from description %r" % designation)
+                            "from description %s" % repr(designation))
 
     def _get_voip_address_by_service_description(self, designation):
         try:
@@ -188,8 +186,6 @@ class BofhdVoipCommands(BofhdCommonMethods):
         except Errors.NotFoundError:
             return list()
 
-        assert False, "NOTREACHED"
-
     def _get_voip_address_by_owner_entity_id(self, designation):
         if not self._is_numeric_id(designation):
             return list()
@@ -201,8 +197,6 @@ class BofhdVoipCommands(BofhdCommonMethods):
             return [va, ]
         except Errors.NotFoundError:
             return list()
-
-        assert False, "NOTREACHED"
 
     def _get_voip_address_by_entity_id(self, designation):
         """Return all voip_addresses matching the specified entity_id."""
@@ -217,8 +211,6 @@ class BofhdVoipCommands(BofhdCommonMethods):
             return [va, ]
         except Errors.NotFoundError:
             return list()
-
-        assert False, "NOTREACHED"
 
     def _get_voip_address(self, designation, all_matches=False):
         """Collect voipAddress instance(s) matching designation.
@@ -245,8 +237,6 @@ class BofhdVoipCommands(BofhdCommonMethods):
             caller_name = "_get_voip_address_" + partial_name
             caller = getattr(self, caller_name)
             addrs = caller(value)
-            # self.logger.debug("Searcher %s returned %d VA(s)", caller_name,
-            #                   len(addrs))
             result.extend(x for x in addrs
                           if x.entity_id not in collected_ids)
             collected_ids.update(x.entity_id for x in addrs)
@@ -306,9 +296,9 @@ class BofhdVoipCommands(BofhdCommonMethods):
         client.write_db()
         client.set_auth_data(self.const.voip_auth_sip_secret,
                              client.generate_sip_secret())
-        self.logger.debug("Automatically generated softphone "
-                          "client id=%s for address %s",
-                          client.entity_id, voip_address_id)
+        logger.debug("Automatically generated softphone "
+                     "client id=%s for address %s",
+                     client.entity_id, voip_address_id)
 
     def _get_voip_client(self, designation):
         """Locate a voip_client by designation.
@@ -355,8 +345,6 @@ class BofhdVoipCommands(BofhdCommonMethods):
                 pass
 
         # fnr?
-        exc = CerebrumError("No person found for designation %r" %
-                            designation)
         id_type, value = self._human_repr2id(designation)
         if six.text_type(value).isdigit():
             try:
@@ -377,7 +365,8 @@ class BofhdVoipCommands(BofhdCommonMethods):
             pass
 
         # By other external ids? By name?
-        raise exc
+        raise CerebrumError("No person found for designation %r"
+                            % repr(designation))
 
     def _get_voip_owner(self, designation):
         """Locate the owner of a voip address.
@@ -392,15 +381,15 @@ class BofhdVoipCommands(BofhdCommonMethods):
           A voipService/Person instance, or raise CerebrumError if nothing
           appropriate is found.
         """
-
         for method in (self._get_voip_person, self._get_voip_service):
             try:
                 return method(designation)
             except CerebrumError:
                 pass
-
-        raise CerebrumError("Cannot locate person/voip-service designated "
-                            "by %r" % designation)
+        raise CerebrumError(
+            "Cannot locate person/voip-service designated by %s"
+            % repr(designation)
+        )
 
     def _get_contact_info(self, value):
         """Return a sequence of dicts containing entity_contact_info entries
@@ -489,11 +478,12 @@ class BofhdVoipCommands(BofhdCommonMethods):
     #
     # voip service_new
     #
-    all_commands["voip_service_new"] = Command(
+    all_commands["voip_service_new"] = cmd_param.Command(
         ("voip", "service_new"),
-        VoipServiceTypeCode(),
-        OU(),
-        SimpleString())
+        voip_param.VoipServiceTypeCode(),
+        cmd_param.OU(),
+        cmd_param.SimpleString(help_ref="voip-service-desc"),
+    )
 
     def voip_service_new(self, operator, service_type, ou_tag, description):
         """Create a new voip_service.
@@ -520,17 +510,18 @@ class BofhdVoipCommands(BofhdCommonMethods):
 
         # Create a corresponding voip_address...
         self._get_or_create_voip_address(service.entity_id)
-        return "OK, new voip_service (%s), entity_id=%s" % (
-            six.text_type(service_type),
-            service.entity_id)
+        return (
+            "OK, new voip_service (%s), entity_id=%s"
+            % (six.text_type(service_type), service.entity_id)
+        )
 
     #
     # voip service_info
     #
-    all_commands["voip_service_info"] = Command(
+    all_commands["voip_service_info"] = cmd_param.Command(
         ("voip", "service_info"),
-        VoipServiceParameter(),
-        fs=FormatSuggestion(
+        voip_param.VoipServiceParameter(),
+        fs=cmd_param.FormatSuggestion(
             "Entity id:     %d\n"
             "Service type:  %s\n"
             "Description:   %s\n"
@@ -541,14 +532,14 @@ class BofhdVoipCommands(BofhdCommonMethods):
              "description",
              "location",
              "traits",)
-        ))
+        ),
+    )
 
     def voip_service_info(self, operator, designation):
         """Return information about a voip_service.
 
         @param designation: either an entity_id or a description.
         """
-
         self.ba.can_view_voip_service(operator.get_entity_id())
         service = self._get_voip_service(designation)
         service_type = self.const.VoipServiceTypeCode(service.service_type)
@@ -564,12 +555,13 @@ class BofhdVoipCommands(BofhdCommonMethods):
     #
     # voip service_type_list
     #
-    all_commands["voip_service_type_list"] = Command(
+    all_commands["voip_service_type_list"] = cmd_param.Command(
         ("voip", "service_type_list"),
-        fs=FormatSuggestion(
-            "%-32s  %s", ("code_str", "description"),
-            hdr="%-32s  %s" % ("Type", "Description")
-        ))
+        fs=cmd_param.get_format_suggestion_table(
+            ("code_str", "Type", 35, "s", True),
+            ('description', "Description", 45, "s", True),
+        ),
+    )
 
     def voip_service_type_list(self, operator):
         """List available service_info_code values."""
@@ -578,9 +570,10 @@ class BofhdVoipCommands(BofhdCommonMethods):
     #
     # voip service_delete
     #
-    all_commands["voip_service_delete"] = Command(
+    all_commands["voip_service_delete"] = cmd_param.Command(
         ("voip", "service_delete"),
-        VoipServiceParameter())
+        voip_param.VoipServiceParameter(),
+    )
 
     def voip_service_delete(self, operator, designation):
         """Delete the specified voip_service.
@@ -592,18 +585,22 @@ class BofhdVoipCommands(BofhdCommonMethods):
         service = self._get_voip_service(designation)
         entity_id, description = service.entity_id, service.description
         service.delete()
-        return "OK, deleted voip_service id=%s, %s" % (entity_id,
-                                                       description)
+        return (
+            "OK, deleted voip_service id=%s, %s"
+            % (entity_id, description)
+        )
 
     #
     # voip service_update
     #
-    all_commands["voip_service_update"] = Command(
+    all_commands["voip_service_update"] = cmd_param.Command(
         ("voip", "service_update"),
-        VoipServiceParameter(),
-        SimpleString(optional=True, default=None),
-        VoipServiceTypeCode(optional=True, default=None),
-        OU(optional=True, default=None))
+        voip_param.VoipServiceParameter(),
+        cmd_param.SimpleString(help_ref="voip-service-desc",
+                               optional=True, default=None),
+        voip_param.VoipServiceTypeCode(optional=True, default=None),
+        cmd_param.OU(optional=True, default=None),
+    )
 
     def voip_service_update(self, operator, designation, description=None,
                             service_type=None, ou_tag=None):
@@ -629,21 +626,24 @@ class BofhdVoipCommands(BofhdCommonMethods):
                 service.ou_id = ou.entity_id
 
         service.write_db()
-        return "OK, updated information for voip_service id=%s" % (
-            service.entity_id,)
+        return (
+            "OK, updated information for voip_service id=%s"
+            % (service.entity_id,)
+        )
 
     #
     # voip service_find
     #
-    all_commands["voip_service_find"] = Command(
+    all_commands["voip_service_find"] = cmd_param.Command(
         ("voip", "service_find"),
-        SimpleString(),
-        fs=FormatSuggestion(
-            "%8i   %15s   %25s   %8s", ("entity_id", "description",
-                                        "service_type", "ou"),
-            hdr="%8s   %15s   %25s   %8s" % ("EntityId", "Description", "Type",
-                                             "Stedkode")
-        ))
+        cmd_param.SimpleString(help_ref="voip-service-search"),
+        fs=cmd_param.get_format_suggestion_table(
+            ("entity_id", "EntityId", 8, "d", False),
+            ("description", "Description", 15, "s", True),
+            ("service_type", "Type", 30, "s", True),
+            ("ou", "Stedkode", 8, "s", False),
+        ),
+    )
 
     def voip_service_find(self, operator, designation):
         """List all voip_services matched in some way by designation.
@@ -728,13 +728,14 @@ class BofhdVoipCommands(BofhdCommonMethods):
     #
     # voip client_new
     #
-    all_commands["voip_client_new"] = Command(
+    all_commands["voip_client_new"] = cmd_param.Command(
         ("voip", "client_new"),
-        VoipOwnerParameter(),
-        VoipClientTypeCode(),
-        MacAddress(),
-        VoipClientInfoCode(),
-        YesNo(help_ref='yes_no_sip_enabled', default="Yes"))
+        voip_param.VoipOwnerParameter(),
+        voip_param.VoipClientTypeCode(),
+        voip_param.MacAddress(),
+        voip_param.VoipClientInfoCode(),
+        cmd_param.YesNo(help_ref='yes_no_sip_enabled', default="Yes"),
+    )
 
     def voip_client_new(self, operator, owner_designation,
                         client_type, mac_address, client_info,
@@ -760,8 +761,8 @@ class BofhdVoipCommands(BofhdCommonMethods):
         else:
             # As _get_voip_client raises CerebrumError, we can't
             # just raise that in the try clause.
-            raise CerebrumError("Mac address %r is already bound to a "
-                                "voip_client." % mac_address)
+            raise CerebrumError("Mac address %s is already bound to a "
+                                "voip_client." % repr(mac_address))
 
         # Check that info/type_code make sense...
         ct = self._get_constant(client_type, self.const.VoipClientTypeCode)
@@ -791,10 +792,10 @@ class BofhdVoipCommands(BofhdCommonMethods):
     #
     # voip client_info
     #
-    all_commands["voip_client_info"] = Command(
+    all_commands["voip_client_info"] = cmd_param.Command(
         ("voip", "client_info"),
-        VoipClientParameter(),
-        fs=FormatSuggestion(
+        voip_param.VoipClientParameter(),
+        fs=cmd_param.FormatSuggestion(
             "Entity id:              %d\n"
             "Client type:            %s\n"
             "Client info:            %s\n"
@@ -813,12 +814,11 @@ class BofhdVoipCommands(BofhdCommonMethods):
              "traits",
              "voip_address_id",
              "owner")
-        ))
+        ),
+    )
 
     def voip_client_info(self, operator, designation):
-        """Return information about a voip_client.
-        """
-
+        """Return information about a voip_client."""
         self.ba.can_view_voip_client(operator.get_entity_id())
         client = self._get_voip_client(designation)
         address = self._get_voip_address(client.voip_address_id)
@@ -846,12 +846,13 @@ class BofhdVoipCommands(BofhdCommonMethods):
     #
     # voip client_list_info_code
     #
-    all_commands["voip_client_list_info_code"] = Command(
+    all_commands["voip_client_list_info_code"] = cmd_param.Command(
         ("voip", "client_list_info_code"),
-        fs=FormatSuggestion(
-            "%-25s  %s", ("code_str", "description"),
-            hdr="%-25s  %s" % ("Client info code", "Description")
-        ))
+        fs=cmd_param.get_format_suggestion_table(
+            ("code_str", "Client info code", 18, "s", True),
+            ("description", "Description", 24, "s", True),
+        ),
+    )
 
     def voip_client_list_info_code(self, operator):
         """List all possible voip_client info codes."""
@@ -860,12 +861,13 @@ class BofhdVoipCommands(BofhdCommonMethods):
     #
     # voip client_list_type_code
     #
-    all_commands["voip_client_list_type_code"] = Command(
+    all_commands["voip_client_list_type_code"] = cmd_param.Command(
         ("voip", "client_list_type_code"),
-        fs=FormatSuggestion(
-            "%-25s  %s", ("code_str", "description"),
-            hdr="%-25s  %s" % ("Client type code", "Description")
-        ))
+        fs=cmd_param.get_format_suggestion_table(
+            ("code_str", "Client info code", 20, "s", True),
+            ("description", "Description", 50, "s", True),
+        ),
+    )
 
     def voip_client_list_type_code(self, operator):
         """List all possible voip_client type codes.
@@ -875,9 +877,10 @@ class BofhdVoipCommands(BofhdCommonMethods):
     #
     # voip client_delete
     #
-    all_commands["voip_client_delete"] = Command(
+    all_commands["voip_client_delete"] = cmd_param.Command(
         ("voip", "client_delete"),
-        VoipClientParameter())
+        voip_param.VoipClientParameter(),
+    )
 
     def voip_client_delete(self, operator, designation):
         """Remove (completely) a voip_client from Cerebrum."""
@@ -891,10 +894,11 @@ class BofhdVoipCommands(BofhdCommonMethods):
     #
     # voip client_set_info_code
     #
-    all_commands["voip_client_set_info_code"] = Command(
+    all_commands["voip_client_set_info_code"] = cmd_param.Command(
         ("voip", "client_set_info_code"),
-        VoipClientParameter(),
-        VoipClientInfoCode())
+        voip_param.VoipClientParameter(),
+        voip_param.VoipClientInfoCode(),
+    )
 
     def voip_client_set_info_code(self, operator, designation, new_info):
         """Change client_info for a specified client."""
@@ -908,15 +912,16 @@ class BofhdVoipCommands(BofhdCommonMethods):
 
         client.client_info = ci
         client.write_db()
-        return "OK, changed for voipClient id=%s" % client.entity_id
+        return "OK, changed for voipClient id=%s" % (client.entity_id,)
 
     #
     # voip client_sip_enabled <client> yes|no
     #
-    all_commands["voip_client_sip_enabled"] = Command(
+    all_commands["voip_client_sip_enabled"] = cmd_param.Command(
         ("voip", "client_sip_enabled"),
-        VoipClientParameter(),
-        YesNo(help_ref='yes_no_sip_enabled'))
+        voip_param.VoipClientParameter(),
+        cmd_param.YesNo(help_ref='yes_no_sip_enabled'),
+    )
 
     def voip_client_sip_enabled(self, operator, designation, yesno):
         """Set sip_enabled to True/False for a specified client."""
@@ -927,64 +932,64 @@ class BofhdVoipCommands(BofhdCommonMethods):
         status = self._get_boolean(yesno)
 
         if client.sip_enabled == status:
-            return "OK (no changes for client id=%s)" % (client.entity_id)
+            return "OK (no changes for client id=%s)" % (client.entity_id,)
 
         client.sip_enabled = status
         client.write_db()
-        return "OK (changed sip_enabled to %s for client id=%s)" % (
-            client.sip_enabled, client.entity_id)
+        return (
+            "OK (changed sip_enabled to %s for client id=%s)"
+            % (client.sip_enabled, client.entity_id)
+        )
 
     #
     # voip client_secrets_reset <client>
     #
-    all_commands["voip_client_secrets_reset"] = Command(
+    all_commands["voip_client_secrets_reset"] = cmd_param.Command(
         ("voip", "client_secrets_reset"),
-        VoipClientParameter())
+        voip_param.VoipClientParameter(),
+    )
 
     def voip_client_secrets_reset(self, operator, designation):
         """Reset all of voip_client's secrets.
 
         This is useful if a client has been compromised and needs to be reset.
         """
-
         client = self._get_voip_client(designation)
         self.ba.can_reset_client_secrets(operator.get_entity_id(),
                                          client.entity_id)
         for secret_kind in (self.const.voip_auth_sip_secret,):
             secret = client.generate_sip_secret()
             client.set_auth_data(secret_kind, secret)
-
-        return "OK (reset sip secrets for voip_client id=%s)" % (
-            client.entity_id,)
-    # end voip_client_secrets_reset
+        return (
+            "OK (reset sip secrets for voip_client id=%s)"
+            % (client.entity_id,)
+        )
 
     #
     # voip client_new_secret <client> <secret>
     #
-    all_commands["voip_client_new_secret"] = Command(
+    all_commands["voip_client_new_secret"] = cmd_param.Command(
         ("voip", "client_new_secret"),
-        VoipClientParameter(),
-        SimpleString())
+        voip_param.VoipClientParameter(),
+        cmd_param.SimpleString(help_ref="voip-client-secret"),
+    )
 
     def voip_client_new_secret(self, operator, designation, new_secret):
         """Register a new sipSecret for the specified client."""
         client = self._get_voip_client(designation)
         self.ba.can_set_new_secret(operator.get_entity_id(),
                                    client.entity_id)
-
         # First check the new_secret quality.
         client.validate_auth_data(self.const.voip_auth_sip_secret,
                                   new_secret)
-        # Locate current secret
-        current_secret = client.get_auth_data(self.const.voip_auth_sip_secret)
-        # TODO: Why is this fetched and not used? Linter-fix:
-        del current_secret
-
+        # Locate current secret (why?)
+        client.get_auth_data(self.const.voip_auth_sip_secret)
         # Register new_secret
         client.set_auth_data(self.const.voip_auth_sip_secret, new_secret)
-
-        return "OK (set new sip secret for voip_client id=%s)" % (
-            client.entity_id,)
+        return (
+            "OK (set new sip secret for voip_client id=%s)"
+            % (client.entity_id,)
+        )
 
     ########################################################################
     # voip_address related commands
@@ -992,11 +997,13 @@ class BofhdVoipCommands(BofhdCommonMethods):
     #
     # voip address_list_contact_codes
     #
-    all_commands["voip_address_list_contact_codes"] = Command(
+    all_commands["voip_address_list_contact_codes"] = cmd_param.Command(
         ("voip", "address_list_contact_codes"),
-        fs=FormatSuggestion(
-            "%-25s  %s", ("code_str", "description"),
-            hdr="%-25s  %s" % ("Code", "Description")))
+        fs=cmd_param.get_format_suggestion_table(
+            ("code_str", "Code", 16, "s", True),
+            ("description", "Description", 54, "s", True),
+        ),
+    )
 
     def voip_address_list_contact_codes(self, operator):
         """List all available contact_info_codes.
@@ -1006,12 +1013,13 @@ class BofhdVoipCommands(BofhdCommonMethods):
     #
     # voip address_add_number <owner> <ctype> <TODO> [TODO]
     #
-    all_commands["voip_address_add_number"] = Command(
+    all_commands["voip_address_add_number"] = cmd_param.Command(
         ("voip", "address_add_number"),
-        VoipOwnerParameter(),
-        ContactTypeParameter(),
-        SimpleString(help_ref="voip_extension_full"),
-        PriorityParameter(optional=True, default=None))
+        voip_param.VoipOwnerParameter(),
+        voip_param.ContactTypeParameter(),
+        cmd_param.SimpleString(help_ref="voip_extension_full"),
+        voip_param.PriorityParameter(optional=True, default=None),
+    )
 
     def voip_address_add_number(self, operator, designation,
                                 contact_type, contact_full, priority=None):
@@ -1089,18 +1097,19 @@ class BofhdVoipCommands(BofhdCommonMethods):
         if contact_alias and not contact_full.endswith(contact_alias):
             warn = " (Short number does not match full number)."
 
-        return "OK, associated %s/%s with owner id=%s%s" % (contact_full,
-                                                            contact_alias,
-                                                            owner.entity_id,
-                                                            warn)
+        return (
+            "OK, associated %s/%s with owner id=%s%s"
+            % (contact_full, contact_alias, owner.entity_id, warn)
+        )
 
     #
     # voip address_delete_number <TODO> [TODO]
     #
-    all_commands["voip_address_delete_number"] = Command(
+    all_commands["voip_address_delete_number"] = cmd_param.Command(
         ("voip", "address_delete_number"),
-        SimpleString(help_ref="voip_extension_full"),
-        VoipOwnerParameter(optional=True, default=None))
+        cmd_param.SimpleString(help_ref="voip_extension_full"),
+        voip_param.VoipOwnerParameter(optional=True, default=None),
+    )
 
     def voip_address_delete_number(self, operator, value, owner=None):
         """Delete a previously registered phone number.
@@ -1116,15 +1125,17 @@ class BofhdVoipCommands(BofhdCommonMethods):
         self.ba.can_alter_number(operator.get_entity_id())
         contacts = self._get_contact_info(value)
         if not contacts:
-            return "OK, nothing to delete (no record of %r)" % (value)
+            return "OK, nothing to delete (no record of %s)" % repr(value)
 
         if owner is not None:
             owner = self._get_voip_owner(owner)
 
         if len(contacts) > 1 and owner is None:
-            raise CerebrumError("Multiple entities have %s registered. You "
-                                "must specified entity to update." %
-                                (value,))
+            raise CerebrumError(
+                "Multiple entities have %s registered. You "
+                "must specified entity to update."
+                % (value,)
+            )
 
         eci = EntityContactInfo(self.db)
         victims = set()
@@ -1139,37 +1150,47 @@ class BofhdVoipCommands(BofhdCommonMethods):
                                     d["contact_pref"])
             victims.add(eci.entity_id)
 
-        return "OK, removed %r from %d entit%s: %s" % (
-            value, len(victims),
-            len(victims) != 1 and "ies" or "y",
-            ", ".join("id=%s" % x for x in victims))
+        return (
+            "OK, removed %r from %d entit%s: %s"
+            % (
+                value,
+                len(victims),
+                "y" if len(victims) == 1 else "ies",
+                ", ".join("id=%s" % x for x in victims),
+            )
+        )
 
     #
     # voip address_info <voip-addr>
     #
-    all_commands["voip_address_info"] = Command(
+    all_commands["voip_address_info"] = cmd_param.Command(
         ("voip", "address_info"),
-        VoipAddressParameter(),
-        fs=FormatSuggestion("Entity id:              %d\n"
-                            "Owner entity id:        %d\n"
-                            "Owner type:             %s\n"
-                            "cn:                     %s\n"
-                            "sipURI:                 %s\n"
-                            "sipPrimaryURI:          %s\n"
-                            "e164URI:                %s\n"
-                            "Extension URI:          %s\n"
-                            "Traits:                 %s\n"
-                            "Clients:                %s\n",
-                            ("entity_id",
-                             "owner_entity_id",
-                             "owner_entity_type",
-                             "cn",
-                             "sip_uri",
-                             "sip_primary_uri",
-                             "e164_uri",
-                             "extension_uri",
-                             "traits",
-                             "clients",)))
+        voip_param.VoipAddressParameter(),
+        fs=cmd_param.FormatSuggestion(
+            "Entity id:              %d\n"
+            "Owner entity id:        %d\n"
+            "Owner type:             %s\n"
+            "cn:                     %s\n"
+            "sipURI:                 %s\n"
+            "sipPrimaryURI:          %s\n"
+            "e164URI:                %s\n"
+            "Extension URI:          %s\n"
+            "Traits:                 %s\n"
+            "Clients:                %s\n",
+            (
+                "entity_id",
+                "owner_entity_id",
+                "owner_entity_type",
+                "cn",
+                "sip_uri",
+                "sip_primary_uri",
+                "e164_uri",
+                "extension_uri",
+                "traits",
+                "clients",
+            ),
+        ),
+    )
 
     def voip_address_info(self, operator, designation):
         """Display information about ... ?
@@ -1212,9 +1233,10 @@ class BofhdVoipCommands(BofhdCommonMethods):
     #
     # void address_delete <voip-addr>
     #
-    all_commands["voip_address_delete"] = Command(
+    all_commands["voip_address_delete"] = cmd_param.Command(
         ("voip", "address_delete"),
-        VoipAddressParameter())
+        voip_param.VoipAddressParameter(),
+    )
 
     def voip_address_delete(self, operator, designation):
         """Delete a voip_address from Cerebrum.
@@ -1245,17 +1267,18 @@ class BofhdVoipCommands(BofhdCommonMethods):
     #
     # voip address_find <search-param>
     #
-    all_commands["voip_address_find"] = Command(
+    all_commands["voip_address_find"] = cmd_param.Command(
         ("voip", "address_find"),
-        SimpleString(),
-        fs=FormatSuggestion(
+        cmd_param.SimpleString(help_ref="voip-address-search"),
+        fs=cmd_param.FormatSuggestion(
             "%9i %14i %13s %25s",
-            ("entity_id",
-             "owner_entity_id",
-             "owner_type",
-             "cn"),
-            hdr="%9s %14s %13s %25s" % (
-                "EntityId", "OwnerEntityId", "Owner type", "CN")))
+            ("entity_id", "owner_entity_id", "owner_type", "cn"),
+            hdr=(
+                "%9s %14s %13s %25s"
+                % ("EntityId", "OwnerEntityId", "Owner type", "CN")
+            ),
+        ),
+    )
 
     def voip_address_find(self, operator, designation):
         """List all voip_addresses matched in some way by designation.
