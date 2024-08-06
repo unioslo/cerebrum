@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2016-2023 University of Oslo, Norway
+# Copyright 2016-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -26,7 +26,6 @@ from __future__ import (
     print_function,
     unicode_literals,
 )
-
 import collections
 import gettext
 import os
@@ -35,30 +34,30 @@ import sys
 import six
 
 import cereconf
+from Cerebrum.utils import text_compat
 
 
-locale_dir = getattr(cereconf,
-                     'GETTEXT_LOCALEDIR',
-                     os.path.join(sys.prefix, 'share', 'locale'))
+default_locale_dir = os.path.join(sys.prefix, 'share/locale')
+locale_dir = getattr(cereconf, 'GETTEXT_LOCALEDIR', default_locale_dir)
 gettext_domain = getattr(cereconf, 'GETTEXT_DOMAIN', 'cerebrum')
-gettext.install(gettext_domain, locale_dir, unicode=True)
+
+if six.PY2:
+    gettext.install(gettext_domain, locale_dir, unicode=True)
+else:
+    gettext.install(gettext_domain, locale_dir)
 
 
+@six.python_2_unicode_compatible
 class PasswordNotGoodEnough(Exception):
     """Exception raised for insufficiently strong passwords."""
 
     def __init__(self, message):
-        # encode potential (Python 2) unicode types as byte strings
-        # to ensure str(T) does not raise UnicodeEncodeError
-        if six.PY2 and isinstance(message, six.text_type):
-            message = message.encode("utf-8")
+        message = text_compat.to_str(message)
         super(PasswordNotGoodEnough, self).__init__(message)
 
-    def __unicode__(self):
-        # override BaseException.__unicode__() because:
-        # (1) BaseException.__str__() cannot be overridden
-        # (2) avoid double-decoding of unicode(T), which calls str(T)
-        return str(self).decode("utf-8")
+    def __str__(self):
+        return text_compat.to_text(
+            super(PasswordNotGoodEnough, self).__str__())
 
 
 # Style specific exceptions
@@ -83,10 +82,10 @@ _checkers_loaded = False
 def load_checkers():
     global _checkers_loaded
     if not _checkers_loaded:
-        from . import simple
-        from . import dictionary
-        from . import history_checks
-        from . import phrase
+        from . import simple  # noqa: F401
+        from . import dictionary  # noqa: F401
+        from . import history_checks  # noqa: F401
+        from . import phrase  # noqa: F401
         _checkers_loaded = True
 
 

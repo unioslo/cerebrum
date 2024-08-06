@@ -1,164 +1,310 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-""" Tests for Cerebrum.modules.pwcheck.history.
-"""
-from __future__ import unicode_literals
+""" Tests for :mod:`Cerebrum.modules.pwcheck.history`.  """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+import datetime
 
-from nose.tools import with_setup
-from nose.plugins.skip import SkipTest
+import pytest
 
-from Cerebrum.Utils import Factory
-from Cerebrum.modules.pwcheck.history import PasswordHistoryMixin
-from Cerebrum.modules.pwcheck.history import PasswordHistory
-# from Cerebrum.modules.pwcheck.checker import PasswordNotGoodEnough
-
-# Cerebrum-specific test modules
-from Cerebrum.testutils.datasource import BasicAccountSource
-from Cerebrum.testutils.dbtools import DatabaseTools
-
-# Global cererbum objects
-db = None
-ac = None
-co = None
-
-# Group datasource generator
-account_ds = None
-
-# Database tools to do common tasks
-db_tools = None
-
-# accounts
-accounts = None
+from Cerebrum import Account
+from Cerebrum.auth import all_auth_methods
+from Cerebrum.modules.pwcheck import history
+from Cerebrum.testutils import datasource
 
 
-def setup_module():
-    global db, ac, co, account_ds, db_tools
-    db = Factory.get('Database')()
-    db.cl_init(change_program='nosetests')
-    db.commit = db.rollback
-
-    account_class = Factory.get('Account')
-    if PasswordHistoryMixin not in account_class.mro():
-        raise SkipTest("No PasswordHistory configured, skipping module.")
-
-    ac = account_class(db)
-    co = Factory.get('Constants')(db)
-
-    # Data sources
-    account_ds = BasicAccountSource()
-
-    # Tools for creating and destroying temporary db items
-    db_tools = DatabaseTools(db)
-    db_tools._ac = ac
+class PasswordHistoryAccount(history.PasswordHistoryMixin, Account.Account):
+    """ Account with password history. """
+    # TODO: PasswordHistoryMixin should probably just inherit Account.Account
+    # to begin with.
+    pass
 
 
-def teardown_module():
-    db_tools.clear_groups()
-    db_tools.clear_accounts()
-    db_tools.clear_persons()
-    db_tools.clear_constants()
-    db_tools.clear_ous()
-    db.rollback()
-
-
-def create_accounts(num=5):
-    """ Create a set of groups to use in a test.
-
-    See C{groups} in this file for format.
-
+@pytest.fixture(autouse=True)
+def _patch_cereconf(cereconf):
     """
-    def wrapper():
-        global accounts
-        accounts = []
-        for entry in account_ds(limit=num):
-            entity_id = db_tools.create_account(entry)
-            entry['entity_id'] = entity_id
-            accounts.append(entry)
-        for entry in accounts:
-            assert entry['entity_id'] is not None
-    return wrapper
+    Patch cereconf.AUTH_CRYPT_METHODS
 
-
-def remove_accounts():
-    """ Remove all groups.
-
-    Complementary function/cleanup code for C{create_groups}.
-
+    Make sure AUTH_CRYPT_METHODS only only contains auth methods supported by
+    Cerebrum.Account.Account
     """
-    def wrapper():
-        global accounts
-        for entry in accounts:
-            db_tools.delete_account_id(entry['entity_id'])
-        accounts = None
-    return wrapper
+    cereconf.AUTH_CRYPT_METHODS = list(all_auth_methods)
 
 
-def get_next_account():
-    for entry in accounts:
-        ac.clear()
-        ac.find(entry['entity_id'])
-        yield ac
+@pytest.fixture
+def account_ds():
+    return datasource.BasicAccountSource()
 
 
-password = '9aa56fa04cbfa6ddde4bcdb31ef72ab17ef3f3bd91385bddd55ebe6d3d68'
+@pytest.fixture
+def account_creator(database, const, account_ds, initial_account):
+    creator_id = initial_account.entity_id
+
+    def _create_accounts(owner, limit=1):
+        owner_id = owner.entity_id
+        owner_type = owner.entity_type
+
+        for account_dict in account_ds(limit=limit):
+
+            account = PasswordHistoryAccount(database)
+            if owner_type == const.entity_person:
+                account_type = None
+            else:
+                account_type = const.account_program
+
+            account.populate(account_dict['account_name'],
+                             owner_type,
+                             owner_id,
+                             account_type,
+                             creator_id,
+                             account_dict.get('expire_date'))
+            account.write_db()
+            account_dict['entity_id'] = account.entity_id
+            yield account, account_dict
+
+    return _create_accounts
 
 
-@with_setup(create_accounts(num=1), remove_accounts())
-def test_assert_history_written():
-    ph = PasswordHistory(db)
-    for acc in get_next_account():
-        for row in ph.get_history(acc.entity_id):
-            return
-    raise Exception("Did not find password history")
+@pytest.fixture
+def account(account_creator, initial_group):
+    account, _ = next(account_creator(initial_group, limit=1))
+    return account
 
 
-# TODO: Fix this test -- neither set_password() or write_db() actually performs
-#       password checks, nor should they
-# @with_setup(create_accounts(num=1), remove_accounts())
-# def test_set_password_twice():
-#     for acc in get_next_account():
-#         try:
-#             acc.set_password(password)
-#             acc.write_db()
-#         except PasswordNotGoodEnough:
-#             return
-#     assert False, "Could re-use password!"
+@pytest.fixture
+def pw_history(database):
+    return history.PasswordHistory(database)
 
 
-@with_setup(create_accounts(num=1), remove_accounts())
-def test_delete_account():
-    ph = PasswordHistory(db)
-    entity_id = None
-    for acc in get_next_account():
-        entity_id = acc.entity_id
-        acc.delete()
-        break
-    for row in ph.get_history(entity_id):
-        assert False, "Got password history for deleted e_id %s" % entity_id
+#
+# Encode / match tests
+#
 
 
-@with_setup(create_accounts(num=1), remove_accounts())
-def test_clear_password():
-    for acc in get_next_account():
-        acc.set_password(password)
-        acc.clear()
-    for k, v in acc.__dict__.items():
-        assert password != v, "Got plaintext in attr %r" % k
+class Signature(object):
+    """ example password history entry. """
+    name = "foo"  # not really relevant
+    password = "bar"
+    value = (
+        "pbkdf2_sha512"
+        "$100"
+        "$Vapay9M60k/oUlLU7j2DrLaKYEHav5F0U6AwwwxWfr4="
+        "$07ObgqcPnCNgQbuscZE+4nNsEL6300eSTpmXPLyYEGs="
+    )
+
+    @property
+    def encode_args(self):
+        return {
+            "algo": "sha512",
+            "rounds": 100,
+            "salt": (
+                b"U\xaaZ\xcb\xd3:\xd2O\xe8RR\xd4\xee=\x83\xac"
+                b"\xb6\x8a`A\xda\xbf\x91tS\xa00\xc3\x0cV~\xbe"
+            ),
+            "password": self.password,
+            "keylen": 32,
+        }
 
 
-@with_setup(create_accounts(num=1), remove_accounts())
-def test_write_clear_password():
-    for acc in get_next_account():
-        acc.set_password(password)
-        acc.write_db()
-    for k, v in acc.__dict__.items():
-        assert password != v, "Got plaintext in attr %r" % k
+class LegacySignature(object):
+    """ example legacy password history entry. """
+    name = "foo"  # not really relevant
+    password = "bar"
+    value = "OFj2IjCsPJFfMAxmQxLGPw"
+
+    @property
+    def encode_args(self):
+        return {
+            "name": self.name,
+            "password": self.password,
+        }
 
 
-@with_setup(create_accounts(num=1), remove_accounts())
-def test_delete_clear_password():
-    for acc in get_next_account():
-        acc.set_password(password)
-        acc.delete()
-    for k, v in acc.__dict__.items():
-        assert password != v, "Got plaintext in attr %r" % k
+def test_old_encode_for_history():
+    """ Test the legacy password signature function. """
+    kwargs = LegacySignature().encode_args
+    expect = LegacySignature.value
+    assert history.old_encode_for_history(**kwargs) == expect
+
+
+def test_encode_for_history():
+    """ Test the password signature function. """
+    kwargs = Signature().encode_args
+    assert history.encode_for_history(**kwargs) == Signature.value
+
+
+def test_check_password_history_hit():
+    assert history.check_password_history(
+        Signature.password,
+        [Signature.value],
+        Signature.name,
+    )
+
+
+def test_check_password_history_legacy_hit():
+    assert history.check_password_history(
+        LegacySignature.password,
+        [LegacySignature.value],
+        LegacySignature.name,
+    )
+
+
+def test_check_password_history_miss():
+    assert not history.check_password_history(
+        "this-is-not-a-matching-password",
+        [Signature.value],
+        Signature.name,
+    )
+
+
+def test_check_password_history_legacy_miss():
+    assert not history.check_password_history(
+        "this-is-not-a-matching-password",
+        [LegacySignature.value],
+        LegacySignature.name,
+    )
+
+
+def test_check_passwords_history_hit():
+    assert history.check_passwords_history(
+        [Signature.password],
+        [Signature.value],
+        Signature.name,
+    )
+
+
+def test_check_passwords_history_legacy_hit():
+    assert history.check_passwords_history(
+        [LegacySignature.password],
+        [LegacySignature.value],
+        LegacySignature.name,
+    )
+
+
+def test_check_passwords_history_miss():
+    assert not history.check_passwords_history(
+        ["this-is-not-a-matching-password"],
+        [Signature.value],
+        Signature.name,
+    )
+
+
+def test_check_passwords_history_legacy_miss():
+    assert not history.check_passwords_history(
+        ["this-is-not-a-matching-password"],
+        [LegacySignature.value],
+        LegacySignature.name,
+    )
+
+
+#
+# PasswordHistory tests
+#
+# TODO: Some of this gets used by the PasswordHistoryMixin tests, but we should
+# write explicit tests for each method here as well.
+#
+
+def test_add_history(pw_history, account):
+    pw_history.add_history(account, example_passwd)
+    rows = list(pw_history.get_history(int(account.entity_id)))
+    assert len(rows) == 1
+
+
+def test_del_history(pw_history, account):
+    pw_history.add_history(account, example_passwd)
+    pw_history.del_history(int(account.entity_id))
+    rows = list(pw_history.get_history(int(account.entity_id)))
+    assert not rows
+
+
+def test_get_history(pw_history, account):
+    pw_history.add_history(account, example_passwd)
+    rows = list(pw_history.get_history(int(account.entity_id)))
+    assert len(rows) == 1
+    row = rows[0]
+    assert row['set_at']
+    assert row['hash']
+
+
+def test_get_most_recent_set_at(pw_history, account):
+    """ check that we get the most recently set entry set_at value. """
+    # Add two history entries with explicit set_at times
+    new_when = datetime.datetime(2024, 7, 19, 15, 30)
+    pw_history.add_history(account, "not-relevant", _when=new_when)
+    old_when = datetime.datetime(2024, 7, 19, 15, 00)
+    pw_history.add_history(account, "not-relevant", _when=old_when)
+
+    result = pw_history.get_most_recent_set_at(int(account.entity_id))
+    assert result == new_when
+
+
+#
+# PasswordHistoryMixin tests
+#
+
+
+example_passwd = "Password1"
+similar_passwd = "Password2"
+another_passwd = "This-is-not-the-same-password-at-all"
+
+
+def test_assert_history_written(pw_history, account):
+    """ Setting an initial password should add password history. """
+    account.set_password(example_passwd)
+    account.write_db()
+    assert list(pw_history.get_history(int(account.entity_id)))
+
+
+def test_delete_account(pw_history, account):
+    """ Deleting an account should delete password history. """
+    account.set_password(example_passwd)
+    account.write_db()
+    entity_id = int(account.entity_id)
+    account.delete()
+    assert not list(pw_history.get_history(entity_id))
+
+
+def test_check_password_history(account):
+    account.set_password(example_passwd)
+    account.write_db()
+    assert account._check_password_history(example_passwd)
+    assert not account._check_password_history(similar_passwd)
+    assert not account._check_password_history(another_passwd)
+
+
+def test_check_similar_password_history(account):
+    account.set_password(example_passwd)
+    account.write_db()
+    assert account._bruteforce_check_password_history(example_passwd)
+    assert account._bruteforce_check_password_history(similar_passwd)
+    assert not account._bruteforce_check_password_history(another_passwd)
+
+
+def test_clear_password(account):
+    """ Assert no attributes contains plaintext password after clear(). """
+    account.set_password(example_passwd)
+    account.clear()
+    attrs = list(k for k, v in sorted(account.__dict__.items())
+                 if v == example_passwd)
+    assert not attrs
+
+
+def test_write_clear_password(account):
+    """ Assert no attributes contains plaintext password after write_db(). """
+    account.set_password(example_passwd)
+    account.write_db()
+    attrs = list(k for k, v in sorted(account.__dict__.items())
+                 if v == example_passwd)
+    assert not attrs
+
+
+def test_delete_clear_password(account):
+    """ Assert no attributes contains plaintext password after delete(). """
+    account.set_password(example_passwd)
+    account.delete()
+    attrs = list(k for k, v in sorted(account.__dict__.items())
+                 if v == example_passwd)
+    assert not attrs
