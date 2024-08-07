@@ -34,6 +34,7 @@ from Cerebrum.modules.bofhd.bofhd_contact_info import BofhdContactAuth
 from Cerebrum.modules.bofhd.bofhd_email import BofhdEmailAuth
 from Cerebrum.modules.bofhd.errors import PermissionDenied
 from Cerebrum.modules.bofhd_requests.bofhd_requests_auth import RequestsAuth
+from Cerebrum.modules.guest import bofhd_guest_auth
 from Cerebrum.modules.no.bofhd_note_cmds import EntityNoteBofhdAuth
 from Cerebrum.modules.trait import bofhd_trait_cmds
 
@@ -221,6 +222,10 @@ class CreateUnpersonalAuth(UiaAuth,
 
 
 class GroupRoleAuth(UiaAuth, bofhd_group_roles.BofhdGroupRoleAuth):
+    pass
+
+
+class GuestAuth(UiaAuth, bofhd_guest_auth.BofhdGuestAuth):
     pass
 
 

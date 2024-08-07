@@ -23,7 +23,6 @@ This module implenents access control for personal guest commands.
 .. important::
    Remember to implement a new command class with a subclassed auth-class for
    actual use.
-
 """
 from __future__ import (
     absolute_import,
@@ -75,7 +74,7 @@ def _is_guest_account(account):
     return True
 
 
-class BofhdAuth(auth.BofhdAuth):
+class BofhdGuestAuth(auth.BofhdAuth):
     """ Methods to control command access. """
 
     def _is_employee(self, operator_id):

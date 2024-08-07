@@ -44,10 +44,11 @@ from Cerebrum.group.template import GroupTemplate
 from Cerebrum.modules.bofhd import cmd_param
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
-from Cerebrum.modules.guest.bofhd_guest_auth import BofhdAuth
 from Cerebrum.utils import date_compat
 from Cerebrum.utils.sms import SMSSender
 from Cerebrum.utils.username import suggest_usernames
+
+from .bofhd_guest_auth import BofhdGuestAuth
 
 logger = logging.getLogger(__name__)
 
@@ -94,13 +95,13 @@ def _get_guest_type_template(guest_type):
     )
 
 
-class BofhdExtension(BofhdCommonMethods):
+class BofhdGuestCommands(BofhdCommonMethods):
     """ Guest commands. """
 
     hidden_commands = {}  # Not accessible through bofh
     all_commands = {}
     parent_commands = False
-    authz = BofhdAuth
+    authz = BofhdGuestAuth
 
     @classmethod
     def get_help_strings(cls):
