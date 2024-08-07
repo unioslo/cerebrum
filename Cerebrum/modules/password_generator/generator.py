@@ -30,11 +30,54 @@ import logging
 import io
 import random
 
-from Cerebrum import Errors
-from Cerebrum.utils import text_compat
+import Cerebrum.Errors
+from Cerebrum.utils import reprutils
 from .config import load_config
 
 logger = logging.getLogger(__name__)
+
+
+DEFAULT_PASSWORD_LENGTH = 19
+DEFAULT_PASSWORD_CHARSET = (
+    "ABCDEFGHIJKLMNPQRSTUVWXYZ"
+    "abcdefghijkmnopqrstuvwxyz"
+    "23456789"
+    "!#$%&()*+,-.:;<=>?@[]^_{|}~"
+)
+
+
+class DefaultPasswordGenerator(object):
+
+    def __init__(self, **kwargs):
+        self._random = random.SystemRandom()
+
+    def __call__(self):
+        return "".join(self._random.choice(DEFAULT_PASSWORD_CHARSET)
+                       for _ in range(DEFAULT_PASSWORD_LENGTH))
+
+
+class PasswordGenerator(reprutils.ReprFieldMixin, DefaultPasswordGenerator):
+    """ Generate simple passwords with random characters. """
+
+    repr_module = False
+    repr_id = False
+    repr_fields = ('length', 'charset_size')
+
+    def __init__(self,
+                 length=DEFAULT_PASSWORD_LENGTH,
+                 charset=DEFAULT_PASSWORD_CHARSET,
+                 **kwargs):
+        self.length = int(length)
+        self.charset = list(set(charset))
+        super(PasswordGenerator, self).__init__(**kwargs)
+
+    @property
+    def charset_size(self):
+        return len(self.charset)
+
+    def __call__(self):
+        return "".join(self._random.choice(self.charset)
+                       for _ in range(self.length))
 
 
 def read_dictionary_words(filename):
@@ -47,53 +90,78 @@ def read_dictionary_words(filename):
                     yield word
 
 
-class PasswordGenerator(object):
+class PassphraseGenerator(reprutils.ReprFieldMixin, DefaultPasswordGenerator):
     """
-    Password-generator class
+    Generate password phrases with random words from a set of words.
     """
+    # Note that this class is not currently in use
 
-    def __init__(self, config=None, *args, **kw):
-        """
-        Constructs a PasswordGenerator.
+    repr_module = False
+    repr_id = False
+    repr_fields = ('words', 'dict_size')
 
-        :param str config:
-            Optional path to a valid :cls:`.config.PasswordGeneratorConfig`
-            config file, or None (default) to autoload.
-        """
-        try:
-            if config is None:
-                self.config = load_config()
-            else:
-                self.config = load_config(filename=config)
-            # Create a local random object for increased randomness
-            # "Use os.urandom() or SystemRandom if you require a
-            # cryptographically secure pseudo-random number generator."
-            # docs.python.org/2.7/library/random.html#random.SystemRandom
-            self.lrandom = random.SystemRandom()
-            self.dict_words = set()
-            if self.config.passphrase_dictionary:
-                self.dict_words.update(read_dictionary_words(
-                    self.config.passphrase_dictionary))
-        except Exception as e:
-            raise Errors.CerebrumError(
-                "Unable to create a PasswordGenerator instance: "
-                + repr(e))
+    def __init__(self, words, dictionary, **kwargs):
+        self.words = int(words)
+        self.dictionary = list(set(dictionary))
+        super(PassphraseGenerator, self).__init__(**kwargs)
 
-    def generate_password(self):
-        """
-        Generates a random password
-        """
-        chars = text_compat.to_text(self.config.legal_characters)
-        return "".join(self.lrandom.choice(chars)
-                       for _ in range(self.config.password_length))
+    @property
+    def dict_size(self):
+        return len(self.dictionary)
 
-    def generate_dictionary_passphrase(self):
-        """
-        Generates a random dictionary based passphrase
-        """
-        if not self.config.passphrase_dictionary:
-            raise Errors.CerebrumError('Missing passphrase-dictionary')
-        if len(self.dict_words) < self.config.amount_words:
-            raise Errors.CerebrumError('Passphrase-dictionary not long enough')
-        return " ".join(self.lrandom.sample(self.dict_words,
-                                            self.config.amount_words))
+    def __call__(self):
+        if len(self.dictionary) < self.words:
+            raise Cerebrum.Errors.CerebrumError(
+                "Passphrase dictionary not long enough")
+        return " ".join(self._random.sample(self.dictionary, self.words))
+
+
+def get_password_generator(config=None):
+    """
+    Helper to replace the legacy PasswordGenerator init.
+
+    The old PasswordGenerator combined both password and passphrase generators,
+    and auto-loaded everything from config.  This helper keeps that
+    functionality, until (if) we decide to rewrite the config and loading.
+    """
+    try:
+        if config is None:
+            config = load_config()
+        else:
+            config = load_config(filename=config)
+
+        return PasswordGenerator(
+            length=config.password_length,
+            charset=config.legal_characters,
+        )
+
+    except Exception as e:
+        raise Cerebrum.Errors.CerebrumError(
+            "Unable to create a PasswordGenerator instance: "
+            + repr(e))
+
+
+def get_passphrase_generator(config=None):
+    """
+    Helper to replace the legacy PasswordGenerator init.
+
+    The old PasswordGenerator combined both password and passphrase generators,
+    and auto-loaded everything from config.  This helper keeps that
+    functionality, until (if) we decide to rewrite the config and loading.
+    """
+    try:
+        if config is None:
+            config = load_config()
+        else:
+            config = load_config(filename=config)
+
+        return PassphraseGenerator(
+            words=config.amount_words,
+            dictionary=read_dictionary_words(
+                config.passphrase_dictionary),
+        )
+
+    except Exception as e:
+        raise Cerebrum.Errors.CerebrumError(
+            "Unable to create a PassphraseGenerator instance: "
+            + repr(e))

@@ -54,7 +54,7 @@ from Cerebrum.Utils import (
     prepare_string,
 )
 from Cerebrum.auth import all_auth_methods
-from Cerebrum.modules.password_generator.generator import PasswordGenerator
+from Cerebrum.modules.password_generator import generator as _pwgen
 from Cerebrum.utils import date_compat
 from Cerebrum.utils.username import suggest_usernames
 
@@ -1352,8 +1352,8 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         """Generate a random password"""
         # TODO: We should re-consider this - importing and using modules from
         # `Cerebrum.modules` in the core account class is a bit messy
-        password_generator = PasswordGenerator()
-        return password_generator.generate_password()
+        password_generator = _pwgen.get_password_generator()
+        return password_generator()
 
     def suggest_unames(self, person, maxlen=8, suffix=""):
         """Returns a tuple with 15 (unused) username suggestions based
