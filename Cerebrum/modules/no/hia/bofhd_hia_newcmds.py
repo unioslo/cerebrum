@@ -60,6 +60,7 @@ from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.help import merge_help_strings
 from Cerebrum.modules.bofhd_requests.request import BofhdRequests
 from Cerebrum.modules.bofhd_requests import bofhd_requests_cmds
+from Cerebrum.modules.guest import bofhd_guest_cmds
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.hia.access_FS import FS
 from Cerebrum.modules.bofhd import bofhd_user_create_unpersonal
@@ -1451,6 +1452,10 @@ class CreateUnpersonalCommands(bofhd_user_create_unpersonal.BofhdExtension):
 
 class GroupRoleCommands(bofhd_group_roles.BofhdGroupRoleCommands):
     authz = bofhd_uia_auth.GroupRoleAuth
+
+
+class GuestCommands(bofhd_guest_cmds.BofhdGuestCommands):
+    authz = bofhd_uia_auth.GuestAuth
 
 
 class HistoryCommands(bofhd_history_cmds.BofhdHistoryCmds):

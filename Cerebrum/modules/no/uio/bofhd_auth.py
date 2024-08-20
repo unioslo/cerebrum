@@ -41,6 +41,7 @@ from Cerebrum.modules.bofhd.bofhd_email import BofhdEmailAuth
 from Cerebrum.modules.bofhd.errors import PermissionDenied
 from Cerebrum.modules.bofhd_requests.bofhd_requests_auth import RequestsAuth
 from Cerebrum.modules.consent import bofhd_consent_auth
+from Cerebrum.modules.guest import bofhd_guest_auth
 from Cerebrum.modules.otp import bofhd_otp_cmds
 from Cerebrum.modules.ou_disk_mapping import bofhd_cmds
 from Cerebrum.modules.trait import bofhd_trait_cmds
@@ -397,20 +398,20 @@ class ConsentAuth(UioAuth, bofhd_consent_auth.BofhdConsentAuth):
     pass
 
 
-class ExtidAuth(UioAuth, bofhd_external_id.BofhdExtidAuth):
-    pass
-
-
 class CreateUnpersonalAuth(UioAuth,
                            bofhd_user_create_unpersonal.BofhdUnpersonalAuth):
     pass
 
 
-class OUDiskMappingAuth(UioAuth, bofhd_cmds.BofhdOUDiskMappingAuth):
+class ExtidAuth(UioAuth, bofhd_external_id.BofhdExtidAuth):
     pass
 
 
 class GroupRoleAuth(UioAuth, bofhd_group_roles.BofhdGroupRoleAuth):
+    pass
+
+
+class GuestAuth(UioAuth, bofhd_guest_auth.BofhdGuestAuth):
     pass
 
 
@@ -419,6 +420,10 @@ class HistoryAuth(UioAuth, bofhd_history_cmds.BofhdHistoryAuth):
 
 
 class OuAuth(UioAuth, bofhd_ou_cmds.OuAuth):
+    pass
+
+
+class OUDiskMappingAuth(UioAuth, bofhd_cmds.BofhdOUDiskMappingAuth):
     pass
 
 

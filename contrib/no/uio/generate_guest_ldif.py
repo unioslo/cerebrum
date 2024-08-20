@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright 2014 University of Oslo, Norway
+#
+# Copyright 2014-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -38,12 +39,6 @@ from Cerebrum.modules.LDIFutils import ldapconf
 
 
 logger = logging.getLogger(__name__)
-
-
-def get_spread(co, value):
-    const = co.human2constant(value, co.Spread)
-    int(const)
-    return const
 
 
 class GuestLDIF(object):
@@ -165,11 +160,11 @@ def main(inargs=None):
     co = Factory.get('Constants')(db)
 
     filename = args.filename
-    spread = get_spread(co, args.spread)
+    spread = co.get_constant(co.Spread, args.spread)
     base = args.base
 
-    def entry_to_dn(uid):
-        return "uid=%s,%s" % (entry['uid'], base)
+    def entry_to_dn(entry_dict):
+        return "uid=%s,%s" % (entry_dict['uid'], base)
 
     logger.info("Configuring export")
 
@@ -179,7 +174,7 @@ def main(inargs=None):
         logger.info("Starting guest account ldap export.")
         count = 0
 
-        for entry in exporter.generate_guests():
+        for entry in sorted(exporter.generate_guests(), key=entry_to_dn):
             ldif.write_entry(entry_to_dn(entry), entry)
             count += 1
     except Exception as e:

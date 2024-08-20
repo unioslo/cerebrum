@@ -97,6 +97,7 @@ from Cerebrum.modules.bofhd_requests.request import BofhdRequests
 from Cerebrum.modules.bofhd.help import Help, merge_help_strings
 from Cerebrum.modules.bofhd import bofhd_access
 from Cerebrum.modules.consent import bofhd_consent_cmds
+from Cerebrum.modules.guest import bofhd_guest_cmds
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.disk_quota import DiskQuota
 from Cerebrum.modules.no.uio.access_FS import FS
@@ -5886,6 +5887,10 @@ class ExtidCommands(bofhd_external_id.BofhdExtidCommands):
 
 class GroupRoleCommands(bofhd_group_roles.BofhdGroupRoleCommands):
     authz = bofhd_auth.GroupRoleAuth
+
+
+class GuestCommands(bofhd_guest_cmds.BofhdGuestCommands):
+    authz = bofhd_auth.GuestAuth
 
 
 class HistoryCommands(bofhd_history_cmds.BofhdHistoryCmds):

@@ -118,7 +118,9 @@ class GroupTemplate(reprutils.ReprFieldMixin):
             raise ValueError('invalid conflict resolution: ' + repr(conflict))
         self.conflict_resolution = conflict
 
-    def _create(self, db):
+    def _create(self, db, creator_id):
+        if creator_id is None:
+            creator_id = _get_default_creator_id(db)
         group = Factory.get('Group')(db)
         group.populate(
             name=self.group_name,
@@ -126,7 +128,7 @@ class GroupTemplate(reprutils.ReprFieldMixin):
             group_type=_get_group_type(group.const, self.group_type),
             visibility=_get_group_visibility(group.const,
                                              self.group_visibility),
-            creator_id=_get_default_creator_id(db),
+            creator_id=creator_id,
         )
         group.write_db()
         logger.info("created group: %s (%d)",
@@ -172,14 +174,14 @@ class GroupTemplate(reprutils.ReprFieldMixin):
         """ Require group to exist. """
         return _get_group_by_name(db, self.group_name)
 
-    def __call__(self, db):
+    def __call__(self, db, creator_id=None):
         """ Get or create the group defined by this template. """
         try:
             group = _get_group_by_name(db, self.group_name)
             logger.info('found group: %s (%d)',
                         group.group_name, group.entity_id)
         except Errors.NotFoundError:
-            group = self._create(db)
+            group = self._create(db, creator_id=creator_id)
         else:
             self._update(group)
         return group

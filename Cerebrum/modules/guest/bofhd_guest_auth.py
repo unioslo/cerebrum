@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2014 University of Oslo, Norway
+# Copyright 2014-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,120 +17,154 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-""" This is an auth module for use with bofhd_guest_cmds.
-
-This module controls access to the guest commands.
-
 """
+This module implenents access control for personal guest commands.
+
+.. important::
+   Remember to implement a new command class with a subclassed auth-class for
+   actual use.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+import logging
+
+import six
+
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd import auth
 from Cerebrum.modules.bofhd.errors import PermissionDenied
 
+logger = logging.getLogger(__name__)
 
-class BofhdAuth(auth.BofhdAuth):
+
+def _get_guest_owner_id(account):
+    """ Get the owner_id (sponsor) of a personal guest account. """
+    const = account.const
+    return int(account.get_trait(const.trait_guest_owner)['target_id'])
+
+
+def _get_guest_name(account):
+    """ Get name of the guest from a personal guest account. """
+    const = account.const
+    return account.get_trait(const.trait_guest_name)['strval']
+
+
+def _is_guest_account(account):
+    """ Check if an account object is a personal guest account. """
+    const = account.const
+
+    if account.np_type != const.account_guest:
+        return False
+
+    try:
+        _get_guest_owner_id(account)
+        _get_guest_name(account)
+    except Exception:
+        logger.warning(
+            "Account %s (%d) has np_type=%s, but missing guest traits",
+            account.account_name, account.entity_id,
+            six.text_type(const.account_guest),
+        )
+        return False
+
+    return True
+
+
+class BofhdGuestAuth(auth.BofhdAuth):
     """ Methods to control command access. """
 
-    def _is_guest_account(self, guest):
-        """ Check if account object is guest. """
-        if guest.np_type != self.const.account_guest:
-            return False
-        try:
-            guest.get_trait(self.const.trait_guest_owner)['target_id']
-            guest.get_trait(self.const.trait_guest_name)['strval']
-        except:
-            return False
-        return True
-
-    def _is_employee(self, operator):
+    def _is_employee(self, operator_id):
         """ Check if operator is an employee. """
-        ac = Factory.get('Account')(self._db)
-        ac.find(operator)
-        if ac.owner_type == self.const.entity_person:
-            pe = Factory.get('Person')(self._db)
-            for row in pe.list_affiliations(
-                    person_id=ac.owner_id,
-                    affiliation=self.const.affiliation_ansatt):
-                return True
+        pe = Factory.get('Person')(self._db)
+        for row in pe.list_affiliations(
+                person_id=int(operator_id),
+                affiliation=int(self.const.affiliation_ansatt)):
+            return True
         return False
 
-    def _is_personal_guest_owner(self, operator, guest):
+    def _is_personal_guest_owner(self, operator_id, guest):
         """ Check if operator is the owner of guest. """
-        if not self._is_guest_account(guest):
+        if not _is_guest_account(guest):
             return False
-        if operator == guest.entity_id:
+        if operator_id == guest.entity_id:
             return True
-        # Check if operator is the owner registered in the trait
-        if not self._is_employee(operator):
+        if not self._is_employee(operator_id):
             return False
         try:
-            real_owner = guest.get_trait(
-                self.const.trait_guest_owner)['target_id']
-            if real_owner == operator:
-                return True
-        except:
-            pass
-        return False
+            return operator_id == _get_guest_owner_id(guest)
+        except Exception:
+            return False
 
-    def can_view_personal_guest(self, operator,
+    def can_view_personal_guest(self, operator_id,
                                 guest=None, query_run_any=False):
-        """ If the operator can see guest info. """
-        if self.is_superuser(operator):
+        """ Check if *operator_id* has access to see info about *guest*. """
+        if self.is_superuser(operator_id):
             return True
         if query_run_any:
             # Employees should have access to the command
-            if self._is_employee(operator):
+            if self._is_employee(operator_id):
                 return True
             # The guest should have access to the command
             ac = Factory.get('Account')(self._db)
-            ac.find(operator)
-            if self._is_guest_account(ac):
+            ac.find(operator_id)
+            if _is_guest_account(ac):
                 return True
             return False
-        if self._is_personal_guest_owner(operator, guest):
-            return True
-        raise PermissionDenied(
-            "You are not the owner of %s" % guest.account_name)
 
-    def can_create_personal_guest(self, operator, query_run_any=False):
-        """ If the operator can create a personal guest user. """
-        if self.is_superuser(operator):
+        if self._is_personal_guest_owner(operator_id, guest):
             return True
-        if self._is_employee(operator):
+        raise PermissionDenied("No permission to show guest account %s"
+                               % (guest.account_name,))
+
+    def can_create_personal_guest(self, operator_id, query_run_any=False):
+        """ Check if *operator_id* can create new personal guest accounts. """
+        if self.is_superuser(operator_id):
+            return True
+        if self._is_employee(operator_id):
             return True
         if query_run_any:
             return False
-        raise PermissionDenied(
-            "Guest accounts are only available to employees.")
+        raise PermissionDenied("No permission to create guest accounts")
 
-    def can_reset_guest_password(self, operator,
+    def can_reset_guest_password(self, operator_id,
                                  guest=None, query_run_any=False):
-        """ If the operator can re-set the password for a guest. """
-        return self.can_remove_personal_guest(operator, guest=guest,
-                                              query_run_any=query_run_any)
-        raise PermissionDenied("")  # Not reached
-
-    def can_remove_personal_guest(self, operator, guest=None,
-                                  query_run_any=False):
-        """ If the operator can remove a personal guest user. """
+        """ Check if *operator_id* has access to reset password for *guest*."""
+        if self.is_superuser(operator_id):
+            return True
         if query_run_any:
-            if self.is_superuser(operator):
-                return True
-            return self._is_employee(operator)
+            return self._is_employee(operator_id)
+
+        if not _is_guest_account(guest):
+            raise PermissionDenied("Account %s is not a guest account"
+                                   % (guest.account_name,))
+
+        if self._is_personal_guest_owner(operator_id, guest):
+            return True
+
+        raise PermissionDenied(
+            "No permission to reset password for guest account %s"
+            % (guest.account_name))
+
+    def can_remove_personal_guest(self, operator_id, guest=None,
+                                  query_run_any=False):
+        """ Check if *operator_id* has access to remove *guest*. """
+        if self.is_superuser(operator_id):
+            return True
+        if query_run_any:
+            return self._is_employee(operator_id)
 
         # The account _must_ be a guest, regardless of op
-        if not self._is_guest_account(guest):
-            raise PermissionDenied(
-                "Account %s is not a guest account" % guest.account_name)
+        if not _is_guest_account(guest):
+            raise PermissionDenied("Account %s is not a guest account"
+                                   % (guest.account_name,))
 
-        if self.is_superuser(operator):
+        if (self._is_employee(operator_id)
+                and self._is_personal_guest_owner(operator_id, guest)):
             return True
 
-        if not self._is_employee(operator):
-            return False
-
-        if self._is_personal_guest_owner(operator, guest):
-            return True
-
-        raise PermissionDenied(
-            "You're not the owner of guest %s" % guest.account_name)
+        raise PermissionDenied("No permission to remove guest account %s"
+                               % (guest.account_name,))
