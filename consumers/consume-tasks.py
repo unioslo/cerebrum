@@ -68,7 +68,41 @@ logger = logging.getLogger(__name__)
 
 
 class TaskHandlerConfig(ConsumerConfig, TaskListMixin):
-    """ Joint consumer/task config. """
+    """
+    Joint consumer/task config.
+
+    Minimal YAML-example:
+    ::
+
+        connection:
+          username: "guest"
+          password: "plaintext:guest"
+          host: "localhost"
+          port: 5672
+          ssl_enable: false
+          virtual_host: "/"
+
+        consumer_tag: "crb-consume-tasks"
+
+        exchanges:
+          - name: "from-system-foo"
+            durable: true
+            exchange_type: "topic"
+
+        queues:
+          - name: "foo-tasks"
+            durable: true
+
+        bindings:
+          - exchange: "from-system-foo"
+            queue: "foo-tasks"
+            routing_keys:
+              - "#"
+
+        callbacks:
+          - source: "foo-tasks"
+            callback: "operator:truth"
+    """
 
     @classmethod
     def from_file(cls, filename):
