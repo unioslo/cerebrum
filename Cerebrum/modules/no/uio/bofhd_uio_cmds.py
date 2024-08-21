@@ -4086,8 +4086,8 @@ class BofhdExtension(BofhdCommonMethods):
             if stedkode:
                 msg += ' @ ' + stedkode
             raise CerebrumError(msg)
-        elif len(valid_affs) > 1:
-            raise CerebrumError('More than than one %s affiliation, '
+        elif len(set([aff[1] for aff in valid_affs])) > 1:
+            raise CerebrumError('More than one %s affiliation, '
                                 'add stedkode as argument'
                                 % (require_aff_str,))
         ac_type_aff, ac_type_ou = valid_affs.pop()
