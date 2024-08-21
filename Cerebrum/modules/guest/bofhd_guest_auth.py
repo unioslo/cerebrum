@@ -79,9 +79,13 @@ class BofhdGuestAuth(auth.BofhdAuth):
 
     def _is_employee(self, operator_id):
         """ Check if operator is an employee. """
+        ac = Factory.get('Account')(self._db)
+        ac.find(operator_id)
+        if ac.owner_type != ac.const.entity_person:
+            return False
         pe = Factory.get('Person')(self._db)
         for row in pe.list_affiliations(
-                person_id=int(operator_id),
+                person_id=int(ac.owner_id),
                 affiliation=int(self.const.affiliation_ansatt)):
             return True
         return False
