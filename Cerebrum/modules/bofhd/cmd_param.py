@@ -212,11 +212,6 @@ class Mobile(Parameter):
     _help_ref = 'mobile_phone'
 
 
-class MoveType(Parameter):
-    _type = 'moveType'
-    _help_ref = 'move_type'
-
-
 class OpSet(Parameter):
     _type = 'opSet'
     _help_ref = 'opset'

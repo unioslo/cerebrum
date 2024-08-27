@@ -1483,15 +1483,36 @@ class BofhdAuth(DatabaseAccessor):
 
     def can_set_default_group(self, operator, account=None,
                               group=None, query_run_any=False):
-        if query_run_any or self.is_superuser(operator):
+        if query_run_any:
             return True
+        if self.is_superuser(operator):
+            return True
+
+        # This is wrong - *everyone* can (re-)set the default file group for
+        # *any* user back to (maybe) it's personal group...
+        #
+        # This should probably check:
+        #
+        #  - if the group is of type *personal group*
+        #  - if the group is linked to the user (dfg-trait, ownership?)
+        #  - if the operator has some access to the account (owner, lkit)
+        #
         if account.account_name == group.group_name:
             # personal group:
             # TODO need better detection
             return True
+
+        # Otherwise, must have moderator access to group
         self.can_alter_group(operator, group)
-        self.can_give_user(operator, account)
-        return True
+
+        # ... and privileged access to the account
+        # (why is this linked to *move_from_disk*, though?  Should probably use
+        # a different op-code, or define a new op-code for setting dfg)
+        return self.has_privileged_access_to_account_or_person(
+            operator,
+            self.const.auth_move_from_disk,
+            account,
+        )
 
     def can_set_gecos(self, operator, account=None,
                       query_run_any=False):
@@ -1506,37 +1527,6 @@ class BofhdAuth(DatabaseAccessor):
             return True
         return self.has_privileged_access_to_account_or_person(
             operator, self.const.auth_set_gecos, account)
-
-    def can_move_user(self, operator, account=None, dest_disk=None,
-                      query_run_any=False):
-        if self.is_superuser(operator):
-            return True
-        return (self.can_give_user(operator, account,
-                                   query_run_any=query_run_any) and
-                self.can_receive_user(operator, account, dest_disk,
-                                      query_run_any=query_run_any))
-
-    def can_give_user(self, operator, account=None,
-                      query_run_any=False):
-        if self.is_superuser(operator):
-            return True
-        if query_run_any:
-            return self._has_operation_perm_somewhere(
-                operator, self.const.auth_move_from_disk)
-        return self.has_privileged_access_to_account_or_person(
-            operator, self.const.auth_move_from_disk, account)
-
-    def can_receive_user(self, operator, account=None, dest_disk=None,
-                         query_run_any=False):
-        if self.is_superuser(operator):
-            return True
-        if query_run_any:
-            return self._has_operation_perm_somewhere(
-                operator, self.const.auth_move_to_disk)
-        return self._query_disk_permissions(operator,
-                                            self.const.auth_move_to_disk,
-                                            self._get_disk(dest_disk),
-                                            account.entity_id)
 
     # hack (fix for users with no registered home at UiO)
     def _no_account_home(self, operator, account=None):
