@@ -56,10 +56,6 @@ group_help = {
 # not contain \n
 command_help = {
     'disk': {
-        "disk_list": (
-            "List the disks registered with a host.  A quota value in "
-            "parenthesis means it uses to the host's default disk quota."
-        ),
         "disk_quota": (
             "Enable quotas on a disk, and set the default value"
         ),
@@ -154,7 +150,6 @@ command_help = {
         'misc_clear_passwords': (
             'Forget the passwords which have been set this session'
         ),
-        'misc_dls': "Use 'disk list' instead",
         'misc_list_passwords': (
             'View/print all the password altered this session'
         ),

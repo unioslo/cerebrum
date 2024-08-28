@@ -136,6 +136,37 @@ def _get_host_disk_quota(host):
     return None
 
 
+def _get_disk_quota(disk):
+    """ Get disk quota from disk """
+    const = disk.const
+    disk_trait = disk.get_trait(const.trait_disk_quota)
+    if disk_trait is None:
+        raise LookupError("no quota for disk id: " + repr(disk.entity_id))
+    return disk_trait['numval']
+
+
+def _calculate_disk_quota(disk, host_disk_quota):
+    """ Calculate the actual disk quota, and a human readable hint. """
+    try:
+        disk_quota = _get_disk_quota(disk)
+    except LookupError:
+        # no disk quota trait - quota disabled
+        disk_quota = None
+        pretty_quota = "<none>"
+    else:
+        if disk_quota is None and host_disk_quota is None:
+            # no disk quota - no host quota
+            pretty_quota = "(no default)"
+        elif disk_quota is None:
+            # no disk quota - fallback to host quota
+            disk_quota = host_disk_quota
+            pretty_quota = "(%d MiB)" % (disk_quota,)
+        else:
+            # explicit disk quota
+            pretty_quota = "%d MiB" % (disk_quota,)
+    return (disk_quota, pretty_quota)
+
+
 def _validate_disk_name(diskname):
     if not diskname.startswith("/"):
         raise CerebrumError("'%s' does not start with '/'" % (diskname,))
@@ -365,17 +396,88 @@ class DiskHostCommands(bofhd_core.BofhdCommandBase):
 
         # TODO: Add FormatSuggestion, and return `disk_data`
         return "OK, %s deleted" % (disk_data['path'],)
+
+    def _list_disks(self, host):
+        hostname = host.name
+        host_disk_quota = _get_host_disk_quota(host)
+
+        disk = Factory.get("Disk")(self.db)
+        disks = {}
+        for row in disk.list(host.host_id):
+            disk.clear()
+            disk.find(row['disk_id'])
+
+            def_quota, pretty_quota = _calculate_disk_quota(disk,
+                                                            host_disk_quota)
+            disks[row['disk_id']] = {
+                'disk_id': row['disk_id'],
+                'host_id': row['host_id'],
+                'hostname': hostname,
+                'def_quota': def_quota,
+                'pretty_quota': pretty_quota,
+                'path': row['path'],
+            }
+        ret = []
+        for d in sorted(disks, key=lambda k: disks[k]['path']):
+            ret.append(disks[d])
+        return ret
+
+    #
+    # misc dls
+    #
+    # misc dls is deprecated, and can probably be removed without
+    # anyone complaining much.
+    #
+    all_commands['misc_dls'] = cmd_param.Command(
+        ("misc", "dls"),
+        cmd_param.SimpleString(help_ref="hostname"),
+        fs=cmd_param.get_format_suggestion_table(
+            ("disk_id", "DiskId", 8, "d", False),
+            ("host_id", "HostId", 8, "d", False),
+            ("path", "Path", 32, "s", True),
+        ),
+    )
+
+    def misc_dls(self, operator, hostname):
+        host = self._get_host(hostname)
+        return self._list_disks(host)
+
+    #
+    # disk list
+    #
+    all_commands['disk_list'] = cmd_param.Command(
+        # TODO: This should probably be ("host", "disk_list")
+        ("disk", "list"),
+        cmd_param.SimpleString(help_ref="hostname"),
+        fs=cmd_param.get_format_suggestion_table(
+            ("hostname", "Hostname", 13, "s", True),
+            ("pretty_quota", "Default quota", 13, "s", True),
+            ("path", "Path", 32, "s", True),
+        ),
+    )
+
+    def disk_list(self, operator, hostname):
+        host = self._get_host(hostname)
+        return self._list_disks(host)
+
 #
 # Help texts
 #
 
 
 HELP_GROUP = {
+    'disk': "Disk related commands",
     'host': "Host related commands",
     'misc': "Miscellaneous commands",
 }
 
 HELP_COMMANDS = {
+    'disk': {
+        'disk_list': (
+            "List the disks registered with a host.  A quota value in "
+            "parenthesis means it uses to the host's default disk quota."
+        ),
+    },
     'host': {
         'host_info': 'Show information about a host',
     },
@@ -384,6 +486,7 @@ HELP_COMMANDS = {
         'misc_hrem': "Remove a host",
         'misc_dadd': "Register a new disk",
         'misc_drem': "Remove a disk",
+        'misc_dls': "Deprecated: use 'disk list'",
     },
 }
 

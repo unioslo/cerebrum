@@ -2176,69 +2176,6 @@ class BofhdExtension(BofhdCommonMethods):
         return "OK, passwords cleared"
 
     #
-    # misc dls
-    #
-    # misc dls is deprecated, and can probably be removed without
-    # anyone complaining much.
-    #
-    all_commands['misc_dls'] = Command(
-        ("misc", "dls"),
-        SimpleString(help_ref='string_host'),
-        fs=FormatSuggestion(
-            "%-8i %-8i %s", ("disk_id", "host_id", "path",),
-            hdr="DiskId   HostId   Path"
-        ))
-
-    def misc_dls(self, operator, hostname):
-        return self.disk_list(operator, hostname)
-
-    #
-    # disk list
-    #
-    all_commands['disk_list'] = Command(
-        ("disk", "list"),
-        SimpleString(help_ref='string_host'),
-        fs=FormatSuggestion(
-            "%-13s %11s  %s", ("hostname", "pretty_quota", "path",),
-            hdr="Hostname    Default quota  Path"
-        ))
-
-    def disk_list(self, operator, hostname):
-        host = self._get_host(hostname)
-        disks = {}
-        disk = Utils.Factory.get('Disk')(self.db)
-        hquota = host.get_trait(self.const.trait_host_disk_quota)
-        if hquota:
-            hquota = hquota['numval']
-        for row in disk.list(host.host_id):
-            disk.clear()
-            disk.find(row['disk_id'])
-            dquota = disk.get_trait(self.const.trait_disk_quota)
-            if dquota is None:
-                def_quota = None
-                pretty_quota = '<none>'
-            else:
-                if dquota['numval'] is None:
-                    def_quota = hquota
-                    if hquota is None:
-                        pretty_quota = '(no default)'
-                    else:
-                        pretty_quota = '(%d MiB)' % def_quota
-                else:
-                    def_quota = dquota['numval']
-                    pretty_quota = '%d MiB' % def_quota
-            disks[row['disk_id']] = {'disk_id': row['disk_id'],
-                                     'host_id': row['host_id'],
-                                     'hostname': hostname,
-                                     'def_quota': def_quota,
-                                     'pretty_quota': pretty_quota,
-                                     'path': row['path']}
-        ret = []
-        for d in sorted(disks, key=lambda k: disks[k]['path']):
-            ret.append(disks[d])
-        return ret
-
-    #
     # disk quota <disk> <quota>
     #
     all_commands['disk_quota'] = Command(
