@@ -2349,67 +2349,6 @@ class BofhdExtension(BofhdCommonMethods):
         return "OK, %s deleted" % diskname
 
     #
-    # misc hadd
-    #
-    all_commands['misc_hadd'] = Command(
-        ("misc", "hadd"),
-        SimpleString(help_ref='string_host'),
-        perm_filter='can_create_host')
-
-    def misc_hadd(self, operator, hostname):
-        self.ba.can_create_host(operator.get_entity_id())
-        host = Utils.Factory.get('Host')(self.db)
-        host.populate(hostname, 'uio host')
-        try:
-            host.write_db()
-        except self.db.DatabaseError as m:
-            raise CerebrumError("Database error: %s" % exc_to_text(m))
-        return "OK, added host '%s'" % hostname
-
-    #
-    # misc hrem
-    #
-    all_commands['misc_hrem'] = Command(
-        ("misc", "hrem"),
-        SimpleString(help_ref='string_host'),
-        perm_filter='can_remove_host')
-
-    def misc_hrem(self, operator, hostname):
-        self.ba.can_remove_host(operator.get_entity_id())
-        host = self._get_host(hostname)
-        delete_entity_auth_target(self.db, "host", host.host_id)
-        try:
-            host.delete()
-        except self.db.DatabaseError as m:
-            raise CerebrumError("Database error: %s" % exc_to_text(m))
-        return "OK, %s deleted" % hostname
-
-    #
-    # See hack in list_command
-    #
-    all_commands['host_info'] = Command(
-        ("host", "info"),
-        SimpleString(help_ref='string_host'),
-        fs=FormatSuggestion([
-            ("Hostname:              %s\n" "Description:           %s",
-             ("hostname", "desc")),
-            ("Default disk quota:    %d MiB", ("def_disk_quota",))
-        ]),
-    )
-
-    def host_info(self, operator, hostname):
-        ret = []
-        host = self._get_host(hostname)
-        ret = {
-            'hostname': hostname,
-            'desc': host.description
-        }
-        hquota = host.get_trait(self.const.trait_host_disk_quota)
-        if hquota and hquota['numval']:
-            ret['def_disk_quota'] = hquota['numval']
-        return ret
-
-    #
     # host disk_quota <host> <quota>
     #
     all_commands['host_disk_quota'] = Command(

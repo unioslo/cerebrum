@@ -1124,20 +1124,6 @@ class BofhdAuth(DatabaseAccessor):
         return self.can_create_disk(operator, host=host,
                                     query_run_any=query_run_any)
 
-    def can_create_host(self, operator, query_run_any=False):
-        if self.is_superuser(operator):
-            return True
-        # auth_create_host is not tied to a target
-        if self._has_operation_perm_somewhere(operator,
-                                              self.const.auth_create_host):
-            return True
-        if query_run_any:
-            return False
-        raise PermissionDenied("Permission denied")
-
-    def can_remove_host(self, operator, query_run_any=False):
-        return self.can_create_host(operator, query_run_any=query_run_any)
-
     def can_alter_group(self, operator, group=None, query_run_any=False):
         """Checks if the operator has permission to add/remove group members
         for the given group.

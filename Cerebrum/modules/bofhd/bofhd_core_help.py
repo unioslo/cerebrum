@@ -146,7 +146,6 @@ command_help = {
         'group_set_visibility': 'Set visibility for a group',
     },
     'host': {
-        'host_info': 'Show information about a host',
         'host_disk_quota': 'Set the default disk quota for a host',
     },
     'misc': {
@@ -158,8 +157,6 @@ command_help = {
         'misc_dadd': 'Register a new disk',
         'misc_dls': "Use 'disk list' instead",
         'misc_drem': 'Remove a disk',
-        'misc_hadd': 'Register a new host',
-        'misc_hrem': 'Remove a host',
         'misc_list_passwords': (
             'View/print all the password altered this session'
         ),
