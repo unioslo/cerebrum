@@ -154,9 +154,7 @@ command_help = {
         'misc_clear_passwords': (
             'Forget the passwords which have been set this session'
         ),
-        'misc_dadd': 'Register a new disk',
         'misc_dls': "Use 'disk list' instead",
-        'misc_drem': 'Remove a disk',
         'misc_list_passwords': (
             'View/print all the password altered this session'
         ),

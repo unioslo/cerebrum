@@ -47,6 +47,9 @@ from __future__ import (
     unicode_literals,
 )
 import logging
+import textwrap
+
+import cereconf
 
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd import auth
@@ -57,6 +60,7 @@ from Cerebrum.modules.bofhd.bofhd_utils import exc_to_text
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.help import merge_help_strings
 from Cerebrum.modules.bofhd.utils import BofhdUtils
+from Cerebrum.modules.bofhd_requests.request import BofhdRequests
 
 from .bofhd_auth import UioAuth
 
@@ -132,6 +136,18 @@ def _get_host_disk_quota(host):
     return None
 
 
+def _validate_disk_name(diskname):
+    if not diskname.startswith("/"):
+        raise CerebrumError("'%s' does not start with '/'" % (diskname,))
+
+    if cereconf.VALID_DISK_TOPLEVELS is not None:
+        toplevel_mountpoint = diskname.split("/")[1]
+        if toplevel_mountpoint not in cereconf.VALID_DISK_TOPLEVELS:
+            raise CerebrumError(
+                "'%s' is not a valid toplevel mountpoint for disks"
+                % (toplevel_mountpoint,))
+
+
 class DiskHostCommands(bofhd_core.BofhdCommandBase):
 
     all_commands = {}
@@ -188,7 +204,8 @@ class DiskHostCommands(bofhd_core.BofhdCommandBase):
     # misc hadd <hostname>
     #
     all_commands['misc_hadd'] = cmd_param.Command(
-        ("misc", "hadd"),  # TODO: This should probably be ("host", "create")
+        # TODO: This should probably be ("host", "create")
+        ("misc", "hadd"),
         cmd_param.SimpleString(help_ref="hostname"),
         perm_filter="can_create_host",
     )
@@ -242,6 +259,112 @@ class DiskHostCommands(bofhd_core.BofhdCommandBase):
         # TODO: Add FormatSuggestion, and return `host_data`
         return "OK, %s deleted" % (host_data['name'],)
 
+    # ###########################
+    # ## Disk related commands ##
+    # ###########################
+
+    #
+    # misc dadd <hostname> <disk-path>
+    #
+    all_commands['misc_dadd'] = cmd_param.Command(
+        # TODO: This should probably be ("host", "disk_add")
+        ("misc", "dadd"),
+        cmd_param.SimpleString(help_ref="hostname"),
+        cmd_param.DiskId(help_ref="diskname"),
+        perm_filter="can_create_disk",
+    )
+
+    def misc_dadd(self, operator, hostname, diskname):
+        host = self._get_host(hostname)
+        self.ba.can_create_disk(operator.get_entity_id(), host=host)
+        _validate_disk_name(diskname)
+
+        disk = Factory.get('Disk')(self.db)
+        disk.populate(host.entity_id, diskname, "uio disk")
+        try:
+            disk.write_db()
+        except self.db.DatabaseError as m:
+            # TODO: We should probably not handle this scenario?
+            raise CerebrumError("Database error: " + exc_to_text(m))
+
+        disk_data = {
+            "host_id": int(host.entity_id),
+            "hostname": host.name,
+            "disk_id": int(disk.entity_id),
+            "path": disk.path,
+        }
+
+        # TODO: Add FormatSuggestion, and return `disk_data`
+        if len(diskname.split("/")) != 4:
+            return "OK.  Warning: disk did not follow expected pattern."
+
+        return ("OK, added disk '%s' at %s"
+                % (disk_data['path'], disk_data['hostname']))
+
+    #
+    # misc drem <hostname> <disk-path>
+    #
+    all_commands['misc_drem'] = cmd_param.Command(
+        # TODO: This should probably be ("host", "disk_remove")
+        ("misc", "drem"),
+        cmd_param.SimpleString(help_ref="hostname"),
+        cmd_param.DiskId(help_ref="diskname"),
+        perm_filter="can_remove_disk",
+    )
+
+    def misc_drem(self, operator, hostname, diskname):
+        host = self._get_host(hostname)
+        disk = self._get_disk(diskname, host_id=int(host.entity_id))[0]
+
+        self.ba.can_remove_disk(operator.get_entity_id(), host=host, disk=disk)
+
+        # FIXME: We assume that all destination_ids are entities,
+        # which would ensure that the disk_id number can't represent a
+        # different kind of entity.  The database does not constrain
+        # this, however.
+        br = BofhdRequests(self.db, self.const)
+        if br.get_requests(destination_id=disk.entity_id):
+            raise CerebrumError(
+                "There are pending requests. "
+                "Use 'misc list_requests disk %s' to view them."
+                % (diskname,))
+
+        account = self.Account_class(self.db)
+        for row in account.list_account_home(disk_id=int(disk.entity_id),
+                                             filter_expired=False):
+            if row['disk_id'] is None:
+                continue
+            if row['status'] == int(self.const.home_status_on_disk):
+                raise CerebrumError(
+                    "One or more users still on disk (e.g. %s)"
+                    % (row['entity_name'],))
+
+            account.clear()
+            account.find(row['account_id'])
+            ah = account.get_home(row['home_spread'])
+            account.set_homedir(
+                current_id=ah['homedir_id'],
+                disk_id=None,
+                home=account.resolve_homedir(
+                    disk_path=row['path'],
+                    home=row['home'],
+                ),
+            )
+        auth.delete_entity_auth_target(self.db, "disk", int(disk.entity_id))
+        disk_data = {
+            "host_id": int(host.entity_id),
+            "hostname": host.name,
+            "disk_id": int(disk.entity_id),
+            "path": disk.path,
+        }
+        try:
+            disk.delete()
+        except self.db.DatabaseError as m:
+            # TODO: We should probably not handle this scenario?
+            raise CerebrumError("Database error: " + exc_to_text(m))
+
+        # TODO: Add FormatSuggestion, and return `disk_data`
+        return "OK, %s deleted" % (disk_data['path'],)
 #
 # Help texts
 #
@@ -259,6 +382,8 @@ HELP_COMMANDS = {
     'misc': {
         'misc_hadd': "Register a new host",
         'misc_hrem': "Remove a host",
+        'misc_dadd': "Register a new disk",
+        'misc_drem': "Remove a disk",
     },
 }
 
@@ -267,5 +392,17 @@ HELP_ARGS = {
         "hostname",
         "Enter a valid hostname",
         "Enter a hostname to create or look up.  Example: ulrik",
+    ],
+    'diskname': [
+        "diskname",
+        "Enter a disk path",
+        textwrap.dedent(
+            """
+            Enter disk without a trailing slash.
+
+            Example:
+                /usit/kant/div-guest-u1
+            """
+        ).lstrip(),
     ],
 }

@@ -2176,38 +2176,6 @@ class BofhdExtension(BofhdCommonMethods):
         return "OK, passwords cleared"
 
     #
-    # misc dadd
-    #
-    all_commands['misc_dadd'] = Command(
-        ("misc", "dadd"),
-        SimpleString(help_ref='string_host'),
-        DiskId(),
-        perm_filter='can_create_disk')
-
-    def misc_dadd(self, operator, hostname, diskname):
-        host = self._get_host(hostname)
-        self.ba.can_create_disk(operator.get_entity_id(), host)
-
-        if not diskname.startswith("/"):
-            raise CerebrumError("'%s' does not start with '/'" % diskname)
-
-        if cereconf.VALID_DISK_TOPLEVELS is not None:
-            toplevel_mountpoint = diskname.split("/")[1]
-            if toplevel_mountpoint not in cereconf.VALID_DISK_TOPLEVELS:
-                raise CerebrumError("'%s' is not a valid toplevel mountpoint"
-                                    " for disks" % toplevel_mountpoint)
-
-        disk = Utils.Factory.get('Disk')(self.db)
-        disk.populate(host.entity_id, diskname, 'uio disk')
-        try:
-            disk.write_db()
-        except self.db.DatabaseError as m:
-            raise CerebrumError("Database error: %s" % exc_to_text(m))
-        if len(diskname.split("/")) != 4:
-            return "OK.  Warning: disk did not follow expected pattern."
-        return "OK, added disk '%s' at %s" % (diskname, hostname)
-
-    #
     # misc dls
     #
     # misc dls is deprecated, and can probably be removed without
@@ -2303,50 +2271,6 @@ class BofhdExtension(BofhdCommonMethods):
             return "OK, default quota on %s is %d" % (diskname, int(quota))
         else:
             raise CerebrumError("Invalid quota value '%s'" % quota)
-
-    #
-    # misc drem
-    #
-    all_commands['misc_drem'] = Command(
-        ("misc", "drem"),
-        SimpleString(help_ref='string_host'),
-        DiskId(),
-        perm_filter='can_remove_disk')
-
-    def misc_drem(self, operator, hostname, diskname):
-        host = self._get_host(hostname)
-        self.ba.can_remove_disk(operator.get_entity_id(), host)
-        disk = self._get_disk(diskname, host_id=host.entity_id)[0]
-        # FIXME: We assume that all destination_ids are entities,
-        # which would ensure that the disk_id number can't represent a
-        # different kind of entity.  The database does not constrain
-        # this, however.
-        br = BofhdRequests(self.db, self.const)
-        if br.get_requests(destination_id=disk.entity_id):
-            raise CerebrumError("There are pending requests. Use "
-                                "'misc list_requests disk %s' to view "
-                                "them." % diskname)
-        account = self.Account_class(self.db)
-        for row in account.list_account_home(disk_id=disk.entity_id,
-                                             filter_expired=False):
-            if row['disk_id'] is None:
-                continue
-            if row['status'] == int(self.const.home_status_on_disk):
-                raise CerebrumError("One or more users still on disk "
-                                    "(e.g. %s)" % row['entity_name'])
-            account.clear()
-            account.find(row['account_id'])
-            ah = account.get_home(row['home_spread'])
-            account.set_homedir(
-                current_id=ah['homedir_id'], disk_id=None,
-                home=account.resolve_homedir(disk_path=row['path'],
-                                             home=row['home']))
-        delete_entity_auth_target(self.db, "disk", disk.entity_id)
-        try:
-            disk.delete()
-        except self.db.DatabaseError as m:
-            raise CerebrumError("Database error: %s" % exc_to_text(m))
-        return "OK, %s deleted" % diskname
 
     #
     # host disk_quota <host> <quota>
@@ -4791,7 +4715,7 @@ class BofhdExtension(BofhdCommonMethods):
         ('user', 'set_disk_status'),
         AccountName(help_ref='account_name_id_uid'),
         SimpleString(help_ref='string_disk_status'),
-        perm_filter='can_create_disk',
+        perm_filter='can_set_disk_status',
     )
 
     def user_set_disk_status(self, operator, accountname, status):
@@ -4801,11 +4725,7 @@ class BofhdExtension(BofhdCommonMethods):
         except Errors.NotFoundError:
             raise CerebrumError("Unknown status")
         account = self._get_account(accountname)
-        # this is not exactly right, we should probably
-        # implement a can_set_disk_status-function, but no
-        # appropriate criteria is readily available for this
-        # right now
-        self.ba.can_create_disk(operator.get_entity_id(), query_run_any=True)
+        self.ba.can_set_disk_status(operator.get_entity_id())
         ah = account.get_home(self.const.spread_uio_nis_user)
         account.set_homedir(current_id=ah['homedir_id'], status=status)
         return "OK, set home-status for %s to %s" % (accountname,
