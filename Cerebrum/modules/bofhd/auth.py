@@ -712,6 +712,56 @@ class BofhdAuthRole(DatabaseAccessor):
             """)
 
 
+def delete_entity_auth_roles(db, entity_id):
+    """
+    Remove all roles granted to an entity.
+
+    This is typically done before deleting (or deactivating) an entity.
+    Will also clean up any targets that are no longer targeted by any roles.
+
+    :param int entity_id: an entity that should have all their roles revoked
+    """
+    ar = BofhdAuthRole(db)
+    aot = BofhdAuthOpTarget(db)
+    for r in ar.list(entity_id):
+        ar.revoke_auth(entity_id, r['op_set_id'], r['op_target_id'])
+        # Also remove targets if this was the last reference from
+        # auth_role.
+        remaining = ar.list(op_target_id=r['op_target_id'])
+        if len(remaining) == 0:
+            aot.clear()
+            aot.find(r['op_target_id'])
+            aot.delete()
+
+
+def delete_entity_auth_target(db, target_type, target_id):
+    """
+    Remove all auth targets that points to a given entity.
+
+    Deletes all targets for an entity, along with any roles that grants access
+    to that target.
+
+    TODO: Why are we limiting this to target-type?  Also, why do we even have
+    *target-type* for non-global targets?
+
+    :param str target_type: target type
+    :param int target_id: entity-id to delete targets for
+    """
+    ar = BofhdAuthRole(db)
+    aot = BofhdAuthOpTarget(db)
+    for r in aot.list(entity_id=target_id, target_type=target_type):
+        aot.clear()
+        aot.find(r['op_target_id'])
+        # We remove all auth_role entries first so that there
+        # are no references to this op_target_id, just in case
+        # someone adds a foreign key constraint later.
+        for role in ar.list(op_target_id=r["op_target_id"]):
+            ar.revoke_auth(role['entity_id'],
+                           role['op_set_id'],
+                           r['op_target_id'])
+        aot.delete()
+
+
 def _get_bofhd_auth_systems(const):
     """
     Get authoritative system codes.

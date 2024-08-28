@@ -48,8 +48,8 @@ from Cerebrum.modules.bofhd import bofhd_perm_cmds
 from Cerebrum.modules.bofhd import bofhd_quarantines
 from Cerebrum.modules.bofhd import parsers
 from Cerebrum.modules.bofhd.auth import (
-    BofhdAuthOpTarget,
-    BofhdAuthRole,
+    delete_entity_auth_roles,
+    delete_entity_auth_target,
 )
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.bofhd_user_create import BofhdUserCreateMethod
@@ -1096,8 +1096,8 @@ class BofhdExtension(BofhdCommonMethods):
                     'Cannot delete group %s, is type %r' % (
                         groupname, grp.get_extensions()))
 
-            self._remove_auth_target("group", grp.entity_id)
-            self._remove_auth_role(grp.entity_id)
+            delete_entity_auth_target(self.db, "group", grp.entity_id)
+            delete_entity_auth_roles(self.db, grp.entity_id)
             try:
                 grp.delete()
             except self.db.DatabaseError as msg:
@@ -2341,7 +2341,7 @@ class BofhdExtension(BofhdCommonMethods):
                 current_id=ah['homedir_id'], disk_id=None,
                 home=account.resolve_homedir(disk_path=row['path'],
                                              home=row['home']))
-        self._remove_auth_target("disk", disk.entity_id)
+        delete_entity_auth_target(self.db, "disk", disk.entity_id)
         try:
             disk.delete()
         except self.db.DatabaseError as m:
@@ -2377,7 +2377,7 @@ class BofhdExtension(BofhdCommonMethods):
     def misc_hrem(self, operator, hostname):
         self.ba.can_remove_host(operator.get_entity_id())
         host = self._get_host(hostname)
-        self._remove_auth_target("host", host.host_id)
+        delete_entity_auth_target(self.db, "host", host.host_id)
         try:
             host.delete()
         except self.db.DatabaseError as m:
@@ -2442,40 +2442,6 @@ class BofhdExtension(BofhdCommonMethods):
         else:
             raise CerebrumError("Invalid quota value '%s'" % quota)
         pass
-
-    def _remove_auth_target(self, target_type, target_id):
-        """This function should be used whenever a potential target
-        for authorisation is deleted.
-        """
-        ar = BofhdAuthRole(self.db)
-        aot = BofhdAuthOpTarget(self.db)
-        for r in aot.list(entity_id=target_id, target_type=target_type):
-            aot.clear()
-            aot.find(r['op_target_id'])
-            # We remove all auth_role entries first so that there
-            # are no references to this op_target_id, just in case
-            # someone adds a foreign key constraint later.
-            for role in ar.list(op_target_id=r["op_target_id"]):
-                ar.revoke_auth(role['entity_id'],
-                               role['op_set_id'],
-                               r['op_target_id'])
-            aot.delete()
-
-    def _remove_auth_role(self, entity_id):
-        """This function should be used whenever a potentially
-        authorised entity is deleted.
-        """
-        ar = BofhdAuthRole(self.db)
-        aot = BofhdAuthOpTarget(self.db)
-        for r in ar.list(entity_id):
-            ar.revoke_auth(entity_id, r['op_set_id'], r['op_target_id'])
-            # Also remove targets if this was the last reference from
-            # auth_role.
-            remaining = ar.list(op_target_id=r['op_target_id'])
-            if len(remaining) == 0:
-                aot.clear()
-                aot.find(r['op_target_id'])
-                aot.delete()
 
     #
     # misc list_passwords

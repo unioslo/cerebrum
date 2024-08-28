@@ -97,8 +97,6 @@ uio_helpers = [
     '_group_remove',
     '_group_remove_entity',
     '_person_affiliation_add_helper',
-    '_remove_auth_role',
-    '_remove_auth_target',
     '_viewable_external_ids',
     'user_set_owner_prompt_func',
 ]
