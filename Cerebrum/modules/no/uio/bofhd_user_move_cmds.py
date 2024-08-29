@@ -400,10 +400,16 @@ class MoveUserCommands(bofhd_core.BofhdCommandBase):
         self.ba.can_move_user(operator.get_entity_id(), account, disk)
 
         ah = _get_account_home(account, self.home_spread)
-
         messages = self._get_move_warnings(account, disk, ah['homedir_id'])
+        if ah['disk_id'] is None:
+            # If previously hard-coded, non-disk,
+            # we need to re-set the home path
+            extra = {'home': None}
+        else:
+            extra = {}
         account.set_homedir(current_id=ah['homedir_id'],
-                            disk_id=int(disk.entity_id))
+                            disk_id=int(disk.entity_id),
+                            **extra)
         account.write_db()
         messages.append("User moved.")
         return "\n".join(messages)
@@ -806,7 +812,7 @@ HELP_ARGS = {
              - confirm            <move-account>
              - cancel             <move-account>
 
-            See `help user-move-info` for details regaring the various move
+            See `help user-move-info` for details regarding the various move
             types, and moving users in general.  `help arg_help <argument>`
             offers more info about a required argument.
             """
