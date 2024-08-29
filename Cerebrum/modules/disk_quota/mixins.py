@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright 2005-2019 University of Oslo, Norway
+#
+# Copyright 2005-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -16,6 +17,13 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+""" Mixins for disk quotas. """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 from Cerebrum import Disk
 from Cerebrum import Errors
 from Cerebrum.modules.EntityTrait import EntityTrait
