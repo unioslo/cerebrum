@@ -100,7 +100,6 @@ from Cerebrum.modules.bofhd import bofhd_access
 from Cerebrum.modules.consent import bofhd_consent_cmds
 from Cerebrum.modules.guest import bofhd_guest_cmds
 from Cerebrum.modules.no import fodselsnr
-from Cerebrum.modules.disk_quota import DiskQuota
 from Cerebrum.modules.no.uio.access_FS import FS
 from Cerebrum.modules.no.uio import bofhd_pw_issues
 from Cerebrum.modules.bofhd import bofhd_user_create_unpersonal
@@ -2174,74 +2173,6 @@ class BofhdExtension(BofhdCommonMethods):
     def misc_clear_passwords(self, operator, account_name=None):
         operator.clear_state(state_types=('new_account_passwd', 'user_passwd'))
         return "OK, passwords cleared"
-
-    #
-    # disk quota <disk> <quota>
-    #
-    all_commands['disk_quota'] = Command(
-        ("disk", "quota"),
-        SimpleString(help_ref='string_host'),
-        DiskId(),
-        SimpleString(help_ref='disk_quota_set'),
-        perm_filter='can_set_disk_default_quota',
-    )
-
-    def disk_quota(self, operator, hostname, diskname, quota):
-        host = self._get_host(hostname)
-        disk = self._get_disk(diskname, host_id=host.entity_id)[0]
-        self.ba.can_set_disk_default_quota(operator.get_entity_id(),
-                                           host=host, disk=disk)
-        old = disk.get_trait(self.const.trait_disk_quota)
-        if quota.lower() == 'none':
-            if old:
-                disk.delete_trait(self.const.trait_disk_quota)
-            return "OK, no quotas on %s" % diskname
-        elif quota.lower() == 'default':
-            disk.populate_trait(self.const.trait_disk_quota,
-                                numval=None)
-            disk.write_db()
-            return "OK, using host default on %s" % diskname
-        elif quota.isdigit():
-            disk.populate_trait(self.const.trait_disk_quota,
-                                numval=int(quota))
-            disk.write_db()
-            return "OK, default quota on %s is %d" % (diskname, int(quota))
-        else:
-            raise CerebrumError("Invalid quota value '%s'" % quota)
-
-    #
-    # host disk_quota <host> <quota>
-    #
-    all_commands['host_disk_quota'] = Command(
-        ("host", "disk_quota"),
-        SimpleString(help_ref='string_host'),
-        SimpleString(help_ref='disk_quota_set'),
-        perm_filter='can_set_disk_default_quota',
-    )
-
-    def host_disk_quota(self, operator, hostname, quota):
-        host = self._get_host(hostname)
-        self.ba.can_set_disk_default_quota(operator.get_entity_id(),
-                                           host=host)
-        old = host.get_trait(self.const.trait_host_disk_quota)
-        if (quota.lower() == 'none' or
-                quota.lower() == 'default' or
-                (quota.isdigit() and int(quota) == 0)):
-            # "default" doesn't make much sense, but the help text
-            # says it's a valid value.
-            if old:
-                # TBD: disk is not defined here, what is this supposed to do?
-                # disk.delete_trait(self.const.trait_disk_quota)
-                raise Exception("does this ever happen?")
-            return "OK, no default quota on %s" % hostname
-        elif quota.isdigit() and int(quota) > 0:
-            host.populate_trait(self.const.trait_host_disk_quota,
-                                numval=int(quota))
-            host.write_db()
-            return "OK, default quota on %s is %d" % (hostname, int(quota))
-        else:
-            raise CerebrumError("Invalid quota value '%s'" % quota)
-        pass
 
     #
     # misc list_passwords

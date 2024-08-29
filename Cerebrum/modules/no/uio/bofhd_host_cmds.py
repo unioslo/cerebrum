@@ -150,6 +150,25 @@ class DiskHostAuth(UioAuth):
         return self.has_privileged_access_to_account_or_person(
             operator, self.const.auth_disk_quota_set, account)
 
+    def can_set_disk_default_quota(self, operator, host=None, disk=None,
+                                   query_run_any=False):
+        """ Check if op can set quota for disks or disk hosts. """
+        if self.is_superuser(operator):
+            return True
+        if query_run_any:
+            return self._has_operation_perm_somewhere(
+                operator, self.const.auth_disk_def_quota_set)
+        if ((host is not None and self._has_target_permissions(
+                                operator, self.const.auth_disk_def_quota_set,
+                                self.const.auth_target_type_host,
+                                host.entity_id, None)) or
+            (disk is not None and self._has_target_permissions(
+                                operator, self.const.auth_disk_def_quota_set,
+                                self.const.auth_target_type_disk,
+                                disk.entity_id, None))):
+            return True
+        raise PermissionDenied("No access to disk")
+
     def can_show_disk_quota(self, operator, account=None, query_run_any=False):
         """ Check if op can get disk quota/disk quota override for account. """
         if self.is_superuser(operator):
@@ -278,6 +297,7 @@ class DiskHostCommands(bofhd_core.BofhdCommandBase):
     )
 
     def host_info(self, operator, hostname):
+        """ Show info on a *host* object. """
         host = self._get_host(hostname)
         ret = {
             'hostname': hostname,
@@ -299,6 +319,7 @@ class DiskHostCommands(bofhd_core.BofhdCommandBase):
     )
 
     def misc_hadd(self, operator, hostname):
+        """ Create a *host* object. """
         self.ba.can_create_host(operator.get_entity_id())
         host = Factory.get('Host')(self.db)
         # TODO: Should probably check if the host exists,
@@ -330,6 +351,7 @@ class DiskHostCommands(bofhd_core.BofhdCommandBase):
     )
 
     def misc_hrem(self, operator, hostname):
+        """ Delete a *host* object. """
         host = self._get_host(hostname)
         self.ba.can_remove_host(operator.get_entity_id(), host=host)
         auth.delete_entity_auth_target(self.db, "host", int(host.entity_id))
@@ -363,6 +385,7 @@ class DiskHostCommands(bofhd_core.BofhdCommandBase):
     )
 
     def misc_dadd(self, operator, hostname, diskname):
+        """ Create a *disk* object. """
         host = self._get_host(hostname)
         self.ba.can_create_disk(operator.get_entity_id(), host=host)
         _validate_disk_name(diskname)
@@ -401,6 +424,7 @@ class DiskHostCommands(bofhd_core.BofhdCommandBase):
     )
 
     def misc_drem(self, operator, hostname, diskname):
+        """ Remove a *disk* object. """
         host = self._get_host(hostname)
         disk = self._get_disk(diskname, host_id=int(host.entity_id))[0]
 
@@ -496,6 +520,7 @@ class DiskHostCommands(bofhd_core.BofhdCommandBase):
     )
 
     def misc_dls(self, operator, hostname):
+        """ List disks on a given *host*. """
         host = self._get_host(hostname)
         return self._list_disks(host)
 
@@ -514,6 +539,7 @@ class DiskHostCommands(bofhd_core.BofhdCommandBase):
     )
 
     def disk_list(self, operator, hostname):
+        """ List disks and default disk quotas on a given *host*. """
         host = self._get_host(hostname)
         return self._list_disks(host)
 
@@ -522,7 +548,80 @@ class DiskHostCommands(bofhd_core.BofhdCommandBase):
     # #################################
 
     #
+    # disk quota <host> <disk> <quota>
+    #
+    all_commands['disk_quota'] = cmd_param.Command(
+        # TODO: This should probably be ("disk", "set_default_quota")
+        ("disk", "quota"),
+        cmd_param.SimpleString(help_ref="hostname"),
+        cmd_param.DiskId(help_ref="diskname"),
+        cmd_param.SimpleString(help_ref="dq-size"),
+        perm_filter="can_set_disk_default_quota",
+    )
+
+    def disk_quota(self, operator, hostname, diskname, quota):
+        """ Set default quota for a given *disk*. """
+        host = self._get_host(hostname)
+        disk = self._get_disk(diskname, host_id=host.entity_id)[0]
+        self.ba.can_set_disk_default_quota(operator.get_entity_id(),
+                                           host=host, disk=disk)
+        old = disk.get_trait(self.const.trait_disk_quota)
+        if quota.lower() == "none":
+            if old:
+                disk.delete_trait(self.const.trait_disk_quota)
+            return "OK, no quotas on %s" % diskname
+        elif quota.lower() == "default":
+            disk.populate_trait(self.const.trait_disk_quota,
+                                numval=None)
+            disk.write_db()
+            return "OK, using host default on %s" % diskname
+        elif quota.isdigit():
+            disk.populate_trait(self.const.trait_disk_quota,
+                                numval=int(quota))
+            disk.write_db()
+            return "OK, default quota on %s is %d" % (diskname, int(quota))
+        else:
+            raise CerebrumError("Invalid quota value '%s'" % quota)
+
+    #
+    # host disk_quota <host> <quota>
+    #
+    all_commands['host_disk_quota'] = cmd_param.Command(
+        # TODO: This should probably be ("host", "set_default_quota")
+        ("host", "disk_quota"),
+        cmd_param.SimpleString(help_ref="hostname"),
+        cmd_param.SimpleString(help_ref="dq-size"),
+        perm_filter="can_set_disk_default_quota",
+    )
+
+    def host_disk_quota(self, operator, hostname, quota):
+        """ Set default quota for all disks on a given *host*. """
+        host = self._get_host(hostname)
+        self.ba.can_set_disk_default_quota(operator.get_entity_id(),
+                                           host=host)
+        old = host.get_trait(self.const.trait_host_disk_quota)
+        if (quota.lower() == 'none' or
+                quota.lower() == 'default' or
+                (quota.isdigit() and int(quota) == 0)):
+            # "default" doesn't make much sense, but the help text
+            # says it's a valid value.
+            if old:
+                # TBD: disk is not defined here, what is this supposed to do?
+                # disk.delete_trait(self.const.trait_disk_quota)
+                raise Exception("does this ever happen?")
+            return "OK, no default quota on %s" % hostname
+        elif quota.isdigit() and int(quota) > 0:
+            host.populate_trait(self.const.trait_host_disk_quota,
+                                numval=int(quota))
+            host.write_db()
+            return "OK, default quota on %s is %d" % (hostname, int(quota))
+        else:
+            raise CerebrumError("Invalid quota value '%s'" % quota)
+
+    #
     # user get_disk_quota
+    #
+    # This used to be in `user info`, but has been moved to a separate command
     #
     all_commands['user_get_disk_quota'] = cmd_param.Command(
         ("user", "get_disk_quota"),
@@ -539,6 +638,7 @@ class DiskHostCommands(bofhd_core.BofhdCommandBase):
     )
 
     def user_get_disk_quota(self, operator, _account):
+        """ Get quota override status for a given *account*. """
         account = self._get_account(_account)
         self.ba.can_show_disk_quota(operator.get_entity_id(), account)
 
@@ -608,6 +708,7 @@ class DiskHostCommands(bofhd_core.BofhdCommandBase):
     )
 
     def user_set_disk_quota(self, operator, _account, _size, _date, _why):
+        """ Set quota override for a given *account*. """
         account = self._get_account(_account)
         try:
             size = int(_size)
@@ -647,6 +748,8 @@ class DiskHostCommands(bofhd_core.BofhdCommandBase):
 HELP_GROUP = {
     'disk': "Disk related commands",
     'host': "Host related commands",
+    # Probably not needed, but useful if the *misc* or *user* categories are
+    # refactored/removed from the base class:
     'misc': "Miscellaneous commands",
     'user': "User related commands",
 }
@@ -657,8 +760,10 @@ HELP_COMMANDS = {
             "List the disks registered with a host.  A quota value in "
             "parenthesis means it uses to the host's default disk quota."
         ),
+        'disk_quota': "Enable quotas on a disk, and set the default value",
     },
     'host': {
+        'host_disk_quota': 'Set the default disk quota for a host',
         'host_info': 'Show information about a host',
     },
     'misc': {
@@ -722,6 +827,19 @@ HELP_ARGS = {
             {}
             """
         ).lstrip().format(parsers.parse_date_help_blurb),
+    ],
+    'dq-size': [
+        'dq-size',
+        'Enter disk quota (in MiB)',
+        textwrap.dedent(
+            """
+            Enter quota size in MiB, or use none/default:
+
+             - <n>:     set quota to <n> MiB
+             - none:    disable quota
+             - default: use the host's default quota
+            """
+        ).lstrip(),
     ],
     'dq-override-size': [
         'dq-override-size',

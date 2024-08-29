@@ -41,10 +41,8 @@ from __future__ import (
 import textwrap
 
 group_help = {
-    'disk': "Disk related commands",
     'entity': "Entity commands",
     'group': "Group commands",
-    'host': "Host related commands",
     'misc': 'Miscellaneous commands',
     'person': 'Person related commands',
     'pquota': 'Pquota related commands',
@@ -55,11 +53,6 @@ group_help = {
 # The texts in command_help are automatically line-wrapped, and should
 # not contain \n
 command_help = {
-    'disk': {
-        "disk_quota": (
-            "Enable quotas on a disk, and set the default value"
-        ),
-    },
     'entity': {
         'entity_accounts': (
             "List information about accounts associated with given entities"
@@ -140,9 +133,6 @@ command_help = {
         'group_set_expire': 'Set expire date for a group',
         'group_set_type': 'Set category/type for a group',
         'group_set_visibility': 'Set visibility for a group',
-    },
-    'host': {
-        'host_disk_quota': 'Set the default disk quota for a host',
     },
     'misc': {
         'misc_affiliations': 'List all known affiliations',
@@ -358,16 +348,6 @@ arg_help = {
              If the disk isn't registered in Cerebrum and never should be,
              enter the whole path verbatim, prepended by a colon.  Example:
                :/usr/local/oracle
-            """
-        ).lstrip(),
-    ],
-    'disk_quota_set': [
-        'size',
-        'Enter quota size',
-        textwrap.dedent(
-            """
-            Enter quota size in MiB, or 'none' to disable quota, or 'default'
-            to use the host's default quota value.
             """
         ).lstrip(),
     ],

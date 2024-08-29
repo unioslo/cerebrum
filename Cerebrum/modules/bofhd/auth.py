@@ -964,24 +964,6 @@ class BofhdAuth(DatabaseAccessor):
         """See if operator can view basic information about an account."""
         return True
 
-    def can_set_disk_default_quota(self, operator, host=None, disk=None,
-                                   query_run_any=False):
-        if self.is_superuser(operator):
-            return True
-        if query_run_any:
-            return self._has_operation_perm_somewhere(
-                operator, self.const.auth_disk_def_quota_set)
-        if ((host is not None and self._has_target_permissions(
-                                operator, self.const.auth_disk_def_quota_set,
-                                self.const.auth_target_type_host,
-                                host.entity_id, None)) or
-            (disk is not None and self._has_target_permissions(
-                                operator, self.const.auth_disk_def_quota_set,
-                                self.const.auth_target_type_disk,
-                                disk.entity_id, None))):
-            return True
-        raise PermissionDenied("No access to disk")
-
     def can_set_person_user_priority(self, operator, account=None,
                                      query_run_any=False):
         if query_run_any:
