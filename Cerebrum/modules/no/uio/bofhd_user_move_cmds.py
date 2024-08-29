@@ -36,9 +36,7 @@ from __future__ import (
     print_function,
     unicode_literals,
 )
-import datetime
 import logging
-import re
 import textwrap
 
 import six
@@ -52,8 +50,6 @@ from Cerebrum.modules.bofhd import cmd_param
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.help import (Help, merge_help_strings)
 from Cerebrum.modules.bofhd_requests.request import BofhdRequests
-from Cerebrum.modules.disk_quota import DiskQuota
-from Cerebrum.utils import date_compat
 from Cerebrum.utils import email
 
 from .bofhd_auth import UioAuth
@@ -355,10 +351,9 @@ class MoveUserCommands(bofhd_core.BofhdCommandBase):
         disk = self._get_target_disk(account, disk_ident)
         self.ba.can_move_user(operator.get_entity_id(), account, disk)
 
-        ah = _get_account_home(account, self.home_spread)
+        _get_account_home(account, self.home_spread)
         br = BofhdRequests(self.db, self.const)
 
-        messages = self._get_move_warnings(account, disk, ah['homedir_id'])
         br.add_request(
             operator=operator.get_entity_id(),
             when=br.now,
@@ -367,18 +362,16 @@ class MoveUserCommands(bofhd_core.BofhdCommandBase):
             destination_id=int(disk.entity_id),
             state_data=int(self.home_spread),
         )
-        messages.append("Command queued for immediate execution.")
-        return "\n".join(messages)
+        return "Command queued for immediate execution."
 
     def _user_move_batch(self, operator, account, disk_ident):
         """ Move user in the regular, nightly bofhd-request processing run. """
         disk = self._get_target_disk(account, disk_ident)
         self.ba.can_move_user(operator.get_entity_id(), account, disk)
 
-        ah = _get_account_home(account, self.home_spread)
+        _get_account_home(account, self.home_spread)
         br = BofhdRequests(self.db, self.const)
 
-        messages = self._get_move_warnings(account, disk, ah['homedir_id'])
         when = br.batch_time
         br.add_request(
             operator=operator.get_entity_id(),
@@ -388,11 +381,10 @@ class MoveUserCommands(bofhd_core.BofhdCommandBase):
             destination_id=int(disk.entity_id),
             state_data=int(self.home_spread),
         )
-        messages.append("Move queued for execution at %s."
-                        % (when.strftime("%Y-%m-%dT%H:%M:%S"),))
         # mail user about the awaiting move operation
         _send_batch_move_notification(account, disk)
-        return "\n".join(messages)
+        return ("Move queued for execution at %s."
+                % (when.strftime("%Y-%m-%dT%H:%M:%S"),))
 
     def _user_move_nofile(self, operator, account, disk_ident):
         """ Move user to a new path without actually moving anything. """
@@ -400,7 +392,6 @@ class MoveUserCommands(bofhd_core.BofhdCommandBase):
         self.ba.can_move_user(operator.get_entity_id(), account, disk)
 
         ah = _get_account_home(account, self.home_spread)
-        messages = self._get_move_warnings(account, disk, ah['homedir_id'])
         if ah['disk_id'] is None:
             # If previously hard-coded, non-disk,
             # we need to re-set the home path
@@ -411,8 +402,7 @@ class MoveUserCommands(bofhd_core.BofhdCommandBase):
                             disk_id=int(disk.entity_id),
                             **extra)
         account.write_db()
-        messages.append("User moved.")
-        return "\n".join(messages)
+        return "User moved."
 
     def _user_move_hard_nofile(self, operator, account, home_path):
         """ Move user to a hard-coded path. """
@@ -539,79 +529,6 @@ class MoveUserCommands(bofhd_core.BofhdCommandBase):
             state_data=reason,
         )
         return "OK, request registered"
-
-    #
-    # Some helpers for `user move <immediate|batch|nofile>`
-    #
-
-    def _get_move_warnings(self, account, disk, homedir_id):
-        """ Get a list of potential issues with moving *account* to *disk*. """
-        return [
-            warning
-            for warning in (
-                self._check_account_spreads(account, disk),
-                self._check_disk_quota(account, disk, homedir_id),
-            )
-            if warning
-        ]
-
-    def _check_account_spreads(self, account, disk):
-        """
-        Check if the target disk is suitable for the given account spreads.
-
-        :returns:
-            A warning message if the target disk is not suitable for the
-            account, otherwise `None`
-        """
-        # TODO: Are ifi disks and ifi-spreads a thing still?  This warning may
-        # be obsolete...
-        for r in account.get_spread():
-            if (r['spread'] == self.const.spread_ifi_nis_user and
-                    not re.match(r'^/ifi/', disk.path)):
-                return ("WARNING: moving user with %s-spread to "
-                        "a non-Ifi disk."
-                        % six.text_type(self.const.spread_ifi_nis_user))
-        return None
-
-    def _check_disk_quota(self, account, disk, homedir_id):
-        """
-        Check if quota will be cleared by move.
-
-        :returns:
-            A warning message if the quota will be cleared, otherwise `None`
-        """
-        # TODO: Disk quotas have no real-world effect, so maybe we should just
-        # remove this warning?
-        has_dest_quota = disk.has_quota()
-        default_dest_quota = disk.get_default_quota()
-        current_quota = None
-        dq = DiskQuota(self.db)
-        try:
-            dq_row = dq.get_quota(homedir_id)
-        except Errors.NotFoundError:
-            pass
-        else:
-            current_quota = dq_row['quota']
-            if dq_row['quota'] is not None:
-                current_quota = dq_row['quota']
-
-            dq_expire = date_compat.get_date(dq_row['override_expiration'])
-            days_left = ((dq_expire or datetime.date.min)
-                         - datetime.date.today()).days
-            if days_left > 0 and dq_row['override_quota'] is not None:
-                current_quota = dq_row['override_quota']
-
-        if current_quota is None:
-            # this is OK
-            pass
-        elif not has_dest_quota:
-            return ("Destination disk has no quota, so the current "
-                    "quota (%d) will be cleared." % (current_quota,))
-        elif current_quota <= default_dest_quota:
-            return ("Current quota (%d) is smaller or equal to the "
-                    "default at destination (%d), so it will be "
-                    "removed." % (current_quota, default_dest_quota))
-        return None
 
 
 #
