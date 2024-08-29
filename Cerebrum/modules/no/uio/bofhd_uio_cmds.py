@@ -3914,47 +3914,6 @@ class BofhdExtension(BofhdCommonMethods):
         return "User %s queued for deletion immediately" % account.account_name
 
     #
-    # user set_disk_quota
-    # TODO: Why don't we use the disk_quota module here?
-    # TODO: We should probably just remove the disk quota module and all
-    #       related functionality
-    #
-    all_commands['user_set_disk_quota'] = Command(
-        ("user", "set_disk_quota"),
-        AccountName(help_ref='account_name_id_uid'),
-        Integer(help_ref="disk_quota_size"),
-        Date(help_ref="disk_quota_expire_date"),
-        SimpleString(help_ref="string_why"),
-        perm_filter='can_set_disk_quota',
-    )
-
-    def user_set_disk_quota(self, operator, accountname, size, date, why):
-        account = self._get_account(accountname)
-        exp_date = parsers.parse_date(date)
-        why = why.strip()
-        if len(why) < 3:
-            raise CerebrumError("Why cannot be blank")
-        unlimited = forever = False
-        if (exp_date - datetime.date.today()).days > 185:
-            forever = True
-        try:
-            size = int(size)
-        except ValueError:
-            raise CerebrumError("Expected int as size")
-        if size > 1024 or size < 0:    # "unlimited" for perm-check = +1024M
-            unlimited = True
-        self.ba.can_set_disk_quota(operator.get_entity_id(), account,
-                                   unlimited=unlimited, forever=forever)
-        home = account.get_home(self.const.spread_uio_nis_user)
-        if size < 0:
-            # unlimited disk quota
-            size = None
-        dq = DiskQuota(self.db)
-        dq.set_quota(home['homedir_id'], override_quota=size,
-                     override_expiration=exp_date, description=why)
-        return "OK, quota overridden for %s" % accountname
-
-    #
     # user gecos
     #
     all_commands['user_gecos'] = Command(
@@ -4015,9 +3974,6 @@ class BofhdExtension(BofhdCommonMethods):
              ("username", "spread", "affiliations", format_day("expire"),
               "home", "home_status", "entity_id", "owner_id", "owner_type",
               "owner_desc")),
-            ("Disk quota:    %s MiB", ("disk_quota",)),
-            ("DQ override:   %s MiB (until %s: %s)",
-             ("dq_override", format_day("dq_expire"), "dq_why")),
             ("UID:           %i\n"
              "Default fg:    %i=%s\n"
              "Gecos:         %s\n"
@@ -4073,37 +4029,6 @@ class BofhdExtension(BofhdCommonMethods):
             'owner_id': account.owner_id,
             'owner_type': text_type(self.const.EntityType(account.owner_type)),
         }
-
-        try:
-            self.ba.can_show_disk_quota(operator.get_entity_id(), account)
-            can_see_quota = True
-        except PermissionDenied:
-            can_see_quota = False
-        if tmp['disk_id'] and can_see_quota:
-            disk = Utils.Factory.get("Disk")(self.db)
-            disk.find(tmp['disk_id'])
-            has_quota = disk.has_quota()
-            def_quota = disk.get_default_quota()
-            try:
-                dq = DiskQuota(self.db)
-                dq_row = dq.get_quota(tmp['homedir_id'])
-                if has_quota and dq_row['quota'] is not None:
-                    ret['disk_quota'] = str(int(dq_row['quota']))
-                # Only display recent quotas
-                dq_expire = date_compat.get_date(dq_row['override_expiration'])
-                days_left = ((dq_expire or datetime.date.min)
-                             - datetime.date.today()).days
-                if days_left > -30:
-                    ret['dq_override'] = dq_row['override_quota']
-                    if dq_row['override_quota'] is not None:
-                        ret['dq_override'] = str(int(dq_row['override_quota']))
-                    ret['dq_expire'] = dq_expire
-                    ret['dq_why'] = dq_row['description']
-                    if days_left < 0:
-                        ret['dq_why'] += " [INACTIVE]"
-            except Errors.NotFoundError:
-                if def_quota:
-                    ret['disk_quota'] = "(%s)" % def_quota
 
         if account.owner_type == self.const.entity_person:
             person = self._get_person('entity_id', account.owner_id)

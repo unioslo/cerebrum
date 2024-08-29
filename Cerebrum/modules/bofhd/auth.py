@@ -157,7 +157,7 @@ The auth module consists of the parts:
   superuser role.
 
 - Services that uses BofhdAuth would only see different auth methods, e.g.
-  can_set_disk_quota(). The operations and OpSets are then checked internally,
+  can_show_history(). The operations and OpSets are then checked internally,
   the service does not need to know about these details.
 
   An example is the bofhd command 'user_history', which calls
@@ -964,22 +964,6 @@ class BofhdAuth(DatabaseAccessor):
         """See if operator can view basic information about an account."""
         return True
 
-    def can_set_disk_quota(self, operator, account=None, unlimited=False,
-                           forever=False, query_run_any=False):
-        if self.is_superuser(operator):
-            return True
-        if query_run_any:
-            return self._has_operation_perm_somewhere(
-                operator, self.const.auth_disk_quota_set)
-        if forever:
-            self.has_privileged_access_to_account_or_person(
-                operator, self.const.auth_disk_quota_forever, account)
-        if unlimited:
-            self.has_privileged_access_to_account_or_person(
-                operator, self.const.auth_disk_quota_unlimited, account)
-        return self.has_privileged_access_to_account_or_person(
-            operator, self.const.auth_disk_quota_set, account)
-
     def can_set_disk_default_quota(self, operator, host=None, disk=None,
                                    query_run_any=False):
         if self.is_superuser(operator):
@@ -997,15 +981,6 @@ class BofhdAuth(DatabaseAccessor):
                                 disk.entity_id, None))):
             return True
         raise PermissionDenied("No access to disk")
-
-    def can_show_disk_quota(self, operator, account=None, query_run_any=False):
-        if self.is_superuser(operator):
-            return True
-        if query_run_any:
-            return self._has_operation_perm_somewhere(
-                operator, self.const.auth_disk_quota_show)
-        return self.has_privileged_access_to_account_or_person(
-            operator, self.const.auth_disk_quota_show, account)
 
     def can_set_person_user_priority(self, operator, account=None,
                                      query_run_any=False):

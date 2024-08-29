@@ -227,7 +227,6 @@ command_help = {
         ),
         'user_restore': 'Restore a deactivated user',
         'user_restore_unpersonal': 'Restore a deactivated unpersonal user',
-        'user_set_disk_quota': 'Temporary override users disk quota',
         'user_set_disk_status': 'Set homedir status for user',
         'user_set_expire': 'Set expire date for an account',
         'user_set_np_type': (
@@ -371,16 +370,6 @@ arg_help = {
             to use the host's default quota value.
             """
         ).lstrip(),
-    ],
-    'disk_quota_size': [
-        'size',
-        'Enter quota size',
-        'Enter quota size in MiB, or -1 for unlimited quota',
-    ],
-    'disk_quota_expire_date': [
-        'end_date',
-        'Enter end-date for override',
-        'Format is 2003-12-31',
     ],
     'display_name_language': [
         'language',

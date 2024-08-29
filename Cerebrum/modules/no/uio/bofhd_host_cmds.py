@@ -46,21 +46,28 @@ from __future__ import (
     print_function,
     unicode_literals,
 )
+import datetime
 import logging
 import textwrap
 
-import cereconf
+import six
 
+import cereconf
+from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd import auth
 from Cerebrum.modules.bofhd import bofhd_core
 from Cerebrum.modules.bofhd import cmd_param
+from Cerebrum.modules.bofhd import parsers
 from Cerebrum.modules.bofhd.bofhd_core_help import get_help_strings
+from Cerebrum.modules.bofhd.bofhd_utils import default_format_day as format_day
 from Cerebrum.modules.bofhd.bofhd_utils import exc_to_text
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.help import merge_help_strings
 from Cerebrum.modules.bofhd.utils import BofhdUtils
 from Cerebrum.modules.bofhd_requests.request import BofhdRequests
+from Cerebrum.modules.disk_quota import DiskQuota
+from Cerebrum.utils import date_compat
 
 from .bofhd_auth import UioAuth
 
@@ -125,6 +132,46 @@ class DiskHostAuth(UioAuth):
         """ Check if operator can remove a disk object. """
         return self._can_modify_disk(operator, host=host,
                                      query_run_any=query_run_any)
+
+    def can_set_disk_quota(self, operator, account=None, unlimited=False,
+                           forever=False, query_run_any=False):
+        """ Check if op can override per-user disk quota. """
+        if self.is_superuser(operator):
+            return True
+        if query_run_any:
+            return self._has_operation_perm_somewhere(
+                operator, self.const.auth_disk_quota_set)
+        if forever:
+            self.has_privileged_access_to_account_or_person(
+                operator, self.const.auth_disk_quota_forever, account)
+        if unlimited:
+            self.has_privileged_access_to_account_or_person(
+                operator, self.const.auth_disk_quota_unlimited, account)
+        return self.has_privileged_access_to_account_or_person(
+            operator, self.const.auth_disk_quota_set, account)
+
+    def can_show_disk_quota(self, operator, account=None, query_run_any=False):
+        """ Check if op can get disk quota/disk quota override for account. """
+        if self.is_superuser(operator):
+            return True
+        if query_run_any:
+            return self._has_operation_perm_somewhere(
+                operator, self.const.auth_disk_quota_show)
+        return self.has_privileged_access_to_account_or_person(
+            operator, self.const.auth_disk_quota_show, account)
+
+
+def _get_account_by_uid(db, uid):
+    """ Look up posix account by uid. """
+    account = Utils.Factory.get("PosixUser")(db)
+    try:
+        account.find_by_uid(int(uid))
+        return account
+    except ValueError:
+        raise CerebrumError("Invalid uid: " + repr(uid))
+    except Errors.NotFoundError:
+        raise CerebrumError("Could not find account with uid="
+                            + repr(uid))
 
 
 def _get_host_disk_quota(host):
@@ -200,6 +247,16 @@ class DiskHostCommands(bofhd_core.BofhdCommandBase):
             get_help_strings(),
             ({}, HELP_COMMANDS, {}),
         )
+
+    def _get_account(self, ident):
+        """ Account lookup with support for uid:<posix-uid>. """
+        if ":" in ident:
+            id_type, id_value = ident.split(":", 1)
+            if id_type == "uid":
+                return _get_account_by_uid(self.db, id_value)
+
+        # Default lookup (account name, account id)
+        return super(DiskHostCommands, self)._get_account(ident)
 
     # ###########################
     # ## Host related commands ##
@@ -460,6 +517,128 @@ class DiskHostCommands(bofhd_core.BofhdCommandBase):
         host = self._get_host(hostname)
         return self._list_disks(host)
 
+    # #################################
+    # ## Disk quota related commands ##
+    # #################################
+
+    #
+    # user get_disk_quota
+    #
+    all_commands['user_get_disk_quota'] = cmd_param.Command(
+        ("user", "get_disk_quota"),
+        cmd_param.AccountName(help_ref="dq-account"),
+        fs=cmd_param.FormatSuggestion([
+            ("Username:      %s\n"
+             "Home:          %s (status: %s)", ("username", "home",
+                                                "home_status")),
+            ("Disk quota:    %s MiB", ("disk_quota",)),
+            ("DQ override:   %s MiB (until %s: %s)",
+             ("dq_override", format_day("dq_expire"), "dq_why")),
+        ]),
+        perm_filter="can_show_disk_quota",
+    )
+
+    def user_get_disk_quota(self, operator, _account):
+        account = self._get_account(_account)
+        self.ba.can_show_disk_quota(operator.get_entity_id(), account)
+
+        tmp = {
+            'disk_id': None,
+            'home': None,
+            'status': None,
+            'homedir_id': None,
+        }
+        try:
+            tmp = dict(account.get_home(self.const.spread_uio_nis_user))
+        except Errors.NotFoundError:
+            pass
+        if not tmp['disk_id']:
+            raise CerebrumError("no homedir disk for " + account.account_name)
+
+        tmp['home'] = account.resolve_homedir(disk_id=tmp['disk_id'],
+                                              home=tmp['home'])
+
+        ret = {
+            'username': account.account_name,
+            'home': tmp['home'],
+            'home_status': (
+                None if tmp['status'] is None
+                else six.text_type(self.const.AccountHomeStatus(tmp['status']))
+            ),
+        }
+
+        disk = Factory.get("Disk")(self.db)
+        disk.find(tmp['disk_id'])
+        has_quota = disk.has_quota()
+        def_quota = disk.get_default_quota()
+        try:
+            dq = DiskQuota(self.db)
+            dq_row = dq.get_quota(tmp['homedir_id'])
+            if has_quota and dq_row['quota'] is not None:
+                ret['disk_quota'] = str(int(dq_row['quota']))
+            # Only display recent quotas
+            dq_expire = date_compat.get_date(dq_row['override_expiration'])
+            days_left = ((dq_expire or datetime.date.min)
+                         - datetime.date.today()).days
+            if days_left > -30:
+                if dq_row['override_quota'] is not None:
+                    dq_override_desc = dq_row['description']
+                    if days_left < 0:
+                        dq_override_desc += " [INACTIVE]"
+                    ret.update({
+                        'dq_override': str(int(dq_row['override_quota'])),
+                        'dq_expire': dq_expire,
+                        'dq_why': dq_override_desc,
+                    })
+        except Errors.NotFoundError:
+            if def_quota:
+                ret['disk_quota'] = "(%s)" % (def_quota,)
+        return ret
+
+    #
+    # user set_disk_quota
+    #
+    all_commands['user_set_disk_quota'] = cmd_param.Command(
+        ("user", "set_disk_quota"),
+        cmd_param.AccountName(help_ref="dq-account"),
+        cmd_param.Integer(help_ref="dq-override-size"),
+        cmd_param.Date(help_ref="dq-expire-date"),
+        cmd_param.SimpleString(help_ref="dq-reason"),
+        perm_filter="can_set_disk_quota",
+    )
+
+    def user_set_disk_quota(self, operator, _account, _size, _date, _why):
+        account = self._get_account(_account)
+        try:
+            size = int(_size)
+        except ValueError:
+            raise CerebrumError("Invalid size: " + repr(_size))
+        exp_date = parsers.parse_date(_date)
+        why = _why.strip()
+        if len(why) < 3:
+            raise CerebrumError("Why cannot be blank")
+
+        unlimited = forever = False
+        if (exp_date - datetime.date.today()).days > 185:
+            forever = True
+        if size > 1024 or size < 0:    # "unlimited" for perm-check = +1024M
+            unlimited = True
+        self.ba.can_set_disk_quota(operator.get_entity_id(), account,
+                                   unlimited=unlimited, forever=forever)
+        home = account.get_home(self.const.spread_uio_nis_user)
+        if size < 0:
+            # unlimited disk quota
+            size = None
+        dq = DiskQuota(self.db)
+        dq.set_quota(
+            home['homedir_id'],
+            override_quota=size,
+            override_expiration=exp_date,
+            description=why,
+        )
+        return "OK, quota overridden for %s" % (account.account_name,)
+
+
 #
 # Help texts
 #
@@ -469,6 +648,7 @@ HELP_GROUP = {
     'disk': "Disk related commands",
     'host': "Host related commands",
     'misc': "Miscellaneous commands",
+    'user': "User related commands",
 }
 
 HELP_COMMANDS = {
@@ -487,6 +667,10 @@ HELP_COMMANDS = {
         'misc_dadd': "Register a new disk",
         'misc_drem': "Remove a disk",
         'misc_dls': "Deprecated: use 'disk list'",
+    },
+    'user': {
+        'user_set_disk_quota': 'Temporary override users disk quota',
+        'user_get_disk_quota': 'Get disk quota/disk quota override for user',
     },
 }
 
@@ -507,5 +691,46 @@ HELP_ARGS = {
                 /usit/kant/div-guest-u1
             """
         ).lstrip(),
+    ],
+    'dq-account': [
+        "dq-account",
+        "Enter an account",
+        textwrap.dedent(
+            """
+            Enter an account name or id.
+
+            Default lookups:
+
+             - `<account-id>` (if numerical)
+             - `<account-name>`
+
+            Supported lookups:
+
+             - `id:<account-id>`
+             - `name:<account-name>
+             - `uid:<posix-uid>`
+            """
+        ).lstrip(),
+    ],
+    "dq-expire-date": [
+        "dq-expire-date",
+        "Enter end-date for override",
+        textwrap.dedent(
+            """
+            Expire date for disk quota override.  Format:
+
+            {}
+            """
+        ).lstrip().format(parsers.parse_date_help_blurb),
+    ],
+    'dq-override-size': [
+        'dq-override-size',
+        'Enter disk quota (in MiB)',
+        'Enter quota size in MiB, or -1 for unlimited quota',
+    ],
+    'dq-reason': [
+        "dq-reason",
+        "Why?",
+        "Give a short reason why this quota override should exist",
     ],
 }
