@@ -26,6 +26,13 @@ This is done by:
     - Compare the two above.
     - Send a report by mail/file.
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+
 import argparse
 import itertools
 import logging
@@ -49,6 +56,7 @@ from Cerebrum.modules.Email import EmailQuota
 from Cerebrum.modules.exchange.CerebrumUtils import CerebrumUtils
 from Cerebrum.utils.email import sendmail
 from Cerebrum.utils.ldaputils import decode_attrs
+from Cerebrum.utils.file_stream import get_input_context, get_output_context
 
 logger = logging.getLogger(__name__)
 
@@ -199,7 +207,7 @@ class StateChecker(object):
                 else:
                     break
             else:
-                logger.warn('Server ignores RFC 2696 control.')
+                logger.warning('Server ignores RFC 2696 control.')
                 break
         return data[1:]
 
@@ -657,10 +665,10 @@ def main(inargs=None):
     mb_ou = args.config['mailbox_ou']
 
     try:
-        with open(args.state, 'r') as f:
+        with get_input_context(args.state, encoding=None, stdin=None) as f:
             state = pickle.load(f)
     except IOError:
-        logger.warn('No existing state file %s', args.state)
+        logger.warning('No existing state file %s', args.state)
         state = None
 
     sc = StateChecker(args.config)
@@ -679,7 +687,7 @@ def main(inargs=None):
     try:
         rep = u'\n'.join(report)
     except UnicodeError as e:
-        logger.warn('Bytestring data in report: %r', e)
+        logger.warning('Bytestring data in report: %r', e)
         tmp = []
         for x in report:
             tmp.append(x.decode('UTF-8'))
@@ -693,10 +701,10 @@ def main(inargs=None):
 
     # Write report to file
     if args.report:
-        with open(args.report, 'w') as f:
+        with get_output_context(args.report, encoding=none, stdout=None, stderr=None) as f:
             f.write(rep.encode('utf-8'))
 
-    with open(args.state, 'w') as f:
+    with get_output_context(args.state, encoding=None, stdout=None, stderr=None) as f:
         pickle.dump(new_state, f)
 
 

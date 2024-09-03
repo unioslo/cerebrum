@@ -27,7 +27,6 @@ from __future__ import (
     unicode_literals,
 )
 
-import collections
 import os
 import select
 import sys
@@ -45,6 +44,11 @@ import Cerebrum.meta
 import Cerebrum.utils.module
 import Cerebrum.utils.secrets
 import Cerebrum.utils.text_compat
+
+if sys.version_info >= (3,3):
+    from collections.abc import Iterable, Sequence, Sized
+else:
+    from collections import Iterable, Sequence, Sized
 
 
 class _NotSet(Cerebrum.meta.SingletonMixin):
@@ -442,10 +446,10 @@ def argument_to_sql(argument,
     binds_name = sql_attr_name.replace('.', '_')
     compare_set = 'NOT IN' if negate else 'IN'
     compare_scalar = '!=' if negate else '='
-    if (isinstance(argument, (collections.Sized, collections.Iterable)) and
+    if (isinstance(argument, (Sized, Iterable)) and
             not isinstance(argument, six.string_types)):
         assert len(argument) > 0, "List can not be empty."
-        if len(argument) == 1 and isinstance(argument, collections.Sequence):
+        if len(argument) == 1 and isinstance(argument, Sequence):
             # Sequence with only one scalar, let's unpack and treat as scalar.
             # Has no real effect, but the SQL looks prettier.
             argument = argument[0]
