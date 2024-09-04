@@ -126,7 +126,6 @@ def _open_output_stream(filename, encoding, stdout_symbol, stderr_symbol):
 
 def open_input_stream(filename, encoding=None, stdin=DEFAULT_STDIN_NAME):
     """
-    :param filename: file to write, or *stdout*/*stderr* to get a std-stream
     Open a byte or text stream for reading.
 
     :param filename: file to read, or *stdin* to get stdin
