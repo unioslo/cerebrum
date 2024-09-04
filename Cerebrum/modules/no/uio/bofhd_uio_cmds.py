@@ -47,8 +47,10 @@ from Cerebrum.modules.bofhd import bofhd_ou_cmds
 from Cerebrum.modules.bofhd import bofhd_perm_cmds
 from Cerebrum.modules.bofhd import bofhd_quarantines
 from Cerebrum.modules.bofhd import parsers
-from Cerebrum.modules.bofhd.auth import (BofhdAuthOpTarget,
-                                         BofhdAuthRole)
+from Cerebrum.modules.bofhd.auth import (
+    BofhdAuthOpTarget,
+    BofhdAuthRole,
+)
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.bofhd_user_create import BofhdUserCreateMethod
 from Cerebrum.modules.bofhd.bofhd_utils import (
@@ -76,7 +78,6 @@ from Cerebrum.modules.bofhd.cmd_param import (
     Integer,
     MemberName,
     MemberType,
-    MoveType,
     OU,
     PersonId,
     PersonName,
@@ -94,7 +95,7 @@ from Cerebrum.modules.bofhd.bofhd_contact_info import BofhdContactCommands
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd_requests import bofhd_requests_cmds
 from Cerebrum.modules.bofhd_requests.request import BofhdRequests
-from Cerebrum.modules.bofhd.help import Help, merge_help_strings
+from Cerebrum.modules.bofhd.help import merge_help_strings
 from Cerebrum.modules.bofhd import bofhd_access
 from Cerebrum.modules.consent import bofhd_consent_cmds
 from Cerebrum.modules.guest import bofhd_guest_cmds
@@ -119,7 +120,7 @@ from Cerebrum.modules.pwcheck.history import (
 )
 from Cerebrum.modules.trait import bofhd_trait_cmds
 from Cerebrum.utils import date_compat
-from Cerebrum.utils.email import mail_template, sendmail
+from Cerebrum.utils.email import sendmail
 from Cerebrum.utils import json
 
 
@@ -4306,6 +4307,7 @@ class BofhdExtension(BofhdCommonMethods):
             'owner_id': account.owner_id,
             'owner_type': text_type(self.const.EntityType(account.owner_type)),
         }
+
         try:
             self.ba.can_show_disk_quota(operator.get_entity_id(), account)
             can_see_quota = True
@@ -4446,265 +4448,6 @@ class BofhdExtension(BofhdCommonMethods):
             })
         ret.sort(key=lambda d: d['username'])
         return ret
-
-    #
-    # user move prompt
-    #
-    def user_move_prompt_func(self, session, *args):
-        """ user move prompt helper
-
-        Base command:
-          user move <move-type> <account-name>
-        Variants
-          user move immediate           <account-name> <disk-id>
-          user move batch               <account-name> <disk-id>
-          user move nofile              <account-name> <disk-id>
-          user move hard_nofile         <account-name> <disk-id>
-          user move student             <account-name>
-          user move student_immediate   <account-name>
-          user move give                <account-name> <group-name> <reason>
-          user move request             <account-name> <disk-id> <reason>
-          user move confirm             <account-name>
-          user move cancel              <account-name>
-        """
-        help_struct = Help([self, ], logger=self.logger)
-        all_args = list(args)
-        if not all_args:
-            return MoveType().get_struct(help_struct)
-        move_type = all_args.pop(0)
-        if not all_args:
-            return AccountName(
-                help_ref='account_name_id_uid').get_struct(help_struct)
-        # pop account name
-        all_args.pop(0)
-        if move_type in ("immediate", "batch", "nofile", "hard_nofile"):
-            # move_type needs disk-id
-            if not all_args:
-                r = DiskId().get_struct(help_struct)
-                r['last_arg'] = True
-                return r
-            return {'last_arg': True}
-        elif move_type in ("student", "student_immediate", "confirm",
-                           "cancel"):
-            # move_type doesnt need more args
-            return {'last_arg': True}
-        elif move_type in ("request",):
-            # move_type needs disk-id and reason
-            if not all_args:
-                return DiskId().get_struct(help_struct)
-            # pop disk id
-            all_args.pop(0)
-            if not all_args:
-                r = SimpleString(help_ref="string_why").get_struct(help_struct)
-                r['last_arg'] = True
-                return r
-            return {'last_arg': True}
-        elif move_type in ("give",):
-            # move_type needs group-name and reason
-            if not all_args:
-                return GroupName().get_struct(help_struct)
-            # pop group-name
-            all_args.pop(0)
-            if not all_args:
-                r = SimpleString(help_ref="string_why").get_struct(help_struct)
-                r['last_arg'] = True
-                return r
-            return {'last_arg': True}
-        raise CerebrumError("Bad user_move command (%r)" % move_type)
-
-    #
-    # user move <move-type> <account-name> [opts]
-    #
-    all_commands['user_move'] = Command(
-        ("user", "move"),
-        prompt_func=user_move_prompt_func,
-        perm_filter='can_move_user')
-
-    def user_move(self, operator, move_type, accountname, *args):
-        # now strip all str / unicode arguments in order to please CRB-2172
-        def strip_arg(arg):
-            if isinstance(arg, string_types):
-                return arg.strip()
-            return arg
-        args = tuple(map(strip_arg, args))
-        self.logger.debug('user_move: after stripping args ({args})'.format(
-            args=args))
-        account = self._get_account(accountname)
-
-        def account_error(reason):
-            return "Cannot move {!r}, {!s}".format(account.account_name,
-                                                   reason)
-
-        request_reason_max_len = 80
-
-        def _check_reason(reason):
-            if len(reason) > request_reason_max_len:
-                raise CerebrumError(
-                    "Too long explanation, "
-                    "maximum length is {:d}".format(request_reason_max_len))
-
-        if account.is_expired():
-            raise CerebrumError(account_error("account is expired"))
-        br = BofhdRequests(self.db, self.const)
-        batch_time_str = br.batch_time.strftime("%Y-%m-%dT%H:%M:%S")
-        spread = int(self.const.spread_uio_nis_user)
-        if move_type in ("immediate", "batch", "student", "student_immediate",
-                         "request", "give"):
-            try:
-                ah = account.get_home(spread)
-            except Errors.NotFoundError:
-                raise CerebrumError(account_error("account has no home"))
-        if move_type in ("immediate", "batch", "nofile"):
-            message = ""
-            disk, disk_id = self._get_disk(args[0])[:2]
-            if disk_id is None:
-                raise CerebrumError(account_error("bad destination disk"))
-            self.ba.can_move_user(operator.get_entity_id(), account, disk_id)
-
-            for r in account.get_spread():
-                if (r['spread'] == self.const.spread_ifi_nis_user and
-                        not re.match(r'^/ifi/', args[0])):
-                    message += ("WARNING: moving user with %s-spread to "
-                                "a non-Ifi disk.\n" %
-                                text_type(self.const.spread_ifi_nis_user))
-                    break
-
-            # Let's check the disk quota settings.  We only give a an
-            # information message, the actual change happens when
-            # set_homedir is done.
-            has_dest_quota = disk.has_quota()
-            default_dest_quota = disk.get_default_quota()
-            current_quota = None
-            dq = DiskQuota(self.db)
-            try:
-                ah = account.get_home(spread)
-            except Errors.NotFoundError:
-                raise CerebrumError(account_error("account has no home"))
-            try:
-                dq_row = dq.get_quota(ah['homedir_id'])
-            except Errors.NotFoundError:
-                pass
-            else:
-                current_quota = dq_row['quota']
-                if dq_row['quota'] is not None:
-                    current_quota = dq_row['quota']
-
-                dq_expire = date_compat.get_date(dq_row['override_expiration'])
-                days_left = ((dq_expire or datetime.date.min)
-                             - datetime.date.today()).days
-                if days_left > 0 and dq_row['override_quota'] is not None:
-                    current_quota = dq_row['override_quota']
-
-            if current_quota is None:
-                # this is OK
-                pass
-            elif not has_dest_quota:
-                message += ("Destination disk has no quota, so the current "
-                            "quota (%d) will be cleared.\n" % current_quota)
-            elif current_quota <= default_dest_quota:
-                message += ("Current quota (%d) is smaller or equal to the "
-                            "default at destination (%d), so it will be "
-                            "removed.\n") % (current_quota, default_dest_quota)
-
-            if move_type == "immediate":
-                br.add_request(operator.get_entity_id(), br.now,
-                               self.const.bofh_move_user_now,
-                               account.entity_id, disk_id, state_data=spread)
-                message += "Command queued for immediate execution."
-            elif move_type == "batch":
-                br.add_request(operator.get_entity_id(), br.batch_time,
-                               self.const.bofh_move_user,
-                               account.entity_id, disk_id, state_data=spread)
-                message += ("Move queued for execution at %s."
-                            % (batch_time_str,))
-                # mail user about the awaiting move operation
-                new_homedir = disk.path + '/' + account.account_name
-                try:
-                    mail_template(
-                        account.get_primary_mailaddress(),
-                        cereconf.USER_BATCH_MOVE_WARNING,
-                        substitute={'USER': account.account_name,
-                                    'TO_DISK': new_homedir})
-                except Exception as e:
-                    self.logger.info("Sending mail failed: %r", e)
-            elif move_type == "nofile":
-                ah = account.get_home(spread)
-                account.set_homedir(current_id=ah['homedir_id'],
-                                    disk_id=disk_id)
-                account.write_db()
-                message += "User moved."
-            return message
-        elif move_type in ("hard_nofile",):
-            if not self.ba.is_superuser(operator.get_entity_id()):
-                raise PermissionDenied("only superusers may use hard_nofile")
-            ah = account.get_home(spread)
-            try:
-                account.set_homedir(current_id=ah['homedir_id'], home=args[0])
-            except ValueError as e:
-                raise CerebrumError(e)
-            return "OK, user moved to hardcoded homedir"
-        elif move_type in (
-                "student", "student_immediate", "confirm", "cancel"):
-            self.ba.can_give_user(operator.get_entity_id(), account)
-            if move_type == "student":
-                br.add_request(operator.get_entity_id(), br.batch_time,
-                               self.const.bofh_move_student,
-                               account.entity_id, None, state_data=spread)
-                return ("student-move queued for execution at %s"
-                        % (batch_time_str,))
-            elif move_type == "student_immediate":
-                br.add_request(operator.get_entity_id(), br.now,
-                               self.const.bofh_move_student,
-                               account.entity_id, None, state_data=spread)
-                return "student-move queued for immediate execution"
-            elif move_type == "confirm":
-                r = br.get_requests(entity_id=account.entity_id,
-                                    operation=self.const.bofh_move_request)
-                if not r:
-                    raise CerebrumError("No matching request found")
-                br.delete_request(account.entity_id,
-                                  operation=self.const.bofh_move_request)
-                # Flag as authenticated
-                br.add_request(operator.get_entity_id(), br.batch_time,
-                               self.const.bofh_move_user,
-                               account.entity_id, r[0]['destination_id'],
-                               state_data=spread)
-                return ("move queued for execution at %s"
-                        % (batch_time_str,))
-            elif move_type == "cancel":
-                # TBD: Should superuser delete other request types as well?
-                count = 0
-                for tmp in br.get_requests(entity_id=account.entity_id):
-                    if tmp['operation'] in (
-                            self.const.bofh_move_student,
-                            self.const.bofh_move_user,
-                            self.const.bofh_move_give,
-                            self.const.bofh_move_request,
-                            self.const.bofh_move_user_now):
-                        count += 1
-                        br.delete_request(request_id=tmp['request_id'])
-                return "OK, %i bofhd requests deleted" % count
-        elif move_type in ("request",):
-            disk = args[0]
-            why = args[1]
-            disk_id = self._get_disk(disk)[1]
-            _check_reason(why)
-            self.ba.can_receive_user(
-                operator.get_entity_id(), account, disk_id)
-            br.add_request(operator.get_entity_id(), br.now,
-                           self.const.bofh_move_request,
-                           account.entity_id, disk_id, why)
-            return "OK, request registered"
-        elif move_type in ("give",):
-            self.ba.can_give_user(operator.get_entity_id(), account)
-            group = args[0]
-            why = args[1]
-            group = self._get_group(group)
-            _check_reason(why)
-            br.add_request(operator.get_entity_id(), br.now,
-                           self.const.bofh_move_give,
-                           account.entity_id, group.entity_id, why)
-            return "OK, 'give' registered"
 
     #
     # user password
@@ -5143,7 +4886,8 @@ class BofhdExtension(BofhdCommonMethods):
         ('user', 'set_disk_status'),
         AccountName(help_ref='account_name_id_uid'),
         SimpleString(help_ref='string_disk_status'),
-        perm_filter='can_create_disk')
+        perm_filter='can_create_disk',
+    )
 
     def user_set_disk_status(self, operator, accountname, status):
         try:

@@ -228,10 +228,6 @@ command_help = {
         'user_migrate_exchange_finished': (
             'Mark that migration of user is finished'
         ),
-        'user_move': (
-            'Move a users home directory to another disk. '
-            '(<<help basics>> for details)'
-        ),
         'user_password': 'Set a new password for an account',
         'user_promote_posix': (
             'Make a Cerebrum account into a POSIX user account'
@@ -658,27 +654,6 @@ arg_help = {
             assumed to be a group.
             """
         ).strip(),
-    ],
-    'move_type': [
-        'move_type',
-        'Enter move type',
-        textwrap.dedent(
-            """
-            Enter desired move type. Example: 'immediate'
-
-            Legal move types     : Arguments
-              - immediate        : <account-name> <destination-disk>
-              - batch            : <account-name> <destination-disk>
-              - nofile           : <account-name> <destination-disk>
-              - hard_nofile      : <account-name> <destination-disk>
-              - student          : <account-name>
-              - student_immediate: <account-name>
-              - give             : <account-name> <group-name> <reason>
-              - request          : <account-name> <disk-id> <reason>
-              - confirm          : <account-name>
-              - cancel           : <account-name>
-            """
-        ).lstrip(),
     ],
     'number_size_mib': [
         'size',
