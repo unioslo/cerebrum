@@ -26,13 +26,13 @@ from __future__ import (
     print_function,
     unicode_literals,
 )
+import contextlib
 import logging
 import os
 import signal
 import socket
 import threading
 import time
-from contextlib import closing
 
 from six import text_type
 
@@ -101,6 +101,29 @@ class SocketConnection(object):
         return b''.join(chunks)
 
 
+@contextlib.contextmanager
+def jr_connection(path=None, timeout=None):
+    """
+    Get a SocketConnection to job-runner.
+
+    :param str path:
+        Path to the job-runner socket (defaults to cereconf.JOB_RUNNER_SOCKET)
+
+    :param float timeout:
+        Timeout for the socket connection (defaults to no timeout)
+
+    :returns:
+        A SocketConnection context
+    """
+    path = path or cereconf.JOB_RUNNER_SOCKET
+    timeout = float(timeout) if timeout else None
+    with contextlib.closing(socket.socket(socket.AF_UNIX)) as sock:
+        sock.connect(path)
+        if timeout:
+            sock.settimeout(timeout)
+        yield SocketConnection(sock)
+
+
 class Commands(object):
     """ A collection of commands. """
 
@@ -151,12 +174,14 @@ class Commands(object):
 
 
 class SocketProtocol(object):
-
+    """
+    The job runner socket protocol.
+    """
     commands = Commands()
 
     def __init__(self, connection, job_runner):
-        self.job_runner = job_runner
         self.connection = connection
+        self.job_runner = job_runner
 
     @classmethod
     def encode(cls, data):
@@ -358,7 +383,7 @@ class SocketServer(object):
                 time.sleep(1)
                 continue
 
-            with closing(conn):
+            with contextlib.closing(conn):
                 context = SocketProtocol(SocketConnection(conn), job_runner)
                 context.handle()
 
@@ -400,9 +425,7 @@ class SocketServer(object):
         signal.alarm(timeout)
 
         try:
-            with closing(socket.socket(socket.AF_UNIX)) as sock:
-                sock.connect(jr_socket)
-                return SocketProtocol.call(SocketConnection(sock), command,
-                                           args)
+            with jr_connection(path=jr_socket) as conn:
+                return SocketProtocol.call(conn, command, args)
         finally:
             signal.alarm(0)
