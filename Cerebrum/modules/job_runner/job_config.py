@@ -19,101 +19,110 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ Job Runner job configuration. """
-from __future__ import print_function
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import argparse
-import imp
-import importlib
+import logging
 import os
-import sys
 
 import six
 
+from Cerebrum.utils import module as module_utils
 from .times import fmt_time
 
 
 DEFAULT_MODULE_NAME = 'scheduled_jobs'
 DEFAULT_JOB_CLASS = 'AllJobs'
 
-
-def _import_file(filename, name):
-    """ Imports a file as a given module. """
-    # TODO: PY3 Not Python3 compatible
-    #       We do this a bit in cerebrum, maybe make some importlib utils?
-    module = imp.load_source(name, filename)
-    sys.modules[name] = module
-    return module
-
-
-def _import_module(name):
-    """ Import a given module. """
-    return importlib.import_module(name)
+logger = logging.getLogger(__name__)
 
 
 def reload_job_config(module):
-    """ Module reload function that does not use PYTHONPATH. """
-    name, filename = module.__name__, module.__file__
+    """
+    Reload module.
 
-    # Strip .py[co], as reloading a .pyc doesn't really help us
-    filename = os.path.splitext(filename)[0] + '.py'
+    This is typically used to force a reload of the job config, based on the
+    module path reported by the module itself.
+    """
+    name, filename = module.__name__, module.__file__
+    logger.debug("reloading %s (name=%s, filename=%s)",
+                 repr(module), repr(name), repr(filename))
+
+    basename = os.path.splitext(filename)[0]
+    py_file = basename + '.py'
+    pyc_file = basename + '.pyc'
+    if os.path.exists(py_file):
+        filename = py_file
+        # The legacy 'imp' implementation used by load_source will not read the
+        # .py file if a matching .pyc file exists:
+        if os.path.exists(pyc_file):
+            logger.debug("removing %s to force re-read of %s",
+                         repr(pyc_file), repr(py_file))
+            os.unlink(pyc_file)
 
     # Re-import
     if os.path.exists(filename):
-        module = _import_file(filename, name)
+        # load source *will* reload the module
+        module = module_utils.load_source(name, filename)
+        logger.info("Re-loaded %s from %s",
+                    repr(name), repr(filename))
     else:
         # Path changed?
-        module = _import_module(name)
+        module = module_utils.import_item(name)
+        logger.warning("Unable to re-load %s from %s",
+                       repr(name), repr(filename))
     return module
 
 
 def get_job_config(name):
+    """ Get initial job config (e.g. from cli argument). """
     if os.path.exists(name):
-        module = _import_file(name, DEFAULT_MODULE_NAME)
+        module = module_utils.load_source(DEFAULT_MODULE_NAME, name)
+        logger.info("Loaded config module %s from %s",
+                    repr(DEFAULT_MODULE_NAME), repr(name))
     else:
-        module = _import_module(name)
+        module = module_utils.import_item(name)
+        logger.info("Loaded config module %s", repr(DEFAULT_MODULE_NAME))
     return module
 
 
 def pretty_jobs_parser():
+    """ Get argparse parser for use in job config module. """
     parser = argparse.ArgumentParser(
-        description="Show stuff in this job runner config")
-
+        description="Show job runner config",
+    )
     action = parser.add_mutually_exclusive_group()
-
     action.add_argument(
         '-l', '--list',
         dest='list_jobs',
         action='store_true',
         default=False,
-        help="List all the jobs")
-
+        help="List all the jobs",
+    )
     action.add_argument(
         '-v', '--list-verbose',
         dest='list_verbose',
         action='store_true',
         default=False,
-        help="List jobs verbosely")
-
-    # action.add_argument(
-    #     '--dump',
-    #     action='store_true',
-    #     default=False,
-    #     help='Dump jobs?')
-
+        help="List jobs verbosely",
+    )
     action.add_argument(
         '-s', '--show-job',
         dest='show_job',
         metavar="NAME",
-        help="Show a given job %(metavar)s")
-
+        help="Show a given job %(metavar)s",
+    )
     return parser
 
 
 def _pretty_jobs_presenter(jobs, args):
-    """ Print a human readable presentation of a collection of jobs.
-
-    This should simulate job_runner's presentation, to be able to get the
-    information in test, without having to run a real job_runner.
+    """
+    Print a human readable presentation of a collection of jobs.
 
     :type jobs: class Cerebrum.modules.job_runner.job_actions.Jobs
     :param jobs:
@@ -122,7 +131,6 @@ def _pretty_jobs_presenter(jobs, args):
 
     :type args: argparse.Namespace
     :param args: Options on what to print (result of pretty_jobs_parser).
-
     """
     if args.list_jobs:
         for name in sorted(jobs.get_jobs()):
@@ -133,7 +141,7 @@ def _pretty_jobs_presenter(jobs, args):
         try:
             job = jobs.get_jobs()[jobname]
         except KeyError:
-            print("No such job: %s" % jobname)
+            print("No such job: %s" % repr(jobname))
             return
         print("Command: %s" % job.get_pretty_cmd())
         print("Pre-jobs: %s" % job.pre)
@@ -162,7 +170,9 @@ def _pretty_jobs_presenter(jobs, args):
 
 
 def pretty_jobs_presenter(jobs, args):
-    """ Compability function, should be compatible with old configs. """
+    """
+    Entry point for providing cli-arguments in job config modules.
+    """
     args = pretty_jobs_parser().parse_args(args)
     return _pretty_jobs_presenter(jobs, args)
 
@@ -192,14 +202,14 @@ def dump_jobs(scheduled_jobs, details=0):
             dump(k, indent + 2)
         for k in jobs[name].post or ():
             dump(k, indent + 2)
-    keys = jobs.keys()
-    keys.sort()
+    keys = sorted(jobs.keys())
     for k in keys:
         if jobs[k].when is None:
             continue
         dump(k, 0)
-    print("Never run: \n%s" % "\n".join(
-        ["  %s" % k for k in jobs.keys() if k not in shown]))
+
+    remaining = ["  %s" % k for k in keys if k not in shown]
+    print("Never run:", "\n".join(remaining), sep="\n")
 
 
 # python -m Cerebrum.modules.job_runner.job_config
@@ -211,12 +221,14 @@ def main(args=None):
         dest='config',
         metavar='NAME',
         default=DEFAULT_MODULE_NAME,
-        help='A python module (or file) with jobs')
+        help='A python module (or file) with jobs',
+    )
     parser.add_argument(
         '--jobs',
         dest='config_attr',
         default=DEFAULT_JOB_CLASS,
-        help="The config attribute that contains jobs")
+        help="The config attribute that contains jobs",
+    )
 
     args = parser.parse_args(args)
     config = get_job_config(args.config)
