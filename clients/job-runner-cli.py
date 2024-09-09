@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003-2019 University of Oslo, Norway
+# Copyright 2003-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -26,6 +26,12 @@ job_runner is a scheduler that runs specific commands at certain times.
 This script is a command line interface that is able to fetch the job_runner
 status and queue jobs using the job_runner socket server.
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import argparse
 import logging
 import os
