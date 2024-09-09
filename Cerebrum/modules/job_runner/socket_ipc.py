@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-
-# Copyright 2018-2021 University of Oslo, Norway
+#
+# Copyright 2018-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,10 +17,15 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" Job Runner socket protocol. """
-from __future__ import print_function
-
-import json
+"""
+Job Runner socket server, client, and protocol.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import logging
 import os
 import signal
@@ -33,6 +38,7 @@ from six import text_type
 
 import cereconf
 
+from Cerebrum.utils import json
 from Cerebrum.utils.date import to_seconds
 from .times import fmt_asc, fmt_time
 from .health import get_health_report
@@ -51,7 +57,7 @@ def signal_timeout(signal, frame):
 
 
 class SocketConnection(object):
-    """ Simple socket reader/writer with buffer and size limit. """
+    """ Simple socket reader/writer with buffer and size limit.  """
 
     eof = b'\0'
     buffer_size = 1024 * 2
@@ -62,6 +68,8 @@ class SocketConnection(object):
 
     def send(self, data):
         """ Send a null-terminated bytestring. """
+        if not isinstance(data, bytes):
+            raise ValueError("Expected bytes, got " + repr(type(data)))
         if self.eof in data:
             raise ValueError("payload cannot contain eof")
         data = data + self.eof
@@ -150,6 +158,16 @@ class SocketProtocol(object):
         self.job_runner = job_runner
         self.connection = connection
 
+    @classmethod
+    def encode(cls, data):
+        """ encode data for SocketConnection. """
+        return json.dumps(data).encode("utf-8")
+
+    @classmethod
+    def decode(cls, data):
+        """ decode data from SocketConnection. """
+        return json.loads(data.decode("utf-8"))
+
     @property
     def job_queue(self):
         return self.job_runner.job_queue
@@ -158,25 +176,25 @@ class SocketProtocol(object):
     def call(cls, connection, command, args):
         """ Send command, decode and return response. """
         raw_command = cls.commands.build(command, args)
-        connection.send(json.dumps(raw_command))
-        return json.loads(connection.recv())
+        connection.send(cls.encode(raw_command))
+        return cls.decode(connection.recv())
 
     def handle(self):
         data = self.connection.recv()
         try:
-            command, args = self.commands.parse(json.loads(data))
+            command, args = self.commands.parse(self.decode(data))
         except Exception as e:
             logger.warn("Unknown command", exc_info=True)
-            self.respond("Unknown command: %s" % e)
+            self.respond("Unknown command: {}".format(e))
         try:
             logger.info("Running %s", command.name)
             command(self, *args)
         except Exception as e:
-            logger.error("Command failed: %r", command, exc_info=True)
-            self.respond("Error: %s" % e)
+            logger.error("Command failed: %s", repr(command), exc_info=True)
+            self.respond("Error: {}".format(e))
 
     def respond(self, data):
-        self.connection.send(json.dumps(data))
+        self.connection.send(self.encode(data))
 
     @commands.add('RELOAD')
     def __reload(self):
@@ -328,6 +346,7 @@ class SocketServer(object):
         if not self.socket_path:
             raise RuntimeError("No socket_path set")
         self.socket = socket.socket(socket.AF_UNIX)
+        logger.info("socket-server binding to: %s", repr(self.socket_path))
         self.socket.bind(self.socket_path)
         self.socket.listen(1)
         self._is_listening = True
@@ -344,15 +363,17 @@ class SocketServer(object):
                 context.handle()
 
     def ping_server(self):
+        """ Check if a server is already listening on this socket_path.  """
         try:
             os.stat(self.socket_path)
             if self.send_cmd("PING") == 'PONG':
                 return True
-        except socket.error:   # No server seems to be running
-            print("WARNING: Removing stale socket")
+        except socket.error:
+            # We have a socket file, but there's no server listening
+            logger.warning("Removing stale socket: %s", repr(self.socket_path))
             os.unlink(self.socket_path)
-            pass
-        except OSError:        # File didn't exist
+        except OSError:
+            # File didn't exist
             pass
         return False
 
@@ -377,6 +398,7 @@ class SocketServer(object):
         args = args or []
         signal.signal(signal.SIGALRM, signal_timeout)
         signal.alarm(timeout)
+
         try:
             with closing(socket.socket(socket.AF_UNIX)) as sock:
                 sock.connect(jr_socket)
