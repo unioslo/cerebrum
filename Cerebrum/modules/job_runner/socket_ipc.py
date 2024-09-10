@@ -389,26 +389,25 @@ class SocketServer(object):
 
     def ping_server(self):
         """ Check if a server is already listening on this socket_path.  """
+        if not os.path.exists(self.socket_path):
+            return False
         try:
-            os.stat(self.socket_path)
-            if self.send_cmd("PING") == 'PONG':
+            if self.send_cmd("PING", jr_socket=self.socket_path) == 'PONG':
                 return True
         except socket.error:
             # We have a socket file, but there's no server listening
             logger.warning("Removing stale socket: %s", repr(self.socket_path))
             os.unlink(self.socket_path)
-        except OSError:
-            # File didn't exist
-            pass
         return False
 
     def cleanup(self):
         if not self._is_listening:
             return
-        try:
-            os.unlink(self.socket_path)
-        except OSError:
-            pass
+        if os.path.exists(self.socket_path):
+            try:
+                os.unlink(self.socket_path)
+            except OSError:
+                pass
 
     def __del__(self):
         self.cleanup()
