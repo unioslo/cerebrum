@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2021 University of Oslo, Norway
+# Copyright 2021-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -23,6 +23,12 @@ Database access to personal otp secrets.
 This module contains all the neccessary queries for fetching and modifying otp
 secrets in the database.
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import logging
 
 import six
@@ -304,6 +310,8 @@ def sql_set(db, person_id, otp_type, otp_payload):
         prev = sql_get(db, person_id, otp_type)
     except Cerebrum.Errors.NotFoundError:
         prev = dict()
+    else:
+        prev = dict(prev)
 
     values = {}
 
