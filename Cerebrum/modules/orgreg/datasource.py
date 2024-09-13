@@ -103,7 +103,7 @@ def parse_orgreg_address(d):
 # true if more languages are ever added...
 #
 # This language code mapping and filtering should *probably* be done in a
-# mapper, but this is easaier.
+# mapper, but this is easier.
 LANGUAGE_MAP = {
     'eng': 'en',
     'nno': 'nn',
