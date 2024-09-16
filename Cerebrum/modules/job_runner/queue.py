@@ -18,6 +18,12 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ Job Runner queue. """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import logging
 import os
 import signal
@@ -54,7 +60,7 @@ class DbQueueHandler(object):
                 """):
             last_run = date_compat.get_datetime_tz(row['timestamp'])
             ret[row['id']] = date_utils.to_timestamp(last_run)
-        self.logger.debug("get_last_run: %r", ret)
+        logger.debug("get_last_run: %d previously known jobs", len(ret))
         return ret
 
     def update_last_run(self, job, timestamp):
@@ -70,7 +76,7 @@ class DbQueueHandler(object):
         else:
             last_run = date_compat.get_datetime_tz(timestamp, allow_none=False)
 
-        self.logger.debug("update_last_run(%s, %s)", repr(job), repr(last_run))
+        logger.debug("update_last_run(%s, %s)", repr(job), repr(last_run))
 
         try:
             self.db.query_1(
@@ -154,9 +160,9 @@ class JobQueue(object):
         # TODO: Identify modified jobs, implement Action.__eq__?
         for name in old_jobnames - new_jobnames:
             del self._known_jobs[name]
-            self.logger.info("Removed job %r", name)
+            logger.info("Removed job %r", name)
         for name in new_jobnames - old_jobnames:
-            self.logger.info("Added job %r", name)
+            logger.info("Added job %r", name)
 
         # Also check if last_run values has been changed in the DB (we
         # don't bother with locking the update to the dict)
@@ -251,7 +257,7 @@ class JobQueue(object):
             self._forced_run_queue.remove(job_name)
         else:
             self._run_queue.remove(job_name)
-        self.logger.debug("Started [%s]" % job_name)
+        logger.debug("Started [%s]", job_name)
 
     def job_done(self, job_name, pid, ok=True, msg=None, force=False):
         """ Mark job as completed.
@@ -276,19 +282,19 @@ class JobQueue(object):
         if job_name in self._started_at:
             self._last_duration[job_name] = (curr_ts -
                                              self._started_at[job_name])
-            self.logger.debug("Completed [%s/%i] after %f seconds",
-                              job_name,
-                              pid or -1,
-                              self._last_duration[job_name])
+            logger.debug("Completed [%s/%i] after %f seconds",
+                         job_name,
+                         pid or -1,
+                         self._last_duration[job_name])
         else:
             if force:
                 self._forced_run_queue.remove(job_name)
             else:
                 self._run_queue.remove(job_name)
-            self.logger.debug("Completed [%s/%i] (start not set)",
-                              job_name, pid or -1)
+            logger.debug("Completed [%s/%i] (start not set)",
+                         job_name, pid or -1)
         if job_name not in self._known_jobs:   # due to reload of config
-            self.logger.debug("Completed unknown job %s", job_name)
+            logger.debug("Completed unknown job %s", job_name)
             return
         if (pid is None
                 or (self._known_jobs[job_name].call
@@ -346,8 +352,8 @@ class JobQueue(object):
                     continue
 
             min_delta = min(next_delta, min_delta)
-        self.logger.debug("Delta=%i, a=%i/%i Queue: %s",
-                          min_delta, append, len(self._run_queue), repr(queue))
+        logger.debug("Delta=%i, a=%i/%i Queue: %s",
+                     min_delta, append, len(self._run_queue), repr(queue))
         self._run_queue = queue
         return min_delta
 

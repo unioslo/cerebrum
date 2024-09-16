@@ -1,23 +1,145 @@
 # encoding: utf-8
 """ Unit tests for Cerebrum.modules.job_runner.times """
-
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+import datetime
 import time
+
 import pytest
+import six
 
 from Cerebrum.utils.date import to_seconds
+from Cerebrum.modules.job_runner import times
 from Cerebrum.modules.job_runner.times import When, Time
 from Cerebrum.modules.job_runner.job_actions import Action
+from Cerebrum.utils import date as date_utils
+
+
+UTC_TZ = date_utils.UTC
+LOCAL_TZ = date_utils.TIMEZONE
+
+
+@pytest.fixture
+def utc_dt():
+    """
+    timezone-aware datetime object @ utc.
+
+    This fixture is the basis of all the other date/datetime fixtures.
+    """
+    return date_utils.apply_timezone(
+        datetime.datetime(1998, 6, 28, 23, 30, 11, 987654),
+        UTC_TZ)
+
+
+@pytest.fixture
+def local_dt(utc_dt):
+    """ timezone-aware datetime object @ local time. """
+    return date_utils.to_timezone(utc_dt, LOCAL_TZ)
+
+
+@pytest.fixture
+def timestamp(utc_dt):
+    return date_utils.to_timestamp(utc_dt)
 
 
 #
-# Old tests
+# Test formatters
 #
 
-# Calendar for reference (cal -m 06 2004)
+
+def test_fmt_time_local(timestamp, local_dt):
+    fmt = times.fmt_time(timestamp, local=True)
+    expect = local_dt.strftime("%H:%M:%S")
+    assert fmt == expect
+
+
+def test_fmt_time_gm(timestamp, utc_dt):
+    fmt = times.fmt_time(timestamp, local=False)
+    expect = utc_dt.strftime("%H:%M:%S")
+    assert fmt == expect
+
+
+def test_fmt_asc_local(timestamp, local_dt):
+    fmt = times.fmt_asc(timestamp, local=True)
+    expect = local_dt.strftime("%c")
+    assert fmt == expect
+
+
+def test_fmt_asc_gm(timestamp, utc_dt):
+    fmt = times.fmt_asc(timestamp, local=False)
+    expect = utc_dt.strftime("%c")
+    assert fmt == expect
+
+
+def test_fmt_date_local(timestamp, local_dt):
+    fmt = times.fmt_date(timestamp, local=True)
+    expect = local_dt.date().isoformat()
+    assert fmt == expect
+
+
+def test_fmt_date_gm(timestamp, utc_dt):
+    fmt = times.fmt_date(timestamp, local=False)
+    expect = utc_dt.date().isoformat()
+    assert fmt == expect
+
+
+def test_fmt_datetime_local(timestamp, local_dt):
+    fmt = times.format_datetime(timestamp, local=True)
+    expect = local_dt.strftime("%Y-%m-%d %H:%M:%S")
+    assert fmt == expect
+
+
+def test_fmt_datetime_gm(timestamp, utc_dt):
+    fmt = times.format_datetime(timestamp, local=False)
+    expect = utc_dt.strftime("%Y-%m-%d %H:%M:%S")
+    assert fmt == expect
+
+
 #
-# Mo Tu We Th Fr Sa Su
-#             11 12 13
-# 14 15 16 17 18 19
+# Time tests
+#
+
+
+def test_time_str():
+    time_obj = times.Time(min=[30], hour=[3, 15], wday=[1], max_freq=60)
+    time_str = six.text_type(time_obj)
+    # Non-sensical format, doesn't separate the different times well...
+    assert time_str == "wday=1,h=3:15,m=30"
+
+
+#
+# When tests
+#
+
+
+def test_when_time_str():
+    time_obj_1 = times.Time(hour=[12, 15])
+    time_obj_2 = times.Time(hour=[3], wday=[1], max_freq=60)
+    when_obj = When(time=[time_obj_1, time_obj_2])
+    when_str = six.text_type(when_obj)
+    assert when_str == "time=(h=12:15,wday=1,h=3)"
+
+
+def test_when_freq_str():
+    when_obj = When(freq=60 * 5)
+    when_str = six.text_type(when_obj)
+    assert when_str == "freq=00:05:00"
+
+
+#
+# Old, migrated tests
+#
+# Calendar for reference (cal -m 06 2004):
+#
+#   Mo Tu We Th Fr Sa Su
+#               11 12 13
+#   14 15 16 17 18 19
+#
+
 
 @pytest.mark.parametrize('when,prev,now,expect', [
     # Run at a given day of the week

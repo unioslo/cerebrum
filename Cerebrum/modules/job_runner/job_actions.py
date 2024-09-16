@@ -17,11 +17,38 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" Job runner job types. """
+"""
+Job runner job types.
 
+Configuration
+==============
+The ``cereconf.JOB_RUNNER_LOG_DIR`` is used for:
+
+Lock files
+    When a job named *example* runs, a file is placed in
+    ``<JOB_RUNNER_LOG_DIR>/job-runner-example.lock``.  This file is removed
+    when the job finishes (regardless of success).  The file prevents two
+    parallell runs of the same job.
+
+stdout/stderr
+    When a job named *example* runs, any stdout/stderr from that job is written
+    to ``<JOB_RUNNER_LOG_DIR>/example/stdout.log`` and
+    ``<JOB_RUNNER_LOG_DIR>/example/stderr.log``.
+
+workdir
+    When a job named *example* runs, its PWD is set to
+    ``<JOB_RUNNER_LOG_DIR>/example/``.
+
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import io
+import logging
 import os
-import random
 import sys
 import time
 
@@ -30,6 +57,8 @@ from six.moves import shlex_quote as quote
 
 import cereconf
 
+logger = logging.getLogger(__name__)
+
 
 class LockExists(Exception):
     """ An exception to throw if unable to acquire job lock. """
@@ -37,13 +66,7 @@ class LockExists(Exception):
     def __init__(self, lock_pid):
         self.acquire_pid = os.getpid()
         self.lock_pid = lock_pid
-        super(LockExists, self).__init__("locked by pid=%d" % lock_pid)
-
-
-debug_dryrun = False  # Debug only: execs "/bin/sleep 2", and not the job
-
-if debug_dryrun:
-    random.seed()
+        super(LockExists, self).__init__("locked by pid=%d" % (lock_pid,))
 
 
 class Action(object):
@@ -57,7 +80,7 @@ class Action(object):
                  notwhen=None,
                  max_duration=4*60*60,
                  multi_ok=0,
-                 nonconcurrent=[],
+                 nonconcurrent=None,
                  health=None,
                  ):
         """
@@ -86,8 +109,9 @@ class Action(object):
         :param bool multi_ok:
             multi_ok indicates if multiple instances of this job may appear in
             the ready_to_run queue
-        :param TODO nonconcurrent:
+        :param list nonconcurrent:
             nonconcurrent contains the names of jobs that if running, should
+            block this job from running
         :param health:
             HealthCheck settings for the job runner health report (or None to
             disable health checks for this action)
@@ -110,7 +134,7 @@ class Action(object):
         self.post = post or []
         self.multi_ok = multi_ok
         self.notwhen = notwhen
-        self.nonconcurrent = nonconcurrent
+        self.nonconcurrent = nonconcurrent or []
         self.health = health
 
     def copy_runtime_params(self, other):
@@ -142,7 +166,7 @@ class Action(object):
         if self.when is not None:
             if self.notwhen is not None:
                 leave_at = self.notwhen.time.delta_to_leave(current_time)
-                if leave_at > 0:
+                if leave_at and leave_at > 0:
                     return leave_at
             n = self.when.next_delta(last_run, current_time)
             return n
@@ -151,7 +175,6 @@ class Action(object):
 
 class LockFile(object):
 
-    lock_dir = cereconf.JOB_RUNNER_LOG_DIR
     pre = 'job-runner-'
     ext = '.lock'
 
@@ -160,6 +183,10 @@ class LockFile(object):
 
     def __repr__(self):
         return '<LockFile name=%r>' % self.name
+
+    @property
+    def lock_dir(self):
+        return cereconf.JOB_RUNNER_LOG_DIR
 
     @property
     def filename(self):
@@ -191,7 +218,7 @@ class LockFile(object):
 
         if create:
             # Process does not exist
-            self.write(u"%d" % os.getpid())
+            self.write("%d" % os.getpid())
 
     def release(self):
         os.unlink(self.filename)
@@ -248,12 +275,12 @@ class System(CallableAction):
         self.stdout_ok = stdout_ok
 
     def setup(self):
-        self.logger.info("Setup: %s", self.id)
+        logger.info("Setup: %s", self.id)
         try:
             self.lockfile.acquire(create=False)
         except LockExists:
-            self.logger.error("Lockfile exists (%s), this is unexpected!",
-                              self.lockfile.filename)
+            logger.error("Lockfile exists (%s), this is unexpected!",
+                         self.lockfile.filename)
             return 0
         return 1
 
@@ -270,58 +297,82 @@ class System(CallableAction):
         return os.path.join(self.run_dir, 'stderr.log')
 
     def execute(self):
-        self.logger.debug("Execute %s (%s, args=%s)",
-                          self.id, self.cmd, repr(self.params))
+        logger.info("Execute %s (%s, args=%s)",
+                    self.id, self.cmd, repr(self.params))
         child_pid = os.fork()
         if child_pid:
-            self.logger.debug("child: %i (p=%i)", child_pid, os.getpid())
+            logger.info("Spawned %s (pid=%d, ppid=%d)",
+                        self.id, child_pid, os.getpid())
             return child_pid
+
+        logger.info("In child: %d", child_pid)
+        # This is horrible - the now forked subprocess logs to *our* logger!
+        # Might cause issues with e.g. log rotation...
+        #
+        # We should consider running our jobs with the `subprocess` module -
+        # this would also allow us to set PWD andredirect stdout/stderr in a
+        # nicer way.
         try:
             self.lockfile.acquire()
-            self.logger.info("Entering %s", self.run_dir)
+            logger.info("Entering %s", self.run_dir)
             if not os.path.exists(self.run_dir):
                 os.mkdir(self.run_dir)
             os.chdir(self.run_dir)
 
-            new_stdout = open(self.stdout_file, 'a', 0)
-            new_stderr = open(self.stderr_file, 'a', 0)
+            new_stdout = io.open(self.stdout_file, mode="ab", buffering=0)
+            new_stderr = io.open(self.stderr_file, mode="ab", buffering=0)
             os.dup2(new_stdout.fileno(), sys.stdout.fileno())
             os.dup2(new_stderr.fileno(), sys.stderr.fileno())
             try:
-                p = list()
+                # This is the first argument given to the actual program, and
+                # not neccessarily the program itself.  We *may* want to give
+                # `self.id` here, as it will be shown by e.g. `ps`, and
+                # `dist_ldif` would be a better name here than `scp`...
+                #
+                # However, *some* programs may not behave as expected if they
+                # get a strange argv[0]?
+                argv = [self.cmd]
                 for argument in self.params[:]:
                     if callable(argument):
                         argument = six.text_type(argument())
                     else:
                         argument = six.text_type(argument)
-                    p.append(argument)
+                    argv.append(argument)
 
-                # TODO: Why not self.id? It's a better process name than e.g.
-                # 'scp'
-                p.insert(0, self.cmd)
-                if debug_dryrun:
-                    os.execv("/bin/sleep", [self.id,
-                                            str(5 + random.randint(5, 10))])
-                os.execv(self.cmd, p)
+                # Debug:
+                # cmd = ' '.join(quote(arg) for arg in argv)
+                # argv = [
+                #     "/usr/bin/bash",
+                #     "-c",
+                #     ("echo %s >>/tmp/jr.log" % (quote(cmd),)),
+                # ]
+                # self.cmd = argv[0]
+
+                # Replace this process with self.cmd, and the given argument
+                # vector:
+                os.execv(self.cmd, argv)
             except OSError as e:
-                self.logger.info("Exec failed, check the command that was"
-                                 " executed.")
+                logger.error("Exec failed for %s (%s, args=%s)",
+                             self.id, self.cmd, repr(self.params))
                 # avoid cleanup handlers, seems to mess with logging
+                # This is probably related to the fact that we're re-using the
+                # log config of the parent process (i.e. job-runner itself).
                 raise SystemExit(e.errno)
         except SystemExit:
             # Don't stop the above SystemExit
             raise
         except Exception:
             # Full disk etc. can trigger this
-            self.logger.critical("Caught unexpected exception", exc_info=1)
-        self.logger.error("OOPS!  This code should never be reached")
+            logger.critical("Unexpected exception when running %s",
+                            self.id, exc_info=1)
+        logger.error("OOPS!  This code should never be reached")
         raise SystemExit(1)
 
     def cond_wait(self, child_pid):
         # May raise OSError: [Errno 4]: Interrupted system call
         pid, status = os.waitpid(child_pid, os.WNOHANG)
-        self.logger.debug("cond_wait(%r) id=%r, wait=%r, ret=%r",
-                          child_pid, self.id, self.wait, (pid, status))
+        logger.debug("cond_wait(pid=%r) id=%r, wait=%r, ret=%r",
+                     child_pid, self.id, self.wait, (pid, status))
 
         if pid == child_pid:
             if not all(os.path.exists(p) for p in (self.run_dir,
@@ -329,7 +380,7 @@ class System(CallableAction):
                                                    self.stderr_file)):
                 # May happen if the exec failes due to full-disk etc.
                 if not status:
-                    self.logger.warning(
+                    logger.warning(
                         "exit_status=%r, but %r don't exist! Full disk?",
                         status, self.run_dir)
                 return ("exit_status=%i (full disk?)" % status, None)
@@ -348,7 +399,7 @@ class System(CallableAction):
                 return (msg, newdir)
             self._cleanup()
             return 1
-        self.logger.debug("Wait returned %s/%s", pid, status)
+        logger.debug("Wait returned %s/%s", pid, status)
         return None
 
     def _cleanup(self):
@@ -367,11 +418,11 @@ class AssertRunning(System):
         self.wait = 0
 
     def setup(self):
-        self.logger.info("setup %s" % self.id)
+        logger.info("setup %s", self.id)
         try:
             self.lockfile.acquire(create=False)
         except LockExists:
-            self.logger.info("%s already running" % self.id)
+            logger.info("%s already running", self.id)
             return 0
         return 1
 
@@ -402,9 +453,7 @@ class Jobs(six.with_metaclass(UniqueActionAttrs), object):
 
     def validate(self):
         all_jobs = self.get_jobs(_from_validate=True)
-        keys = all_jobs.keys()
-        keys.sort()
-        for name, job in all_jobs.items():
+        for name, job in sorted(all_jobs.items(), key=lambda t: t[0]):
             for n in job.pre:
                 if n not in all_jobs:
                     raise ValueError("Undefined pre-job '%s' in '%s'" %

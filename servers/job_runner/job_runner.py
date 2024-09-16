@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003-2018 University of Oslo, Norway
+# Copyright 2003-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -44,6 +44,12 @@ TODO:
 - running multiple jobs in parallel, in particular manually added jobs
   should normally start immediately
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 # TBD: Paralellitet: dersom det er flere jobber i ready_to_run køen
 # som ikke har noen ukjørte pre-requisites, kan de startes samtidig.
@@ -56,9 +62,9 @@ import threading
 
 import cereconf
 
+import Cerebrum.logutils
+import Cerebrum.logutils.options
 from Cerebrum.Utils import Factory
-from Cerebrum.logutils import autoconf
-from Cerebrum.logutils.options import install_subparser
 from Cerebrum.modules.job_runner import JobRunner, sigchld_handler
 from Cerebrum.modules.job_runner.health import HealthMonitor
 from Cerebrum.modules.job_runner.job_actions import LockFile, LockExists
@@ -76,7 +82,8 @@ signal.signal(signal.SIGCHLD, sigchld_handler)
 
 def make_parser():
     parser = argparse.ArgumentParser(
-        description="Start a job runner daemon")
+        description="Start a job runner daemon",
+    )
 
     parser.add_argument(
         '--quiet',
@@ -139,12 +146,11 @@ def run_daemon(jr_socket,
             raise SystemExit(1)
     except SocketTimeout:
         # Assuming that previous run aborted without removing socket
-        logger.warn("Socket timeout, assuming server is dead")
+        logger.warning("Socket timeout, assuming server is dead")
         try:
             os.unlink(jr_socket)
         except OSError:
             pass
-        pass
 
     # TODO: Why don't we re-aquire the lock here?
 
@@ -174,10 +180,10 @@ def run_daemon(jr_socket,
 
 def main(inargs=None):
     parser = make_parser()
-    install_subparser(parser)
+    Cerebrum.logutils.options.install_subparser(parser)
     args = parser.parse_args(inargs)
 
-    autoconf('daemons', args)
+    Cerebrum.logutils.autoconf('daemons', args)
 
     jr_socket = args.socket
     logger.debug("job_runner args=%r", args)

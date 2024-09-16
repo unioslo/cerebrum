@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright 2021 University of Oslo, Norway
+# Copyright 2021-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -31,9 +31,17 @@ optional py:class:`.HealthCheck` to be included in the report.
 Each key-value pair in the discovery dicts are intended to be mapped to an *LLD
 Macro* in the discovery rule configuration.
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import logging
 import json
 import time
+
+from Cerebrum.utils import file_stream
 
 logger = logging.getLogger(__name__)
 
@@ -95,9 +103,7 @@ class HealthMonitor(object):
         while self._is_running:
             logger.debug('generating report')
             report_data = get_health_report(self.job_runner)
-            with open(self.filename, 'w') as fp:
-                logger.debug('writing report to %s', repr(fp))
-                write_health_report(fp, report_data)
+            write_health_report(self.filename, report_data)
             logger.debug('sleeping for %d seconds', self.interval)
             time.sleep(self.interval)
 
@@ -189,8 +195,18 @@ def get_health_report(job_runner):
     return report
 
 
-def write_health_report(fp, report_data):
+def write_health_report(filename, report_data):
     """ write json health report. """
-    json.dump(obj=report_data, fp=fp, indent=2, sort_keys=True)
-    fp.write('\n')
-    fp.flush()
+    encoding = None if str is bytes else "utf-8"
+    with file_stream.get_output_context(filename, encoding=encoding,
+                                        stdout=None, stderr=None) as fp:
+        logger.debug('writing report to %s', repr(fp))
+        json.dump(
+            obj=report_data,
+            fp=fp,
+            indent=2,
+            sort_keys=True,
+            separators=(',', ': '),
+        )
+        fp.write("\n")
+        fp.flush()
