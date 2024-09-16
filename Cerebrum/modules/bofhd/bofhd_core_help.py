@@ -41,10 +41,8 @@ from __future__ import (
 import textwrap
 
 group_help = {
-    'disk': "Disk related commands",
     'entity': "Entity commands",
     'group': "Group commands",
-    'host': "Host related commands",
     'misc': 'Miscellaneous commands',
     'person': 'Person related commands',
     'pquota': 'Pquota related commands',
@@ -55,15 +53,6 @@ group_help = {
 # The texts in command_help are automatically line-wrapped, and should
 # not contain \n
 command_help = {
-    'disk': {
-        "disk_list": (
-            "List the disks registered with a host.  A quota value in "
-            "parenthesis means it uses to the host's default disk quota."
-        ),
-        "disk_quota": (
-            "Enable quotas on a disk, and set the default value"
-        ),
-    },
     'entity': {
         'entity_accounts': (
             "List information about accounts associated with given entities"
@@ -145,21 +134,12 @@ command_help = {
         'group_set_type': 'Set category/type for a group',
         'group_set_visibility': 'Set visibility for a group',
     },
-    'host': {
-        'host_info': 'Show information about a host',
-        'host_disk_quota': 'Set the default disk quota for a host',
-    },
     'misc': {
         'misc_affiliations': 'List all known affiliations',
         'misc_check_password': 'Test the quality of a given password',
         'misc_clear_passwords': (
             'Forget the passwords which have been set this session'
         ),
-        'misc_dadd': 'Register a new disk',
-        'misc_dls': "Use 'disk list' instead",
-        'misc_drem': 'Remove a disk',
-        'misc_hadd': 'Register a new host',
-        'misc_hrem': 'Remove a host',
         'misc_list_passwords': (
             'View/print all the password altered this session'
         ),
@@ -237,7 +217,6 @@ command_help = {
         ),
         'user_restore': 'Restore a deactivated user',
         'user_restore_unpersonal': 'Restore a deactivated unpersonal user',
-        'user_set_disk_quota': 'Temporary override users disk quota',
         'user_set_disk_status': 'Set homedir status for user',
         'user_set_expire': 'Set expire date for an account',
         'user_set_np_type': (
@@ -371,26 +350,6 @@ arg_help = {
                :/usr/local/oracle
             """
         ).lstrip(),
-    ],
-    'disk_quota_set': [
-        'size',
-        'Enter quota size',
-        textwrap.dedent(
-            """
-            Enter quota size in MiB, or 'none' to disable quota, or 'default'
-            to use the host's default quota value.
-            """
-        ).lstrip(),
-    ],
-    'disk_quota_size': [
-        'size',
-        'Enter quota size',
-        'Enter quota size in MiB, or -1 for unlimited quota',
-    ],
-    'disk_quota_expire_date': [
-        'end_date',
-        'Enter end-date for override',
-        'Format is 2003-12-31',
     ],
     'display_name_language': [
         'language',

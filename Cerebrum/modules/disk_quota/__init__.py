@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003-2022 University of Oslo, Norway
+# Copyright 2003-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -50,6 +50,12 @@ here after:
     Merge: e940e928e ddf367002
     Date:  Tue Mar 26 12:18:52 2019 +0100
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 from Cerebrum import Account
 from Cerebrum import Errors
 from Cerebrum.DatabaseAccessor import DatabaseAccessor

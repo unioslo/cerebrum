@@ -48,8 +48,8 @@ from Cerebrum.modules.bofhd import bofhd_perm_cmds
 from Cerebrum.modules.bofhd import bofhd_quarantines
 from Cerebrum.modules.bofhd import parsers
 from Cerebrum.modules.bofhd.auth import (
-    BofhdAuthOpTarget,
-    BofhdAuthRole,
+    delete_entity_auth_roles,
+    delete_entity_auth_target,
 )
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.bofhd_user_create import BofhdUserCreateMethod
@@ -100,7 +100,6 @@ from Cerebrum.modules.bofhd import bofhd_access
 from Cerebrum.modules.consent import bofhd_consent_cmds
 from Cerebrum.modules.guest import bofhd_guest_cmds
 from Cerebrum.modules.no import fodselsnr
-from Cerebrum.modules.disk_quota import DiskQuota
 from Cerebrum.modules.no.uio.access_FS import FS
 from Cerebrum.modules.no.uio import bofhd_pw_issues
 from Cerebrum.modules.bofhd import bofhd_user_create_unpersonal
@@ -1096,8 +1095,8 @@ class BofhdExtension(BofhdCommonMethods):
                     'Cannot delete group %s, is type %r' % (
                         groupname, grp.get_extensions()))
 
-            self._remove_auth_target("group", grp.entity_id)
-            self._remove_auth_role(grp.entity_id)
+            delete_entity_auth_target(self.db, "group", grp.entity_id)
+            delete_entity_auth_roles(self.db, grp.entity_id)
             try:
                 grp.delete()
             except self.db.DatabaseError as msg:
@@ -2174,308 +2173,6 @@ class BofhdExtension(BofhdCommonMethods):
     def misc_clear_passwords(self, operator, account_name=None):
         operator.clear_state(state_types=('new_account_passwd', 'user_passwd'))
         return "OK, passwords cleared"
-
-    #
-    # misc dadd
-    #
-    all_commands['misc_dadd'] = Command(
-        ("misc", "dadd"),
-        SimpleString(help_ref='string_host'),
-        DiskId(),
-        perm_filter='can_create_disk')
-
-    def misc_dadd(self, operator, hostname, diskname):
-        host = self._get_host(hostname)
-        self.ba.can_create_disk(operator.get_entity_id(), host)
-
-        if not diskname.startswith("/"):
-            raise CerebrumError("'%s' does not start with '/'" % diskname)
-
-        if cereconf.VALID_DISK_TOPLEVELS is not None:
-            toplevel_mountpoint = diskname.split("/")[1]
-            if toplevel_mountpoint not in cereconf.VALID_DISK_TOPLEVELS:
-                raise CerebrumError("'%s' is not a valid toplevel mountpoint"
-                                    " for disks" % toplevel_mountpoint)
-
-        disk = Utils.Factory.get('Disk')(self.db)
-        disk.populate(host.entity_id, diskname, 'uio disk')
-        try:
-            disk.write_db()
-        except self.db.DatabaseError as m:
-            raise CerebrumError("Database error: %s" % exc_to_text(m))
-        if len(diskname.split("/")) != 4:
-            return "OK.  Warning: disk did not follow expected pattern."
-        return "OK, added disk '%s' at %s" % (diskname, hostname)
-
-    #
-    # misc dls
-    #
-    # misc dls is deprecated, and can probably be removed without
-    # anyone complaining much.
-    #
-    all_commands['misc_dls'] = Command(
-        ("misc", "dls"),
-        SimpleString(help_ref='string_host'),
-        fs=FormatSuggestion(
-            "%-8i %-8i %s", ("disk_id", "host_id", "path",),
-            hdr="DiskId   HostId   Path"
-        ))
-
-    def misc_dls(self, operator, hostname):
-        return self.disk_list(operator, hostname)
-
-    #
-    # disk list
-    #
-    all_commands['disk_list'] = Command(
-        ("disk", "list"),
-        SimpleString(help_ref='string_host'),
-        fs=FormatSuggestion(
-            "%-13s %11s  %s", ("hostname", "pretty_quota", "path",),
-            hdr="Hostname    Default quota  Path"
-        ))
-
-    def disk_list(self, operator, hostname):
-        host = self._get_host(hostname)
-        disks = {}
-        disk = Utils.Factory.get('Disk')(self.db)
-        hquota = host.get_trait(self.const.trait_host_disk_quota)
-        if hquota:
-            hquota = hquota['numval']
-        for row in disk.list(host.host_id):
-            disk.clear()
-            disk.find(row['disk_id'])
-            dquota = disk.get_trait(self.const.trait_disk_quota)
-            if dquota is None:
-                def_quota = None
-                pretty_quota = '<none>'
-            else:
-                if dquota['numval'] is None:
-                    def_quota = hquota
-                    if hquota is None:
-                        pretty_quota = '(no default)'
-                    else:
-                        pretty_quota = '(%d MiB)' % def_quota
-                else:
-                    def_quota = dquota['numval']
-                    pretty_quota = '%d MiB' % def_quota
-            disks[row['disk_id']] = {'disk_id': row['disk_id'],
-                                     'host_id': row['host_id'],
-                                     'hostname': hostname,
-                                     'def_quota': def_quota,
-                                     'pretty_quota': pretty_quota,
-                                     'path': row['path']}
-        ret = []
-        for d in sorted(disks, key=lambda k: disks[k]['path']):
-            ret.append(disks[d])
-        return ret
-
-    #
-    # disk quota <disk> <quota>
-    #
-    all_commands['disk_quota'] = Command(
-        ("disk", "quota"),
-        SimpleString(help_ref='string_host'),
-        DiskId(),
-        SimpleString(help_ref='disk_quota_set'),
-        perm_filter='can_set_disk_default_quota',
-    )
-
-    def disk_quota(self, operator, hostname, diskname, quota):
-        host = self._get_host(hostname)
-        disk = self._get_disk(diskname, host_id=host.entity_id)[0]
-        self.ba.can_set_disk_default_quota(operator.get_entity_id(),
-                                           host=host, disk=disk)
-        old = disk.get_trait(self.const.trait_disk_quota)
-        if quota.lower() == 'none':
-            if old:
-                disk.delete_trait(self.const.trait_disk_quota)
-            return "OK, no quotas on %s" % diskname
-        elif quota.lower() == 'default':
-            disk.populate_trait(self.const.trait_disk_quota,
-                                numval=None)
-            disk.write_db()
-            return "OK, using host default on %s" % diskname
-        elif quota.isdigit():
-            disk.populate_trait(self.const.trait_disk_quota,
-                                numval=int(quota))
-            disk.write_db()
-            return "OK, default quota on %s is %d" % (diskname, int(quota))
-        else:
-            raise CerebrumError("Invalid quota value '%s'" % quota)
-
-    #
-    # misc drem
-    #
-    all_commands['misc_drem'] = Command(
-        ("misc", "drem"),
-        SimpleString(help_ref='string_host'),
-        DiskId(),
-        perm_filter='can_remove_disk')
-
-    def misc_drem(self, operator, hostname, diskname):
-        host = self._get_host(hostname)
-        self.ba.can_remove_disk(operator.get_entity_id(), host)
-        disk = self._get_disk(diskname, host_id=host.entity_id)[0]
-        # FIXME: We assume that all destination_ids are entities,
-        # which would ensure that the disk_id number can't represent a
-        # different kind of entity.  The database does not constrain
-        # this, however.
-        br = BofhdRequests(self.db, self.const)
-        if br.get_requests(destination_id=disk.entity_id):
-            raise CerebrumError("There are pending requests. Use "
-                                "'misc list_requests disk %s' to view "
-                                "them." % diskname)
-        account = self.Account_class(self.db)
-        for row in account.list_account_home(disk_id=disk.entity_id,
-                                             filter_expired=False):
-            if row['disk_id'] is None:
-                continue
-            if row['status'] == int(self.const.home_status_on_disk):
-                raise CerebrumError("One or more users still on disk "
-                                    "(e.g. %s)" % row['entity_name'])
-            account.clear()
-            account.find(row['account_id'])
-            ah = account.get_home(row['home_spread'])
-            account.set_homedir(
-                current_id=ah['homedir_id'], disk_id=None,
-                home=account.resolve_homedir(disk_path=row['path'],
-                                             home=row['home']))
-        self._remove_auth_target("disk", disk.entity_id)
-        try:
-            disk.delete()
-        except self.db.DatabaseError as m:
-            raise CerebrumError("Database error: %s" % exc_to_text(m))
-        return "OK, %s deleted" % diskname
-
-    #
-    # misc hadd
-    #
-    all_commands['misc_hadd'] = Command(
-        ("misc", "hadd"),
-        SimpleString(help_ref='string_host'),
-        perm_filter='can_create_host')
-
-    def misc_hadd(self, operator, hostname):
-        self.ba.can_create_host(operator.get_entity_id())
-        host = Utils.Factory.get('Host')(self.db)
-        host.populate(hostname, 'uio host')
-        try:
-            host.write_db()
-        except self.db.DatabaseError as m:
-            raise CerebrumError("Database error: %s" % exc_to_text(m))
-        return "OK, added host '%s'" % hostname
-
-    #
-    # misc hrem
-    #
-    all_commands['misc_hrem'] = Command(
-        ("misc", "hrem"),
-        SimpleString(help_ref='string_host'),
-        perm_filter='can_remove_host')
-
-    def misc_hrem(self, operator, hostname):
-        self.ba.can_remove_host(operator.get_entity_id())
-        host = self._get_host(hostname)
-        self._remove_auth_target("host", host.host_id)
-        try:
-            host.delete()
-        except self.db.DatabaseError as m:
-            raise CerebrumError("Database error: %s" % exc_to_text(m))
-        return "OK, %s deleted" % hostname
-
-    #
-    # See hack in list_command
-    #
-    all_commands['host_info'] = Command(
-        ("host", "info"),
-        SimpleString(help_ref='string_host'),
-        fs=FormatSuggestion([
-            ("Hostname:              %s\n" "Description:           %s",
-             ("hostname", "desc")),
-            ("Default disk quota:    %d MiB", ("def_disk_quota",))
-        ]),
-    )
-
-    def host_info(self, operator, hostname):
-        ret = []
-        host = self._get_host(hostname)
-        ret = {
-            'hostname': hostname,
-            'desc': host.description
-        }
-        hquota = host.get_trait(self.const.trait_host_disk_quota)
-        if hquota and hquota['numval']:
-            ret['def_disk_quota'] = hquota['numval']
-        return ret
-
-    #
-    # host disk_quota <host> <quota>
-    #
-    all_commands['host_disk_quota'] = Command(
-        ("host", "disk_quota"),
-        SimpleString(help_ref='string_host'),
-        SimpleString(help_ref='disk_quota_set'),
-        perm_filter='can_set_disk_default_quota',
-    )
-
-    def host_disk_quota(self, operator, hostname, quota):
-        host = self._get_host(hostname)
-        self.ba.can_set_disk_default_quota(operator.get_entity_id(),
-                                           host=host)
-        old = host.get_trait(self.const.trait_host_disk_quota)
-        if (quota.lower() == 'none' or
-                quota.lower() == 'default' or
-                (quota.isdigit() and int(quota) == 0)):
-            # "default" doesn't make much sense, but the help text
-            # says it's a valid value.
-            if old:
-                # TBD: disk is not defined here, what is this supposed to do?
-                # disk.delete_trait(self.const.trait_disk_quota)
-                raise Exception("does this ever happen?")
-            return "OK, no default quota on %s" % hostname
-        elif quota.isdigit() and int(quota) > 0:
-            host.populate_trait(self.const.trait_host_disk_quota,
-                                numval=int(quota))
-            host.write_db()
-            return "OK, default quota on %s is %d" % (hostname, int(quota))
-        else:
-            raise CerebrumError("Invalid quota value '%s'" % quota)
-        pass
-
-    def _remove_auth_target(self, target_type, target_id):
-        """This function should be used whenever a potential target
-        for authorisation is deleted.
-        """
-        ar = BofhdAuthRole(self.db)
-        aot = BofhdAuthOpTarget(self.db)
-        for r in aot.list(entity_id=target_id, target_type=target_type):
-            aot.clear()
-            aot.find(r['op_target_id'])
-            # We remove all auth_role entries first so that there
-            # are no references to this op_target_id, just in case
-            # someone adds a foreign key constraint later.
-            for role in ar.list(op_target_id=r["op_target_id"]):
-                ar.revoke_auth(role['entity_id'],
-                               role['op_set_id'],
-                               r['op_target_id'])
-            aot.delete()
-
-    def _remove_auth_role(self, entity_id):
-        """This function should be used whenever a potentially
-        authorised entity is deleted.
-        """
-        ar = BofhdAuthRole(self.db)
-        aot = BofhdAuthOpTarget(self.db)
-        for r in ar.list(entity_id):
-            ar.revoke_auth(entity_id, r['op_set_id'], r['op_target_id'])
-            # Also remove targets if this was the last reference from
-            # auth_role.
-            remaining = ar.list(op_target_id=r['op_target_id'])
-            if len(remaining) == 0:
-                aot.clear()
-                aot.find(r['op_target_id'])
-                aot.delete()
 
     #
     # misc list_passwords
@@ -4148,47 +3845,6 @@ class BofhdExtension(BofhdCommonMethods):
         return "User %s queued for deletion immediately" % account.account_name
 
     #
-    # user set_disk_quota
-    # TODO: Why don't we use the disk_quota module here?
-    # TODO: We should probably just remove the disk quota module and all
-    #       related functionality
-    #
-    all_commands['user_set_disk_quota'] = Command(
-        ("user", "set_disk_quota"),
-        AccountName(help_ref='account_name_id_uid'),
-        Integer(help_ref="disk_quota_size"),
-        Date(help_ref="disk_quota_expire_date"),
-        SimpleString(help_ref="string_why"),
-        perm_filter='can_set_disk_quota',
-    )
-
-    def user_set_disk_quota(self, operator, accountname, size, date, why):
-        account = self._get_account(accountname)
-        exp_date = parsers.parse_date(date)
-        why = why.strip()
-        if len(why) < 3:
-            raise CerebrumError("Why cannot be blank")
-        unlimited = forever = False
-        if (exp_date - datetime.date.today()).days > 185:
-            forever = True
-        try:
-            size = int(size)
-        except ValueError:
-            raise CerebrumError("Expected int as size")
-        if size > 1024 or size < 0:    # "unlimited" for perm-check = +1024M
-            unlimited = True
-        self.ba.can_set_disk_quota(operator.get_entity_id(), account,
-                                   unlimited=unlimited, forever=forever)
-        home = account.get_home(self.const.spread_uio_nis_user)
-        if size < 0:
-            # unlimited disk quota
-            size = None
-        dq = DiskQuota(self.db)
-        dq.set_quota(home['homedir_id'], override_quota=size,
-                     override_expiration=exp_date, description=why)
-        return "OK, quota overridden for %s" % accountname
-
-    #
     # user gecos
     #
     all_commands['user_gecos'] = Command(
@@ -4249,9 +3905,6 @@ class BofhdExtension(BofhdCommonMethods):
              ("username", "spread", "affiliations", format_day("expire"),
               "home", "home_status", "entity_id", "owner_id", "owner_type",
               "owner_desc")),
-            ("Disk quota:    %s MiB", ("disk_quota",)),
-            ("DQ override:   %s MiB (until %s: %s)",
-             ("dq_override", format_day("dq_expire"), "dq_why")),
             ("UID:           %i\n"
              "Default fg:    %i=%s\n"
              "Gecos:         %s\n"
@@ -4307,37 +3960,6 @@ class BofhdExtension(BofhdCommonMethods):
             'owner_id': account.owner_id,
             'owner_type': text_type(self.const.EntityType(account.owner_type)),
         }
-
-        try:
-            self.ba.can_show_disk_quota(operator.get_entity_id(), account)
-            can_see_quota = True
-        except PermissionDenied:
-            can_see_quota = False
-        if tmp['disk_id'] and can_see_quota:
-            disk = Utils.Factory.get("Disk")(self.db)
-            disk.find(tmp['disk_id'])
-            has_quota = disk.has_quota()
-            def_quota = disk.get_default_quota()
-            try:
-                dq = DiskQuota(self.db)
-                dq_row = dq.get_quota(tmp['homedir_id'])
-                if has_quota and dq_row['quota'] is not None:
-                    ret['disk_quota'] = str(int(dq_row['quota']))
-                # Only display recent quotas
-                dq_expire = date_compat.get_date(dq_row['override_expiration'])
-                days_left = ((dq_expire or datetime.date.min)
-                             - datetime.date.today()).days
-                if days_left > -30:
-                    ret['dq_override'] = dq_row['override_quota']
-                    if dq_row['override_quota'] is not None:
-                        ret['dq_override'] = str(int(dq_row['override_quota']))
-                    ret['dq_expire'] = dq_expire
-                    ret['dq_why'] = dq_row['description']
-                    if days_left < 0:
-                        ret['dq_why'] += " [INACTIVE]"
-            except Errors.NotFoundError:
-                if def_quota:
-                    ret['disk_quota'] = "(%s)" % def_quota
 
         if account.owner_type == self.const.entity_person:
             person = self._get_person('entity_id', account.owner_id)
@@ -4886,7 +4508,7 @@ class BofhdExtension(BofhdCommonMethods):
         ('user', 'set_disk_status'),
         AccountName(help_ref='account_name_id_uid'),
         SimpleString(help_ref='string_disk_status'),
-        perm_filter='can_create_disk',
+        perm_filter='can_set_disk_status',
     )
 
     def user_set_disk_status(self, operator, accountname, status):
@@ -4896,11 +4518,7 @@ class BofhdExtension(BofhdCommonMethods):
         except Errors.NotFoundError:
             raise CerebrumError("Unknown status")
         account = self._get_account(accountname)
-        # this is not exactly right, we should probably
-        # implement a can_set_disk_status-function, but no
-        # appropriate criteria is readily available for this
-        # right now
-        self.ba.can_create_disk(operator.get_entity_id(), query_run_any=True)
+        self.ba.can_set_disk_status(operator.get_entity_id())
         ah = account.get_home(self.const.spread_uio_nis_user)
         account.set_homedir(current_id=ah['homedir_id'], status=status)
         return "OK, set home-status for %s to %s" % (accountname,

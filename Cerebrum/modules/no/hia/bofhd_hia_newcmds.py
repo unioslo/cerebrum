@@ -94,8 +94,6 @@ uio_helpers = [
     '_lookup_old_uid',
     '_person_affiliation_add_helper',
     '_person_create_externalid_helper',
-    '_remove_auth_role',
-    '_remove_auth_target',
     '_viewable_external_ids',
     'user_set_owner_prompt_func',
 ]
@@ -1503,16 +1501,6 @@ HELP_CMDS = {
         'misc_clear_passwords':
             'Clear password(s) from the altered-passwords list in the '
             'current sessions',
-        'misc_dadd':
-            'Register a disk in Cerebrum database',
-        'misc_dls':
-            'List all registered disks for a given host',
-        'misc_drem':
-            'Remove a disk entry from Cerebrum',
-        'misc_hadd':
-            'Register a new host in the Cerebrum database',
-        'misc_hrem':
-            'Remove a host entry from Cerebrum',
         'misc_list_passwords':
             'View/print all the passwords altered during a session',
         'misc_user_passwd':

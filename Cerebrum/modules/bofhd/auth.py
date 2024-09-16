@@ -157,7 +157,7 @@ The auth module consists of the parts:
   superuser role.
 
 - Services that uses BofhdAuth would only see different auth methods, e.g.
-  can_set_disk_quota(). The operations and OpSets are then checked internally,
+  can_show_history(). The operations and OpSets are then checked internally,
   the service does not need to know about these details.
 
   An example is the bofhd command 'user_history', which calls
@@ -712,6 +712,56 @@ class BofhdAuthRole(DatabaseAccessor):
             """)
 
 
+def delete_entity_auth_roles(db, entity_id):
+    """
+    Remove all roles granted to an entity.
+
+    This is typically done before deleting (or deactivating) an entity.
+    Will also clean up any targets that are no longer targeted by any roles.
+
+    :param int entity_id: an entity that should have all their roles revoked
+    """
+    ar = BofhdAuthRole(db)
+    aot = BofhdAuthOpTarget(db)
+    for r in ar.list(entity_id):
+        ar.revoke_auth(entity_id, r['op_set_id'], r['op_target_id'])
+        # Also remove targets if this was the last reference from
+        # auth_role.
+        remaining = ar.list(op_target_id=r['op_target_id'])
+        if len(remaining) == 0:
+            aot.clear()
+            aot.find(r['op_target_id'])
+            aot.delete()
+
+
+def delete_entity_auth_target(db, target_type, target_id):
+    """
+    Remove all auth targets that points to a given entity.
+
+    Deletes all targets for an entity, along with any roles that grants access
+    to that target.
+
+    TODO: Why are we limiting this to target-type?  Also, why do we even have
+    *target-type* for non-global targets?
+
+    :param str target_type: target type
+    :param int target_id: entity-id to delete targets for
+    """
+    ar = BofhdAuthRole(db)
+    aot = BofhdAuthOpTarget(db)
+    for r in aot.list(entity_id=target_id, target_type=target_type):
+        aot.clear()
+        aot.find(r['op_target_id'])
+        # We remove all auth_role entries first so that there
+        # are no references to this op_target_id, just in case
+        # someone adds a foreign key constraint later.
+        for role in ar.list(op_target_id=r["op_target_id"]):
+            ar.revoke_auth(role['entity_id'],
+                           role['op_set_id'],
+                           r['op_target_id'])
+        aot.delete()
+
+
 def _get_bofhd_auth_systems(const):
     """
     Get authoritative system codes.
@@ -914,49 +964,6 @@ class BofhdAuth(DatabaseAccessor):
         """See if operator can view basic information about an account."""
         return True
 
-    def can_set_disk_quota(self, operator, account=None, unlimited=False,
-                           forever=False, query_run_any=False):
-        if self.is_superuser(operator):
-            return True
-        if query_run_any:
-            return self._has_operation_perm_somewhere(
-                operator, self.const.auth_disk_quota_set)
-        if forever:
-            self.has_privileged_access_to_account_or_person(
-                operator, self.const.auth_disk_quota_forever, account)
-        if unlimited:
-            self.has_privileged_access_to_account_or_person(
-                operator, self.const.auth_disk_quota_unlimited, account)
-        return self.has_privileged_access_to_account_or_person(
-            operator, self.const.auth_disk_quota_set, account)
-
-    def can_set_disk_default_quota(self, operator, host=None, disk=None,
-                                   query_run_any=False):
-        if self.is_superuser(operator):
-            return True
-        if query_run_any:
-            return self._has_operation_perm_somewhere(
-                operator, self.const.auth_disk_def_quota_set)
-        if ((host is not None and self._has_target_permissions(
-                                operator, self.const.auth_disk_def_quota_set,
-                                self.const.auth_target_type_host,
-                                host.entity_id, None)) or
-            (disk is not None and self._has_target_permissions(
-                                operator, self.const.auth_disk_def_quota_set,
-                                self.const.auth_target_type_disk,
-                                disk.entity_id, None))):
-            return True
-        raise PermissionDenied("No access to disk")
-
-    def can_show_disk_quota(self, operator, account=None, query_run_any=False):
-        if self.is_superuser(operator):
-            return True
-        if query_run_any:
-            return self._has_operation_perm_somewhere(
-                operator, self.const.auth_disk_quota_show)
-        return self.has_privileged_access_to_account_or_person(
-            operator, self.const.auth_disk_quota_show, account)
-
     def can_set_person_user_priority(self, operator, account=None,
                                      query_run_any=False):
         if query_run_any:
@@ -1056,37 +1063,15 @@ class BofhdAuth(DatabaseAccessor):
             return True
         return True
 
-    def can_create_disk(self, operator, host=None, query_run_any=False):
+    def can_set_disk_status(self, operator, query_run_any=False):
         if self.is_superuser(operator):
             return True
-        if query_run_any:
-            return self._has_operation_perm_somewhere(operator,
-                                                      self.const.auth_add_disk)
-        if host is not None:
-            host = int(host.entity_id)
-        if self._has_target_permissions(operator, self.const.auth_add_disk,
-                                        self.const.auth_target_type_host,
-                                        host, None):
-            return True
-        raise PermissionDenied("No access to host")
-
-    def can_remove_disk(self, operator, host=None, query_run_any=False):
-        return self.can_create_disk(operator, host=host,
-                                    query_run_any=query_run_any)
-
-    def can_create_host(self, operator, query_run_any=False):
-        if self.is_superuser(operator):
-            return True
-        # auth_create_host is not tied to a target
         if self._has_operation_perm_somewhere(operator,
-                                              self.const.auth_create_host):
+                                              self.const.auth_add_disk):
             return True
         if query_run_any:
             return False
-        raise PermissionDenied("Permission denied")
-
-    def can_remove_host(self, operator, query_run_any=False):
-        return self.can_create_host(operator, query_run_any=query_run_any)
+        raise PermissionDenied("No access to set disk status")
 
     def can_alter_group(self, operator, group=None, query_run_any=False):
         """Checks if the operator has permission to add/remove group members

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2019 University of Oslo, Norway
+# Copyright 2019-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,8 +19,13 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
 Constants for mod_disk_quota
-
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import Cerebrum.Constants
 from Cerebrum.modules.trait.constants import _EntityTraitCode
 
