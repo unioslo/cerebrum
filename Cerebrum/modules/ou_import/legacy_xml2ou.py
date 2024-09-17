@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2022 University of Oslo, Norway
+# Copyright 2022-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -36,20 +36,12 @@ import logging
 
 from Cerebrum.modules.xmlutils import xml2object
 from Cerebrum.utils.date_compat import get_date
-from .ou_model import OrgUnitMapper
+from . import ou_model
 
 logger = logging.getLogger(__name__)
 
 
-def format_id(value, required=True):
-    if required and not value:
-        raise ValueError('missing id')
-    elif not value:
-        return None
-    return 'sko:{}'.format(value)
-
-
-class LegacyObjectMapper(OrgUnitMapper):
+class LegacyObjectMapper(ou_model.OrgUnitMapper):
     """
     A legacy mapper for py:class:`Cerebrum.modules.xmlutils.xml2object.DataOU`
     objects.
@@ -62,11 +54,18 @@ class LegacyObjectMapper(OrgUnitMapper):
 
     def get_id(self, ou_data):
         """ id to use when building org tree. """
-        return format_id(self.get_location_code(ou_data), required=True)
+        value = self.get_location_code(ou_data)
+        if value:
+            return "sko:{}".format(value)
+        raise ValueError("missing id")
 
     def get_parent_id(self, ou_data):
         """ parent id to use when building org tree. """
-        return format_id(ou_data.parent, required=False)
+        if (ou_data.parent
+                and len(ou_data.parent) == 2
+                and ou_data.parent[0] == xml2object.DataOU.NO_SKO):
+            return "sko:{}".format(ou_model.tuple_to_sko(ou_data.parent[1]))
+        return None
 
     def get_location_code(self, ou_data):
         """ Get stedkode (if present) from ou_data.
@@ -76,7 +75,10 @@ class LegacyObjectMapper(OrgUnitMapper):
         :returns str: Returns a location code, or None if no stedkode exists.
         """
         ids = dict(ou_data.iterids())
-        return ids.get(xml2object.DataOU.NO_SKO)
+        sko_t = ids.get(xml2object.DataOU.NO_SKO)
+        if not sko_t:
+            return None
+        return ou_model.tuple_to_sko(sko_t)
 
     def get_external_ids(self, ou_data):
         """ Get external_id identifiers from ou_data.
@@ -87,6 +89,9 @@ class LegacyObjectMapper(OrgUnitMapper):
         :returns:
             zero or more tuples with (id_type, external_id)
         """
+        location_code = self.get_location_code(ou_data)
+        if location_code:
+            yield ('NO_SKO', location_code)
         for key, value in ou_data.iterids():
             if key == xml2object.DataOU.NO_DFO:
                 yield ('DFO_OU_ID', value)
@@ -108,6 +113,7 @@ class LegacyObjectMapper(OrgUnitMapper):
            It is an error to return a name type that is not listed by
            `.name_types`.
         """
+        # TODO: deal with duplicate (kind, language)
         for kind, names in ou_data.iternames():
             if kind == xml2object.DataOU.NAME_ACRONYM:
                 name_types = ('OU acronym',)
@@ -131,21 +137,41 @@ class LegacyObjectMapper(OrgUnitMapper):
         :returns:
             zero or more tuples with (contact_type strval, contact_value)
         """
+        items = []
+
+        kinds = {
+            xml2object.DataContact.CONTACT_PHONE: "PHONE",
+            xml2object.DataContact.CONTACT_FAX: "FAX",
+            xml2object.DataContact.CONTACT_URL: "URL",
+            xml2object.DataContact.CONTACT_EMAIL: "EMAIL",
+        }
+
         for contact in ou_data.itercontacts():
+            if contact.kind in kinds:
+                ctype = kinds[contact.kind]
+            else:
+                logger.debug('unknown contact: %s', repr(contact.kind))
+                continue
+
             if not contact.value:
                 logger.debug('empty value for: %s', repr(contact.kind))
                 continue
 
-            if contact.kind == xml2object.DataContact.CONTACT_PHONE:
-                yield ('PHONE', contact.value)
-            elif contact.kind == xml2object.DataContact.CONTACT_FAX:
-                yield ('FAX', contact.value)
-            elif contact.kind == xml2object.DataContact.CONTACT_URL:
-                yield ('URL', contact.value)
-            elif contact.kind == xml2object.DataContact.CONTACT_EMAIL:
-                yield ('EMAIL', contact.value)
-            else:
-                logger.debug('unknown contact: %s', repr(contact.kind))
+            try:
+                priority = int(contact.priority)
+            except Exception:
+                logger.debug('invalid priority for: %s (%s)',
+                             repr(contact.kind), repr(contact.priority))
+                continue
+            items.append((priority, ctype, contact.value))
+
+        seen = set()
+        # Prioritize *low* priority (TODO: is this right?)
+        for priority, ctype, value in sorted(items):
+            if ctype in seen:
+                continue
+            seen.add(ctype)
+            yield (ctype, value)
 
     def get_addresses(self, ou_data):
         """ Get address info from ou_data.
@@ -163,6 +189,7 @@ class LegacyObjectMapper(OrgUnitMapper):
              - city
              - country
         """
+        # TODO: deal with duplicate `addr_kind`
         for addr_kind, addr in ou_data.iteraddress():
             if addr_kind == xml2object.DataAddress.ADDRESS_BESOK:
                 addr_type = 'STREET'
