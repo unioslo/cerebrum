@@ -43,13 +43,22 @@ def database(database):
     return database
 
 
+PERSPECTIVE = "13e25c33904a4da4"
+
+
+@pytest.fixture(autouse=True)
+def _patch_cereconf(cereconf):
+    cereconf.DEFAULT_OU_PERSPECTIVE = PERSPECTIVE
+
+
 @pytest.fixture
 def perspective(constant_module):
-    """ A new, unique perspective setting. """
+    """ A new, unique ou perspective for tests. """
     code = constant_module._OUPerspectiveCode
-    p = code("test-org-tree",
-             description="Org tree for test_perspective_db unit test")
+    p = code(PERSPECTIVE, description="org tree for perspective_db unit tests")
     p.insert()
+    # patch into CoreConstants
+    constant_module.CoreConstants.test_ou_perspective = p
     return p
 
 
@@ -73,6 +82,11 @@ def _create_org_units(db, limit=5):
 #
 # Basic tests
 #
+
+
+def test_get_default_perspective(const, perspective):
+    assert pdb.get_default_perspective(const) == perspective
+
 
 def test_set_root(database, perspective):
     ou_id = _create_org_units(database, 1)[0]
