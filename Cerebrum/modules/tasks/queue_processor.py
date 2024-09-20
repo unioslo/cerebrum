@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2021 University of Oslo, Norway
+# Copyright 2021-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -80,12 +80,9 @@ from Cerebrum.database.ctx import db_context
 from Cerebrum.utils.date import now
 
 from .task_queue import TaskQueue
+from .task_models import format_task_id
 
 logger = logging.getLogger(__name__)
-
-
-def task_id(task):
-    return '/'.join((task.queue, task.sub, task.key))
 
 
 class QueueProcessor(object):
@@ -135,7 +132,7 @@ class QueueProcessor(object):
         return tasks
 
     def process_task(self, task):
-        logger.info('fetching task %s', task_id(task))
+        logger.info('fetching task %s', format_task_id(task))
 
         # Remove the given task
         with self.new_transaction() as db:
@@ -145,17 +142,18 @@ class QueueProcessor(object):
                 # we collect and process tasks in different transactions,
                 # so there is a slight chance that some tasks no longer exists
                 logger.error('task %s gone, already processed?',
-                             task_id(task))
+                             format_task_id(task))
                 return False
 
         # Process the current taask
-        logger.info('handling task %s', task_id(task))
+        logger.info('handling task %s', format_task_id(task))
         try:
             with self.new_transaction() as db:
                 self.queue_handler.handle_task(db, task)
             task_failed = None
         except Exception as e:
-            logger.warning('task %s failed', task_id(task), exc_info=True)
+            logger.warning('task %s failed', format_task_id(task),
+                           exc_info=True)
             task_failed = e
 
         # Re-insert the current task on error
@@ -168,11 +166,11 @@ class QueueProcessor(object):
         if task_failed:
             retry_task = self.queue_handler.get_retry_task(task, e)
             logger.info('re-queueing %s (as %s)',
-                        task_id(task), task_id(retry_task))
+                        format_task_id(task), format_task_id(retry_task))
             with self.new_transaction() as db:
                 if TaskQueue(db).push_task(retry_task):
                     logger.info('queued retry-task %s at %s',
-                                task_id(task), retry_task.nbf)
+                                format_task_id(task), retry_task.nbf)
 
     def get_abandoned_counts(self):
         stats = self.queue_handler.get_abandoned_counts(self.conn)
