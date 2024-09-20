@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2021 University of Oslo, Norway
+# Copyright 2021-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,12 +18,19 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ Database access to task queue.  """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import logging
 
 import six
 
 import Cerebrum.Errors
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
+from Cerebrum.database import query_utils
 from Cerebrum.Utils import argument_to_sql, NotSet
 from Cerebrum.utils import json
 
@@ -87,44 +94,44 @@ def _select(queues=None, subs=None, keys=None, iat_before=None, iat_after=None,
     #
     # range selects
     #
+    # TODO: We should maybe re-factor the range helpers to provide errors that
+    # includes the range attributes (e.g. iat_before/iat_after), column names
+    # (iat), and criterias (e.g. "before" for dates, "less than" for numbers)
+    #
     if iat_before and iat_after and iat_before < iat_after:
-        # a date can never be *both* before <t> *and* after that same
-        # <t>+<delta>
         raise ValueError("iat_after: cannot be after iat_before"
                          " (%s < iat < %s)" % (iat_after, iat_before))
-
-    if iat_after is not None:
-        clauses.append("iat > :iat_a")
-        binds['iat_a'] = iat_after
-    if iat_before is not None:
-        clauses.append("iat < :iat_b")
-        binds['iat_b'] = iat_before
+    iat_cond, iat_binds = query_utils.date_helper(colname="iat",
+                                                  gt=iat_after,
+                                                  lt=iat_before)
+    if iat_cond:
+        clauses.append(iat_cond)
+    if iat_binds:
+        binds.update(iat_binds)
 
     if nbf_before and nbf_after and nbf_before < nbf_after:
-        # a date can never be *both* before <t> *and* after that same
-        # <t>+<delta>
         raise ValueError("nbf_after: cannot be after nbf_before"
                          " (%s < nbf < %s)" % (nbf_after, nbf_before))
-
-    if nbf_after is not None:
-        clauses.append("nbf > :nbf_a")
-        binds['nbf_a'] = nbf_after
-    if nbf_before is not None:
-        clauses.append("nbf < :nbf_b")
-        binds['nbf_b'] = nbf_before
+    nbf_cond, nbf_binds = query_utils.date_helper(colname="nbf",
+                                                  gt=nbf_after,
+                                                  lt=nbf_before)
+    if nbf_cond:
+        clauses.append(nbf_cond)
+    if nbf_binds:
+        binds.update(nbf_binds)
 
     if min_attempts is not None and max_attempts is not None:
         if min_attempts > max_attempts:
             raise ValueError("max_attempts: cannot be less than min_attempts"
                              " (%s <= attempts < %s)" % (min_attempts,
                                                          max_attempts))
-
-    if min_attempts is not None:
-        clauses.append("attempts >= :min")
-        binds['min'] = int(min_attempts)
-    if max_attempts is not None:
-        clauses.append("attempts < :max")
-        binds['max'] = int(max_attempts)
+    n_cond, n_binds = query_utils.int_helper(colname="attempts",
+                                             ge=min_attempts,
+                                             lt=max_attempts)
+    if n_cond:
+        clauses.append(n_cond)
+    if n_binds:
+        binds.update(n_binds)
 
     return clauses, binds
 
