@@ -212,6 +212,10 @@ class Constants(Constants.Constants):
         "remove_user",
         "Remove user",
     )
+    auth_search_contactinfo = _AuthRoleOpCode(
+        "search_contactinfo",
+        "Search for contact information",
+    )
     auth_search_group = _AuthRoleOpCode(
         "search_group",
         "Search for groups",

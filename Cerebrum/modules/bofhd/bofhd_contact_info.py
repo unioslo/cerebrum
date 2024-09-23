@@ -305,7 +305,16 @@ class BofhdContactAuth(BofhdAuth):
             return True
 
         if query_run_any:
-            return False
+            return self._has_operation_perm_somewhere(
+                operator, self.const.auth_search_contactinfo)
+
+        # Since the permissions for contact info search and view are a bit
+        # lacking for now, we don't check for any granularity here. In
+        # entity_contactinfo_search, we'll filter out the results that the
+        # operator isn't allowed to see.
+        if self._has_operation_perm_somewhere(operator,
+                                              self.const.auth_search_contactinfo):
+            return True
 
         if contact_type:
             contact_type = _get_contact_type(self.const, contact_type)
@@ -745,7 +754,7 @@ class BofhdContactCommands(BofhdCommandBase):
         return contact_info
 
     #
-    # entity contactinfo_search <contact-tyupe> <contact-value>
+    # entity contactinfo_search <contact-type> <contact-value>
     #
     # Note: Currently not a proper search, as list_contact_info doesn't support
     # wildcards.
@@ -771,7 +780,7 @@ class BofhdContactCommands(BofhdCommandBase):
         self.ba.can_search_contact_info(operator.get_entity_id(),
                                         contact_type=contact_type)
 
-        # Since we can't actually search yet, let's inlcude the normalized
+        # Since we can't actually search yet, let's include the normalized
         # value too, if it's different...
         values = set((contact_value,))
         try:
@@ -779,13 +788,24 @@ class BofhdContactCommands(BofhdCommandBase):
         except Exception:
             pass
 
-        contact_info = list(self._search_cinfo(cinfo_type=contact_type,
-                                               cinfo_value=values))
-        #
-        # Should we check for permissions to *get* a given value too?
-        #
+        # Filter out contact info that the operator does not have access to get.
+        # Note that contact info that is filtered out here won't be shown in the
+        # results *at all*.
+        def filter_cinfo(cinfo):
+            try:
+                self.ba.can_get_contact_info(operator.get_entity_id(),
+                                             entity=cinfo['entity_id'],
+                                             contact_type=cinfo['contact_type'])
+                return True
+            except PermissionDenied:
+                return False
+
+        contact_info = filter(filter_cinfo, list(self._search_cinfo(cinfo_type=contact_type,
+                                                                    cinfo_value=values)))
+
         if not contact_info:
-            raise CerebrumError("No contact info of type %s matching %s"
+            raise CerebrumError("No contact info of type %s matching %s, "
+                                "or you don't have permission to view it."
                                 % (contact_type,
                                    ", ".join(repr(v) for v in values)))
 

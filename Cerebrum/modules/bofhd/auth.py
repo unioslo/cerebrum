@@ -1851,7 +1851,7 @@ class BofhdAuth(DatabaseAccessor):
             `Cerebrum/modules/bofhd/utils.py` for target type definitions.
         :param int target_id:
             The target entity's unique ID. If the target entity is an entity,
-            use `entity_id`. If the target is a Cerebrum constants, use its
+            use `entity_id`. If the target is a Cerebrum constant, use its
             `intval`. Do not confuse this with the target's id, which is the
             internal, unique id of the target in the target table.
         :param int victim_id:
