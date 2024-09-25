@@ -793,8 +793,10 @@ class BofhdContactCommands(BofhdCommandBase):
         # results *at all*.
         def filter_cinfo(cinfo):
             try:
+                entity = Factory.get('Entity')(self.db)
+                entity.find(cinfo['entity_id'])
                 self.ba.can_get_contact_info(operator.get_entity_id(),
-                                             entity=cinfo['entity_id'],
+                                             entity=entity,
                                              contact_type=cinfo['contact_type'])
                 return True
             except PermissionDenied:
