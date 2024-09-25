@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2021 University of Oslo, Norway
+# Copyright 2021-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -40,7 +40,6 @@ Search criterias contain all known identifiers for an object, and should be
 used to find a candidate entity if no *match* can be found.
 
 Examples:
-
 ::
 
     # using match criterias
@@ -51,6 +50,12 @@ Examples:
     find_person = PersonMatcher()
     person = find_person([('GREG_PID', '1'), ('NO_PASSNR', '3')])
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import logging
 
 import six
