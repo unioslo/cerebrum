@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2021 University of Oslo, Norway
+# Copyright 2021-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,22 +18,29 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ A simple table formatter for task scripts. """
-from __future__ import print_function
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import datetime
 import logging
 
+from Cerebrum.utils import text_compat
+
 logger = logging.getLogger(__name__)
 
 
-def to_str(value):
+def to_text(value):
     if value is None:
-        return ''
+        return ""
     if isinstance(value, datetime.date):
-        return value.strftime('%Y-%m-%d %H:%M:%S')
+        return text_compat.to_text(value.strftime('%Y-%m-%d %H:%M:%S'))
     if isinstance(value, dict):
-        return repr(value)
-    return str(value)
+        return text_compat.to_text(repr(value))
+    return text_compat.to_text(value)
 
 
 def limit_str(s, max_length):
@@ -71,7 +78,7 @@ class TaskFormatter(object):
             self.field_size[field] = size
 
     def transform(self, value):
-        return to_str(value)
+        return to_text(value)
 
     def get_size(self, field):
         return self.field_size.get(field, self.default_field_size)
