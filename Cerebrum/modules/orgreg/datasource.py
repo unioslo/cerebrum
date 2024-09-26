@@ -147,15 +147,16 @@ def parse_org_unit(d):
     return {
         'ouId': int(d['ouId']),
         'hierarchy': normalize_text(d['hierarchy']),
-        # NOTE: parent == 0 for root org units.  Let's make that a bit more
-        # explicit by setting `None` to represent "no parent".
-        'parent': int(d['parent']) or None,
+        # NOTE: parent may be set to 0 for root org units, or just missing.
+        # Let's make that a bit more explicit by setting `None` to represent
+        # "no parent".
+        'parent': (int(d['parent']) if 'parent' in d else None) or None,
         'children': tuple(int(c) for c in d['children']),
 
         # identifiers and other metadata
         'externalKeys': tuple(parse_external_id(i) for i in d['externalKeys']),
         'note': normalize_text(d.get('note'), allow_empty=True),
-        'tags': tuple(t for t in d['tags']),
+        'tags': tuple(normalize_text(t) for t in d['tags']),
         'validFrom': parse_orgreg_date(d['validFrom']),
         'validTo': parse_orgreg_date(d.get('validTo'), allow_empty=True),
 

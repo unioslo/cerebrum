@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2022 University of Oslo, Norway
+# Copyright 2022-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -103,7 +103,7 @@ class OuWriter(object):
         try:
             self._creator_id
         except AttributeError:
-            ac = Factory.get("Account")(self._db)
+            ac = Factory.get("Account")(self.db)
             ac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
             self._creator_id = ac.entity_id
         return self._creator_id
@@ -124,7 +124,7 @@ class OuWriter(object):
                 self._default_spreads[usage] = spread
         return self._default_spreads
 
-    def _disable_ou(self, ou):
+    def disable_ou(self, ou):
         """
         Disable org unit (i.e. set quarantine).
 
@@ -147,7 +147,7 @@ class OuWriter(object):
             start=datetime.date.today())
         return True
 
-    def _enable_ou(self, ou):
+    def enable_ou(self, ou):
         """ Enable org unit (i.e. remove quarantines).
 
         :param ou: Populated OU object.
@@ -270,12 +270,12 @@ class OuWriter(object):
         }
 
         if prepared_ou.is_valid:
-            if self._enable_ou(ou):
+            if self.enable_ou(ou):
                 logger.info('enabled ou %s (entity_id=%r)',
                             repr(prepared_ou), ou.entity_id)
                 changes['active'] = (True,)
         else:
-            if self._disable_ou(ou):
+            if self.disable_ou(ou):
                 logger.info('disabled ou %s (entity_id=%r)',
                             repr(prepared_ou), ou.entity_id)
                 changes['active'] = (True,)
