@@ -27,6 +27,28 @@ from __future__ import (
 
 import six
 
+from Cerebrum.utils import text_compat
+
+
+def format_error(key, exc):
+    """
+    Format exception as a simple text string.
+
+    :param key: the invalid config key
+    :param exc: an exception to associate with the key
+    """
+    try:
+        error = "{}: {}".format(
+            text_compat.to_text(type(exc).__name__),
+            text_compat.to_text(exc),
+        )
+    except Exception:
+        error = text_compat.to_text(repr(exc))
+    return "{key} ({error})".format(
+        key=text_compat.to_text(repr(key)),
+        error=error,
+    )
+
 
 @six.python_2_unicode_compatible
 class ConfigurationError(Exception):
@@ -66,9 +88,8 @@ class ConfigurationError(Exception):
             self._errors[key] = exc
 
     def __str__(self):
-        return "Errors in {}".format(
-            ', '.join(('{!r} ({}: {})'.format(k, type(v).__name__, v)
-                       for k, v in self.errors.items())))
+        errors = (format_error(k, v) for k, v in self.errors.items())
+        return "Errors in {}".format(', '.join(errors))
 
     def __repr__(self):
         name = self.__class__.__name__
