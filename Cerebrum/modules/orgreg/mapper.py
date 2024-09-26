@@ -44,7 +44,8 @@ def get_external_key(ou_data, source, id_type):
     :returns: matching value
 
     >>> get_external_key(
-    ...     {'externalKeys': ['sourceSystem': 'a': 'type': 'b', 'value': 'c']},
+    ...     {'externalKeys': [
+    ...         {'sourceSystem': 'a', 'type': 'b', 'value': 'c'}]},
     ...     'a', 'b')
     'c'
     """

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2022 University of Oslo, Norway
+# Copyright 2022-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -49,7 +49,12 @@ The value should be a tuple of OtpType classes, e.g.:
 
 This value is used when fetching the default policy with py:func:`.get_policy`.
 """
-from __future__ import print_function
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import cereconf
 from Cerebrum.utils.funcwrap import deprecate
