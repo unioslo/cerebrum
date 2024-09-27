@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2021 University of Oslo, Norway
+# Copyright 2021-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -20,7 +20,12 @@
 """
 Constants related to the Greg source system.
 """
-from __future__ import unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 from Cerebrum import Constants
 
