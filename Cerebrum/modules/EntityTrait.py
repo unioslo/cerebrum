@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2005-2023 University of Oslo, Norway
+# Copyright 2005-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -20,20 +20,25 @@
 """
 Trait mixin for Cerebrum.Entity.
 
-See Cerebrum.modules.trait for more info.
+See :mod:`Cerebrum.modules.trait` for more info.
+
+TODO: This module should be refactored to use
+:mod:`Cerebrum.modules.trait.trait_db`, and moved to
+``Cerebrum.modules.trait.mixins``.
 """
 from __future__ import (
     absolute_import,
     division,
     print_function,
-    # TODO: unicode_literals,
+    unicode_literals,
 )
-from Cerebrum.Entity import Entity
-from Cerebrum.Constants import _ChangeTypeCode, _get_code
 from Cerebrum import Errors
+from Cerebrum.Constants import _ChangeTypeCode, _get_code
+from Cerebrum.Entity import Entity
 from Cerebrum.Utils import NotSet
-from Cerebrum.utils.date_compat import get_datetime_naive
 from Cerebrum.modules.trait.constants import _EntityTraitCode
+from Cerebrum.utils import text_compat
+from Cerebrum.utils.date_compat import get_datetime_naive
 
 
 @_ChangeTypeCode.formatter('trait')
@@ -266,11 +271,8 @@ class EntityTrait(Entity):
         @param fetchall:
           Controls whether to fetch all rows into memory at once.
         """
-        # TBD: we may want additional filtering parameters, ie.
-        # date_before, date_after, numval_lt and numval_gt.
-        #
-        # TBD: sequences for date may be desireable. For strval_like they
-        # would be quite difficult to implement (SQL has no LIKE IN ()).
+        # TODO: Should be replaced by a slightly simplified
+        # trait_db.search_traits()
 
         # If value is a sequence, then normalise *MUST* be a callable.
         def add_cond(col, value, normalise=False):
@@ -313,7 +315,7 @@ class EntityTrait(Entity):
             conditions.append(expr)
         else:
             # strval_like has precedence over strval
-            strval = add_cond("strval", strval, normalise=str)
+            strval = add_cond("strval", strval, normalise=text_compat.to_text)
         where = ""
         if conditions:
             where = "WHERE " + " AND ".join(conditions)
