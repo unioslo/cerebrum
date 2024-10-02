@@ -274,10 +274,6 @@ def proc_delete_user(db, r):
     except Errors.NotFoundError:
         mail_server = ''
 
-    if not delete_user(db, uname, old_host, '%s/%s' % (old_disk, uname),
-                       operator, mail_server):
-        return False
-
     account.expire_date = datetime.date.today()
     account.write_db()
     try:
@@ -285,8 +281,13 @@ def proc_delete_user(db, r):
     except Errors.NotFoundError:
         pass
     else:
-        account.set_homedir(current_id=home['homedir_id'],
-                            status=const.home_status_archived)
+        if home['status'] == const.home_status_on_disk:
+            if not delete_user(db, uname, old_host, '%s/%s' % (old_disk, uname),
+                               operator, mail_server):
+                return False
+
+            account.set_homedir(current_id=home['homedir_id'],
+                                status=const.home_status_archived)
     # Remove references in other tables
     # Note that we preserve the quarantines for deleted users
     # TBD: Should we have an API function for this?
