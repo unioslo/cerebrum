@@ -1874,6 +1874,39 @@ class BofhdExtension(BofhdCommonMethods):
         }
 
     #
+    # group refresh_expire
+    #
+    all_commands["group_refresh_expire"] = Command(
+        ("group", "refresh_expire"),
+        GroupName(),
+        perm_filter="is_superuser",
+    )
+
+    def group_refresh_expire(self, operator, group):
+        grp = self._get_group(group)
+
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("Only superuser can refresh expiry date")
+
+        if not grp.expire_date:
+            raise CerebrumError("Group '%s' has no expire date" %
+                                (grp.group_name,))
+
+        # Consider using set_default_expire_date ?
+        grp.expire_date = (datetime.datetime.today()
+                           + datetime.timedelta(days=365))
+
+        grp.write_db()
+        return (
+            "OK, refreshed expire date for group %(group_name)s "
+            "to %(expire_date)s"
+            % {
+                "group_name": grp.group_name,
+                "expire_date": date_compat.get_date(grp.expire_date),
+            }
+        )
+
+    #
     # group set_visibility
     #
     all_commands['group_set_visibility'] = Command(

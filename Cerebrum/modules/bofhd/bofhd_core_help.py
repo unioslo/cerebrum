@@ -130,6 +130,7 @@ command_help = {
             'list'
         ),
         'group_clear_expire': 'Remove expire date for a group',
+        'group_refresh_expire': 'Extend expire date for a group by one year',
         'group_set_expire': 'Set expire date for a group',
         'group_set_type': 'Set category/type for a group',
         'group_set_visibility': 'Set visibility for a group',
