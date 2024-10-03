@@ -32,7 +32,6 @@ from Cerebrum.database import (
     Cursor,
     Database,
     ENABLE_MXDB,
-    OraPgLock,
     kickstart,
 )
 from Cerebrum.Utils import read_password
@@ -209,9 +208,6 @@ class PsycoPG2Cursor(Cursor):
             channel.execute("""SELECT 1 AS foo""")
         finally:
             channel.execute("ROLLBACK TO SAVEPOINT %s" % identifier)
-
-    def acquire_lock(self, table=None, mode='exclusive'):
-        return OraPgLock(cursor=self, table=table, mode='exclusive')
 
 
 pg_macros = macros.MacroTable(macros.common_macros)

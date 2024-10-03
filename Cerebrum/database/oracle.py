@@ -32,7 +32,6 @@ from Cerebrum.database import (
     Cursor,
     Database,
     ENABLE_MXDB,
-    OraPgLock,
     kickstart,
 )
 from Cerebrum.Utils import read_password
@@ -148,9 +147,6 @@ class cx_OracleCursor(Cursor):  # noqa: N801
         # is a performance hit (FIXME: how much of a performance hit?), but
         # right now (2008-06-30) we do not care.
         return super(cx_OracleCursor, self).execute(sql, mybinds)
-
-    def acquire_lock(self, table=None, mode='exclusive'):
-        return OraPgLock(cursor=self, table=None, mode=mode)
 
 
 ora_macros = macros.MacroTable(macros.common_macros)

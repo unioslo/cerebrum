@@ -99,61 +99,8 @@ API_TYPE_CTOR_NAMES = (
     "DateFromTicks",
     "TimeFromTicks",
     "TimestampFromTicks",
-    "Binary")
-
-
-class Lock(object):
-    """Driver-independent class for locking. Default: No locking"""
-    def __init__(self, mode='exclusive', **kws):
-        self.aquire(mode)
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self):
-        self.release()
-
-    def acquire(self, mode):
-        pass
-
-    def release(self):
-        pass
-
-
-class OraPgLock(Lock):
-    """Lock for Oracle and Postgres.
-    Locks are only released by commit, so no release is actually done.
-
-    Uses the postgres and oracle LOCK TABLE statement.
-    """
-    lock_stmt = "LOCK TABLE %s IN %s MODE"
-
-    def __init__(self, cursor=None, table=None, **kws):
-        """Init will acquire a lock."""
-        self.cursor = cursor
-        self.table = table
-        super(OraPgLock, self).__init__(**kws)
-
-    def acquire(self, mode):
-        self.cursor.execute(OraPgLock.lock_stmt % (self.table, mode))
-
-    def acquire_lock(self, table=None, mode='exclusive'):
-        """
-        Aquire a lock for some table.
-
-        Locking is not a standard sql feature, but some
-        providers have locking. If not implemented, locking
-        is a no-op.
-
-        :param table: Database table to lock
-        :type table: str
-
-        :param mode: locking mode, see database driver
-        :type mode: str
-
-        :rtype: Lock
-        """
-        return Lock(cursor=self, table=table, mode=mode)
+    "Binary",
+)
 
 
 def _pretty_sql(sql, maxlen=None):
@@ -387,24 +334,6 @@ class Cursor(object):
         addressed in database-specific manner.
         """
         self.execute("""SELECT 1 AS foo [:from_dual]""")
-
-    def acquire_lock(self, table=None, mode='exclusive'):
-        """
-        acquire a lock for some table.
-
-        Locking is not a standard sql feature, but some
-        providers have locking. If not implemented, locking
-        is a no-op.
-
-        :param table: Database table to lock
-        :type table: str
-
-        :param mode: locking mode, see database driver
-        :type mode: str
-
-        :rtype: Lock
-        """
-        return Lock(cursor=self, table=table, mode=mode)
 
 
 def kickstart(module):
