@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2018-2023 University of Oslo, Norway
+# Copyright 2018-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -37,7 +37,7 @@ from __future__ import (
     absolute_import,
     division,
     print_function,
-    # TODO: unicode_literals,
+    unicode_literals,
 )
 
 import logging
@@ -46,7 +46,7 @@ import sys
 
 from Cerebrum import Cache
 from Cerebrum import Errors
-from Cerebrum.Utils import Factory, NotSet, read_password
+from Cerebrum.Utils import Factory, NotSet
 from Cerebrum.utils.module import this_module
 
 from . import errors
@@ -399,8 +399,10 @@ class Database(object):
     # A table of macros to use by the database dialect
     macro_table = macros.common_macros
 
-    encoding = cereconf.CEREBRUM_DATABASE_CONNECT_DATA.get(
-        'client_encoding') or 'UTF-8'
+    encoding = (
+        cereconf.CEREBRUM_DATABASE_CONNECT_DATA.get('client_encoding')
+        or 'UTF-8'
+    )
     # The default character set encoding to use.
 
     def __init__(self, do_connect=True, app_hint=None, *db_params, **db_kws):
@@ -659,10 +661,6 @@ class Database(object):
         c = self.cursor()
         c.ping()
         c.close()
-
-    # FIXME: deprecated, moved to Utils
-    def _read_password(self, database, user):
-        return read_password(user, database)
 
     def sql_pattern(self,
                     column,
