@@ -1,13 +1,43 @@
+# -*- coding: utf-8 -*-
+#
+# Copyright 2002-2024 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
 Cerebrum SQL file preprocessing utils.
 
 This module contains the required functionality to pre-process the Cerebrum
-sql-file format.  The format is just like SQL, but each regular SQL statement
-must be prefixed by a metadata statement that categorizes the preceding
-statement.
+sql file format.  The format is similar to regular SQL files, but each regular
+SQL statement must be preceded by a meta-statement.
 
-Metadata statements and phases
-------------------------------
+Here's a minimal example file:
+::
+
+    category:metainfo;                   -- meta-statement
+    name=foo;                            -- metainfo-statement
+
+    category:drop/postgres;              -- meta-statement
+    DROP TABLE IF EXISTS example_table;  -- drop-statement
+
+
+Meta-statements and phases
+---------------------------
+Meta-statements describes if and when the following statement should run.
+
 ``category:metainfo``
     Sets a metadata variable.
 
@@ -74,7 +104,7 @@ Schema files
     processed (in order):
 
     - code (create code tables)
-    - (insert relevant cerebrum codes)
+    - (insert constants)
     - main
     - metadata
 
@@ -95,12 +125,17 @@ Migration files
     Typically, a migration function will run the following phases:
 
     - pre
-    - (insert codes)
+    - (insert constants)
     - (process migration)
     - metadata
     - post
 """
-from __future__ import print_function
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import io
 import re
