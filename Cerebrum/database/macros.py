@@ -32,12 +32,19 @@ History
 This module was extracted from ``Cerebrum.database.Database.sql_repr``
 
 The refactor was done to make the portability functions available to
-``Cerebrum.database.translate``.  The original macro translation can be seen in:
+``Cerebrum.database.translate``.  The original macro translation can be seen
+in:
 
     commit: f8d149dbb21cdbf10724b60b6d1c613ebc951b5f
     Merge:  3e4c07061 be7c05022
     Date:   Tue Feb 11 11:42:09 2020 +0100
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import collections
 import re
 
@@ -226,7 +233,7 @@ def op_sequence(schema, name, op, context=None):
     """
     Sequence manipulation stub.
     """
-    raise ValueError('Invalid sequnce operation: %r' % (op,))
+    raise ValueError('Invalid sequence operation: %r' % (op,))
 
 
 @common_macros.register('sequence_start')

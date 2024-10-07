@@ -1,7 +1,13 @@
 # -*- coding: utf-8 -*-
 """
-tests for Cerebrum.database.macros parsing functionality.
+Tests for :mod:`Cerebrum.database.macros` parsing functionality.
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import pytest
 
 from Cerebrum.database import macros

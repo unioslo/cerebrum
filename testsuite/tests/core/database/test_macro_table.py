@@ -1,7 +1,13 @@
 # -*- coding: utf-8 -*-
 """
-tests for Cerebrum.database.macros.MacroTable.
+Tests for :class:`Cerebrum.database.macros.MacroTable`.
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import pytest
 
 from Cerebrum.database import macros
