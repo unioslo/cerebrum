@@ -179,7 +179,7 @@ def ora_op_sequence(schema, name, op, context=None):
     elif op == 'curr':
         return '{}.{}.currval'.format(schema, name)
     else:
-        raise ValueError('Invalid sequnce operation: %r' % (op,))
+        raise ValueError('Invalid sequence operation: %r' % (op,))
 
 
 class OracleBase(Database):
