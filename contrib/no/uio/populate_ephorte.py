@@ -192,7 +192,7 @@ class PopulateEphorte(object):
         logger.info(
             "Fetching OU info from ePhorte WS %s reading ephorte %s/%s",
             ewsclient.wsdl,
-            ewsclient.customer_id,
+            ewsclient.config_id,
             ewsclient.database)
         ephorte_ous = ewsclient.get_all_org_units()
 

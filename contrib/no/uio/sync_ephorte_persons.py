@@ -234,15 +234,18 @@ def update_person_info(pe, client):
 
     street_address, zip_code, city = get_person_address(pe, co)
 
+    employee_number = pe.get_external_id(source_system=get_source_system(),
+                                         id_type=co.externalid_dfo_pid)
+
     logger.info('Ensuring existence of %s: %s',
                 user_id,
                 six.text_type((first_name, None, last_name, full_name, uname,
                                email_address, telephone, mobile,
-                               street_address, zip_code, city)))
+                               street_address, zip_code, city, employee_number)))
     try:
         client.ensure_user(user_id, first_name, None, last_name, full_name,
                            uname, email_address, telephone, mobile,
-                           street_address, zip_code, city)
+                           street_address, zip_code, city, employee_number)
         return True
     except EphorteWSError as e:
         # Return prettier error-message if EphorteWS returns
@@ -911,7 +914,7 @@ help_example_config = textwrap.dedent(
 
       [DEFAULT]
       wsdl=http://example.com/?wsdl
-      customer_id=CustomerID
+      config_id=ConfigId
       database=DatabaseName
       client_key=None
       client_cert=None

@@ -21,7 +21,7 @@
 
 from __future__ import unicode_literals
 
-"""Client for connecting and consuming Ephorte-webservices."""
+"""Client for connecting and consuming Elements-webservices."""
 import types
 from socket import timeout as TimeoutError
 from functools import wraps
@@ -101,7 +101,7 @@ class SudsClient(object):
     Provides a simple interface for function-calls against the web-service.
     Translates errors and exceptions into a single exception type."""
     def __init__(self, wsdl, timeout=None, client_key=None, client_cert=None,
-                 ca_certs=None):
+                 ca_certs=None, username=None, password=None):
         """Initialize client.
 
         :type wsdl: str
@@ -113,17 +113,31 @@ class SudsClient(object):
         :param client_key: Path to clients certificate
         :type ca_cert: str
         :param ca_cert: Path to CA certificate chain
+        :type username: str
+        :param username: WSS username
+        :type password: str
+        :param password: WSS password
         """
-        self.wsdl = wsdl
-
         if client_key and client_cert and ca_certs:
             transport = HTTPSClientCertTransport(ca_certs, client_cert,
                                                  client_key)
         else:
             transport = suds.transport.http.HttpTransport(timeout=timeout)
+
+        if username and password:
+            username_token = suds.wsse.UsernameToken(username=username,
+                                                     password=password)
+            username_token.setnonce()
+            username_token.setcreated()
+            wsse = suds.wsse.Security()
+            wsse.tokens.append(username_token)
+        else:
+            wsse = None
+
         try:
             self.client = suds.client.Client(wsdl, timeout=timeout,
-                                             cache=None, transport=transport)
+                                             cache=None, transport=transport,
+                                             wsse=wsse)
         except urllib2.URLError as e:
             raise EphorteWSError(text_type(e))
         except TimeoutError:
@@ -132,7 +146,7 @@ class SudsClient(object):
             raise EphorteWSError('Error in TLS communication: %s' % e)
         # TODO: Moar error handling?
 
-    # TODO: Do something smart with the call stack, so this don't show up in
+    # TODO: Do something smart with the call stack, so this doesn't show up in
     # tracebacks?
     @classmethod
     def _handle_errors(cls, f, name):
@@ -228,7 +242,7 @@ def make_ephorte_client(config_file, mock=False):
     config = Config(config_file)
     cls = Cerebrum2EphorteClientMock if mock else Cerebrum2EphorteClient
     client = cls(wsdl=config.wsdl,
-                 customer_id=config.customer_id,
+                 config_id=config.config_id,
                  database=config.database,
                  client_key=config.client_key,
                  client_cert=config.client_cert,
@@ -245,7 +259,7 @@ class Cerebrum2EphorteClientMock(object):
     # TODO: Use somethin' like suds SimClient?
     def __init__(self, *args, **kwargs):
         self.client = None
-        ro_mocks = """wsdl customer_id database username password
+        ro_mocks = """wsdl config_id database username password
                       get_all_org_units get_all_roles get_all_access_codes
                       get_all_users search_users get_user_details
                       get_user_backlog test_with_ephorte""".split()
@@ -293,15 +307,15 @@ class Cerebrum2EphorteClientMock(object):
 
 class Cerebrum2EphorteClient(object):
     """Client for connecting and consuming the Cerebrum2Ephorte web-service."""
-    def __init__(self, wsdl, customer_id, database, username=None,
+    def __init__(self, wsdl, config_id, database, username=None,
                  password=None, timeout=None, client_key=None,
                  client_cert=None, ca_certs=None):
         """Initialize client.
 
         :type wsdl: str
         :param wsdl: The URL to the services WSDL
-        :type customer_id: str
-        :param customer_id: The customer identificator, i.e. 'UiO'
+        :type config_id str
+        :param config_id The config identificator used by the service
         :type database: str
         :param database: The database to connect to
         :type username: str
@@ -319,7 +333,7 @@ class Cerebrum2EphorteClient(object):
         :param ca_certs: Path to CA certificate chain
         """
         self.wsdl = wsdl
-        self.customer_id = customer_id
+        self.config_id = config_id
         self.database = database
         self.username = username
         self.password = password
@@ -328,7 +342,9 @@ class Cerebrum2EphorteClient(object):
         self.client = SudsClient(wsdl, timeout=timeout,
                                  client_key=client_key,
                                  client_cert=client_cert,
-                                 ca_certs=ca_certs)
+                                 ca_certs=ca_certs,
+                                 username=username,
+                                 password=password)
 
     @staticmethod
     def _convert_result(resp):
@@ -398,8 +414,8 @@ class Cerebrum2EphorteClient(object):
         """Clear the injections that have been set."""
         self.__inject = {}
 
-    def test(self, customer_id='UiO2', user_id='Dummy'):
-        self.client.Test(self.username, self.password, customer_id, user_id)
+    def test(self, config_id='UiO2', user_id='Dummy'):
+        self.client.Test(self.username, self.password, config_id, user_id)
         # TODO: Correct to assume that we are OK?
         return True
 
@@ -411,10 +427,8 @@ class Cerebrum2EphorteClient(object):
         :rtype: dict
         :return: Dict with full name and user id.
         """
-        r = self.client.TestWithEphorte(
-            self.username,
-            self.password,
-            self.customer_id,
+        r = self.client.TestWithElements(
+            self.config_id,
             self.database,
             user_id)
 
@@ -432,12 +446,10 @@ class Cerebrum2EphorteClient(object):
                    'Name': u'Apollon'}]
         """
         r = self.client.GetAllOrgUnits(
-            self.username,
-            self.password,
-            self.customer_id,
+            self.config_id,
             self.database)
         if r.OrgUnits:
-            return self._convert_result(r.OrgUnits.EphorteOrg)
+            return self._convert_result(r.OrgUnits.ElementsOrg)
         else:
             return []
 
@@ -449,12 +461,10 @@ class Cerebrum2EphorteClient(object):
             I.e. {u'SB2': u'Saksbehandler'}
         """
         r = self.client.GetAllRoles(
-            self.username,
-            self.password,
-            self.customer_id,
+            self.config_id,
             self.database)
         if r.Roles:
-            return self._convert_result(r.Roles.EphorteRole)
+            return self._convert_result(r.Roles.ElementsRole)
         else:
             return []
 
@@ -466,13 +476,11 @@ class Cerebrum2EphorteClient(object):
             I.e. {u'AR': u'AR - Under arbeid'}
         """
         r = self.client.GetAllAccessCodes(
-            self.username,
-            self.password,
-            self.customer_id,
+            self.config_id,
             self.database)
         res = {}
         if r.AccessCodes:
-            for role in r.AccessCodes.EphorteAccessCode:
+            for role in r.AccessCodes.ElementsAccessCode:
                 tmp = self._convert_result(role)
                 res[tmp['AccessCodeId']] = tmp['Description']
         return res
@@ -483,13 +491,11 @@ class Cerebrum2EphorteClient(object):
         :rtype: list(dict())
         """
         r = self.client.GetAllUsers(
-            self.username,
-            self.password,
-            self.customer_id,
+            self.config_id,
             self.database)
 
         users = {}
-        for user in r.Users.EphorteUser:
+        for user in r.Users.ElementsUser:
             tmp = self._convert_result(user)
             users[tmp['UserId']] = tmp
         return users
@@ -532,9 +538,7 @@ class Cerebrum2EphorteClient(object):
         # TODO: Should we rather return a dict, than a tuple? Or maybee a named
         # TODO: tuple? Named tuples are kind of cute.
         r = self.client.GetUserDetails(
-            self.username,
-            self.password,
-            self.customer_id,
+            self.config_id,
             self.database,
             user_id,
             **self.__inject)
@@ -546,12 +550,12 @@ class Cerebrum2EphorteClient(object):
 
         authzs = []
         if r.UserAuthorizations:
-            for authz in r.UserAuthorizations.EphorteUserAuthorization:
+            for authz in r.UserAuthorizations.ElementsUserAuthorization:
                 authzs.append(self._convert_result(authz))
 
         roles = []
         if r.UserRoles:
-            for role in r.UserRoles.EphorteUserRole:
+            for role in r.UserRoles.ElementsUserRole:
                 roles.append(self._convert_result(role))
         return (usr, authzs, roles)
 
@@ -576,14 +580,12 @@ class Cerebrum2EphorteClient(object):
                    'Initials': u'JSAMA'}]
         """
         r = self.client.GetUserList(
-            self.username,
-            self.password,
-            self.customer_id,
+            self.config_id,
             self.database,
             pattern)
 
         if r.Users:
-            return self._convert_result(r.Users.EphorteUser)
+            return self._convert_result(r.Users.ElementsUser)
         else:
             return []
 
@@ -591,18 +593,19 @@ class Cerebrum2EphorteClient(object):
                     last_name=None, full_name=None, initials=None,
                     email_address=None, telephone=None, mobile=None,
                     street_address=None, zip_code=None,
-                    city=None):
-        """Create or update the user in ePhorte.
+                    city=None, employee_number=None):
+        """Create or update the user in Elements.
 
-        If an argument is None, it will be cleared in ePhorte."""
+        If an argument is None, it will be cleared in Elements."""
         # Create the complex object describing our user
-        u = self.client.client.factory.create('EphorteUser')
+        u = self.client.client.factory.create('ElementsUser')
         # '' on vars will result in no-update
-        # ' ' will empty field i ePhorte
+        # ' ' will empty field in Elements
 
         # Set vars
         # TODO: Makes this stuff pretty!
         u.UserId = user_id
+        u.AdressType = 'A' # TODO
         u.FirstName = ' ' if first_name is None else first_name
         u.MiddelName = ' ' if middle_name is None else middle_name
         u.LastName = ' ' if last_name is None else last_name
@@ -614,12 +617,12 @@ class Cerebrum2EphorteClient(object):
         u.StreetAddress = ' ' if street_address is None else street_address
         u.ZipCode = ' ' if zip_code is None else zip_code
         u.City = ' ' if city is None else city
+        u.ExternalRef = ' '
+        u.EmployeeNumber = ' ' if employee_number is None else employee_number
 
         # Ensure that user exists
         self.client.EnsureUser(
-            self.username,
-            self.password,
-            self.customer_id,
+            self.config_id,
             self.database,
             u)
 
@@ -647,9 +650,7 @@ class Cerebrum2EphorteClient(object):
         :param default_role: If this role should be the default role
         """
         self.client.EnsureRoleForUser(
-            self.username,
-            self.password,
-            self.customer_id,
+            self.config_id,
             self.database,
             user_id, job_title,
             role_id, ou_id,
@@ -680,9 +681,7 @@ class Cerebrum2EphorteClient(object):
             the entire organization..
         """
         self.client.EnsureAccessCodeAuthorizationForUser(
-            self.username,
-            self.password,
-            self.customer_id,
+            self.config_id,
             self.database,
             user_id,
             access_code_id,
@@ -696,9 +695,7 @@ class Cerebrum2EphorteClient(object):
         :param user_id: The users identificator
         """
         self.client.DisableUser(
-            self.username,
-            self.password,
-            self.customer_id,
+            self.config_id,
             self.database,
             user_id)
 
@@ -709,9 +706,7 @@ class Cerebrum2EphorteClient(object):
         :param user_id: The users id
         """
         self.client.DisableRolesAndAuthorizationsForUser(
-            self.username,
-            self.password,
-            self.customer_id,
+            self.config_id,
             self.database,
             user_id)
 
@@ -735,9 +730,7 @@ class Cerebrum2EphorteClient(object):
         :param journalenhet: Ephorte journalenhet code string
         """
         self.client.DisableUserRole(
-            self.username,
-            self.password,
-            self.customer_id,
+            self.config_id,
             self.database,
             user_id,
             role_id,
@@ -758,9 +751,7 @@ class Cerebrum2EphorteClient(object):
         :param ou_id: OU stedkode
         """
         self.client.DisableUserAuthorization(
-            self.username,
-            self.password,
-            self.customer_id,
+            self.config_id,
             self.database,
             user_id,
             access_code,
@@ -772,9 +763,7 @@ class Cerebrum2EphorteClient(object):
         # TODO: We really need this?
         """Fetch information about the users open cases."""
         r = self.client.GetUserBacklog(
-            self.username,
-            self.password,
-            self.customer_id,
+            self.config_id,
             self.database,
             user_id)
         return self._convert_result(r)
