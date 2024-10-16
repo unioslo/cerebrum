@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2018-2023 University of Oslo, Norway
+# Copyright 2018-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -29,7 +29,7 @@ from __future__ import (
     absolute_import,
     division,
     print_function,
-    # TODO: unicode_literals,
+    unicode_literals,
 )
 import datetime
 import json
@@ -258,7 +258,7 @@ class AuditLogAccessor(DatabaseAccessor):
     # TODO: Read and write AuditRecord objects
 
     def get_by_id(self, record_id):
-        return db_row_to_record(sql_get_record(self._db, record_id))
+        return db_row_to_record(self._db, sql_get_record(self._db, record_id))
 
     def search(self, **fields):
         for row in sql_search(self._db, **fields):
