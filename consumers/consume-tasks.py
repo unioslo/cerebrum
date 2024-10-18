@@ -99,9 +99,9 @@ class TaskHandlerConfig(ConsumerConfig, TaskListMixin):
             routing_keys:
               - "#"
 
-        callbacks:
+        tasks:
           - source: "foo-tasks"
-            callback: "operator:truth"
+            get_tasks: "operator:truth"
     """
 
     @classmethod
