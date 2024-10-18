@@ -91,12 +91,17 @@ def declare_queue(channel, queue):
         logger.info('queue: %r, durable=%r, exclusive=%r, delete=%r',
                     queue.name, queue.durable, queue.exclusive,
                     queue.auto_delete)
-
+    arguments = {}
+    if queue.queue_type:
+        arguments.update({
+            'x-queue-type': queue.queue_type,
+        })
     channel.queue_declare(
         queue=queue.name,
         durable=queue.durable,
         exclusive=queue.exclusive,
         auto_delete=queue.auto_delete,
+        arguments=arguments,
         callback=on_ok)
 
 

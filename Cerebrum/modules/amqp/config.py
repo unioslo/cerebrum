@@ -93,6 +93,14 @@ class Queue(Configuration):
         default=False,
         doc='Set queue to be deleted',
     )
+    queue_type = ConfigDescriptor(
+        # Note that it's not possible to *change* the queue type of an existing
+        # queue.  If the given queue exists with another type, the queue
+        # declare setup will fail.
+        String,
+        default=None,
+        doc='Set an alternative x-queue-type, e.g. quorum',
+    )
 
 
 class Binding(Configuration):
