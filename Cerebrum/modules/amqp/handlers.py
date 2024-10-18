@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2020 University of Oslo, Norway
+# Copyright 2020-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -38,6 +38,12 @@ Example
             else:
                 print('not really interested...')
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import abc
 import collections
 import logging
@@ -69,9 +75,6 @@ class AbstractConsumerCallback(collections.Callable):
 class Event(object):
     """ A simple wrapper for messages and message metadata. """
 
-    default_content_type = 'text/plain'
-    default_content_encoding = 'ascii'
-
     def __init__(self, channel, method, props, body):
         """
         :type channel: pika.channel.Channel
@@ -86,13 +89,13 @@ class Event(object):
 
     @property
     def content_type(self):
-        """ Content-Type """
-        return self.props.content_type or self.default_content_type
+        """ Content-Type (RFC-2045 mime-type and properties value). """
+        return self.props.content_type or "application/octet-stream"
 
     @property
     def content_encoding(self):
-        """ Content-Encoding """
-        return self.props.content_encoding or self.default_content_encoding
+        """ Content-Encoding (RFC-2616 compression value).  """
+        return self.props.content_encoding
 
     @property
     def headers(self):
@@ -188,7 +191,7 @@ class _Demo(AbstractConsumerHandler):
 
     def handle(self, event):
         logger.info('got event: %r on channel %r', event, event.channel)
-        if 'fail' in event.body.decode(event.content_encoding):
+        if 'fail' in event.body.decode("ascii", "ignore"):
             raise RuntimeError('intentional, body contains "fail"')
 
     def reschedule(self, event, dates):
