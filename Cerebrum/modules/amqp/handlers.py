@@ -128,7 +128,7 @@ class AbstractConsumerHandler(collections.Callable):
 
     :meth:`.on_error`
         Called if an unhandled exception is raised from :meth:`.handle`.
-        Typically used to *reschedule* an event or report fatal errors.
+        Typically used to reschedule an event or report fatal errors.
     """
 
     def __init__(self, *args, **kwargs):
@@ -151,11 +151,6 @@ class AbstractConsumerHandler(collections.Callable):
     @abc.abstractmethod
     def handle(self, event):
         """ Handle event.  """
-        pass
-
-    @abc.abstractmethod
-    def reschedule(self, event, dates):
-        """Reschedule future events."""
         pass
 
     def on_error(self, event, error):
@@ -193,9 +188,6 @@ class _Demo(AbstractConsumerHandler):
         logger.info('got event: %r on channel %r', event, event.channel)
         if 'fail' in event.body.decode("ascii", "ignore"):
             raise RuntimeError('intentional, body contains "fail"')
-
-    def reschedule(self, event, dates):
-        pass
 
 
 demo_handler = _Demo()
