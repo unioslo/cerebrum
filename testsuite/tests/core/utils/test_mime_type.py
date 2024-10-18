@@ -13,7 +13,7 @@ import six
 from Cerebrum.utils import mime_type
 
 
-TEST_CASES = [
+PARSE_TESTS = [
     (
         "text/plain",
         ("text", "plain", {}),
@@ -41,23 +41,22 @@ TEST_CASES = [
         "text/plain; charset=\"utf-8\"",
         ("text", "plain", {'charset': "utf-8"}),
     ),
-    # Our current parser implementation doesn't support comments!
-    # (
-    #     # plaintext with charset and comment
-    #     "text/plain; charset=utf-8 (Plain Text)",
-    #     ("text", "plain", {'charset': "utf-8"}),
-    # ),
-    # (
-    #     # plaintext with quoted charset and comment
-    #     "text/plain; charset=\"utf-8\" (Plain Text)",
-    #     ("text", "plain", {'charset': "utf-8"}),
-    # ),
+    (
+        # plaintext with charset and comment
+        "text/plain; charset=utf-8 (Plain Text)",
+        ("text", "plain", {'charset': "utf-8"}),
+    ),
+    (
+        # plaintext with quoted charset and comment
+        "text/plain; charset=\"utf-8\" (Plain Text)",
+        ("text", "plain", {'charset': "utf-8"}),
+    ),
 ]
 
 
 @pytest.mark.parametrize(
     "value, expected",
-    [pytest.param(*t, id=t[0]) for t in TEST_CASES],
+    [pytest.param(*t, id=t[0]) for t in PARSE_TESTS],
 )
 def test_parse_mime_type(value, expected):
     assert mime_type.parse_mime_type(value) == expected
@@ -74,6 +73,23 @@ def test_parse_mime_type(value, expected):
 def test_parse_mime_type_invalid(value):
     with pytest.raises(ValueError):
         print(mime_type.parse_mime_type(value))
+
+
+CHARSET_TESTS = [
+    ("text/plain", None, None),
+    ("foo", "ascii", "ascii"),
+    ("text/plain; charset=utf-8", None, "utf-8"),
+    ("text/plain; charset=\"utf-8\"", None, "utf-8"),
+]
+
+
+@pytest.mark.parametrize(
+    "value, default, expected",
+    CHARSET_TESTS,
+    ids=[t[0] for t in CHARSET_TESTS],
+)
+def test_get_charset(value, default, expected):
+    assert mime_type.get_charset(value, default=default) == expected
 
 
 @pytest.mark.parametrize(

@@ -18,23 +18,17 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
-Simple RFC-2046 content-type/mime-type parser.
+Simple RFC-2046 MIME Content-Type parser.
 
-The main purpose behind having a mime-type parser, is the ability to extract a
-`charset` parameters for decoding "text/plain" data:
+The main purpose behind having a content-type parser, is the ability to extract
+a `charset` parameter for decoding "text/plain" data:
 
 ::
-    mime_type = MimeType.from_string(obj.headers['content-type'])
-    text = obj.body.decode(mime_type.parameters.get("charset", "ascii"))
+    charset = get_charset(obj.headers['content-type'])
+    text = obj.body.decode(charset)
 
-This code is inspired by *python-mimeparse* - i.e. re-using the `cgi` module
-parser functions.  This parser does *not* support comments, as defined in
-RFC-2045 and RFC-822.
-
-Newer versions of Python implement a perfectly good parser in
-:mod:`email.headerregistry`.  We may want to use the
-:class:`email.headerregistry.ContentTypeHeader` to parse the mime-type value on
-Python >= 3.6.
+The MIME specification is also used for e.g. the HTTP Content-Type header and
+the AMQP content-type message property.
 """
 from __future__ import (
     absolute_import,
@@ -43,48 +37,73 @@ from __future__ import (
     unicode_literals,
 )
 
+import sys
+
 import six
 
 
-def _parseparam(s):
-    """
-    Parse a mime-header parameter list.
-
-    This is a copy of :mod:`cgi._parseparam`, which has been deprecated in
-    newer versions of Python.
-    """
-    while s[:1] == ';':
-        s = s[1:]
-        end = s.find(';')
-        while end > 0 and (s.count('"', 0, end) - s.count('\\"', 0, end)) % 2:
-            end = s.find(';', end + 1)
-        if end < 0:
-            end = len(s)
-        f = s[:end]
-        yield f.strip()
-        s = s[end:]
+def _extract_media_type(value):
+    """ Extract media-type/media-subtype from a content-type value. """
+    ct = value.split(";")[0]
+    try:
+        main, sub = [p.lower().strip() for p in ct.split("/")]
+    except ValueError:
+        raise ValueError("invalid mime type: " + repr(value))
+    if not all((main, sub)):
+        raise ValueError("invalid mime type: " + repr(value))
+    return main, sub
 
 
-def _parse_header(line):
-    """
-    Parse a content-type like header.
+if sys.version_info >= (3, 6):
+    from email import headerregistry
 
-    This is a copy of :mod:`cgi.parse_header`, which has been deprecated in
-    newer versions of Python.
-    """
-    parts = _parseparam(';' + line)
-    key = next(parts)
-    pdict = {}
-    for p in parts:
-        i = p.find('=')
-        if i >= 0:
-            name = p[:i].strip().lower()
-            value = p[i + 1:].strip()
-            if len(value) >= 2 and value[0] == value[-1] == '"':
+    class _Header(headerregistry.ContentTypeHeader, headerregistry.BaseHeader):
+        pass
+
+    def _extract_params(value):
+        """ Extract parameters from a content-type value. """
+        try:
+            result = _Header.value_parser(value)
+        except Exception as e:
+            raise ValueError("invalid mime type: %s (%s)" % (repr(value), e))
+        return {k.lower(): v for k, v in (result.params or []) if k and v}
+
+else:
+    from email import message
+
+    def _remove_comment(value):
+        r"""
+        Remove comment part from property values.
+
+        This is a hacky fix for missing comment support in Python 2.
+
+        This isn't a generic fix, because property values *could* potentially
+        have values that looks like comments, but aren't (if quoted properly).
+        E.g. the content-type ``text/plain; charset="utf-8" (Plain Text)``,
+        would have params = [('charset', '"utf-8" (Plain Text)')]``, but
+        *should* have ``[('charset', 'utf-8')]``.
+
+        However, ``application/x-foo bar="\"utf-8\" (Plain Text)"`` is a valid
+        content-type where the properties are actually
+        ``[('bar', '"utf-8" (Plain Text)')]``
+        """
+        if " (" in value:
+            value = value.split(" (")[0].rstrip()
+            if value.startswith('"') and value.endswith('"'):
                 value = value[1:-1]
-                value = value.replace('\\\\', '\\').replace('\\"', '"')
-            pdict[name] = value
-    return key, pdict
+        return value
+
+    def _extract_params(value):
+        """ Extract parameters from a content-type value. """
+        try:
+            msg = message.Message()
+            msg['content-type'] = value
+            param_list = msg.get_params() or []
+            return {k: _remove_comment(v)
+                    for k, v in param_list[1:]
+                    if k and v}
+        except Exception as e:
+            raise ValueError("invalid mime type: %s (%s)" % (repr(value), e))
 
 
 def parse_mime_type(value):
@@ -98,16 +117,29 @@ def parse_mime_type(value):
     :returns tuple: a tuple with (type, subtype, parameters)
     :raises ValueError: If the input value is not a valid mime-type
     """
+    m_type, m_subtype = _extract_media_type(value)
+    params = _extract_params(value)
+    return m_type, m_subtype, params
+
+
+def get_charset(value, default=None):
+    """
+    Exctract 'charset' from a mime-type like string.
+
+    >>> get_charset("text/plain; charset=utf-8")
+    "utf-8"
+    >>> get_charset("foo", default="latin-1")
+    "latin-1"
+
+    :param str value: a mime-type string
+    :param default: a default value if no valid charset is given
+    :returns: the charset, or the default value if not charset is found
+    """
     try:
-        c_type, params = _parse_header(value)
-        m_type, m_subtype = [p.strip() for p in c_type.split("/")]
-    except Exception:
-        raise ValueError("invalid mime type: " + repr(value))
-
-    if not m_type and m_subtype:
-        raise ValueError("invalid mime type: " + repr(value))
-
-    return (m_type, m_subtype, params)
+        _, _, params = parse_mime_type(value)
+    except ValueError:
+        params = {}
+    return params.get('charset') or default
 
 
 # Special RFC-2045 chars that needs quoting
