@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2018 University of Oslo, Norway
+# Copyright 2018-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,14 +17,22 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" Audit trails and audit log information.
-
-This sub-package is an implementation of Cerebrum.ChangeLog that keeps a log of
-all changes performed in the Cerebrum database.
-
-Unlike the default change log implementation Cerebrum.modules.ChangeLog, this
-log should keep information about changes even after all the entities involved
-disappears.
 """
+Audit trails and audit log information.
 
+This sub-package is an implementation of :mod:`Cerebrum.ChangeLog` that keeps a
+log of all changes performed in the Cerebrum database.
+
+Unlike the default change log implementation :mod:`Cerebrum.modules.ChangeLog`,
+this log should keep information about changes even after all the entities
+involved disappears.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+
+# database schema version (mod_auditlog)
 __version__ = "1.0"

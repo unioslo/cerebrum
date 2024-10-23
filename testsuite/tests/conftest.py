@@ -66,11 +66,14 @@ def factory(cereconf):
 
 
 @pytest.fixture
-def database(factory):
-    """`Cerebrum.database.Database` with automatic rollback."""
-    db_cls = factory.get('Database')
+def database_cls(factory):
+    # TODO: This isn't ideal. We shouldn't use Factory to get our db driver,
+    # and *really* shouldn't use a bunch of CL implementations when we run our
+    # tests.  How *should* we build our db driver and ocnfigure the test db
+    # connection in unit tests?
+    base = factory.get('Database')
 
-    class _DbWrapper(db_cls):
+    class _DbWrapper(base):
 
         def commit(self):
             print('db.commit() trapped, running db.rollback()')
@@ -84,11 +87,14 @@ def database(factory):
             print('db.close()')
             super(_DbWrapper, self).close()
 
-    db = _DbWrapper()
-    # TODO: This isn't ideal. We shouldn't use Factory to get our db driver,
-    # and *really* shouldn't use a bunch of CL implementations when we run our
-    # tests.  How *should* we build our db driver and ocnfigure the test db
-    # connection in unit tests?
+    return _DbWrapper
+
+
+@pytest.fixture
+def database(database_cls):
+    """`Cerebrum.database.Database` with automatic rollback."""
+    db = database_cls()
+
     if hasattr(db, 'cl_init'):
         db.cl_init(change_program='testsuite')
 
