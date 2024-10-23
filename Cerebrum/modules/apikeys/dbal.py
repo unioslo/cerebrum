@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright 2019 University of Oslo, Norway
+#
+# Copyright 2019-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,16 +20,31 @@
 """
 Implementation of mod_apikeys database access.
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import logging
 
 import six
 
 from Cerebrum import Errors
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
-from Cerebrum.Utils import argument_to_sql
+from Cerebrum.Utils import NotSet, argument_to_sql
+from Cerebrum.database import query_utils
+
 from .constants import CLConstants
 
 logger = logging.getLogger(__name__)
+
+
+# Result ordering in query results
+DEFAULT_ORDER = ('updated_at', 'account_id', 'identifier')
+
+# Fields and field order in apikeys query results
+DEFAULT_FIELDS = ('identifier', 'account_id', 'description', 'updated_at')
 
 
 class ApiMapping(DatabaseAccessor):
@@ -47,13 +63,19 @@ class ApiMapping(DatabaseAccessor):
             (identifier, account_id, description)
           VALUES
             (:identifier, :account_id, :description)
-        """
-        logger.debug('inserting apikey for account_id=%r, identifier=%r',
-                     account_id, identifier)
-        self.execute(stmt, binds)
-        self._db.log_change(int(account_id), CLConstants.apikey_add, None,
-                            change_params={'identifier':
-                                           six.text_type(identifier)})
+          RETURNING
+            {fields}
+        """.format(fields=", ".join(DEFAULT_FIELDS))
+        row = self.query_1(stmt, binds)
+        logger.debug('added apikey for account_id=%d, identifier=%s',
+                     repr(row['account_id']), repr(row['identifier']))
+        self._db.log_change(
+            row['account_id'],
+            CLConstants.apikey_add,
+            None,
+            change_params={'identifier': row['identifier']},
+        )
+        return row
 
     def __update(self, identifier, account_id, description):
         """
@@ -70,13 +92,19 @@ class ApiMapping(DatabaseAccessor):
               account_id = :account_id
           WHERE
             identifier = :identifier
-        """
-        logger.debug('updating apikey for account_id=%r, identifier=%r',
-                     account_id, identifier)
-        self.execute(stmt, binds)
-        self._db.log_change(int(account_id), CLConstants.apikey_mod, None,
-                            change_params={'identifier':
-                                           six.text_type(identifier)})
+          RETURNING
+            {fields}
+        """.format(fields=", ".join(DEFAULT_FIELDS))
+        row = self.query_1(stmt, binds)
+        logger.debug('updated apikey for account_id=%s, identifier=%s',
+                     repr(row['account_id']), repr(row['identifier']))
+        self._db.log_change(
+            row['account_id'],
+            CLConstants.apikey_mod,
+            None,
+            change_params={'identifier': row['identifier']},
+        )
+        return row
 
     def exists(self, identifier):
         """
@@ -115,11 +143,11 @@ class ApiMapping(DatabaseAccessor):
             'identifier': six.text_type(identifier),
         }
         stmt = """
-          SELECT *
+          SELECT {fields}
           FROM [:table schema=cerebrum name=apikey_client_map]
           WHERE
             identifier = :identifier
-        """
+        """.format(fields=", ".join(DEFAULT_FIELDS))
         return self.query_1(stmt, binds)
 
     def set(self, identifier, account_id, description=None):
@@ -130,40 +158,46 @@ class ApiMapping(DatabaseAccessor):
             old_values = {}
             is_new = True
 
-        if old_values.get('account_id', account_id) != account_id:
+        if not is_new and old_values['account_id'] != account_id:
             raise ValueError(
                 'Identifier=%r is already assigned to account_id=%r' %
                 (identifier, account_id))
 
-        if not is_new and old_values.get('description') == description:
-            # Nothing to update
-            return
+        if not is_new and old_values['description'] == description:
+            return old_values
 
         if is_new:
-            self.__insert(identifier, account_id, description)
+            return self.__insert(identifier, account_id, description)
         else:
-            self.__update(identifier, account_id, description)
+            return self.__update(identifier, account_id, description)
 
     def delete(self, identifier):
         """
         Delete apikey value for a given account.
         """
-        data = self.get(identifier)
-        identifier = data['identifier']
-        account_id = data['account_id']
         binds = {'identifier': identifier}
         stmt = """
           DELETE FROM [:table schema=cerebrum name=apikey_client_map]
           WHERE
             identifier = :identifier
-        """
-        logger.debug('deleting apikey for account_id=%r, identifier=%r',
-                     account_id, identifier)
-        self.execute(stmt, binds)
-        self._db.log_change(account_id, CLConstants.apikey_del, None,
-                            change_params={'identifier': identifier})
+          RETURNING
+            {fields}
+        """.format(fields=", ".join(DEFAULT_FIELDS))
+        row = self.query_1(stmt, binds)
+        logger.debug('deleted apikey for account_id=%r, identifier=%r',
+                     row['account_id'], row['identifier'])
+        self._db.log_change(
+            row['account_id'],
+            CLConstants.apikey_mod,
+            None,
+            change_params={'identifier': row['identifier']},
+        )
+        return row
 
-    def search(self, identifier=None, account_id=None, description=None):
+    def search(self, identifier=None, account_id=None,
+               description=NotSet,
+               description_like=None,
+               description_ilike=None):
         """
         Get apikey value for a given account.
 
@@ -181,14 +215,25 @@ class ApiMapping(DatabaseAccessor):
             filters.append(
                 argument_to_sql(identifier, 'identifier', binds,
                                 six.text_type))
-        if description is not None:
-            pass
-            # TODO: Implement LIKE matching
+        desc_cond, desc_bind = query_utils.pattern_helper(
+            "description",
+            value=description,
+            case_pattern=description_like,
+            icase_pattern=description_ilike,
+            nullable=True,
+        )
+        if desc_cond:
+            filters.append(desc_cond)
+            binds.update(desc_bind)
 
         stmt = """
-          SELECT *
+          SELECT {fields}
           FROM [:table schema=cerebrum name=apikey_client_map]
           {where}
-          ORDER BY updated_at
-        """.format(where=('WHERE ' + ' AND '.join(filters)) if filters else '')
+          ORDER BY {order}
+        """.format(
+            fields=", ".join(DEFAULT_FIELDS),
+            order=", ".join(DEFAULT_ORDER),
+            where=('WHERE ' + ' AND '.join(filters)) if filters else '',
+        )
         return self.query(stmt, binds)
