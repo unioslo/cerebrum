@@ -10,7 +10,6 @@ from __future__ import (
 )
 
 import pytest
-import six
 
 import Cerebrum.Group
 import Cerebrum.Person
@@ -53,34 +52,6 @@ def person_creator(database, const, person_cls):
 #
 # Some traits
 #
-
-
-@pytest.fixture
-def constant_creator(constant_module):
-    """ create constants that can be found with const.get_constant(). """
-    attrs = []
-
-    def create_constant(constant_type, value, *args, **kwargs):
-        description = kwargs.pop('description',
-                                 "test constant " + six.text_type(value))
-        kwargs['description'] = description
-        code = constant_type(value, *args, **kwargs)
-        code.insert()
-
-        # Inject the code as an attribute of a class that exists both in
-        # in the Factory.get("Constants") and `const` fixture mro
-        #
-        # This is needed for some of the ConstantsBase lookup methods (e.g.
-        # `get_constant`)
-        attr = 'test_code_' + format(id(code), 'x')
-        setattr(constant_module.CoreConstants, attr, code)
-        attrs.append(attr)
-        return code
-
-    yield create_constant
-
-    for attr in attrs:
-        delattr(constant_module.CoreConstants, attr)
 
 
 @pytest.fixture(autouse=True)
