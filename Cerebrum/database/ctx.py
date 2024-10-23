@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2021 University of Oslo, Norway
+# Copyright 2021-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,9 +17,14 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import contextlib
 import logging
-import uuid
 
 logger = logging.getLogger(__name__)
 
@@ -36,9 +41,10 @@ def db_context(db, dryrun):
     :param bool dryrun:
         if true, context will always rollback on exit
     """
+    conn = db.driver_connection()
     try:
         logger.debug('db_context: enter (dryrun=%r, db=%r, conn=%r)',
-                     dryrun, db, db._db)
+                     dryrun, db, conn)
         yield db
     except Exception as e:
         logger.warning('db_context: rollback (unhandled exception=%r)', e)

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2018-2023 University of Oslo, Norway
+# Copyright 2018-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -20,6 +20,12 @@
 """
 PostgreSQL / PsycoPG2 DB functionality for the people
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import os
 import sys
 import uuid
@@ -32,7 +38,6 @@ from Cerebrum.database import (
     Cursor,
     Database,
     ENABLE_MXDB,
-    OraPgLock,
     kickstart,
 )
 from Cerebrum.Utils import read_password
@@ -87,12 +92,12 @@ if ENABLE_MXDB:
     # DATE -> mx.DateTime
     psycopg2.extensions.register_type(
         psycopg2.extensions.new_type(
-            PG_TYPE_DATE.values, 'MXDATE', mxdate))
+            PG_TYPE_DATE.values, str('MXDATE'), mxdate))
 
     # TIMESTAMP -> mx.DateTime
     psycopg2.extensions.register_type(
         psycopg2.extensions.new_type(
-            PG_TYPE_DATETIME.values, 'MXDATETIME', mxdatetime))
+            PG_TYPE_DATETIME.values, str('MXDATETIME'), mxdatetime))
 
     psycopg2.extensions.register_adapter(mx.DateTime.DateTimeType,
                                          mxdatetimetype)
@@ -152,7 +157,7 @@ def numtype(value, cursor):
 
 psycopg2.extensions.register_type(
     psycopg2.extensions.new_type(
-        PG_TYPE_NUMBER.values, 'PYPGNUM', numtype))
+        PG_TYPE_NUMBER.values, str('PYPGNUM'), numtype))
 
 
 def get_pg_savepoint_id():
@@ -183,12 +188,12 @@ def _format_pg_app_name(progname=None):
     be seen e.g. in pg_stat_activity.  The name must consist of ascii chars and
     be 64 chars or less.
     """
-    fmt = u'cerebrum (%s)'
+    fmt = 'cerebrum (%s)'
     # application_name can be 64 chars total, ascii only
     remaining = 63 - len(fmt) + 2
-    progname = to_ascii(progname or u'no name')
+    progname = to_ascii(progname or 'no name')
     if len(progname) > remaining:
-        progname = progname[:remaining-3] + u'...'
+        progname = progname[:remaining-3] + '...'
     return fmt % progname
 
 
@@ -209,9 +214,6 @@ class PsycoPG2Cursor(Cursor):
             channel.execute("""SELECT 1 AS foo""")
         finally:
             channel.execute("ROLLBACK TO SAVEPOINT %s" % identifier)
-
-    def acquire_lock(self, table=None, mode='exclusive'):
-        return OraPgLock(cursor=self, table=table, mode='exclusive')
 
 
 pg_macros = macros.MacroTable(macros.common_macros)
@@ -240,7 +242,7 @@ def pg_op_sequence(schema, name, op, val=None, context=None):
     elif op == 'set':
         return "setval('{}', {})".format(name, int(val))
     else:
-        raise ValueError('Invalid sequnce operation: %r' % (op,))
+        raise ValueError('Invalid sequence operation: %r' % (op,))
 
 
 @pg_macros.register('sequence_start')

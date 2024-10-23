@@ -32,7 +32,6 @@ from Cerebrum.database import (
     Cursor,
     Database,
     ENABLE_MXDB,
-    OraPgLock,
     kickstart,
 )
 from Cerebrum.Utils import read_password
@@ -149,9 +148,6 @@ class cx_OracleCursor(Cursor):  # noqa: N801
         # right now (2008-06-30) we do not care.
         return super(cx_OracleCursor, self).execute(sql, mybinds)
 
-    def acquire_lock(self, table=None, mode='exclusive'):
-        return OraPgLock(cursor=self, table=None, mode=mode)
-
 
 ora_macros = macros.MacroTable(macros.common_macros)
 
@@ -183,7 +179,7 @@ def ora_op_sequence(schema, name, op, context=None):
     elif op == 'curr':
         return '{}.{}.currval'.format(schema, name)
     else:
-        raise ValueError('Invalid sequnce operation: %r' % (op,))
+        raise ValueError('Invalid sequence operation: %r' % (op,))
 
 
 class OracleBase(Database):

@@ -32,6 +32,13 @@ The original exceptions was present in ``Cerebrum.database`` in commit:
     Merge:  3e4c07061 be7c05022
     Date:   Tue Feb 11 11:42:09 2020 +0100
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+
 import six
 
 
@@ -54,6 +61,7 @@ API_EXCEPTION_NAMES = (
 )
 
 
+@six.python_2_unicode_compatible
 class _CommonExceptionBase(Exception):
     """
     DB-API 2.0 base exception.

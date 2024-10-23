@@ -1,7 +1,14 @@
 # -*- coding: utf-8 -*-
 """
-tests for Cerebrum.database.portability operator implementations.
+Tests for :mod:`Cerebrum.database.macros` default macro implementations.
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+
 import pytest
 
 from Cerebrum.database import macros
@@ -9,10 +16,14 @@ from Cerebrum.database import macros
 
 @pytest.fixture
 def config():
-    return type('cereconf_mock', (object,), {
-        'FOO': 'asd',
-        'BAR': 'xyz',
-    })()
+    return type(
+        str('cereconf_mock'),
+        (object,),
+        {
+            'STR_ATTR': 'asd',
+            'INT_ATTR': 10,
+        },
+    )()
 
 
 @pytest.fixture
@@ -54,10 +65,19 @@ def test_op_now(context):
 
 
 def test_op_get_config(context, config):
-    var = 'FOO'
-    expect = "'{}'".format(config.FOO)
-    result = macros.op_get_config(var=var, context=context)
+    expect = "'{}'".format(config.STR_ATTR)
+    result = macros.op_get_config(var="STR_ATTR", context=context)
     assert result == expect
+
+
+def test_op_get_config_missing_attr(context, config):
+    with pytest.raises(ValueError, match="no config attribute"):
+        macros.op_get_config(var="MISSING_ATTR", context=context)
+
+
+def test_op_get_config_invalid_type(context, config):
+    with pytest.raises(ValueError, match="invalid config value"):
+        macros.op_get_config(var="INT_ATTR", context=context)
 
 
 def test_op_get_constant(context, constants):
@@ -69,11 +89,30 @@ def test_op_get_constant(context, constants):
 
 def test_op_get_constant_missing_db(context):
     name = 'entity_bar'
-    with pytest.raises(ValueError, match='invalid constant'):
+    with pytest.raises(ValueError, match="invalid constant"):
         macros.op_get_constant(name=name, context=context)
 
 
 def test_op_get_constant_missing_attr(context):
     name = 'please_please_do_not_exist_attr'
-    with pytest.raises(ValueError, match='no constant'):
+    with pytest.raises(ValueError, match="no constant"):
         macros.op_get_constant(name=name, context=context)
+
+
+def test_boolean_deprecated(context):
+    with pytest.deprecated_call():
+        assert macros.op_boolean(context=context) == ""
+
+
+def test_op_from_dual_default(context):
+    assert macros.op_from_dual(context=context) == ""
+
+
+def test_op_sequence_stub(context):
+    with pytest.raises(ValueError, match="Invalid sequence operation"):
+        macros.op_sequence("cerebrum", "foo", "nextval", context=context)
+
+
+def test_op_sequence_start_deprecated(context):
+    with pytest.deprecated_call():
+        macros.op_sequence_start(value=3, context=context) == "START WITH 3"

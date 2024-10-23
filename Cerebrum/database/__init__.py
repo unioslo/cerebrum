@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2018-2023 University of Oslo, Norway
+# Copyright 2018-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -37,7 +37,7 @@ from __future__ import (
     absolute_import,
     division,
     print_function,
-    # TODO: unicode_literals,
+    unicode_literals,
 )
 
 import logging
@@ -46,7 +46,7 @@ import sys
 
 from Cerebrum import Cache
 from Cerebrum import Errors
-from Cerebrum.Utils import Factory, NotSet, read_password
+from Cerebrum.Utils import Factory, NotSet
 from Cerebrum.utils.module import this_module
 
 from . import errors
@@ -99,61 +99,8 @@ API_TYPE_CTOR_NAMES = (
     "DateFromTicks",
     "TimeFromTicks",
     "TimestampFromTicks",
-    "Binary")
-
-
-class Lock(object):
-    """Driver-independent class for locking. Default: No locking"""
-    def __init__(self, mode='exclusive', **kws):
-        self.aquire(mode)
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self):
-        self.release()
-
-    def acquire(self, mode):
-        pass
-
-    def release(self):
-        pass
-
-
-class OraPgLock(Lock):
-    """Lock for Oracle and Postgres.
-    Locks are only released by commit, so no release is actually done.
-
-    Uses the postgres and oracle LOCK TABLE statement.
-    """
-    lock_stmt = "LOCK TABLE %s IN %s MODE"
-
-    def __init__(self, cursor=None, table=None, **kws):
-        """Init will acquire a lock."""
-        self.cursor = cursor
-        self.table = table
-        super(OraPgLock, self).__init__(**kws)
-
-    def acquire(self, mode):
-        self.cursor.execute(OraPgLock.lock_stmt % (self.table, mode))
-
-    def acquire_lock(self, table=None, mode='exclusive'):
-        """
-        Aquire a lock for some table.
-
-        Locking is not a standard sql feature, but some
-        providers have locking. If not implemented, locking
-        is a no-op.
-
-        :param table: Database table to lock
-        :type table: str
-
-        :param mode: locking mode, see database driver
-        :type mode: str
-
-        :rtype: Lock
-        """
-        return Lock(cursor=self, table=table, mode=mode)
+    "Binary",
+)
 
 
 def _pretty_sql(sql, maxlen=None):
@@ -388,24 +335,6 @@ class Cursor(object):
         """
         self.execute("""SELECT 1 AS foo [:from_dual]""")
 
-    def acquire_lock(self, table=None, mode='exclusive'):
-        """
-        acquire a lock for some table.
-
-        Locking is not a standard sql feature, but some
-        providers have locking. If not implemented, locking
-        is a no-op.
-
-        :param table: Database table to lock
-        :type table: str
-
-        :param mode: locking mode, see database driver
-        :type mode: str
-
-        :rtype: Lock
-        """
-        return Lock(cursor=self, table=table, mode=mode)
-
 
 def kickstart(module):
     """ Copy DBAPI 2.0 items from `module` to the decorated class.
@@ -470,8 +399,10 @@ class Database(object):
     # A table of macros to use by the database dialect
     macro_table = macros.common_macros
 
-    encoding = cereconf.CEREBRUM_DATABASE_CONNECT_DATA.get(
-        'client_encoding') or 'UTF-8'
+    encoding = (
+        cereconf.CEREBRUM_DATABASE_CONNECT_DATA.get('client_encoding')
+        or 'UTF-8'
+    )
     # The default character set encoding to use.
 
     def __init__(self, do_connect=True, app_hint=None, *db_params, **db_kws):
@@ -730,10 +661,6 @@ class Database(object):
         c = self.cursor()
         c.ping()
         c.close()
-
-    # FIXME: deprecated, moved to Utils
-    def _read_password(self, database, user):
-        return read_password(user, database)
 
     def sql_pattern(self,
                     column,

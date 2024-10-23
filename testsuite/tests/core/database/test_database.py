@@ -1,30 +1,25 @@
 # -*- coding: utf-8 -*-
 """
-Tests for Cerebrum.database
-
-- Make sure that Factory.get('Database')() always has a _db, _cursor and the
-  like. Both after the *first* and after the *n'th* call.
-
-- For *all* string-like attributes in the db (yeah, it's a lot), assert that
-  whatever is fed into the db, is fetched back properly in the presence of
-  different encodings.
-
-- Test threading/fork()ing
-
-- Test constant insertion and deletion
-
-- Testing 'our' sql-lexer extensions should be put in its own file
-  (test_sql_lexer or somesuch)
+Tests for :mod:`Cerebrum.database`
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import pytest
 import six
 
-import Cerebrum.database
+from Cerebrum import Errors
 from Cerebrum.Utils import Factory
+import Cerebrum.database
 
 
-# TODO: This could be done better...
-# TODO: This test module should we rewritten to use pytest
+#
+# Common fixtures and helpers
+#
+
 
 def create_table(db, table_name, *table_defs):
     """
@@ -38,16 +33,24 @@ def create_table(db, table_name, *table_defs):
 
 
 @pytest.fixture
-def db():
+def db_cls():
+    return Factory.get('Database')
+
+
+@pytest.fixture
+def db(db_cls):
     try:
-        database = Factory.get('Database')()
+        database = db_cls()
         database.commit = database.rollback
         yield database
     finally:
-        database.rollback()
+        # In case we've closed the db connection already
+        if database._db:
+            database.rollback()
 
 
 class _Table(object):
+    """ Helper to create table and insert rows. """
 
     def __init__(self, name, **cols):
         self.name = name
@@ -77,37 +80,158 @@ class _Table(object):
 
 @pytest.fixture
 def table_foo_x(db):
+    """ create table with columns: x (int). """
     t = _Table('foo', x='int not null')
     db.execute(t.create)
     return t
 
 
-def test_rollback(db, table_foo_x):
-    """ Database.rollback() transaction rollback functionality. """
-
-    select_sql = 'select * from ' + table_foo_x.name
-
-    for value in (0, 1, 2, 3):
-        table_foo_x.insert(db, x=value)
-
-    res = db.query(select_sql)
-    assert len(res) == 4
-
-    db.rollback()
-
-    with pytest.raises(Cerebrum.database.DatabaseError) as exc_info:
-        db.query(select_sql)
-
-    assert exc_info.value.operation == repr(select_sql)
+@pytest.fixture
+def table_foo_xy(db):
+    """ create table with columns: x (int), y (int, null). """
+    t = _Table('foo', x='int not null', y='int null')
+    db.execute(t.create)
+    return t
 
 
-def test_commit():
+@pytest.fixture
+def table_bar_xy(db):
+    """ create table with columns: x (text), y (int, null). """
+    t = _Table('bar', x='text not null', y='int null')
+    db.execute(t.create)
+    return t
+
+
+@pytest.fixture
+def table_baz_zy(db):
+    """ create table with columns: z (int), y (text, null). """
+    t = _Table('baz', z='int not null', y='text null')
+    db.execute(t.create)
+    return t
+
+
+@pytest.fixture
+def table_text(db):
+    """ create table with columns: value (text, null). """
+    t = _Table('text', value='text null')
+    db.execute(t.create)
+    return t
+
+
+@pytest.fixture
+def sequence(db):
+    name = "test_sequence"
+    start = 1
+    db.execute(
+        """
+        create temporary sequence {} as int
+        start {}
+        """.format(name, start)
+    )
+    return name, start
+
+
+#
+# _pretty_sql() tests
+#
+
+
+def test_pretty_sql():
+    assert Cerebrum.database._pretty_sql(
+        """
+        SELECT * from foo
+        WHERE bar=:baz
+        """
+    ) == "SELECT * from foo WHERE bar=:baz"
+
+
+def test_pretty_sql_maxlen():
+    assert Cerebrum.database._pretty_sql(
+        """
+        SELECT * from foo
+        WHERE bar=:baz
+        """,
+        maxlen=10,
+    ) == "SELECT * f..."
+
+
+#
+# database basics
+#
+
+
+def test_db_ping(db):
+    db.ping()
+    assert True
+
+
+def test_abstract_db_init():
+    with pytest.raises(NotImplementedError) as exc_info:
+        Cerebrum.database.Database()
+    error_msg = six.text_type(exc_info.value)
+    assert "abstract class" in error_msg
+
+
+def test_db_reconnect_open(db):
+    with pytest.raises(Cerebrum.database.Error) as exc_info:
+        db.connect()
+    error_msg = six.text_type(exc_info.value)
+    assert "connection already open" in error_msg
+
+
+def test_db_close(db):
+    real_db = db.driver_connection()
+    cursor = db._cursor
+    real_cursor = cursor.driver_cursor()
+    db.close()
+
+    # This test might be wrong - the DB-API spec doesn't require a
+    # `.closed` attribute on connections or cursors.
+    assert real_db.closed
+    assert real_cursor.closed
+    assert db.driver_connection() is None
+
+
+def test_db_closed_errors(db):
+    """ interactions with a closed db connection raises a db error. """
+    cursor = db._cursor
+    db.close()
+
+    with pytest.raises(Cerebrum.database.Error):
+        cursor.query(""" select 1 as 'foo' """)
+
+    # TODO: Fixme - this raises a TypeError - as we try to operate on a None
+    # object.  This should be a Cerebrum.database.Error
+    # with pytest.raises(Cerebrum.database.Error):
+    #     db.query(""" select 1 as 'foo' """)
+
+
+def test_db_close_rollback(db, db_cls):
+    """ check that close() causes an implicit rollback. """
+    create_sql = "create table foo (x int not null)"
+    select_sql = "select * from foo"
+
+    db.execute(create_sql)
+    db.close()
+
+    with pytest.raises(Cerebrum.database.Error):
+        db2 = db_cls()
+        db2.query(select_sql)
+
+
+#
+# commit/rollback + ping tests
+#
+# This is a bit hairy, as we don't really want our tests to commit anything...
+#
+
+
+def test_commit(db_cls):
     """ Database.commit() transaction commit functionality. """
 
     # We use two instantiations of Database, each one should have their own
     # transaction, and one should not be able to see the effects of the other,
     # before commit() is performed.
-    db_cls = Factory.get('Database')
     table_name = 'foo'
 
     create_sql = 'create table %s (%s int not null)' % (table_name, 'x')
@@ -134,64 +258,231 @@ def test_commit():
         db.commit()
 
 
-def test_db_simple_query(db, table_foo_x):
-    """ Database.execute() database basics. """
-    select_sql = 'select count(*) as one from ' + table_foo_x.name
+def test_rollback(db, table_foo_x):
+    """ Database.rollback() transaction rollback functionality. """
 
-    lo, hi = 1, 4
-    for value in range(lo, hi):
+    select_sql = 'select * from ' + table_foo_x.name
+
+    for value in (0, 1, 2, 3):
         table_foo_x.insert(db, x=value)
 
-    count = db.query_1(select_sql)
-    assert count == hi - lo
+    res = db.query(select_sql)
+    assert len(res) == 4
+
+    db.rollback()
+
+    with pytest.raises(Cerebrum.database.DatabaseError) as exc_info:
+        db.query(select_sql)
+
+    assert exc_info.value.operation == repr(select_sql)
 
 
-@pytest.fixture
-def table_foo_xy(db):
-    t = _Table('foo', x='int not null', y='int null')
-    db.execute(t.create)
-    return t
+#
+# execute + executemany tests
+#
 
 
-def test_db_numeric_interaction(db, table_foo_xy):
-    """ Database.execute() numeric processing by the backend. """
+def test_db_executemany(db, table_foo_x):
+    rows = 5
+    stmt = "insert into {} (x) VALUES (:value)".format(table_foo_x.name)
+    param_sets = [{'value': i} for i in range(rows)]
 
-    values = (0, 1, -10, 10, 2**30, -2**30)
+    db.executemany(stmt, param_sets)
+    results = list(db.query("select * from " + table_foo_x.name))
+    assert len(results) == rows
 
-    for value in values:
+
+#
+# query + fetch* tests
+#
+
+
+def test_db_query(db, table_foo_x):
+    for value in range(5):
+        table_foo_x.insert(db, x=value)
+
+    row_sequence = db.query(
+        """
+        select * from {}
+        order by x asc
+        """.format(table_foo_x.name),
+        fetchall=True,
+    )
+    assert len(row_sequence) == 5
+    assert dict(row_sequence[0]) == {'x': 0}
+    assert dict(row_sequence[1]) == {'x': 1}
+
+
+def test_db_query_iter(db, table_foo_x):
+    for value in range(5):
+        table_foo_x.insert(db, x=value)
+
+    iter_rows = db.query(
+        """
+        select * from {}
+        order by x asc
+        """.format(table_foo_x.name),
+        fetchall=False,
+    )
+
+    assert dict(next(iter_rows)) == {'x': 0}
+    assert dict(next(iter_rows)) == {'x': 1}
+
+
+def test_db_iter_cursor(db, table_foo_x):
+    for value in range(5):
+        table_foo_x.insert(db, x=value)
+
+    cursor = db.cursor()
+    cursor.execute("select * from {} order by x desc".format(table_foo_x.name))
+    rows = list(iter(cursor))
+    assert len(rows) == 5
+    assert dict(rows[0]) == {'x': 4}
+
+
+def test_db_rowcount(db, table_foo_x):
+    """ Database.execute() database basics. """
+    for value in range(5):
+        table_foo_x.insert(db, x=value)
+
+    db.query("select * from " + table_foo_x.name)
+    assert db.rowcount == 5
+
+
+def test_db_arraysize_default(db):
+    """ Database.execute() database basics. """
+    assert db.arraysize == 1
+
+
+def test_db_fetchone(db, table_foo_x):
+    for value in range(5):
+        table_foo_x.insert(db, x=value)
+
+    db.execute("select * from " + table_foo_x.name)
+    batch = db.fetchone()
+    assert len(list(batch)) == 1
+
+
+def test_db_fetchall(db, table_foo_x):
+    rows = 5
+    for value in range(rows):
+        table_foo_x.insert(db, x=value)
+
+    db.execute("select * from " + table_foo_x.name)
+    batch = db.fetchall()
+    assert len(list(batch)) == rows
+
+
+def test_db_fetchmany_default(db, table_foo_x):
+    for value in range(5):
+        table_foo_x.insert(db, x=value)
+
+    db.execute("select * from " + table_foo_x.name)
+    batch = db.fetchmany()
+    assert len(list(batch)) == db.arraysize
+
+
+@pytest.mark.parametrize("arraysize", [1, 3])
+def test_db_fetchmany_arraysize(db, table_foo_x, arraysize):
+    """ Database.execute() database basics. """
+    for value in range(5):
+        table_foo_x.insert(db, x=value)
+
+    if arraysize != 1:
+        db.arraysize = arraysize
+    db.execute("select * from " + table_foo_x.name)
+    batch = db.fetchmany()
+    assert len(list(batch)) == arraysize
+
+
+def test_db_fetchmany_override(db, table_foo_x):
+    """ Database.execute() database basics. """
+    for value in range(5):
+        table_foo_x.insert(db, x=value)
+
+    assert db.arraysize == 1
+    db.execute("select * from " + table_foo_x.name)
+    batch = db.fetchmany(2)
+    assert len(list(batch)) == 2
+
+
+def test_db_description(db, table_foo_xy):
+    db.execute("select * from " + table_foo_xy.name)
+    desc = db.description
+    assert len(desc) == 2
+
+
+#
+# query_1 tests
+#
+
+
+def test_db_query_1_hit(db, table_foo_xy):
+    """ query_1 should return a single row object. """
+    for value in range(2):
         table_foo_xy.insert(db, x=value)
-
-    select_sql = 'select * from foo where x = :val'
-    for value in values:
-        row = db.query_1(select_sql, {'val': value})
-        # assert type(row['x']) is type(value) # int -> long, for any numerical
-        assert row['x'] == value
+    hit = db.query_1("select * from {} where x = 1".format(table_foo_xy.name))
+    assert dict(hit) == {'x': 1, 'y': None}
 
 
-@pytest.fixture
-def table_bar_xy(db):
-    t = _Table('bar', x='text not null', y='int null')
-    db.execute(t.create)
-    return t
+def test_db_query_1_hit_unpack(db, table_foo_xy):
+    """ query_1 should 'unpack' row if row contains a single column. """
+    for value in range(2):
+        table_foo_xy.insert(db, x=value)
+    hit = db.query_1("select x from {} where x = 1".format(table_foo_xy.name))
+    assert hit == 1
 
 
-def test_db_unicode_interaction(db, table_bar_xy):
-    """ Database.execute() unicode text. """
-    # TODO: What about "øæå"? Should the backend somehow guess the
-    # encoding? Or assume some default? Or read it from cereconf?
-    values = (u'unicode', u'latin-1:øåæ', unicode('utf-8:øæå', 'utf-8'))
+def test_db_query_1_too_few(db, table_foo_xy):
+    """ query_1 should raise error if no rows are returned. """
+    with pytest.raises(Errors.NotFoundError) as exc_info:
+        db.query_1("select * from " + table_foo_xy.name)
 
-    for value in values:
-        table_bar_xy.insert(db, x=value)
+    error_msg = six.text_type(exc_info.value)
+    assert error_msg
 
-    select_sql = 'select * from bar where x = :value'
 
-    for value in values:
-        row = db.query_1(select_sql, {"value": value})
-        retval = row['x']
-        if type(retval) is not unicode:
-            retval = unicode(retval, 'utf-8')
-        assert retval == value
+def test_db_query_1_too_many(db, table_foo_xy):
+    """ query_1 should raise error if multiple rows are returned. """
+    for value in range(2):
+        table_foo_xy.insert(db, x=value)
+    with pytest.raises(Errors.TooManyRowsError) as exc_info:
+        db.query_1("select * from " + table_foo_xy.name)
+
+    error_msg = six.text_type(exc_info.value)
+    assert error_msg
+
+
+#
+# sequence tests
+#
+
+
+def test_seq_nextval(db, sequence):
+    name, start = sequence
+    assert db.nextval(name) == start
+    assert db.nextval(name) == start + 1
+
+
+def test_seq_currval(db, sequence):
+    name, start = sequence
+    db.nextval(name)
+    assert db.currval(name) == start
+    db.nextval(name)
+    assert db.currval(name) == start + 1
+
+
+def test_seq_setval(db, sequence):
+    name, _ = sequence
+    value = 4
+    assert db.setval(name, value) == value
+    assert db.currval(name) == value
+    assert db.nextval(name) == value + 1
+
+
+#
+# error type tests
+#
 
 
 @pytest.mark.parametrize(
@@ -200,7 +491,8 @@ def test_db_unicode_interaction(db, table_bar_xy):
         ('Database.Error', 'db.IntegrityError'),
         ('Database.Warning', 'db.Warning'),
         ('db.Error', 'db.IntegrityError'),
-    ])
+    ]
+)
 def test_db_exception_types(db, catch, throw):
     """ Database.Error, correct class types. """
 
@@ -232,11 +524,40 @@ def test_exception_catch_instance(db):
         db.execute('create table foo')
 
 
-@pytest.fixture
-def table_baz_zy(db):
-    t = _Table('baz', z='int not null', y='text null')
-    db.execute(t.create)
-    return t
+def test_multiple_queries_error(db, table_foo_xy):
+    """ Database.execute(), multiple queries are forbidden. """
+
+    foo_select = 'select * from ' + table_foo_xy.name
+
+    with pytest.raises(Cerebrum.database.ProgrammingError):
+        db.execute(';'.join((foo_select, foo_select)))
+
+
+def test_missing_table_error(db):
+    """ Database.ProgrammingError for non-existing relation. """
+
+    with pytest.raises(Cerebrum.database.ProgrammingError):
+        db.execute('select * from efotdzzb')
+
+
+#
+# test column types
+#
+
+
+def test_db_numeric_interaction(db, table_foo_xy):
+    """ Database.execute() numeric processing by the backend. """
+
+    values = (0, 1, -10, 10, 2**30, -2**30)
+
+    for value in values:
+        table_foo_xy.insert(db, x=value)
+
+    select_sql = 'select * from foo where x = :val'
+    for value in values:
+        row = db.query_1(select_sql, {'val': value})
+        # assert type(row['x']) is type(value) # int -> long, for any numerical
+        assert row['x'] == value
 
 
 def test_unions_with_numeric(db, table_foo_xy, table_baz_zy):
@@ -253,53 +574,18 @@ def test_unions_with_numeric(db, table_foo_xy, table_baz_zy):
         assert isinstance(row['n'], six.integer_types)
 
 
-def test_all_critical_db_attributes(db):
-    """ Database attributes. """
-
-    # - Make sure that Factory.get('Database')() always has a _db, _cursor and
-    # the like. Both after the *first* and after the *n'th* call.
-
-    assert hasattr(db, "_db")
-    assert hasattr(db, "_cursor")
-    # WTF else do we need?
-
-
-def test_multiple_queries(db, table_foo_xy):
-    """ Database.execute(), multiple queries are forbidden. """
-
-    foo_select = 'select * from ' + table_foo_xy.name
-
-    with pytest.raises(Cerebrum.database.ProgrammingError):
-        db.execute(';'.join((foo_select, foo_select)))
-
-
-def test_missing_table(db):
-    """ Database.ProgrammingError for non-existing relation. """
-
-    with pytest.raises(Cerebrum.database.ProgrammingError):
-        db.execute('select * from efotdzzb')
-
-
-@pytest.fixture
-def table_text(db):
-    t = _Table('text', value='text null')
-    db.execute(t.create)
-    return t
-
-
 def test_unicode(db, table_text):
-    """ Database.rollback() transaction rollback functionality. """
 
     def select():
         return [r['value']
                 for r in db.query('select value from ' + table_text.name)]
 
     tests = [
-        u'blåbærsyltetøy',
-        u'ÆØÅ',
-        u'ʎøʇǝʇʅsʎsɹæqɐ̥ʅq',
+        'blåbærsyltetøy',
+        'ÆØÅ',
+        'ʎøʇǝʇʅsʎsɹæqɐ̥ʅq',
         None,
-        u'Æ̎̉Ø͂̄Å͐̈'
+        'Æ̎̉Ø͂̄Å͐̈'
     ]
 
     for value in tests:
@@ -314,18 +600,53 @@ def test_unicode(db, table_text):
 
 
 def test_assert_latin1_unicode(db, table_text):
-    """ Database.rollback() transaction rollback functionality. """
     insert = 'insert into text(value) values (:x)'
-    base = u'blåbærsyltetøy'
-
+    base = 'blåbærsyltetøy'
     with pytest.raises(UnicodeError):
         db.execute(insert, {'x': base.encode('latin1')})
 
 
 def test_assert_utf8_unicode(db, table_text):
-    """ Database.rollback() transaction rollback functionality. """
-
     insert = 'insert into text(value) values (:x)'
-    base = u'blåbærsyltetøy'
+    base = 'blåbærsyltetøy'
     with pytest.raises(UnicodeError):
         db.execute(insert, {'x': base.encode('utf-8')})
+
+
+#
+# sql_pattern tests
+#
+# TODO: The legacy sql_pattern method should be replaced by
+# `Cerebrum.database.query_utils.sql_pattern`.  Also, it shouldn't
+# be a *method*...
+#
+
+
+def test_sql_pattern_none(db):
+    cond, value = db.sql_pattern("t.col", None)
+    assert cond == "t.col IS NULL"
+    assert value is None
+
+
+def test_sql_pattern_literal(db):
+    cond, value = db.sql_pattern("t.col", "foo bar")
+    assert cond == "LOWER(t.col) LIKE :col"
+    assert value == "foo bar"
+
+
+def test_sql_pattern_wildcard(db):
+    cond, value = db.sql_pattern("t.col", "fo? bar*")
+    assert cond == "LOWER(t.col) LIKE :col"
+    assert value == "fo_ bar%"
+
+
+def test_sql_pattern_literal_case(db):
+    cond, value = db.sql_pattern("t.col", "Foo Bar")
+    assert cond == "t.col = :col"
+    assert value == "Foo Bar"
+
+
+def test_sql_pattern_wildcard_case(db):
+    cond, value = db.sql_pattern("t.col", "Fo? Bar*")
+    assert cond == "t.col LIKE :col"
+    assert value == "Fo_ Bar%"
