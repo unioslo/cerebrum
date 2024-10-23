@@ -6,9 +6,6 @@ from __future__ import (
     print_function,
     unicode_literals,
 )
-# import datetime
-
-# import pytest
 
 from Cerebrum.modules.greg import tasks
 from Cerebrum.modules.tasks import task_models
@@ -78,15 +75,14 @@ def test_handle_task():
 class MockEvent(MockObj):
 
     def __init__(self,
-                 content_type="text/plain",
-                 content_encoding="utf-8",
+                 content_type="text/plain; charset=utf-8",
                  headers=None,
                  body=""):
         super(MockEvent, self).__init__(
             content_type=content_type,
-            content_encoding=content_encoding,
+            content_encoding=None,
             headers=(headers or {}),
-            body=body.encode(content_encoding),
+            body=body.encode("utf-8"),
             method=MockObj(
                 exchange="ex",
                 routing_key="routing.key",

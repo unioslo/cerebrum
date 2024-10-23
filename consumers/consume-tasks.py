@@ -99,9 +99,9 @@ class TaskHandlerConfig(ConsumerConfig, TaskListMixin):
             routing_keys:
               - "#"
 
-        callbacks:
+        tasks:
           - source: "foo-tasks"
-            callback: "operator:truth"
+            get_tasks: "operator:truth"
     """
 
     @classmethod
@@ -160,12 +160,6 @@ class TaskHandler(AbstractConsumerHandler):
         dt = event.method.delivery_tag
         logger.debug('abort %s/%s', ct, dt)
         event.channel.basic_nack(delivery_tag=dt)
-
-    def reschedule(self, event, dates):
-        # TODO: We should probably re-consider the design of the
-        #       AbstractConsumerHandler.  The reschedule call might not be
-        #       appropriate in this "interface".
-        raise NotImplementedError()
 
 
 def set_pika_loglevel(level=logging.INFO, force=False):

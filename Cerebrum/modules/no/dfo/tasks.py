@@ -25,6 +25,8 @@ from Cerebrum.modules.tasks import queue_handler
 from Cerebrum.modules.tasks import task_models
 from Cerebrum.modules.tasks import task_queue
 from Cerebrum.utils import date as date_utils
+from Cerebrum.utils import mime_type
+
 from .datasource import parse_message
 
 logger = logging.getLogger(__name__)
@@ -140,7 +142,11 @@ def get_tasks(event):
         objects to push
     """
     try:
-        fields = parse_message(event.body)
+        # dfo uses `content-type: application/octet-stream` (amqp default), but
+        # actually sends (probably utf-8 encoded) application/json data.
+        charset = mime_type.get_charset(event.content_type, default="utf-8")
+        json_data = event.body.decode(charset)
+        fields = parse_message(json_data)
     except Exception:
         logger.error('Invalid event: %s', repr(event), exc_info=True)
         return
