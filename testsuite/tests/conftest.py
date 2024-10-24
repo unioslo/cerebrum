@@ -2,7 +2,12 @@
 """
 Global py-test config and fixtures.
 """
-from __future__ import print_function
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import sys
 import types
@@ -104,6 +109,26 @@ def database(database_cls):
     db.rollback()
 
 
+# A note on using constants in tests:
+#
+# Constants in CoreConstants or CommonConstants can generally be used without
+# issues, as they always appear in Factory.get("Constants"), as well as our
+# common constant test fixture (`const`).
+#
+# There *may* still be issues using these constants if a class in
+# Factory.get("Constants") overrides a constant attribute from CoreConstants or
+# CommonConstants.  This happens e.g. with system_manual in environments with
+# ConstantsUniversityColleges.
+#
+# Also, the source system attribute "system_cached" often has special business
+# logic, and is automatically populated on `write_db()` in some cases, and is
+# best avoided in tests.
+#
+# If a test requires a constant, and no suitable constants exists in
+# CoreConstants/CommonConstants, you'll probably have to create it.
+# The `constant_creator` fixture can be used in these cases.
+
+
 @pytest.fixture
 def constant_module(database):
     """ Patched `Cerebrum.Constants` module.
@@ -118,6 +143,7 @@ def constant_module(database):
     from Cerebrum import Constants
     # Patch the `sql` property to always return a known db-object
     Constants._CerebrumCode.sql = property(lambda *args: database)
+
     # Clear the constants cache of each _CerebrumCode class, to avoid caching
     # intvals that doesn't exist in the database.
 
@@ -132,6 +158,54 @@ def constant_module(database):
                 and issubclass(item, Constants._CerebrumCode)):
             item._cache = dict()
     return Constants
+
+
+@pytest.fixture
+def constant_creator(constant_module):
+    """
+    A function that can create constants.
+
+    Constants that are created with this fixture function will exist in the
+    database *and* be present in the `const` fixture/fetchable with
+    `const.get_constant()`.
+    """
+    attrs = []
+
+    def create_constant(constant_type, value, *args, **kwargs):
+        """
+        Typical use:
+        ::
+
+            ID_FOO_STRVAL = "foo-id-type"
+
+            @pytest.fixture
+            def id_foo(constant_creator, constant_module):
+                return constant_creator(
+                    constant_module._EntityExternalIdCode,
+                    ID_TYPE_FOO,
+                    constant_module.CoreConstants.entity_person,
+                )
+        """
+        description = kwargs.pop('description',
+                                 "test constant " + six.text_type(value))
+        kwargs['description'] = description
+        code = constant_type(value, *args, **kwargs)
+        code.insert()
+
+        # Inject the code as an attribute of a class that exists both in
+        # in the Factory.get("Constants") and `const` fixture mro
+        #
+        # This is needed for some of the ConstantsBase lookup methods (e.g.
+        # `get_constant`)
+        attr = 'test_code_' + format(id(code), 'x')
+        setattr(constant_module.CoreConstants, attr, code)
+        attrs.append(attr)
+        return code
+
+    yield create_constant
+
+    for attr in attrs:
+        delattr(constant_module.CoreConstants, attr)
 
 
 @pytest.fixture
