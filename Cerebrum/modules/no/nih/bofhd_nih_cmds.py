@@ -121,6 +121,7 @@ uio_commands = [
     'group_remove_entity',
     'group_search',
     'group_set_description',
+    'group_set_expire',
     'misc_affiliations',
     'misc_check_password',
     'misc_clear_passwords',
