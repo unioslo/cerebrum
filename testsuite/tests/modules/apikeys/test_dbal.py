@@ -11,6 +11,14 @@ import pytest
 import six
 
 from Cerebrum.modules.apikeys import dbal
+from Cerebrum.testutils.log_utils import StrictNullHandler
+
+
+@pytest.fixture(scope='module', autouse=True)
+def _patch_logging():
+    """ catch badly formatted log records in dbal.logger. """
+    dbal.logger.addHandler(StrictNullHandler())
+    dbal.logger.setLevel(-100)
 
 
 @pytest.fixture
