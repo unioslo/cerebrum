@@ -79,7 +79,7 @@ class GroupAdminCacher(object):
         if self.filter_expired:
             self.group.clear()
             self.group.find(group_id)
-            return self.group.is_expired()
+            return not self.group.is_expired()
         return True
 
     def cache_member_id2group_ids(self, group_ids, member_type=None):

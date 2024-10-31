@@ -274,6 +274,7 @@ def main(inargs=None):
     test_mutex = test_group.add_mutually_exclusive_group()
     test_mutex.add_argument(
         '-o', '--only-owner',
+        type=str,
         default=None,
         help='Only search for groups owned by the given account'
     )
