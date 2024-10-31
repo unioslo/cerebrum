@@ -166,6 +166,8 @@ def write_plain_text_report(codec, translation=None, sender=None,
 
 
 def cache_one_accounts_groups(db, ac, account_name):
+    # Note: This does not use GroupAdminCacher, so it's not well
+    # suited for testing if that module has bugs.
     account_id2groups = collections.defaultdict(list)
     ac.clear()
     ac.find_by_name(account_name)
@@ -284,6 +286,7 @@ def main(inargs=None):
     test_mutex = test_group.add_mutually_exclusive_group()
     test_mutex.add_argument(
         '-o', '--only-owner',
+        type=str,
         default=None,
         help='Only search for groups owned by the given account'
     )
