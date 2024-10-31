@@ -91,7 +91,7 @@ def _is_disabled(disable_flag):
     global_disable = getattr(cereconf, 'EMAIL_DISABLED', False)
     if disable_flag or global_disable:
         logger.info("email disabled, will not send (EMAIL_DISABLED=%r)",
-                    global_disable)
+                    disable_flag or global_disable)
         return True
     return False
 
