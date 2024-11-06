@@ -371,16 +371,17 @@ class ADclient(PowershellClient):
         ExitCodeException, where powershell normally gives you an explanation
         on the error in 'stderr'. Example:
 
-            Add-ADGroupMember : Cannot find an object with identity: 'testuser' under: 'DC=
-            kaos,DC=local'.
-            At line:5 char:19
-            +  Add-ADGroupMember <<<<  -Credential $cred -Identity 'CN=testgroup,OU=gro
-            ups,OU=cerebrum,DC=kaos,DC=local' -Confirm:$false -Member @('testuser','mrtest
-            ','test2')
-                + CategoryInfo          : ObjectNotFound: (testuser:ADPrincipal) [Add-ADGr
-               oupMember], ADIdentityNotFoundException
-                + FullyQualifiedErrorId : SetADGroupMember.ValidateMembersParameter,Micros
-               oft.ActiveDirectory.Management.Commands.AddADGroupMember
+          Add-ADGroupMember : Cannot find an object with identity: 'testuser'
+          under: 'DC=kaos,DC=local'.
+          At line:5 char:19
+          +  Add-ADGroupMember <<<<  -Credential $cred -Identity 'CN=testgroup,
+          OU=groups,OU=cerebrum,DC=kaos,DC=local' -Confirm:$false -Member
+          @('testuser','mrtest ','test2')
+              + CategoryInfo          : ObjectNotFound: (testuser:ADPrincipal)
+              [Add-ADGroupMember], ADIdentityNotFoundException
+              + FullyQualifiedErrorId : SetADGroupMember
+              .ValidateMembersParameter
+              ,Microsoft.ActiveDirectory.Management.Commands.AddADGroupMember
 
         The first line in the error gives the information that this method
         checks, to find out what kind of exception to raise.
@@ -421,13 +422,20 @@ class ADclient(PowershellClient):
                 raise ObjectAlreadyExistsException(code, stderr, output)
             if re.search(r': The specified \w+ already exists', stderr):
                 raise ObjectAlreadyExistsException(code, stderr, output)
-            if (re.search(r'New-AD[^:]+: The operation failed because UPN '
-                          r'value provided for addition\/modification is not '
-                          r'unique forest-wide', stderr) or
-                    re.search('New-AD.+ : The operation failed because UPN '
-                              'value provided for add.+\n+.+not unique forest',
-                              stderr) or
-                    re.search('New-AD[^:]+: Unknown error \(0x21c8\)', stderr)):
+            if (
+                re.search(
+                    r'New-AD[^:]+: The operation failed because UPN '
+                    r'value provided for addition\/modification is not '
+                    r'unique forest-wide',
+                    stderr)
+                or re.search(
+                    'New-AD.+ : The operation failed because UPN '
+                    'value provided for add.+\n+.+not unique forest',
+                    stderr)
+                or re.search(
+                    'New-AD[^:]+: Unknown error \(0x21c8\)',
+                    stderr)
+            ):
                 # User Principal Names (UPN) must be globally unique, and is
                 # therefore considered an identity
                 raise ObjectAlreadyExistsException(code, stderr, output)
@@ -1636,7 +1644,8 @@ class ADclient(PowershellClient):
             if not kwargs[k]:
                 del kwargs[k]
         self.logger.info("Executing script %s, args: %s", script, kwargs)
-        params = ' '.join('-%s %s' % (x[0], x[1]) for x in six.iteritems(kwargs))
+        params = ' '.join('-%s %s' % (x[0], x[1])
+                          for x in six.iteritems(kwargs))
         cmd = '& %(cmd)s %(params)s' % {'cmd': self.escape_to_string(script),
                                         'params': params}
         if self.dryrun:
@@ -1649,274 +1658,3 @@ class ADclient(PowershellClient):
                           time.time() - t)
         self.logger.debug4("Script output: %r", output)
         return output
-
-
-# TODO: The rest should be modified or removed, as we should not communicate
-# with the old ADServer any more:
-class ADUtils(object):
-    """Utility methods for communicating both with AD and Cerebrum.
-
-    This should be the base class for classes that should work and synchronise
-    with AD, both fullsync and quicksyncs. Contains basic functionality.
-
-    """
-
-    def __init__(self, db, logger, host, port, ad_domain_admin, winrm_user,
-                 encrypted=True):
-        """Set up sync and connect to the given Windows service.
-
-        :type db: Cerebrum.CLDatabase.CLDatabase
-        :type logger: Cerebrum.logutils.loggers.CerebrumLogger
-        :param str host: Server where xmlrpc AD agent runs
-        :param int port: port number
-        :param str ad_domain_admin: The user we connect to the AD agent as
-        :param winrm_user:
-        :param bool encrypted: If the communication should go encrypted
-        """
-        pass
-
-    # TODO: This should go into a subclass, as not all uses exchange:
-    def update_Exchange(self, ad_obj):  # noqa: N802
-        """
-        Telling the AD-service to start the Windows Power Shell command
-        Update-Recipient on object in order to prep them for Exchange.
-
-        @param ad_objs : object to run command on
-        @type  ad_objs: str
-        """
-        msg = "Running Update-Recipient for '%s'" % ad_obj
-        if self.dryrun:
-            self.logger.debug("Not %s", msg)
-            return
-        self.logger.info(msg)
-
-        # Use self.ad_dc if it exists, otherwise try cereconf.AD_DC
-        try:
-            ad_dc = self.ad_dc
-        except AttributeError:
-            ad_dc = getattr(cereconf, "AD_DC", None)
-
-        if ad_dc:
-            self.run_cmd('run_UpdateRecipient', ad_obj, ad_dc)
-        else:
-            self.run_cmd('run_UpdateRecipient', ad_obj)
-
-    def attr_cmp(self, cb_attr, ad_attr):
-        """
-        Compare new (attribute calculated from Cerebrum data) and old
-        ad attribute.
-
-        @param cb_attr: attribute calculated from Cerebrum data
-        @type cb_attr: unicode, list or tuple
-        @param ad_attr: Attribute fetched from AD
-        @type ad_attr: list || unicode || str
-
-        @rtype: cb_attr or None
-        @return: cb_attr if attributes differ. None if no difference or
-        comparison cannot be made.
-        """
-        # Sometimes attrs from ad are put in a list
-        if isinstance(ad_attr, (list, tuple)) and len(ad_attr) == 1:
-            ad_attr = ad_attr[0]
-
-        # Handle list, tuples and (unicode) strings
-        if isinstance(cb_attr, (list, tuple)):
-            cb_attr = list(cb_attr)
-            # if cb_attr is a list, make sure ad_attr is a list
-            if not isinstance(ad_attr, (list, tuple)):
-                ad_attr = [ad_attr]
-            cb_attr.sort()
-            ad_attr.sort()
-
-        # Now we can compare the attrs
-        if (isinstance(ad_attr, six.string_types)
-                and isinstance(cb_attr, six.string_types)):
-            # Don't care about case
-            if cb_attr.lower() != ad_attr.lower():
-                return cb_attr
-        else:
-            if cb_attr != ad_attr:
-                return cb_attr
-
-
-class ADUserUtils(ADUtils):
-    """
-    User specific methods
-    """
-
-    def move_user(self, dn, ou):
-        self.move_object(dn, ou, obj_type="user")
-
-    def deactivate_user(self, ad_user):
-        """
-        Delete or deactivate user in Cerebrum-controlled OU.
-
-        @param ad_user: AD attributes
-        @type dn: dict
-        """
-        dn = ad_user["distinguishedName"]
-        # Delete or disable?
-        if self.delete_users:
-            self.delete_user(dn)
-        else:
-            # Check if user is already disabled
-            if not ad_user['ACCOUNTDISABLE']:
-                self.disable_user(dn)
-            # Disabled users lives in AD_LOST_AND_FOUND OU
-            if self.get_ou(dn) != self.get_deleted_ou():
-                self.move_user(dn, self.get_deleted_ou())
-
-    def delete_user(self, dn):
-        """
-        Delete user object in AD.
-
-        @param dn: AD attribute distinguishedName
-        @type dn: str
-        """
-        if self.dryrun:
-            self.logger.debug("DRYRUN: Not deleting user %s" % dn)
-            return
-
-        if self.run_cmd('bindObject', dn):
-            self.logger.info("Deleting user %s" % dn)
-            self.run_cmd('deleteObject')
-
-    def disable_user(self, dn):
-        """
-        Disable user in AD.
-
-        @param dn: AD attribute distinguishedName
-        @type dn: str
-        """
-        if self.dryrun:
-            self.logger.debug("DRYRUN: Not disabling user %s" % dn)
-            return
-        self.logger.info("Disabling user %s" % dn)
-        self.commit_changes(dn, ACCOUNTDISABLE=True)
-
-    def create_ad_account(self, attrs, ou, create_homedir=False):
-        """
-        Create AD account, set password and default properties.
-
-        @param attrs: AD attrs to be set for the account
-        @type attrs: dict
-        @param ou: LDAP path to base ou for the entity type
-        @type ou: str
-        """
-        uname = attrs.pop("sAMAccountName")
-        if self.dryrun:
-            self.logger.debug("DRYRUN: Not creating user %s" % uname)
-            return
-
-        sid = self.run_cmd("createObject", "User", ou, uname)
-        if not sid:
-            # Don't continue if createObject fails
-            return
-        self.logger.info("created user %s with sid %s", uname, sid)
-
-        # Set password
-        pw = unicode(self.ac.make_passwd(uname), cereconf.ENCODING)
-        self.run_cmd("setPassword", pw)
-
-        # Set properties. First remove any properties that cannot be set like
-        # this
-        for a in ("distinguishedName", "cn"):
-            if a in attrs:
-                del attrs[a]
-        # Don't send attrs with value == None
-        for k, v in attrs.items():
-            if v is None:
-                del attrs[k]
-        if self.run_cmd("putProperties", attrs) and self.run_cmd("setObject"):
-            # TBD: A bool here to decide if createDir should be performed or
-            # not? Create accountDir for new account if attributes where set.
-            # Give AD time to take a breath before creating homeDir
-            if create_homedir:
-                time.sleep(5)
-                self.run_cmd("createDir")
-        return sid
-
-
-class ADGroupUtils(ADUtils):
-    """
-    Group specific methods
-    """
-    def __init__(self, db, logger, host, port, ad_domain_admin):
-        ADUtils.__init__(self, db, logger, host, port, ad_domain_admin)
-        self.group = Factory.get("Group")(self.db)
-
-    def commit_changes(self, dn, **changes):
-        """
-        Set attributes for account
-
-        @param dn: AD attribute distinguishedName
-        @type dn: str
-        @param changes: attributes that should be changed in AD
-        @type changes: dict (keyword args)
-        """
-        if not self.dryrun and self.run_cmd('bindObject', dn):
-            self.logger.info("Setting attributes for %s: %s" % (dn, changes))
-            # Set attributes in AD
-            self.run_cmd('putGroupProperties', changes)
-            self.run_cmd('setObject')
-
-    def create_ad_group(self, attrs, ou):
-        """
-        Create AD group.
-
-        @param attrs: AD attrs to be set for the account
-        @type attrs: dict
-        @param ou: LDAP path to base ou for the entity type
-        @type ou: str
-        """
-        gname = attrs.pop("name")
-        if self.dryrun:
-            self.logger.debug("DRYRUN: Not creating group %s" % gname)
-            return
-
-        # Create group object
-        sid = self.run_cmd("createObject", "Group", ou, gname)
-        if not sid:
-            # Don't continue if createObject fails
-            return
-        self.logger.info("created group %s with sid %s", gname, sid)
-        # # Set other properties
-        if "distinguishedName" in attrs:
-            del attrs["distinguishedName"]
-        self.run_cmd("putGroupProperties", attrs)
-        self.run_cmd("setObject")
-        # createObject succeded, return sid
-        return sid
-
-    def delete_group(self, dn):
-        """
-        Delete group object in AD.
-
-        @param dn: AD attribute distinguishedName
-        @type dn: str
-        """
-        if self.dryrun:
-            self.logger.debug("DRYRUN: Not deleting %s" % dn)
-            return
-
-        if self.run_cmd('bindObject', dn):
-            self.logger.info("Deleting group %s" % dn)
-            self.run_cmd('deleteObject')
-
-    def sync_members(self, dn, members):
-        """
-        Sync members for a group to AD.
-
-        @param dn: AD attribute distinguishedName
-        @type dn: str
-        @param members: List of account and group names
-        @type members: list
-
-        """
-        if self.dryrun:
-            self.logger.debug("DRYRUN: Not syncing members for %s" % dn)
-            return
-        # We must bind to object before calling syncMembers
-        if dn and self.run_cmd('bindObject', dn):
-            if self.run_cmd("syncMembers", members, False, False):
-                self.logger.info("Synced members for group %s" % dn)
