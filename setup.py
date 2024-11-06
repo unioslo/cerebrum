@@ -356,7 +356,6 @@ setup(
         'Cerebrum/logutils',
         'Cerebrum/logutils/mp',
         'Cerebrum/modules',
-        'Cerebrum/modules/ad',
         'Cerebrum/modules/ad2',
         'Cerebrum/modules/amqp',
         'Cerebrum/modules/apikeys',
