@@ -280,7 +280,7 @@ class Cerebrum2EphorteClientMock(object):
                     last_name=None, full_name=None, initials=None,
                     email_address=None, telephone=None, mobile=None,
                     street_address=None, zip_code=None,
-                    city=None):
+                    city=None, employee_number=None):
         pass
 
     def ensure_role_for_user(self, user_id, job_title, role_id, ou_id,
@@ -617,7 +617,7 @@ class Cerebrum2EphorteClient(object):
         u.StreetAddress = ' ' if street_address is None else street_address
         u.ZipCode = ' ' if zip_code is None else zip_code
         u.City = ' ' if city is None else city
-        u.ExternalRef = ' '
+        # u.ExternalRef = ' '
         u.EmployeeNumber = ' ' if employee_number is None else employee_number
 
         # Ensure that user exists
