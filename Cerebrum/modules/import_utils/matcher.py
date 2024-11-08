@@ -44,11 +44,11 @@ Examples:
 
     # using match criterias
     find_person = PersonMatcher(['GREG_PID', 'DFO_PID'])
-    person = find_person([('GREG_PID', '1'), ('NO_PASSNR', '3')])
+    person = find_person([('GREG_PID', '1'), ('PASSNR', '3')])
 
     # without match criterias
     find_person = PersonMatcher()
-    person = find_person([('GREG_PID', '1'), ('NO_PASSNR', '3')])
+    person = find_person([('GREG_PID', '1'), ('PASSNR', '3')])
 """
 from __future__ import (
     absolute_import,
