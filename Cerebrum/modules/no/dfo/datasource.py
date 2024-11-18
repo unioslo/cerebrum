@@ -300,8 +300,8 @@ def parse_assignment(d):
     """
     result = {
         'id': assert_int(d['id']),
-        'stillingskode': assert_digits(d['stillingskode'],
-                                       allow_empty=True),
+        'stillingskode': assert_int(d['stillingskode'],
+                                    allow_empty=True),
         'stillingstittel': normalize_text(d.get('stillingstittel'),
                                           allow_empty=True),
         'organisasjonId': assert_digits(d['organisasjonId'],
@@ -341,11 +341,6 @@ def parse_assignment(d):
             # - stillingskatBetegn
         })
 
-    # Collect a simplified list of categories for assignment
-    # TODO: Is this really needed?  Should probably be moved to a mapper
-    cat = result['category'] = []
-    for cat_d in categories:
-        cat.append(cat_d['stillingskatId'])
     return result
 
 
