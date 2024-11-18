@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2020-2022 University of Oslo, Norway
+# Copyright 2020-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -58,38 +58,15 @@ class AbstractMapper(object):
     """
     Fetch objects from remote systems.
     """
+    # added to the start date - use negative values to accept upcoming data
+    start_offset = datetime.timedelta(days=0)
+
+    # added to the end date - use positive values to accept expired data
+    end_offset = datetime.timedelta(days=0)
 
     def __init__(self, config):
         """
-        # TODO: beskrivelse for config-argumentet?
         """
-        # TODO: We should probably rename the settings to make the "polarity"
-        # of the value clearer, and then *not* abs() the values here.  This
-        # should be fine, though, as there aren't really any good reason to
-        # turn these any other way around.
-        #
-        # Also, should this really be config? Maybe, maybe not.
-        self.start_offset = -1 * datetime.timedelta(abs(config.start_grace))
-        self.end_offset = datetime.timedelta(days=abs(config.end_grace))
-
-        # TODO: Do we really need to *ignore* these dates?  The only reason to
-        # ignore values, would be to ignore any end-dates/future task that is
-        # unreasonably far into the future.  Probably better to just have a
-        # sliding cutoff, e.g. ignore anything more than 10, 50, 100 years
-        # ahead in time.
-        self.end_dates_ignore = [
-            datetime.datetime.strptime(x, '%Y-%m-%d').date()
-            for x in config.end_dates_ignore]
-
-        # TODO: is this really config?  If so, why this and not the mg/mug
-        # roles?  These settings are never really used in the new import, but
-        # hardcoded into the appropriate mapper subclass.
-        #
-        # Also this is the abstract import -- dfo_category_id isn't really
-        # something this mapper should know about...
-        self.status_mapping = {
-            x['dfo_category_id']: x['cerebrum_status']
-            for x in config.status_mapping}
 
     @abc.abstractmethod
     def translate(self, reference, source):
@@ -110,7 +87,7 @@ class AbstractMapper(object):
         pass
 
     @abc.abstractmethod
-    def is_active(self, hr_object):
+    def is_active(self, hr_object, _today=None):
         """
         Decide if an HR object should be present in the database.
 
@@ -147,8 +124,7 @@ class AbstractMapper(object):
                             start, retry_date)
                 # No need to handle the the end date now.
                 continue
-            if (end and end not in self.end_dates_ignore
-                    and in_date_range(end_cutoff, end=end)):
+            if end and in_date_range(end_cutoff, end=end):
                 # We have to try again the day after the affiliations end date
                 # if we are actually going to remove it. Thus the + 1
                 retry_date = end + self.end_offset + datetime.timedelta(days=1)
@@ -184,6 +160,11 @@ class HrPerson(ReprFieldMixin):
         self.ids = []
         self.names = []
         self.titles = []
+
+
+#
+# Deprecated
+#
 
 
 class StatusMapping(Configuration):

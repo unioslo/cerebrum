@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2020-2023 University of Oslo, Norway
+# Copyright 2020-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -60,6 +60,11 @@ IGNORE_ASSIGNMENT_IDS = set((
     # placeholder for previous employees (invalid assignment):
     99999999,
 ))
+
+
+# DFØ uses 9999-12-31 as it's max date, effectively meaning *no date*.
+# Let's just cut anything after 9999-01-01, for simplicity
+MAX_DATE = datetime.date(9999, 1, 1)
 
 
 def normalize_id(dfo_id):
@@ -128,8 +133,12 @@ def assert_digits(value, allow_empty=False):
 def parse_dfo_date(value, allow_empty=True):
     """ Get a date object from a DFO date value. """
     if value:
-        return date_utils.parse_date(value)
-    elif allow_empty:
+        date = date_utils.parse_date(value)
+        if date < MAX_DATE:
+            return date
+    # If we get here, we either didn't get a date, or the date was after
+    # MAX_DATE
+    if allow_empty:
         return None
     else:
         raise ValueError('No date: %r' % (value,))
