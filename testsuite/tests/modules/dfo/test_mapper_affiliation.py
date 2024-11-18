@@ -55,7 +55,7 @@ class MockHrObject(object):
 
 @pytest.fixture
 def mapper():
-    return _ExampleMapper(None)
+    return _ExampleMapper()
 
 
 TODAY = datetime.date(2024, 11, 15)

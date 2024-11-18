@@ -33,12 +33,6 @@ import logging
 
 import six
 
-from Cerebrum.config.configuration import (
-    Configuration,
-    ConfigDescriptor,
-    Namespace,
-)
-from Cerebrum.config.settings import Integer, Iterable, String
 from Cerebrum.utils.reprutils import ReprFieldMixin
 
 logger = logging.getLogger(__name__)
@@ -63,10 +57,6 @@ class AbstractMapper(object):
 
     # added to the end date - use positive values to accept expired data
     end_offset = datetime.timedelta(days=0)
-
-    def __init__(self, config):
-        """
-        """
 
     @abc.abstractmethod
     def translate(self, reference, source):
@@ -160,53 +150,3 @@ class HrPerson(ReprFieldMixin):
         self.ids = []
         self.names = []
         self.titles = []
-
-
-#
-# Deprecated
-#
-
-
-class StatusMapping(Configuration):
-
-    # TODO: Obsolete?
-
-    dfo_category_id = ConfigDescriptor(
-        Integer,
-        doc='Position category id'
-    )
-    cerebrum_status = ConfigDescriptor(
-        String,
-        doc='Corresponding cerebrum status'
-    )
-
-
-class MapperConfig(Configuration):
-    start_grace = ConfigDescriptor(
-        Integer,
-        default=0,
-        doc=("How many days after an affiliation's start date should it first "
-             "be imported?"),
-    )
-
-    end_grace = ConfigDescriptor(
-        Integer,
-        default=0,
-        doc=("How many days past an affiliation's end date should it be kept "
-             "in Cerebrum?"),
-    )
-
-    end_dates_ignore = ConfigDescriptor(
-        Iterable,
-        template=String(),
-        default=[],
-        doc='End dates representing contracts without an end date..'
-            'E.g. 9999-12-31 is used by UiO-SAP.'
-    )
-
-    status_mapping = ConfigDescriptor(
-        Iterable,
-        template=Namespace(config=StatusMapping),
-        default=[],
-        doc='Mapping between category in SAP and status in Cerebrum.'
-    )
