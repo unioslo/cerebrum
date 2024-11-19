@@ -54,6 +54,7 @@ from Cerebrum.Utils import (
     prepare_string,
 )
 from Cerebrum.auth import all_auth_methods
+from Cerebrum.auth import dbal as auth_dbal
 from Cerebrum.modules.password_generator import generator as _pwgen
 from Cerebrum.utils import date_compat
 from Cerebrum.utils.username import suggest_usernames
@@ -656,9 +657,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             # Remove the account types
             self.delete_ac_types()
 
-            self.execute("""
-            DELETE FROM [:table schema=cerebrum name=account_authentication]
-            WHERE account_id=:a_id""", {'a_id': self.entity_id})
+            self.delete_password()
             self.execute("""
             DELETE FROM [:table schema=cerebrum name=account_info]
             WHERE account_id=:a_id""", {'a_id': self.entity_id})
@@ -827,9 +826,8 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             raise Errors.NotImplementedAuthTypeError("\n".join(notimplemented))
 
     def delete_password(self):
-        self.execute("""
-        DELETE FROM [:table schema=cerebrum name=account_authentication]
-        WHERE account_id=:a_id""", {'a_id': self.entity_id})
+        auth_dbal.delete_authentication(self._db,
+                                        account_id=int(self.entity_id))
 
     def encrypt_password(self, method, plaintext, salt=None, binary=False):
         """Returns the plaintext hashed according to the specified
@@ -1075,27 +1073,19 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                     # insert
                     pass
             if self._auth_info.get(k, None) is not None:
-                if what == 'insert':
-                    self.execute("""
-                    INSERT INTO
-                      [:table schema=cerebrum name=account_authentication]
-                      (account_id, method, auth_data)
-                    VALUES (:acc_id, :method, :auth_data)""",
-                                 {'acc_id': self.entity_id, 'method': k,
-                                  'auth_data': self._auth_info[k]})
-                elif what == 'update':
-                    self.execute("""
-                    UPDATE [:table schema=cerebrum name=account_authentication]
-                    SET auth_data=:auth_data
-                    WHERE account_id=:acc_id AND method=:method""",
-                                 {'acc_id': self.entity_id, 'method': k,
-                                  'auth_data': self._auth_info[k]})
+                if what in ("insert", "update"):
+                    auth_dbal.set_authentication(
+                        self._db,
+                        account_id=int(self.entity_id),
+                        method=int(k),
+                        auth_data=self._auth_info[k],
+                    )
             elif self.__in_db and what == 'update':
-                self.execute("""
-                DELETE FROM
-                  [:table schema=cerebrum name=account_authentication]
-                WHERE account_id=:acc_id AND method=:method""",
-                             {'acc_id': self.entity_id, 'method': k})
+                auth_dbal.delete_authentication(
+                    self._db,
+                    account_id=int(self.entity_id),
+                    method=int(k),
+                )
 
         try:
             del self.__plaintext_password
@@ -1140,23 +1130,18 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
 
     def get_account_authentication_methods(self):
         """Return a list of the authentication methods the account has."""
-        binds = {'a_id': self.entity_id}
-
-        return self.query("""
-        SELECT method
-        FROM [:table schema=cerebrum name=account_authentication]
-        WHERE account_id=:a_id""", binds)
+        return auth_dbal.list_authentication_methods(
+            self._db,
+            account_id=int(self.entity_id))
 
     def get_account_authentication(self, method):
         """Return the authentication data for the given method.  Raise
         an exception if missing."""
-
-        return self.query_1("""
-        SELECT auth_data
-        FROM [:table schema=cerebrum name=account_authentication]
-        WHERE account_id=:a_id AND method=:method""",
-                            {'a_id': self.entity_id,
-                             'method': int(method)})
+        return auth_dbal.get_authentication(
+            self._db,
+            account_id=int(self.entity_id),
+            method=int(method),
+        )
 
     def get_account_expired(self):
         """Return expire_date if account expire date is overdue, else False"""
@@ -1313,37 +1298,9 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
 
     def list_account_authentication(self, auth_type=None, filter_expired=True,
                                     account_id=None, spread=None):
-        binds = dict()
-        tables = []
-        where = []
-        if auth_type is None:
-            auth_type = self.const.auth_type_md5_crypt
-        aa_method = argument_to_sql(auth_type, 'aa.method', binds, int)
-        if spread is not None:
-            tables.append('[:table schema=cerebrum name=entity_spread] es')
-            where.append('ai.account_id=es.entity_id')
-            where.append(argument_to_sql(spread, 'es.spread', binds, int))
-            where.append(argument_to_sql(self.const.entity_account,
-                                         'es.entity_type', binds, int))
-        if filter_expired:
-            where.append("(ai.expire_date IS NULL OR ai.expire_date > [:now])")
-        if account_id:
-            where.append(argument_to_sql(account_id, 'ai.account_id',
-                                         binds, int))
-        where.append('ai.account_id=en.entity_id')
-        where = " AND ".join(where)
-        if tables:
-            tables = ','.join(tables) + ','
-        else:
-            tables = ''
-        return self.query("""
-        SELECT ai.account_id, en.entity_name, aa.method, aa.auth_data
-        FROM %s
-             [:table schema=cerebrum name=entity_name] en,
-             [:table schema=cerebrum name=account_info] ai
-             LEFT JOIN [:table schema=cerebrum name=account_authentication] aa
-               ON ai.account_id=aa.account_id AND %s
-        WHERE %s""" % (tables, aa_method, where), binds)
+        return auth_dbal.legacy_list_authentication(
+            self._db, method=auth_type, filter_expired=filter_expired,
+            account_id=account_id, spread=spread)
 
     def get_account_name(self):
         return self.account_name
