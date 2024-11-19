@@ -318,60 +318,27 @@ SIMILARSIZE_LIMIT_MULTIPLIER = 1.0
 ENCODING = 'ISO-8859-1'
 
 # Active directory specific settings.
+#
+# Exchange forward group settings.  This setting should probably be moved to
+# 'adconf'.
+AD_FORWARD_GROUP_PREFIX = ""
 
-AD_SERVER_HOST = 'bastard'
-AD_SERVER_PORT = 1681
-AD_DOMAIN = 'WinNT://WINTEST'
-AD_LDAP = 'DC=wintest,DC=uio,DC=no'
-AD_SOURCE_SEARCH_ORDER = (
-    'system_sap',
-    'system_fs',
-    'system_lt')
-AD_PASSWORD = 'hallo\n'
-AD_LOST_AND_FOUND = 'lost-n-found'
-# A value og '0' represents cn=Users,value -1 uses OU in AD_LDAP_PATH.
+# Exchange distribution group defaults.  These settings should probably be
+# moved to 'adconf'
+AD_DIST_GROUP_PREFIX = ""
+AD_DIST_GRP_ATTRIBUTES = ()
+AD_DIST_GRP_DEFAULTS = {}
+AD_DIST_GRP_UPDATE_EX = ()
+
+# Note: The following are only used by hiof ad scripts.  They should probably
+# not be defined here in the default config, but hard-coded in the relevant
+# hiof modules, or just exist in the hiof cereconf.
 AD_DEFAULT_OU = '0'
-AD_DEFAULT_GROUP_OU = 'OU=grupper'
-AD_DEFAULT_USER_OU = 'OU=brukere'
-AD_CERE_ROOT_OU_ID = '682'
-AD_DONT_TOUCH = ('Group Policy Creator Owners',
-                 'DnsUpdateProxy',
-                 'Tivoli_Admin_Privileges',
-                 'Domain Guests',
-                 'Domain Admins',
-                 'Domain Users',
-                 'Cert Publishers',
-                 'Domain Controllers',
-                 'Domain Computers',
-                 'Administrator',
-                 'Guest',
-                 'tmersrvd',
-                 'krbtgt',
-                 'TsInternetUser')
-# Necessary if groups and users have different namespaces in Cerebrum.
-AD_GROUP_POSTFIX = '-gruppe'
-# Default values is sAMAccountName, distinguishedName
-AD_ATTRIBUTES = ("displayName", "homeDrive", "homeDirectory")
-# Must always have ACCOUNTDISABLE.
-AD_ACCOUNT_CONTROL = {'ACCOUNTDISABLE': True, 'DONT_EXPIRE_PASSWORD': True}
-AD_HOME_DRIVE = 'M:'
-AD_PASSWORD_EXPIRE = '0'
-AD_CANT_CHANGE_PW = '0'
-AD_PW_EXCEPTION = 'process_students'
-AD_PW_EXCEPTION_OU = 'cerebrum_pw_exception'
-AD_DO_NOT_TOUCH = 'Cerebrum_dont_touch'
-AD_STUNNEL = False
-AD_STUNNEL_CONF = '/local/sbin/stunnel.conf'
-AD_DEFAULT_SYNC = ''
 AD_ACCOUNT_SPREADS = None
 AD_TRAIT_TYPES = None
-AD_DOMAIN_ADMIN_USER = 'cerebrum'
+
 # Exchange-related variables
 #
-# exchange-related-jazz
-# account exchange spread, accounts with this spread are exported to
-# exchange. override localy.
-EXCHANGE_ACCOUNT_SPREAD = ""
 # exchange-related-jazz
 # at creation of primary address for dist-groups this short prefix
 # will be attached to the chosen name, override localy
@@ -382,7 +349,7 @@ DISTGROUP_PRIMARY_ADDR_PREFIX = ""
 #
 DISTGROUP_DEFAULT_DOMAIN = ""
 #
-# distribution group spread, override localy
+# distribution group spread, override locally
 EXCHANGE_GROUP_SPREAD = None
 #
 # distribution group default admin list in exchange, override localy
@@ -397,7 +364,6 @@ EXCHANGE_HOMEMDB_VALID = {}
 # list homeMDBs per affiliation as follows:
 # EXCHANGE_HOMEMDB = {'ANSATT': (homeMDB01, homeMDB02...),
 #                     'MANUELL': (homeMDB03, homeMDB04...)}
-EXCHANGE_HOMEMDB_PER_AFFILIATION = {}
 
 # General location for lockfiles
 LOCKFILE_DIR = pj(prefix, 'var', 'lock')
