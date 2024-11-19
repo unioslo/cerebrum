@@ -195,6 +195,15 @@ def get_health_report(job_runner):
     return report
 
 
+def format_health_report(report_data):
+    return json.dumps(
+        obj=report_data,
+        indent=2,
+        sort_keys=True,
+        separators=(',', ': '),
+    ) + "\n"
+
+
 def write_health_report(filename, report_data):
     """ write json health report. """
     encoding = None if str is bytes else "utf-8"
