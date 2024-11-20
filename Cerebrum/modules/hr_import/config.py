@@ -100,12 +100,6 @@ class TaskImportConfig(Configuration):
         doc='Client module and config for the import',
     )
 
-    mapper = ConfigDescriptor(
-        Namespace,
-        config=ConfigurableModule,
-        doc='Mapper module and config for the import',
-    )
-
     import_class = ConfigDescriptor(
         String,
         doc='Class to perform import (Cerebrum.modules.hr_import.importer)',

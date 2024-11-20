@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2020-2023 University of Oslo, Norway
+# Copyright 2020-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -60,6 +60,11 @@ IGNORE_ASSIGNMENT_IDS = set((
     # placeholder for previous employees (invalid assignment):
     99999999,
 ))
+
+
+# DFØ uses 9999-12-31 as it's max date, effectively meaning *no date*.
+# Let's just cut anything after 9999-01-01, for simplicity
+MAX_DATE = datetime.date(9999, 1, 1)
 
 
 def normalize_id(dfo_id):
@@ -128,8 +133,12 @@ def assert_digits(value, allow_empty=False):
 def parse_dfo_date(value, allow_empty=True):
     """ Get a date object from a DFO date value. """
     if value:
-        return date_utils.parse_date(value)
-    elif allow_empty:
+        date = date_utils.parse_date(value)
+        if date < MAX_DATE:
+            return date
+    # If we get here, we either didn't get a date, or the date was after
+    # MAX_DATE
+    if allow_empty:
         return None
     else:
         raise ValueError('No date: %r' % (value,))
@@ -291,8 +300,8 @@ def parse_assignment(d):
     """
     result = {
         'id': assert_int(d['id']),
-        'stillingskode': assert_digits(d['stillingskode'],
-                                       allow_empty=True),
+        'stillingskode': assert_int(d['stillingskode'],
+                                    allow_empty=True),
         'stillingstittel': normalize_text(d.get('stillingstittel'),
                                           allow_empty=True),
         'organisasjonId': assert_digits(d['organisasjonId'],
@@ -332,11 +341,6 @@ def parse_assignment(d):
             # - stillingskatBetegn
         })
 
-    # Collect a simplified list of categories for assignment
-    # TODO: Is this really needed?  Should probably be moved to a mapper
-    cat = result['category'] = []
-    for cat_d in categories:
-        cat.append(cat_d['stillingskatId'])
     return result
 
 

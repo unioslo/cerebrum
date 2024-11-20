@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2020-2023 University of Oslo, Norway
+# Copyright 2020-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -63,12 +63,114 @@ import logging
 import re
 
 from Cerebrum.modules.hr_import.mapper import AbstractMapper, HrPerson
-from Cerebrum.modules.no.dfo import title_maps
 from Cerebrum.utils import phone as phone_utils
+from Cerebrum.utils import reprutils
+from Cerebrum.utils.mappings import SimpleMap
 from Cerebrum.utils.sorting import make_priority_lookup
 
 
 logger = logging.getLogger(__name__)
+
+
+LANGUAGES = ('nb', 'en')
+
+
+def get_localized_data(value, languages=LANGUAGES, warn=False):
+    """
+    Prepare/normalize a localized dict.
+
+    >>> get_localized_data({'en': "", 'nb': "bar", 'nn': "xyz"})
+    {'nb': "bar"}
+    """
+    value = value or {}
+    names = {}
+    for lang in languages:
+        if value.get(lang):
+            names[lang] = value[lang]
+    if warn:
+        missing = set(languages) - set(names)
+        if missing:
+            logger.warning('incomplete translation (missing %s): %s',
+                           (', '.join(missing), repr(value)))
+    return names
+
+
+class _SizedMap(reprutils.ReprFieldMixin, SimpleMap):
+    """
+    Mixin that adds a size repr field for SimpleMap classes.
+
+    >>> repr(_SizedMap({'foo': 3, 'bar': 42,}))
+    "<_SizedMap size=2>"
+    """
+    repr_id = False
+    repr_module = False
+    repr_fields = ("size",)
+
+    @property
+    def size(self):
+        return len(self)
+
+
+class _LocalizedMap(_SizedMap):
+    def transform_value(self, value):
+        return get_localized_data(value, warn=True)
+
+
+class AffiliationMap(_SizedMap):
+    """
+    Affiliation mapping.
+
+    Maps code tuples (e.g. MG/MUG) or codes (e.g. stillingskode, stillingskat)
+    to affiliations.
+    """
+    def transform_key(self, value):
+        if isinstance(value, tuple):
+            return tuple(int(i) for i in value)
+        return int(value)
+
+    def transform_value(self, value):
+        if value is None:
+            # Explicit hit, but no value.  This means means that the key
+            # is *valid*,  but should explicitly not map to an affiliation.
+            return None
+        if len(value.split("/")) != 2:
+            raise ValueError("Invalid affiliation: " + repr(value))
+        return value
+
+
+class AssignmentTitleMap(_LocalizedMap):
+    """
+    A map of assignment code (stillingskode) to localized title.
+
+    >>> titles = AssignmentTitleMap({
+    ...     20000214: {'nb': 'Rektor', 'en': 'Rector'},
+    ...     20000787: {'nb': "Spesialtannlege", 'en': "Specialist Dentist"},
+    ... })
+    >>> titles['20000214']
+    {'nb': 'Rektor', 'en': 'Rector'}
+    """
+    def transform_key(self, value):
+        return int(value)
+
+
+class PersonalTitleMap(_LocalizedMap):
+    """
+    A map of personal title ids to personal title.
+
+    A personal title id is a shortened, norwegian title from the source system.
+
+    >>> titles = PersonalTitleMap({
+    ...     "Fung.fak.dir": {
+    ...         'nb': "Fungerende fakultetsdirektør",
+    ...         'en': "Acting Faculty Director",
+    ...     },
+    ...     "Fung.forsk.led": {
+    ...         'nb': "Fungerende forskningsleder",
+    ...         'en': "Acting Head of Research",
+    ...     }})
+    >>> titles['Fung.fak.dir']
+    {'nb': "Fungerende fakultetsdirektør", 'en': "Acting Faculty Director"}
+    """
 
 
 class DfoPersonIds(object):
@@ -213,23 +315,24 @@ class DfoTitles(object):
     Extract and map potential employee titles from dfo employee data.
 
     Extracts employee title (tittel) and main assignment title
-    (stillingstittel), then translates these using the py:mod:`.title_maps`
-    module.
-
-    NOTE: The title mapping module is hard-coded to use the titles specified in
-    a ``user_title_map`` module - usually placed adjacent to ``cereconf``.
+    (stillingstittel), then translates these using the mappings defined in this
+    class.  Note: This default implementation has no mappings - see relevant
+    subclasses.
 
     >>> get_titles = DfoTitles()
     >>> list(get_titles({
     ...     'id': '01234567',
     ...     'tittel': 'Fung.fak.dir',
     ...     'stillingId': '123',
-    ...     'assignments': {'123': {'stillingstittel': '0214 R'}}}))
+    ...     'assignments': {'123': {'stillingskode': 20000214}}}))
     [("PERSONALTITLE", "nb", "Fungerende fakultetsdirektør"),
      ("PERSONALTITLE", "en", "Acting Faculty Director"),
      ("WORKTITLE", "nb", "Rektor"),
      ("WORKTITLE", "en", "Rector")]
     """
+
+    work_title_map = AssignmentTitleMap({})
+    personal_title_map = PersonalTitleMap({})
 
     def __call__(self, employee_data):
         main_id = employee_data.get('stillingId')
@@ -238,9 +341,9 @@ class DfoTitles(object):
 
         input_titles = (
             ('PERSONALTITLE', employee_data.get('tittel'),
-             title_maps.personal_titles),
-            ('WORKTITLE', (assignment or {}).get('stillingstittel'),
-             title_maps.job_titles),
+             self.personal_title_map),
+            ('WORKTITLE', (assignment or {}).get('stillingskode'),
+             self.work_title_map),
         )
         for variant, raw_value, t_map in input_titles:
             if not raw_value:
@@ -256,66 +359,93 @@ class DfoTitles(object):
 
 
 class DfoAffiliations(object):
-    """ Extract potential affiliations from dfo employee data.
-
-    We map *all* assignments to a potential affiliation (if any -- invalid or
-    unknown assignments are skipped).
-
-    We say potential, as the assignment may not be valid at the current date,
-    and the affiliated org unit may not be known.  It will be up to the import
-    routine to decide if any of the resulting affiliations can be used.
-
-    Note that this particular function *must* receive output from the employee
-    dataparser, as it needs *both* employee info, *and* additional info on each
-    assignment present on the employee object.
     """
+    Get affiliations from employee data.
+
+    This class tries to map all assignments to affiliations.
+
+    Note that the assignment may not be valid at the current date, and the
+    affiliated org unit may not be known.  It will be up to the import
+    routine to decide if and how any of the resulting affiliations are used.
+
+    As with the other mappers, the input object must come from the datasource
+    module.  This is especially important here, as the input object must be
+    patched with assignment data.
+    """
+
     # Employee group/subgroup to affiliation map.
     #
     # Employees are placed in groups (medarbeidergruppe, MG) and subgroups
     # (medarbeiderundergruppe, MUG).  If placed in any of the following
     # group/subgroup pairs, we should not consider the main assignment
-    # category, but rather map to specific non-employee affiliations.
-    EMPLOYEE_GROUP_MAP = {
-        (8, 50): None,  # Explicitly ignore this MG/MUG
-        (9, 90): 'TILKNYTTET/ekst_partner',
-        (9, 91): 'TILKNYTTET/ekst_partner',
-        (9, 93): 'TILKNYTTET/emeritus',
-        (9, 94): 'TILKNYTTET/ekst_partner',
-        (9, 95): 'TILKNYTTET/gjesteforsker',
-    }
-
-    # Assignment category map
+    # category or code, but rather map to specific affiliations.
     #
-    # Any assignment category in this map should map directly to a specific
-    # employee affiliation.
+    # If a mapping is explicitly set to `None`, no other mappings will be
+    # considered either, and the assignment won't map to any affiliation.
+    employee_group_map = AffiliationMap({
+        # Assignment group (MG/MUG) to affiliation, e.g.:
+        # (8, 50): None,
+        # (9, 90): "TILKNYTTET/ekst_partner",
+    })
+
+    # Assignment code to affiliation map.
     #
-    # TODO: Do this *really* need to be configurable?  Or should we rather
-    # implement subclasses with the proper categories?
-    ASSIGNMENT_CATEGORY_MAP = {
-        # Administrativt personale:
-        50078118: "ANSATT/tekadm",
+    # Any assignment code (stillingskode) in this map will directly map to the
+    # given affiliation.  If the assignment code *isn't* mapped here, we'll
+    # fall back to checking the assignment category.  If the code is explicitly
+    # set to `None`, the category won't be checked, and the assignment won't
+    # map to any affiliation.
+    assignment_code_map = AffiliationMap({
+        # Assignment code to affiliation, e.g.:
+        # 20000214: "Ansatt/tekadm",
+    })
 
-        # Drifts- og teknisk pers./andre tilsatte
-        50078119: "ANSATT/tekadm",
+    # Assignment category to affiliation map
+    #
+    # Any assignment category (stillingskat) in this map will directly map to
+    # the given affiliation (assuming the employee group and assignment code
+    # failed to do so).
+    assignment_category_map = AffiliationMap({
+        # Assignment category to affiliation, e.g.:
+        # 50078118: "ANSATT/tekadm",
+    })
 
-        # Undervisnings- og forsknings personale
-        50078120: "ANSATT/vitenskapelig",
-    }
-
-    @classmethod
-    def _get_category_aff(cls, assignment):
+    def _get_aff_from_assignment(self, assignment):
         """
-        Find a suitable category from assignment data.
+        Find a suitable affiliation from assignment data.
 
         :type assignment: dict
         :param assignment: an assignment dict
         """
-        # Do we need to consider assignment category start/end dates? And if
-        # so, should grace/offsets be applied?  What does these dates even
-        # mean?
-        for category in assignment['stillingskat']:
-            if category['stillingskatId'] in cls.ASSIGNMENT_CATEGORY_MAP:
-                return cls.ASSIGNMENT_CATEGORY_MAP[category['stillingskatId']]
+        assignment_id = assignment['id']
+        assignment_code = assignment['stillingskode']
+        if assignment_code in self.assignment_code_map:
+            # The code may explicitly be set to None, which means we shouldn't
+            # try to match stillingskat.
+            logger.debug(
+                "Found assignment affiliation from code: %r -> %r",
+                assignment_code, self.assignment_code_map[assignment_code])
+            return self.assignment_code_map[assignment_code]
+
+        # Unknown assignment code (stillingskode), try to find a assingment
+        # category (stillingskat):
+        logger.debug("Unknown assignment code: id=%r, code=%r",
+                     assignment_id, assignment_code)
+        # We may want to filter out catetories based on their start and end
+        # dates here?
+        category_ids = [c['stillingskatId']
+                        for c in assignment['stillingskat']]
+        for category_id in category_ids:
+            if category_id in self.assignment_category_map:
+                logger.debug(
+                    "Found assignment affiliation from category: %r -> %r",
+                    category_id, self.assignment_category_map[category_id])
+                return self.assignment_category_map[category_id]
+
+        # Unknown assignment category as well, we can't find a valid
+        # affiliation here...
+        logger.debug("Unknown assignment category: id=%r, categories=%r",
+                     assignment_id, category_ids)
         return None
 
     def __call__(self, employee_data):
@@ -341,17 +471,16 @@ class DfoAffiliations(object):
             assignment = assignments[assignment_id]
 
             # Affiliation from category - "regular emplyee affs"
-            aff = self._get_category_aff(assignment)
+            aff = self._get_aff_from_assignment(assignment)
 
             if assignment_id == main_id:
-                # TODO: should we look at the assignment['period']?
+                # TODO: should we look at the assignment['period'] in stead?
                 start_date, end_date = main_start, main_end
 
-                # If the person has one of the MG/MUG combinations present in
-                # role mapping, then the main assignment should be handled as
-                # a special affiliation.
-                if (main_group, main_subgroup) in self.EMPLOYEE_GROUP_MAP:
-                    aff = self.EMPLOYEE_GROUP_MAP[(main_group, main_subgroup)]
+                # For the main assignment only:  Use the employee group mapping
+                # if the given employee group is mapped.
+                if (main_group, main_subgroup) in self.employee_group_map:
+                    aff = self.employee_group_map[(main_group, main_subgroup)]
                     if not aff:
                         logger.info(
                             "Ignoring assignment from MG/MUG: "
@@ -359,10 +488,9 @@ class DfoAffiliations(object):
                             assignment_id, main_group, main_subgroup)
                         continue
                 elif not aff:
-                    # If this happens it's probably because the assignment
-                    # doesn't yet have a valid category.  There's really
-                    # nothing we can do at this point though - we don't know
-                    # which affiliation to assign to the employee.
+                    # This shouldn't really happen:  If we get here, then none
+                    # of the mappers can find an appropriate affiliation.
+                    # We're probably missing an assignment code mapping.
                     logger.warning(
                         "Unknown main assignment: id=%r, mg=%r, mug=%r",
                         assignment_id, main_group, main_subgroup)
@@ -378,8 +506,8 @@ class DfoAffiliations(object):
                     break
 
                 if not aff:
-                    # Same as for main assignment above - no valid
-                    # stillingskat.stillingskatId.
+                    # Same as for main assignment above - we can't find a an
+                    # affiliation for the input data.
                     logger.warning("Unknown secondary assignment: id=%r",
                                    assignment_id)
                     continue
@@ -477,23 +605,19 @@ class EmployeeMapper(AbstractMapper):
             except OverflowError:
                 return dt
 
-        # TODO: What if we have *two* different ANSATT/<some-ou> affs from this
-        # function?  We should probably define some ordering and exclude
-        # "duplicated" aff-statuses by some criteria, e.g.:
+        # Each person can only have *one* main affiliation type (e.g.  ANSATT)
+        # per <ou> from a given source system.  If we find both
+        # ANSATT/vitenskapelig@<ou> and ANSATT/tekadm@<ou> in the employee
+        # data, only *one* of the statuses can be stored in Cerebrum for a
+        # given employee.
         #
-        # - keep whichever aff/status with the earliest start-date?
-        # - define some sort of status priority list, so that e.g.
-        #   ANSATT/vitenskapelig always trumps ANSATT/tekadm?
-        #
-        # Currently, if both ANSATT/vitenskapelig@x and ANSATT/tekadm@x is
-        # passed to the AffiliationSync, the first one listed will be
-        # INSERTed/UPDATEed, and the second will UPDATE the first with a new
-        # status.
-        #
-        # This is also probably behaviour that should be implemented in the
-        # *importer*?
+        # If we pass both to AffiliationSync, only the second one (last to
+        # be written), will be kept.  This is likely the opposite of what
+        # we want, as the main assignment will be yielded first.
+        seen_affs = set()
 
         for aff, ou, start_date, end_date in hr_object.affiliations:
+
             if start_date:
                 start_limit = _add_delta(start_date, self.start_offset)
                 if today < start_limit:
@@ -504,10 +628,17 @@ class EmployeeMapper(AbstractMapper):
                 if today > end_limit:
                     continue
 
+            key = (aff.split("/", 1)[0], dict(ou)['DFO_OU_ID'])
+            if key in seen_affs:
+                logger.info("Skipping duplicate affiliation %s @ %s",
+                            aff, repr(ou))
+                continue
+            seen_affs.add(key)
+
             yield aff, ou
 
-    def is_active(self, hr_object):
+    def is_active(self, hr_object, _today=None):
         if not hr_object.enable:
             return False
 
-        return any(self.get_active_affiliations(hr_object))
+        return any(self.get_active_affiliations(hr_object, _today=_today))
