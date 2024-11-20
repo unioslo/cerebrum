@@ -35,7 +35,6 @@ from __future__ import (
 import argparse
 import logging
 import os
-import sys
 
 try:
     import cereconf
@@ -46,7 +45,7 @@ import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum.modules.job_runner.job_config import get_job_config, dump_jobs
 from Cerebrum.modules.job_runner.socket_ipc import SocketServer, SocketTimeout
-from Cerebrum.modules.job_runner.health import write_health_report
+from Cerebrum.modules.job_runner.health import format_health_report
 
 default_dump_config = 'scheduled_jobs'
 default_dump_depth = 1
@@ -230,7 +229,7 @@ def main(inargs=None):
         logger.info("Running command=%r, args=%r, timeout=%r",
                     command, c_args, args.timeout)
         result = run_command(args.socket, command, c_args, args.timeout)
-        write_health_report(sys.stdout, result)
+        print(format_health_report(result))
     else:
         logger.info("Running command=%r, args=%r, timeout=%r",
                     command, c_args, args.timeout)
