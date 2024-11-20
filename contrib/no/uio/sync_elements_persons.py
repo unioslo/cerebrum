@@ -1,0 +1,1054 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# Copyright 2014-2023 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""
+Syncronizator for persons in Elements.
+
+This piece of software ensures existence of user accounts in Elements,
+via the Elements web service.
+
+TODO
+----
+Handle primary account changes.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+
+import argparse
+import datetime
+import functools
+import sys
+import textwrap
+import time
+from collections import defaultdict
+
+import six
+
+from Cerebrum import Errors
+from Cerebrum.Utils import Factory
+from Cerebrum.modules.no.uio.Elements import ElementsPermission
+from Cerebrum.modules.no.uio.Elements import ElementsRole
+from Cerebrum.modules.no.uio.ElementsWS import ElementsWSError
+from Cerebrum.utils import date as date_utils
+from Cerebrum.utils import date_compat
+from Cerebrum.utils.funcwrap import memoize
+
+
+logger = Factory.get_logger("cronjob")
+db = Factory.get('Database')()
+co = Factory.get('Constants')(db)
+clconst = Factory.get('CLConstants')(db)
+ou = Factory.get('OU')(db)
+elements_role = ElementsRole(db)
+source_system_object = None
+
+# Caches
+_person_to_user_id = {}
+_elements_ous = None
+_perm_codes = None
+_valid_elements_ous = None
+
+
+def get_source_system():
+    return source_system_object
+
+
+def get_email_address(pe):
+    """Get a persons primary email address.
+
+    :type pe: Person
+    :param pe: The person
+
+    :rtype: text
+    :return: The persons primary email address
+    """
+    ac = Factory.get('Account')(db)
+    ac.find(pe.get_primary_account())
+    return ac.get_primary_mailaddress()
+
+
+def get_username(pe):
+    """Get the primary accounts username.
+
+    :type pe: Person
+    :param pe: The person
+
+    :rtype: text
+    :return: The primary accounts user name
+    """
+    ac = Factory.get("Account")(pe._db)
+    ac.find(pe.get_primary_account())
+    return ac.account_name
+
+
+def get_user_id(pe):
+    """Get the persons user id in Elements.
+
+    Elements uses FEIDE-ids to identify users.
+
+    :type pe: Person
+    :param pe: The person
+
+    :rtype: str
+    :return: The persons Elements (FEIDE) id
+    """
+    user_id = _person_to_user_id.get(pe.entity_id)
+
+    if user_id is None:
+        user_id = get_username(pe)
+        _person_to_user_id[pe.entity_id] = user_id
+
+    return user_id
+
+
+@memoize
+def get_sko(ou_id):
+    """Get the stedkode for an OU.
+
+    :type ou_id: int
+    :param ou_id: The OU ID
+
+    :rtype: str
+    :return: The six-digit stedkode
+    """
+    # ick - gobals
+    ou_obj = Factory.get("OU")(db)
+    ou_obj.find(ou_id)
+    return six.text_type(ou_obj)
+
+
+def ou_has_elements_spread(ou_id):
+    """Check for Elements spread on an OU.
+
+    :type ou_id: int
+    :param ou_id: The OU ID
+
+    :rtype: bool
+    :return: Has spread?
+    """
+    global _elements_ous
+
+    if _elements_ous is None:
+        _elements_ous = set([x['entity_id'] for x in
+                            ou.list_all_with_spread(
+                                spreads=co.spread_ephorte_ou)])
+
+    return ou_id in _elements_ous
+
+
+def elements_has_ou(client, sko):
+    """Check for OU in Elements
+
+    :type sko: str
+    :param sko: Stedkode
+
+    :rtype: dict/None
+    :return: elements ou data if exists else None
+    """
+    global _valid_elements_ous
+    if _valid_elements_ous is None:
+        _valid_elements_ous = dict(((x['OrgId'], x) for x in
+                                   client.get_all_org_units()))
+    return _valid_elements_ous.get(sko, False)
+
+
+@memoize
+def ou_address(pe, co, ou_id):
+    for row in pe.list_entity_addresses(entity_type=co.entity_ou,
+                                        source_system=get_source_system(),
+                                        address_type=co.address_street,
+                                        entity_id=ou_id):
+        return dict(row)
+    return None
+
+
+def get_person_address(pe, co):
+    for row in pe.list_affiliations(person_id=pe.entity_id,
+                                    source_system=get_source_system(),
+                                    fetchall=False):
+        address = ou_address(pe, co, row['ou_id'])
+        # If no address is found on OU of primary affiliation, we search for
+        # an address at the OUs of less prioritized affiliations.
+        if address:
+            street_address = address['address_text']
+            # There seems to be a limit in Elements ...
+            if street_address and len(street_address) > 50:
+                street_address = street_address[0:50]
+            zip_code = address['postal_number']
+            city = address['city']
+            return street_address, zip_code, city
+
+    return None, None, None
+
+
+def update_person_info(pe, client):
+    """Collect information about the person, and ensure that
+    it exists in Elements.
+
+    :type pe: Person
+    :param pe: The person
+
+    :type client: ElementsWS
+    :param client: The client used to talk to Elements
+    """
+    first_name = pe.get_name(co.system_cached, co.name_first)
+    last_name = pe.get_name(co.system_cached, co.name_last)
+    full_name = pe.get_name(co.system_cached, co.name_full)
+    user_id = get_user_id(pe)
+    uname = get_username(pe)
+
+    try:
+        email_address = get_email_address(pe)
+    except Errors.NotFoundError:
+        logger.warn('No email address for %s', user_id)
+        email_address = None
+
+    # Webservice accepts max 20 characters for this field
+    telephone = pe.get_contact_info(source=get_source_system(),
+                                    type=co.contact_phone)
+    telephone = telephone[0]['contact_value'][:20] if len(telephone) else None
+
+    # TODO: Has not been exported before. Export nao?
+    mobile = None
+
+    street_address, zip_code, city = get_person_address(pe, co)
+
+    employee_number = pe.get_external_id(source_system=get_source_system(),
+                                         id_type=co.externalid_dfo_pid)
+
+    logger.info('Ensuring existence of %s: %s',
+                user_id,
+                six.text_type((first_name, None, last_name, full_name, uname,
+                               email_address, telephone, mobile,
+                               street_address, zip_code, city, employee_number)))
+    try:
+        client.ensure_user(user_id, first_name, None, last_name, full_name,
+                           uname, email_address, telephone, mobile,
+                           street_address, zip_code, city, employee_number)
+        return True
+    except ElementsWSError as e:
+        # Return prettier error-message if ElementsWS returns
+        # an unspecified rule violation for field length.
+        # Should be removed once the WS itself returns the specific field
+        # that caused the exception.
+        if 'Det er ikke tillatt med mer enn' in six.text_type(e):
+            max_length = [num for num in str(e).split() if num.isdigit()][0]
+            e = ('Unknown field violating WS-rule of max '
+                 '%s characters.' % max_length)
+        logger.warn('Could not ensure existence of %s in Elements: %s',
+                    user_id, six.text_type(e))
+        return False
+
+
+def perm_code_id_to_perm(code):
+    """Convert from Elements perm code to Cerebrum code"""
+    global _perm_codes
+
+    if _perm_codes:
+        return _perm_codes[code]
+
+    logger.debug("Mapping perm codes")
+    _perm_codes = dict((six.text_type(x), x)
+                       for x in map(functools.partial(getattr, co), dir(co))
+                       if isinstance(x, co.ElementsPermission))
+
+
+def user_details_to_perms(user_details):
+    """Convert result from IAM2ElementsClient.get_user_details()
+
+    :type user_details tuple(dict, list(dict), list)
+    :param user_details: Return value from get_user_details()
+
+    :rtype list(authcode, ou, boolean)"""
+    authzs = user_details[1]
+    return [(x['AccessCodeId'], x['OrgId'], x['IsAutorizedForAllOrgUnits'])
+            for x in authzs]
+
+
+def list_perm_for_person(person):
+    ret = []
+    for row in ElementsPermission(db).list_permission(
+            person_id=person.entity_id, filter_expired=True):
+        perm_type = row['perm_type']
+        if perm_type:
+            perm_type = str(co.ElementsPermission(perm_type))
+        sko = get_sko(row['adm_enhet'])
+        if sko == '999999':
+            sko = None
+        ret.append((perm_type, sko, False))
+    return ret
+
+
+def fullsync_persons(client, selection_spread):
+    """Full sync of person information.
+
+    :type client: ElementsWS
+    :param client: The client used to talk to Elements
+
+    :type selection_spread: Spread
+    :param selection_spread: A person must have this spread to be synced
+    """
+    for person in select_persons_for_update(selection_spread):
+        update_person_info(pe=person, client=client)
+
+
+def fullsync_account(client, selection_spread, account_name):
+    """Sync info, roles and permissions for a single account/person.
+
+    :type client: ElementsWS
+    :param client: The client used to talk to Elements
+
+    :type selection_spread: Spread
+    :param selection_spread: A person must have this spread to be synced
+
+    :type account_name: str
+    :param account_name: Account name of person to be synced
+    """
+    ac = Factory.get('Account')(db)
+    try:
+        ac.find_by_name(account_name)
+    except Errors.NotFoundError:
+        logger.error("No such account %s", account_name)
+        return
+
+    if sanity_check_person(person_id=ac.owner_id,
+                           selection_spread=selection_spread):
+        person = Factory.get('Person')(db)
+        person.find(ac.owner_id)
+
+        update_person_info(pe=person, client=client)
+
+        try:
+            update_person_roles(person, client, remove_superfluous=True)
+        except Exception:
+            logger.warn(
+                'Failed to update roles for person_id:%s',
+                person.entity_id, exc_info=True)
+
+        try:
+            update_person_perms(person, client, remove_superfluous=True)
+        except Exception:
+            logger.warn(
+                'Failed to update permissions for person_id:%s',
+                person.entity_id, exc_info=True)
+
+
+def select_persons_for_update(selection_spread):
+    """Yield persons satisfying criteria.
+    eg: persons with elements_person spread
+
+    :type selection_spread: Spread
+    :param selection_spread: The spread to filter by
+
+    :rtype: generator
+    :return: A generator that yields Person objects
+    """
+    pe = Factory.get('Person')(db)
+    for p in pe.list_all_with_spread(selection_spread):
+        pe.clear()
+        try:
+            pe.find(p['entity_id'])
+        except Errors.NotFoundError:
+            logger.warn('NotFoundError raised for entity_id %s in spread list',
+                        p['entity_id'])
+            continue
+
+        try:
+            get_user_id(pe)
+        except Errors.NotFoundError:
+            logger.info(
+                'person_id:%s does not have a primary account, skipping',
+                p['entity_id'])
+            continue
+
+        yield pe
+
+
+def select_events_by_person(clh, config, change_types, selection_spread):
+    """Yield unhandled events, sorted by person_id.
+
+    :type clh: CLHandler
+    :param clh: Change log handler instance
+
+    :type config: Config
+    :param config: Configuration
+
+    :type change_types: iterable
+    :param change_types: Get events of this type
+
+    :type selection_spread: Spread
+    :param selection_spread: A person must have this spread to be synced
+
+    :rtype: generator
+    :return: A generator that yields (person_id, events)
+    """
+    too_old = (date_utils.now()
+               - datetime.timedelta(days=int(config.changes_too_old_days)))
+
+    logger.debug("Fetching unhandled events using change key: %s",
+                 config.change_key)
+    all_events = clh.get_events(config.change_key, change_types)
+    logger.debug("Found %d events to process", len(all_events))
+
+    events_by_person = defaultdict(list)
+    for event in all_events:
+        # Ignore too old changes
+        if date_compat.get_datetime_tz(event['tstamp']) < too_old:
+            logger.info("Skipping too old change_id: %s" % event['change_id'])
+            clh.confirm_event(event)
+            continue
+
+        events_by_person[event['subject_entity']].append(event)
+
+    for person_id, events in events_by_person.items():
+        yield (person_id, events)
+
+
+def sanity_check_person(person_id, selection_spread):
+    """Checks that:
+     - the person exists
+     - has a primary account
+     - has Elements spread
+
+    :type person_id: int
+    :param person_id: Person ID
+
+    :type selection_spread: Spread
+    :param selection_spread: A person must have this spread
+
+    :rtype: bool
+    :return: True if everything checks out, else False
+    """
+    pe = Factory.get('Person')(db)
+
+    try:
+        pe.find(person_id)
+    except Errors.NotFoundError:
+        logger.info('person_id:%s does not exist, skipping', person_id)
+        return False
+
+    try:
+        get_user_id(pe)
+    except Errors.NotFoundError:
+        logger.info(
+            'person_id:%s does not have a primary account, skipping',
+            person_id)
+        return False
+
+    if not pe.has_spread(spread=selection_spread):
+        logger.info('person_id:%s has no Elements spread, skipping', person_id)
+        return False
+
+    return True
+
+
+def fullsync_roles_and_perms(client, selection_spread):
+    """Full sync of roles and permissions.
+
+    :type client: ElementsWS
+    :param client: The client used to talk to Elements
+
+    :type selection_spread: Spread
+    :param selection_spread: A person must have this spread to be synced
+    """
+    for person in select_persons_for_update(selection_spread):
+        try:
+            update_person_roles(person, client, remove_superfluous=True)
+        except Exception:
+            logger.warn(
+                'Failed to update roles for person_id:%s',
+                person.entity_id, exc_info=True)
+
+        try:
+            update_person_perms(person, client, remove_superfluous=True)
+        except Exception:
+            logger.warn(
+                'Failed to update permissions for person_id:%s',
+                person.entity_id, exc_info=True)
+
+
+def quicksync_roles_and_perms(client, selection_spread, config, commit):
+    """Quick sync for roles and permissions.
+
+    :type client: ElementsWS
+    :param client: The client used to talk to Elements
+
+    :type selection_spread: Spread
+    :param selection_spread: A person must have this spread to be synced
+
+    :type config: Config
+    :param config: Configuration
+
+    :type commit: bool
+    :param commit: Commit confirmed events?
+    """
+    from Cerebrum.modules import CLHandler
+    clh = CLHandler.CLHandler(db)
+    pe = Factory.get('Person')(db)
+
+    change_types_roles = (clconst.elements_role_add,
+                          clconst.elements_role_rem,
+                          clconst.elements_role_upd)
+    change_types_perms = (clconst.elements_perm_add, clconst.elements_perm_rem)
+    change_types = change_types_roles + change_types_perms
+
+    event_selector = select_events_by_person(
+        clh=clh,
+        config=config,
+        change_types=change_types,
+        selection_spread=selection_spread)
+
+    for person_id, events in event_selector:
+        if not sanity_check_person(person_id=person_id,
+                                   selection_spread=selection_spread):
+            continue
+
+        pe.clear()
+        pe.find(person_id)
+
+        if not update_person_info(pe, client):
+            continue
+
+        try:
+            if update_person_roles(pe, client, remove_superfluous=True):
+                for event in events:
+                    if event['change_type_id'] in change_types_roles:
+                        clh.confirm_event(event)
+        except Exception:
+            logger.warn(
+                'Failed to update roles for person_id:%s',
+                person_id, exc_info=True)
+        else:
+            if commit:
+                clh.commit_confirmations()
+
+        try:
+            if update_person_perms(pe, client, remove_superfluous=True):
+                for event in events:
+                    if event['change_type_id'] in change_types_perms:
+                        clh.confirm_event(event)
+        except Exception:
+            logger.warn(
+                'Failed to update permissions for person_id:%s',
+                person_id, exc_info=True)
+        else:
+            if commit:
+                clh.commit_confirmations()
+
+    if commit:
+        clh.commit_confirmations()
+
+
+def update_person_perms(person, client, remove_superfluous=False):
+    userid = get_user_id(person)
+
+    logger.info("Updating perms for %s", userid)
+
+    elements_perms = set(user_details_to_perms(
+        client.get_user_details(userid)))
+    for perm in elements_perms:
+        logger.debug("Found perm for %s in Elements: %s@%s, authorized=%s",
+                     userid, *perm)
+
+    cerebrum_perms = set(list_perm_for_person(person))
+    for perm in cerebrum_perms:
+        logger.debug("Should have perm for %s: %s@%s, authorized=%s",
+                     userid, *perm)
+
+    # Remove permissions
+    if remove_superfluous:
+        superfluous = elements_perms.difference(cerebrum_perms)
+        for perm in superfluous:
+            logger.info("Removing perm for %s: %s@%s, authorized=%s",
+                        userid, *perm)
+            try:
+                client.disable_user_authz(userid, perm[0], perm[1])
+            except Exception:
+                logger.exception(
+                    "Failed to remove perm for %s: %s@%s, authorized=%s",
+                    userid, *perm)
+
+    # Add new permissions
+    #
+    # Note that we sort the permissions by organisational unit, so that the
+    # permissions for the OU 999999 is not overwritten by a permission of the
+    # same type at another OU. This seems to be a quirkiness in Elements. Also
+    # note that we reverse the sort, since the Elements expects None instead of
+    # 999999 🤣
+    for perm in sorted(cerebrum_perms, key=lambda x: x[1], reverse=True):
+        if perm not in elements_perms:
+            logger.info("Adding new perm for %s: %s@%s, authorized=%s",
+                        userid, *perm)
+        else:
+            logger.info("Ensuring perm for %s: %s@%s, authorized=%s",
+                        userid, *perm)
+
+        if perm[1] and not elements_has_ou(client, perm[1]):
+            logger.warn("No OU in Elements for %s for perm %s for %s",
+                        perm[1], perm[0], userid)
+            continue
+
+        try:
+            client.ensure_access_code_authorization(userid, *perm)
+        except Exception:
+            logger.exception(
+                "Could not ensure perm for %s: %s@%s, authorized=%s",
+                userid, *perm)
+
+    return True
+
+
+def report_person_perms(person, client):
+    """Generate report for person"""
+    userid = get_user_id(person)
+
+    try:
+        elements_perms = set(user_details_to_perms(
+            client.get_user_details(userid)))
+    except ElementsWSError as e:
+        if 'UserId not found in Elements' in str(e):
+            logger.warn("Fetching of user details for %s failed: %s",
+                        userid, e)
+            return "User %s exists in Cerebrum, but not in Elements!" % userid
+        else:
+            raise
+
+    cerebrum_perms = set(list_perm_for_person(person))
+
+    toadd = cerebrum_perms - elements_perms
+    torem = elements_perms - cerebrum_perms
+
+    def format_perm(code, ou, omni):
+        if ou is None:
+            if omni:
+                return "%s - hele uio" % code
+            else:
+                return "%s - egne saker" % code
+        else:
+            return "%s@%s" % (code, ou)
+
+    if toadd or torem:
+        ret = ["Endringer for %s" % userid]
+        for i in toadd:
+            ret.append(" legger til tilgang: %s" % format_perm(*i))
+        for i in torem:
+            ret.append(" fjerner tilgang: %s" % format_perm(*i))
+        return "\n".join(ret)
+
+
+def report_perms(client, selection_spread, fil):
+    """Generate perms report"""
+    first = True
+    for person in select_persons_for_update(selection_spread):
+        tmp = report_person_perms(person, client)
+        if tmp:
+            if first:
+                first = False
+            else:
+                fil.write("\n\n")
+            fil.write(tmp)
+    fil.close()
+
+
+def user_details_to_roles(user_details):
+    """Convert result from IAM2ElementsClient.get_user_details()
+    to arguments suitable for ensure_role_for_user (user_id omitted).
+    :type user_details tuple(dict, list(dict), list)
+    :param user_details: Return value from get_user_details()
+
+    :rtype list(dict)"""
+    roles = user_details[2]
+    return [{'arkivdel': x['FondsSeriesId'],
+             'journalenhet': x['RegistryManagementUnitId'],
+             'role_id': x['Role']['RoleId'],
+             'ou_id': x['Org']['OrgId'],
+             'default_role': x['IsDefault'],
+             'job_title': x['JobTitle']}
+            for x in roles]
+
+
+def update_person_roles(pe, client, remove_superfluous=False):
+    """Updates roles for a person.
+
+    :type pe: Person
+    :param pe: The person to update roles for
+
+    :type client: ElementsWS
+    :param client: The client used to talk to Elements
+
+    :rtype: bool
+    :return: Roles updated?
+    """
+    user_id = get_user_id(pe)
+
+    args = {}
+
+    elements_roles = set(
+        tuple(sorted(x.items())) for x in user_details_to_roles(
+            client.get_user_details(user_id))
+    )
+    cerebrum_roles = set()
+
+    # These functons can be used to remove the default_role component from
+    # data-structures.
+    def remove_default_flag(lst):
+        return filter(lambda e: e[0] != 'default_role', lst)
+
+    def remove_default_flag_from_set(lst):
+        return set(map(remove_default_flag, lst))
+
+    for role in elements_role.list_roles(person_id=pe.entity_id,
+                                        filter_expired=True):
+        try:
+            args['arkivdel'] = six.text_type(
+                co.ElementsArkivdel(role['arkivdel']))
+            args['journalenhet'] = six.text_type(
+                co.ElementsJournalenhet(role['journalenhet']))
+            args['role_id'] = six.text_type(co.ElementsRole(role['role_type']))
+        except (TypeError, Errors.NotFoundError):
+            logger.warn(
+                "Unknown arkivdel, journalenhet or role type, "
+                "skipping role %s", role)
+            continue
+
+        args['ou_id'] = six.text_type(get_sko(role['adm_enhet']))
+        args['job_title'] = role['rolletittel'] or None
+        args['default_role'] = role['standard_role'] == 'T'
+
+        # Check if adm_enhet for this role has Elements spread
+        if not ou_has_elements_spread(ou_id=role['adm_enhet']):
+            logger.warn(
+                "person_id:%s has role %s at non-Elements OU %s, skipping role",
+                pe.entity_id, args['role_id'], args['ou_id'])
+            continue
+        # Check if the OU exists in Elements
+        elif not elements_has_ou(client, args['ou_id']):
+            logger.warn("OU %s does not exist in Elements for role %s %s",
+                        args['ou_id'], user_id, args)
+            continue
+
+        role_tuple = tuple(sorted(args.items()))
+        cerebrum_roles.add(role_tuple)
+        # Remove the standard role flag in order to log correct message.
+        if (remove_default_flag(role_tuple) not in
+                remove_default_flag_from_set(elements_roles)):
+            logger.info('Adding role %s@%s for %s, %s',
+                        args['role_id'], args['ou_id'], user_id, args)
+        else:
+            logger.debug('Ensuring role %s@%s for %s, %s',
+                         args['role_id'], args['ou_id'], user_id, args)
+
+        try:
+            client.ensure_role_for_user(user_id, **args)
+        except ElementsWSError as e:
+            logger.warn('Could not ensure existence of role %s@%s for %s: %s',
+                        args['role_id'], args['ou_id'], user_id,
+                        six.text_type(e))
+
+    if remove_superfluous:
+        # Remove the default role flag. We need to do this before computing the
+        # set difference, or else we'll remove roles that we should have when
+        # changing the standard role.
+        for role in map(dict,
+                        remove_default_flag_from_set(elements_roles) -
+                        remove_default_flag_from_set(cerebrum_roles)):
+            logger.info('Removing superfluous role %s@%s for %s',
+                        role['role_id'], role['ou_id'], user_id)
+            try:
+                client.disable_user_role(
+                    user_id, role['role_id'], role['ou_id'],
+                    role['arkivdel'], role['journalenhet'])
+            except ElementsWSError as e:
+                logger.warn('Could not remove role %s@%s for %s: %s',
+                            role['role_id'], role['ou_id'], user_id,
+                            six.text_type(e))
+
+    return True
+
+
+def disable_users(client, selection_spread):
+    logger.info('Fetching all users from Elements... go grab some coffee.')
+    start = time.time()
+    all_users = client.get_all_users()
+    logger.info('Fetched all users in %s secs', int(time.time() - start))
+
+    ac = Factory.get('Account')(db)
+    pe = Factory.get('Person')(db)
+
+    def should_be_disabled(user_id):
+        """Check if given account should be disabled in Elements.
+
+        Looks through the account's data in Cerebrum to conclude.
+
+        :type user_id: str
+        :param user_id: Elements user id, including domain
+
+        :rtype: bool
+        :returns: True if account should be disabled in Elements.
+
+        """
+        account_name = user_id.lower()
+
+        try:
+            ac.clear()
+            ac.find_by_name(account_name)
+        except Errors.NotFoundError:
+            # Haven't found a way to separate out internal system accounts from
+            # the output (since Elements stopped using realms), so we can for
+            # now only ignore these accounts. If we disabled all of these, we
+            # would probably break something in Elements, according to the
+            # sysadmins.
+            logger.info('No such account:%s in Cerebrum, ignoring user',
+                        account_name)
+            # TODO: Check with Elements before disabling such accounts!
+            return False
+
+        try:
+            pe.clear()
+            pe.find(ac.owner_id)
+        except Errors.NotFoundError:
+            logger.info(
+                'No such person_id:%s when '
+                'looking for owner of account:%s, ignoring user',
+                ac.owner_id, account_name)
+            # TODO: Check with Elements before disabling such accounts!
+            return False
+
+        primary_account_id = pe.get_primary_account()
+
+        if not primary_account_id:
+            logger.info(
+                'Owner of account:%s, person_id:%s, '
+                'has no primary account, user should be disabled',
+                account_name, ac.owner_id)
+            return True
+
+        ac.clear()
+        ac.find(primary_account_id)
+        primary_account = ac.account_name
+
+        if not pe.has_spread(spread=selection_spread):
+            logger.info(
+                'Owner of account:%s, person_id:%s, '
+                'has no Elements spread, user should be disabled',
+                account_name, ac.owner_id)
+            return True
+
+        if account_name != primary_account:
+            logger.info(
+                'Owner of account:%s, person_id:%s, has a different primary '
+                'account (%s), user should be disabled',
+                account_name, ac.owner_id, primary_account)
+            return True
+
+        return False
+
+    def is_disabled_in_elements(user_id):
+        user_details = client.get_user_details(user_id)
+        # consider user as disabled if number of roles + permissions is zero
+        disabled = (len(user_details[1]) + len(user_details[2])) == 0
+        logger.debug('User %s disabled? %s', user_id, disabled)
+        return disabled
+
+    start = time.time()
+    disabled_previously = 0
+    disabled_now = 0
+    failed = 0
+
+    for eph_user_id in all_users.keys():
+        logger.debug('Considering user_id:%s', eph_user_id)
+
+        if should_be_disabled(eph_user_id):
+            try:
+                if not is_disabled_in_elements(eph_user_id):
+                    client.disable_user(eph_user_id)
+                    logger.info('Successfully disabled user %s', eph_user_id)
+                    client.disable_roles_and_authz_for_user(eph_user_id)
+                    logger.info('Successfully disabled roles and authz for %s',
+                                eph_user_id)
+                    disabled_now += 1
+                else:
+                    logger.debug('User %s is already disabled', eph_user_id)
+                    disabled_previously += 1
+            except ElementsWSError as e:
+                logger.warn('Failed disabling user %s or its roles/authz: %s',
+                            eph_user_id, six.text_type(e), exc_info=True)
+                failed += 1
+
+    logger.info('Checked %s users in %s secs',
+                len(all_users), int(time.time() - start))
+    logger.info('Users already disabled: %s', disabled_previously)
+    logger.info('Users disabled now: %s', disabled_now)
+    logger.info('Webservice errors encountered: %s', failed)
+
+
+def show_org_units(client):
+    for org in client.get_all_org_units():
+        print(dict(org))
+
+
+help_example_config = textwrap.dedent(
+    """
+    Example configuration:
+
+      [DEFAULT]
+      wsdl=http://example.com/?wsdl
+      config_id=ConfigId
+      database=DatabaseName
+      client_key=None
+      client_cert=None
+      ca_certs=None
+      selection_spread=elements_person
+      change_key=eph_sync_foo
+      changes_too_old_days=30
+    """
+).strip()
+
+
+def main():
+    global source_system_object
+    """User-interface and configuration."""
+    # Parse args
+    parser = argparse.ArgumentParser(
+        description='Update and provision users, ' +
+                    'roles and permissions in Elements')
+    parser.add_argument('--config',
+                        metavar='<config>',
+                        type=str,
+                        default='sync_elements.cfg',
+                        help='Config file to use (default: sync_elements.cfg)')
+    cmdgrp = parser.add_mutually_exclusive_group()
+    cmdgrp.add_argument('--full-persons',
+                        help='Full sync of persons',
+                        action='store_true')
+    cmdgrp.add_argument('--full-sync-account',
+                        type=str,
+                        metavar="<account_name>",
+                        help='Full sync of a single account/person')
+    cmdgrp.add_argument('--full-roles-perms',
+                        help='Full sync of roles and permissions',
+                        action='store_true')
+    cmdgrp.add_argument('--quick-roles-perms',
+                        help='Quick sync of roles and permissions',
+                        action='store_true')
+    cmdgrp.add_argument('--disable-users',
+                        help='Disable users',
+                        action='store_true')
+    cmdgrp.add_argument('--show-org-units',
+                        help='Print org units currently in Elements',
+                        action='store_true')
+    cmdgrp.add_argument('--config-help',
+                        help='Show configuration help',
+                        action='store_true')
+    cmdgrp.add_argument('--permission-report',
+                        help="Generate permission report",
+                        action="store", type=argparse.FileType(mode="w"))
+    parser.add_argument('--source-system',
+                        type=str,
+                        default='SAP',
+                        choices=['SAP', 'DFO_SAP'],
+                        help='Source system to use, defaults to constant SAP')
+    parser.add_argument('--commit',
+                        help='Run in commit mode',
+                        action='store_true')
+    args = parser.parse_args()
+
+    if args.config_help:
+        print(help_example_config)
+        sys.exit(0)
+
+    # Select proper client depending on commit-argument
+    if args.commit:
+        logger.info('Running in commit mode')
+    else:
+        logger.info('Not running in commit mode. Using mock client')
+    from Cerebrum.modules.no.uio.ElementsWS import make_elements_client
+
+    client, config = make_elements_client(args.config, mock=not args.commit)
+
+    try:
+        _source_system = co.human2constant(args.source_system)
+        if _source_system is None:
+            raise AttributeError
+        source_system_object = _source_system
+    except AttributeError as e:
+        logger.error('human2constant returned None on source system', e)
+        sys.exit(1)
+
+    try:
+        selection_spread = co.Spread(config.selection_spread)
+        int(selection_spread)
+        logger.info('Using spread %s as selection criteria',
+                    str(selection_spread))
+    except Errors.NotFoundError:
+        logger.error('Spread %s could not be found, aborting.',
+                     config.selection_spread)
+        sys.exit(1)
+
+    try:
+        config.change_key
+    except AttributeError:
+        logger.error('Missing change_key in configuration.')
+        sys.exit(1)
+
+    if args.quick_roles_perms:
+        logger.info("Quick sync of roles and permissions started")
+        quicksync_roles_and_perms(client=client,
+                                  config=config,
+                                  selection_spread=selection_spread,
+                                  commit=args.commit)
+        logger.info('Quick sync of roles and permissions finished')
+    elif args.full_roles_perms:
+        logger.info("Full sync of roles and permissions started")
+        fullsync_roles_and_perms(client=client,
+                                 selection_spread=selection_spread)
+        logger.info('Full sync of roles and permissions finished')
+    elif args.full_sync_account:
+        logger.info("Syncing person info, roles and permissions for %s",
+                    args.full_sync_account)
+        fullsync_account(client=client,
+                         selection_spread=selection_spread,
+                         account_name=args.full_sync_account)
+        logger.info("Done syncing person info, roles and permissions for %s",
+                    args.full_sync_account)
+    elif args.disable_users:
+        logger.info('Starting to disable users')
+        disable_users(client=client,
+                      selection_spread=selection_spread)
+        logger.info('Finished disabling users')
+    elif args.full_persons:
+        logger.info("Full sync of persons started")
+        fullsync_persons(client=client,
+                         selection_spread=selection_spread)
+        logger.info('Full sync of persons finished')
+    elif args.permission_report:
+        logger.info("Permission report generation started")
+        report_perms(client, selection_spread, args.permission_report)
+        logger.info("Permission report generation finished")
+    elif args.show_org_units:
+        show_org_units(client)
+
+
+if __name__ == '__main__':
+    main()
