@@ -63,7 +63,7 @@ def legacy_list_authentication(db, method=None, filter_expired=True,
     List all matching accounts and names, along with their auth details.
 
     This is a re-implementation of Account.list_account_authentication().  This
-    method is a bit weird (and potentially a lot more expensive that what's
+    method is a bit weird (and potentially a lot more expensive than what's
     usually needed) as it does a LEFT JOIN.  When filtering by multiple
     spreads, you may get a lot of duplicate rows.
 
