@@ -67,8 +67,8 @@ class ApiMapping(DatabaseAccessor):
             {fields}
         """.format(fields=", ".join(DEFAULT_FIELDS))
         row = self.query_1(stmt, binds)
-        logger.debug('added apikey for account_id=%d, identifier=%s',
-                     row['account_id'], repr(row['identifier']))
+        logger.info('added apikey for account_id=%d, identifier=%s',
+                    row['account_id'], repr(row['identifier']))
         self._db.log_change(
             row['account_id'],
             CLConstants.apikey_add,
@@ -96,8 +96,8 @@ class ApiMapping(DatabaseAccessor):
             {fields}
         """.format(fields=", ".join(DEFAULT_FIELDS))
         row = self.query_1(stmt, binds)
-        logger.debug('updated apikey for account_id=%d, identifier=%s',
-                     row['account_id'], repr(row['identifier']))
+        logger.info('updated apikey for account_id=%d, identifier=%s',
+                    row['account_id'], repr(row['identifier']))
         self._db.log_change(
             row['account_id'],
             CLConstants.apikey_mod,
@@ -184,8 +184,8 @@ class ApiMapping(DatabaseAccessor):
             {fields}
         """.format(fields=", ".join(DEFAULT_FIELDS))
         row = self.query_1(stmt, binds)
-        logger.debug('deleted apikey for account_id=%d, identifier=%s',
-                     row['account_id'], repr(row['identifier']))
+        logger.info('deleted apikey for account_id=%d, identifier=%s',
+                    row['account_id'], repr(row['identifier']))
         self._db.log_change(
             row['account_id'],
             CLConstants.apikey_mod,

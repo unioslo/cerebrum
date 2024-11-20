@@ -15,11 +15,16 @@ from Cerebrum.modules.apikeys import bofhd_apikey_cmds
 from Cerebrum.modules.apikeys import dbal
 from Cerebrum.modules.bofhd import errors
 from Cerebrum.modules.bofhd import session
+from Cerebrum.testutils.log_utils import StrictNullHandler
 
 
 @pytest.fixture
-def logger():
-    return logging.getLogger("test")
+def logger(scope='module', autouse=True):
+    """ a logger that also catches badly formatted log records. """
+    logger = logging.getLogger("test")
+    logger.addHandler(StrictNullHandler())
+    logger.setLevel(-100)
+    return logger
 
 
 @pytest.fixture
