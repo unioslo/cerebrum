@@ -128,9 +128,9 @@ def sync_group(db, target_group, include_groups=None, exclude_groups=None,
     target group, even if members of include_groups.
     :param list exclude_quarantined: Members with quarantines are not added
     to target group, even if members of include_groups.
-    :param boolean intersection: Treates include_groups and exclude_groups
-    as two sets and populate target_group with members of the intersection
-    of this two groups
+    :param boolean intersection: Treats include_groups and exclude_groups
+    as two sets and populates target_group with members of the intersection
+    of these two groups
     """
     logger.info("Syncing group %s", target_group)
 
