@@ -124,9 +124,12 @@ class AffiliationMap(_SizedMap):
     to affiliations.
     """
     def transform_key(self, value):
-        if isinstance(value, tuple):
-            return tuple(int(i) for i in value)
-        return int(value)
+        try:
+            if isinstance(value, tuple):
+                return tuple(int(i) for i in value)
+            return int(value)
+        except (TypeError, ValueError):
+            return value
 
     def transform_value(self, value):
         if value is None:
@@ -150,7 +153,10 @@ class AssignmentTitleMap(_LocalizedMap):
     {'nb': 'Rektor', 'en': 'Rector'}
     """
     def transform_key(self, value):
-        return int(value)
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return value
 
 
 class PersonalTitleMap(_LocalizedMap):
