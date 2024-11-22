@@ -116,7 +116,7 @@ def get_persons(db, members):
 
 
 def sync_group(db, target_group, include_groups=None, exclude_groups=None,
-               exclude_quarantined=False):
+               exclude_quarantined=False, intersection=False):
     """
     Update members of target group, based on membership in other groups.
 
@@ -128,6 +128,9 @@ def sync_group(db, target_group, include_groups=None, exclude_groups=None,
     target group, even if members of include_groups.
     :param list exclude_quarantined: Members with quarantines are not added
     to target group, even if members of include_groups.
+    :param boolean intersection: Treats include_groups and exclude_groups
+    as two sets and populates target_group with members of the intersection
+    of these two groups
     """
     logger.info("Syncing group %s", target_group)
 
@@ -158,18 +161,30 @@ def sync_group(db, target_group, include_groups=None, exclude_groups=None,
     current_members = get_members(db, target_group)
     logger.debug("%s has %s current members", target_group, len(current_members))
 
-    # Add any member in include groups, not already present in target group
-    add_members = include_group_members - exclude_group_members - current_members
+    add_members = set()
+    intersection_members = set()
+    remove_members = set()
+    if intersection:
+        intersection_members = include_group_members.intersection(exclude_group_members)
+        add_members = intersection_members - current_members
+    else:
+        # Add any member in include groups, not already present in target group
+        add_members = include_group_members - exclude_group_members - current_members
     logger.info("Adding %s new members to %s", len(add_members), target_group)
     for member in add_members:
         gr.add_member(member)
         logging.debug('Added new member %r to group %r', member, target_group)
 
-    # Remove any member from target group that is no loger present in the
-    # include_groups OR any member of target group that is also a member of
-    # the exclude_groups
-    remove_members = current_members - (include_group_members -
-                                        exclude_group_members)
+
+    if intersection:
+        remove_members = current_members - intersection_members
+    else:
+        # Remove any member from target group that is no longer present in the
+        # include_groups OR any member of target group that is also a member of
+        # the exclude_groups
+        remove_members = current_members - (include_group_members -
+                                            exclude_group_members)
+
     logger.info("Removing %s members from %s", len(remove_members), target_group)
     for member in remove_members:
         gr.remove_member(member)
@@ -214,6 +229,20 @@ def main():
     sync_group(db, "it-uio-ms365-ansatt-publisert",
                include_groups=["it-uio-ms365-ansatt"],
                exclude_groups=["DFO-elektroniske-reservasjoner"])
+    sync_group(db, "it-uio-ms365-student-u-exo",
+               include_groups=["it-uio-ms365-student"],
+               exclude_groups=["postmaster-eo-migrerte"])
+    sync_group(db, "it-uio-ms365-student-m-exo",
+               include_groups=["it-uio-ms365-student"],
+               exclude_groups=["postmaster-eo-migrerte"],
+               intersection=True)
+    sync_group(db, "it-uio-ms365-betalende-u-exo",
+               include_groups=["it-uio-ms365-betalende-utflatet"],
+               exclude_groups=["postmaster-eo-migrerte"])
+    sync_group(db, "it-uio-ms365-betalende-m-exo",
+               include_groups=["it-uio-ms365-betalende-utflatet"],
+               exclude_groups=["postmaster-eo-migrerte"],
+               intersection=True)
 
     if args.commit:
         db.commit()
