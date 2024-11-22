@@ -1813,7 +1813,7 @@ class BofhdExtension(BofhdCommonMethods):
         if not expire and not is_superuser:
             raise CerebrumError('Invalid date: ' + repr(_expire))
 
-        max_delta = datetime.timedelta(days=366)
+        max_delta = datetime.timedelta(days=455)  # 15 months
         delta = (expire - datetime.date.today()) if expire else None
 
         if (delta and delta > max_delta and not is_superuser):
