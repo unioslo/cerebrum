@@ -179,7 +179,7 @@ def sync_group(db, target_group, include_groups=None, exclude_groups=None,
     if intersection:
         remove_members = current_members - intersection_members
     else:
-        # Remove any member from target group that is no loger present in the
+        # Remove any member from target group that is no longer present in the
         # include_groups OR any member of target group that is also a member of
         # the exclude_groups
         remove_members = current_members - (include_group_members -
