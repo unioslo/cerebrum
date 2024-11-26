@@ -858,6 +858,41 @@ class WinRMProtocol(object):
 
     # Commands that are defined by the WSMan and WinRM standards:
 
+    def format_wsman_request_command(self, shellid, args):
+        selector = self._xml_element('Selector', 'wsman', text=shellid,
+                                     attribs={'Name': 'ShellId'})
+        header = self._xml_header('command', selectors=[selector])
+        options = self._xml_element('OptionSet', 'wsman')
+        consolemode_stdin = 'FALSE'
+        if self._winrs_consolemode_stdin:
+            consolemode_stdin = 'TRUE'
+        skip_cmd_shell = 'FALSE'
+        if self._winrs_skip_cmd_shell:
+            skip_cmd_shell = 'TRUE'
+        options.append(
+            self._xml_element('Option', 'wsman',
+                              attribs={'Name': 'WINRS_CONSOLEMODE_STDIN'},
+                              text=consolemode_stdin))
+        options.append(
+            self._xml_element('Option', 'wsman',
+                              attribs={'Name': 'WINRS_SKIP_CMD_SHELL'},
+                              text=skip_cmd_shell))
+        header.append(options)
+
+        body = self._xml_element('Body', 's')
+        cmdline = self._xml_element('CommandLine', 'rsp')
+        body.append(cmdline)
+
+        # To support sending blank commands:
+        if not args:
+            args = [None]
+
+        cmd = self._xml_element('Command', 'rsp', text=args[0])
+        cmdline.append(cmd)
+        for a in args[1:]:
+            cmdline.append(self._xml_element('Arguments', 'rsp', text=a))
+        return self._xml_envelope(header, body)
+
     def wsman_command(self, shellid, *args):
         """Send a Command request to the server, to execute the given
         command(s).
@@ -898,48 +933,47 @@ class WinRMProtocol(object):
             TODO
 
         """
-        selector = self._xml_element('Selector', 'wsman', text=shellid,
-                                     attribs={'Name': 'ShellId'})
-        header = self._xml_header('command', selectors=[selector])
-        options = self._xml_element('OptionSet', 'wsman')
-        consolemode_stdin = 'FALSE'
-        if self._winrs_consolemode_stdin:
-            consolemode_stdin = 'TRUE'
-        skip_cmd_shell = 'FALSE'
-        if self._winrs_skip_cmd_shell:
-            skip_cmd_shell = 'TRUE'
-        options.append(
-            self._xml_element('Option', 'wsman',
-                              attribs={'Name': 'WINRS_CONSOLEMODE_STDIN'},
-                              text=consolemode_stdin))
-        options.append(
-            self._xml_element('Option', 'wsman',
-                              attribs={'Name': 'WINRS_SKIP_CMD_SHELL'},
-                              text=skip_cmd_shell))
-        header.append(options)
-
-        body = self._xml_element('Body', 's')
-        cmdline = self._xml_element('CommandLine', 'rsp')
-        body.append(cmdline)
-
-        # To support sending blank commands:
-        if not args:
-            args = [None]
-
-        cmd = self._xml_element('Command', 'rsp', text=args[0])
-        cmdline.append(cmd)
-        for a in args[1:]:
-            cmdline.append(self._xml_element('Arguments', 'rsp', text=a))
-
+        request = self.format_wsman_request_command(shellid, args)
         self.logger.debug5('Calling WSMAN Command for ShellId "%s" with args '
                            '"%s"' % (str(shellid), str(args)))
-        ret = self._http_call(self._xml_envelope(header, body))
+        ret = self._http_call(request)
         self.logger.debug5('WSMAN Command done for ShellId "%s"' %
                            str(shellid))
         tag = '{%s}CommandId' % namespaces['rsp']
         for event, elem in etree.iterparse(ret.fp, tag=tag):
             return elem.text
         raise Exception('Did not receive CommandID')
+
+    def format_wsman_request_create(self):
+        header = self._xml_header('create')
+        # TODO: add support for environment variables as input
+        # env = self._xml_element('Environment', 'rsp')
+        # env.append(self._xml_element('Variable', 'rsp',
+        #                              attribs={'Name': 'Mode'},
+        #                              text="1000, 1000"))
+        # header.append(env)
+        options = self._xml_element('OptionSet', 'wsman')
+        # We don't need a profile for now, will only take longer execution time
+        options.append(self._xml_element('Option', 'wsman', text='TRUE',
+                                         attribs={'Name': 'WINRS_NOPROFILE'}))
+        # The codepage sets what encoding to use for output. For more info, see
+        # http://msdn.microsoft.com/en-us/library/windows/desktop/dd317756%28v=vs.85%29.aspx
+        options.append(self._xml_element('Option', 'wsman',
+                                         text=self._winrm_codepage,
+                                         attribs={'Name': 'WINRS_CODEPAGE'}))
+        header.append(options)
+
+        body = self._xml_element('Body', 's')
+        shell = self._xml_element('Shell', 'rsp', nsmap={
+            'rsp': 'http://schemas.microsoft.com/wbem/wsman/1/windows/shell'})
+        shell.append(self._xml_element('Lifetime', 'rsp',
+                                       text=self._xml_duration(
+                                           self.shell_lifetime)))
+        shell.append(self._xml_element('InputStreams', 'rsp', text='stdin'))
+        shell.append(self._xml_element('OutputStreams', 'rsp',
+                                       text='stdout stderr'))
+        body.append(shell)
+        return self._xml_envelope(header, body)
 
     def wsman_create(self):
         """Send a Create request to the server, asking it to create a new Shell.
@@ -981,46 +1015,23 @@ class WinRMProtocol(object):
             TODO
 
         """
-        header = self._xml_header('create')
-        # TODO: add support for environment variables as input
-        # env = self._xml_element('Environment', 'rsp')
-        # env.append(self._xml_element('Variable', 'rsp',
-        #                              attribs={'Name': 'Mode'},
-        #                              text="1000, 1000"))
-        # header.append(env)
-        options = self._xml_element('OptionSet', 'wsman')
-        # We don't need a profile for now, will only take longer execution time
-        options.append(self._xml_element('Option', 'wsman', text='TRUE',
-                                         attribs={'Name': 'WINRS_NOPROFILE'}))
-        # The codepage sets what encoding to use for output. For more info, see
-        # http://msdn.microsoft.com/en-us/library/windows/desktop/dd317756%28v=vs.85%29.aspx
-        options.append(self._xml_element('Option', 'wsman',
-                                         text=self._winrm_codepage,
-                                         attribs={'Name': 'WINRS_CODEPAGE'}))
-        header.append(options)
-
-        body = self._xml_element('Body', 's')
-        shell = self._xml_element('Shell', 'rsp', nsmap={
-            'rsp': 'http://schemas.microsoft.com/wbem/wsman/1/windows/shell'})
-        shell.append(self._xml_element('Lifetime', 'rsp',
-                                       text=self._xml_duration(
-                                           self.shell_lifetime)))
-        shell.append(self._xml_element('InputStreams', 'rsp', text='stdin'))
-        shell.append(self._xml_element('OutputStreams', 'rsp',
-                                       text='stdout stderr'))
-        body.append(shell)
-
+        request = self.format_wsman_request_create()
         self.logger.debug3('Calling WSMAN Create')
-        ret = self._http_call(self._xml_envelope(header, body))
+        ret = self._http_call(request)
 
         # Find the ShellID:
-        for event, elem in etree.iterparse(
-                ret.fp,
-                tag='{http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd}Selector'):
+        tag = '{http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd}Selector'
+        for event, elem in etree.iterparse(ret.fp, tag=tag):
             self.logger.debug3('WSMAN Create done, returned ShellId %s',
                                elem.text)
             return elem.text
         raise Exception('Did not receive ShellId from server')
+
+    def format_wsman_request_delete(self, shellid):
+        selector = self._xml_element('Selector', 'wsman', text=shellid,
+                                     attribs={'Name': 'ShellId'})
+        return self._xml_envelope(
+            self._xml_header('delete', selectors=[selector]))
 
     def wsman_delete(self, shellid):
         """Send a Delete request to the server, to terminate the Shell by the
@@ -1032,17 +1043,33 @@ class WinRMProtocol(object):
         they get deleted, depending on the settings.
 
         """
-        selector = self._xml_element('Selector', 'wsman', text=shellid,
-                                     attribs={'Name': 'ShellId'})
+        request = self.format_wsman_request_delete(shellid)
         self.logger.debug3('Calling WSMAN Delete for ShellId "%s"' %
                            str(shellid))
-        self._http_call(
-            self._xml_envelope(
-                self._xml_header('delete', selectors=[selector])))
+        self._http_call(request)
         self.logger.debug3('WSMAN Delete done for ShellId "%s"' % str(shellid))
         # No need to parse the reply, exceptions are thrown by HTTP error codes
         # and raised by _http_call
         return True
+
+    def format_wsman_request_enumerate(self, resource, selector):
+        sel = None
+        if selector:
+            s_txt = ''
+            if 'text' in selector:
+                s_txt = selector['text']
+                del selector['text']
+            sel = [self._xml_element('Selector', 'wsman', text=s_txt,
+                                     attribs=selector)]
+        header = self._xml_header('enumerate',
+                                  resource=resource,
+                                  selectors=sel)
+        body = self._xml_element('Body', 's')
+        enum = self._xml_element('Enumerate', 'wsen')
+        # enum.append(self._xml_element(
+        #     'Expires', 'wsen', text='%s' % self._xml_duration(seconds=120)))
+        body.append(enum)
+        return self._xml_envelope(header, body)
 
     def wsman_enumerate(self, resource='config', selector=None):
         """Send an Enumerate request to the server, to get a list of specified
@@ -1086,6 +1113,19 @@ class WinRMProtocol(object):
             to process, depending on what you requested.
 
         """
+        request = self.format_wsman_request_enumerate(resource, selector)
+        self.logger.debug3('Calling WSMAN Enumerate for resource "%s"',
+                           resource)
+        ret = self._http_call(request)
+        tag = '{%s}EnumerationContext' % namespaces['wsen']
+        for event, elem in etree.iterparse(ret.fp, tag=tag):
+            self.logger.debug3('WSMAN Enumerate done for resource "%s"',
+                               resource)
+            return elem.text
+        raise Exception("Unknown Enumeration response for resource='%s'" %
+                        resource)
+
+    def format_wsman_request_get(self, resource, selector):
         sel = None
         if selector:
             s_txt = ''
@@ -1094,25 +1134,8 @@ class WinRMProtocol(object):
                 del selector['text']
             sel = [self._xml_element('Selector', 'wsman', text=s_txt,
                                      attribs=selector)]
-        header = self._xml_header('enumerate',
-                                  resource=resource,
-                                  selectors=sel)
-        body = self._xml_element('Body', 's')
-        enum = self._xml_element('Enumerate', 'wsen')
-        # enum.append(self._xml_element(
-        #     'Expires', 'wsen', text='%s' % self._xml_duration(seconds=120)))
-        body.append(enum)
-
-        self.logger.debug3('Calling WSMAN Enumerate for resource "%s"',
-                           resource)
-        ret = self._http_call(self._xml_envelope(header, body))
-        tag = '{%s}EnumerationContext' % namespaces['wsen']
-        for event, elem in etree.iterparse(ret.fp, tag=tag):
-            self.logger.debug3('WSMAN Enumerate done for resource "%s"',
-                               resource)
-            return elem.text
-        raise Exception("Unknown Enumeration response for resource='%s'" %
-                        resource)
+        header = self._xml_header('get', resource=resource, selectors=sel)
+        return self._xml_envelope(header)
 
     def wsman_get(self, resource='config', selector=None):
         """Send a Get request to the server, to get specified information.
@@ -1136,21 +1159,21 @@ class WinRMProtocol(object):
             information in the Header interesting too?
 
         """
-        sel = None
-        if selector:
-            s_txt = ''
-            if 'text' in selector:
-                s_txt = selector['text']
-                del selector['text']
-            sel = [self._xml_element('Selector', 'wsman', text=s_txt,
-                                     attribs=selector)]
-        header = self._xml_header('get', resource=resource, selectors=sel)
+        request = self.format_wsman_request_get(resource, selector)
         self.logger.debug3('Calling WSMAN Get for resource "%s"' %
                            str(resource))
-        ret = self._http_call(self._xml_envelope(header))
+        ret = self._http_call(request)
         self.logger.debug3('WSMAN Enumerate done for resource "%s"' %
                            str(resource))
         return etree.parse(ret.fp, parser=self.xmlparser)
+
+    def format_wsman_request_identify(self):
+        env = self._xml_element('Envelope', 's')
+        env.append(self._xml_element('Header', 's'))
+        body = self._xml_element('Body', 's')
+        body.append(self._xml_element('Identify', 'wsmid'))
+        env.append(body)
+        return env
 
     def wsman_identify(self):
         """Send an Identify request to the server, to get the service type.
@@ -1173,11 +1196,7 @@ class WinRMProtocol(object):
         TODO: return only the important part of the response, e.g. as a dict?
 
         """
-        env = self._xml_element('Envelope', 's')
-        env.append(self._xml_element('Header', 's'))
-        body = self._xml_element('Body', 's')
-        body.append(self._xml_element('Identify', 'wsmid'))
-        env.append(body)
+        env = self.format_wsman_request_identify()
         self._http_headers['WSMANIDENTIFY'] = 'unauthenticated'
         self.logger.debug3('Calling WSMAN Identify')
         ret = self._http_call(env)  # , address='/wsman-anon/identify')
@@ -1185,6 +1204,15 @@ class WinRMProtocol(object):
         del self._http_headers['WSMANIDENTIFY']
         xml = etree.parse(ret.fp, parser=self.xmlparser)
         return xml
+
+    def format_wsman_request_pull(self, resource, context):
+        header = self._xml_header('pull', resource=resource)
+        body = self._xml_element('Body', 's')
+        pull = self._xml_element('Pull', 'wsen')
+        pull.append(self._xml_element('EnumerationContext', 'wsen',
+                                      text=context))
+        body.append(pull)
+        return self._xml_envelope(header, body)
 
     def wsman_pull(self, resource, context):
         """Send a Pull request to the server, to pull for data.
@@ -1215,21 +1243,30 @@ class WinRMProtocol(object):
             TODO: Does the Header contain something useful too?
 
         """
-        header = self._xml_header('pull', resource=resource)
-        body = self._xml_element('Body', 's')
-        pull = self._xml_element('Pull', 'wsen')
-        pull.append(self._xml_element('EnumerationContext', 'wsen',
-                                      text=context))
-        body.append(pull)
-
+        request = self.format_wsman_request_pull(resource, context)
         tag = '{%s}PullResponse' % namespaces['wsen']
         self.logger.debug3('Calling WSMAN Pull for resource "%s"' %
                            str(resource))
-        ret = self._http_call(self._xml_envelope(header, body))
+        ret = self._http_call(request)
         self.logger.debug3('WSMAN Pull done for resource "%s"' % str(resource))
         for event, elem in etree.iterparse(ret.fp, tag=tag,
                                            encoding=self._winrm_encoding):
             return elem
+
+    def format_wsman_request_receive(self, shellid, commandid, sequence):
+        selector = self._xml_element('Selector', 'wsman', text=shellid,
+                                     attribs={'Name': 'ShellId'})
+        header = self._xml_header('receive', selectors=[selector])
+        body = self._xml_element('Body', 's')
+        receiver = self._xml_element('Receive', 'rsp')
+        receiver.set('SequenceId', str(sequence))
+        body.append(receiver)
+        stream = self._xml_element('DesiredStream', 'rsp')
+        if commandid:
+            stream.set('CommandId', str(commandid))
+        stream.text = 'stdout stderr'
+        receiver.append(stream)
+        return self._xml_envelope(header, body)
 
     def wsman_receive(self, shellid, commandid=None, sequence=0):
         """Send a Recieve request to the server, to get a command's output.
@@ -1283,22 +1320,11 @@ class WinRMProtocol(object):
             The elements in the dict are all unicode objects.
 
         """
-        selector = self._xml_element('Selector', 'wsman', text=shellid,
-                                     attribs={'Name': 'ShellId'})
-        header = self._xml_header('receive', selectors=[selector])
-        body = self._xml_element('Body', 's')
-        receiver = self._xml_element('Receive', 'rsp')
-        receiver.set('SequenceId', str(sequence))
-        body.append(receiver)
-        stream = self._xml_element('DesiredStream', 'rsp')
-        if commandid:
-            stream.set('CommandId', str(commandid))
-        stream.text = 'stdout stderr'
-        receiver.append(stream)
-
+        request = self.format_wsman_request_receive(shellid, commandid,
+                                                    sequence)
         self.logger.debug3('Calling WSMAN Recieve for ShellId "%s", '
                            'CommandId "%s"' % (str(shellid), str(commandid)))
-        ret = self._http_call(self._xml_envelope(header, body))
+        ret = self._http_call(request)
         self.logger.debug3('WSMAN Recieve done for ShellId "%s", '
                            'CommandId "%s"' % (str(shellid), str(commandid)))
         root = etree.parse(ret.fp, parser=self.xmlparser)
@@ -1342,32 +1368,7 @@ class WinRMProtocol(object):
             out[t] = out[t].decode(self._winrm_encoding)
         return state, exitcode, out
 
-    def wsman_send(self, shellid, commandid, data):
-        """Make a Send call with input to be given to the remote Shell. This
-        works like piping input through stdin, e.g:
-
-            echo "testing" | cat
-
-        It could be used when a command prompts you for input, e.g. password
-        prompts. Note that newlines (\n) are translated to windows' version of
-        newlines (\r\n), and it should end with a newline.
-
-        @type shellid: string
-        @param shellid: The ShellId for the Shell to use. The shell must have
-            been created on the server side.
-
-        @type commandid: string
-        @param commandid: The CommandID for the command that should recieve the
-            input data. The command must be active on the server, and should
-            probably wait for input.
-
-        @type data: string, unicode or list/tuple of strings/unicode objects
-        @param data: The data to sent to the server as input.
-
-        @rtype: TODO
-        @return: TODO
-
-        """
+    def format_wsman_request_send(self, shellid, commandid, data):
         if isinstance(data, (tuple, list)):
             data = '\n'.join(unicode2str(d) for d in data)
         else:
@@ -1396,13 +1397,58 @@ class WinRMProtocol(object):
                                                # Not sure if End is used
                                                'End': 'TRUE'}))
         body.append(send)
+        return self._xml_envelope(header, body)
+
+    def wsman_send(self, shellid, commandid, data):
+        """Make a Send call with input to be given to the remote Shell. This
+        works like piping input through stdin, e.g:
+
+            echo "testing" | cat
+
+        It could be used when a command prompts you for input, e.g. password
+        prompts. Note that newlines (\n) are translated to windows' version of
+        newlines (\r\n), and it should end with a newline.
+
+        @type shellid: string
+        @param shellid: The ShellId for the Shell to use. The shell must have
+            been created on the server side.
+
+        @type commandid: string
+        @param commandid: The CommandID for the command that should recieve the
+            input data. The command must be active on the server, and should
+            probably wait for input.
+
+        @type data: string, unicode or list/tuple of strings/unicode objects
+        @param data: The data to sent to the server as input.
+
+        @rtype: TODO
+        @return: TODO
+
+        """
+        request = self.format_wsman_request_send(shellid, commandid, data)
         self.logger.debug3('Calling WSMAN Send for ShellId "%s", '
                            'CommandId "%s"' % (str(shellid), str(commandid)))
-        ret = self._http_call(self._xml_envelope(header, body))
+        ret = self._http_call(request)
         self.logger.debug3('WSMAN Send done for ShellId "%s", '
                            'CommandId "%s"' % (str(shellid), str(commandid)))
         return etree.parse(ret.fp, parser=self.xmlparser)
         # TODO: What to return? Only True?
+
+    def format_wsman_request_signal(self, shellid, commandid, signalcode):
+        body = self._xml_element('Body', 's')
+        xml = self._xml_element('Signal', 'rsp',
+                                attribs={'CommandId': commandid})
+        code = self._xml_element('Code', 'rsp')
+        code.text = (
+            'http://schemas.microsoft.com/wbem/wsman/1/windows/shell/signal/%s'
+            % signalcode
+        )
+        xml.append(code)
+        body.append(xml)
+        selector = self._xml_element('Selector', 'wsman', text=shellid,
+                                     attribs={'Name': 'ShellId'})
+        return self._xml_envelope(self._xml_header('signal',
+                                                   selectors=[selector]), body)
 
     def wsman_signal(self, shellid, commandid, signalcode='Terminate'):
         """Send a Signal request to the server, to send a signal to a command.
@@ -1431,19 +1477,11 @@ class WinRMProtocol(object):
                                            the client has received it.
 
         """
-        body = self._xml_element('Body', 's')
-        xml = self._xml_element('Signal', 'rsp',
-                                attribs={'CommandId': commandid})
-        code = self._xml_element('Code', 'rsp')
-        code.text = 'http://schemas.microsoft.com/wbem/wsman/1/windows/shell/signal/%s' % signalcode
-        xml.append(code)
-        body.append(xml)
-        selector = self._xml_element('Selector', 'wsman', text=shellid,
-                                     attribs={'Name': 'ShellId'})
+        request = self.format_wsman_request_signal(shellid, commandid,
+                                                   signalcode)
         self.logger.debug3('Calling WSMAN Signal for ShellId "%s", '
                            'CommandId "%s"' % (str(shellid), str(commandid)))
-        ret = self._http_call(self._xml_envelope(self._xml_header('signal',
-                                                 selectors=[selector]), body))
+        ret = self._http_call(request)
         self.logger.debug3(
             'WSMAN Signal done for ShellId "%s", CommandId "%s"',
             shellid, commandid)
