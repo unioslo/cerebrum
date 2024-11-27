@@ -69,8 +69,11 @@ def merge_headers(*dicts):
             header_names[nk] = k
             header_values[nk] = d[k]
 
-    return {header_names[nk]: header_values[nk]
-            for nk in header_names}
+    return {
+        header_names[nk]: header_values[nk]
+        for nk in header_names
+        if header_values[nk] is not None
+    }
 
 
 def urljoin(url, *path_components):
