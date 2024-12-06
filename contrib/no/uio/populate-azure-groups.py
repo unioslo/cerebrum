@@ -243,6 +243,13 @@ def main():
                include_groups=["it-uio-ms365-betalende-utflatet"],
                exclude_groups=["postmaster-eo-migrerte"],
                intersection=True)
+    sync_group(db, "it-uio-ms365-andre-u-exo",
+               include_groups=["it-uio-ms365-andre"],
+               exclude_groups=["postmaster-eo-migrerte"])
+    sync_group(db, "it-uio-ms365-andre-m-exo",
+               include_groups=["it-uio-ms365-andre"],
+               exclude_groups=["postmaster-eo-migrerte"],
+               intersection=True)
 
     if args.commit:
         db.commit()
