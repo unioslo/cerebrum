@@ -176,7 +176,7 @@ def elements_has_ou(client, sko):
 @memoize
 def ou_address(pe, co, ou_id):
     for row in pe.list_entity_addresses(entity_type=co.entity_ou,
-                                        source_system=get_source_system(),
+                                        source_system=co.system_orgreg,
                                         address_type=co.address_street,
                                         entity_id=ou_id):
         return dict(row)
@@ -216,7 +216,7 @@ def update_person_info(pe, client):
     last_name = pe.get_name(co.system_cached, co.name_last)
     full_name = pe.get_name(co.system_cached, co.name_full)
     user_id = get_user_id(pe)
-    uname = get_username(pe)
+    initials = get_username(pe).upper()
 
     try:
         email_address = get_email_address(pe)
@@ -239,12 +239,12 @@ def update_person_info(pe, client):
 
     logger.info('Ensuring existence of %s: %s',
                 user_id,
-                six.text_type((first_name, None, last_name, full_name, uname,
+                six.text_type((first_name, None, last_name, full_name, initials,
                                email_address, telephone, mobile,
                                street_address, zip_code, city, employee_number)))
     try:
         client.ensure_user(user_id, first_name, None, last_name, full_name,
-                           uname, email_address, telephone, mobile,
+                           initials, email_address, telephone, mobile,
                            street_address, zip_code, city, employee_number)
         return True
     except ElementsWSError as e:
@@ -966,7 +966,7 @@ def main():
                         action="store", type=argparse.FileType(mode="w"))
     parser.add_argument('--source-system',
                         type=str,
-                        default='SAP',
+                        default='DFO_SAP',
                         choices=['SAP', 'DFO_SAP'],
                         help='Source system to use, defaults to constant SAP')
     parser.add_argument('--commit',
