@@ -381,15 +381,6 @@ class PopulateElements(object):
                 auto_roles.append(self.map_ou_to_role(t))
             if person_id in superusers:
                 auto_roles.append(self._superuser_role)
-            # All employees should have access to their own cases
-            for role in (co.elements_role_ar, co.elements_role_of):
-                auto_roles.append(SimpleRole(
-                    int(role),
-                    self.sko2ou_id[ELEMENTS_EGNE_SAKER_SKO],
-                    int(co.elements_arkivdel_sak),
-                    int(co.elements_journenhet_sp),
-                    standard_role=False,
-                    auto_role=True))
             # All employees shall have elements spread
             if person_id not in has_elements_spread:
                 pe.clear()
