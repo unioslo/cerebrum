@@ -133,21 +133,9 @@ class PopulateElements(object):
             ou_id = int(row['ou_id'])
             self.ouid2sko[ou_id] = sko
             self.sko2ou_id[sko] = ou_id
-            # Special case, FSAT
-            if sko in ELEMENTS_FSAT_SKO:
-                self.ouid_2roleinfo[ou_id] = (
-                    int(co.elements_arkivdel_sak_fsat),
-                    int(co.elements_journenhet_fsat))
-            # Special case, KDTO
-            elif sko in ELEMENTS_KDTO_SKO:
-                self.ouid_2roleinfo[ou_id] = (
-                    int(co.elements_arkivdel_sak_kdto),
-                    int(co.elements_journenhet_kdto))
-            # Default case
-            else:
-                self.ouid_2roleinfo[ou_id] = (
-                    int(co.elements_arkivdel_sak),
-                    int(co.elements_journenhet_sp))
+            self.ouid_2roleinfo[ou_id] = (
+                int(co.elements_arkivdel_sak),
+                int(co.elements_journenhet_sp))
         logger.info("Found info about %d sko in cerebrum" % len(self.ouid2sko))
 
         logger.info("Finding OUs with spread elements_ou")
@@ -368,7 +356,7 @@ class PopulateElements(object):
         person_to_roles = self.map_person_to_roles()
         has_elements_spread = set([int(row["entity_id"]) for row in
                                   pe.list_all_with_spread(
-                                      co.spread_ephorte_person)])
+                                      co.spread_elements_person)])
 
         # Ideally, the group should have persons as members, but bofh
         # doesn't have much support for that, so we map user->owner_id
@@ -397,20 +385,11 @@ class PopulateElements(object):
                 auto_roles.append(self.map_ou_to_role(t))
             if person_id in superusers:
                 auto_roles.append(self._superuser_role)
-            # All employees should have access to their own cases
-            for role in (co.elements_role_ar, co.elements_role_of):
-                auto_roles.append(SimpleRole(
-                    int(role),
-                    self.sko2ou_id[ELEMENTS_EGNE_SAKER_SKO],
-                    int(co.elements_arkivdel_sak),
-                    int(co.elements_journenhet_sp),
-                    standard_role=False,
-                    auto_role=True))
             # All employees shall have elements spread
             if person_id not in has_elements_spread:
                 pe.clear()
                 pe.find(person_id)
-                pe.add_spread(co.spread_ephorte_person)
+                pe.add_spread(co.spread_elements_person)
 
             for ar in auto_roles:
                 # Check if role should be added
@@ -462,7 +441,7 @@ class PopulateElements(object):
         should_have_spread = set(self.map_person_to_ou().keys())
         logger.info("Fetching existing spreads")
         has_spread = set([int(row["entity_id"]) for row in
-                          pe.list_all_with_spread(co.spread_ephorte_person)])
+                          pe.list_all_with_spread(co.spread_elements_person)])
         victims = has_spread - should_have_spread
         logger.info('%d persons should have Elements spread',
                     len(should_have_spread))
@@ -496,7 +475,7 @@ class PopulateElements(object):
                                          sko=role['adm_enhet'],
                                          arkivdel=role['arkivdel'],
                                          journalenhet=role['journalenhet'])
-            pe.delete_spread(co.spread_ephorte_person)
+            pe.delete_spread(co.spread_elements_person)
         logger.info('Done depopulating')
 
 

@@ -152,7 +152,7 @@ def ou_has_elements_spread(ou_id):
     if _elements_ous is None:
         _elements_ous = set([x['entity_id'] for x in
                             ou.list_all_with_spread(
-                                spreads=co.spread_ephorte_ou)])
+                                spreads=co.spread_elements_ou)])
 
     return ou_id in _elements_ous
 
