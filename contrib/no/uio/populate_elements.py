@@ -129,21 +129,9 @@ class PopulateElements(object):
             ou_id = int(row['ou_id'])
             self.ouid2sko[ou_id] = sko
             self.sko2ou_id[sko] = ou_id
-            # Special case, FSAT
-            if sko in ELEMENTS_FSAT_SKO:
-                self.ouid_2roleinfo[ou_id] = (
-                    int(co.elements_arkivdel_sak_fsat),
-                    int(co.elements_journenhet_fsat))
-            # Special case, KDTO
-            elif sko in ELEMENTS_KDTO_SKO:
-                self.ouid_2roleinfo[ou_id] = (
-                    int(co.elements_arkivdel_sak_kdto),
-                    int(co.elements_journenhet_kdto))
-            # Default case
-            else:
-                self.ouid_2roleinfo[ou_id] = (
-                    int(co.elements_arkivdel_sak),
-                    int(co.elements_journenhet_sp))
+            self.ouid_2roleinfo[ou_id] = (
+                int(co.elements_arkivdel_sak),
+                int(co.elements_journenhet_sp))
         logger.info("Found info about %d sko in cerebrum" % len(self.ouid2sko))
 
         logger.info("Finding OUs with spread elements_ou")

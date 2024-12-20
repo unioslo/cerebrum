@@ -111,18 +111,6 @@ class ElementsConstants(ConstantsBase):
         'STUD', 'Studentarkiv ved Universitetet i Oslo')
     elements_arkivdel_studav_uio = _ElementsArkivdelCode(
         'STUDAV UIO', 'Avsluttede studentmapper ved UiO')
-    elements_arkivdel_sak_fsat = _ElementsArkivdelCode(
-        'SAK FSAT', 'Saksarkiv ved Felles studieadministrativt tjenestesenter')
-    elements_arkivdel_sak_kdto = _ElementsArkivdelCode(
-        'SAK KDTO', 'Saksarkiv ved KDTO - KDs tjenesteorgan')
-    elements_arkivdel_pers_kdto = _ElementsArkivdelCode(
-        'PERS KDTO', 'Personalarkiv ved KDTO - KDs tjenesteorgan')
-    elements_arkivdel_nasjonklag_kdto = _ElementsArkivdelCode(
-        'NASJONKLAG KDTO', 'Nasjonal klagenemnd')
-    elements_arkivdel_nasjonfag_kdto = _ElementsArkivdelCode(
-        'NASJONFAG KDTO', 'Nasjonal klagenemnd for fagskoleutdanning')
-    elements_arkivdel_fellesklag_kdto = _ElementsArkivdelCode(
-        'FELLESKLAG KDTO', 'Felles klagenemnd')
 
     # Values from the elements table JOURNENHET
     elements_journenhet_sp = _ElementsJournalenhetCode(
