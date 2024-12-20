@@ -352,7 +352,7 @@ class PopulateElements(object):
         person_to_roles = self.map_person_to_roles()
         has_elements_spread = set([int(row["entity_id"]) for row in
                                   pe.list_all_with_spread(
-                                      co.spread_ephorte_person)])
+                                      co.spread_elements_person)])
 
         # Ideally, the group should have persons as members, but bofh
         # doesn't have much support for that, so we map user->owner_id
@@ -394,7 +394,7 @@ class PopulateElements(object):
             if person_id not in has_elements_spread:
                 pe.clear()
                 pe.find(person_id)
-                pe.add_spread(co.spread_ephorte_person)
+                pe.add_spread(co.spread_elements_person)
 
             for ar in auto_roles:
                 # Check if role should be added
@@ -446,7 +446,7 @@ class PopulateElements(object):
         should_have_spread = set(self.map_person_to_ou().keys())
         logger.info("Fetching existing spreads")
         has_spread = set([int(row["entity_id"]) for row in
-                          pe.list_all_with_spread(co.spread_ephorte_person)])
+                          pe.list_all_with_spread(co.spread_elements_person)])
         victims = has_spread - should_have_spread
         logger.info('%d persons should have Elements spread',
                     len(should_have_spread))
@@ -480,7 +480,7 @@ class PopulateElements(object):
                                          sko=role['adm_enhet'],
                                          arkivdel=role['arkivdel'],
                                          journalenhet=role['journalenhet'])
-            pe.delete_spread(co.spread_ephorte_person)
+            pe.delete_spread(co.spread_elements_person)
         logger.info('Done depopulating')
 
 
