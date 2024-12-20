@@ -599,26 +599,24 @@ class IAM2ElementsClient(object):
         If an argument is None, it will be cleared in Elements."""
         # Create the complex object describing our user
         u = self.client.client.factory.create('ElementsUser')
-        # '' on vars will result in no-update
-        # ' ' will empty field in Elements
 
         # Set vars
         # TODO: Makes this stuff pretty!
         u.UserId = user_id
-        u.AdressType = 'A' # TODO
-        u.FirstName = ' ' if first_name is None else first_name
-        u.MiddelName = ' ' if middle_name is None else middle_name
-        u.LastName = ' ' if last_name is None else last_name
-        u.FullName = ' ' if full_name is None else full_name
-        u.Initials = ' ' if initials is None else initials
-        u.EmailAddress = ' ' if email_address is None else email_address
-        u.Telephone = ' ' if telephone is None else telephone
-        u.Mobile = ' ' if mobile is None else mobile
-        u.StreetAddress = ' ' if street_address is None else street_address
-        u.ZipCode = ' ' if zip_code is None else zip_code
-        u.City = ' ' if city is None else city
+        u.AdressType = 'A'
+        u.FirstName = first_name
+        u.MiddelName = middle_name
+        u.LastName = last_name
+        u.FullName = full_name
+        u.Initials = initials
+        u.EmailAddress = email_address
+        u.Telephone = telephone
+        u.Mobile = mobile
+        u.StreetAddress = street_address
+        u.ZipCode = zip_code
+        u.City = city
         # u.ExternalRef = ' '
-        u.EmployeeNumber = ' ' if employee_number is None else employee_number
+        u.EmployeeNumber = employee_number
 
         # Ensure that user exists
         self.client.EnsureUser(
