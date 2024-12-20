@@ -38,6 +38,10 @@ ELEMENTS_ADMINS = getattr(cereconf, 'EPHORTE_ADMINS')
 ELEMENTS_UIO_ROOT_SKO = getattr(cereconf, 'EPHORTE_UIO_ROOT_SKO')
 ELEMENTS_EGNE_SAKER_SKO = getattr(cereconf, 'EPHORTE_EGNE_SAKER_SKO')
 
+# SKO lists
+ELEMENTS_FSAT_SKO = getattr(cereconf, 'EPHORTE_FSAT_SKO')
+ELEMENTS_KDTO_SKO = getattr(cereconf, 'EPHORTE_KDTO_SKO')
+
 # Day filter (when to allow email warnings), and email template
 ELEMENTS_MAIL_TIME = getattr(cereconf, 'EPHORTE_MAIL_TIME', [])
 ELEMENTS_MAIL_OU_MISMATCH = getattr(cereconf, 'EPHORTE_MAIL_OU_MISMATCH')

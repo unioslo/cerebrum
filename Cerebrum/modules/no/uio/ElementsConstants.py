@@ -127,6 +127,11 @@ class ElementsConstants(ConstantsBase):
     # Values from the elements table JOURNENHET
     elements_journenhet_sp = _ElementsJournalenhetCode(
         'SP', 'Journalenhet for UiO - Universitetet i Oslo')
+    elements_journenhet_fsat = _ElementsJournalenhetCode(
+        'J-FSAT',
+        'Journalenhet for FSAT - Felles studieadministrativt tjenestesenter')
+    elements_journenhet_kdto = _ElementsJournalenhetCode(
+        'J-KDTO', 'Journalenhet for KDTO - KDs tjenesteorgan')
 
     # Spreads relevant for elements
     spread_elements_person = _SpreadCode('elements_person',
