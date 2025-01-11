@@ -249,7 +249,7 @@ def make_elements_client(config_file, mock=False):
                  ca_certs=config.ca_certs,
                  username=config.username,
                  password=read_password(
-                     config.username, config.wsdl.split('/')[2]),
+                     config.config_id, config.wsdl.split('/')[2]),
                  timeout=config.timeout)
     return client, config
 

@@ -44,7 +44,7 @@ ELEMENTS_KDTO_SKO = getattr(cereconf, 'EPHORTE_KDTO_SKO')
 
 # Day filter (when to allow email warnings), and email template
 ELEMENTS_MAIL_TIME = getattr(cereconf, 'EPHORTE_MAIL_TIME', [])
-ELEMENTS_MAIL_OU_MISMATCH = getattr(cereconf, 'EPHORTE_MAIL_OU_MISMATCH')
+ELEMENTS_MAIL_OU_MISMATCH = getattr(cereconf, 'ELEMENTS_MAIL_OU_MISMATCH')
 
 MAX_OU_LEVELS_TO_CLIMB_IN_SEARCH_OF_ELEMENTS_OU = 2
 
