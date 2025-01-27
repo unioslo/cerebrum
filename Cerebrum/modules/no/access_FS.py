@@ -2088,7 +2088,8 @@ class roles_xml_parser(non_nested_xml_parser):
             'institusjonsnr_eier': None,
             'rolletype': None,
             'plnr': None,
-            }
+            'periodestatuskode': None,
+        }
         data = attrs.copy()
         target = None
         not_target = set()
