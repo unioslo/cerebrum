@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright 2005 University of Oslo, Norway
+#
+# Copyright 2005-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -16,7 +17,6 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
 """
 This module implements an abstraction layer for SAP-originated HR data.
 
@@ -25,17 +25,45 @@ this means mapping XML-elements stemming from SAP data files to objects in
 datagetter.
 """
 
-from __future__ import unicode_literals
-from mx.DateTime import now
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
+import datetime
 import cereconf
 
-from Cerebrum.modules.xmlutils.xml2object import (
-    XMLDataGetter, XMLEntity2Object, HRDataPerson, DataAddress,
-    DataEmployment, DataOU, DataContact, DataName, DataExternalWork,
-    ensure_unicode
-)
 from Cerebrum.modules.no.fodselsnr import personnr_ok
+from Cerebrum.modules.xmlutils.xml2object import (
+    DataAddress,
+    DataContact,
+    DataEmployment,
+    DataExternalWork,
+    DataName,
+    DataOU,
+    HRDataPerson,
+    XMLDataGetter,
+    XMLEntity2Object,
+    ensure_unicode,
+)
+from Cerebrum.utils import date_compat
+
+
+def _has_started(start_date):
+    if not start_date:
+        # If no start date is set, we assume start date is mindate, and has
+        # always started.
+        return True
+    return date_compat.get_date(start_date) >= datetime.date.today()
+
+
+def _has_ended(end_date):
+    if not end_date:
+        # If no end date is set, we assume the end date will never occur
+        return False
+    return date_compat.get_date(end_date) > datetime.date.today()
 
 
 def deuglify_phone(phone):
@@ -71,7 +99,7 @@ def make_sko(data):
         return None
     # yrt
 
-    return tuple([int(x) for x in data[:2], data[2:4], data[4:]])
+    return tuple([int(x) for x in (data[:2], data[2:4], data[4:])])
 
 
 class SAPXMLDataGetter(XMLDataGetter):
@@ -227,7 +255,7 @@ class XMLOU2Object(XMLEntity2Object):
             elif sub.tag in ("Adresse",):
                 result.add_address(self._make_address(sub))
             elif sub.tag in ("Startdato", "Sluttdato"):
-                date = self._make_mxdate(sub.text, format="%Y-%m-%d")
+                date = self._make_date(sub.text, format="%Y-%m-%d")
                 if sub.tag == "Startdato":
                     result.start_date = date
                 else:
@@ -260,11 +288,16 @@ class XMLOU2Object(XMLEntity2Object):
             ou_no_sko_str = result.get_id(DataOU.NO_SKO)
             if not ou_no_sko_str:
                 ou_no_sko_str = 'Missing a valid NO_SKO value'
-            if result.end_date and result.end_date < now():
+
+            start_date = date_compat.get_date(result.start_date)
+            end_date = date_compat.get_date(result.end_date)
+            today = datetime.date.today()
+
+            if end_date and end_date < today:
                 if self.logger:
                     self.logger.debug("No name for expired OU %s",
                                       ou_no_sko_str)
-            elif result.start_date and result.start_date > now():
+            elif start_date and start_date > today:
                 if self.logger:
                     self.logger.debug("No name for future OU %s",
                                       ou_no_sko_str)
@@ -413,9 +446,9 @@ class XMLPerson2Object(XMLEntity2Object):
                 if len(tmp) != 1 and category is None:
                     category = self._code2category(tmp[0])
             elif sub.tag == "Startdato":
-                start_date = self._make_mxdate(value, format="%Y-%m-%d")
+                start_date = self._make_date(value, format="%Y-%m-%d")
             elif sub.tag == "Sluttdato":
-                end_date = self._make_mxdate(value, format="%Y-%m-%d")
+                end_date = self._make_date(value, format="%Y-%m-%d")
             elif sub.tag == "Orgenhet":
                 sko = make_sko(value)
                 if sko is not None:
@@ -497,9 +530,9 @@ class XMLPerson2Object(XMLEntity2Object):
                 if sko is not None:
                     ou_id = (DataOU.NO_SKO, sko)
             elif sub.tag == "Startdato":
-                start_date = self._make_mxdate(value, format="%Y-%m-%d")
+                start_date = self._make_date(value, format="%Y-%m-%d")
             elif sub.tag == "Sluttdato":
-                end_date = self._make_mxdate(value, format="%Y-%m-%d")
+                end_date = self._make_date(value, format="%Y-%m-%d")
 
         if ou_id is None:
             return None
@@ -563,13 +596,13 @@ class XMLPerson2Object(XMLEntity2Object):
         extent = element.findtext(".//Omfang")
         start = element.findtext(".//Startdato")
         if start:
-            start = self._make_mxdate(ensure_unicode(start, self.encoding),
+            start = self._make_date(ensure_unicode(start, self.encoding),
                                       format="%Y-%m-%d")
         else:
             start = None
         end = element.findtext(".//Sluttdato")
         if end:
-            end = self._make_mxdate(ensure_unicode(end, self.encoding),
+            end = self._make_date(ensure_unicode(end, self.encoding),
                                     format="%Y-%m-%d")
         else:
             end = None
@@ -642,7 +675,7 @@ class XMLPerson2Object(XMLEntity2Object):
                 result.add_id(self.tag2type[sub.tag], value)
                 self.logger.debug(value)
             elif sub.tag == "Fodselsdato":
-                result.birth_date = self._make_mxdate(value, format="%Y-%m-%d")
+                result.birth_date = self._make_date(value, format="%Y-%m-%d")
             elif sub.tag == "Kjonn":
                 result.gender = self.tag2type[value]
             elif sub.tag == "Adresse":

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2002-2019 University of Oslo, Norway
+# Copyright 2002-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -22,13 +22,18 @@ A simple xml helper util.
 
 Moved from Factory.Utils for compatibility reasons
 """
-from __future__ import unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
+import datetime
 import re
-
-import mx.DateTime
 import six
 
+from Cerebrum.utils.date_compat import to_mx_format, is_mx_datetime
 
 class XMLHelper(object):
 
@@ -63,8 +68,10 @@ class XMLHelper(object):
         """Escapes XML attributes."""
         if isinstance(a, int):
             a = six.text_type(a)
-        elif isinstance(a, mx.DateTime.DateTimeType):
-            a = six.text_type(str(a))
+        elif is_mx_datetime(a):
+            a = six.text_type(to_mx_format(a))
+        elif isinstance(a, datetime.datetime):
+            a = six.text_type(to_mx_format(a))
         a = a.replace('&', "&amp;")
         a = a.replace('"', "&quot;")
         a = a.replace('<', "&lt;")

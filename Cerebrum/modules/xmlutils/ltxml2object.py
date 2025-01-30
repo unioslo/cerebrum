@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright 2005 University of Oslo, Norway
+#
+# Copyright 2005-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -16,20 +17,24 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
 """
 This module implements an abstraction layer for LT-originated data.
 """
-from __future__ import unicode_literals
-
-from mx.DateTime import Date
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import cereconf
+import datetime
+
+from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.xmlutils.xml2object import (
     DataAddress,
     DataContact,
     DataEmployment,
-    # DataEntity,
     DataName,
     DataOU,
     HRDataPerson,
@@ -37,7 +42,6 @@ from Cerebrum.modules.xmlutils.xml2object import (
     XMLEntity2Object,
     ensure_unicode,
 )
-import Cerebrum.modules.no.fodselsnr as fodselsnr
 
 
 class LTXMLDataGetter(XMLDataGetter):
@@ -129,15 +133,15 @@ class XMLPerson2Object(XMLEntity2Object):
             return tuple([int(elem.get(x)) for x in (f, i, g)])
 
         if elem.tag == "bilag":
-            end_date = self._make_mxdate(elem.get("dato_oppgjor"))
+            end_date = self._make_date(elem.get("dato_oppgjor"))
             ou_id = (DataOU.NO_SKO,
                      make_sko("fakultetnr_kontering", "instituttnr_kontering",
                               "gruppenr_kontering"))
         elif elem.tag == "gjest":
             ou_id = (DataOU.NO_SKO,
                      make_sko("fakultetnr", "instituttnr", "gruppenr"))
-            start_date = self._make_mxdate(elem.get("dato_fra"))
-            end_date = self._make_mxdate(elem.get("dato_til"))
+            start_date = self._make_date(elem.get("dato_fra"))
+            end_date = self._make_date(elem.get("dato_til"))
             code = ensure_unicode(elem.get("gjestetypekode"), self.encoding)
         elif elem.tag == "tils":
             percentage = float(elem.get("prosent_tilsetting"))
@@ -147,8 +151,8 @@ class XMLPerson2Object(XMLEntity2Object):
             if title == "professor II":
                 percentage = percentage / 5.0
             # fi
-            start_date = self._make_mxdate(elem.get("dato_fra"))
-            end_date = self._make_mxdate(elem.get("dato_til"))
+            start_date = self._make_date(elem.get("dato_fra"))
+            end_date = self._make_date(elem.get("dato_til"))
             ou_id = (DataOU.NO_SKO,
                      make_sko("fakultetnr_utgift", "instituttnr_utgift",
                               "gruppenr_utgift"))
@@ -161,8 +165,8 @@ class XMLPerson2Object(XMLEntity2Object):
             if child.tag == "permisjon":
                 tmp = {}
                 tmp['percentage'] = float(child.get("prosent_permisjon"))
-                tmp['start_date'] = self._make_mxdate(elem.get("dato_fra"))
-                tmp['end_date'] = self._make_mxdate(elem.get("dato_til"))
+                tmp['start_date'] = self._make_date(elem.get("dato_fra"))
+                tmp['end_date'] = self._make_date(elem.get("dato_til"))
                 leave.append(tmp)
 
         return DataEmployment(kind=tag2kind[elem.tag],
@@ -193,7 +197,7 @@ class XMLPerson2Object(XMLEntity2Object):
         fnr = fodselsnr.personnr_ok(tmp)
         result.add_id(result.NO_SSN, fnr)
         # Since LT does not provide birth date directly, we extract it from fnr
-        result.birth_date = Date(*fodselsnr.fodt_dato(fnr))
+        result.birth_date = datetime.date(*fodselsnr.fodt_dato(fnr))
         # ... and gender
         if fodselsnr.er_mann(fnr):
             result.gender = result.GENDER_MALE
@@ -323,8 +327,8 @@ class XMLOU2Object(XMLEntity2Object):
                           get_value(element.get("nsd_kode")))
 
         # Activity period
-        result.start_date = self._make_mxdate(element.get("dato_opprettet"))
-        result.end_date = self._make_mxdate(element.get("dato_nedlagt"))
+        result.start_date = self._make_date(element.get("dato_opprettet"))
+        result.end_date = self._make_date(element.get("dato_nedlagt"))
         # Accessibility for catalogues
         if element.get("opprettetmerke_for_oppf_i_kat"):
             result.publishable = True
