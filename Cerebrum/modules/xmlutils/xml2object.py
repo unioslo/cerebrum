@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-#
 # Copyright 2005-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -43,23 +42,17 @@ TODO:
   flexible.
 * Fix the documentation and provide a few more examples.
 """
-from __future__ import (
-    absolute_import,
-    division,
-    print_function,
-    unicode_literals,
-)
+from __future__ import unicode_literals
 
 import copy
-import datetime
 import time
-import six
-import cereconf
-
 from xml.etree.cElementTree import parse, iterparse, ElementTree
 
+import six
+from mx.DateTime import Date, DateTimeDelta
+
+import cereconf
 from Cerebrum import Utils
-from Cerebrum.utils.date_compat import get_date
 
 
 def get_xml_file_encoding(file_name):
@@ -113,7 +106,7 @@ class DataAddress(object):
     def __init__(self, kind, street=(), zip="", city="", country=""):
         self.kind = kind
         if isinstance(street, (list, tuple)):
-            self.street = "\n".join(filter(None, map(str.strip, street)))
+            self.street = "\n".join(filter(None, map(unicode.strip, street)))
         else:
             self.street = street.strip()
         self.city = city.strip()
@@ -295,10 +288,10 @@ class DataEmployment(NameContainer):
         :type code: int
         :param code: Employment code (stillingskode)
 
-        :type start: datetime.date
+        :type start: mx.DateTime
         :param start: Start date of the employment
 
-        :type end: datetime.date
+        :type end: mx.DateTime
         :param end: End date of the employment
 
         :type place: tuple
@@ -315,7 +308,7 @@ class DataEmployment(NameContainer):
         :param leave:
             Periods where the employment is inactive. List of dict(-like)
             objects. Each object should contain the keys 'start_date' and
-            'end_date', with a datetime.date.
+            'end_date', with a mx.DateTime value.
 
         :type mg: int
         :param mg: (MEGType, medarbeidergruppe)
@@ -330,8 +323,8 @@ class DataEmployment(NameContainer):
                              self.GJEST, self.BILAG)
         self.percentage = percentage
         self.code = code
-        self.start = get_date(start)
-        self.end = get_date(end)
+        self.start = start
+        self.end = end
         # Associated OU identified with (kind, value)-tuple.
         self.place = place
         # Kind of employment -- VIT/TEKADM-ØVR
@@ -350,10 +343,7 @@ class DataEmployment(NameContainer):
     def is_guest(self):
         return self.kind == self.GJEST
 
-    def is_active(self, date=None):
-        start = date_compat.get_date(self.start)
-        end = date_compat.get_date(self.end)
-        today = date_compat.get_date(date) or datetime.date.today()
+    def is_active(self, date=Date(*time.localtime()[:3])):
         # IVR 2009-04-29 Lars Gustav Gudbrandsen requested on 2009-04-22 that
         # all employment-related info should be considered active 14 days
         # prior to the actual start day.
@@ -361,25 +351,18 @@ class DataEmployment(NameContainer):
         # for people changing role/position at UiO we should let the
         # affiliation be valid for a few days after it has been revoked
         # in the authoritative source
-        start_delta = datetime.timedelta(days=14)
-        end_delta = datetime.timedelta(days=3)
+        if self.start:
+            return ((self.start - DateTimeDelta(14) <= date) and
+                    ((not self.end) or (date <= self.end + DateTimeDelta(3))))
 
-        if start:
-            return (
-                (start - start_delta <= today)
-                and ((not end) or (today <= end + end_delta)))
+        return ((not self.end) or (date <= self.end + DateTimeDelta(3)))
 
-        return ((not end) or (today <= end + end_delta))
-
-    def has_leave(self, date=None):
+    def has_leave(self, date=Date(*time.localtime()[:3])):
         """If the employment is on leave, e.g. working somewhere else
         temporarily.
         """
-        today = date_compat.get_date(date) or datetime.date.today()
         for leave in self.leave:
-            start = date_compat.get_date(leave['start_date'])
-            end = date_compat.get_date(leave['end_date'])
-            if start and start <= today and end and today <= end:
+            if leave['start_date'] <= date and (date <= leave['end_date']):
                 return True
         return False
 
@@ -575,8 +558,7 @@ class HRDataPerson(DataPerson):
     def iteremployment(self):
         return iter(self.employments)
 
-
-    def has_active_employments(self, timepoint=None):
+    def has_active_employments(self, timepoint=Date(*time.localtime()[:3])):
         """Decide whether this person has employments at a given timepoint."""
 
         for x in self.iteremployment():
@@ -670,6 +652,7 @@ class XMLDataGetter(AbstractDataGetter):
             it = self._data_source.iter(element)
         else:
             it = XMLEntityIterator(self._filename, element)
+
         return klass(iter(it), self.logger, self._encoding, **kwargs)
 
     def fetch(self, fetchall=True):
@@ -709,7 +692,7 @@ class XMLEntity2Object(object):
         for (k, v) in kwargs.items():
             setattr(self, k, v)
 
-    def __next__(self):
+    def next(self):
         """Return next object constructed from a suitable XML element
 
         Reads the 'next' element and returns an object constructed out of it,
@@ -730,7 +713,7 @@ class XMLEntity2Object(object):
         while 1:
             try:
                 # Fetch the next XML subtree...
-                element = next(self._xmliter)
+                element = self._xmliter.next()
                 # ... and dispatch to subclass to create an object
                 obj = self.next_object(element)
 
@@ -760,8 +743,6 @@ class XMLEntity2Object(object):
                         Utils.format_exception_context(*sys.exc_info()),
                         element.tag)
                 element.clear()
-
-    next = __next__
 
     @staticmethod
     def exception_wrapper(functor, exc_list=None, return_on_exc=None):
@@ -802,7 +783,7 @@ class XMLEntity2Object(object):
     def __iter__(self):
         return self
 
-    def _make_date(self, text, format="%Y%m%d"):
+    def _make_mxdate(self, text, format="%Y%m%d"):
         """Helper method to convert strings to dates.
 
         @param text:
@@ -814,14 +795,14 @@ class XMLEntity2Object(object):
         @type format: basestring
 
         @return
-        @rtype: datetime.date
+        @rtype: mx.DateTime.Date
 
         """
         if not text:
             return None
 
         year, month, day = time.strptime(text, format)[:3]
-        return datetime.date(year, month, day)
+        return Date(year, month, day)
 
     def format_xml_element(self, element):
         """Returned a 'serialized' version of an XML element.
