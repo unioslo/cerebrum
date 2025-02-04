@@ -122,6 +122,32 @@ class SapEndpoints(reprutils.ReprEvalMixin):
             http_utils.safe_path(int(stilling_id)))
 
 
+def _extract_fault(response):
+    """
+    Extract fault text from SAP response.
+
+    Certain HTTP errors carry dual meanings.  E.g. 404, which could mean:
+
+    - API doesn't exist at gateway (e.g. no '<gateway>/lonn/v1/')
+    - API endpoint doesn't exist at backend (e.g. no <backend>/ansatte/v2/)
+    - Object doesn't exist (e.g. no such employee-id)
+
+    Where the first two are *errors*, and the last one usually means no result.
+    The latter can be identified through a response body, which should be a
+    JSON object with:
+    ::
+
+        {"standard": {"faultText": "error message"}}
+    """
+    if "application/json" not in response.headers.get("content-type", ""):
+        return None
+    try:
+        data = response.json()
+        return data.get("standard", {}).get("faultText", None)
+    except Exception:
+        return None
+
+
 class SapClient(reprutils.ReprFieldMixin):
 
     repr_id = False
@@ -169,15 +195,6 @@ class SapClient(reprutils.ReprFieldMixin):
         else:
             self.session = requests
 
-    def _is_api_response(self, response):
-        """
-        Check if response is actually from the DFØ API, and not a proxy.
-
-        This is typically needed for non-2xx responses that carry special
-        meaning in the API.
-        """
-        return "SAP" in response.headers.get('server', '')
-
     def _prepare_headers(self, api, date=None):
         api_headers = dict(self.api_headers[api])
         extra_headers = {}
@@ -218,21 +235,25 @@ class SapClient(reprutils.ReprFieldMixin):
         url = self.urls.get_employee_url(employee_id)
         headers = self._prepare_headers('employee', date=date)
         response = self.get(url, headers=headers)
-        if not self._is_api_response(response):
-            response.raise_for_status()
-        if response.status_code == 404:
-            return None
+
+        # Normal response
         if response.status_code == 200:
             data = response.json()
             return data.get('ansatt', None)
+
+        # Could be *no employee*
+        if response.status_code == 404:
+            fault = _extract_fault(response)
+            if fault and fault.startswith("IKKE ANSATT"):
+                return None
+
         response.raise_for_status()
 
     def list_employees(self, date=None):
         url = self.urls.employees_url
         headers = self._prepare_headers('employee', date=date)
         response = self.get(url, headers=headers)
-        if not self._is_api_response(response):
-            response.raise_for_status()
+        # We should always get a valid 200-response
         response.raise_for_status()
         data = response.json()
         return data.get('ansatt') or []
@@ -242,11 +263,19 @@ class SapClient(reprutils.ReprFieldMixin):
         url = self.urls.get_orgunit_url(org_id)
         headers = self._prepare_headers('orgunit', date=date)
         response = self.get(url, headers=headers)
-        if response.status_code == 404:
-            return None
+
+        # Normal response
         if response.status_code == 200:
             data = response.json()
             return data.get('organisasjon', None)
+
+        # Could be *no org unit*
+        if response.status_code == 404:
+            # not sure what the fault text would be here, but we don't really
+            # use this API.
+            if _extract_fault(response):
+                return None
+
         response.raise_for_status()
 
     # TODO: rename to get_assignment
@@ -254,19 +283,25 @@ class SapClient(reprutils.ReprFieldMixin):
         url = self.urls.get_assignment_url(stilling_id)
         headers = self._prepare_headers('assignment', date=date)
         response = self.get(url, headers=headers)
-        if response.status_code == 404:
-            return None
+
+        # Normal response
         if response.status_code == 200:
             data = response.json()
             return data.get('stilling', None)
+
+        # Could be *no assignment*
+        if response.status_code == 404:
+            fault = _extract_fault(response)
+            if fault and fault.startswith("UBESATT STILLING"):
+                return None
+
         response.raise_for_status()
 
     def list_assignments(self, date=None):
         url = self.urls.assignments_url
         headers = self._prepare_headers('assignment', date=date)
         response = self.get(url, headers=headers)
-        if not self._is_api_response(response):
-            response.raise_for_status()
+        # We should always get a valid 200-response
         response.raise_for_status()
         data = response.json()
         return data.get('stilling') or []
