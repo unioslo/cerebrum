@@ -88,6 +88,22 @@ def test_push_clear_payload(database):
     assert result['payload'] is None
 
 
+def test_push_empty_reason(database):
+    """ push should avoid empty reason strings. """
+    result = task_queue.sql_push(database, TEST_QUEUE, "sub", "key", reason="")
+    assert result['reason'] is None
+
+
+def test_push_clear_reason(database):
+    """ push should avoid empty reason strings. """
+    original = task_queue.sql_push(database, TEST_QUEUE, "sub", "key",
+                                   reason="reason")
+    assert original['reason'] == "reason"
+    result = task_queue.sql_push(database, TEST_QUEUE, "sub", "key",
+                                 reason="")
+    assert result['reason'] is None
+
+
 #
 # get/pop tests
 #
@@ -240,6 +256,108 @@ def test_search_attempts_invalid(database):
 
     error_msg = six.text_type(exc_info.value)
     assert "max_attempts: cannot be less than min_attempts" in error_msg
+
+
+def _force_push(database, queue, sub, key, **kwargs):
+    """
+    Explicitly allow certain task values.
+
+    The sql_push tries hard to avoid certain values, like e.g. an empty reason
+    string rather than None/NULL.
+    """
+    reason = kwargs.get("reason", None)
+    result = task_queue.sql_push(database, queue, sub, key, **kwargs)
+    if result['reason'] != reason:
+        return task_queue._sql_update(database, queue, sub, key, reason=reason)
+    return result
+
+
+def test_search_reason_unset(database):
+    task_queue.sql_push(database, TEST_QUEUE, "", "1", reason="foo")
+    task_queue.sql_push(database, TEST_QUEUE, "", "2")
+    # Force an explicit empty string as reason.  This shouldn't happen but
+    # search/delete should be able to differentiate between the two.
+    _force_push(database, TEST_QUEUE, "", "3", reason="")
+
+    result_keys = set(
+        r['key']
+        for r in task_queue.sql_search(database, queues=TEST_QUEUE,
+                                       reason=None))
+    assert result_keys == set(("2",))
+
+
+def test_search_reason_empty_string(database):
+    task_queue.sql_push(database, TEST_QUEUE, "", "1", reason="foo")
+    task_queue.sql_push(database, TEST_QUEUE, "", "2")
+    # Force an explicit empty string as reason.  This shouldn't happen but
+    # search/delete should be able to differentiate between the two.
+    _force_push(database, TEST_QUEUE, "", "3", reason="")
+    result_keys = set(
+        r['key']
+        for r in task_queue.sql_search(database, queues=TEST_QUEUE,
+                                       reason=""))
+    assert result_keys == set(("3",))
+
+
+def test_search_reason_exact_string(database):
+    task_queue.sql_push(database, TEST_QUEUE, "", "1", reason="foo")
+    task_queue.sql_push(database, TEST_QUEUE, "", "2")
+    task_queue.sql_push(database, TEST_QUEUE, "", "3", reason="Foo")
+    result_keys = set(
+        r['key']
+        for r in task_queue.sql_search(database, queues=TEST_QUEUE,
+                                       reason="Foo"))
+    assert result_keys == set(("3",))
+
+
+def test_search_reason_glob_pattern(database):
+    task_queue.sql_push(database, TEST_QUEUE, "", "1", reason="foo: bar")
+    task_queue.sql_push(database, TEST_QUEUE, "", "2")
+    task_queue.sql_push(database, TEST_QUEUE, "", "3", reason="Foo: bar")
+    task_queue.sql_push(database, TEST_QUEUE, "", "4", reason="Foo: *")
+
+    def _search_keys(**kwargs):
+        return set(r['key']
+                   for r in task_queue.sql_search(database, queues=TEST_QUEUE,
+                                                  **kwargs))
+
+    # Check that glob patterns works as expected
+    assert _search_keys(reason_like="Foo: *") == set(("3", "4"))
+    assert _search_keys(reason_like="Foo: ?") == set(("4",))
+
+    # Check that case insensitive patterns works as expected
+    assert _search_keys(reason_ilike="foo: *") == set(("1", "3", "4"))
+
+    # Check that escaping glob patterns works as expected
+    assert _search_keys(reason_like=r"Foo: \*") == set(("4",))
+
+    # Check that sql glob patterns doesn't work
+    assert _search_keys(reason_ilike=r"foo: %") == set(())
+    assert _search_keys(reason_ilike=r"foo: _") == set(())
+
+
+def test_search_reason_combined(database):
+    task_queue.sql_push(database, TEST_QUEUE, "", "1",
+                        reason="retry: error=504")
+    task_queue.sql_push(database, TEST_QUEUE, "", "2")
+    task_queue.sql_push(database, TEST_QUEUE, "", "3", reason="failed")
+    task_queue.sql_push(database, TEST_QUEUE, "", "4",
+                        reason="retry: error=401")
+    task_queue.sql_push(database, TEST_QUEUE, "", "5", reason="New")
+
+    def _search_keys(**kwargs):
+        return set(r['key']
+                   for r in task_queue.sql_search(database, queues=TEST_QUEUE,
+                                                  **kwargs))
+
+    # Check that we can combine (OR) an exact reason string and a pattern
+    assert _search_keys(reason="failed",
+                        reason_ilike="retry: *") == set(("1", "3", "4"))
+
+    # Check that we can combine (OR) an explicitly unset reason and patterns
+    assert _search_keys(reason=None,
+                        reason_like="fail??",
+                        reason_ilike="*new*") == set(("2", "3", "5"))
 
 
 #
