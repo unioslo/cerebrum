@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2007-2022 University of Oslo, Norway
+# Copyright 2007-2025 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -34,8 +34,97 @@ import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.argutils import add_commit_args
+from Cerebrum.group import group_sync
 
 logger = logging.getLogger(__name__)
+
+
+class MemberBuilder(object):
+
+    def __init__(self, db):
+        self.db = db
+        self.group_cache = {}
+        self.account_cache = group_sync.AccountOwnerCache(db)
+
+    def calculate_members(
+            self,
+            include,
+            exclude,
+            member_type="person",
+            intersect=False,
+            exclude_quarantined=False):
+        """
+        Calculate a set of member ids from existing groups.
+
+        :param include:
+            Group names to include members from
+
+        :param exclude:
+            Group names to exclude members from
+
+        :param member_type:
+            Normalize members to personal account owners
+
+        :param exclude_quarantined:
+            Exclude quarantined accounts / persons with quarantined primary
+            account.
+
+        :param intersect:
+            Calculate `set(include_members) & set(exclude_members)` rather than
+            `set(include_members) - set(exclude_members)`
+        """
+
+        include_members = set()
+        for group_name in include:
+            include_members.update(
+                group_sync.find_effective_members(
+                    get_group_by_name(self.db, group_name)))
+
+        exclude_members = set()
+        for group_name in exclude:
+            exclude_members.update(
+                group_sync.find_effective_members(
+                    get_group_by_name(self.db, group_name)))
+
+        if member_type == "person":
+            # include_members = set(
+            #     self.account_cache.only_persons(include_members)
+            # )
+            exclude_members = set(
+                self.account_cache.only_persons(exclude_members)
+            )
+        else:
+            raise ValueError("invalid member type: " + repr(member_type))
+
+        if exclude_quarantined:
+            include_members = set(
+                self.account_cache.exclude_quarantined(include_members,
+                                                       exclude_persons=True)
+            )
+
+        wanted = set()
+
+        if intersect:
+            wanted = include_members.intersection(exclude_members)
+        else:
+            wanted = include_members - exclude_members
+
+        return group_sync.get_member_ids(wanted)
+
+    def sync_group(self, db, group_name, include_groups=None,
+                   exclude_groups=None, exclude_quarantined=False,
+                   intersection=False):
+        group = get_group_by_name(self.db, group_name)
+
+        wanted = self.calculate_members(
+            include=(include_groups or []),
+            exclude=(exclude_groups or []),
+            member_type="person",
+            intersect=intersection,
+            exclude_quarantined=exclude_quarantined,
+        )
+
+        group_sync.set_group_members(group, wanted)
 
 
 def is_quarantined(db, entity_id):
@@ -87,7 +176,7 @@ def get_members(db, group_name, indirect_members=False,
                                        member_filter_expired=filter_expired)
         }
     if filter_quarantined:
-        mems -= { m for m in mems if is_quarantined(db, m) }
+        mems -= set(m for m in mems if is_quarantined(db, m))
 
     return mems
 
@@ -98,8 +187,6 @@ def get_persons(db, members):
     in the output with the owner_id of this account.
     """
     ac = Factory.get('Account')(db)
-    gr = Factory.get('Group')(db)
-    co = Factory.get('Constants')(db)
     owners = set()
 
     for member in members:
@@ -108,11 +195,17 @@ def get_persons(db, members):
         try:
             ac.find(member)
             owner = ac.owner_id
-        except:
+        except Exception:
             pass
         owners.add(owner)
 
     return owners
+
+
+def get_group_by_name(db, group_name):
+    gr = Factory.get('Group')(db)
+    gr.find_by_name(group_name)
+    return gr
 
 
 def sync_group(db, target_group, include_groups=None, exclude_groups=None,
@@ -134,17 +227,18 @@ def sync_group(db, target_group, include_groups=None, exclude_groups=None,
     """
     logger.info("Syncing group %s", target_group)
 
-    gr = Factory.get('Group')(db)
+    gr = get_group_by_name(db, target_group)
 
     include_group_members = set()
     if include_groups:
         for include_group in include_groups:
-            include_group_members.update(get_members(db, include_group,
-                                                     indirect_members=True,
-                                                     filter_groups=True,
-                                                     filter_quarantined=exclude_quarantined))
+            include_group_members.update(
+                get_members(db, include_group,
+                            indirect_members=True,
+                            filter_groups=True,
+                            filter_quarantined=exclude_quarantined))
         logger.debug("Found %s members of %s", len(include_group_members),
-                    include_groups)
+                     include_groups)
 
     exclude_group_members = set()
     if exclude_groups:
@@ -152,45 +246,21 @@ def sync_group(db, target_group, include_groups=None, exclude_groups=None,
             exclude_group_members.update(get_members(db, exclude_group,
                                                      indirect_members=True))
         logger.debug("Found %s members of %s", len(exclude_group_members),
-                    exclude_groups)
+                     exclude_groups)
 
     # This step is needed to sanitise the contents of 'it-uio-ms365-betalende'
     exclude_group_members = get_persons(db, exclude_group_members)
 
-    gr.find_by_name(target_group)
-    current_members = get_members(db, target_group)
-    logger.debug("%s has %s current members", target_group, len(current_members))
-
-    add_members = set()
-    intersection_members = set()
-    remove_members = set()
+    wanted_members = set()
     if intersection:
-        intersection_members = include_group_members.intersection(exclude_group_members)
-        add_members = intersection_members - current_members
+        wanted_members = include_group_members.intersection(
+            exclude_group_members
+        )
     else:
-        # Add any member in include groups, not already present in target group
-        add_members = include_group_members - exclude_group_members - current_members
-    logger.info("Adding %s new members to %s", len(add_members), target_group)
-    for member in add_members:
-        gr.add_member(member)
-        logging.debug('Added new member %r to group %r', member, target_group)
+        wanted_members = include_group_members - exclude_group_members
 
-
-    if intersection:
-        remove_members = current_members - intersection_members
-    else:
-        # Remove any member from target group that is no longer present in the
-        # include_groups OR any member of target group that is also a member of
-        # the exclude_groups
-        remove_members = current_members - (include_group_members -
-                                            exclude_group_members)
-
-    logger.info("Removing %s members from %s", len(remove_members), target_group)
-    for member in remove_members:
-        gr.remove_member(member)
-        logging.debug('Removed member %r from group %r', member, target_group)
-
-    gr.clear()
+    group_sync.set_group_members(gr, wanted_members)
+    return wanted_members
 
 
 def main():
@@ -203,53 +273,117 @@ def main():
     db = Factory.get('Database')()
     db.cl_init(change_program='populate-azure-groups.py')
 
-    sync_group(db, "it-uio-ms365-ansatt",
-               include_groups=["meta-ansatt-vitenskapelig-900000",
-                               "meta-ansatt-tekadm-900000"],
-               exclude_quarantined=True,
-               exclude_groups=["it-uio-ms365-betalende-utflatet"])
-    sync_group(db, "it-uio-ms365-student",
-               include_groups=["meta-student-900000"],
-               exclude_groups=["it-uio-ms365-betalende-utflatet",
-                               "it-uio-ms365-ansatt"])
-    sync_group(db, "it-uio-ms365-andre",
-               include_groups=["meta-ansatt-bilag-900000",
-                               "meta-tilknyttet-900000"],
-               exclude_quarantined=True,
-               exclude_groups=["it-uio-ms365-betalende-utflatet",
-                               "it-uio-ms365-student",
-                               "it-uio-ms365-ansatt"])
-    sync_group(db, "it-uio-ms365-quarantine",
-               include_groups=["meta-ansatt-bilag-900000",
-                               "meta-tilknyttet-900000"],
-               exclude_groups=["it-uio-ms365-betalende-utflatet",
-                               "it-uio-ms365-student",
-                               "it-uio-ms365-ansatt",
-                               "it-uio-ms365-andre"])
-    sync_group(db, "it-uio-ms365-ansatt-publisert",
-               include_groups=["it-uio-ms365-ansatt"],
-               exclude_groups=["DFO-elektroniske-reservasjoner"])
-    sync_group(db, "it-uio-ms365-student-u-exo",
-               include_groups=["it-uio-ms365-student"],
-               exclude_groups=["postmaster-eo-migrerte"])
-    sync_group(db, "it-uio-ms365-student-m-exo",
-               include_groups=["it-uio-ms365-student"],
-               exclude_groups=["postmaster-eo-migrerte"],
-               intersection=True)
-    sync_group(db, "it-uio-ms365-betalende-u-exo",
-               include_groups=["it-uio-ms365-betalende-utflatet"],
-               exclude_groups=["postmaster-eo-migrerte"])
-    sync_group(db, "it-uio-ms365-betalende-m-exo",
-               include_groups=["it-uio-ms365-betalende-utflatet"],
-               exclude_groups=["postmaster-eo-migrerte"],
-               intersection=True)
-    sync_group(db, "it-uio-ms365-andre-u-exo",
-               include_groups=["it-uio-ms365-andre"],
-               exclude_groups=["postmaster-eo-migrerte"])
-    sync_group(db, "it-uio-ms365-andre-m-exo",
-               include_groups=["it-uio-ms365-andre"],
-               exclude_groups=["postmaster-eo-migrerte"],
-               intersection=True)
+    sync_group = MemberBuilder(db).sync_group
+
+    #
+    # Main ms365 lincense categories: betalende -> ansatt -> student -> andre
+    #
+    # "betalende" are manually maintained in a it-*-ms365-betalende group
+    # hierarchy, and (semi-)normalized to it-uio-ms365-betalende-utflatet.
+    #
+    # TODO: Move (and improve) normalization here?
+    #
+    sync_group(
+        db, "it-uio-ms365-ansatt",
+        include_groups=[
+           "meta-ansatt-vitenskapelig-900000",
+           "meta-ansatt-tekadm-900000",
+        ],
+        exclude_groups=[
+            "it-uio-ms365-betalende-utflatet",
+        ],
+        # member_type="person",
+        exclude_quarantined=True,
+    )
+    sync_group(
+        db, "it-uio-ms365-student",
+        include_groups=["meta-student-900000"],
+        exclude_groups=[
+            "it-uio-ms365-betalende-utflatet",
+            "it-uio-ms365-ansatt",
+        ],
+    )
+    sync_group(
+        db, "it-uio-ms365-andre",
+        include_groups=[
+            "meta-ansatt-bilag-900000",
+            "meta-tilknyttet-900000",
+        ],
+        exclude_groups=[
+            "it-uio-ms365-betalende-utflatet",
+            "it-uio-ms365-student",
+            "it-uio-ms365-ansatt",
+        ],
+        exclude_quarantined=True,
+    )
+
+    # A group of members that have been excluded from the amin categories due
+    # to quarantines
+    sync_group(
+        db, "it-uio-ms365-quarantine",
+        include_groups=[
+            "meta-ansatt-bilag-900000",
+            "meta-tilknyttet-900000",
+        ],
+        exclude_groups=[
+            "it-uio-ms365-betalende-utflatet",
+            "it-uio-ms365-student",
+            "it-uio-ms365-ansatt",
+            "it-uio-ms365-andre",
+        ],
+    )
+
+    #
+    # The main employee group, but only with non-hidden employees
+    #
+    sync_group(
+        db, "it-uio-ms365-ansatt-publisert",
+        include_groups=["it-uio-ms365-ansatt"],
+        exclude_groups=["DFO-elektroniske-reservasjoner"],
+    )
+
+    #
+    # Exchange Online migration groups
+    #
+    # As accounts are migrated - they are added to postmaster-eo-migrerte.
+    # These groups categorizes accounts according to their main group and
+    # exchange online status
+    #
+    sync_group(
+        db, "it-uio-ms365-student-u-exo",
+        include_groups=["it-uio-ms365-student"],
+        exclude_groups=["postmaster-eo-migrerte"],
+    )
+    sync_group(
+        db, "it-uio-ms365-student-m-exo",
+        include_groups=["it-uio-ms365-student"],
+        exclude_groups=["postmaster-eo-migrerte"],
+        intersection=True,
+    )
+
+    sync_group(
+        db, "it-uio-ms365-betalende-u-exo",
+        include_groups=["it-uio-ms365-betalende-utflatet"],
+        exclude_groups=["postmaster-eo-migrerte"],
+    )
+    sync_group(
+        db, "it-uio-ms365-betalende-m-exo",
+        include_groups=["it-uio-ms365-betalende-utflatet"],
+        exclude_groups=["postmaster-eo-migrerte"],
+        intersection=True,
+    )
+
+    sync_group(
+        db, "it-uio-ms365-andre-u-exo",
+        include_groups=["it-uio-ms365-andre"],
+        exclude_groups=["postmaster-eo-migrerte"],
+    )
+    sync_group(
+        db, "it-uio-ms365-andre-m-exo",
+        include_groups=["it-uio-ms365-andre"],
+        exclude_groups=["postmaster-eo-migrerte"],
+        intersection=True,
+    )
 
     if args.commit:
         db.commit()
