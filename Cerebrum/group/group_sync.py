@@ -128,23 +128,33 @@ def set_group_members(group, member_ids):
     to_add = wanted - current
     to_remove = current - wanted
 
-    logger.debug("Adding %d new members to %s", len(to_add), group_repr)
+    logger.debug("Updating %s members: adding %d, removing %d",
+                 group_repr, len(to_add), len(to_remove))
     for member_id in to_add:
         group.add_member(member_id)
         logger.info('Added member id=%d to %s', member_id, group_repr)
 
-    logger.debug("Removing %d members from %s", len(to_remove), group_repr)
     for member_id in to_remove:
         group.remove_member(member_id)
         logger.info('Removed member id=%d from group %s',
                     member_id, group_repr)
 
 
+def transform_noop(value):
+    """
+    Identity function - return value as-is.
+
+    Useful as a replacement for e.g. :meth:`.AccountOwnerCache.only_persons`
+    when no re-mapping is needed.
+    """
+    return value
+
+
 class AccountOwnerCache(object):
     """
     Utility to re-map account-id to person-id and vice versa.
 
-    This function is intended to filter the results of :func:`.get_members`.
+    This helper is intended to filter the results of :func:`.get_members`.
     """
     def __init__(self, db):
         self.db = db
@@ -192,7 +202,7 @@ class AccountOwnerCache(object):
         self._account_to_owner = {}
         self._account_to_person = {}
         self._owner_to_accounts = {}
-        logger.debug("caching all accounts...")
+        logger.debug("caching all active accounts...")
         for row in accounts:
             account_t = (row['account_id'], account_type)
             owner_t = (row['owner_id'], row['owner_type'])
@@ -201,7 +211,7 @@ class AccountOwnerCache(object):
             self._account_to_owner[account_t] = owner_t
             owner = self._owner_to_accounts.setdefault(owner_t, set())
             owner.add(account_t)
-        logger.info("Found %d accounts (%d personal accounts)",
+        logger.info("Found %d active accounts (%d personal accounts)",
                     len(self._account_to_owner), len(self._account_to_person))
 
     @property
@@ -252,7 +262,14 @@ class AccountOwnerCache(object):
     #
 
     def only_primary_accounts(self, iterable):
-        """ Map persons and personal accounts to primary account. """
+        """
+        Map persons and personal accounts to primary account.
+
+        This helper tries really hard to map members to a primary account:
+
+        - Person members are mapped to their primary account
+        - Personal accounts are mapped to the primary account of their owner
+        """
         for member_t in iterable:
             member_id, member_type = member_t
 
@@ -274,10 +291,17 @@ class AccountOwnerCache(object):
                 yield self.person_to_primary[member_t]
                 continue
 
-            logger.info("omitting %s - not a person or personal account",
+            logger.info("omitting %s - not mappable to a primary account",
                         member_t)
 
     def only_accounts(self, iterable, all_accounts=False):
+        """
+        Map persons to their primary account (or all accounts).
+
+        This helper only yield account entities.  If a person is encountered,
+        their primary account is used in stead.  If *all_accounts* is set, all
+        then all accounts that belongs to the person is included.
+        """
         const = Factory.get("Constants")(self.db)
         person_type = int(const.entity_person)
         account_type = int(const.entity_account)
