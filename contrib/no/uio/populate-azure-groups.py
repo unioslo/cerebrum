@@ -19,8 +19,10 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
+Create license groups for Azure.
+
 The groups it-uio-ms365-student, it-uio-ms365-ansatt, it-uio-ms365-betalende,
-and it-uio-ms365-andre determine licences in AzureAD. AzureAD cannot handle
+and it-uio-ms365-andre determine licenses in AzureAD.  AzureAD cannot handle
 cases where users are members of more than one of these groups at a time.
 
 This script updates memberships in these groups, and ensures orthogonality
@@ -146,11 +148,15 @@ class MembershipBuilder(object):
 
 
 def main():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        description="Populate it-uio-ms365-* groups for Azure licensing",
+    )
     add_commit_args(parser, default=False)
     Cerebrum.logutils.options.install_subparser(parser)
+
     args = parser.parse_args()
-    Cerebrum.logutils.autoconf('cronjob', args)
+    default_log_preset = "cronjob" if args.commit else "console"
+    Cerebrum.logutils.autoconf(default_log_preset, args)
 
     db = Factory.get('Database')()
     db.cl_init(change_program='populate-azure-groups.py')
@@ -158,14 +164,19 @@ def main():
     sync_group = MembershipBuilder(db).sync_group
 
     #
-    # Main ms365 lincense categories: betalende -> ansatt -> student -> andre
+    # Main ms365 license categories: betalende -> ansatt -> student -> andre
     #
-    # "betalende" are manually maintained in a `it-*-ms365-betalende` group
-    # hierarchy, and (semi-)normalized to `it-uio-ms365-betalende-utflatet`.
-    #
-    # TODO: Move (and improve) normalization of
-    # `it-uio-ms365-betalende-utflatet` here?
-    #
+    sync_group(
+        "it-uio-ms365-betalende-utflatet",
+        # TODO: This group should probably also be normalized using:
+        # member_type="person",
+        member_type=None,
+        include_groups=[
+            # "betalende" are manually maintained in a `it-*-ms365-betalende`
+            # group hierarchy.
+            "it-uio-ms365-betalende",
+        ],
+    )
     sync_group(
         "it-uio-ms365-ansatt",
         member_type="person",
@@ -237,8 +248,8 @@ def main():
     #
     # Exchange Online (exo) migration groups
     #
-    # As accounts are migrated to exo, they are added to
-    # `postmaster-eo-migrerte`.  These groups categorizes persons according to
+    # As accounts are migrated to exo, they are manually added to
+    # `postmaster-eo-migrerte`.  These groups categorize persons according to
     # their main group and exo status.
     #
     sync_group(
