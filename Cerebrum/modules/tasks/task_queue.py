@@ -48,8 +48,9 @@ logger = logging.getLogger(__name__)
 
 
 def _select(queues=None, subs=None, keys=None, iat_before=None, iat_after=None,
-            nbf_before=None, nbf_after=None, min_attempts=None,
-            max_attempts=None):
+            nbf_before=None, nbf_after=None,
+            min_attempts=None, max_attempts=None,
+            reason=NotSet, reason_like=None, reason_ilike=None):
     """
     Generate clauses and binds for task_queue queries.
 
@@ -69,6 +70,9 @@ def _select(queues=None, subs=None, keys=None, iat_before=None, iat_after=None,
     :param nbf_after: only include results with a nbf after this value
     :param min_attempts: only include results with at least min_attempts
     :param max_attempts: only include results with less than max_attempts
+    :param reason: only include results with the given reason
+    :param reason_like: only include results matching the pattern
+    :param reason_ilike: only include results matching the pattern
 
     :rtype: tuple(list, dict)
     :returns:
@@ -132,6 +136,18 @@ def _select(queues=None, subs=None, keys=None, iat_before=None, iat_after=None,
         clauses.append(n_cond)
     if n_binds:
         binds.update(n_binds)
+
+    r_cond, r_binds = query_utils.pattern_helper(
+        colname="reason",
+        value=reason,
+        case_pattern=reason_like,
+        icase_pattern=reason_ilike,
+        nullable=True,
+    )
+    if r_cond:
+        clauses.append(r_cond)
+    if r_binds:
+        binds.update(r_binds)
 
     return clauses, binds
 
@@ -346,7 +362,6 @@ def _sql_update(db, queue, sub, key, iat=NotSet, nbf=NotSet,
     if attempts is not NotSet:
         update['attempts'] = int(attempts)
     if reason is not NotSet:
-        # reason is nullable, i.e. we *should* update with a None-value
         update['reason'] = reason
     if payload is not NotSet:
         if payload is None:
@@ -416,6 +431,8 @@ def sql_push(db, queue, sub, key, iat=NotSet, nbf=NotSet, attempts=NotSet,
         'reason': reason,
         'payload': payload,
     }
+    if values['reason'] == "":
+        values['reason'] = None
 
     if prev:
         to_update = dict(_needs_update(prev, values))

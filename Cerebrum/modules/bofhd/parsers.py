@@ -302,3 +302,51 @@ Date format:
 
 {}
 """.lstrip().format(parse_date_help_blurb)
+
+
+_cerebrum_glob_blurb = r"""
+The Cerebrum pattern is a simple glob-like pattern, with the
+following special characters:
+
+- '*' matches zero or more characters
+- '?' matches a single character
+- '\*' matches a literal '*'
+- '\?' matches a literal '?'
+- '\\' matches a literal '\'
+""".strip()
+
+
+def parse_pattern(raw_value):
+    """
+    Parse a case sensitive cerebrum pattern.
+
+    Note: This is a stub, as actual parsing is done in the sql mapper - we may
+    want to add some checks here later.  See
+    :mod:`Cerebrum.database.query_helpers` for details on pattern matching.
+    """
+    return raw_value
+
+
+parse_pattern_help_blurb = """
+A case sensitive glob-like pattern.
+
+{}
+""".lstrip().format(_cerebrum_glob_blurb)
+
+
+def parse_ipattern(raw_value):
+    """
+    Parse a case insensitive Cerebrum pattern.
+
+    Note: This is a stub, as actual parsing is done in the sql mapper - we may
+    want to add some checks here later.  See
+    :mod:`Cerebrum.database.query_helpers` for details on pattern matching.
+    """
+    return raw_value
+
+
+parse_ipattern_help_blurb = """
+A case insensitive glob-like pattern.
+
+{}
+""".lstrip().format(_cerebrum_glob_blurb)

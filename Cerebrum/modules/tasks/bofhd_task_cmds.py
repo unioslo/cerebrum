@@ -114,7 +114,8 @@ class TaskSearchParams(parsers.ParamsParser):
         'issued-before': 'Limit to tasks issued before <datetime>',
         'issued-after': 'Limit to tasks issued after <datetime>',
         'before': 'Limit to tasks that are ready (at <datetime>)',
-        'after': 'Limit to tasks that are waiting (until <datetime>)'
+        'after': 'Limit to tasks that are waiting (until <datetime>)',
+        'reason': 'Limit to tasks matching a given reason <ipattern>',
     }
     params = {
         'queue': 'queues',
@@ -126,6 +127,7 @@ class TaskSearchParams(parsers.ParamsParser):
         'issued-after': 'iat_after',
         'before': 'nbf_before',
         'after': 'nbf_after',
+        'reason': 'reason_ilike',
     }
     parsers = {
         'min': int,
@@ -134,6 +136,7 @@ class TaskSearchParams(parsers.ParamsParser):
         'issued-after': parsers.parse_datetime,
         'before': parsers.parse_datetime,
         'after': parsers.parse_datetime,
+        'reason': parsers.parse_ipattern,
     }
     multivalued = set(('queue', 'sub', 'key'))
 
@@ -171,19 +174,32 @@ Example:  Find all tasks that are ready for processing in foo/ and foo/manual
 
     `task search queue:foo sub: sub:manual max:20 before:now`
 
-Valid filter params:
-
+Valid filter params
+-------------------
 {filters}
 
 
-Valid <datetime> values:
-
+Valid <datetime> values
+-----------------------
 {datetime}
+
+
+Matching with <ipattern>
+------------------------
+{ipattern}
+
+Example:  Find all tasks in queue foo that has failed at least 20 times, with a
+          given error message given as reason:
+
+  `task search queue:foo min:20 reason:"* error=504 Gateway Timeout *"
+
 """.format(
-    filters='\n'.join(
-        ' - {}: {}'.format(f, h)
-        for f, h in _task_filter_parser.get_help()),
-    datetime=parsers.parse_datetime_help_blurb,
+    filters="\n".join(
+        " - {}: {}".format(f, h)
+        for f, h in _task_filter_parser.get_help()
+    ).strip(),
+    datetime=parsers.parse_datetime_help_blurb.strip(),
+    ipattern=parsers.parse_ipattern_help_blurb.strip(),
 )
 
 
