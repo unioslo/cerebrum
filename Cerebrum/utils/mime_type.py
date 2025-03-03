@@ -79,13 +79,15 @@ else:
 
         This isn't a generic fix, because property values *could* potentially
         have values that looks like comments, but aren't (if quoted properly).
-        E.g. the content-type ``text/plain; charset="utf-8" (Plain Text)``,
-        would have params = [('charset', '"utf-8" (Plain Text)')]``, but
-        *should* have ``[('charset', 'utf-8')]``.
 
-        However, ``application/x-foo bar="\"utf-8\" (Plain Text)"`` is a valid
-        content-type where the properties are actually
-        ``[('bar', '"utf-8" (Plain Text)')]``
+        E.g. the content-type: ``text/plain; charset="utf-8" (Plain Text)``,
+        would have charset ``'"utf-8" (Plain Text)'``, but *should* have:
+        charset ``'utf-8'``.
+
+        However, ``text/plain; charset="\"utf-8\" (Plain Text)"`` is valid
+        content-type syntax where the charset value is actually
+        '"utf-8" (Plain Text)'``.  This function will incorrectly remove the
+        part that looks like a comment from the property.
         """
         if " (" in value:
             value = value.split(" (")[0].rstrip()
@@ -124,7 +126,7 @@ def parse_mime_type(value):
 
 def get_charset(value, default=None):
     """
-    Exctract 'charset' from a mime-type like string.
+    Extract 'charset' from a mime-type like string.
 
     >>> get_charset("text/plain; charset=utf-8")
     "utf-8"
