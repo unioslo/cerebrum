@@ -223,7 +223,7 @@ class VoipConstants(Constants.Constants):
     voip_client_ip6000 = VoipClientInfoCode(
         "001008",
         "Polycom IP6000",
-        )
+    )
 
     voip_client_ip7000 = VoipClientInfoCode(
         "001009",

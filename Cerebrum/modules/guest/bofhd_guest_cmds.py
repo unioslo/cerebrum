@@ -307,7 +307,7 @@ class BofhdGuestCommands(BofhdCommonMethods):
         # TODO: There's a mismatch here in how guests are registered, and how
         # we end up validating max number of guests.  We should ideally change
         # the guest_owner trait to actually be the *person* who registers the
-        # geust, and limit the number of guests per person rather than account.
+        # guest, and limit the number of guests per person rather than account.
         #
         # Also, this should probably be moved to can_create_personal_guest()
         if not self.ba.is_superuser(operator.get_entity_id()):

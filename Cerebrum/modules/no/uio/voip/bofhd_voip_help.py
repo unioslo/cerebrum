@@ -121,7 +121,6 @@ arg_help = {
             Use `client list_info_code` to list available values.
             """
         ).lstrip(),
-
     ],
     "voip_client_type_code": [
         "voip_client_type_code",

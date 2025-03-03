@@ -99,7 +99,7 @@ class _DfoAffiliations(_base.DfoAffiliations):
         # Drifts- og teknisk personale/andre tilsatte
         50078119: "ANSATT/tekadm",
 
-        # Unvervisnings- og forskningspersonale
+        # Undervisnings- og forskningspersonale
         50078120: "ANSATT/vitenskapelig",
     })
 

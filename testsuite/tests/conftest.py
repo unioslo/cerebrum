@@ -74,7 +74,7 @@ def factory(cereconf):
 def database_cls(factory):
     # TODO: This isn't ideal. We shouldn't use Factory to get our db driver,
     # and *really* shouldn't use a bunch of CL implementations when we run our
-    # tests.  How *should* we build our db driver and ocnfigure the test db
+    # tests.  How *should* we build our db driver and configure the test db
     # connection in unit tests?
     base = factory.get('Database')
 

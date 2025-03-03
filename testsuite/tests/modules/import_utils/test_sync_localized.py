@@ -112,7 +112,7 @@ def test_sync_update(database, const, person):
     assert updated == set([(const.personal_title, const.language_nb)])
     assert removed == set()
 
-    # Check that our nameesses are set as expected
+    # Check that our names are set as expected
     new_name = get_name(person, const.personal_title, const.language_nb)
     assert new_name == "Assistent"
 
@@ -140,7 +140,7 @@ def test_sync_affected(database, const, person):
     set_name(person, const.work_title, nn="Assistent")
 
     sync = syncs.NameLanguageSync(database, affect_types=(const.work_title,))
-    # no nameesses - remove all affected types
+    # no names - remove all affected types
     added, updated, removed = sync(person, [])
 
     assert not added
@@ -154,7 +154,7 @@ def test_sync_affected(database, const, person):
 def test_sync_unaffected(database, const, person):
     """ check that it is an error to set un-affected types. """
     sync = syncs.NameLanguageSync(database, affect_types=(const.work_title,))
-    # no nameesses - remove all affected types
+    # no names - remove all affected types
     new = [
         (const.personal_title, const.language_en, "Assistant"),
         (const.personal_title, const.language_nb, "Assistent"),

@@ -21,7 +21,7 @@
 """
 Create an app from config, and start a server.
 
-This module praovides *two* things:
+This module provides *two* things:
 
 1. An automatically created WSGI *app* object from config
    (e.g. for use with gunicorn or other app servers)
