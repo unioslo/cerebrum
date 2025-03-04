@@ -61,7 +61,6 @@ DEFAULT_TEMPLATE_FOLDER = os.path.join(
 )
 TEMPLATE_NAME = 'report_group_members.html'
 FROM_ADDRESS = 'noreply@usit.uio.no'
-SENDER = 'USIT\nUiO'
 DEFAULT_ENCODING = 'utf-8'
 DEFAULT_LANGUAGE = 'nb'
 BRUKERINFO_GROUP_MANAGE_LINK = 'https://brukerinfo.uio.no/groups/?group='
@@ -83,6 +82,7 @@ TRANSLATION = {
         'info_link': 'For more information go to the page ',
         'here': 'Automatisk rapportering av grupper.',
         'signature': 'Best regards,',
+        'sender': 'IT Department, UiO',
         'manage': 'Manage group',
         'headers': collections.OrderedDict([
             ('group_name', 'Managed group'),
@@ -105,6 +105,7 @@ TRANSLATION = {
         'info_link': 'For mer informasjon gå til siden ',
         'here': 'Automatisk rapportering av grupper.',
         'signature': 'Med vennlig hilsen,',
+        'sender': 'IT-avdelingen, UiO',
         'manage': 'Administrer gruppe',
         'headers': collections.OrderedDict([
             ('group_name', 'Gruppe du administrerer'),
@@ -127,6 +128,7 @@ TRANSLATION = {
         'info_link': 'For meir informasjon gå til sida ',
         'here': 'Automatisk rapportering av grupper.',
         'signature': 'Med vennleg helsing,',
+        'sender': 'IT-avdelingen, UiO',
         'manage': 'Administrer gruppe',
         'headers': collections.OrderedDict([
             ('group_name', 'Gruppe du administrerer'),
@@ -137,7 +139,7 @@ TRANSLATION = {
 }
 
 
-def write_plain_text_report(codec, translation=None, sender=None,
+def write_plain_text_report(codec, translation=None,
                             owned_groups=None,
                             account_name=None, info_link=None):
     def get_table_rows():
@@ -157,7 +159,7 @@ def write_plain_text_report(codec, translation=None, sender=None,
             info_link +
             '\n\n' + get_table(get_table_rows()) +
             '\n' + translation['signature'] +
-            '\n' + sender
+            '\n' + translation['sender']
     ).encode(codec.name)
 
 
@@ -213,14 +215,12 @@ def send_mails(db, args):
             args.codec,
             title=title,
             translation=TRANSLATION[DEFAULT_LANGUAGE],
-            sender=SENDER,
             owned_groups=groups,
             info_link=INFO_LINK, account_name=account_name,
         )
         plain_text = write_plain_text_report(
             args.codec,
             translation=TRANSLATION[DEFAULT_LANGUAGE],
-            sender=SENDER,
             owned_groups=groups,
             account_name=account_name,
             info_link=INFO_LINK
