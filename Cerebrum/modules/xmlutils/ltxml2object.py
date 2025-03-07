@@ -18,9 +18,25 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
-This module implements an abstraction layer for data from LT-compatible data.
+This module implements an abstraction layer for LT-compatible data.
 
-Data from LT comes in the form of an XML file, with persons and/or org-units.
+Data from LT is similar to SAPUIO-data (see :mod:`.sapxml2object`), and comes
+in the form of an XML file with org-units:
+::
+
+    <data>
+      <sted fakultetnr="70"
+            instituttnr="55"
+            gruppenr="0"
+            forkstednavn="Foo"
+            stednavn="Institutt for Foo"
+            akronym="FOO" >
+        <komm kommtypekode="EPOST"
+              kommnrverdi="foo@example.org" />
+        ...
+      </sted>
+      ...
+    </data>
 """
 from __future__ import (
     absolute_import,

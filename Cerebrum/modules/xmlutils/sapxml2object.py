@@ -20,8 +20,28 @@
 """
 This module implements an abstraction layer for SAPUiO-compatible data.
 
-SAPUiO compatible data comes in the form of XML files with employees and/or
-org-units.
+SAPUiO compatible data comes in the form of XML files with org-units:
+::
+
+    <sap2bas_data>
+      <sap2bas_sted>
+        <Sted>
+          <Overordnetstedkode>705000</Overordnetstedkode>
+          <Stedkode>705500</Stedkode>
+          <Startdato>2023-06-22</Startdato>
+        </Sted>
+        <Kommunikasjon>
+          <Type>E-post adresse</Type>
+          <Verdi>foo@example.org</Verdi>
+          <Prioritet>1</Prioritet>
+        </Kommunikasjon>
+      </sap2bas_sted>
+      ...
+    </sap2bas_data>
+
+
+See ``contrib/orgreg/orgreg-fetch-legacy-xml.py`` for a script that produces a
+SAPUiO-compatible XML file.
 """
 from __future__ import (
     absolute_import,
