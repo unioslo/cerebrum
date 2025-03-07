@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003-2024 University of Oslo, Norway
+# Copyright 2003-2025 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -24,9 +24,12 @@
 Disse gruppene blir bl.a. brukt ved eksport av data til ClassFronter, og ved
 populering av visse NIS (Ifi).
 """
-
-from __future__ import unicode_literals
-
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import argparse
 import datetime
 import itertools
