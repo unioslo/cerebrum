@@ -20,12 +20,32 @@
 """
 Utilities for building group memberships derived from other group memberships.
 
-Examples:
+Example use case
+================
+A typical use case is to create a flattened, normalized group from one or more
+group hierachies:
 
-- group intersections
-- group unions
-- flattened groups from group hierarchies
-- person memberships to primary account memberships
+1. Fetch or create a *destination* group using :func:`.assert_derived_group`
+
+2. Fetch existing members of one or more other groups using
+   :func:`.find_effective_members`, optionally transforming the memberships
+   using :class:`.AccountOwnerCache`.
+
+3. Calculate new members from current state
+
+4. Update the destination group membership list using
+   :func:`.set_group_members`
+
+Other uses
+==========
+Most of the functions and classes are useful in certain group contexts as well,
+e.g.:
+
+- :func:`.find_effective_members` is useful whenever a group hierarchy is
+  involved
+
+- :func:`.get_current_members` and :func:`.set_group_members` are useful
+  whenever a group needs to be updated from any source
 """
 from __future__ import (
     absolute_import,
@@ -36,8 +56,38 @@ from __future__ import (
 import logging
 
 from Cerebrum.Utils import Factory
+from .template import GroupTemplate
+from Cerebrum.export.quarantines import QuarantineCache
 
 logger = logging.getLogger(__name__)
+
+
+def assert_derived_group(db, name, description):
+    """
+    Make sure that a derived group exists.
+
+    This function creates and/or updates a group with the given name, and
+    returns it.
+
+    Most groups maintained using this module should be a *derived* group, i.e.
+    a group that is automatically maintained based on the memberships of other
+    groups.
+
+    :type name: str
+    :type description: str
+    :rtype: Cerebrum.Group.Group
+    """
+    const = Factory.get('Constants')(db)
+    # We (ab)use GroupTemplate to either create or fetch our group.
+    # conflict=update ensures that everything is up to date
+    _assert_group = GroupTemplate(
+        group_name=name,
+        group_description=description,
+        group_type=const.group_type_derived,
+        group_visibility=const.group_visibility_all,
+        conflict=GroupTemplate.CONFLICT_UPDATE,
+    )
+    return _assert_group(db)
 
 
 def get_current_members(group):
@@ -96,8 +146,8 @@ def get_member_ids(iterable):
     """
     Get a set of entity-id values from an iterable of member tuples.
 
-    This is typically done to get a set of entity ids from the result of e.g.
-    :func:`.find_members`.
+    This is typically done to get a set of entity-ids from the result of e.g.
+    :func:`.find_effective_members`.
 
     :param iterable: An iterable of (entity-id, entity-type) tuples.
 
@@ -159,11 +209,16 @@ class AccountOwnerCache(object):
     def __init__(self, db):
         self.db = db
         self.const = Factory.get("Constants")(db)
+        self.quarantine_cache = QuarantineCache(
+            self.db,
+            entity_types=(self.const.entity_account,),
+            only_active=True,
+        )
 
     #
     # Caches
     #
-    # TODO: Improve and move these using Cerebrum.export?
+    # TODO: Generalize and move more of these to Cerebrum.export?
     #
 
     def _cache_primary_accounts(self):
@@ -235,28 +290,6 @@ class AccountOwnerCache(object):
             self._cache_accounts()
         return self._owner_to_accounts
 
-    def _cache_account_quarantines(self):
-        ac = Factory.get('Account')(self.db)
-        account_type = int(ac.const.entity_account)
-        self._account_to_quarantines = {}
-        logger.debug("caching account quarantines...")
-        for row in ac.list_entity_quarantines(entity_types=account_type,
-                                              only_active=True):
-            account_t = (row['entity_id'], account_type)
-            quarantines = self._account_to_quarantines.setdefault(account_t,
-                                                                  set())
-            quarantines.add(row['quarantine_type'])
-
-        logger.info("Found %d quarantined accounts",
-                    len(self._account_to_quarantines))
-
-    @property
-    def account_quarantines(self):
-        """ account-id to list of (active) quarantine types. """
-        if not hasattr(self, "_account_to_quarantines"):
-            self._cache_account_quarantines()
-        return self._account_to_quarantines
-
     #
     # Filtering functions
     #
@@ -298,13 +331,12 @@ class AccountOwnerCache(object):
         """
         Map persons to their primary account (or all accounts).
 
-        This helper only yield account entities.  If a person is encountered,
-        their primary account is used in stead.  If *all_accounts* is set, all
-        then all accounts that belongs to the person is included.
+        This helper only yields account entities.  If a person is encountered,
+        their primary account is used instead.  If *all_accounts* is set,
+        then all accounts that belongs to the person are included.
         """
-        const = Factory.get("Constants")(self.db)
-        person_type = int(const.entity_person)
-        account_type = int(const.entity_account)
+        person_type = int(self.const.entity_person)
+        account_type = int(self.const.entity_account)
 
         for member_t in iterable:
             member_id, member_type = member_t
@@ -329,8 +361,7 @@ class AccountOwnerCache(object):
             logger.info("omitting %s - not mappable to an account", member_t)
 
     def only_persons(self, iterable):
-        const = Factory.get("Constants")(self.db)
-        person_type = int(const.entity_person)
+        person_type = int(self.const.entity_person)
 
         for member_t in iterable:
             member_id, member_type = member_t
@@ -356,30 +387,23 @@ class AccountOwnerCache(object):
         :param bool exclude_persons:
             Also exclude persons when their primary account is quarantined
         """
+        if not self.quarantine_cache.cached_all:
+            logger.debug("caching account quarantines...")
+            self.quarantine_cache.update_all()
+            logger.info("Found %d quarantined accounts",
+                        len(self.quarantine_cache.found))
+
         for member_t in iterable:
             member_id, member_type = member_t
 
-            if member_t in self.account_quarantines:
+            if self.quarantine_cache.get(member_id):
                 # quarantined account
                 continue
 
             if exclude_persons and member_t in self.person_to_primary:
                 # use primary account for personal members
-                pri_t = self.person_to_primary[member_t]
-                if pri_t in self.account_quarantines:
-                    # quarantined primary account
+                pri_id, _ = self.person_to_primary[member_t]
+                if self.quarantine_cache.get(pri_id):
                     continue
 
             yield member_t
-
-
-if __name__ == "__main__":
-    def _main():
-        logging.basicConfig(level=logging.DEBUG)
-        db = Factory.get("Database")()
-        aoc = AccountOwnerCache(db)
-        aoc._cache_accounts()
-        aoc._cache_primary_accounts()
-        aoc._cache_account_quarantines()
-
-    _main()
