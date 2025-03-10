@@ -114,8 +114,10 @@ class PopulateElements(object):
         ('GREG', 'TILKNYTTET/ekst_partner'),
     )
 
-    def __init__(self, ewsclient):
+    def __init__(self, ewsclient, selection_spread):
         "Pre-fetch information about OUs in Elements and Cerebrum."
+
+        self.selection_spread = selection_spread
 
         # Special sko, ignore:
         elements_sko_ignore = ['null', '[Ufordelt]']
@@ -356,7 +358,7 @@ class PopulateElements(object):
         person_to_roles = self.map_person_to_roles()
         has_elements_spread = set([int(row["entity_id"]) for row in
                                   pe.list_all_with_spread(
-                                      co.spread_elements_person)])
+                                      self.selection_spread)])
 
         # Ideally, the group should have persons as members, but bofh
         # doesn't have much support for that, so we map user->owner_id
@@ -389,7 +391,7 @@ class PopulateElements(object):
             if person_id not in has_elements_spread:
                 pe.clear()
                 pe.find(person_id)
-                pe.add_spread(co.spread_elements_person)
+                pe.add_spread(self.selection_spread)
 
             for ar in auto_roles:
                 # Check if role should be added
@@ -441,7 +443,7 @@ class PopulateElements(object):
         should_have_spread = set(self.map_person_to_ou().keys())
         logger.info("Fetching existing spreads")
         has_spread = set([int(row["entity_id"]) for row in
-                          pe.list_all_with_spread(co.spread_elements_person)])
+                          pe.list_all_with_spread(self.selection_spread)])
         victims = has_spread - should_have_spread
         logger.info('%d persons should have Elements spread',
                     len(should_have_spread))
@@ -475,7 +477,7 @@ class PopulateElements(object):
                                          sko=role['adm_enhet'],
                                          arkivdel=role['arkivdel'],
                                          journalenhet=role['journalenhet'])
-            pe.delete_spread(co.spread_elements_person)
+            pe.delete_spread(self.selection_spread)
         logger.info('Done depopulating')
 
 
@@ -537,7 +539,16 @@ def main(inargs=None):
     args = parser.parse_args(inargs)
     elements_ws_client, ecfg = make_elements_client(args.config)
 
-    pop = PopulateElements(elements_ws_client)
+    try:
+        selection_spread = co.get_constant(co.Spread, ecfg.selection_spread)
+        logger.info('Using spread %s as selection criteria',
+                    str(selection_spread))
+    except LookupError:
+        logger.error('Spread %s could not be found, aborting.',
+                     ecfg.selection_spread)
+        sys.exit(1)
+
+    pop = PopulateElements(elements_ws_client, selection_spread)
 
     if args.populate_roles:
         pop.populate_roles()
