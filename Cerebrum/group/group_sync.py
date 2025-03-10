@@ -38,7 +38,7 @@ group hierachies:
 
 Other uses
 ==========
-Most of the functions and clases are useful in certain group constexts as well,
+Most of the functions and classes are useful in certain group contexts as well,
 e.g.:
 
 - :func:`.find_effective_members` is useful whenever a group hierarchy is
@@ -70,7 +70,7 @@ def assert_derived_group(db, name, description):
     returns it.
 
     Most groups maintained using this module should be a *derived* group, i.e.
-    a group that is automatically maintaned based on the memberships of other
+    a group that is automatically maintained based on the memberships of other
     groups.
 
     :type name: str
@@ -79,7 +79,7 @@ def assert_derived_group(db, name, description):
     """
     const = Factory.get('Constants')(db)
     # We (ab)use GroupTemplate to either create or fetch our group.
-    # conflict=update ensnures that everything is up to date
+    # conflict=update ensures that everything is up to date
     _assert_group = GroupTemplate(
         group_name=name,
         group_description=description,
@@ -332,7 +332,7 @@ class AccountOwnerCache(object):
         Map persons to their primary account (or all accounts).
 
         This helper only yields account entities.  If a person is encountered,
-        their primary account is used in stead.  If *all_accounts* is set,
+        their primary account is used instead.  If *all_accounts* is set,
         then all accounts that belongs to the person are included.
         """
         person_type = int(self.const.entity_person)
