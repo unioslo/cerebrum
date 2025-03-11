@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2020 University of Oslo, Norway
+# Copyright 2020-2025 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -28,7 +28,6 @@ import argparse
 import functools
 import logging
 from datetime import datetime, timedelta
-from sys import exit
 
 import six
 
@@ -214,7 +213,7 @@ class AccountCreationNotifier(object):
 
 
                 # Trait is to old, remove it
-                logger.warn('Too old trait %s for entity_id=%s, giving up',
+                logger.warning('Too old trait %s for entity_id=%s, giving up',
                             text_type(self.manager.trait), row['entity_id'])
                 self.remove_trait(ac)
                 continue

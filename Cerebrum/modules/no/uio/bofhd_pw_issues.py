@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2019-2023 University of Oslo, Norway
+# Copyright 2019-2025 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -146,7 +146,7 @@ def get_mobile_numbers(pe):
                    int(co.contact_private_mobile),
                    int(co.contact_private_mobile_visible)}
     for row in pe.get_contact_info():
-        if (row['contact_type'] in phone_types):
+        if row['contact_type'] in phone_types:
             yield {
                 'ssys': row['source_system'],
                 'number': row['contact_value'],
@@ -154,7 +154,7 @@ def get_mobile_numbers(pe):
             }
 
 
-def merge_affs_and_phones(co, valid_affiliations, phones):
+def merge_affs_and_phones(valid_affiliations, phones):
     """
     Merges affiliations and phones, ensuring that duplicates are kept.
 
@@ -184,7 +184,7 @@ def merge_affs_and_phones(co, valid_affiliations, phones):
         phone['unused'] = True
 
     def valid_phone(aff):
-        for i, phone in enumerate(phone_list):
+        for _, phone in enumerate(phone_list):
             if aff['ssys'] == phone['ssys']:
                 entry = {
                     'ssys': aff['ssys'],
@@ -214,6 +214,7 @@ def merge_affs_and_phones(co, valid_affiliations, phones):
 
 
 def welcome_sms_received_date(ac, co):
+    """The date an account received a welcome sms."""
     traits = ac.get_traits()
     raw_date = traits.get(co.trait_sms_welcome, {}).get('date')
     # The 'date' value of traits are naive datetime objects,
@@ -245,6 +246,7 @@ def any_valid_phones(ac, phone_table):
 
 
 def format_phone_table(co, phone_table):
+    """Formatting the phone table to be displayed."""
     today = datetime.date.today()
     last_week = today - datetime.timedelta(days=7)
     table = []
@@ -263,7 +265,7 @@ def format_phone_table(co, phone_table):
         if number:
             num_s = '{0: >18}'.format(six.text_type(number))
             mod_date = date_compat.get_date(entry['date'])
-            if mod_date and mod_date > last_week:
+            if mod_date and mod_date >= last_week:
                 days_ago = (today - mod_date).days
                 date_s = '  (changed {} days ago)'.format(int(days_ago))
             else:
@@ -344,7 +346,7 @@ def check_password_issues(ac):
     if not valid_source_phone:
         issues.append('No phone number from valid source system.')
 
-    phone_table = merge_affs_and_phones(co, affiliations, phones)
+    phone_table = merge_affs_and_phones(affiliations, phones)
     if phone_table:
         if not any_valid_phones(ac, phone_table):
             issues.append('No valid phones')
