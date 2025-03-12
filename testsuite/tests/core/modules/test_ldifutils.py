@@ -47,6 +47,39 @@ def test_hex_escape_match_text():
 #     assert escaped == "foo"
 
 
+UNIQUE_INPUT = ["foo", "bar", "FOO", "baz", "bar", "foo", "baz", "foo"]
+UNIQUE_OUTPUT_CASE = ["foo", "bar", "FOO", "baz"]
+UNIQUE_OUTPUT_NOCASE = ["foo", "bar", "baz"]
+
+
+def test_attr_unique():
+    assert LDIFutils.attr_unique(UNIQUE_INPUT) == UNIQUE_OUTPUT_CASE
+
+
+def test_attr_unique_key():
+    result = LDIFutils.attr_unique(iter(UNIQUE_INPUT), lambda t: t.lower())
+    assert result == UNIQUE_OUTPUT_NOCASE
+
+
+def test_attr_unique_iter():
+    """ check that attr_unique can deal with iterators as input. """
+    result = LDIFutils.attr_unique(iter(UNIQUE_INPUT))
+    assert result == UNIQUE_OUTPUT_CASE
+
+
+@pytest.mark.parametrize(
+    "lst",
+    [
+        pytest.param([], id="len=0"),
+        pytest.param(["foo"], id="len=1"),
+        pytest.param(["foo", "bar"], id="len=2"),
+    ],
+)
+def test_attr_unique_short(lst):
+    """ test that short sequences aren't handled differently. """
+    assert LDIFutils.attr_unique(lst) == lst
+
+
 @pytest.fixture
 def config_module():
     config = type(str('config'), (object,),
