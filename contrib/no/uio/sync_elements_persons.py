@@ -36,6 +36,7 @@ from __future__ import (
 )
 
 import argparse
+import cereconf
 import datetime
 import functools
 import sys
@@ -294,9 +295,22 @@ def list_perm_for_person(person):
         if perm_type:
             perm_type = str(co.ElementsPermission(perm_type))
         sko = get_sko(row['adm_enhet'])
-        if sko == '999999':
+
+        # In Elements, sko = None means "Authorized for own cases"
+        if sko == cereconf.EPHORTE_EGNE_SAKER_SKO:
             sko = None
-        ret.append((perm_type, sko, False))
+
+        # Also set sko = None if you are "Authorised for the organisation"
+        # so that it falls back to "Authorized for own cases" if someone
+        # removes the checkbox manually in Elements (instead of being authorized
+        # at the root OU)
+        if sko == cereconf.EPHORTE_UIO_ROOT_SKO:
+            sko = None
+            all_org_units = True
+        else:
+            all_org_units = False
+
+        ret.append((perm_type, sko, all_org_units))
     return ret
 
 
