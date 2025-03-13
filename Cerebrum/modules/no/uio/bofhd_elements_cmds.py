@@ -30,7 +30,7 @@ from Cerebrum.modules.bofhd.bofhd_utils import copy_func
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.no.uio.Elements import ElementsPermission
 from Cerebrum.modules.no.uio.Elements import ElementsRole
-from Cerebrum.modules.no.uio.bofhd_elements_cmds import UiOEphorteAuth, Journalenhet, Arkivdel, Rolle, Tilgang
+from Cerebrum.modules.no.uio.bofhd_ephorte_cmds import UiOEphorteAuth, Journalenhet, Arkivdel, Rolle, Tilgang
 from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as cl_base
 from Cerebrum.utils.date_compat import get_date
 
