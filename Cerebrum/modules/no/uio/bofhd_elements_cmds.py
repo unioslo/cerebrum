@@ -394,9 +394,8 @@ class BofhdExtension(BofhdCommonMethods):
                                          tilgang,
                                          ou.entity_id,
                                          operator_id)
-        return "OK, added 'tilgang' %s for %s.%s" % (text_type(tilgang),
-                                                     person_id,
-                                                     ret_msg_suffix)
+        return "OK, added 'tilgang' %s for %s." % (text_type(tilgang),
+                                                   person_id)
 
     #
     # elements remove_perm
@@ -422,9 +421,8 @@ class BofhdExtension(BofhdCommonMethods):
         self.elements_perm.remove_permission(person.entity_id,
                                             tilgang,
                                             ou.entity_id)
-        return "OK, removed 'tilgang' %s for %s.%s" % (text_type(tilgang),
-                                                       person_id,
-                                                       ret_msg_suffix)
+        return "OK, removed 'tilgang' %s for %s." % (text_type(tilgang),
+                                                     person_id)
 
     #
     # elements list_perm
