@@ -375,11 +375,8 @@ class BofhdExtension(BofhdCommonMethods):
         if not person.has_spread(self.const.spread_elements_person):
             raise CerebrumError("Person has no elements roles")
         ou = self._get_ou(stedkode=sko)
-        ## Comment out this momentarily while we wait for clarification on
-        ## OU use for own cases in Elements vs. historical ePhorte base:
-        #if not (sko == cereconf.EPHORTE_EGNE_SAKER_SKO or
-        #        ou.has_spread(self.const.spread_ephorte_ou)):
-        if not (ou.has_spread(self.const.spread_elements_ou)):
+        if not (sko == cereconf.EPHORTE_EGNE_SAKER_SKO or
+                ou.has_spread(self.const.spread_elements_ou)):
             raise CerebrumError("Cannot assign permission to a non-elements OU")
 
         if self.elements_perm.has_permission(person.entity_id,
