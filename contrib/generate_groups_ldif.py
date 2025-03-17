@@ -30,8 +30,40 @@ groups (dn values present in the LDIF file).
 The overall idea is to have membership data in org-ldif that references objects
 in this group tree.  By using a membership cache, org-ldif gets a membership
 view that is in sync with the current group tree.
+
+
+It's part of a three step process, where this script takes care of the first
+two steps:
+
+1. Group data in LDAP
+----------------------
+This script generates an LDAP tree (typically "cn=group,dc=<org>,dc=no") with
+basic group information (group name and group description).
+
+Only groups with ``group@ldap`` are included in the resulting ldif-file.
+
+2. Generate membership cache
+-----------------------------
+This script generates a group membership cache file (either json or pickle),
+that maps members (accounts or persons) to their memberships in groups that are
+included in the LDAP tree (``{entity-id: [group-dn, ...]}``).  Depending on
+CLI-options:
+
+- recursive memberships may or may not be included
+- personal account memberships may be re-mapped to their owner-id
+
+3. Include memberships in org-tree
+-----------------------------------
+An optional mixin (:class:`Cerebrum.modules.OrgLDIF.OrgLdifGroupMixin`)
+reads the cache file and adds group membership data to each org person
+This is typically represented as a multivalued ``memberOf`` attribute.
 """
-from __future__ import unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import argparse
 import collections
@@ -249,7 +281,7 @@ def write_json_cache(fh, members):
         A dict that maps members (person_id values) to groups (sets of group dn
         values)
     """
-    data = {int(pid): sorted(tuple(dn_set))
+    data = {int(pid): sorted(dn_set)
             for pid, dn_set in members.items()}
     # Pretty format and sort by keys (person_id) - makes it easier to debug or
     # otherwise compare changes.
@@ -268,7 +300,7 @@ def write_pickle_cache(fh, members):
         A dict that maps members (person_id values) to groups (sets of group dn
         values)
     """
-    data = {int(pid): sorted(tuple(dn_set))
+    data = {int(pid): sorted(dn_set)
             for pid, dn_set in members.items()}
     pickle.dump(data, fh, pickle.HIGHEST_PROTOCOL)
 
