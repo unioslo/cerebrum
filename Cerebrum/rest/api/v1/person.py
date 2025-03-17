@@ -285,15 +285,25 @@ PersonAccountList = api.model('PersonAccountList', {
 class PersonAccountListResource(Resource):
     """Resource for person accounts."""
 
+    person_accounts_filter = api.parser()
+    person_accounts_filter.add_argument(
+        'include_expired',
+        type=utils.str_to_bool,
+        default=False,
+        help='If true, include expired accounts. Default is false (exclude expired accounts).',
+    )
+
     @auth.require()
     @api.marshal_with(PersonAccountList)
+    @api.doc(expect=[person_accounts_filter])
     def get(self, id):
         """Get the accounts of a person."""
         pe = find_person(id)
+        args = self.person_accounts_filter.parse_args()
 
         accounts = list()
         primary_account_id = pe.get_primary_account()
-        for row in pe.get_accounts():
+        for row in pe.get_accounts(filter_expired=not args.include_expired):
             account_name = utils.get_entity_name(row['account_id'])
             accounts.append({
                 'href': url_for('.account', name=account_name),
