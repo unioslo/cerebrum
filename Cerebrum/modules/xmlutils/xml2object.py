@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright 2005-2024 University of Oslo, Norway
+#
+# Copyright 2005-2025 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -42,17 +43,26 @@ TODO:
   flexible.
 * Fix the documentation and provide a few more examples.
 """
-from __future__ import unicode_literals
-
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import copy
+import datetime
+import io
 import time
 from xml.etree.cElementTree import parse, iterparse, ElementTree
 
 import six
-from mx.DateTime import Date, DateTimeDelta
 
 import cereconf
+
 from Cerebrum import Utils
+from Cerebrum.utils import date_compat
+from Cerebrum.utils import sorting
+from Cerebrum.utils import text_compat
 
 
 def get_xml_file_encoding(file_name):
@@ -76,17 +86,31 @@ def get_xml_file_encoding(file_name):
 
 
 def ensure_unicode(text, encoding):
-    if isinstance(text, six.text_type):
-        return text
-    if isinstance(text, bytes):
-        return text.decode(encoding)
-    raise Exception('Not a string: ' + repr(text))
+    # Is this used anywhere?  Anyway - it's basically to_text(), but with a
+    # stricter type check
+    if isinstance(text, (bytes, six.text_type)):
+        return text_compat.to_text(text, encoding)
+    raise Exception("Not a string: " + repr(text))
+
+
+def _strip_text(raw_value):
+    return text_compat.to_text(raw_value).strip()
+
+
+def _strip_lines(raw_value):
+    if isinstance(raw_value, (list, tuple)):
+        lines = [_strip_text(line) for line in raw_value]
+    else:
+        lines = [_strip_text(raw_value)]
+    return "\n".join(line for line in lines if line)
 
 
 #######################################################################
 # Data abstraction for client code: Address, Employment, Person, etc.
 #######################################################################
 
+
+@six.python_2_unicode_compatible
 class DataAddress(object):
     """Class for storing address information.
 
@@ -100,18 +124,17 @@ class DataAddress(object):
     ADDRESS_OTHER_BESOK = "addr_other_besok"
 
     country2ziplength = {
-        "": 4, "NO": 4, "DK": 4
-        }
+        "": 4,
+        "NO": 4,
+        "DK": 4,
+    }
 
     def __init__(self, kind, street=(), zip="", city="", country=""):
         self.kind = kind
-        if isinstance(street, (list, tuple)):
-            self.street = "\n".join(filter(None, map(unicode.strip, street)))
-        else:
-            self.street = street.strip()
-        self.city = city.strip()
+        self.street = _strip_lines(street)
+        self.city = _strip_text(city)
         # FIXME: match with something in cerebrum?
-        self.country = country = country.strip()
+        self.country = country = _strip_text(country)
         try:
             izip = int(zip)
             if izip == 0:
@@ -119,7 +142,8 @@ class DataAddress(object):
             else:
                 self.zip = "%0*d" % (self.country2ziplength[country], izip)
         except (ValueError, KeyError):
-            self.zip = zip.strip()
+            self.zip = _strip_text(zip)
+
         if self.country not in (
                 "CA",
                 "GB",
@@ -138,7 +162,9 @@ class DataAddress(object):
                                        self.city, self.country)
 
 
+@six.python_2_unicode_compatible
 class DataContact(object):
+    """Class for storing contact information (phone, e-mail, URL, etc.)"""
 
     CONTACT_PHONE = "generic phone"
     CONTACT_FAX = "fax"
@@ -150,8 +176,6 @@ class DataContact(object):
     CONTACT_MOBILE_PRIVATE_PUBLIC = "cell phone private to display"
     CONTACT_UREG_UNIX_USERNAME = "ureg unix username"
     CONTACT_UIO_SAP_USERNAME = "brukernavn i SAP-systemet (SY-UNAME)"
-
-    """Class for storing contact information (phone, e-mail, URL, etc.)"""
 
     def __init__(self, kind, value, priority):
         self.kind = kind
@@ -169,6 +193,7 @@ class DataContact(object):
         return "contact (%s %s): %s" % (self.kind, self.priority, self.value)
 
 
+@six.python_2_unicode_compatible
 class DataName(object):
     """Class for representing name information in a data source.
 
@@ -188,6 +213,10 @@ class DataName(object):
         lang = lang and lang.lower() or lang
         self.language = lang
 
+    def __repr__(self):
+        return "DataName(%s, %s, %s)" % (repr(self.kind), repr(self.value),
+                                         repr(self.language))
+
     def __str__(self):
         if self.language:
             return "%s: %s (%s)" % (self.kind, self.value, self.language)
@@ -206,7 +235,6 @@ class NameContainer(object):
 
     def validate_name(self, name):
         """By default all names are valid."""
-
         return True
 
     def add_name(self, name):
@@ -238,27 +266,24 @@ class NameContainer(object):
         language matches, we return None. NB! None is different from a name
         that is an empty string.
         """
-
-        # Names without language come last
-        max = len(priority_order)+1
-        weights = {None: max, }
-        for i, lang in enumerate(priority_order):
-            weights[lang.lower()] = i
+        priority_key = sorting.make_priority_lookup(priority_order)
 
         # If we have no name of this kind at all, just return None at once.
         names = self._names.get(kind, None)
         if not names:
             return None
 
-        names = filter(lambda x: x.language in priority_order, names)
-        names.sort(lambda x, y: cmp(weights[x.language],
-                                    weights[y.language]))
+        names = sorted(
+            [x for x in names if x.language in priority_order],
+            key=lambda x: priority_key(x.language),
+        )
         if names:
             return names[0].value
         else:
             return None
 
 
+@six.python_2_unicode_compatible
 class DataEmployment(NameContainer):
     """Class for representing employment information."""
 
@@ -288,10 +313,10 @@ class DataEmployment(NameContainer):
         :type code: int
         :param code: Employment code (stillingskode)
 
-        :type start: mx.DateTime
+        :type start: datetime.date
         :param start: Start date of the employment
 
-        :type end: mx.DateTime
+        :type end: datetime.date
         :param end: End date of the employment
 
         :type place: tuple
@@ -308,7 +333,7 @@ class DataEmployment(NameContainer):
         :param leave:
             Periods where the employment is inactive. List of dict(-like)
             objects. Each object should contain the keys 'start_date' and
-            'end_date', with a mx.DateTime value.
+            'end_date', with a datetime.date value.
 
         :type mg: int
         :param mg: (MEGType, medarbeidergruppe)
@@ -323,8 +348,8 @@ class DataEmployment(NameContainer):
                              self.GJEST, self.BILAG)
         self.percentage = percentage
         self.code = code
-        self.start = start
-        self.end = end
+        self.start = date_compat.get_date(start)
+        self.end = date_compat.get_date(end)
         # Associated OU identified with (kind, value)-tuple.
         self.place = place
         # Kind of employment -- VIT/TEKADM-ØVR
@@ -343,7 +368,8 @@ class DataEmployment(NameContainer):
     def is_guest(self):
         return self.kind == self.GJEST
 
-    def is_active(self, date=Date(*time.localtime()[:3])):
+    def is_active(self, date=None):
+        date = date_compat.get_date(date) or datetime.date.today()
         # IVR 2009-04-29 Lars Gustav Gudbrandsen requested on 2009-04-22 that
         # all employment-related info should be considered active 14 days
         # prior to the actual start day.
@@ -352,28 +378,39 @@ class DataEmployment(NameContainer):
         # affiliation be valid for a few days after it has been revoked
         # in the authoritative source
         if self.start:
-            return ((self.start - DateTimeDelta(14) <= date) and
-                    ((not self.end) or (date <= self.end + DateTimeDelta(3))))
+            is_started = date >= self.start - datetime.timedelta(days=14)
+        else:
+            is_started = False
 
-        return ((not self.end) or (date <= self.end + DateTimeDelta(3)))
+        if self.end:
+            is_ended = date > self.end + datetime.timedelta(days=3)
+        else:
+            is_ended = False
+        return is_started and not is_ended
 
-    def has_leave(self, date=Date(*time.localtime()[:3])):
+    def has_leave(self, date=None):
         """If the employment is on leave, e.g. working somewhere else
         temporarily.
         """
+        date = date_compat.get_date(date) or datetime.date.today()
         for leave in self.leave:
-            if leave['start_date'] <= date and (date <= leave['end_date']):
+            start = date_compat.get_date(leave['start_date'])
+            end = date_compat.get_date(leave['end_date'])
+            if start and start <= date and end and date <= end:
                 return True
         return False
 
     def __str__(self):
         return "(%s) Employment: %s%% %s [%s..%s @ %s]" % (
             self.kind, self.percentage,
-            ", ".join("%s:%s" % (x[0], map(six.text_type, x[1]))
-                      for x in self.iternames()),
+            ", ".join(
+                "%s:%s" % (x[0], list(map(six.text_type, x[1])))
+                for x in self.iternames()
+            ),
             self.start, self.end, self.place)
 
 
+@six.python_2_unicode_compatible
 class DataExternalWork(object):
     """Representing external employment or affiliation registered following the
     University of Oslo's regulations for external work."""
@@ -431,8 +468,6 @@ class DataEntity(NameContainer):
         for contact in self.itercontacts():
             if contact.kind == kind:
                 result.append(contact)
-            # fi
-        # od
 
         return result or default
 
@@ -443,6 +478,7 @@ class DataEntity(NameContainer):
         return self._addresses.get(kind, default)
 
 
+@six.python_2_unicode_compatible
 class DataOU(DataEntity):
     """Class for representing OUs in a data source."""
 
@@ -484,20 +520,28 @@ class DataOU(DataEntity):
                              self.NAME_SHORT,
                              self.NAME_LONG)
 
-    def __unicode__(self):
-        return "DataOU (valid: %s-%s): %s\n| %s\n| %s\n| %s\n__%s\n" % (
+    def __str__(self):
+        return (
+            "DataOU (valid: %s-%s): %s\n"
+            "| %s\n"
+            "| %s\n"
+            "| %s\n"
+            "__%s\n"
+        ) % (
             self.start_date,
             self.end_date,
             list(self.iterids()),
-            ["%s:%s" % (x, map(unicode, y)) for x, y in self.iternames()],
-            map(unicode, self.itercontacts()),
+            [
+                "%s:%s" % (x, list(map(six.text_type, y)))
+                for x, y in self.iternames()
+            ],
+            list(map(six.text_type, self.itercontacts())),
             list(self._usage_codes),
-            ["%s:%s" % (x, unicode(y)) for x, y in self.iteraddress()])
-
-    def __str__(self):
-        return self.__unicode__().encode('utf-8')
+            ["%s:%s" % (x, six.text_type(y)) for x, y in self.iteraddress()],
+        )
 
 
+@six.python_2_unicode_compatible
 class DataPerson(DataEntity):
     """Class for representing people in a data source."""
 
@@ -523,16 +567,16 @@ class DataPerson(DataEntity):
         assert name.kind in (self.NAME_FIRST, self.NAME_LAST, self.NAME_MIDDLE,
                              self.NAME_TITLE)
 
-    def __unicode__(self):
-        ret = "DataPerson: %s\n" % list(self.iterids())
+    def _gen_str_fields(self):
+        """ helper to solve issue with super + python_2_unicode_compatible. """
         for kind, name in self.iternames():
-            # ret += "%s: %s\n" % (kind, name.value)
-            ret += "| %s: %s\n" % (kind, map(unicode, name))
-        ret += "__\n"
-        return ret
+            yield (kind, list(map(six.text_type, name)))
 
     def __str__(self):
-        return self.__unicode__().encode('utf-8')
+        ret = "%s: %s\n" % (type(self).__name__, list(self.iterids()))
+        for key, value in self._gen_str_fields():
+            ret += "| %s: %s\n" % (key, value)
+        return ret
 
 
 class HRDataPerson(DataPerson):
@@ -558,7 +602,7 @@ class HRDataPerson(DataPerson):
     def iteremployment(self):
         return iter(self.employments)
 
-    def has_active_employments(self, timepoint=Date(*time.localtime()[:3])):
+    def has_active_employments(self, timepoint=None):
         """Decide whether this person has employments at a given timepoint."""
 
         for x in self.iteremployment():
@@ -577,25 +621,16 @@ class HRDataPerson(DataPerson):
 
         return False
 
-    def __str__(self):
-        spr = super(HRDataPerson, self).__str__()
-        result = (
-            "HRDataPerson: %s\n"
-            "| gender: %s\n"
-            "| birth: %s\n"
-            "| address: %s\n"
-            "| employment: %s\n__\n" % (
-                spr,
-                self.gender,
-                self.birth_date,
-                ['%s: %s' % x for x in self.iteraddress()],
-                [str(x) for x in
-                 list(self.iteremployment())]
-            )
-        )
-        # if self.external_work:
-        #     result += "\n| external work: %s" % map(str, self.external_work)
-        return result
+    def _gen_str_fields(self):
+        """ helper to solve issue with super + python_2_unicode_compatible. """
+        for kind, name in super(HRDataPerson, self)._gen_str_fields():
+            yield (kind, name)
+
+        yield ("gender", six.text_type(self.gender))
+        yield ("birth", six.text_type(self.birth_date))
+        yield ("address", ['%s: %s' % (k, v) for k, v in self.iteraddress()])
+        yield ("employment", [six.text_type(x) for x in
+                              self.iteremployment()])
 
 
 class AbstractDataGetter(object):
@@ -652,7 +687,6 @@ class XMLDataGetter(AbstractDataGetter):
             it = self._data_source.iter(element)
         else:
             it = XMLEntityIterator(self._filename, element)
-
         return klass(iter(it), self.logger, self._encoding, **kwargs)
 
     def fetch(self, fetchall=True):
@@ -692,7 +726,7 @@ class XMLEntity2Object(object):
         for (k, v) in kwargs.items():
             setattr(self, k, v)
 
-    def next(self):
+    def __next__(self):
         """Return next object constructed from a suitable XML element
 
         Reads the 'next' element and returns an object constructed out of it,
@@ -708,12 +742,10 @@ class XMLEntity2Object(object):
         helpful, but very ugly in this code. This should be implemented more
         elegantly.
         """
-
-        import sys
         while 1:
             try:
                 # Fetch the next XML subtree...
-                element = self._xmliter.next()
+                element = next(self._xmliter)
                 # ... and dispatch to subclass to create an object
                 obj = self.next_object(element)
 
@@ -737,12 +769,15 @@ class XMLEntity2Object(object):
                 # with the parsing. We cannot afford one defective entry to
                 # break down the entire data import run.
                 if self.logger:
-                    self.logger.warn(
-                        "%s occurred while processing XML element %s. "
-                        "Skipping it.",
-                        Utils.format_exception_context(*sys.exc_info()),
-                        element.tag)
+                    self.logger.warning("Skipping element %s", element.tag,
+                                        exc_info=True)
+                    # %s occurred while processing XML element %s. "
+                    #     "Skipping it.",
+                    #     Utils.format_exception_context(*sys.exc_info()),
+                    #     element.tag)
                 element.clear()
+
+    next = __next__
 
     @staticmethod
     def exception_wrapper(functor, exc_list=None, return_on_exc=None):
@@ -783,7 +818,7 @@ class XMLEntity2Object(object):
     def __iter__(self):
         return self
 
-    def _make_mxdate(self, text, format="%Y%m%d"):
+    def _make_date(self, text, format="%Y%m%d"):
         """Helper method to convert strings to dates.
 
         @param text:
@@ -795,14 +830,13 @@ class XMLEntity2Object(object):
         @type format: basestring
 
         @return
-        @rtype: mx.DateTime.Date
-
+        @rtype: datetime.date
         """
         if not text:
             return None
 
         year, month, day = time.strptime(text, format)[:3]
-        return Date(year, month, day)
+        return datetime.date(year, month, day)
 
     def format_xml_element(self, element):
         """Returned a 'serialized' version of an XML element.
@@ -822,8 +856,7 @@ class XMLEntity2Object(object):
           construct subtree initially (up to varying whitespace, perhaps).
         """
 
-        import cStringIO
-        stream = cStringIO.StringIO()
+        stream = io.BytesIO()
         ElementTree(element).write(stream)
         return stream.getvalue()
 
@@ -843,9 +876,9 @@ class XMLEntityIterator(object):
         self.element_name = element
 
         # Keep track of the root element (to prevent element caching)
-        junk, self._root = self.it.next()
+        junk, self._root = next(self.it)
 
-    def next(self):
+    def __next__(self):
         """Return next specified element, ignoring all else.
 
         This method operates on cElementTree's trees. The specified element is
@@ -869,6 +902,8 @@ class XMLEntityIterator(object):
             self._root.clear()
 
         raise StopIteration
+
+    next = __next__
 
     def __iter__(self):
         return self
