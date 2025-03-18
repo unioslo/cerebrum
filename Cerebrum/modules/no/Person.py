@@ -72,7 +72,9 @@ class PersonFnrMixin(Person.Person):
             elif score == best_score:
                 best_nums[fnr] = True
         if len(best_nums) < 2:
-            return (best_nums.keys() or (None,))[0]
+            for value in best_nums.keys():
+                return value
+            return None
         # Several equally good numbers.  Choose by preferred source system.
         nums = []
         if selected is None:
