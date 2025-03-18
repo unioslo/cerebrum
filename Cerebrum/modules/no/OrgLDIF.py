@@ -341,7 +341,7 @@ class NorEduOrgLdifMixin(OrgLDIF):
         pri = None
         pri_ou = None
         pri_edu_aff = None
-        for aff, status, ou in self.affiliations[p_id]:
+        for aff, status, ou in sorted(self.affiliations[p_id]):
             # populate the caches
             if aff in self.aff_cache:
                 aff_str = self.aff_cache[aff]
@@ -711,16 +711,18 @@ class NorEduSmsAuthnMixin(NorEduOrgLdifMixin):
         if 'norEduPerson' not in entry['objectClass']:
             return
 
-        sms_methods = self._get_sms_authn_methods(person_id)
+        sms_methods = list(self._get_sms_authn_methods(person_id) or ())
 
         # there *shouldn't* be any value collisions here, as SMS methods use a
         # distinct urn - if we ever make a new mixin that *also* produce
         # norEduPersonAuthnMethod values with the same urn this should be
         # re-done
-        if sms_methods and entry.get('norEduPersonAuthnMethod'):
-            entry['norEduPersonAuthnMethod'].extend(sms_methods)
-        elif sms_methods:
-            entry['norEduPersonAuthnMethod'] = sms_methods
+        if sms_methods:
+            orig = list(entry.get('norEduPersonAuthnMethod') or ())
+            entry['norEduPersonAuthnMethod'] = sorted(
+                attr_unique(orig + sms_methods,
+                            normalize=normalize_string)
+            )
 
 
 class OrgLdifCourseMixin(NorEduOrgLdifMixin):
@@ -869,9 +871,7 @@ class NorEduAzureAuthnMixin(NorEduOrgLdifMixin):
         # azure-ad" value use a distinct urn - if we ever make a new mixin that
         # *also* produce norEduPersonAuthnMethod values with the same urn this
         # should be re-done
-        values = attr_unique([self.feide_authn_method_azuread],
+        orig = list(entry.get('norEduPersonAuthnMethod') or ())
+        values = attr_unique(orig + [self.feide_authn_method_azuread],
                              normalize=normalize_string)
-        if values and entry.get('norEduPersonAuthnMethod'):
-            entry['norEduPersonAuthnMethod'].extend(values)
-        elif values:
-            entry['norEduPersonAuthnMethod'] = values
+        entry['norEduPersonAuthnMethod'] = sorted(values)

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2004-2024 University of Oslo, Norway
+# Copyright 2004-2025 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,10 +17,15 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-from __future__ import unicode_literals
-from __future__ import print_function
-
+"""
+Interface and base class for generating Feide-compatible organization tree.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import io
 import logging
 import os
@@ -31,25 +36,29 @@ from collections import defaultdict
 import six
 
 import cereconf
-from Cerebrum import Entity, Errors
+from Cerebrum import Entity
+from Cerebrum import Errors
 from Cerebrum.Constants import _AuthoritativeSystemCode, _LanguageCode
-from Cerebrum.export.auth import AuthExporter
-from Cerebrum.Utils import Factory, make_timer
 from Cerebrum.QuarantineHandler import QuarantineHandler
-from Cerebrum.modules.LDIFutils import (attr_unique,
-                                        entry_string,
-                                        get_ldap_config,
-                                        map_spreads,
-                                        map_constants,
-                                        normalize_string,
-                                        normalize_phone,
-                                        normalize_caseExactString,
-                                        normalize_IA5String,
-                                        verify_printableString,
-                                        verify_IA5String,
-                                        postal_escape_re,
-                                        dn_escape_re,
-                                        hex_escape_match)
+from Cerebrum.Utils import Factory, make_timer
+from Cerebrum.export.auth import AuthExporter
+from Cerebrum.modules.LDIFutils import (
+    attr_unique,
+    entry_string,
+    get_ldap_config,
+    map_spreads,
+    map_constants,
+    normalize_string,
+    normalize_phone,
+    normalize_caseExactString,
+    normalize_IA5String,
+    verify_printableString,
+    verify_IA5String,
+    postal_escape_re,
+    dn_escape_re,
+    hex_escape_match,
+)
+
 
 logger = logging.getLogger(__name__)
 
@@ -226,8 +235,7 @@ class OrgLDIF(object):
         self.ou2DN = {None: None}  # {ou_id:      DN or None(root)}
         self.used_DNs = {}            # {used DN:    True}
         self.person_groups = {}            # {group name: {member ID: True}}
-        self.system_lookup_order = [int(getattr(self.const, s))
-                                    for s in cereconf.SYSTEM_LOOKUP_ORDER]
+        self.system_lookup_order = self.const.get_system_lookup_order()
 
         # Attribute mappings: attr -> (convert, verify, normalize)
         self.attr2syntax = {
@@ -243,18 +251,6 @@ class OrgLDIF(object):
         auth_attr = self.config.person.get('auth_attr', default=None)
         self.user_password = AuthExporter.make_exporter(
             self.db, auth_attr['userPassword'])
-
-    # @property
-    # def org_dn(self):
-    #     return self.config.org.get_dn(None)
-
-    # @property
-    # def ou_dn(self):
-    #     return self.config.ou.get_dn(None)
-
-    # @property
-    # def person_dn(self):
-    #     return self.config.person.get_dn(None)
 
     @property
     def languages(self):
@@ -556,16 +552,17 @@ class OrgLDIF(object):
         self.account = Factory.get('Account')(self.db)
         self.accounts = accounts = []
         self.person_cache = person_cache = {}
-        self.persons = []
         timer = make_timer(logger, "Caching persons and accounts...")
         for row in self.list_persons():
             accounts.append(row['account_id'])
-            person_cache[row['person_id']] = {'account_id': row['account_id'],
-                                              'ou_id': row['ou_id']}
-
-        self.persons = self.person_cache.keys()
-        timer("...caching done, got %d persons and %d accounts." %
-              (len(self.persons), len(self.accounts)))
+            person_cache[row['person_id']] = {
+                'account_id': row['account_id'],
+                'ou_id': row['ou_id'],
+            }
+        self.persons = list(self.person_cache.keys())
+        timer("...caching done")
+        logger.info("Found %d persons and %d accounts",
+                    len(self.persons), len(self.accounts))
 
     def init_person_basic(self):
         # Set variables to dump or extract some person info
@@ -769,6 +766,8 @@ class OrgLDIF(object):
                 entity_type=self.const.entity_ou,
                 address_type=addr_types,
                 source_system=addr_source):
+            # TODO: This may pick a random address if there are two from the
+            # same system
             ou_id2address[row['entity_id']].update({
                 int(row['address_type']): (row['address_text'],
                                            row['p_o_box'],
@@ -813,7 +812,7 @@ class OrgLDIF(object):
             addr_src = getattr(self.const,
                                self.config.org.parent.get(
                                    'address_source_system'))
-        except:
+        except Exception:
             addr_src = getattr(self.const,
                                self.config.org.parent.get(
                                    'contact_source_system'))
@@ -879,7 +878,8 @@ class OrgLDIF(object):
         round_timer = make_timer(logger)
         rounds = 0
         exported = 0
-        for person_id, row in six.iteritems(self.person_cache):
+        for person_id in sorted(self.person_cache):
+            row = self.person_cache[person_id]
             if rounds % 10000 == 0 and rounds != 0:
                 round_timer("...processed %d rows..." % rounds)
             rounds += 1
@@ -902,7 +902,8 @@ class OrgLDIF(object):
         # Return a list or iterator of persons to consider for output.
         return self.account.list_accounts_by_type(
             primary_only=True,
-            person_spread=self.person_spread)
+            person_spread=self.person_spread,
+        )
 
     def _calculate_edu_ous(self, p_ou, s_ous):
         # FIXME
@@ -1005,23 +1006,31 @@ class OrgLDIF(object):
             entry['eduPersonPrimaryOrgUnitDN'] = (primary_ou_dn,)
 
         export_id = self.export_ids.get(person_id)
-        if export_id:                
-            entry['eduPersonUniqueId'] = "@".join(                                
+        if export_id:
+            entry['eduPersonUniqueId'] = "@".join(
                 (export_id, self.config.domain_name)
             )
 
         edu_ous = self._calculate_edu_ous(
             primary_ou_dn,
             [self.ou2DN.get(aff[2]) for aff in p_affiliations])
-        entry['eduPersonOrgUnitDN'] = attr_unique(filter(None, edu_ous))
-        entry['eduPersonAffiliation'] = attr_unique(self.select_list(
-            self.eduPersonAff_selector, person_id, p_affiliations))
-
+        entry['eduPersonOrgUnitDN'] = sorted(
+            attr_unique(filter(None, edu_ous))
+        )
+        entry['eduPersonAffiliation'] = sorted(
+            attr_unique(
+                self.select_list(self.eduPersonAff_selector, person_id,
+                                 p_affiliations)
+            )
+        )
         # For now, the scoped affiliations are just a mirror of the above
         # with realm tacked on
-        entry['eduPersonScopedAffiliation'] = list(
-            x + '@' + self.config.domain_name
-            for x in entry.get('eduPersonAffiliation'))
+        entry['eduPersonScopedAffiliation'] = sorted(
+            attr_unique(
+                x + '@' + self.config.domain_name
+                for x in entry.get('eduPersonAffiliation')
+            )
+        )
 
         if self.select_bool(self.contact_selector, person_id, p_affiliations):
             # title:
@@ -1138,13 +1147,20 @@ class OrgLDIF(object):
 
     def write_person_alias(self, outfile, dn, entry, alias_info):
         # Output an alias returned from make_person_entry().
-        outfile.write(entry_string(
-            ",".join((dn.split(',', 1)[0],
-                      (alias_info[0] or self.alias_default_parent_dn))),
-            {'objectClass': ('top', 'alias', 'extensibleObject'),
-             'aliasedObjectName': (dn,),
-             'cn': entry['cn'],
-             'sn': entry['sn']}))
+        outfile.write(
+            entry_string(
+                ",".join((
+                    dn.split(',', 1)[0],
+                    (alias_info[0] or self.alias_default_parent_dn),
+                )),
+                {
+                    'objectClass': ('top', 'alias', 'extensibleObject'),
+                    'aliasedObjectName': (dn,),
+                    'cn': entry['cn'],
+                    'sn': entry['sn'],
+                },
+            )
+        )
 
     def make_address(self, sep,
                      p_o_box, address_text, postal_number, city, country):
@@ -1169,7 +1185,7 @@ class OrgLDIF(object):
         # Return [postal address, street address] for the given entity.
         result = []
         for addr_type, box, separator in (
-            (self.const.address_post, True, "$"),
+                (self.const.address_post, True, "$"),
                 (self.const.address_street, None, ", ")):
             value = None
             for source in lookup_order:
@@ -1215,8 +1231,11 @@ class OrgLDIF(object):
                 normalize=normalize)
         if entity_id is None:
             return cont_tab
-        else:
-            return (cont_tab.values() or ((),))[0]
+        # return one match ...
+        for value in cont_tab.values():
+            return value
+        # ... or no match
+        return tuple()
 
     def internal_selector(self, selector_type, selector):
         # Translate a selector (as described in default_config.py) to
@@ -1315,8 +1334,11 @@ class OrgLDIF(object):
                 negate, ssel = not negate, ssel[1]
             if (isinstance(ssel, tuple) and
                     ssel[0] == 'group' and len(ssel) == 2):
-                return (negate, not negate,
-                        self.init_person_group(ssel[1]).has_key)
+                return (
+                    negate,
+                    not negate,
+                    (lambda x: x in self.init_person_group(ssel[1])),
+                )
             if isinstance(ssel, bool):
                 if negate:
                     ssel = not ssel
