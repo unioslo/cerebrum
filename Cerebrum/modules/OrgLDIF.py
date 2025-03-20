@@ -42,22 +42,22 @@ from Cerebrum.Constants import _AuthoritativeSystemCode, _LanguageCode
 from Cerebrum.QuarantineHandler import QuarantineHandler
 from Cerebrum.Utils import Factory, make_timer
 from Cerebrum.export.auth import AuthExporter
+from Cerebrum.export import addresses as addr_export
 from Cerebrum.modules.LDIFutils import (
     attr_unique,
     entry_string,
     get_ldap_config,
     map_spreads,
-    map_constants,
     normalize_string,
     normalize_phone,
     normalize_caseExactString,
     normalize_IA5String,
     verify_printableString,
     verify_IA5String,
-    postal_escape_re,
     dn_escape_re,
     hex_escape_match,
 )
+from Cerebrum.utils.descriptors import lazy_property
 
 
 logger = logging.getLogger(__name__)
@@ -198,8 +198,7 @@ class OrgLDIF(object):
         # Preparing to look up eduPersonAffiliation for another program:
         org_ldif.init_edu_person_aff_lookup()
     """
-
-    def __init__(self, db, config=None):
+    def __init__(self, db, config=None, debug=False):
         """
         :param db: A Cerebrum.database object.
         :param config: OrgLdifConfig object.
@@ -209,6 +208,9 @@ class OrgLDIF(object):
 
         # keep a self.logger as long as we use self.logger.debugN
         self.logger = logger.getChild('debug')
+        if not debug:
+            self.logger.addHandler(logging.NullHandler())
+            self.logger.propagate = 0
 
         # DB-stuff
         self.db = db
@@ -517,10 +519,10 @@ class OrgLDIF(object):
             oc = entry['objectClass']
             oc.append('labeledURIObject')
             entry['objectClass'] = attr_unique(oc, six.text_type.lower)
-        post_string, street_string = self.make_entity_addresses(
-            self.ou, self.system_lookup_order)
+        post_string = self.get_ou_postal_addr(int(ou_id))
         if post_string:
             entry['postalAddress'] = (post_string,)
+        street_string = self.get_ou_street_addr(int(ou_id))
         if street_string:
             entry['street'] = (street_string,)
 
@@ -533,7 +535,6 @@ class OrgLDIF(object):
         self.init_person_names()
         self.init_export_ids()
         self.init_person_titles()
-        self.init_person_addresses()
         self.init_person_aliases()
         self.init_account_info()
         self.init_account_mail(use_mail_module)
@@ -751,103 +752,6 @@ class OrgLDIF(object):
         else:
             self.account_mail = None
 
-    def init_person_addresses_from_ou(self, addr_info, addr_types,
-                                      addr_source, aff_source):
-        """Maps person_id to the address of the OU it is affiliated to
-
-        If a person has multiple affiliations, the most prioritized one is
-        selected
-        """
-        if not addr_types:
-            return
-
-        ou_id2address = defaultdict(dict)
-        for row in self.person.list_entity_addresses(
-                entity_type=self.const.entity_ou,
-                address_type=addr_types,
-                source_system=addr_source):
-            # TODO: This may pick a random address if there are two from the
-            # same system
-            ou_id2address[row['entity_id']].update({
-                int(row['address_type']): (row['address_text'],
-                                           row['p_o_box'],
-                                           row['postal_number'],
-                                           row['city'],
-                                           row['country'])
-            })
-        ou_id2address = dict(ou_id2address)
-
-        # TODO:
-        #  Also list affiliations from source systems other than
-        #  'contact_source_system' (where addresses are fetched from)?
-        # Note:
-        #  We could technically use self.affiliations instead of creating a
-        #  new cache here. Then runtime would be decreased, but it would
-        #  not work for every possible combination of the configuration
-        #  variables 'contact_source_system' and 'affiliation_source_system'.
-        primary_affiliations = {}
-        for row in self.person.list_affiliations(source_system=aff_source,
-                                                 fetchall=False):
-            aff = primary_affiliations.get(row['person_id'], None)
-            if aff is None or row['precedence'] < aff[1]:
-                primary_affiliations[row['person_id']] = (row['ou_id'],
-                                                          row['precedence'])
-
-        for person_id, (ou_id, _) in six.iteritems(primary_affiliations):
-            address = ou_id2address.get(ou_id)
-            if address:
-                addr_info[person_id].update(address)
-
-    def init_person_addresses(self):
-        # Set self.addr_info = dict {person_id: {address_type: (addr. data)}}.
-        timer = make_timer(logger, "Fetching personal addresses...")
-
-        if self.config.person.get('affiliation_source_system') is not None:
-            aff_source = [getattr(self.const, aff) for aff in
-                          self.config.person.get('affiliation_source_system')]
-        else:
-            aff_source = [self.config.org.parent.get('contact_source_system')]
-
-        try:
-            addr_src = getattr(self.const,
-                               self.config.org.parent.get(
-                                   'address_source_system'))
-        except Exception:
-            addr_src = getattr(self.const,
-                               self.config.org.parent.get(
-                                   'contact_source_system'))
-
-        addr_types = set(
-            map_constants('_AddressCode',
-                          self.config.person.get('address_types'),
-                          return_type=list)
-        )
-        ou_addr_types = set(
-            map_constants('_AddressCode',
-                          self.config.person.get('address_from_affiliated_ou'),
-                          return_type=list)
-        )
-        addr_types = addr_types - ou_addr_types
-
-        addr_info = defaultdict(dict)
-        self.init_person_addresses_from_ou(addr_info, ou_addr_types, addr_src,
-                                           aff_source)
-        if addr_types:
-            for row in self.person.list_entity_addresses(
-                    entity_type=self.const.entity_person,
-                    source_system=addr_src,
-                    address_type=addr_types):
-                entity_id = int(row['entity_id'])
-                addr_info[entity_id][int(row['address_type'])] = (
-                    row['address_text'],
-                    row['p_o_box'],
-                    row['postal_number'],
-                    row['city'],
-                    row['country']
-                )
-        self.addr_info = dict(addr_info)
-        timer("...personal addresses done.")
-
     def init_person_aliases(self):
         # Set variables for aliases: self.alias_default_parent_dn.
         if self.aliases:
@@ -997,8 +901,9 @@ class OrgLDIF(object):
             try:
                 entry['userPassword'] = self.user_password.get(account_id)
             except LookupError:
-                logger.debug('no authentication data for account %s (%d)',
-                             account_name, account_id)
+                self.logger.debug(
+                    "no authentication data for account %s (%d)",
+                    account_name, account_id)
 
         if self.org_dn:
             entry['eduPersonOrgDN'] = (self.org_dn,)
@@ -1042,31 +947,14 @@ class OrgLDIF(object):
                 if contact:
                     entry[attr] = contact
             # addresses:
-            addrs = self.addr_info.get(person_id)
-            post = addrs and addrs.get(int(self.const.address_post))
-            if post:
-                a_txt, p_o_box, p_num, city, country = post
-                post = self.make_address(
-                    "$",
-                    p_o_box,
-                    a_txt,
-                    p_num,
-                    city,
-                    country)
-                if post:
-                    entry['postalAddress'] = (post,)
-            street = addrs and addrs.get(int(self.const.address_street))
-            if street:
-                a_txt, p_o_box, p_num, city, country = street
-                street = self.make_address(
-                    ", ",
-                    None,
-                    a_txt,
-                    p_num,
-                    city,
-                    country)
-                if street:
-                    entry['street'] = (street,)
+            postal_address = self.get_person_postal_addr(person_id)
+            if postal_address:
+                entry['postalAddress'] = (postal_address,)
+
+            street_address = self.get_person_street_addr(person_id)
+            if street_address:
+                entry['street'] = (street_address,)
+
         else:
             uris = self.id2labeledURI.get(person_id)
             if uris:
@@ -1161,46 +1049,6 @@ class OrgLDIF(object):
                 },
             )
         )
-
-    def make_address(self, sep,
-                     p_o_box, address_text, postal_number, city, country):
-        # Return a postal addres or street attribute value made from the input.
-        # 'sep' should be '$' for postal addresses; usually ', ' for streets.
-        if country:
-            country = self.const.Country(country).country
-        if p_o_box:
-            p_o_box = "Pb. %s" % p_o_box
-        address_text = (address_text or "").strip()
-        post_nr_city = None
-        if city or (postal_number and country):
-            post_nr_city = " ".join(filter(None, (postal_number,
-                                                  (city or "").strip())))
-        val = "\n".join(filter(None, (p_o_box, address_text,
-                                      post_nr_city, country)))
-        if sep == '$':
-            val = postal_escape_re.sub(hex_escape_match, val)
-        return val.replace("\n", sep)
-
-    def make_entity_addresses(self, entity, lookup_order=(None,)):
-        # Return [postal address, street address] for the given entity.
-        result = []
-        for addr_type, box, separator in (
-                (self.const.address_post, True, "$"),
-                (self.const.address_street, None, ", ")):
-            value = None
-            for source in lookup_order:
-                addr = entity.get_entity_address(source, addr_type)
-                if addr:
-                    value = self.make_address(separator,
-                                              box and addr[0]['p_o_box'],
-                                              addr[0]['address_text'],
-                                              addr[0]['postal_number'],
-                                              addr[0]['city'],
-                                              addr[0]['country'])
-                    if value:
-                        break
-            result.append(value)
-        return result
 
     def get_contacts(self, entity_id=None, contact_type=None,
                      source_system=None, entity_type=None,
@@ -1416,6 +1264,111 @@ class OrgLDIF(object):
                     return True
             return False
         return selector[selector[2](person_id)]
+
+    #
+    # Object addresses and address formatting
+    #
+    format_street_addr = addr_export.format_ldap_street_address
+    format_postal_addr = addr_export.format_ldap_postal_address
+
+    @lazy_property
+    def ou_address_cache(self):
+        """ address cache. """
+        cache = addr_export.AddressCache(
+            self.db,
+            address_types=(
+                self.const.address_post,
+                self.const.address_street,
+            ),
+            source_systems=self.system_lookup_order,
+            entity_types=(self.const.entity_ou,),
+        )
+        timer = make_timer(logger, "Caching org unit addresses ...")
+        cache.update_all()
+        timer("... done caching org unit addresses")
+        logger.info("Found addresses for %d org units", len(cache.found))
+        return cache
+
+    @lazy_property
+    def get_ou_street_addr(self):
+        """ get street address for entity. """
+        return addr_export.AddressGetter(
+            self.ou_address_cache,
+            addr_export.AddressSelector(
+                self.const.address_street,
+                self.system_lookup_order,
+            ),
+            self.format_street_addr,
+        )
+
+    @lazy_property
+    def get_ou_postal_addr(self):
+        """ get postal address for entity. """
+        return addr_export.AddressGetter(
+            self.ou_address_cache,
+            addr_export.AddressSelector(
+                self.const.address_post,
+                self.system_lookup_order,
+            ),
+            self.format_postal_addr,
+        )
+
+    #
+    # Personal addresses
+    #
+    # To disable - replace with a cache that doesn't have the required
+    # addresses, or replace the `get_person_*_addr` method
+    #
+
+    @lazy_property
+    def person_address_source_system(self):
+        """ source system for personal addresses. """
+        return getattr(
+            self.const,
+            self.config.org.parent.get('contact_source_system'),
+        )
+
+    @lazy_property
+    def person_address_cache(self):
+        """ address cache. """
+        cache = addr_export.AddressCache(
+            self.db,
+            address_types=(
+                self.const.address_post,
+                self.const.address_street,
+            ),
+            source_systems=(self.person_address_source_system,),
+            entity_types=(self.const.entity_person,),
+        )
+        timer = make_timer(logger, "Caching personal addresses ...")
+        cache.update_all()
+        timer("... done caching personal addresses")
+        logger.info("Found addresses for %d persons", len(cache.found))
+        return cache
+
+    @lazy_property
+    def get_person_street_addr(self):
+        """ get street address for entity. """
+        return addr_export.AddressGetter(
+            self.person_address_cache,
+            addr_export.AddressSelector(
+                self.const.address_street,
+                (self.person_address_source_system,),
+            ),
+            self.format_street_addr,
+        )
+
+    @lazy_property
+    def get_person_postal_addr(self):
+        """ get postal address for entity. """
+        return addr_export.AddressGetter(
+            self.person_address_cache,
+            addr_export.AddressSelector(
+                self.const.address_post,
+                (self.person_address_source_system,),
+            ),
+            self.format_postal_addr,
+        )
 
 
 def _split_name(fullname=None, givenname=None, lastname=None):

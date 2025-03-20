@@ -205,12 +205,12 @@ class NorEduOrgLdifMixin(OrgLDIF):
             contact_type=int(self.const.contact_email),
             verify=verify_email,
             normalize=normalize_IA5String)
-        post_string, street_string = self.make_entity_addresses(
-            self.ou, self.system_lookup_order)
-        if post_string:
-            entry['postalAddress'] = (post_string,)
-        if street_string:
-            entry['street'] = (street_string,)
+        postal_address = self.get_ou_postal_addr(int(ou_id))
+        if postal_address:
+            entry['postalAddress'] = (postal_address,)
+        street_address = self.get_ou_street_addr(int(ou_id))
+        if street_address:
+            entry['street'] = (street_address,)
 
     def make_ou_entry(self, ou_id, parent_dn):
         # Changes from superclass:
@@ -660,7 +660,7 @@ class NorEduSmsAuthnMixin(NorEduOrgLdifMixin):
                     'source_system': system,
                 })
                 count += 1
-            logger.info('cached %d authn methods from contact info', count)
+            logger.info('cached %d mfa authn methods from contact info', count)
             timer("...authentication methods done.")
         return self._person_authn_methods
 
