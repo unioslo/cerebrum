@@ -53,6 +53,7 @@ from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.access_FS import make_fs
 from Cerebrum.modules.no.uio import bofhd_uio_cmds
 from Cerebrum.modules.bofhd import bofhd_access
+from Cerebrum.modules.trait import bofhd_trait_cmds
 from Cerebrum.utils import date_compat
 
 
@@ -366,3 +367,11 @@ class _SmsAuth(NmhAuth, bofhd_misc_sms.BofhdSmsAuth):
 
 class SmsCommands(bofhd_misc_sms.BofhdSmsCommands):
     authz = _SmsAuth
+
+
+class _TraitAuth(NmhAuth, bofhd_trait_cmds.TraitAuth):
+    pass
+
+
+class TraitCommands(bofhd_trait_cmds.TraitCommands):
+    authz = _TraitAuth
