@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2003-2008, 2013, 2016 University of Oslo, Norway
+# Copyright 2003-2025 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,10 +17,17 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """HiOf specific mixin functionality for the Account class"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    # unicode_literals,
+)
+
 import re
 import time
 import datetime
-import cPickle
+import pickle
 
 import cereconf
 
@@ -28,6 +35,48 @@ from Cerebrum import Account
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
+from Cerebrum.utils import text_compat
+from Cerebrum.utils import date as date_utils
+
+
+# AD trait helpers.
+#
+# HiØ stores some AD values as traits, but these values must be limited to
+# certain ad spreads.  Example:
+#
+#   ad_account_ou = {
+#     int(spread_foo): str("OU=foo,DC=example"),
+#     int(spread-bar): str("OU=bar,DC=example"),
+#  }
+#
+# As the values must be dicts, we need to serialize them in order to store the
+# data as traits.
+#
+# TODO: We may want to re-consider the use of *pickle* here.
+
+
+def ad_trait_dumps(data):
+    """ Serialize an AD trait value mapping. """
+    bytelike = pickle.dumps(data or {})
+    return text_compat.to_text(bytelike)
+
+
+def ad_trait_loads(strlike):
+    """ De-serialize an AD trait value mapping. """
+    bytestring = text_compat.to_bytes(strlike)
+    return pickle.loads(bytestring) or {}
+
+
+def _map_cereconf_const(const, const_type, attr):
+    """ Map a sequence of constants from cereconf. """
+    if not hasattr(cereconf, attr):
+        raise Errors.CerebrumError("Missing `cereconf.%s`" % (attr,))
+    for value in getattr(cereconf, attr):
+        try:
+            yield const.get_constant(const_type, value)
+        except LookupError:
+            raise Errors.CerebrumError("Invalid `cereconf.%s` value: %s"
+                                       % (attr, repr(value)))
 
 
 class AccountHiOfMixin(Account.Account):
@@ -44,23 +93,23 @@ class AccountHiOfMixin(Account.Account):
         """
         Override __init__ to set up AD spesific constants.
         """
-        self.__super.__init__(db)
-        # Setup AD spread constants
-        if not hasattr(cereconf, 'AD_ACCOUNT_SPREADS'):
-            raise Errors.CerebrumError(
-                "Missing AD_ACCOUNT_SPREADS in cereconf")
-        self.ad_account_spreads = [self.const.Spread(
-            spread) for spread in cereconf.AD_ACCOUNT_SPREADS]
-        # Setup defined ad traits
-        if not hasattr(cereconf, 'AD_TRAIT_TYPES'):
-            raise Errors.CerebrumError("Missing AD_TRAIT_TYPES in cereconf")
-        self.ad_trait_types = []
-        for trait_str in cereconf.AD_TRAIT_TYPES:
-            self.ad_trait_types.append(self.const.EntityTrait(trait_str))
+        super(AccountHiOfMixin, self).__init__(db)
+
+        # These are the different spreads for AD account (i.e. spreads that
+        # enables the use of AD traits).
+        self.ad_account_spreads = list(
+            _map_cereconf_const(self.const, self.const.Spread,
+                                "AD_ACCOUNT_SPREADS"))
+
+        # These are the different AD traits that exists.
+        self.ad_trait_types = list(
+            _map_cereconf_const(self.const, self.const.EntityTrait,
+                                "AD_TRAIT_TYPES"))
 
     def illegal_name(self, name):
         """HiOf specific illegal names."""
         # Avoid circular import dependency
+        # (this should probably be moved to a separate PosixUser subclass...)
         from Cerebrum.modules.PosixUser import PosixUser
 
         if isinstance(self, PosixUser):
@@ -97,7 +146,7 @@ class AccountHiOfMixin(Account.Account):
         # user's addresses, and don't allocate any new addresses.
         ea = Email.EmailAddress(self._db)
         if target_type == self.const.email_target_deleted:
-            seconds = 60 * 60 * 24 * 180
+            seconds = date_utils.to_seconds(days=180)
             expire_date = datetime.date.fromtimestamp(time.time() + seconds)
             for row in et.get_addresses():
                 ea.clear()
@@ -108,7 +157,6 @@ class AccountHiOfMixin(Account.Account):
             return
         # if an account without email_server_target is found assign
         # the appropriate server
-        acc_types = self.get_account_types()
         entity = Factory.get("Entity")(self._db)
         try:
             entity.clear()
@@ -278,7 +326,7 @@ class AccountHiOfMixin(Account.Account):
 
     def add_spread(self, spread):
         """Update AD attributes when an AD-spread is set."""
-        ret = self.__super.add_spread(spread)
+        ret = super(AccountHiOfMixin, self).add_spread(spread)
         if spread == self.const.spread_ad_account:
             self.update_ad_attributes()
         return ret
@@ -291,7 +339,7 @@ class AccountHiOfMixin(Account.Account):
         """
         if spread in self.ad_account_spreads:
             self.delete_ad_attrs(spread=spread)
-        ret = self.__super.delete_spread(spread)
+        ret = super(AccountHiOfMixin, self).delete_spread(spread)
         return ret
 
     def set_account_type(self, *args, **kwargs):
@@ -300,14 +348,14 @@ class AccountHiOfMixin(Account.Account):
         This is in case the user had no account types to begin with, in which
         it could have blank attribute values.
         """
-        ret = self.__super.set_account_type(*args, **kwargs)
+        ret = super(AccountHiOfMixin, self).set_account_type(*args, **kwargs)
         self.update_ad_attributes()
         return ret
 
-    # Methods for manipulation accounts AD-attributes.
-    # AD attributes OU, Homedir and Profile Path are stored in
-    # entity_traits. The methods make it easier to get and set
-    # these attributes.
+    # Methods for manipulating AD attributes.
+    #
+    # AD attributes for setting "OU", "Homedir" and "Profile Path" are stored
+    # as traits.  These methods make it easier to get and set these attributes.
 
     # TODO: The methods for updating traits for old AD-attributes should be
     # removed after the new AD sync is in production and the old ones are
@@ -328,7 +376,7 @@ class AccountHiOfMixin(Account.Account):
         for trait_type, entity_trait in traits.items():
             if trait_type in self.ad_trait_types:
                 attr_type = str(trait_type)
-                unpickle_val = cPickle.loads(str(entity_trait['strval']))
+                unpickle_val = ad_trait_loads(entity_trait['strval'])
                 # unpickle_val is a spread -> attribute value mapping
                 for spread, attr_val in unpickle_val.items():
                     spread = int(spread)
@@ -361,7 +409,7 @@ class AccountHiOfMixin(Account.Account):
         """
         tmp = self.get_trait(trait_type)
         if tmp:
-            return cPickle.loads(str(tmp['strval']))
+            return ad_trait_loads(tmp['strval'])
         return None
 
     def populate_ad_attrs(self, trait_type, ad_attr_map):
@@ -374,12 +422,11 @@ class AccountHiOfMixin(Account.Account):
         @param ad_attr_map: spread -> attr value mapping
         @type  ad_attr_map: dict
         """
-        doit = False
         for k in ad_attr_map:
             for spread in self.ad_account_spreads:
                 if k == int(spread):
-                    self.populate_trait(
-                        trait_type, strval=cPickle.dumps(ad_attr_map))
+                    self.populate_trait(trait_type,
+                                        strval=ad_trait_dumps(ad_attr_map))
                     return
 
     def delete_ad_attrs(self, spread=None):
