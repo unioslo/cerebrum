@@ -437,16 +437,28 @@ class PopulateElements(object):
                         break
         logger.info("Done populating roles")
 
+    def get_active_persons(self):
+        seen = set()
+        for source_str, aff_str in self.select_affiliations:
+            source = co.get_constant(co.AuthoritativeSystem, source_str)
+            aff, status = co.get_affiliation(aff_str)
+            for row in pe.list_affiliations(source_system=source,
+                                            affiliation=aff,
+                                            status=status):
+                if int(row['person_id']) not in seen:
+                    seen.add(int(row['person_id']))
+        return seen
+
     def depopulate(self):
         """Remove spreads, roles and permissions for non-employees."""
         logger.info("Start depopulating")
-        should_have_spread = set(self.map_person_to_ou().keys())
+        active_persons = self.get_active_persons()
         logger.info("Fetching existing spreads")
         has_spread = set([int(row["entity_id"]) for row in
                           pe.list_all_with_spread(self.selection_spread)])
-        victims = has_spread - should_have_spread
+        victims = has_spread - active_persons
         logger.info('%d persons should have Elements spread',
-                    len(should_have_spread))
+                    len(active_persons))
         logger.info('%d persons have Elements spread',
                     len(has_spread))
         logger.info('%d persons should lose Elements spread',

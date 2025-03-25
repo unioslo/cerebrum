@@ -804,7 +804,7 @@ def update_person_roles(pe, client, remove_superfluous=False):
 def disable_users(client, selection_spread):
     logger.info('Fetching all users from Elements... go grab some coffee.')
     start = time.time()
-    all_users = client.get_all_users()
+    all_users = client.get_all_users_per_page()
     logger.info('Fetched all users in %s secs', int(time.time() - start))
 
     ac = Factory.get('Account')(db)
@@ -878,41 +878,27 @@ def disable_users(client, selection_spread):
 
         return False
 
-    def is_disabled_in_elements(user_id):
-        user_details = client.get_user_details(user_id)
-        # consider user as disabled if number of roles + permissions is zero
-        disabled = (len(user_details[1]) + len(user_details[2])) == 0
-        logger.debug('User %s disabled? %s', user_id, disabled)
-        return disabled
-
     start = time.time()
-    disabled_previously = 0
     disabled_now = 0
     failed = 0
 
-    for eph_user_id in all_users.keys():
-        logger.debug('Considering user_id:%s', eph_user_id)
-
-        if should_be_disabled(eph_user_id):
+    for elem_user_id in all_users.keys():
+        logger.debug('Considering user_id:%s', elem_user_id)
+        if should_be_disabled(elem_user_id):
             try:
-                if not is_disabled_in_elements(eph_user_id):
-                    client.disable_user(eph_user_id)
-                    logger.info('Successfully disabled user %s', eph_user_id)
-                    client.disable_roles_and_authz_for_user(eph_user_id)
-                    logger.info('Successfully disabled roles and authz for %s',
-                                eph_user_id)
-                    disabled_now += 1
-                else:
-                    logger.debug('User %s is already disabled', eph_user_id)
-                    disabled_previously += 1
+                client.disable_user(elem_user_id)
+                logger.info('Successfully disabled user %s', elem_user_id)
+                client.disable_roles_and_authz_for_user(elem_user_id)
+                logger.info('Successfully disabled roles and authz for %s',
+                            elem_user_id)
+                disabled_now += 1
             except ElementsWSError as e:
                 logger.warn('Failed disabling user %s or its roles/authz: %s',
-                            eph_user_id, six.text_type(e), exc_info=True)
+                            elem_user_id, six.text_type(e), exc_info=True)
                 failed += 1
 
     logger.info('Checked %s users in %s secs',
                 len(all_users), int(time.time() - start))
-    logger.info('Users already disabled: %s', disabled_previously)
     logger.info('Users disabled now: %s', disabled_now)
     logger.info('Webservice errors encountered: %s', failed)
 
@@ -934,7 +920,7 @@ help_example_config = textwrap.dedent(
       client_cert=None
       ca_certs=None
       selection_spread=elements_person
-      change_key=eph_sync_foo
+      change_key=elem_sync_foo
       changes_too_old_days=30
     """
 ).strip()

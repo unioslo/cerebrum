@@ -500,6 +500,28 @@ class IAM2ElementsClient(object):
             users[tmp['UserId']] = tmp
         return users
 
+    def get_all_users_per_page(self):
+        """Collect all active users in Elements.
+
+        :rtype: list(dict())
+        """
+        users = {}
+        valid_response = True
+        page_number = 0
+        while valid_response:
+            page_number = page_number + 1
+            r = self.client.GetAllUsersPerPage(
+                    self.config_id,
+                    self.database,
+                    page=page_number)
+            try:
+                for user in r.Users.ElementsUser:
+                    tmp = self._convert_result(user)
+                    users[tmp['UserId']] = tmp
+            except AttributeError:
+                valid_response = False
+        return users
+
     def get_user_details(self, user_id):
         """Get detailed user information from Elements.
 
