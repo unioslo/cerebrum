@@ -439,6 +439,24 @@ def test_format_ldap_postal_address(cc_no):
     ))
 
 
+def test_format_ldap_postal_address_escape(cc_no):
+    # address
+    address = {
+        # Cern
+        'address_text': "foo$bar",
+        'p_o_box': " 123 ",
+        'postal_number': None,
+        'city': None,
+        'country': cc_no,
+    }
+    result = addr_export.format_ldap_postal_address(address)
+    assert result == "$".join((
+        "Pb. 123",
+        r"foo\24bar",
+        "Norway",
+    ))
+
+
 def test_format_ldap_street_address(cc_no):
     # address
     address = {

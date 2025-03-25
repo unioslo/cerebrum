@@ -289,8 +289,7 @@ class _LdapPostalAddress(_AddressFormatter):
     postal_escape_re = re.compile(r'[$\\]')
 
     def _escape(self, value):
-        self.postal_escape_re.sub(hex_escape_match, value)
-        return value
+        return self.postal_escape_re.sub(hex_escape_match, value)
 
     def _get_values(self, fields):
         # "Pb. <po-box>"
