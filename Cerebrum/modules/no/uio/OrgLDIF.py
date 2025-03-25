@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2004-2022 University of Oslo, Norway
+# Copyright 2004-2025 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,9 +17,12 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-from __future__ import unicode_literals
-
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import logging
 import re
 from collections import defaultdict
@@ -33,6 +36,7 @@ from Cerebrum.modules.no.OrgLDIF import NorEduSmsAuthnMixin
 from Cerebrum.modules.no.OrgLDIF import OrgLdifCourseMixin
 from Cerebrum.modules.no.OrgLDIF import OrgLdifEntitlementsMixin
 from Cerebrum.modules.LDIFutils import (
+    attr_unique,
     hex_escape_match,
     normalize_IA5String,
     verify_IA5String,
@@ -149,7 +153,7 @@ class UioOrgLdif(NorEduSmsAuthnMixin,
         # Append "Blindern" to postbox.
         if country:
             country = self.const.Country(country).country
-        if (p_o_box and int(postal_number or 0) / 100 == 3):
+        if (p_o_box and int(postal_number or 0) // 100 == 3):
             address_text = "Pb. %s - Blindern" % p_o_box
         else:
             address_text = (address_text or "").strip()
@@ -206,7 +210,7 @@ class UioOrgLdif(NorEduSmsAuthnMixin,
             self.account_mail.update(mail)
             timer("...UiO specfic account e-mail addresses done.")
 
-    def make_uioPersonScopedAffiliation(self, p_id, pri_aff, pri_ou):
+    def make_uio_scoped_aff(self, p_id, pri_aff, pri_ou):
         # [primary|secondary]:<affiliation>@<status>/<stedkode>
         ret = []
         pri_aff_str, pri_status_str = pri_aff
@@ -230,7 +234,7 @@ class UioOrgLdif(NorEduSmsAuthnMixin,
             if ou:
                 ret.append(''.join((p, ':', aff_str, '/', status_str, '@',
                                     ou)))
-        return ret
+        return sorted(attr_unique(ret))
 
     def make_person_entry(self, row, person_id):
         """ Extend with UiO functionality. """
@@ -247,8 +251,8 @@ class UioOrgLdif(NorEduSmsAuthnMixin,
         # Add scoped affiliations
         pri_edu_aff, pri_ou, pri_aff = self.make_edu_person_primary_aff(
             person_id)
-        entry['uioPersonScopedAffiliation'] = \
-            self.make_uioPersonScopedAffiliation(person_id, pri_aff, pri_ou)
+        entry['uioPersonScopedAffiliation'] = self.make_uio_scoped_aff(
+            person_id, pri_aff, pri_ou)
 
         # uio attributes require uioPersonObject
         entry['objectClass'].append('uioPersonObject')
@@ -326,7 +330,8 @@ class UioOrgLdif(NorEduSmsAuthnMixin,
             (student, int(self.const.affiliation_status_student_drgrad)),
             (student, int(self.const.affiliation_status_student_emnestud)))
         self.sap_res = self.init_person_group("DFO-elektroniske-reservasjoner")
-        self.manuelt_samtykke = self.init_person_group("manuelt-aktivt-samtykke")
+        self.manuelt_samtykke = self.init_person_group(
+            "manuelt-aktivt-samtykke")
         self.fs_samtykke = self.init_person_group("FS-aktivt-samtykke")
 
     def is_person_visible(self, person_id):

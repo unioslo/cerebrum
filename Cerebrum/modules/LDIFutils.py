@@ -44,6 +44,7 @@ from Cerebrum.Utils import Factory
 from Cerebrum.utils.atomicfile import AtomicFileWriter
 from Cerebrum.utils.atomicfile import SimilarSizeWriter
 from Cerebrum.utils.funcwrap import deprecate
+from Cerebrum.utils import aggregate
 from Cerebrum.utils import text_compat
 
 
@@ -455,19 +456,10 @@ def attr_unique(values, normalize=None):
     Pass values through optional function 'normalize' before comparing.
     Preserve the order of values.  Use the first value of any duplicate.
     """
+    values = list(values)
     if len(values) < 2:
         return values
-    result = []
-    done = set()
-    for val in values:
-        if normalize:
-            norm = normalize(val)
-        else:
-            norm = val
-        if norm not in done:
-            done.add(norm)
-            result.append(val)
-    return result
+    return list(aggregate.unique(values, normalize))
 
 
 # A singleton default value - used to indicate that LdapConfig.get()

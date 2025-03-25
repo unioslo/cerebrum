@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2020-2024 University of Oslo, Norway
+# Copyright 2020-2025 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,7 +18,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
-OrgLDIF module for generating a sysadm ldif.
+OrgLDIF module for generating a sysadm ldif org tree.
 """
 from __future__ import (
     absolute_import,
@@ -47,7 +47,6 @@ class SysAdmOrgLdif(NorEduAuthnLevelMixin,
     This OrgLdif mixin changes primary accounts/filtering to only include
     persons with a sysadm account.
     """
-
     def list_persons(self):
         """
         List persons decides on which accounts to include.

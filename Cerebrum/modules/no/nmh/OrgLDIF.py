@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2006-2024 University of Oslo, Norway
+# Copyright 2006-2025 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,7 +17,12 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-from __future__ import unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import json
 import logging
@@ -106,7 +111,7 @@ class NmhOrgLdif(NorEduOrgLdifMixin):
 
     def init_attr2id2contacts(self):
         """Override to include more, local data from contact info."""
-        sap, fs = self.const.system_sap, self.const.system_fs
+        sap = self.const.system_sap
         c = [(a, self.get_contacts(contact_type=t,
                                    source_system=s,
                                    convert=self.attr2syntax[a][0],
@@ -160,21 +165,34 @@ class NmhOrgLdif(NorEduOrgLdifMixin):
         pages."""
         dn, entry, alias_info = super(NmhOrgLdif,
                                       self).make_person_entry(row, person_id)
+
+        # Update eduPersonEntitlement with NMH specific values
         if dn:
-            urns = entry.setdefault('eduPersonEntitlement', set())
+            urns = list(entry.get("eduPersonEntitlement", ()))
+
             # Add fagomrade/fagfelt, if registered for the person:
-            fagf = self.pe2fagomr.get(person_id, [])
-            for f in fagf:
-                urns.add('urn:mace:feide.no:nmh.no:fagomrade:{}'.format(f))
+            for fagomrade in (self.pe2fagomr.get(person_id) or []):
+                urns.append(
+                    "urn:mace:feide.no:nmh.no:fagomrade:{}".format(fagomrade)
+                )
+
             # Add fagmiljø:
-            fagm = self.pe2fagmiljo.get(person_id)
-            if fagm:
-                urns.add('urn:mace:feide.no:nmh.no:fagmiljo:{}'.format(fagm))
+            fagmiljo = self.pe2fagmiljo.get(person_id)
+            if fagmiljo:
+                urns.append(
+                    "urn:mace:feide.no:nmh.no:fagmiljo:{}".format(fagmiljo)
+                )
+
             # Add study programs
-            study_programs = self.pe2study_program.get(person_id, [])
-            urn_format = 'urn:mace:feide.no:nmh.no:studies/studyprogram/{}/{}'
-            for program in study_programs:
-                urn = urn_format.format(program['studieprogramkode'],
-                                        program['arstall_kull'])
-                urns.add(urn)
+            sp_format = "urn:mace:feide.no:nmh.no:studies/studyprogram/{}/{}"
+            for studyprogram in (self.pe2study_program.get(person_id) or []):
+                urns.append(
+                    sp_format.format(
+                        studyprogram['studieprogramkode'],
+                        studyprogram['arstall_kull'],
+                    )
+                )
+
+            if urns:
+                entry["eduPersonEntitlement"] = sorted(attr_unique(urns))
         return dn, entry, alias_info
