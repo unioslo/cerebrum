@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003-2006, 2008 University of Oslo, Norway
+# Copyright 2003-2025, 2008 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,17 +18,30 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""
+Periodically process AD-related bofhd requests.
 
+This script currently only processes the request type `br_ad_attr_rem`, which
+deletes AD-related attributes.  The operation is (only) queued after running
+the `user remove_ad_attrs` command, which removes all attributes for a given
+user account, at a given AD spread.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import argparse
 import logging
-import sys
 import time
 
 import Cerebrum.logutils
+import Cerebrum.logutils.options
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.utils.argutils import add_commit_args
+from Cerebrum.utils import argutils
 from Cerebrum.modules.no.hiof.bofhd_hiof_cmds import HiofBofhdRequests
 
 logger = logging.getLogger(__name__)
@@ -109,16 +122,25 @@ def set_operator(db, entity_id=None):
         db.cl_init(change_program='process_ad_attrs')
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--delete",
-                        help="Find bofhd requests and delete ad attrs",
-                        action='store_true',
-                        default=False)
-    add_commit_args(parser, default=True)
+def main(argv=None):
+    parser = argparse.ArgumentParser(
+        description="Process ad-attribute related requests",
+    )
+
+    # This is the *only* valid operation, and has been since the script was
+    # first created.  We should probbaly rename the script, remove this option,
+    # and make `process_requests()` always run.
+    parser.add_argument(
+        "--delete",
+        action='store_true',
+        help="Find bofhd requests and delete ad attrs",
+    )
+    # NOTE: --commit is the default (for backwards compatibility)
+    argutils.add_commit_args(parser, default=True)
     Cerebrum.logutils.options.install_subparser(parser)
-    args = parser.parse_args()
-    Cerebrum.logutils.autoconf('cronjob', args)
+
+    args = parser.parse_args(argv)
+    Cerebrum.logutils.autoconf("cronjob", args)
 
     db = Factory.get('Database')()
 
