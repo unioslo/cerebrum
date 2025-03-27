@@ -42,26 +42,13 @@ from Cerebrum.modules.no.nmh import StudentStudyProgramCache
 logger = logging.getLogger(__name__)
 
 
-class NmhOrgLdif(NorEduOrgLdifMixin):
+class _NmhStudyProgramMixin(NorEduOrgLdifMixin):
+    """
+    Mixin for adding NMH specific eduPersonEntitlement.
 
-    # Fetch mail addresses from entity_contact_info of accounts, not persons.
-    person_contact_mail = False
-
-    def __init__(self, *args, **kwargs):
-        super(NmhOrgLdif, self).__init__(*args, **kwargs)
-
-        self.attr2syntax['mobile'] = self.attr2syntax['telephoneNumber']
-        self.attr2syntax['roomNumber'] = (None, None, normalize_string)
-        self.person = Factory.get('Person')(self.db)
-        self.pe2fagomr = self.get_fagomrade()
-        self.pe2fagmiljo = self.get_fagmiljo()
-        self.pe2study_program = self.get_study_programs()
-
-    def test_omit_ou(self):
-        """Not using Stedkode, so all OUs are available (there is no need to
-        look for special spreads).
-        """
-        return False
+    The eduPersonEntitlement comes from traits, and FS study program
+    participation data.
+    """
 
     def get_fagomrade(self):
         """
@@ -70,9 +57,10 @@ class NmhOrgLdif(NorEduOrgLdifMixin):
         This field is stored in a trait for each person. The trait string value
         is a JSON-serialized list of strings.
         """
+        person = Factory.get('Person')(self.db)
         person2fagfelt = dict()
 
-        for row in self.person.list_traits(self.const.trait_fagomrade_fagfelt):
+        for row in person.list_traits(self.const.trait_fagomrade_fagfelt):
             try:
                 fagfelt = json.loads(row['strval'])
             except Exception as exc:
@@ -83,6 +71,7 @@ class NmhOrgLdif(NorEduOrgLdifMixin):
                 continue
 
             person2fagfelt[row['entity_id']] = fagfelt
+        logger.info("Found %d persons with fagomrade", len(person2fagfelt))
 
         return person2fagfelt
 
@@ -94,20 +83,94 @@ class NmhOrgLdif(NorEduOrgLdifMixin):
         and stored in a trait for each person. We blindly treat them as
         plaintext.
         """
-        return dict(
+        person = Factory.get('Person')(self.db)
+        data = dict(
             (row['entity_id'], row['strval'])
-            for row in self.person.list_traits(self.const.trait_fagmiljo))
+            for row in person.list_traits(self.const.trait_fagmiljo)
+        )
+        logger.info("Found %d persons with fagmiljo", len(data))
+        return data
 
     def get_study_programs(self):
         """Returns a dict mapping from person_id to 'studienivakode'
         and 'arstall_kull'."""
         sspc = StudentStudyProgramCache.StudentStudyProgramCache(
-            db=self.db,
-            logger=logger.getChild('StudentStudyProgramCache'),
-            max_age={'hours': 12})
-        if sspc.data is None:
+            self.db, max_age={'hours': 12})
+        cache = sspc.data
+        if cache is None:
             raise Exception('Unable to load student study program cache')
-        return sspc.data
+        logger.info("Found %d persons with study program data", len(cache))
+        return cache
+
+    def init_person_dump(self, *args, **kwargs):
+        super(_NmhStudyProgramMixin, self).init_person_dump(*args, **kwargs)
+        self.pe2fagomr = self.get_fagomrade()
+        self.pe2fagmiljo = self.get_fagmiljo()
+        self.pe2study_program = self.get_study_programs()
+
+    def make_person_entry(self, row, person_id):
+        """
+        Override the production of a person entry to output.
+
+        NMH needs more data for their own use, e.g. to be used by their web
+        pages.
+        """
+        dn, entry, alias_info = super(_NmhStudyProgramMixin,
+                                      self).make_person_entry(row, person_id)
+
+        # Update eduPersonEntitlement with NMH specific values
+        if dn:
+            urns = list(entry.get("eduPersonEntitlement", ()))
+
+            # Add fagomrade/fagfelt, if registered for the person:
+            for fagomrade in (self.pe2fagomr.get(person_id) or []):
+                urns.append(
+                    "urn:mace:feide.no:nmh.no:fagomrade:{}".format(fagomrade)
+                )
+
+            # Add fagmiljø:
+            fagmiljo = self.pe2fagmiljo.get(person_id)
+            if fagmiljo:
+                urns.append(
+                    "urn:mace:feide.no:nmh.no:fagmiljo:{}".format(fagmiljo)
+                )
+
+            # Add study programs
+            sp_format = "urn:mace:feide.no:nmh.no:studies/studyprogram/{}/{}"
+            for studyprogram in (self.pe2study_program.get(person_id) or []):
+                urns.append(
+                    sp_format.format(
+                        studyprogram['studieprogramkode'],
+                        studyprogram['arstall_kull'],
+                    )
+                )
+
+            if urns:
+                entry["eduPersonEntitlement"] = sorted(attr_unique(urns))
+        return dn, entry, alias_info
+
+
+class NmhOrgLdif(_NmhStudyProgramMixin):
+    """
+    NMH specific OrgLDIF export.
+
+    This class mostly overrides some default OrgLDIF implementation details.
+    """
+
+    # Fetch mail addresses from entity_contact_info of accounts, not persons.
+    person_contact_mail = False
+
+    def __init__(self, *args, **kwargs):
+        super(NmhOrgLdif, self).__init__(*args, **kwargs)
+        self.attr2syntax['mobile'] = self.attr2syntax['telephoneNumber']
+        self.attr2syntax['roomNumber'] = (None, None, normalize_string)
+
+    def test_omit_ou(self):
+        """
+        Not using Stedkode, so all OUs are available (there is no need to
+        look for special spreads).
+        """
+        return False
 
     def init_attr2id2contacts(self):
         """Override to include more, local data from contact info."""
@@ -157,42 +220,3 @@ class NmhOrgLdif(NorEduOrgLdifMixin):
 
         return dict((key, attr_unique(values, normalize=normalize))
                     for key, values in six.iteritems(cont_tab))
-
-    def make_person_entry(self, row, person_id):
-        """Override the production of a person entry to output.
-
-        NMH needs more data for their own use, e.g. to be used by their web
-        pages."""
-        dn, entry, alias_info = super(NmhOrgLdif,
-                                      self).make_person_entry(row, person_id)
-
-        # Update eduPersonEntitlement with NMH specific values
-        if dn:
-            urns = list(entry.get("eduPersonEntitlement", ()))
-
-            # Add fagomrade/fagfelt, if registered for the person:
-            for fagomrade in (self.pe2fagomr.get(person_id) or []):
-                urns.append(
-                    "urn:mace:feide.no:nmh.no:fagomrade:{}".format(fagomrade)
-                )
-
-            # Add fagmiljø:
-            fagmiljo = self.pe2fagmiljo.get(person_id)
-            if fagmiljo:
-                urns.append(
-                    "urn:mace:feide.no:nmh.no:fagmiljo:{}".format(fagmiljo)
-                )
-
-            # Add study programs
-            sp_format = "urn:mace:feide.no:nmh.no:studies/studyprogram/{}/{}"
-            for studyprogram in (self.pe2study_program.get(person_id) or []):
-                urns.append(
-                    sp_format.format(
-                        studyprogram['studieprogramkode'],
-                        studyprogram['arstall_kull'],
-                    )
-                )
-
-            if urns:
-                entry["eduPersonEntitlement"] = sorted(attr_unique(urns))
-        return dn, entry, alias_info
