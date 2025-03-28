@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2004-2019 University of Oslo, Norway
+# Copyright 2004-2025 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -16,24 +16,24 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
-from __future__ import unicode_literals
-
-import cereconf
-
-from Cerebrum.Errors import NotFoundError
 from Cerebrum.Utils import Factory, make_timer
 from Cerebrum.modules.LDIFutils import attr_unique
 from Cerebrum.modules.PosixLDIF import PosixLDIF
 
 
-class PosixLDIF_UiOMixin(PosixLDIF):
+class PosixLDIF_UiOMixin(PosixLDIF):  # noqa: N801
     """PosixLDIF mixin class providing functionality specific to UiO."""
 
     def __init__(self, *rest, **kw):
         super(PosixLDIF_UiOMixin, self).__init__(*rest, **kw)
         timer = make_timer(self.logger, 'Initing PosixLDIF_UiOMixin...')
-
         # load person_id -> primary account_id
         account = Factory.get("Account")(self.db)
         self.pid2primary_aid = dict()
@@ -82,10 +82,11 @@ class PosixLDIF_UiOMixin(PosixLDIF):
         # eduPersonAffiliation (taken from OrgLDIF)
         added = self.org_ldif.affiliations.get(owner_id)
         if added:
-            added = attr_unique(self.org_ldif.select_list(
-                self.org_ldif.eduPersonAff_selector, owner_id, added))
+            added = attr_unique(
+                self.org_ldif.select_list(
+                    self.org_ldif.eduPersonAff_selector, owner_id, added))
         if added:
-            entry['eduPersonAffiliation'] = added
+            entry['eduPersonAffiliation'] = sorted(added)
 
         # uioAffiliation, uioPrimaryAffiliation
         affs = ["%s@%s" % ((self.const.PersonAffiliation(arow[0]),
