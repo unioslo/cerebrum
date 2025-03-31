@@ -223,7 +223,13 @@ def to_mx_format(dtobj, tz=date.TIMEZONE):
         digit precision for the %f component.
     """
     dt = get_datetime_naive(dtobj, allow_none=False, tz=tz)
-    return dt.strftime('%Y-%m-%d %H:%M:%S') + '.' + dt.strftime('%f')[:2]
+    # datetime.datetime.strftime doesn't like dates < 1900.  The following is
+    # basically:
+    #   dt.strftime('%Y-%m-%d %H:%M:%S') + '.' + dt.strftime('%f')[:2]
+    # but with dt.isoformat(), which accepts a wider year range
+    iso = dt.isoformat(sep=str(" "))
+    base, _, micros = iso.partition(".")
+    return ".".join((base, (micros + "00")[:2]))
 
 
 def parse_fs_xml_date(dtstr, allow_empty=True):
@@ -247,6 +253,8 @@ def parse_fs_xml_date(dtstr, allow_empty=True):
     """
     if allow_empty and not dtstr:
         return None
+    elif not dtstr:
+        raise ValueError("Empty datetime string")
     try:
         return date.parse_date(dtstr)
     except ValueError:
