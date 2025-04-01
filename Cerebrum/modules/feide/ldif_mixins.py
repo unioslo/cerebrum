@@ -53,9 +53,10 @@ class NorEduAuthnLevelMixin(NorEduOrgLdifMixin):
        should be configured in the Feide customer portal.
     """
 
-    feide_service_authn_level_fmt = (
-        'urn:mace:feide.no:spid:{feide_id} '
-        'urn:mace:feide.no:auth:level:fad08:{level}')
+    feide_service_authn_level_fmt = " ".join((
+        "urn:mace:feide.no:spid:{feide_id}",
+        "urn:mace:feide.no:auth:level:fad08:{level}"
+    ))
 
     @property
     def person_authn_levels(self):
@@ -87,8 +88,7 @@ class NorEduAuthnLevelMixin(NorEduOrgLdifMixin):
                 level=level,
             )
             authn_levels.append(value)
-
-        return attr_unique(authn_levels, normalize=normalize_string)
+        return sorted(attr_unique(authn_levels, normalize=normalize_string))
 
     def update_person_entry(self, entry, row, person_id):
         super(NorEduAuthnLevelMixin, self).update_person_entry(
