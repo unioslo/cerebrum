@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2015 University of Oslo, Norway
+# Copyright 2015-2025 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -16,49 +16,116 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""Reads information from FS dumps about which study program(s) a student is associated with
-and maps it to the person ID."""
+"""
+Translate study program participation to a participation cache.
 
-from __future__ import unicode_literals
+Reads information from FS dumps about which study program(s) a student is
+associated with and builds a mapping cache with:
+::
+
+    {
+        <person-id>: {
+            'studieprogramkode': <study-program-id>,
+            'arstall_kull': <study-program-year>,
+        },
+        ...
+    }
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+import logging
+import os
 
 import cereconf
-
-from os.path import join
-from collections import defaultdict
-
 from Cerebrum import Errors
+from Cerebrum import FileCache
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.xmlutils.GeneralXMLParser import GeneralXMLParser
-from Cerebrum.FileCache import PickleCache
+from Cerebrum.utils import aggregate
+
+logger = logging.getLogger(__name__)
 
 
-def fetch_study_programs(db, logger):
-    co = Factory.get('Constants')(db)
-    pe = Factory.get('Person')(db)
+def parse_sp_participation(filename):
+    """ parse study program participation from a merged persons file. """
+    elements = []
 
     def handle_aktiv(data, stack):
-        aktiv = stack[-1][-1]
+        tag, attrs = stack[-1]
+        elements.append((
+            attrs['studieprogramkode'],
+            attrs['arstall_kull'],
+            attrs['studentnr_tildelt'],
+        ))
+
+    # GeneralXMLParser config: note that the xml tag stack must be a list
+    parser_config = [(["data", "person", "aktiv"], handle_aktiv)]
+
+    logger.info("reading study program participation from %s",
+                repr(filename))
+    GeneralXMLParser(parser_config, filename)
+    logger.debug("found %d study program participation roles",
+                 len(elements))
+    return elements
+
+
+def map_sp_student_ids(db, sp_triplets):
+    pe = Factory.get('Person')(db)
+
+    # Probably better to prepare a cache of studentnr -> person-id?
+    for sp_code, sp_year, student_id in sp_triplets:
         pe.clear()
         try:
             pe.find_by_external_id(
-                id_type=co.externalid_studentnr,
-                external_id=aktiv['studentnr_tildelt'],
-                source_system=co.system_fs)
+                id_type=pe.const.externalid_studentnr,
+                external_id=student_id,
+                source_system=pe.const.system_fs,
+            )
         except Errors.NotFoundError:
-            return
-        study_programs[pe.entity_id].append({
-            'studieprogramkode': aktiv['studieprogramkode'],
-            'arstall_kull': aktiv['arstall_kull'],
-        })
+            logger.debug("unknown student id: %s", repr(student_id))
+            continue
 
-    study_programs = defaultdict(list)
-    parser_config = [(['data', 'person', 'aktiv'], handle_aktiv)]
-    GeneralXMLParser(parser_config, join(cereconf.FS_DATA_DIR, 'merged_persons.xml'))
-    return study_programs
+        yield (
+            pe.entity_id,
+            {
+                'studieprogramkode': sp_code,
+                'arstall_kull': sp_year,
+            },
+        )
 
 
-class StudentStudyProgramCache(PickleCache):
-    def __init__(self, **kwargs):
-        self.name = 'fs-student-study-programs'
-        self.build_callback = fetch_study_programs
-        super(StudentStudyProgramCache, self).__init__(**kwargs)
+def fetch_study_programs(db):
+    """ Build study program participation cache. """
+    filename = os.path.join(cereconf.FS_DATA_DIR, "merged_persons.xml")
+    sp_triplets = parse_sp_participation(filename)
+    data = aggregate.dict_collect_lists(map_sp_student_ids(db, sp_triplets))
+    # sort data for a more consistent file cache
+    for k in data.keys():
+        data[k] = sorted(
+            data[k],
+            key=(lambda v: (v['arstall_kull'], v['studieprogramkode'])),
+        )
+    return data
+
+
+class StudentStudyProgramCache(FileCache.JsonCache):
+    """
+    A cached mapping of person-id to study program participation.
+
+    Typical use:
+    ::
+
+        def get_cache(db, max_age_hours=12):
+            cache = StudentStudyProgramCache(
+                db=db,
+                max_age={'hours': max_age_hours},
+            )
+            return cache.data
+    """
+
+    name = 'fs-student-study-programs'
+    build_callback = staticmethod(fetch_study_programs)
