@@ -53,5 +53,8 @@ class RandsoneOrgLdif(NorEduAuthnLevelMixin, NorEduSmsAuthnMixin):
     def init_person_titles(self):
         self.person_titles = {}
 
-    def init_person_addresses(self):
-        self.addr_info = {}
+    def get_person_postal_addr(self, person_id):
+        return None
+
+    def get_person_street_addr(self, person_id):
+        return None

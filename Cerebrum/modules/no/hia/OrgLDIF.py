@@ -29,6 +29,7 @@ from collections import defaultdict
 import six
 
 from Cerebrum import Entity
+from Cerebrum.export import addresses as addr_export
 from Cerebrum.modules.feide.ldif_mixins import NorEduAuthnLevelMixin
 from Cerebrum.modules.no.OrgLDIF import NorEduSmsAuthnMixin
 from Cerebrum.modules.no.OrgLDIF import OrgLdifEntitlementsMixin
@@ -37,6 +38,7 @@ from Cerebrum.modules.LDIFutils import (
     normalize_string,
 )
 from Cerebrum.Utils import make_timer
+from Cerebrum.utils.descriptors import lazy_property
 
 logger = logging.getLogger(__name__)
 
@@ -118,3 +120,18 @@ class UiaOrgLdif(OrgLdifEntitlementsMixin,
                 title = [(self.const.language_nb, emp['description'])]
                 self.person_titles[emp['person_id']] = title
         timer("...personal employment titles done.")
+
+    #
+    # Address stuff
+    #
+
+    @lazy_property
+    def person_address_cache(self):
+        # UiA only uses personal street address - this replaces the default
+        # cache with one that doesn't have any postalAddress data
+        return addr_export.AddressCache(
+            self.db,
+            address_types=(self.const.address_street,),
+            source_systems=(self.person_address_source_system,),
+            entity_types=(self.const.entity_person,),
+        )

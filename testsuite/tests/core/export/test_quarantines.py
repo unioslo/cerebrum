@@ -13,8 +13,6 @@ import datetime
 import pytest
 import six
 
-from Cerebrum import Account
-from Cerebrum.testutils import datasource
 from Cerebrum.export import quarantines as q_export
 from Cerebrum.export import base as base_export
 
@@ -49,44 +47,6 @@ def q_baz(constant_module, constant_creator):
 #
 # Create three accounts with various quarantine states
 #
-
-
-@pytest.fixture
-def account_cls():
-    return Account.Account
-
-
-@pytest.fixture
-def account_creator(database, const, account_cls, initial_account,
-                    q_foo, q_bar, q_baz):
-    creator_id = initial_account.entity_id
-    account_ds = datasource.BasicAccountSource()
-
-    def _create_accounts(owner, limit=1):
-        owner_id = owner.entity_id
-        owner_type = owner.entity_type
-
-        for account_dict in account_ds(limit=limit):
-
-            account = account_cls(database)
-            if owner_type == const.entity_person:
-                account_type = None
-            else:
-                account_type = const.account_program
-
-            account.populate(
-                account_dict['account_name'],
-                owner_type,
-                owner_id,
-                account_type,
-                creator_id,
-                account_dict.get('expire_date'),
-            )
-            account.write_db()
-            account_dict['entity_id'] = account.entity_id
-            yield account, account_dict
-
-    return _create_accounts
 
 
 @pytest.fixture

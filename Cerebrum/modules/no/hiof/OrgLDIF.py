@@ -51,6 +51,8 @@ class HiofOrgLdif(_HiofGroupMixin,
                   NorEduAuthnLevelMixin,
                   NorEduSmsAuthnMixin):
 
-    def init_person_addresses(self):
-        # No snail mail addresses for persons.
-        self.addr_info = {}
+    def get_person_street_addr(self, person_id):
+        return None
+
+    def get_person_postal_addr(self, person_id):
+        return None

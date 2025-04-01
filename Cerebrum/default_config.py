@@ -648,7 +648,7 @@ LDAP = {
     #   'server': "ldap.example.com",
 
     # Default directory in which to write LDIF files
-    'dump_dir': pj(prefix, 'var', 'cache', 'LDAP'),
+    'dump_dir': pj(prefix, "var/cache/LDAP"),
 
     # If set, default attributes for all LDAP_*['dn'] objects except ORG. Each
     # attribute is added if the object does not already have that attribute:
@@ -659,13 +659,6 @@ LDAP = {
     # organization, plus postal and street addresses for people.
     #
     #   'contact_source_system': 'system_foobar',
-
-    # Addresses can be collected from a different source_system than that given
-    # in 'contact_source_system' using 'address_source_system'. If this
-    # variable is not set, address will be collected from
-    # 'contact_source_system'.
-    #
-    #   'address_source_system': 'system_foobar'
 
     # Mapping used to rewrite domains in e-mail addresses:
     # {"domain returned from Cerebrum": "real domain", ...}.
@@ -755,15 +748,6 @@ LDAP_PERSON = {
     # placed in a flat structure below LDAP_PERSON['dn'].  Attributes
     # from object class eduPerson will refer to their org.units.
     #   'dn': "cn=people," + LDAP_ORG['dn'],
-
-
-    # Which address types to give persons: POST and/or STREET
-    'address_types': ['POST', 'STREET'],
-
-    # This setting indicates that init_person_addresses should fetch these
-    # address types from the OU that a person is affiliated rather than the
-    # person itself.
-    'address_from_affiliated_ou': [],
 
     # Whether to give the organization tree alias entries for persons.
     # Disabled by default:  Aliases defeat indexing in OpenLDAP since the

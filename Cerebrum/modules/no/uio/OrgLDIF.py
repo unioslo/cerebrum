@@ -28,8 +28,8 @@ import re
 from collections import defaultdict
 from itertools import product
 
+from Cerebrum.export import addresses as addr_export
 from Cerebrum.modules.OrgLDIF import OrgLdifGroupMixin
-from Cerebrum.modules.OrgLDIF import postal_escape_re
 from Cerebrum.modules.feide.ldif_mixins import NorEduAuthnLevelMixin
 from Cerebrum.modules.no.OrgLDIF import NorEduOrgLdifMixin
 from Cerebrum.modules.no.OrgLDIF import NorEduSmsAuthnMixin
@@ -37,7 +37,6 @@ from Cerebrum.modules.no.OrgLDIF import OrgLdifCourseMixin
 from Cerebrum.modules.no.OrgLDIF import OrgLdifEntitlementsMixin
 from Cerebrum.modules.LDIFutils import (
     attr_unique,
-    hex_escape_match,
     normalize_IA5String,
     verify_IA5String,
 )
@@ -61,6 +60,44 @@ class _UioGroupMixin(OrgLdifGroupMixin, NorEduOrgLdifMixin):
     # Attributes and values for OrgLdifGroupMixin
     person_memberof_attr = 'uioMemberOf'
     person_memberof_class = 'uioMembership'
+
+
+class _UioAddressMixin(addr_export._AddressFormatter):
+    """
+    Override which fields are included in addresses.
+
+    Special behaviour for UiO:
+
+     - Only use p/o box values at postal code x3xx
+     - Append "Blindern" to p/o box values
+     - Only p/o box or address, never both
+     - Prefer p/o box, even for street addresses (this one is odd - probably
+       not intended?)
+    """
+    def _is_blindern(self, fields):
+        try:
+            postal_code = int(fields['postal_number'] or 0)
+        except ValueError:
+            return False
+        return postal_code // 100 == 3
+
+    def _get_values(self, fields):
+        postbox = (fields['p_o_box'] or "").strip() or None
+        if postbox and self._is_blindern(fields):
+            yield "Pb. {} - Blindern".format(postbox)
+        else:
+            for addr_line in (fields['address_text']).split("\n"):
+                yield (addr_line or "").strip() or None
+        yield self._get_city_line(fields)
+        yield self._get_country(fields)
+
+
+class _UioStreetAddr(_UioAddressMixin, addr_export._LdapStreetAddress):
+    pass
+
+
+class _UioPostalAddr(_UioAddressMixin, addr_export._LdapPostalAddress):
+    pass
 
 
 class UioOrgLdif(NorEduSmsAuthnMixin,
@@ -112,9 +149,7 @@ class UioOrgLdif(NorEduSmsAuthnMixin,
         # - Include 'mobile' as well
         # - OUs get their contact info from the address_source_system
         contact_sources = (
-            (self.const.entity_ou,
-             getattr(self.const,
-                     self.config.org.parent.get('address_source_system'))),
+            (self.const.entity_ou, self.const.system_orgreg),
             (self.const.entity_person,
              getattr(self.const,
                      self.config.org.parent.get('contact_source_system'))),
@@ -145,26 +180,6 @@ class UioOrgLdif(NorEduSmsAuthnMixin,
 
         self.id2labeledURI = contacts[-1][1]
         self.attr2id2contacts = [v for v in contacts if v[1]]
-
-    def make_address(self, sep,
-                     p_o_box, address_text, postal_number, city, country):
-        # Changes from superclass:
-        # Weird algorithm for when to use p_o_box.
-        # Append "Blindern" to postbox.
-        if country:
-            country = self.const.Country(country).country
-        if (p_o_box and int(postal_number or 0) // 100 == 3):
-            address_text = "Pb. %s - Blindern" % p_o_box
-        else:
-            address_text = (address_text or "").strip()
-        post_nr_city = None
-        if city or (postal_number and country):
-            post_nr_city = " ".join(filter(None, (postal_number,
-                                                  (city or "").strip())))
-        val = "\n".join(filter(None, (address_text, post_nr_city, country)))
-        if sep == '$':
-            val = postal_escape_re.sub(hex_escape_match, val)
-        return val.replace("\n", sep)
 
     def init_person_titles(self):
         # Change from original: Search titles first by system_lookup_order,
@@ -240,10 +255,11 @@ class UioOrgLdif(NorEduSmsAuthnMixin,
         """ Extend with UiO functionality. """
         dn, entry, alias_info = super(UioOrgLdif,
                                       self).make_person_entry(row, person_id)
-        account_id = int(row['account_id'])
-
         if not dn:
             return dn, entry, alias_info
+
+        account_id = int(row['account_id'])
+        account_name = self.acc_name[account_id]
 
         # Add person ID
         entry['uioPersonId'] = str(person_id)
@@ -281,8 +297,9 @@ class UioOrgLdif(NorEduSmsAuthnMixin,
             if q not in feide_lock_exempt]
         if QuarantineHandler(self.db, relevant_quarantines).is_locked():
             entry['objectClass'].append('uioFeideHiddenPerson')
-            logger.debug('uioFeideHiddenPerson for account_id=%r',
-                         account_id)
+            self.logger.debug(
+                "hiding account %s (%d), quarantined (uioFeideHiddenPerson)",
+                account_name, account_id)
 
         return dn, entry, alias_info
 
@@ -380,3 +397,32 @@ class UioOrgLdif(NorEduSmsAuthnMixin,
                 return person_id in self.fs_samtykke
         # Otherwise hide the person.
         return False
+
+    #
+    # Address stuff for UiO
+    #
+
+    # Custom formatters
+    format_street_addr = _UioStreetAddr()
+    format_postal_addr = _UioPostalAddr()
+
+    def _get_primary_ou_id(self, person_id):
+        """ map person_id to primary ou_id. """
+        _, ou_id, _ = self.make_edu_person_primary_aff(person_id)
+        return ou_id
+
+    def get_person_street_addr(self, person_id):
+        """ get street address for person. """
+        # UiO uses the org unit addresses for persons
+        ou_id = self._get_primary_ou_id(person_id)
+        if ou_id:
+            return self.get_ou_street_addr(ou_id)
+        return None
+
+    def get_person_postal_addr(self, person_id):
+        """ get postal address for person. """
+        # UiO uses the org unit addresses for persons
+        ou_id = self._get_primary_ou_id(person_id)
+        if ou_id:
+            return self.get_ou_postal_addr(ou_id)
+        return None
