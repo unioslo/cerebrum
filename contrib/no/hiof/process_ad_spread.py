@@ -142,7 +142,7 @@ class Job(object):
 
     @property
     def candidates(self):
-        """ iterator over account ids with the with the given ad spread. """
+        """ iterator over account ids with the given ad spread. """
         ac = Factory.get("Account")(self.db)
         for row in ac.list_account_home(home_spread=self.spread,
                                         account_spread=self.spread,
