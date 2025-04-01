@@ -41,7 +41,7 @@ skal det:
 
 3. Varsles hvis AD-attributter er ute av sync
     Hvis attributter er ute av sync, vil et eget script* varsle HiØ, slik at de
-    kan se over, og eventuelt fjerne eksisterende attibutter, slik at disse kan
+    kan se over, og eventuelt fjerne eksisterende attributter, slik at disse kan
     oppdateres neste gang dette scriptet kjører.
 
     * Merk: Det finnes ikke lenger et slikt script som varsler HiØ.
