@@ -195,7 +195,7 @@ class Job(object):
         Calculate and return AD attributes for an account.
 
         :returns dict:
-             An attribtue mapping, format: ``{attr-type: attr-value, ...}``
+             An attribute mapping, format: ``{attr-type: attr-value, ...}``
         """
         # Non-personal accounts have their own rules
         if int(account.owner_type) == int(account.const.entity_group):
