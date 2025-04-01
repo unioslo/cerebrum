@@ -311,6 +311,13 @@ def test_to_mx_format(mxlike_dt, mxlike_format):
     assert date_compat.to_mx_format(mxlike_dt, tz=LOCAL_TZ) == mxlike_format
 
 
+def test_to_mx_format_pre_1900():
+    naive = datetime.datetime(70, 2, 1, 23, 30, 11, 987654)
+    mx_like = _MockDateTime(naive)
+    expected = "0070-02-01 23:30:11.98"
+    assert date_compat.to_mx_format(mx_like) == expected
+
+
 def test_parse_fs_xml_date(mxlike_format, local_date):
     assert date_compat.parse_fs_xml_date(mxlike_format) == local_date
 
