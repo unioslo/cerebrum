@@ -128,7 +128,7 @@ def main(argv=None):
     )
 
     # This is the *only* valid operation, and has been since the script was
-    # first created.  We should probbaly rename the script, remove this option,
+    # first created.  We should probably rename the script, remove this option,
     # and make `process_requests()` always run.
     parser.add_argument(
         "--delete",
