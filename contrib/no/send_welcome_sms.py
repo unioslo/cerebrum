@@ -135,7 +135,8 @@ class WelcomeManager(SMSManager):
                           date=date_utils.now())
 
 
-def process(manager, phone_types, affiliations, args):
+def process(manager,message, phone_types, affiliations, too_old,
+            commit=False, reminder=False, filters=None):
     """
     Go through the given trait type and send out welcome SMSs to the users.
 
@@ -144,7 +145,7 @@ def process(manager, phone_types, affiliations, args):
     If in reminder mode, increment the message-is-sent-trait, to avoid spamming
     the users.
     """
-    if not args.commit:
+    if not commit:
         logger.debug('In dryrun mode')
 
     ac = Factory.get('Account')(manager.db)
@@ -154,7 +155,7 @@ def process(manager, phone_types, affiliations, args):
         issues = []
 
         # Only send reminders if in the last week of july or december
-        if args.reminder and not (
+        if reminder and not (
                 (datetime.date(datetime.date.today().year, 7, 25)
                  <= datetime.date.today()
                  <= datetime.date(datetime.date.today().year, 7, 31))
@@ -175,10 +176,10 @@ def process(manager, phone_types, affiliations, args):
             logger.warning(
                 "Giving up on trait %s for account %s: missing date",
                 text_type(manager.trait), account_ident)
-            manager.remove_trait(ac, args.commit)
+            manager.remove_trait(ac, commit)
             continue
 
-        cutoff = date_utils.now() - datetime.timedelta(days=args.too_old)
+        cutoff = date_utils.now() - datetime.timedelta(days=too_old)
         is_too_old = date < cutoff
 
         # remove trait if older than too_old days
@@ -186,19 +187,19 @@ def process(manager, phone_types, affiliations, args):
             logger.warning(
                 "Giving up on trait %s for account %s: trait too old",
                 text_type(manager.trait), account_ident)
-            manager.remove_trait(ac, args.commit)
+            manager.remove_trait(ac, commit)
             continue
 
         if ac.owner_type != manager.co.entity_person:
             logger.info("Skipping account %s: not personal account",
                         account_ident)
-            manager.remove_trait(ac, args.commit)
+            manager.remove_trait(ac, commit)
             continue
 
         if ac.is_expired():
             logger.info("Skipping account %s: account is expired",
                         account_ident)
-            manager.remove_trait(ac, args.commit)
+            manager.remove_trait(ac, commit)
             continue
 
         quarantines = ac.list_entity_quarantines(only_active=True, entity_ids=ac.entity_id,
@@ -208,8 +209,8 @@ def process(manager, phone_types, affiliations, args):
 
         # Apply custom filters that deem if this user should be processed
         # further.
-        if args.filters is None:
-            args.filters = []
+        if filters is None:
+            filters = []
 
         def apply_filters(filters, acc_ident):
             filter_name, filter_func = filters
@@ -224,11 +225,11 @@ def process(manager, phone_types, affiliations, args):
                             "filtered out by function %s",
                             text_type(manager.trait), acc_ident,
                             filter_name)
-                manager.remove_trait(ac, args.commit)
+                manager.remove_trait(ac, commit)
                 return True
             return False
 
-        if any(map(apply_filters(args.filters, account_ident))):
+        if any(map(apply_filters(filters, account_ident))):
             continue
 
         # check person affiliations
@@ -244,7 +245,7 @@ def process(manager, phone_types, affiliations, args):
         pe.find(ac.owner_id)
 
         #
-        if not args.reminder:
+        if not reminder:
             # Check if user already has been texted. If so, the trait is
             # removed.
             tr = ac.get_trait(manager.co.trait_sms_welcome)
@@ -255,7 +256,7 @@ def process(manager, phone_types, affiliations, args):
                             "already texted in the last %d days",
                             text_type(manager.trait), account_ident,
                             repeat_limit.days)
-                manager.remove_trait(ac, args.commit)
+                manager.remove_trait(ac, commit)
                 continue
 
         # get phone number
@@ -289,29 +290,29 @@ def process(manager, phone_types, affiliations, args):
             str_issues = ", ".join(issues)
             logger.warning("Skipping account %s, found following issues: %s",
                             account_ident, str_issues)
-            update_issues(manager.db, ac, row, str_issues, args.commit)
+            update_issues(manager.db, ac, row, str_issues, commit)
             continue
 
-        msg = args.message % {
+        msg = message % {
             'username': u(ac.account_name),
             'studentnumber': u(studentnumber),
             'email': u(email),
         }
-        if not send_sms(phone, msg, args.commit):
+        if not send_sms(phone, msg, commit):
             logger.warning("Could not send SMS to %s (%r)", account_ident, phone)
             continue
 
         # sms sent, now update the traits
-        manager.remove_trait(ac, args.commit)
+        manager.remove_trait(ac, commit)
         manager.populate_trait(ac)
         ac.write_db()
-        if args.commit:
+        if commit:
             manager.db.commit()
         else:
             manager.db.rollback()
         logger.info("Notified account %s: trait %s removed",
                     account_ident, text_type(manager.trait))
-    if not args.commit:
+    if not commit:
         logger.debug('Changes rolled back')
     logger.info('send_welcome_sms done')
 
@@ -325,7 +326,7 @@ def update_issues(db, ac, row, issues, commit=False):
         if existing_issues == issues:
             logger.debug("No changes to issues for account %s", ac.account_name)
             return
-    logger.warning("Issues for account %s updated", ac.account_name)
+    logger.info("Issues for account %s updated", ac.account_name)
     ac.populate_trait(code=row['code'], strval=issues, date=row['date'])
     ac.write_db()
     if commit:
@@ -559,9 +560,13 @@ def main(inargs=None):
 
     process(
         manager=manager,
+        message=args.message,
         phone_types=phone_types,
         affiliations=affiliations,
-        args=args
+        too_old=args.too_old,
+        commit=args.commit,
+        reminder=args.reminder,
+        filters=args.filters,
     )
 
 
