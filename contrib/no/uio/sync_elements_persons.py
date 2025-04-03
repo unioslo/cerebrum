@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2014-2023 University of Oslo, Norway
+# Copyright 2024-2025 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -72,6 +72,7 @@ _valid_elements_ous = None
 
 
 def get_source_system():
+    """Get source system."""
     return source_system_object
 
 
@@ -176,6 +177,7 @@ def elements_has_ou(client, sko):
 
 @memoize
 def ou_address(pe, co, ou_id):
+    """Get OU address."""
     for row in pe.list_entity_addresses(entity_type=co.entity_ou,
                                         source_system=co.system_orgreg,
                                         address_type=co.address_street,
@@ -185,6 +187,7 @@ def ou_address(pe, co, ou_id):
 
 
 def get_person_address(pe, co):
+    """Get person address."""
     for row in pe.list_affiliations(person_id=pe.entity_id,
                                     source_system=get_source_system(),
                                     fetchall=False):
@@ -288,6 +291,7 @@ def user_details_to_perms(user_details):
 
 
 def list_perm_for_person(person):
+    """List permissions for a given person."""
     ret = []
     for row in ElementsPermission(db).list_permission(
             person_id=person.entity_id, filter_expired=True):
@@ -575,6 +579,7 @@ def quicksync_roles_and_perms(client, selection_spread, config, commit):
 
 
 def update_person_perms(person, client, remove_superfluous=False):
+    """Update permissions for a given person."""
     userid = get_user_id(person)
 
     logger.info("Updating perms for %s", userid)
@@ -672,7 +677,7 @@ def report_person_perms(person, client):
 
 
 def report_perms(client, selection_spread, fil):
-    """Generate perms report"""
+    """Generate perms report."""
     first = True
     for person in select_persons_for_update(selection_spread):
         tmp = report_person_perms(person, client)
@@ -698,7 +703,7 @@ def user_details_to_roles(user_details):
              'role_id': x['Role']['RoleId'],
              'ou_id': x['Org']['OrgId'],
              'default_role': x['IsDefault'],
-             'job_title': x['JobTitle']}
+             'role_title': x['RoleTitle']}
             for x in roles]
 
 
@@ -747,7 +752,7 @@ def update_person_roles(pe, client, remove_superfluous=False):
             continue
 
         args['ou_id'] = six.text_type(get_sko(role['adm_enhet']))
-        args['job_title'] = role['rolletittel'] or None
+        args['role_title'] = role['rolletittel'] or None
         args['default_role'] = role['standard_role'] == 'T'
 
         # Check if adm_enhet for this role has Elements spread
@@ -787,21 +792,21 @@ def update_person_roles(pe, client, remove_superfluous=False):
         for role in map(dict,
                         remove_default_flag_from_set(elements_roles) -
                         remove_default_flag_from_set(cerebrum_roles)):
-            logger.info('Removing superfluous role %s@%s for %s',
-                        role['role_id'], role['ou_id'], user_id)
+            logger.info('Removing superfluous role %s@%s (%s) for %s',
+                        role['role_id'], role['ou_id'], role['role_title'], user_id)
             try:
                 client.disable_user_role(
-                    user_id, role['role_id'], role['ou_id'],
-                    role['arkivdel'], role['journalenhet'])
+                    user_id, role['role_title'])
             except ElementsWSError as e:
-                logger.warn('Could not remove role %s@%s for %s: %s',
-                            role['role_id'], role['ou_id'], user_id,
+                logger.warn('Could not remove role %s@%s (%s) for %s: %s',
+                            role['role_id'], role['ou_id'], role['role_title'], user_id,
                             six.text_type(e))
 
     return True
 
 
 def disable_users(client, selection_spread):
+    """Disable users that should no longer be active in Elements."""
     logger.info('Fetching all users from Elements... go grab some coffee.')
     start = time.time()
     all_users = client.get_all_users_per_page()
@@ -904,6 +909,7 @@ def disable_users(client, selection_spread):
 
 
 def show_org_units(client):
+    """Show org units."""
     for org in client.get_all_org_units():
         print(dict(org))
 

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2014 University of Oslo, Norway
+# Copyright 2024-2025 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -21,7 +21,8 @@
 
 from __future__ import unicode_literals
 
-"""Client for connecting and consuming Elements-webservices."""
+# Client for connecting and consuming Elements-webservices
+
 import types
 from socket import timeout as TimeoutError
 from functools import wraps
@@ -144,7 +145,7 @@ class SudsClient(object):
             raise ElementsWSError('Timed out connecting to %s' % wsdl)
         except ssl.SSLError as e:
             raise ElementsWSError('Error in TLS communication: %s' % e)
-        # TODO: Moar error handling?
+        # TODO: More error handling?
 
     # TODO: Do something smart with the call stack, so this doesn't show up in
     # tracebacks?
@@ -287,8 +288,7 @@ class IAM2ElementsClientMock(object):
                              arkivdel, journalenhet, default_role):
         pass
 
-    def disable_user_role(self, user_id, role_id, ou_id, arkivdel,
-                          journalenhet):
+    def disable_user_role(self, user_id, role_title):
         pass
 
     def disable_user_authz(self, user_id, access_code, ou_id):
@@ -415,6 +415,7 @@ class IAM2ElementsClient(object):
         self.__inject = {}
 
     def test(self, config_id='UiO2', user_id='Dummy'):
+        """Test."""
         self.client.Test(self.username, self.password, config_id, user_id)
         # TODO: Correct to assume that we are OK?
         return True
@@ -450,8 +451,7 @@ class IAM2ElementsClient(object):
             self.database)
         if r.OrgUnits:
             return self._convert_result(r.OrgUnits.ElementsOrg)
-        else:
-            return []
+        return []
 
     def get_all_roles(self):
         """Collect all roles from Elements.
@@ -465,8 +465,7 @@ class IAM2ElementsClient(object):
             self.database)
         if r.Roles:
             return self._convert_result(r.Roles.ElementsRole)
-        else:
-            return []
+        return []
 
     def get_all_access_codes(self):
         """Collect all access codes from Elements.
@@ -608,8 +607,7 @@ class IAM2ElementsClient(object):
 
         if r.Users:
             return self._convert_result(r.Users.ElementsUser)
-        else:
-            return []
+        return []
 
     def ensure_user(self, user_id, first_name=None, middle_name=None,
                     last_name=None, full_name=None, initials=None,
@@ -730,33 +728,21 @@ class IAM2ElementsClient(object):
             self.database,
             user_id)
 
-    def disable_user_role(self, user_id, role_id, ou_id, arkivdel,
-                          journalenhet):
+    def disable_user_role(self, user_id, role_title):
         """Disable a user role
 
         :type user_id: str
         :param user_id: The users id
 
-        :type role_id: str
-        :param role_id: The role code
-
-        :type ou_id: str
-        :param ou_id: OU stedkode
-
-        :type arkivdel: str
-        :param arkivdel: Elements arkivdel code string
-
-        :type journalenhet: str
-        :param journalenhet: Elements journalenhet code string
+        :type role_title: str
+        :param role_title: The title of the role
         """
         self.client.DisableRoleForUser(
             self.config_id,
             self.database,
             user_id,
-            role_id,
-            ou_id,
-            arkivdel,
-            journalenhet)
+            role_title
+        )
 
     def disable_user_authz(self, user_id, access_code, ou_id):
         """Disable a user permission
