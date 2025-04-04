@@ -29,7 +29,7 @@ import logging
 import operator
 from collections import defaultdict
 
-from six import text_type
+import six
 
 import cereconf
 from Cerebrum import Errors
@@ -172,7 +172,7 @@ class PosixLDIF(AutoSuperMixin):
            """
         if len(self.account2name) > 0:
             return
-        # TODO> OMG! For some reason, Account.search() takes a *wildcard*
+        # OMG! For some reason, Account.search() takes a *wildcard*
         # spread argument for filtering, but does not support filtering by
         # multiple spread values!
         if len(self.spread_d['user']) == 1:
@@ -195,9 +195,9 @@ class PosixLDIF(AutoSuperMixin):
 
         def get_children_not_in_group2groups():
             children = set()
-            # TODO:PY3:RefactoringTool: You should use a for loop here
-            map(children.update, self.group2groups.itervalues())
-            return children.difference(self.group2groups.keys())
+            for group_set in six.itervalues(self.group2groups):
+                children.update(group_set)
+            return children - set(self.group2groups)
 
         spread = []
         for s in ('filegroup', 'netgroup'):
@@ -288,8 +288,8 @@ class PosixLDIF(AutoSuperMixin):
             'objectClass': ['top', 'account', 'posixAccount'],
             'cn': (cn,),
             'uid': (uname,),
-            'uidNumber': (text_type(row['posix_uid']),),
-            'gidNumber': (text_type(posix_gid),),
+            'uidNumber': (six.text_type(row['posix_uid']),),
+            'gidNumber': (six.text_type(posix_gid),),
             'homeDirectory': (home,),
             'userPassword': (passwd,),
             'loginShell': (shell,),
@@ -339,16 +339,18 @@ class PosixLDIF(AutoSuperMixin):
         timer2('... done caching filegroups')
         self.cache_uncached_children()
         timer2 = make_timer(logger, 'Adding users and groups...')
-        for group_id, entry in self.filegroupcache.iteritems():
+        for group_id, entry in six.iteritems(self.filegroupcache):
             users = self.get_users(group_id, set())
             unames = self.userid2unames(users, group_id)
-            entry['memberUid'] = unames
+            entry['memberUid'] = sorted(LDIFutils.attr_unique(unames))
         timer2('... done adding users')
         timer2 = make_timer(logger, 'Writing group objects...')
 
         f = self.fd
         f.write(LDIFutils.container_entry_string('FILEGROUP'))
-        for group_id, entry in self.filegroupcache.iteritems():
+        for group_id in sorted(self.filegroupcache,
+                               key=lambda i: self.filegroupcache[i]['cn']):
+            entry = self.filegroupcache[group_id]
             dn = ','.join(('cn=' + entry['cn'], self.fgrp_dn))
             f.write(LDIFutils.entry_string(dn, entry, False))
         timer2('... done writing group objects')
@@ -369,7 +371,7 @@ class PosixLDIF(AutoSuperMixin):
         entry = {
             'objectClass': ('top', 'posixGroup'),
             'cn': cache['name'],
-            'gidNumber': text_type(self.group2gid[group_id]),
+            'gidNumber': six.text_type(self.group2gid[group_id]),
         }
 
         if 'description' in cache:
@@ -413,16 +415,15 @@ class PosixLDIF(AutoSuperMixin):
                 for uname in sorted(self.userid2unames(users, group_id))
                 if '_' not in uname
             ])
-
             triple = ['(,%s,)' % uname for uname in unames]
             entry['nisNetgroupTriple'] = triple
 
-            netgroup = LDIFutils.attr_unique([
-                self.netgroupcache[g]['cn']
-                for g in groups
-            ])
-
-            entry['memberNisNetgroup'] = netgroup
+            entry['memberNisNetgroup'] = sorted(
+                LDIFutils.attr_unique([
+                    self.netgroupcache[g]['cn']
+                    for g in groups
+                ])
+            )
 
             if member_attr and self.user_dn:
                 members = [self.format_user_dn(uname) for uname in unames]
@@ -433,7 +434,9 @@ class PosixLDIF(AutoSuperMixin):
 
         f = self.fd
         f.write(LDIFutils.container_entry_string('NETGROUP'))
-        for group_id, entry in self.netgroupcache.items():
+        for group_id in sorted(self.netgroupcache,
+                               key=lambda i: self.netgroupcache[i]['cn']):
+            entry = self.netgroupcache[group_id]
             dn = ','.join(('cn=' + entry['cn'], self.ngrp_dn))
             f.write(LDIFutils.entry_string(dn, entry, False))
         timer2('... done writing group objects')
@@ -442,9 +445,9 @@ class PosixLDIF(AutoSuperMixin):
     @clock_time
     def cache_uncached_children(self):
         children = set()
-        # TODO:PY3:RefactoringTool: You should use a for loop here
-        map(children.update, self.group2groups.itervalues())
-        extra = children.difference(self.groupcache.keys())
+        for group_set in six.itervalues(self.group2groups):
+            children.update(group_set)
+        extra = children - set(self.groupcache)
         if extra:
             for row in self.grp.search(group_id=extra):
                 self.create_group_object(row['group_id'], row['name'],
@@ -582,7 +585,7 @@ class PosixLDIFMail(PosixLDIF):
     """ PosixLDIF mixin for mail attributes. """
 
     def init_user(self, *args, **kwargs):
-        self.__super.init_user(*args, **kwargs)
+        super(PosixLDIFMail, self).init_user(*args, **kwargs)
         timer = make_timer(logger, 'Starting PosixLDIFMail.init_user...')
 
         self.mail_attrs = cereconf.LDAP_USER.get('mail_attrs', ['mail'])
@@ -617,4 +620,5 @@ class PosixLDIFMail(PosixLDIF):
                 entry[attr] = (mail, )
         else:
             logger.warning('Account %s is missing mail', entry['uid'][0])
-        return self.__super.update_user_entry(account_id, entry, owner_id)
+        return super(PosixLDIFMail, self).update_user_entry(account_id, entry,
+                                                            owner_id)
