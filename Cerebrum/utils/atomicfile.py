@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2016-2024 University of Oslo, Norway
+# Copyright 2016-2025 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -41,7 +41,12 @@ SIMILARSIZE_LIMIT_MULTIPLIER
     warnings via the logger.
 
 """
-
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import filecmp
 import inspect
 import io
@@ -54,6 +59,8 @@ from warnings import warn as _warn
 import six
 
 import cereconf
+
+from . import reprutils
 
 
 def _copydoc(obj, replace=False):
@@ -123,7 +130,7 @@ def _fwarn(msg):
     _warn(msg, FileWriterWarning, stacklevel=local_stackframes+1)
 
 
-class AtomicFileWriter(object):
+class AtomicFileWriter(reprutils.ReprFieldMixin):
     """ Atomic file writer class.
 
     This class acts as a write-only `file` object, that doesn't actually write
@@ -137,6 +144,9 @@ class AtomicFileWriter(object):
     3. If successful, move the temporary file to `filename` (replacing
        `filename` if needed).
     """
+    repr_id = False
+    repr_module = False
+    repr_fields = ("name", "closed")
 
     tmpfile_ext_chars = ascii_lowercase + digits
     """ Characters to use in the temporary file name extension. """
@@ -435,7 +445,6 @@ class SimilarSizeWriter(AtomicFileWriter):
     @max_pct_change.deleter
     def max_pct_change(self):
         del self.__percentage
-
 
     def validate_output(self):
         super(SimilarSizeWriter, self).validate_output()
