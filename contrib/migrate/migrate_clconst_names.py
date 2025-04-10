@@ -66,17 +66,6 @@ MAPPING = {
     ('e_account', 'move'): ('account', 'move'),
     ('e_account', 'password'): ('account_password', 'set'),
     ('e_account', 'passwordtoken'): ('account_passwordtoken', 'set'),
-    ('e_account', 'pending_create'): ('virthome_account_create', 'request'),
-    ('e_account', 'pending_email'): ('virthome_account_email', 'request'),
-    ('e_group', 'pending_invitation'): ('virthome_group_member', 'request'),
-    ('e_group', 'pending_owner_change'): (
-        'virthome_group_owner_change', 'request'),
-    ('e_group', 'pending_moderator_add'): (
-        'virthome_group_moderator_add', 'request'),
-    ('e_account', 'password_recover'): (
-        'virthome_account_pwd_recover', 'request'),
-    ('e_account', 'reset_expire_date'): (
-        'virthome_account_reset_exp_date', 'request'),
     ('e_group', 'add'): ('group_member', 'add'),
     ('e_group', 'create'): ('group', 'create'),
     ('e_group', 'destroy'): ('group', 'delete'),

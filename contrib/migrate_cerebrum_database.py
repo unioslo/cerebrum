@@ -841,12 +841,8 @@ def migrate_to_rel_0_9_22():
             # uio
             aos.find_by_name('Group-owner')
         except Errors.NotFoundError:
-            try:
-                # uia and hiof
-                aos.find_by_name('groupmod-priv')
-            except Errors.NotFoundError:
-                # webid
-                aos.find_by_name('group-admin')
+            # uia and hiof
+            aos.find_by_name('groupmod-priv')
     except Errors.NotFoundError:
         print("No admin or owner opset found, nothing to do")
     else:
@@ -888,12 +884,8 @@ def migrate_to_rel_0_9_22():
     print("Migrating moderator info to new table")
     aos.clear()
     try:
-        try:
-            # uio
-            aos.find_by_name("Group-admin")
-        except Errors.NotFoundError:
-            # webid
-            aos.find_by_name("group-moderator")
+        # uio
+        aos.find_by_name("Group-admin")
     except Errors.NotFoundError:
         print("No moderator opset found, nothing to do")
     else:

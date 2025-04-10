@@ -181,8 +181,9 @@ def get_timedelta(value, allow_none=True):
     """
     Get a datetime.timedelta object from a timedelta-like value.
 
-    This is typically needed where DateTimeDelta values are used in config
-    modules.  This only seems to be done in WebID (virthome).
+    This can be useful e.g. when fetching a timedelta from config module, where
+    values may be given as timedelta-objects, or integer values, as our
+    deprecated datetime module would treat integer values as days.
 
     :type value: datetime.timedelta, mx.DateTime.DateTimeDelta, int, NoneType
     :param value:
