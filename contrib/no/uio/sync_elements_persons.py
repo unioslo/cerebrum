@@ -752,7 +752,7 @@ def update_person_roles(pe, client, remove_superfluous=False):
             continue
 
         args['ou_id'] = six.text_type(get_sko(role['adm_enhet']))
-        args['role_title'] = role['rolletittel'] or None
+        args['job_title'] = role['stilling'] or None
         args['default_role'] = role['standard_role'] == 'T'
 
         # Check if adm_enhet for this role has Elements spread
