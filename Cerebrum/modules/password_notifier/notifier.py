@@ -189,8 +189,6 @@ class PasswordNotifier(object):
             old = set()
             person = Utils.Factory.get("Person")(self.db)
 
-            max_age = date_compat.get_timedelta(max_age)
-
             aff_or_status = self.constants.human2constant(affiliation)
             if not aff_or_status:
                 logger.error('Unknown affiliation "%s"', affiliation)
@@ -244,10 +242,14 @@ class PasswordNotifier(object):
                 'with password older than %d days',
                 str(aff_mapping['affiliation']),
                 aff_mapping['max_password_age'])
-            old_ids.update(_with_aff(
-                affiliation=aff_mapping['affiliation'],
-                max_age=datetime.timedelta(
-                    days=aff_mapping['max_password_age'])))
+            old_ids.update(
+                _with_aff(
+                    affiliation=aff_mapping['affiliation'],
+                    max_age=datetime.timedelta(
+                        days=aff_mapping['max_password_age'],
+                    ),
+                )
+            )
         logger.info('Fetching quarantines')
         # TODO: Select only autopassword quarantines?
         quarantined_ids = QuarantineHandler.get_locked_entities(

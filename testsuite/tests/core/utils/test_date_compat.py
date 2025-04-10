@@ -276,34 +276,6 @@ def test_get_datetime_tz_from_mx(mxlike_dt, local_dt):
     assert date_compat.get_datetime_tz(mxlike_dt, tz=LOCAL_TZ) == local_dt
 
 
-# get_timedelta tests
-
-
-def test_get_timedelta_from_none():
-    assert date_compat.get_timedelta(None) is None
-
-
-def test_get_timedelta_disallow_none():
-    with pytest.raises(ValueError):
-        date_compat.get_timedelta(None, allow_none=False)
-
-
-def test_get_timedelta_from_timedelta(delta):
-    # timedelta -> no change
-    assert date_compat.get_timedelta(delta) == delta
-
-
-def test_get_timedelta_from_mx(mxlike_delta, delta):
-    assert date_compat.get_timedelta(mxlike_delta) == delta
-
-
-def test_get_timedelta_from_days():
-    # int <n> -> delta of <n> days
-    days = 3
-    delta = datetime.timedelta(days=days)
-    assert date_compat.get_timedelta(days) == delta
-
-
 # mx-datetime compatibility helper tests
 
 

@@ -177,36 +177,6 @@ def get_datetime_tz(dtobj, allow_none=True, tz=date.TIMEZONE):
     raise ValueError('Non-datetime value: %r' % (dtobj,))
 
 
-def get_timedelta(value, allow_none=True):
-    """
-    Get a datetime.timedelta object from a timedelta-like value.
-
-    This can be useful e.g. when fetching a timedelta from config module, where
-    values may be given as timedelta-objects, or integer values, as our
-    deprecated datetime module would treat integer values as days.
-
-    :type value: datetime.timedelta, mx.DateTime.DateTimeDelta, int, NoneType
-    :param value:
-        A timedelta-like value.
-        If an integer value is given, it is assumed to be days.
-
-    :type allow_none: bool
-    :param allow_none:
-        Returns None if the input value is empty (this is the default).
-
-    :rtype: datetime.timedelta, NoneType
-    """
-    if not value and allow_none:
-        return None
-    if isinstance(value, datetime.timedelta):
-        return value
-    if is_mx_delta(value):
-        return value.pytimedelta()
-    if isinstance(value, int):
-        return datetime.timedelta(days=value)
-    raise ValueError('Non-timedelta value: %r' % (value,))
-
-
 def to_mx_format(dtobj, tz=date.TIMEZONE):
     """
     Get the equivalent of str(mx.DateTime).
