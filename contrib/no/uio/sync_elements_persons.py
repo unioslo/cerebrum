@@ -737,6 +737,9 @@ def update_person_roles(pe, client, remove_superfluous=False):
     def remove_default_flag_from_set(lst):
         return set(map(remove_default_flag, lst))
 
+    def remove_superfluous_values(lst):
+        return filter(lambda e: not e[0] in ['default_role', 'role_title', 'job_title'], lst)
+
     for role in elements_role.list_roles(person_id=pe.entity_id,
                                         filter_expired=True):
         try:
@@ -786,12 +789,16 @@ def update_person_roles(pe, client, remove_superfluous=False):
                         six.text_type(e))
 
     if remove_superfluous:
-        # Remove the default role flag. We need to do this before computing the
-        # set difference, or else we'll remove roles that we should have when
+        # Remove the default_role, role_title and job_title for comparison.
+        # We need to do this before computing the set difference,
+        # or else we'll remove roles that we should have when
         # changing the standard role.
-        for role in map(dict,
-                        remove_default_flag_from_set(elements_roles) -
-                        remove_default_flag_from_set(cerebrum_roles)):
+        cerebrum_roles_set = set(map(remove_superfluous_values, cerebrum_roles))
+
+        for role in elements_roles:
+            if remove_superfluous_values(role) in cerebrum_roles_set:
+                continue
+            role = dict(role)
             logger.info('Removing superfluous role %s@%s (%s) for %s',
                         role['role_id'], role['ou_id'], role['role_title'], user_id)
             try:
