@@ -164,6 +164,19 @@ def test_writer_prop_replaced(test_cls, new_file, text):
     assert af.replaced
 
 
+@pytest.mark.filterwarnings(_ignore_rule)
+def test_writer_repr(test_cls, new_file):
+    af = test_cls(new_file)
+    name_attr = "name=" + repr(new_file)
+    open_attr = "closed=False"
+    closed_attr = "closed=True"
+    assert name_attr in repr(af)
+    assert open_attr in repr(af)
+    af.close()
+    assert name_attr in repr(af)
+    assert closed_attr in repr(af)
+
+
 def test_new_file_write(test_cls, new_file, text):
     # Write 'text' to a new file (non-existing filename)
     af = test_cls(new_file)
