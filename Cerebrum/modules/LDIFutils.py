@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2004-2024 University of Oslo, Norway
+# Copyright 2004-2025 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -28,7 +28,6 @@ from __future__ import (
     print_function,
     unicode_literals,
 )
-
 import binascii
 import logging
 import re
@@ -305,14 +304,6 @@ def ldif_outfile(tree, filename=None, default=None, explicit_default=False,
 
 def end_ldif_outfile(tree, outfile, default_file=None, module=cereconf):
     """Finish the <tree> part of <outfile>.  Close it if != <default_file>."""
-    append_file = getattr(module, 'LDAP_' + tree).get('append_file')
-    if append_file:
-        # Test for isabs() so module.LDAP['dump_dir'] is not required to
-        # be set.  (It is a poor variable name for where to fetch an input
-        # file.  However, so far we have no need for yet another variable.)
-        if not os.path.isabs(append_file):
-            append_file = os.path.join(module.LDAP['dump_dir'], append_file)
-        outfile.write(file(append_file, 'r').read().strip("\n") + "\n\n")
     if outfile is not default_file:
         outfile.close()
 
@@ -615,18 +606,13 @@ class LdapConfig(object):
         self.get_filename('file')
         raise RuntimeError('should never be reached!')
 
-    @deprecate("end_outfile and the 'append_file' setting is deprecated")
+    @deprecate("end_outfile is deprecated")
     def end_outfile(self, outfile, default_file=None):
         """
         Finalize LDAP file according to config.
 
         See :py:func:`.end_ldif_outfile`
         """
-        append_file = self.get_filename('append_file', default=None)
-        if append_file:
-            with open(append_file, 'r') as fd:
-                outfile.write(fd.read().strip("\n"))
-            outfile.write("\n\n")
         if outfile is not default_file:
             outfile.close()
 
