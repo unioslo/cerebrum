@@ -32,6 +32,7 @@ import six
 
 from Cerebrum import Entity
 from Cerebrum.Utils import Factory
+from Cerebrum.modules.no.OrgLDIF import OrgLdifEntitlementsMixin
 from Cerebrum.modules.no.OrgLDIF import NorEduOrgLdifMixin
 from Cerebrum.modules.LDIFutils import (
     attr_unique,
@@ -137,7 +138,8 @@ class _NmhStudyProgramMixin(NorEduOrgLdifMixin):
 
             # Add study programs
             sp_format = "urn:mace:feide.no:nmh.no:studies/studyprogram/{}/{}"
-            for studyprogram in (self.pe2study_program.get(person_id) or []):
+            sp_key = StudentStudyProgramCache.normalize_key(person_id)
+            for studyprogram in (self.pe2study_program.get(sp_key) or []):
                 urns.append(
                     sp_format.format(
                         studyprogram['studieprogramkode'],
@@ -150,7 +152,7 @@ class _NmhStudyProgramMixin(NorEduOrgLdifMixin):
         return dn, entry, alias_info
 
 
-class NmhOrgLdif(_NmhStudyProgramMixin):
+class NmhOrgLdif(_NmhStudyProgramMixin, OrgLdifEntitlementsMixin):
     """
     NMH specific OrgLDIF export.
 

@@ -40,6 +40,8 @@ from __future__ import (
 import logging
 import os
 
+import six
+
 import cereconf
 from Cerebrum import Errors
 from Cerebrum import FileCache
@@ -73,6 +75,11 @@ def parse_sp_participation(filename):
     return elements
 
 
+def normalize_key(key):
+    # int keys gets turned into strings when serialized to json
+    return six.text_type(int(key))
+
+
 def map_sp_student_ids(db, sp_triplets):
     pe = Factory.get('Person')(db)
 
@@ -90,7 +97,7 @@ def map_sp_student_ids(db, sp_triplets):
             continue
 
         yield (
-            pe.entity_id,
+            normalize_key(pe.entity_id),
             {
                 'studieprogramkode': sp_code,
                 'arstall_kull': sp_year,

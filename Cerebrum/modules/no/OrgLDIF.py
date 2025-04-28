@@ -827,17 +827,17 @@ class OrgLdifEntitlementsMixin(NorEduOrgLdifMixin):
             return dn, entry, alias_info
 
         entitlement_ids = [person_id, int(row['account_id'])]
-        entitlements = set()
+        entitlements = list(entry.get("eduPersonEntitlement", ()))
 
         # Collect entitlements from file cache
         for entity_id in entitlement_ids:
             if entity_id in self._entity_to_entitlements:
-                entitlements.update(self._entity_to_entitlements[entity_id])
+                entitlements.extend(self._entity_to_entitlements[entity_id])
+
+        entitlements = sorted(attr_unique(entitlements))
 
         # Add or extend entitlements attribute
-        if 'eduPersonEntitlement' in entry:
-            entry['eduPersonEntitlement'].update(entitlements)
-        else:
+        if entitlements:
             entry['eduPersonEntitlement'] = entitlements
 
         return dn, entry, alias_info
