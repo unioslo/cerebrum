@@ -69,6 +69,23 @@ def test_unique_key():
     result = list(aggregate.unique(input_objs, key=Container.get_value))
     assert result == [Container(k) for k in UNIQUE_OUTPUT]
 
+#
+# Test aggregate.duplicates
+#
+
+
+DUPLICATE_OUTPUT = ["foo", "bar", "foo", "baz", "foo"]
+
+
+def test_duplicates():
+    assert list(aggregate.duplicates(UNIQUE_INPUT)) == DUPLICATE_OUTPUT
+
+
+def test_duplicates_key():
+    input_objs = [Container(k) for k in UNIQUE_INPUT]
+    result = list(aggregate.duplicates(input_objs, key=Container.get_value))
+    assert result == [Container(k) for k in DUPLICATE_OUTPUT]
+
 
 #
 # Test aggregate.dict_collect_*
