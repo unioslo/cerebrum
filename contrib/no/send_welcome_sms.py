@@ -212,8 +212,7 @@ def process(manager,message, phone_types, affiliations, too_old,
         if filters is None:
             filters = []
 
-        def apply_filters(filters, acc_ident):
-            filter_name, filter_func = filters
+        def apply_filters(filter_name, filter_func, acc_ident):
             if isinstance(filter_func, list):
                 result = all(map(lambda fun: fun(ac),
                                  filter_func))
@@ -229,7 +228,7 @@ def process(manager,message, phone_types, affiliations, too_old,
                 return True
             return False
 
-        if any(map(apply_filters(filters, account_ident))):
+        if any(map(lambda (k, v): apply_filters(k, v, account_ident), filters)):
             continue
 
         # check person affiliations
