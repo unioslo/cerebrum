@@ -763,13 +763,17 @@ class OrgLdifCourseMixin(NorEduOrgLdifMixin):
         dn, entry, alias_info = super(OrgLdifCourseMixin,
                                       self).make_person_entry(row, person_id)
 
-        # Add or extend entitlements
-        if dn and person_id in self._person2urnlist:
-            urnlist = self._person2urnlist[person_id]
-            if 'eduPersonEntitlement' in entry:
-                entry['eduPersonEntitlement'].update(urnlist)
-            else:
-                entry['eduPersonEntitlement'] = set(urnlist)
+        if not dn:
+            # early abort - object should not be included in export
+            return dn, entry, alias_info
+
+        entitlements = list(entry.get("eduPersonEntitlement", ()))
+        if person_id in self._person2urnlist:
+            entitlements.extend(self._person2urnlist[person_id])
+
+        entitlements = sorted(attr_unique(entitlements))
+        if entitlements:
+            entry['eduPersonEntitlement'] = entitlements
 
         return dn, entry, alias_info
 
@@ -818,12 +822,12 @@ class OrgLdifEntitlementsMixin(NorEduOrgLdifMixin):
         dn, entry, alias_info = super(OrgLdifEntitlementsMixin,
                                       self).make_person_entry(row, person_id)
 
-        # early abort if we have no object
         if not dn:
+            # early abort - object should not be included in export
             return dn, entry, alias_info
 
-        # early abort if we have no entitlement cache
         if not self.entitlements_file:
+            # early abort  - we have no entitlement cache
             return dn, entry, alias_info
 
         entitlement_ids = [person_id, int(row['account_id'])]
@@ -835,8 +839,6 @@ class OrgLdifEntitlementsMixin(NorEduOrgLdifMixin):
                 entitlements.extend(self._entity_to_entitlements[entity_id])
 
         entitlements = sorted(attr_unique(entitlements))
-
-        # Add or extend entitlements attribute
         if entitlements:
             entry['eduPersonEntitlement'] = entitlements
 
