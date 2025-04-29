@@ -243,6 +243,12 @@ class QuarantineAuth(UiaAuth, bofhd_quarantines.BofhdQuarantineAuth):
         "guest_owner",
     )
 
+    RESTRICTED_QUARANTINES = (
+        "auto_no_aff",
+        "svakt_passord",
+        "system",
+    )
+
 
 class SmsAuth(UiaAuth, bofhd_misc_sms.BofhdSmsAuth):
 
