@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003-2023 University of Oslo, Norway
+# Copyright 2003-2025 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,7 +17,13 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""Generates a mail tree for LDAP."""
+"""
+Generates mail data for LDAP.
+
+This module provides utils to support the ``contrib/generate_mail_ldif.py``
+script, which generates an LDIF file with email target objects.  These objects
+details addresses and routing data for each email target (email account).
+"""
 from __future__ import (
     absolute_import,
     division,
@@ -25,14 +31,14 @@ from __future__ import (
     unicode_literals,
 )
 import datetime
-
 from collections import defaultdict
+
+import six
 
 from Cerebrum import Errors
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.QuarantineHandler import QuarantineHandler
 from Cerebrum.Utils import Factory
-from Cerebrum.meta import MarkUpdateMixin
 from Cerebrum.modules import Email
 from Cerebrum.modules import EmailConstants
 from Cerebrum.modules.bofhd_requests.request import BofhdRequests
@@ -50,14 +56,9 @@ def _is_near_future(_when):
     return when < near_future
 
 
-class EmailLDAP(MarkUpdateMixin, DatabaseAccessor):
+class EmailLDAP(DatabaseAccessor):
     """The EmailLDAP class is used to gather methodes used to generate
     an ldif for mail-backends."""
-
-    __write_attr__ = ('aid2addr', 'targ2addr', 'targ2prim', 'targ2spam',
-                      'targ2quota', 'serv_id2server', 'targ2server_id',
-                      'targ2forward', 'acc2name', 'pending',
-                      'e_id2passwd')
 
     def __init__(self, db):
         super(EmailLDAP, self).__init__(db)
@@ -91,7 +92,7 @@ class EmailLDAP(MarkUpdateMixin, DatabaseAccessor):
         return '@'.join((local_part, domain))
 
     def get_targettype(self, targettype):
-        return str(targettype)
+        return six.text_type(targettype)
 
     def get_target_info(self, row):
         """Return additional EmailLDAP-entry derived from L{row}.
@@ -191,7 +192,7 @@ class EmailLDAP(MarkUpdateMixin, DatabaseAccessor):
         for c in dir(self.const):
             tmp = getattr(self.const, c)
             if isinstance(tmp, EmailConstants._EmailTargetFilterCode):
-                const2str[int(tmp)] = str(tmp)
+                const2str[int(tmp)] = six.text_type(tmp)
 
         mail_target_filter = Email.EmailTargetFilter(self._db)
         for row in mail_target_filter.list_email_target_filter():

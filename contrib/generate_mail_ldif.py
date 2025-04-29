@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003-2024 University of Oslo, Norway
+# Copyright 2003-2025 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -43,10 +43,13 @@ cereconf.LDAP_MAIL
         Default value of spreads to include.
 """
 
-from __future__ import unicode_literals
-
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import argparse
-import base64
 import contextlib
 import logging
 import six
@@ -59,79 +62,96 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.export.auth import AuthExporter
 from Cerebrum.modules import Email
-from Cerebrum.modules.LDIFutils import (
-    container_entry_string,
-    end_ldif_outfile,
-    ldapconf,
-    ldif_outfile,
-    map_spreads,
-)
+from Cerebrum.modules import LDIFutils
+from Cerebrum.utils import date as date_utils
 
 logger = logging.getLogger(__name__)
+debug_log = logger.getChild("debug")
+debug_log.propagate = 0
+
 default_spam_level = 9999
 default_spam_action = 0
-mail_dn = ldapconf('MAIL', 'dn')
+
+
+# Why are we writing the ldif line-by-line, rather than using
+# `LDIFutils.entry_string`?  This script should probably be re-implemented and
+# use LDIFutils for building the LDAP object.
 
 
 def dict_to_ldif_string(d):
-    """Stringify a dict LDIF-style.
-
-    FIXME: Should this be moved to LDIFutils.py?
+    r"""
+    Stringify a dict LDIF-style.
 
     Convert a dict with LDIF-attributes to a string that can be written
     directly to an LDIF file.
 
-    @type d: dict (basestring to basestring/sequence of basestring)
-    @param d:
-      A dictionary with key,value pairs containing the attributes for some
-      LDAP object. value-part can be either a scalar (a basestring) OR a
-      sequence (list, tuple or set) thereof
+    :type d: dict[str, str|list]
+    :param d:
+        Attributes and values to stringify.
 
-    @rtype: basestring
-    @return:
-      A data 'chunk' (\n-separated bunch of lines) that can be written to an
-      LDIF file directly. The resulting string is '\n'-terminated.
+    :returns str:
+        An ldap/ldif data 'chunk' (\n-separated bunch of lines) that can be
+        written to an LDIF file directly. The resulting string is
+        '\n'-terminated.
     """
-
-    format = "%s: %s\n"
-    result = list()
-    for key, value in six.iteritems(d):
+    line_format = "%s: %s\n"
+    result = []
+    for key, value in sorted(six.iteritems(d)):
         if isinstance(value, (list, tuple, set)):
-            result.extend(format % (key, tmp) for tmp in value)
+            result.extend(line_format % (key, tmp) for tmp in sorted(value))
         else:
-            result.append(format % (key, value))
-
+            result.append(line_format % (key, value))
     return "".join(result)
 
 
 @contextlib.contextmanager
 def log_time(action, level=logging.DEBUG):
-    logger.log(level, 'start %s ...', action)
-    start = now()
+    logger.log(level, "start %s ...", action)
+    start = date_utils.now()
     try:
         yield
-    finally:
-        logger.log(level, 'done %s in %ds', action, now() - start)
+    except Exception:
+        raise
+    else:
+        time_used = date_utils.now() - start
+        logger.log(level, "done %s in %ds", action, time_used.total_seconds())
 
 
-def write_ldif(db, ldap, auth, f, verbose=False):
+def get_mail_targets(db):
+    """ Get a list of candidate mail targets. """
     mail_targ = Email.EmailTarget(db)
+    with log_time("get_mail_targets"):
+        targets = sorted(
+            (dict(row) for row in mail_targ.list_email_targets_ext()),
+            key=lambda r: r['target_id'],
+        )
+    return targets
+
+
+def write_ldif(db, ldap, auth, f, mail_dn):
+    """
+    Write matching mail-targets as LDAP objects to the given file.
+
+    :type db: Cerebrum.database.Database
+    :type ldap: Cerebrum.modules.EmailLDAP.EmailLDAP
+    :type auth: Cerebrum.export.auth.AuthCache
+    :param f: A file-like object to write objects to
+    :param mail_dn: A DN string for this ldap tree
+    """
     co = Factory.get('Constants')(db)
     counter = 0
     curr = now()
     ldap.read_pending_moves()
 
-    f.write(container_entry_string('MAIL'))
+    f.write(LDIFutils.container_entry_string('MAIL'))
 
-    for row in mail_targ.list_email_targets_ext():
+    for row in get_mail_targets(db):
         t = int(row['target_id'])
-        if verbose > 1:
-            logger.debug("Processing target id=%d", t)
+        debug_log.debug("Processing target id=%d", t)
         if t not in ldap.targ2addr:
             # There are no addresses for this target; hence, no mail
             # can reach it.  Move on.
-            if verbose > 1:
-                logger.debug("No addresses for target id=%s. Moving on.", t)
+            debug_log.debug("No addresses for target id=%s. Moving on.", t)
             continue
 
         tt = int(row['target_type'])
@@ -147,9 +167,9 @@ def write_ldif(db, ldap, auth, f, verbose=False):
             run_as_id = int(run_as_id)
 
         counter += 1
-        if verbose and (counter % 5000) == 0:
-            logger.debug("done %d list_email_targets(): %d sec.",
-                         counter, now() - curr)
+        if (counter % 5000) == 0:
+            debug_log.debug("done %d list_email_targets(): %d sec.",
+                            counter, now() - curr)
 
         target = ""
         uid = ""
@@ -158,8 +178,11 @@ def write_ldif(db, ldap, auth, f, verbose=False):
         # The structure is decided by what target-type the
         # target is (class EmailConstants in Email.py):
         tt = co.EmailTarget(int(tt))
-        if verbose > 1:
-            logger.debug("Target id=%s is of type %s", t, tt)
+        debug_log.debug("Target id=%s is of type %s", t, tt)
+
+        # All of this would probably be cleaner if we move most of the
+        # following code to a "create ldap entry" function, and use
+        # entry_string to create the ldif text blob...
 
         if tt == co.email_target_account:
             # Target is the local delivery defined for the Account whose
@@ -169,12 +192,16 @@ def write_ldif(db, ldap, auth, f, verbose=False):
                 if ei in ldap.acc2name:
                     target = ldap.acc2name[ei]
                 else:
-                    logger.warn("Target id=%s (type %s): no user id=%s found",
-                                t, tt, ei)
+                    logger.warning(
+                        "Target id=%s (type %s): no user id=%s found",
+                        t, tt, ei,
+                    )
                     continue
             else:
-                logger.warn("Target id=%s (type %s): wrong entity type: %s "
-                            "(entity_id=%s)", t, tt, et, ei)
+                logger.warning(
+                    "Target id=%s (type %s): wrong entity type: %s "
+                    "(entity_id=%s)", t, tt, et, ei,
+                )
                 continue
 
             # Find quota-settings:
@@ -253,16 +280,18 @@ def write_ldif(db, ldap, auth, f, verbose=False):
             # Account, deliveries to this target will be run as that
             # account.
             if alias is None:
-                logger.warn("Target id=%s (type %s) needs an alias_value",
-                            t, tt)
+                logger.warning("Target id=%s (type %s) needs an alias_value",
+                               t, tt)
                 continue
 
             if run_as_id is not None:
                 if run_as_id in ldap.acc2name:
                     uid = ldap.acc2name[run_as_id]
                 else:
-                    logger.warn("Target id=%s (type %s) no user id=%s found",
-                                t, tt, ei)
+                    logger.warning(
+                        "Target id=%s (type %s) no user id=%s found",
+                        t, tt, ei,
+                    )
                     continue
 
         elif tt == co.email_target_multi:
@@ -275,19 +304,20 @@ def write_ldif(db, ldap, auth, f, verbose=False):
                     addrs, missing = ldap.get_multi_target(
                         ei, ignore_missing=True)
                 except ValueError as e:
-                    logger.warn("Target id=%s (type %s): %s", t, tt, e)
+                    logger.warning("Target id=%s (type %s): %s", t, tt, e)
                     continue
-                for addr in addrs:
+                for addr in sorted(addrs):
                     rest += "forwardDestination: %s\n" % addr
                 for addr in missing:
-                    logger.warn("Target id=%s (type %s): "
-                                "Multitarget group id %s: "
-                                "account %s has no primary address",
-                                t, tt, ei, addr)
+                    logger.warning(
+                        "Target id=%s (type %s): Multitarget group id %s: "
+                        "account %s has no primary address",
+                        t, tt, ei, addr,
+                    )
             else:
                 # A 'multi' target with no forwarding; seems odd.
-                logger.warn("Target id=%s (type %s) no forwarding found",
-                            t, tt)
+                logger.warning("Target id=%s (type %s) no forwarding found",
+                               t, tt)
                 continue
         else:
             # We don't want to log errors for distributiong groups.
@@ -337,7 +367,7 @@ def write_ldif(db, ldap, auth, f, verbose=False):
                         "Missing primary address when setting local delivery "
                         "for account_id:%s target_id:%s",
                         ldap.targ2prim.get(t), t)
-            for addr in ldap.targ2forward[t]:
+            for addr in sorted(ldap.targ2forward[t]):
                 # Skip local forward addresses when the account is deleted,
                 # else they will create an unnecessary bounce message.
                 if tt == co.email_target_deleted and addr in ldap.targ2addr[t]:
@@ -355,7 +385,7 @@ def write_ldif(db, ldap, auth, f, verbose=False):
             f.write("spamAction: %s\n" % default_spam_action)
 
         # Filters
-        for a in ldap.targ2filter[t]:
+        for a in sorted(ldap.targ2filter[t]):
             f.write("mailFilter: %s\n" % a)
 
         # Populate auth-data:
@@ -374,7 +404,12 @@ def write_ldif(db, ldap, auth, f, verbose=False):
         f.write("\n")
 
 
-def get_data(db, ldap, auth_cache, spread):
+def get_data(db, auth_cache, spread):
+    """ Load the EmailLDAP module and cache all relevant data.  """
+
+    with log_time('loading the EmailLDAP module'):
+        ldap = Factory.get('EmailLDAP')(db)
+
     with log_time('read_prim()'):
         ldap.read_prim()
 
@@ -412,6 +447,7 @@ def get_data(db, ldap, auth_cache, spread):
         with log_time('read_quarantines()'):
             ldap.read_quarantines()
 
+        # Maybe move the auth_data logic into the EmailLDAP module?
         with log_time('auth_cache.update_all()'):
             auth_cache.update_all()
 
@@ -422,6 +458,8 @@ def get_data(db, ldap, auth_cache, spread):
     with log_time('read_misc_target()'):
         ldap.read_misc_target()
 
+    return ldap
+
 
 def main(inargs=None):
     parser = argparse.ArgumentParser(
@@ -431,8 +469,7 @@ def main(inargs=None):
         '-v', "--verbose",
         action="count",
         default=0,
-        help=('Show some statistics while running. '
-              'Repeat the option for more verbosity.'),
+        help='Show some statistics while running. ',
     )
     parser.add_argument(
         '-m', "--mail-file",
@@ -440,7 +477,7 @@ def main(inargs=None):
     )
     parser.add_argument(
         '-s', "--spread",
-        default=ldapconf('MAIL', 'spread', None),
+        default=None,
         help='Targets printed found in spread.',
     )
     parser.add_argument(
@@ -460,37 +497,40 @@ def main(inargs=None):
     Cerebrum.logutils.options.install_subparser(parser)
 
     args = parser.parse_args(inargs)
-    Cerebrum.logutils.autoconf('cronjob', args)
+    Cerebrum.logutils.autoconf("cronjob", args)
 
-    logger.info('Start %s', parser.prog)
-    logger.debug('args: %s', repr(args))
-
-    db = Factory.get('Database')()
+    if args.verbose:
+        debug_log.propagate = 1
 
     start = now()
+    logger.info("Start %s", parser.prog)
+    logger.debug("args: %s", repr(args))
+    db = Factory.get("Database")()
+    const = Factory.get("Constants")()
 
-    with log_time('loading the EmailLDAP module'):
-        ldap = Factory.get('EmailLDAP')(db)
+    # Build LdapConfig and check dn
+    config = LDIFutils.get_ldap_config(["LDAP", "LDAP_MAIL"])
+    dn = config.get_dn()
 
-    spread = args.spread
+    spread = args.spread or config.get("spread", None)
     if spread is not None:
-        spread = map_spreads(spread, int)
+        spread = const.get_constant(const.Spread, spread)
 
     # Configure auth
     if args.auth:
-        auth_attr = ldapconf('MAIL', 'auth_attr', None)
+        auth_attrs = config.get("auth_attr", {})
         user_password = AuthExporter.make_exporter(
-            db, auth_attr['userPassword'])
+            db, auth_attrs['userPassword'])
     else:
         user_password = None
 
-    outfile = ldif_outfile('MAIL', args.mail_file, max_change=args.max_change)
+    outfile = LDIFutils.ldif_outfile('MAIL', args.mail_file,
+                                     max_change=args.max_change)
     logger.debug('writing data to %s', repr(outfile))
 
     with log_time('fetching data', level=logging.INFO):
-        get_data(
+        ldap = get_data(
             db,
-            ldap,
             getattr(user_password, 'cache', None),
             spread)
 
@@ -500,10 +540,11 @@ def main(inargs=None):
             ldap,
             user_password,
             outfile,
-            verbose=args.verbose)
+            dn)
 
-    end_ldif_outfile('MAIL', outfile)
+    LDIFutils.end_ldif_outfile('MAIL', outfile)
 
+    logger.info("Wrote mail-db to %s", repr(outfile))
     logger.info("Total time: %ds" % (now() - start))
     logger.info('Done %s', parser.prog)
 
