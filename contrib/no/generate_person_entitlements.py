@@ -40,8 +40,8 @@ from __future__ import (
     print_function,
     unicode_literals,
 )
-
 import argparse
+import datetime
 import json
 import logging
 from collections import defaultdict
@@ -53,6 +53,9 @@ import cereconf
 import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum.Utils import Factory
+from Cerebrum.group import group_sync
+from Cerebrum.modules.trait import trait_db
+from Cerebrum.utils import date_compat
 from Cerebrum.utils.atomicfile import AtomicStreamRecoder
 
 logger = logging.getLogger(__name__)
@@ -66,9 +69,16 @@ def get_entitlement_groups(db):
         An iterable with (<group-id>, <entitlement-uri>) pairs.
     """
     co = Factory.get('Constants')(db)
+    for trait in trait_db.search_traits(db, code=co.trait_group_entitlement):
+        # trait_group_entitlement is restricted to groups, so no need to
+        # check entity-type
+        yield (trait['entity_id'], trait['strval'])
+
+
+def get_group_by_id(db, group_id):
     gr = Factory.get('Group')(db)
-    for group in gr.list_traits(co.trait_group_entitlement):
-        yield (group['entity_id'], group['strval'])
+    gr.find(int(group_id))
+    return gr
 
 
 def map_entitlements(db):
@@ -84,22 +94,27 @@ def map_entitlements(db):
         {321: ["urn:mace:example.org:foo:bar", ...], ...}
     """
     co = Factory.get('Constants')(db)
-    gr = Factory.get('Group')(db)
+    expire_cutoff = datetime.date.today()
 
     logger.info('fetching entitlement groups...')
     entitlement_groups = dict(get_entitlement_groups(db))
+    member_types = set((int(co.entity_person), int(co.entity_account)))
 
     logger.info('fetching group memberships...')
     entitlement_map = defaultdict(set)
     for group_id, uri in entitlement_groups.items():
-        group_members = gr.search_members(group_id=group_id,
-                                          member_type=(co.entity_account,
-                                                       co.entity_person),
-                                          member_filter_expired=True,
-                                          indirect_members=True)
-        for member in group_members:
-            member_id = int(member['member_id'])
-            entitlement_map[member_id].add(uri)
+        group = get_group_by_id(db, group_id)
+        group_expire = date_compat.get_date(group.expire_date)
+        if group_expire and group_expire < expire_cutoff:
+            logger.warning("Ignoring expired group %s (id=%d, uri=%s)",
+                           group.group_name, group.entity_id, repr(uri))
+            continue
+
+        group_members = group_sync.find_effective_members(group)
+        for (member_id, member_type) in group_members:
+            if member_type not in member_types:
+                continue
+            entitlement_map[int(member_id)].add(uri)
 
     # sort entitlement uri lists
     pretty_map = {}
