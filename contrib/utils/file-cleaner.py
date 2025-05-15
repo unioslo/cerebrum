@@ -29,7 +29,7 @@ Archive mode
     files around for some time.  Often used to compress large, time-rotated log
     files.
 
-    This mode uses ``ArchiveParams`` from ``file_clean_conf.DELETE_FILES``.
+    This mode uses ``ArchiveParams`` from ``file_clean_conf.ARCHIVE_FILES``.
 
 Delete mode
     Delete files and directories of a given age and naming pattern.  This is
@@ -766,14 +766,14 @@ def main(argv=None):
         default=False,
         action="store_true",
         dest="archive_mode",
-        help="Run archiving operations",
+        help="Run archiving actions",
     )
     parser.add_argument(
         "--delete",
         default=False,
         action="store_true",
         dest="delete_mode",
-        help="Run delete operations",
+        help="Run delete actions",
     )
     parser.add_argument(
         "--show-params",
@@ -790,27 +790,28 @@ def main(argv=None):
     )
     argutils.add_commit_args(commit_group,
                              commit_desc="Actually archive and/or delete")
-
     Cerebrum.logutils.options.install_subparser(parser)
+
     args = parser.parse_args(argv)
     Cerebrum.logutils.autoconf("cronjob", args)
-    dryrun = not args.commit
-
     if not any((args.archive_mode, args.delete_mode, args.show_params)):
         parser.error("no action given")
 
-    # Read options from config module or file
+    logger.info("Start %s", parser.prog)
+    logger.debug("args: %s", repr(args))
+
+    dryrun = not args.commit
+    logger.info("Archiving: %s", args.archive_mode)
+    logger.info("Deleting: %s", args.delete_mode)
+    logger.info("Dryrun: %s", dryrun)
+
+    # Read processing actions from file or default config module:
     if args.config:
-        # Note that we import the file using illegal module charactes.  This
-        # *should* prevent collisions with other modules.
         config = load_source("file-clean-conf", args.config)
     else:
         config = file_clean_conf
     archive_actions = get_archive_config(config)
     delete_actions = get_delete_config(config)
-
-    if dryrun:
-        logger.info('DRYRUN: no actions will be performed')
 
     if args.show_params:
         print("Delete actions:")
@@ -823,15 +824,17 @@ def main(argv=None):
 
     if args.delete_mode:
         if not delete_actions:
-            raise ValueError("Delete mode requested, but nothing to delete")
+            logger.error("Delete mode requested, but nothing to delete")
         for delete_spec in delete_actions:
             delete_files(delete_spec, dryrun)
 
     if args.archive_mode:
         if not archive_actions:
-            raise ValueError("Archive mode requested, but nothing to archive")
+            logger.error("Archive mode requested, but nothing to archive")
         for archive_spec in archive_actions:
             archive_files(archive_spec, dryrun)
+
+    logger.info("Done %s", parser.prog)
 
 
 if __name__ == '__main__':
