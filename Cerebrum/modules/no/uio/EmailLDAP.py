@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003-2019 University of Oslo, Norway
+# Copyright 2003-2025 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,10 +17,18 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-from __future__ import unicode_literals
-
+"""
+UiO specific overrides for :class:`Cerebrum.modules.EmailLDAP.EmailLDAP`.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 from collections import defaultdict
+
+import six
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
@@ -31,8 +39,20 @@ from Cerebrum.modules.EmailLDAP import EmailLDAP
 class EmailLDAPUiOMixin(EmailLDAP):
     """Methods specific for UiO."""
 
+    spam_act2dig = {
+        'noaction':   '0',
+        'spamfolder': '1',
+        'dropspam':   '2',
+        'greylist':   '3',
+    }
+
+    db_tt2ldif_tt = {
+        'account': 'user',
+        'forward': 'forwardAddress',
+    }
+
     def __init__(self, db):
-        self.__super.__init__(db)
+        super(EmailLDAPUiOMixin, self).__init__(db)
         self.mail_dom = Email.EmailDomain(self._db)
         # mapping between a target id and its ulrik.uio.no-address. This is
         # required for account email_targets at postmasters' request.
@@ -51,15 +71,11 @@ class EmailLDAPUiOMixin(EmailLDAP):
         # read_pending_primary_email() is called by read_addr()
         self.pending_primary_email = defaultdict(list)
 
-    spam_act2dig = {'noaction':   '0',
-                    'spamfolder': '1',
-                    'dropspam':   '2',
-                    'greylist':   '3'}
-    db_tt2ldif_tt = {'account': 'user',
-                     'forward': 'forwardAddress'}
-
     def get_targettype(self, targettype):
-        return self.db_tt2ldif_tt.get(str(targettype), str(targettype))
+        return self.db_tt2ldif_tt.get(
+            six.text_type(targettype),
+            six.text_type(targettype),
+        )
 
     def get_server_info(self, row):
         """Return additional mail server info for EmailLDAP-entry derived
@@ -95,21 +111,20 @@ class EmailLDAPUiOMixin(EmailLDAP):
         return result
 
     def get_target_info(self, row):
-        """Return additional EmailLDAP-entry derived from L{row}.
+        """
+        Return additional EmailLDAP-entry derived from *row*.
 
         Return site-specific mail-ldap-information pertaining to the
         EmailTarget info in L{row}.
 
-        @type row: db-row instance
-        @param row:
-          A db-row holding one result of L{list_email_targets_ext}.
+        :param row:
+            A dict-like object holding one result from
+            :meth:`Cerebrum.modules.Email.EmailTarget.list_email_targets_ext`.
 
-        @rtype: dict
-        @return:
-          A dictinary mapping attributes to values for the specified
-          EmailTarget in L{row}.
+        :returns dict:
+            A dictinary with LDAP attributes and values for the specified
+            EmailTarget.
         """
-
         sdict = super(EmailLDAPUiOMixin, self).get_target_info(row)
         target_type = self.const.EmailTarget(int(row['target_type']))
         target_id = int(row["target_id"])
@@ -161,7 +176,7 @@ class EmailLDAPUiOMixin(EmailLDAP):
         # domains.
         glob_addr = {}
         for domain_category in (self.const.email_domain_category_uio_globals,):
-            domain = str(domain_category)
+            domain = six.text_type(domain_category)
             lp_dict = {}
             glob_addr[domain] = lp_dict
             # Fill glob_addr[magic domain][local_part]
