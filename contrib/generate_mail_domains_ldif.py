@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003-2019 University of Oslo, Norway
+# Copyright 2003-2025 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,7 +18,8 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" Generate LDAP domain info to be used by the mail system.
+"""
+Generate LDAP domain info to be used by the mail system.
 
 This script dumps email domains in Cerebrum as objects to an LDIF file
 The information from this LDIF is used by Exim, our MTA.
@@ -35,9 +36,8 @@ The script generates an LDIF file with email domain entries that looks like:
 
 cereconf
 --------
-
-This script is configured with LDAP_MAIL_DOMAINS, which is a dictionary with
-the following values:
+This script is configured using ``cereconf.LDAP_MAIL_DOMAINS``, which should be
+a dictionary with the following keys:
 
 dn (e.g. "cn=mail-domains,dc=example,dc=org")
     dn-suffix for all objects that this script produces. With the example
@@ -46,14 +46,28 @@ dn (e.g. "cn=mail-domains,dc=example,dc=org")
 
 file (e.g. "mail-domains.ldif")
     filename (within the `cereconf.LDAP['dump_dir']`) for the LDIF file.
-
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+import argparse
+import logging
+
+import Cerebrum.logutils
+import Cerebrum.logutils.options
 from Cerebrum.Utils import Factory
-from Cerebrum.modules import Email, LDIFutils
+from Cerebrum.modules import Email
+from Cerebrum.modules import LDIFutils
+
+logger = logging.getLogger(__name__)
 
 
 def get_email_domains():
-    """ Get email domains from Cerebrum.
+    """
+    Get email domains from Cerebrum.
 
     :return generator:
         A generator that yield email domains that are not excluded from export.
@@ -76,8 +90,7 @@ def get_email_domains():
 
 
 def write_mail_domains():
-    """ Gather data and dump to ldif. """
-    logger = Factory.get_logger("cronjob")
+    """ Gather data and dump to file. """
     logger.debug("Reading domains...")
     domains = sorted(get_email_domains())
 
@@ -88,14 +101,30 @@ def write_mail_domains():
     logger.debug("Writing domains...")
     for domain in domains:
         dn = "cn=%s,%s" % (domain, dn_suffix)
-        entry = {"cn": domain,
-                 "host": domain,
-                 "objectClass": ("uioHost",),
-                 }
+        entry = {
+            'cn': domain,
+            'host': domain,
+            'objectClass': ("uioHost",),
+        }
         lw.write_entry(dn, entry)
-    logger.debug("Done.")
     lw.close()
+    logger.info("Wrote %d domain objects to %s", len(domains), repr(lw.f))
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(
+        description="Write an LDIF file with mail domains.",
+    )
+    Cerebrum.logutils.options.install_subparser(parser)
+    args = parser.parse_args(argv)
+
+    Cerebrum.logutils.autoconf("cronjob", args)
+    logger.info("Start %s", parser.prog)
+    logger.debug('args: %r', args)
+
+    write_mail_domains()
+    logger.info('Done %s', parser.prog)
 
 
 if __name__ == "__main__":
-    write_mail_domains()
+    main()
