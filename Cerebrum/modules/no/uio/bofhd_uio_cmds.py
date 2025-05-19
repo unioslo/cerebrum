@@ -48,6 +48,7 @@ from Cerebrum.modules.bofhd import bofhd_perm_cmds
 from Cerebrum.modules.bofhd import bofhd_quarantines
 from Cerebrum.modules.bofhd import parsers
 from Cerebrum.modules.bofhd.auth import (
+    BofhdAuthOpTarget,
     delete_entity_auth_roles,
     delete_entity_auth_target,
 )
@@ -5282,7 +5283,7 @@ class PermCommands(bofhd_perm_cmds.BofhdPermCommands):
         """ Find all targets that cause "ownership" of entity. """
         target_ids = super(PermCommands, self)._find_target_ids(entity)
 
-        aot = bofhd_auth.BofhdAuthOpTarget(self.db)
+        aot = BofhdAuthOpTarget(self.db)
 
         # uio-specific disk ownership:
         # Anyone who has privileged access to a disk also has privileged
