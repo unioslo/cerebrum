@@ -38,8 +38,12 @@ any override done in FooAuth (e.g. is_superuser) will also take effect in these
 classes.
 
 """
-from __future__ import unicode_literals
-
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import logging
 import re
 import textwrap
@@ -312,8 +316,9 @@ class BofhdContactAuth(BofhdAuth):
         # lacking for now, we don't check for any granularity here. In
         # entity_contactinfo_search, we'll filter out the results that the
         # operator isn't allowed to see.
-        if self._has_operation_perm_somewhere(operator,
-                                              self.const.auth_search_contactinfo):
+        if self._has_operation_perm_somewhere(
+                operator,
+                self.const.auth_search_contactinfo):
             return True
 
         if contact_type:
@@ -415,9 +420,9 @@ class BofhdContactCommands(BofhdCommandBase):
         del co
 
         return merge_help_strings(
-            ({}, {}, cmd_args),  # We want _our_ cmd_args to win!
             get_help_strings(),
-            ({}, CMD_HELP, {}))
+            ({}, CMD_HELP, cmd_args),
+        )
 
     def _format_match(self, entity, search_string):
         """ helper - format the matched entity from user input. """
@@ -788,22 +793,27 @@ class BofhdContactCommands(BofhdCommandBase):
         except Exception:
             pass
 
-        # Filter out contact info that the operator does not have access to get.
-        # Note that contact info that is filtered out here won't be shown in the
-        # results *at all*.
+        # Filter out contact info that the operator does not have access to
+        # get.  Note that contact info that is filtered out here won't be shown
+        # in the results *at all*.
         def filter_cinfo(cinfo):
             try:
                 entity = Factory.get('Entity')(self.db)
                 entity.find(cinfo['entity_id'])
-                self.ba.can_get_contact_info(operator.get_entity_id(),
-                                             entity=entity,
-                                             contact_type=cinfo['contact_type'])
+                self.ba.can_get_contact_info(
+                    operator.get_entity_id(),
+                    entity=entity,
+                    contact_type=cinfo['contact_type'])
                 return True
             except PermissionDenied:
                 return False
 
-        contact_info = filter(filter_cinfo, list(self._search_cinfo(cinfo_type=contact_type,
-                                                                    cinfo_value=values)))
+        contact_info = [
+            result
+            for result in self._search_cinfo(cinfo_type=contact_type,
+                                             cinfo_value=values)
+            if filter_cinfo(result)
+        ]
 
         if not contact_info:
             raise CerebrumError("No contact info of type %s matching %s, "

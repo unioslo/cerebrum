@@ -1972,8 +1972,8 @@ class BofhdExtension(BofhdCommonMethods):
 
         for membership in ret:
             group.find(membership['entity_id'])
-            membership['spreads'] = [
-                co.Spread(x['spread']) for x in group.get_spread()]
+            membership['spreads'] = [co.Spread(x['spread'])
+                                     for x in group.get_spread()]
 
             # Find the source group (if any)
             for source_group in ret:
@@ -1987,13 +1987,14 @@ class BofhdExtension(BofhdCommonMethods):
 
         if spread:
             # Only select groups with spread x
-            ret = [x for x in ret if spread in [co.Spread(y) for y in x[
-                'spreads']]]
+            ret = [x for x in ret
+                   if spread in [co.Spread(y) for y in x['spreads']]]
 
         for membership in ret:
             membership['sources_names_str'] = u', '.join(
                 membership['sources_names'])
-            membership['spreads'] = map(text_type, membership['spreads'])
+            membership['spreads'] = [text_type(s)
+                                     for s in membership['spreads']]
 
         ret.sort(key=lambda d: d['group'])
         return ret
