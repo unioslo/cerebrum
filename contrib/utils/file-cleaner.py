@@ -223,15 +223,20 @@ def find_files(dirname, pattern, file_type="file", min_age=0):
     if file_type not in ("file", "dir"):
         raise ValueError("invalid file_type: " + repr(file_type))
 
-    if not os.path.isdir(dirname):
-        logger.warning("not a directory: %s", repr(dirname))
-        return []
-
     name_regex = re.compile(pattern)
     mtime_threshold = time.time() - date_utils.to_seconds(days=int(min_age))
-
     logger.debug("Searching for %ss in %s matching %s older than %d days",
                  file_type, dirname, name_regex.pattern, min_age)
+
+    # Soft sanity checks - we shouldn't fail hard if e.g. a directory is
+    # missing, but let's log an error for follow-up
+    if not os.path.isabs(dirname):
+        logger.error("not an absolute path - skipping %s", repr(dirname))
+        return []
+    if not os.path.isdir(dirname):
+        logger.error("not a directory - skipping %s", repr(dirname))
+        return []
+
     matches = []
     for name in os.listdir(dirname):
         file_path = os.path.join(dirname, name)
@@ -606,11 +611,6 @@ class Archiver(object):
 
         Arguments are the same as :func:`.find_files`.
         """
-        # Sanity checks
-        if not os.path.isdir(dirname):
-            raise ValueError("not a directory: " + repr(dirname))
-        if not os.path.isabs(dirname):
-            raise ValueError("not an absolute path: " + repr(dirname))
         # Find files matching pattern and age threashold
         for name in find_files(dirname, pattern, file_type=file_type,
                                min_age=min_age):
