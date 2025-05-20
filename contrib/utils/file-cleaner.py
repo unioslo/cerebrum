@@ -689,15 +689,17 @@ def archive_files(config, dryrun):
 
     if config.delete_age > 0:
         logger.info("Archive cleanup for %s", dirname)
-        # Delete any files/directories that are too old to be archived.  This
-        # shouldn't normally happen, but can occur e.g. when adding a new set
-        # of archiving params, or ajusting a `delete_age` setting down.
-        archiver.delete_matches(
-            dirname=config.dirname,
-            pattern=config.pattern,
-            file_type=config.file_type,
-            min_age=config.delete_age,
-        )
+        if not config.keep_originals:
+            # Delete any files/directories that are too old to be archived.
+            # This shouldn't normally happen, but can occur e.g. when adding a
+            # new set of archiving params, or ajusting a `delete_age` setting
+            # down.
+            archiver.delete_matches(
+                dirname=config.dirname,
+                pattern=config.pattern,
+                file_type=config.file_type,
+                min_age=config.delete_age,
+            )
         # Delete any archives that are too old.
         archiver.delete_matches(
             dirname=name_scheme.archive_dir,
