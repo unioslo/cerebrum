@@ -40,10 +40,30 @@ from Cerebrum.modules.no.Constants import ConstantsHigherEdu
 from Cerebrum.modules.no.Constants import ConstantsUniversityColleges
 
 
-class Constants(ConstantsUniversityColleges, ConstantsHigherEdu):
-    system_fs_derived = _AuthoritativeSystemCode('FS-auto',
-                                                 'Utledet av FS data')
-    system_pbx = _AuthoritativeSystemCode('PBX', 'PBX')
+class _LegacyConstants(Constants.Constants):
+    """
+    Deprecated UiA-specific constants.
+
+    These are constants that are no longer in use, but may need to be
+    resolvable e.g. from changelog or audit records.
+
+    The attribute name is no longer in use.
+    """
+
+    # UiA used to import office phone numbers from their telephone exchange
+    # system (private branch exchange - PBX).
+    _legacy_system_pbx = _AuthoritativeSystemCode(
+        "PBX",
+        "Deprecated source_system - PBX",
+    )
+
+
+class Constants(ConstantsUniversityColleges, ConstantsHigherEdu,
+                _LegacyConstants):
+    system_fs_derived = _AuthoritativeSystemCode(
+        "FS-auto",
+        "Utledet av FS data",
+    )
 
     # AFFILIATIONS FOR ANSATTE
     affiliation_status_ansatt_manuell = _PersonAffStatusCode(
