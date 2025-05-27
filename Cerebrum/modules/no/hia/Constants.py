@@ -57,13 +57,15 @@ class _LegacyConstants(Constants.Constants):
         "Deprecated source_system - PBX",
     )
 
+    # Doesn't look like this was ever in use...
+    _legacy_system_fs_derived = _AuthoritativeSystemCode(
+        "FS-auto",
+        "Deprecated source_system - Affiliations derived from FS",
+    )
+
 
 class Constants(ConstantsUniversityColleges, ConstantsHigherEdu,
                 _LegacyConstants):
-    system_fs_derived = _AuthoritativeSystemCode(
-        "FS-auto",
-        "Utledet av FS data",
-    )
 
     # AFFILIATIONS FOR ANSATTE
     affiliation_status_ansatt_manuell = _PersonAffStatusCode(
