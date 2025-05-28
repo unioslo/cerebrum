@@ -100,13 +100,11 @@ class DeleteParams(configuration.Configuration):
     file_type = configuration.ConfigDescriptor(
         settings.Choice,
         choices=set(("file", "dir")),
-        default="file",
         doc="Only process items matching this type",
     )
     delete_age = configuration.ConfigDescriptor(
         settings.Integer,
         minval=0,
-        default=0,
         doc="Only delete items older than this (in days)",
     )
 
@@ -121,6 +119,11 @@ class DeleteParams(configuration.Configuration):
 class ArchiveParams(DeleteParams):
     """ Parameters for finding and archiving files or folders.  """
 
+    archive_age = configuration.ConfigDescriptor(
+        settings.Integer,
+        minval=0,
+        doc="Only archive matching items older than this (in days)",
+    )
     archive_dir = configuration.ConfigDescriptor(
         settings.String,
         default=None,
@@ -130,12 +133,6 @@ class ArchiveParams(DeleteParams):
             in the source *dirname*.
             """
         ).strip(),
-    )
-    archive_age = configuration.ConfigDescriptor(
-        settings.Integer,
-        minval=0,
-        default=0,
-        doc="Only archive matching items older than this (in days)",
     )
     archive_replace = configuration.ConfigDescriptor(
         settings.Boolean,
@@ -254,6 +251,20 @@ def find_files(dirname, pattern, file_type="file", min_age=0):
     return sorted(matches)
 
 
+def is_terminated(pattern):
+    """ Check if *pattern* ends with a end-of-string special character. """
+    if pattern[-1] != "$":
+        return False
+    # patterns ends with $, but is the character escaped?
+    is_escaped = False
+    for char in reversed(pattern[:-1]):
+        if char == "\\":
+            is_escaped = not is_escaped
+            continue
+        return not is_escaped
+    return not is_escaped
+
+
 class ArchiveName(object):
     """ Helper for naming and identifying archives. """
 
@@ -329,12 +340,18 @@ class ArchiveName(object):
 
     def get_archive_pattern(self):
         """ Get a regex pattern for matching archive files. """
-        # Our file should start with our expected base pattern ...
-        #
-        # Note that this bit will fail if we explicitly want to match files
-        # ending in a properly escaped, literal $.  Hmm, don't want a full
-        # regex tokenizer here...
-        parts = [self.source_pattern.rstrip("$")]
+        base_pattern = self.source_pattern
+        if is_terminated(base_pattern):
+            # If the base pattern ends with a $ special character, we need to
+            # remove it in order to join it with our archive pattern...
+            while is_terminated(base_pattern):
+                base_pattern = base_pattern[:-1]
+        else:
+            # If the base pattern *doesn't* end with a $ special character, it
+            # is in practice a <base-pattern>.*$, so we need to reflect that in
+            # our archive pattern:
+            base_pattern = base_pattern + ".*"
+        parts = [base_pattern]
         if self.use_date_suffix:
             # ... followed by a ISO8601 calendar date
             parts.append(r"-\d{4}-\d{2}-\d{2}")
@@ -350,9 +367,9 @@ class ArchiveName(object):
         """ Create an ArchiveName scheme from a set of ArchiveParams.  """
         archive_dir = config.archive_dir or config.dirname
         source_pattern = (
-            re.escape(config.archive_combo)
+            re.escape(config.archive_combo) + "$"
             if config.archive_combo
-            else config.pattern.rstrip("$")
+            else config.pattern
         )
         return cls(
             archive_type=(
