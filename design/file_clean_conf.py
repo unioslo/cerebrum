@@ -45,9 +45,8 @@ The following settings apply to both ARCHIVE_FILES and DELETE_FILES entries:
     This is a regex pattern for selecting files or directories within *subdir*
     to archive or delete.
 
-    Caveats: You should add a trailing '$' to prevent matching archives or
-    other unintended entries.  Matching a literal '$' at the end of the pattern
-    may cause some problems when cleaning up archives.
+    You should add a trailing '$' to prevent matching archives or other
+    unintended entries.
 
 ``delete_age``
     How many days to keep matching files (or archives in archive mode).
