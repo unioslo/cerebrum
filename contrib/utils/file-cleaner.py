@@ -100,13 +100,11 @@ class DeleteParams(configuration.Configuration):
     file_type = configuration.ConfigDescriptor(
         settings.Choice,
         choices=set(("file", "dir")),
-        default="file",
         doc="Only process items matching this type",
     )
     delete_age = configuration.ConfigDescriptor(
         settings.Integer,
         minval=0,
-        default=0,
         doc="Only delete items older than this (in days)",
     )
 
@@ -121,6 +119,11 @@ class DeleteParams(configuration.Configuration):
 class ArchiveParams(DeleteParams):
     """ Parameters for finding and archiving files or folders.  """
 
+    archive_age = configuration.ConfigDescriptor(
+        settings.Integer,
+        minval=0,
+        doc="Only archive matching items older than this (in days)",
+    )
     archive_dir = configuration.ConfigDescriptor(
         settings.String,
         default=None,
@@ -130,12 +133,6 @@ class ArchiveParams(DeleteParams):
             in the source *dirname*.
             """
         ).strip(),
-    )
-    archive_age = configuration.ConfigDescriptor(
-        settings.Integer,
-        minval=0,
-        default=0,
-        doc="Only archive matching items older than this (in days)",
     )
     archive_replace = configuration.ConfigDescriptor(
         settings.Boolean,

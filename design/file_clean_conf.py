@@ -59,14 +59,14 @@ The following settings apply to both ARCHIVE_FILES and DELETE_FILES entries:
 
 And the following settings only apply to ARCHIVE_FILES entries:
 
-``archive_dir``
-    A directory to place archives in.  The default (None) will use *dirname* as
-    the archive directory.
-
 ``archive_age``
     Number of days to wait before archiving a file or directory.  Only entries
     that are at least `archive_age` days old will be archived.  Set to 0 to
     archive files regardless of age.
+
+``archive_dir``
+    A directory to place archives in.  The default (None) will use *dirname* as
+    the archive directory.
 
 ``keep_originals``
     Set to `True` to keep the input files after they have been archived.
