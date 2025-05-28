@@ -54,9 +54,9 @@ PORT = 8000
 APPNAME = "cerebrum-rest"
 
 #
-# Disable 404 suggestions from flask-restplus
+# Disable 404 suggestions from flask-restx
 #
-ERROR_404_HELP = False
+RESTX_ERROR_404_HELP = False
 
 #
 # Cerebrum API authentication mechanism
