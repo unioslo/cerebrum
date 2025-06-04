@@ -103,10 +103,6 @@ def usage(exitcode=0):
           Perform the bootstrap phase only, works only with a working database
           scheme where all mandatory constants/codes have already been imported
 
-  -d --debug
-        Print out more debug information. If added twice, you will get even
-        more information.
-
 If one or more 'sql-file' arguments are given, each phase will include
 only statements from those files.  The statements for core Cerebrum
 won't be included.
@@ -118,7 +114,7 @@ won't be included.
 def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'dc:fh',
-                                   ['debug', 'help', 'drop', 'update-codes',
+                                   ['help', 'drop', 'update-codes',
                                     'only-insert-codes',
                                     'clean-codes-from-cl', 'force-bootstrap',
                                     'extra-file=', 'stage='])
@@ -126,7 +122,6 @@ def main():
         print(e)
         usage(1)
 
-    debug = 0
     do_drop = False
     stage = None
     extra_files = []
@@ -149,8 +144,6 @@ def main():
     for opt, val in opts:
         if opt in ('-h', '--help'):
             usage()
-        if opt in ('-d', '--debug'):
-            debug += 1
         elif opt == '--drop':
             # We won't drop any tables (which might be holding data)
             # unless we're explicitly asked to do so.
@@ -204,7 +197,7 @@ def main():
         fr = files[:]
         fr.reverse()
         for f in fr:
-            runfile(f, db, debug, 'drop')
+            runfile(f, db, 'drop')
         sys.exit(0)
 
     for phase in order:
@@ -212,7 +205,7 @@ def main():
             insert_code_values(db)
         else:
             for f in files:
-                runfile(f, db, debug, phase)
+                runfile(f, db, phase)
     if do_bootstrap:
         # When bootstrapping, make sure the versions match
         check_schema_versions(db, strict=True)
@@ -424,7 +417,7 @@ def get_filelist(db, extra_files=None):
     return ret
 
 
-def runfile(fname, db, debug, phase):
+def runfile(fname, db, phase):
     """Execute an SQL definition file.
 
     @type fname: str
@@ -434,11 +427,6 @@ def runfile(fname, db, debug, phase):
     @type db: Cerebrum.database.Database
     @param db:
         The Cerebrum database object, used for communicating with the db.
-
-    @type debug: int
-    @param debug:
-        Sets how much debug information that should be printed out, e.g.
-        traceback of errors.
 
     @type phase: str
     @param phase:
@@ -474,14 +462,7 @@ def runfile(fname, db, debug, phase):
                 status = "E"
                 print("\n  ERROR: [%s]" % stmt)
                 print(e)
-                if debug:
-                    print("  Database error: ", end="")
-                    if debug >= 2:
-                        # Re-raise error, causing us to (at least)
-                        # break out of this for loop.
-                        raise
-                    else:
-                        traceback.print_exc(file=sys.stdout)
+                traceback.print_exc(file=sys.stdout)
             except Exception as e:
                 all_ok = False
                 status = "E"
