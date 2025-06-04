@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2002-2024 University of Oslo, Norway
+# Copyright 2002-2025 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -107,8 +107,6 @@ def usage(exitcode=0):
         Print out more debug information. If added twice, you will get even
         more information.
 
-  -c file | --country-file=file
-
 If one or more 'sql-file' arguments are given, each phase will include
 only statements from those files.  The statements for core Cerebrum
 won't be included.
@@ -121,7 +119,7 @@ def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'dc:fh',
                                    ['debug', 'help', 'drop', 'update-codes',
-                                    'only-insert-codes', 'country-file=',
+                                    'only-insert-codes',
                                     'clean-codes-from-cl', 'force-bootstrap',
                                     'extra-file=', 'stage='])
     except getopt.GetoptError as e:
@@ -176,9 +174,6 @@ def main():
             stage = val
         elif opt == '--extra-file':
             extra_files.append(val)
-        elif opt in ('-c', '--country-file'):
-            read_country_file(val)
-            sys.exit()
         else:
             print("Unknown argument: %s" % opt)
             usage(1)
@@ -227,21 +222,6 @@ def main():
         check_schema_versions(db)
     if not all_ok:
         sys.exit(1)
-
-
-def read_country_file(fname):
-    const = Factory.get('Constants')()
-    with open(fname, "r") as f:
-        for line in f.readlines():
-            if line[0] == '#':
-                continue
-            dta = [x.strip() for x in line.split("\t") if x.strip() != ""]
-            if len(dta) == 4:
-                code_str, foo, country, phone_prefix = dta
-                code_obj = const.Country(code_str, country, phone_prefix,
-                                         description=country)
-                code_obj.insert()
-    const.commit()
 
 
 def insert_code_values(db, delete_extra_codes=False):
