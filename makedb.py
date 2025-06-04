@@ -55,6 +55,7 @@ from __future__ import (
     print_function,
     # TODO: unicode_literals,
 )
+import logging
 
 import getopt
 import os
@@ -64,11 +65,17 @@ import traceback
 import cereconf
 
 import Cerebrum
+import Cerebrum.logutils
 from Cerebrum import Metainfo
 from Cerebrum.database import sql_parser
-from Cerebrum.Utils import Factory, dyn_import
+from Cerebrum.Utils import Factory
+from Cerebrum.utils.module import import_item
 
 all_ok = True
+
+logger = logging.getLogger(__name__)
+log_format = "%(levelname)s: %(message)s"
+log_level = logging.INFO
 
 
 def usage(exitcode=0):
@@ -112,6 +119,7 @@ won't be included.
 
 
 def main():
+    logging.basicConfig(format=log_format, level=log_level)
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'dc:fh',
                                    ['help', 'drop', 'update-codes',
@@ -329,67 +337,101 @@ def make_inital_users(db):
     db.commit()
 
 
+#
+# Schema version checks
+#
+
+# Map sql module name to python module name
+MODULES = {
+    'ad': 'Cerebrum.modules.ADObject',
+    'apikeys': 'Cerebrum.modules.apikeys',
+    'auditlog': 'Cerebrum.modules.audit',
+    'bofhd_requests': 'Cerebrum.modules.bofhd_requests',
+    'changelog': 'Cerebrum.modules.ChangeLog',
+    'disk_quota': 'Cerebrum.modules.disk_quota',
+    'email': 'Cerebrum.modules.Email',
+    'entity_trait': 'Cerebrum.modules.trait',
+    'eventlog': 'Cerebrum.modules.EventLog',
+    'events': 'Cerebrum.modules.event_publisher',
+    'job_runner': 'Cerebrum.modules.job_runner',
+    'otp': 'Cerebrum.modules.otp',
+    'note': 'Cerebrum.modules.Note',
+    'password_history': 'Cerebrum.modules.pwcheck.history',
+    'posixuser': 'Cerebrum.modules.PosixUser',
+    'stedkode': 'Cerebrum.modules.no.Stedkode',
+    'consent': 'Cerebrum.modules.consent.Consent',
+    'employment': 'Cerebrum.modules.no.PersonEmployment',
+    'gpg': 'Cerebrum.modules.gpg',
+    'task_queue': 'Cerebrum.modules.tasks',
+}
+
+
+def get_module_version(name):
+    """ Get python module version for a known sql module mapping. """
+    if name not in MODULES:
+        logger.warning("Unknown module: %s", repr(name))
+        return None
+
+    module_name = MODULES[name]
+    try:
+        module = import_item(module_name)
+        version = module.__version__
+        logger.debug("found module version for %s: %s",
+                     repr(module_name), repr(version))
+        return version
+    except Exception as e:
+        logger.warning("can't get module version for %s (%s)",
+                       repr(module_name), e)
+    return None
+
+
 def check_schema_versions(db, strict=False):
-    modules = {
-        'ad': 'Cerebrum.modules.ADObject',
-        'apikeys': 'Cerebrum.modules.apikeys',
-        'auditlog': 'Cerebrum.modules.audit',
-        'bofhd_requests': 'Cerebrum.modules.bofhd_requests',
-        'changelog': 'Cerebrum.modules.ChangeLog',
-        'disk_quota': 'Cerebrum.modules.disk_quota',
-        'email': 'Cerebrum.modules.Email',
-        'entity_trait': 'Cerebrum.modules.trait',
-        'eventlog': 'Cerebrum.modules.EventLog',
-        'events': 'Cerebrum.modules.event_publisher',
-        'job_runner': 'Cerebrum.modules.job_runner',
-        'otp': 'Cerebrum.modules.otp',
-        'note': 'Cerebrum.modules.Note',
-        'password_history': 'Cerebrum.modules.pwcheck.history',
-        'posixuser': 'Cerebrum.modules.PosixUser',
-        'stedkode': 'Cerebrum.modules.no.Stedkode',
-        'consent': 'Cerebrum.modules.consent.Consent',
-        'employment': 'Cerebrum.modules.no.PersonEmployment',
-        'gpg': 'Cerebrum.modules.gpg',
-        'task_queue': 'Cerebrum.modules.tasks',
-    }
+    """
+    Check database schema version against python module version.
+
+    :param bool strict:
+        Raise an exception on version mismatch.
+
+        Default: False - only log a warning if there is a mismatch or a problem
+        comparing version numbers.
+    """
     meta = Metainfo.Metainfo(db)
     for name, value in meta.list():
+        # Legacy work-around for different version types:
         if isinstance(value, tuple):
-            print("WARNING: The version number of module {modulename} is "
-                  "saved as a tuple.".format(modulename=name))
+            logger.warning(
+                "Invalid version in module %s (expected str, got tuple)",
+                repr(name),
+            )
             value = "%d.%d.%d" % value
+
         if name == Metainfo.SCHEMA_VERSION_KEY:
             if not Cerebrum.__version__ == value:
-                print("WARNING: cerebrum version %s does not"
-                      " match schema version %s" % (
-                          Cerebrum.__version__,
-                          value))
+                logger.warning(
+                    "cerebrum version %s doesn't match schema version %s",
+                    Cerebrum.__version__, value,
+                )
                 if strict:
-                    exit(1)
+                    raise RuntimeError("Version mismatch for module: "
+                                       + repr(Metainfo.SCHEMA_VERSION_KEY))
         elif name.startswith('sqlmodule_'):
             name = name[len('sqlmodule_'):]
-            if name not in modules:
-                # print "WARNING: unknown module %s" % name
-                # if strict: exit(1)
-                continue
-            try:
-                module = dyn_import(modules[name])
-                version = module.__version__
-            except Exception as e:
-                print("ERROR: can't find version of module %s: %s" %
-                      (name, e))
+            version = get_module_version(name)
+            if version is None:
                 continue
             if not version == value:
-                print("WARNING: module %s version %s does"
-                      " not match schema version %s" %
-                      (name, version, value))
+                logger.warning(
+                    "module %s version %s doesn't match schema version %s",
+                    name, version, value,
+                )
                 if strict:
-                    exit(1)
+                    raise RuntimeError("Version mismatch for module: "
+                                       + repr(name))
         else:
-            print("ERROR: unknown metainfo %s: %s" %
-                  (name, value))
+            logger.error("Unknown metainfo: %s, %s", name, value)
             if strict:
-                exit(1)
+                raise RuntimeError("Unknown metainfo: %s, %s"
+                                   % (name, value))
 
 
 def get_filelist(db, extra_files=None):
