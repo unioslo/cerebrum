@@ -124,7 +124,7 @@ def main():
         opts, args = getopt.getopt(sys.argv[1:], 'dc:fh',
                                    ['help', 'drop', 'update-codes',
                                     'only-insert-codes',
-                                    'clean-codes-from-cl', 'force-bootstrap',
+                                    'force-bootstrap',
                                     'extra-file=', 'stage='])
     except getopt.GetoptError as e:
         print(e)
@@ -156,9 +156,6 @@ def main():
             # We won't drop any tables (which might be holding data)
             # unless we're explicitly asked to do so.
             do_drop = True
-        elif opt == '--clean-codes-from-cl':
-            clean_codes_from_change_log(db)
-            sys.exit()
         elif opt == '--only-insert-codes':
             insert_code_values(db)
             check_schema_versions(db)
@@ -252,27 +249,6 @@ def insert_code_values(db, delete_extra_codes=False):
     # TODO: Generalize the two following lines
     for kind in ('Constants', 'CLConstants'):
         do(kind)
-
-
-def clean_codes_from_change_log(db):
-    """ Deletes entries in change_log referencing a deleted change type. """
-    co = Factory.get('CLConstants')()
-    codes = [x for x in co._get_superfluous_codes()
-             if x[0] is co.ChangeType]
-    for cls, code, name in codes:
-        print('Found superfluous change type: {}'.format((cls, code, name)))
-        num_entries = db.query_1(
-            "SELECT count(*) FROM change_log "
-            "WHERE change_type_id = {}".format(code))
-        print('{} has {} change log entries'.format(name, num_entries))
-        if num_entries:
-            print('Deleting changes of type {}'.format(name))
-            db.execute(
-                "DELETE FROM change_log "
-                "WHERE change_type_id = {}".format(code))
-    print('Committing...')
-    db.commit()
-    print('Done.')
 
 
 def make_inital_users(db):
