@@ -1280,7 +1280,7 @@ class ConstantsBase(DatabaseAccessor):
             stats['superfluous'] = 0
 
         def insert(root, update, stats=stats):
-            for cls in order[root].keys():
+            for cls in list(order[root].keys()):
                 cls_code_count = 0
                 for code in order[root][cls].values():
                     stats['total'] += 1
