@@ -238,7 +238,8 @@ def process(manager,message, phone_types, affiliations, too_old,
                 affs.append(a['affiliation'])
                 affs.append(a['status'])
             if not any(a in affs for a in affiliations):
-                issues.append('No affiliation')
+                logger.info("Skipping account %s: no affiliation matching %s found" % (account_ident, affiliations[0]))
+                continue
 
         pe.clear()
         pe.find(ac.owner_id)
