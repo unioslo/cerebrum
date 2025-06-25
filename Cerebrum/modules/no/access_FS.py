@@ -2090,6 +2090,7 @@ class roles_xml_parser(non_nested_xml_parser):
             'rolletype': None,
             'plnr': None,
             'periodestatuskode': None,
+            'personrollenr': None, 
         }
         data = attrs.copy()
         target = None
