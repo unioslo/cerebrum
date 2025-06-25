@@ -1,47 +1,11 @@
 # -*- coding: utf-8 -*-
 """
-help write out XML documents
-
->>> import xmlprinter
->>> import StringIO
->>> fp = StringIO.StringIO()
->>> xp = xmlprinter.xmlprinter(fp) # The fp need only have a write() method
->>> xp.startDocument()
->>> xp.notationDecl("html", "-//W3C//DTD XHTML 1.1//EN", "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd")
->>> xp.startElement('html',
-...                 {'xmlns': "http://www.w3.org/1999/xhtml",
-...                  'xml:lang': "en-us"})
->>> xp.data("\\n")
->>> xp.startElement('head')
->>> xp.startElement('title')
->>> xp.data("This is the title")
->>> xp.endElement()        # we may omit the element name ('title')
->>> xp.endElement('head')  # or we can include it
->>> xp.data("\\n")
->>> xp.startElement('body')
->>> xp.data("\\n")
->>> xp.startElement('p')
->>> xp.data("This is some information in a paragraph.")
->>> xp.endElement('p')
->>> xp.data("\\n")
->>> xp.emptyElement('hr', {'style': 'color: red'})
->>> xp.data("\\n")
->>> xp.endDocument()       # by default closes remaining tags
->>> print fp.getvalue(),
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en-us">
-<head><title>This is the title</title></head>
-<body>
-<p>This is some information in a paragraph.</p>
-<hr style="color: red" />
-</body></html>
+Help write out XML documents
 
 This module does nothing fancy like indenting.
 
 Distributions for this module can be downloaded at
 https://sourceforge.net/project/showfiles.php?group_id=60881
-
 
 Copyright (C) 2002 Frank J. Tobin, ftobin@neverending.org
 
@@ -52,7 +16,14 @@ License, or (at your option) any later version.
 
 The idea for this module was taken from Perl's XML::Writer.
 """
-__version__  = "0.1.0"
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+
+__version__ = "0.1.0"
 __revision__ = "$Id$"
 
 
@@ -60,7 +31,7 @@ class WellFormedError(Exception):
     pass
 
 
-class xmlprinter(object):
+class xmlprinter(object):  # noqa: N801
     """We try to ensure a well-formed document, but won't check
     things like the validity of element names.
     Method raise WellFormedError if there are well-formed-ness problems.
@@ -76,39 +47,43 @@ class xmlprinter(object):
     def __init__(self, fp, indent_level=0, data_mode=0, input_encoding='UTF-8',
                  encoding_errors='strict'):
         """fp is a file-like object, needing only a write() method"""
-        self._finished     = False
+        self._finished = False
         self._past_doctype = False
-        self._past_decl    = False
-        self._elstack      = []
-        self._inroot       = True
-        self.fp           = fp
+        self._past_decl = False
+        self._elstack = []
+        self._inroot = True
+        self.fp = fp
         self._indent_level = indent_level
         self._data_mode = data_mode
         self._input_encoding = input_encoding
         self._encoding_errors = encoding_errors
 
-    def _encode_str(self, chunk):
-        if type(chunk) is str:
-            chunk = chunk.decode(self._input_encoding)
-        return chunk.encode(self._encoding, self._encoding_errors)
+    def _write(self, text):
+        text = self._decode_str(text)
+        bytestr = text.encode(self._encoding, self._encoding_errors)
+        return self.fp.write(bytestr)
 
-    def startDocument(self, encoding='UTF-8'):
+    def _decode_str(self, chunk):
+        if type(chunk) is bytes:
+            chunk = chunk.decode(self._input_encoding)
+        return chunk
+
+    def startDocument(self, encoding='UTF-8'):  # noqa: N802
         """Begin writing out a document, including the XML declaration.
         Currently the encoding header can be changed from the default,
         but it won't affect how the rest of the document is encoded.
         """
-
         self._encoding = encoding
         if self._past_decl:
             raise WellFormedError("past allowed point for XML declaration")
 
-        self.fp.write('<?xml version=%s encoding=%s?>\n'
-                      % (quoteattr(self.xml_version),
-                         quoteattr(encoding)))
+        self._write(
+            '<?xml version=%s encoding=%s?>\n'
+            % (quoteattr(self.xml_version), quoteattr(encoding))
+        )
         self._past_decl = True
 
-
-    def notationDecl(self, name, public_id=None, system_id=None):
+    def notationDecl(self, name, public_id=None, system_id=None):  # noqa: N802
         """Insert DOCTYPE declaration.
         Can only be added right after document start.
         Optional for a well-formed document.
@@ -116,79 +91,84 @@ class xmlprinter(object):
         if self._past_doctype:
             raise WellFormedError("past allowed point for doctype")
 
-        self.fp.write('<!DOCTYPE %s' % name)
+        self._write('<!DOCTYPE %s' % name)
 
         if public_id is not None and system_id is None:
             raise TypeError("must have system_id with public_id")
 
         if public_id is not None:
-            self.fp.write(" PUBLIC %s %s" % (quoteattr(public_id),
-                                             quoteattr(system_id)))
+            self._write(" PUBLIC %s %s" % (quoteattr(public_id),
+                                           quoteattr(system_id)))
         elif system_id is not None:
-            self.fp.write(" SYSTEM %s" % quoteattr(system_id))
+            self._write(" SYSTEM %s" % quoteattr(system_id))
 
-        self.fp.write(">\n")
+        self._write(">\n")
         self._past_doctype = True
 
-
-    def startElement(self, name, attrs={}):
+    def startElement(self, name, attrs=None):  # noqa: N802
         """Start element 'name' with attributes 'attrs'. (<example>)"""
+        attrs = attrs or {}
         self._past_doctype = True
-        self._past_decl    = True
+        self._past_decl = True
 
         if self._finished:
             raise WellFormedError("attempt to add second root element")
 
         if self._data_mode:
-            self.fp.write("\n")
-        self.fp.write(" " * (self._indent_level * len(self._elstack)) +
-                      "<%s" % self._encode_str(name))
+            self._write("\n")
+        self._write(" " * (self._indent_level * len(self._elstack))
+                    + "<%s" % self._decode_str(name))
 
         for attr, val in attrs.items():
-            self.fp.write(" %s=%s" % (self._encode_str(attr),
-                                      self._encode_str( quoteattr(val))))
+            self._write(" %s=%s" % (self._decode_str(attr),
+                                    quoteattr(self._decode_str(val))))
 
-        self.fp.write(">")
+        self._write(">")
         self._elstack.append(name)
         self._inroot = True
         self._has_data = 0
 
     def comment(self, data):
-        self.fp.write("<!-- %s -->" % self._encode_str(data))
+        self._write("<!-- %s -->" % self._decode_str(data))
         if len(self._elstack) == 0:
-            self.fp.write("\n")
+            self._write("\n")
 
     def data(self, data):
         """Add text 'data'."""
         if not self._inroot:
             raise WellFormedError("attempt to add data outside of root")
         self._has_data = 1
-        data = escape(data)
-        self.fp.write(self._encode_str(data))
+        self._write(escape(self._decode_str(data)))
 
-    def dataElement(self, name, data, attrs={}):
+    def dataElement(self, name, data, attrs=None):  # noqa: N802
+        attrs = attrs or {}
         self.startElement(name, attrs)
         self.data(data)
         self.endElement(name)
 
-    def emptyElement(self, name, attrs={}):
+    def emptyElement(self, name, attrs=None):  # noqa: N802
         """Add an empty element (<example />)"""
+        attrs = attrs or {}
         if not self._inroot:
             raise WellFormedError("attempt to add element outside of root")
 
         if self._data_mode:
-            self.fp.write("\n")
-        self.fp.write(" " * (self._indent_level * len(self._elstack)) +
-                      "<%s " % self._encode_str(name))
-        space=""
+            self._write("\n")
+        self._write(" " * (self._indent_level * len(self._elstack))
+                    + "<%s " % self._decode_str(name))
+        space = ""
         for attr, val in attrs.items():
-            self.fp.write("%s%s=%s" % (space,self._encode_str(attr),
-                self._encode_str(quoteattr(val))))
-            space=" "
-        self.fp.write("/>")
+            self._write(
+                "%s%s=%s" % (
+                    space,
+                    self._decode_str(attr),
+                    quoteattr(self._decode_str(val)),
+                ),
+            )
+            space = " "
+        self._write("/>")
 
-
-    def endElement(self, name=None):
+    def endElement(self, name=None):  # noqa: N802
         """End the element 'name'.
         If 'name' is None, then end the most recently-opened element.
         (</example>).
@@ -205,17 +185,17 @@ class xmlprinter(object):
             name = popel
         if not self._has_data:
             if self._data_mode:
-                self.fp.write("\n")
-            self.fp.write(" " * (self._indent_level * len(self._elstack)))
-        self.fp.write("</%s>" % self._encode_str(name))
+                self._write("\n")
+            self._write(" " * (self._indent_level * len(self._elstack)))
+        self._write("</%s>" % self._decode_str(name))
 
         if len(self._elstack) == 0:
             self._inroot = False
             # ensures a newline at the end of a text file
-            self.fp.write("\n")
+            self._write("\n")
         self._has_data = 0
 
-    def endDocument(self, autoclose=True):
+    def endDocument(self, autoclose=True):  # noqa: N802
         """Finish up a document.
         If autoclose is True, then also close any unclosed elements.
         Else, all elements must already be closed.
@@ -234,8 +214,9 @@ class xmlprinter(object):
 
 
 def escape(data):
-    """Escape &, <, and > in a string of data; used for character data."""
-
+    """
+    Escape &, <, and > in a string of data; used for character data.
+    """
     return data.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
@@ -254,14 +235,3 @@ def quoteattr(data):
         data = '"%s"' % data
 
     return data
-
-
-
-def _test():
-    import doctest, xmlprinter
-    return doctest.testmod(xmlprinter)
-
-
-if __name__ == '__main__':
-    _test()
-
