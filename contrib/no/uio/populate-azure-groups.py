@@ -226,6 +226,8 @@ def main():
         include_groups=[
             "meta-ansatt-bilag-900000",
             "meta-tilknyttet-900000",
+            "meta-ansatt-vitenskapelig-900000",
+            "meta-ansatt-tekadm-900000",
         ],
         exclude_groups=[
             "it-uio-ms365-betalende-utflatet",
