@@ -67,6 +67,7 @@ from __future__ import (
 import argparse
 import logging
 import time
+from copy import deepcopy
 
 import six
 
@@ -86,33 +87,48 @@ logger = logging.getLogger(__name__)
 to_xml_encoding = transliterate.for_encoding(XML_ENCODING)
 
 
-def output_element_helper(xml, element, value, attributes=None):
+def get_output_element_helper(xml_writer):
     """
-    Add element to a given xmlwriter document.
+    Get a helper function for adding elements to a given xmlwriter document.
 
-    :type xml: Cerebrum.extlib.xmlprinter.xmlprinter
-    :param str element: the tag name
-    :param str value: optional tag content (plaintext data)
-    :param dict attributes: optional tag attributes
+    :type xml_writer: Cerebrum.extlib.xmlprinter.xmlprinter
+
+    :returns callable:
+        A callable that adds an element to the given document.
+
+        Function signature: func(name, value, attributes=None))
     """
-    # If there are no attributes and no textual value for the element, we do
-    # not need it.
-    if not attributes and (value is None or not six.text_type(value)):
-        return
+    def add_element(name, value, attributes=None):
+        """
+        Add element to the current document.
 
-    value = to_xml_encoding(six.text_type(value))
-    attrs = {
-        k: to_xml_encoding(six.text_type(v))
-        for k, v in (attributes or {}).items()
-    }
+        :param str name: the tag name
+        :param str value: optional tag content (plaintext data)
+        :param dict attributes: optional tag attributes
+        """
+        # If there are no attributes and no textual value for the element, we
+        # do not need it.
+        if not attributes and (value is None or not six.text_type(value)):
+            return
 
-    xml.startElement(element, attrs)
-    xml.data(value)
-    xml.endElement(element)
+        value = to_xml_encoding(six.text_type(value))
+        attrs = {
+            k: to_xml_encoding(six.text_type(v))
+            for k, v in (attributes or {}).items()
+        }
+
+        xml_writer.startElement(name, attrs)
+        xml_writer.data(value)
+        xml_writer.endElement(name)
+
+    return add_element
 
 
 def output_headers(writer, tag, root_ou):
     """Generate a header with (mostly) static data"""
+    output_element = get_output_element_helper(writer)
+    const = root_ou.const
+
     writer.startElement("beskrivelse")
     output_element("kilde", tag)
     output_element("dato", time.strftime("%Y-%m-%d %H:%M:%S"))
@@ -120,7 +136,6 @@ def output_headers(writer, tag, root_ou):
 
     writer.startElement("institusjon")
     output_element("institusjonsnr", cereconf.DEFAULT_INSTITUSJONSNR)
-    const = Factory.get("Constants")()
     name = root_ou.get_name_with_language(name_variant=const.ou_name,
                                           name_language=const.language_nb,
                                           default="")
@@ -132,13 +147,11 @@ def output_headers(writer, tag, root_ou):
     writer.endElement("institusjon")
 
 
-def _cache_ou_data(perspective):
+def _cache_ou_data(db, perspective):
     """Fetch all relevant info for our OUs."""
     logger.debug("Starting caching ou_data")
-
-    db = Factory.get("Database")()
-    const = Factory.get("Constants")()
     ou = Factory.get("OU")(db)
+    const = ou.const
     ous = dict((x["ou_id"], {"parent_id": x["parent_id"]})
                for x in ou.get_structure_mappings(perspective))
 
@@ -152,21 +165,24 @@ def _cache_ou_data(perspective):
     # Now collect the address information
     for row in ou.list_entity_addresses(entity_type=const.entity_ou,
                                         address_type=const.address_post):
-        ous.setdefault(row["entity_id"], dict()).update(
-            {
-                "postadresse": ", ".join(row[x]
-                                         for x in ("address_text", "p_o_box")
-                                         if row[x]),
-                "postnrOgPoststed": " ".join(row[x]
-                                             for x in ("postal_number", "city")
-                                             if row[x]),
-                "land": row["country"],
-            })
+        ous.setdefault(row["entity_id"], dict()).update({
+            "postadresse": ", ".join(
+                row[x]
+                for x in ("address_text", "p_o_box")
+                if row[x]
+            ),
+            "postnrOgPoststed": " ".join(
+                row[x]
+                for x in ("postal_number", "city")
+                if row[x]
+            ),
+            "land": row["country"],
+        })
     logger.debug("Ending caching ou_data: %d entries", len(ous))
     return ous
 
 
-def output_org_units(writer, perspective, spread):
+def output_org_units(writer, db, perspective, spread):
     """Output all OUs exportable to Cristin...
 
     Cristin spec says absolutely nothing about which OUs should be
@@ -192,18 +208,18 @@ def output_org_units(writer, perspective, spread):
     else:
         logger.debug("Outputting all OUs")
 
-    ous = _cache_ou_data(perspective)
-    db = Factory.get("Database")()
+    ous = _cache_ou_data(db, perspective)
     ou = Factory.get("OU")(db)
-    const = Factory.get("Constants")()
+    const = ou.const
 
     writer.startElement("organisasjon")
+    output_element = get_output_element_helper(writer)
 
     filtered_ou_ids = [
         dict(row)
         for row in ou.search(spread=spread, filter_quarantined=True)
     ]
-    for row in filtered_ou_ids:
+    for row in sorted(filtered_ou_ids, key=(lambda r: r['ou_id'])):
         ou_id = row["ou_id"]
         if ou_id not in ous:
             logger.warn("No information about ou_id=%s cached", ou_id)
@@ -256,12 +272,10 @@ def output_org_units(writer, perspective, spread):
     logger.debug("OU output complete")
 
 
-def _cache_person_names(cache, source_system):
+def _cache_person_names(db, cache, source_system):
     """Preload the interesting name tidbits."""
-
-    db = Factory.get("Database")()
     person = Factory.get("Person")(db)
-    const = Factory.get("Constants")()
+    const = person.const
 
     logger.debug("Caching person names")
     # Collect the names...
@@ -286,12 +300,11 @@ def _cache_person_names(cache, source_system):
     return cache
 
 
-def _cache_person_contact_info(cache, source_system):
+def _cache_person_contact_info(db, cache, source_system):
     """Preload the contact info tidbits."""
     logger.debug("Caching person contact info")
-    db = Factory.get("Database")()
     person = Factory.get("Person")(db)
-    const = Factory.get("Constants")()
+    const = person.const
     # Now, collect the contact info (tlf, fax, URL)
     for row in person.list_contact_info(source_system=source_system,
                                         contact_type=(const.contact_phone,
@@ -311,15 +324,14 @@ def _cache_person_contact_info(cache, source_system):
     return cache
 
 
-def _cache_person_external_id(cache, source_system):
+def _cache_person_external_id(db, cache, source_system):
     """Preload various external ids for our employee set.
 
     fnr is the only key of interest.
     """
     logger.debug("Caching person external ids")
-    db = Factory.get("Database")()
     person = Factory.get("Person")(db)
-    const = Factory.get("Constants")()
+    const = person.const
 
     for row in person.search_external_ids(source_system=source_system,
                                           id_type=const.externalid_fodselsnr,
@@ -332,10 +344,9 @@ def _cache_person_external_id(cache, source_system):
     return cache
 
 
-def _cache_person_reservation_data(cache, source_system):
+def _cache_person_reservation_data(db, cache, source_system):
     """Tag all employees as reserved/publishable."""
     logger.debug("Caching person reservation data")
-    db = Factory.get("Database")()
     group = Factory.get("Group")(db)
     try:
         if not hasattr(cereconf, "HIDDEN_PERSONS_GROUP"):
@@ -352,14 +363,13 @@ def _cache_person_reservation_data(cache, source_system):
     return cache
 
 
-def _cache_person_primary_account(cache, source_system):
+def _cache_person_primary_account(db, cache, source_system):
     """Locate primary accounts for everybody in cache."""
     # Ugh, this is so inelegant...
     logger.debug("Caching primary accounts")
     # 1. cache person_id -> primary account_id
-    db = Factory.get("Database")()
     account = Factory.get("Account")(db)
-    const = Factory.get("Constants")()
+    const = account.const
     pid2aid = dict((x["person_id"], x["account_id"])
                    for x in
                    account.list_accounts_by_type(primary_only=True))
@@ -378,7 +388,7 @@ def _cache_person_primary_account(cache, source_system):
     return cache
 
 
-def _cache_person_info(perspective, source_system):
+def _cache_person_info(db, perspective, source_system):
     """Preload info for all of our eligible bachelors...
 
     There is no elegant way of collecting all of the required info. The easiest
@@ -390,12 +400,11 @@ def _cache_person_info(perspective, source_system):
     # following affs:
     # ANSATT/* (however, NOT ANSATT/bilag), TILKNYTTET/*
     #
-    db = Factory.get("Database")()
     person = Factory.get("Person")(db)
-    const = Factory.get("Constants")()
+    const = person.const
 
     logger.debug("Caching person info")
-    ous = _cache_ou_data(perspective)
+    ous = _cache_ou_data(db, perspective)
     # person_id -> <dict with attributes>
     cache = dict()
 
@@ -429,11 +438,11 @@ def _cache_person_info(perspective, source_system):
             cache[person_id]["affiliations"] = list()
         cache[person_id]["affiliations"].append(dict(row))
 
-    cache = _cache_person_names(cache, source_system)
-    cache = _cache_person_contact_info(cache, source_system)
-    cache = _cache_person_external_id(cache, source_system)
-    cache = _cache_person_reservation_data(cache, source_system)
-    cache = _cache_person_primary_account(cache, source_system)
+    cache = _cache_person_names(db, cache, source_system)
+    cache = _cache_person_contact_info(db, cache, source_system)
+    cache = _cache_person_external_id(db, cache, source_system)
+    cache = _cache_person_reservation_data(db, cache, source_system)
+    cache = _cache_person_primary_account(db, cache, source_system)
 
     logger.debug("Caching person data complete: %d entries", len(cache))
     return cache
@@ -442,6 +451,7 @@ def _cache_person_info(perspective, source_system):
 def output_employment(writer, employment, ou_cache):
     """Output one complete employment element.
     """
+    output_element = get_output_element_helper(writer)
 
     ou_id = employment["ou_id"]
     try:
@@ -469,6 +479,7 @@ def output_employment(writer, employment, ou_cache):
 def output_guest(writer, entry, ou_cache):
     """Output one complete guest element (associated, ph.d students, etc).
     """
+    output_element = get_output_element_helper(writer)
     ou_id = entry["ou_id"]
     ou = ou_cache[ou_id]
     writer.startElement("gjest")
@@ -487,10 +498,10 @@ def output_guest(writer, entry, ou_cache):
     writer.endElement("gjest")
 
 
-def output_person(writer, chunk, ou_cache, ou_cache_export):
+def output_person(writer, db, chunk, ou_cache, ou_cache_export):
     """Output data about 1 person."""
-
-    const = Factory.get("Constants")()
+    output_element = get_output_element_helper(writer)
+    const = Factory.get("Constants")(db)
     rstatus = {True: "J", False: "N"}
 
     if const.externalid_fodselsnr not in chunk:
@@ -542,7 +553,7 @@ def output_person(writer, chunk, ou_cache, ou_cache_export):
     writer.endElement("person")
 
 
-def output_people(writer, perspective, source_system, spread):
+def output_people(writer, db, perspective, source_system, spread):
     """Output all people of interest.
 
     We publish people who are:
@@ -560,15 +571,15 @@ def output_people(writer, perspective, source_system, spread):
       - Guest info (from affs)
     """
     logger.debug("Output people started")
-    ous = _cache_ou_data(perspective)
-    ous_filtered = filter_by_spread(ous, spread)
+    ous = _cache_ou_data(db, perspective)
+    ous_filtered = filter_by_spread(db, ous, spread)
     logger.debug('cached ous %d, filtered ous %d.',
                  len(ous), len(ous_filtered))
-    people = _cache_person_info(perspective, source_system)
+    people = _cache_person_info(db, perspective, source_system)
     writer.startElement("personer")
-    for pid in people:
+    for pid in sorted(people):
         data = people[pid]
-        output_person(writer, data, ous, ous_filtered)
+        output_person(writer, db, data, ous, ous_filtered)
 
     writer.endElement("personer")
     logger.debug("Output people complete")
@@ -578,15 +589,14 @@ def output_xml(sink, tag, root_ou, perspective, source_system, spread):
     writer = xmlprinter.xmlprinter(sink,
                                    indent_level=2,
                                    data_mode=True)
-    global output_element
-    output_element = (lambda *rest, **kw:
-                      output_element_helper(writer, *rest, **kw))
+    db = root_ou._db
+
     # Incredibly enough, latin-1 is a requirement.
     writer.startDocument(encoding=XML_ENCODING)
     writer.startElement("fridaImport")
     output_headers(writer, tag, root_ou)
-    output_org_units(writer, perspective, spread)
-    output_people(writer, perspective, source_system, spread)
+    output_org_units(writer, db, perspective, spread)
+    output_people(writer, db, perspective, source_system, spread)
     writer.endElement("fridaImport")
     writer.endDocument()
 
@@ -600,7 +610,7 @@ def find_root_ou(db, identifier):
     # in case it's a sko with "aa-bb-cc"
     identifier = identifier.replace("-", "")
     ou = Factory.get("OU")(db)
-    co = Factory.get("Constants")()
+    co = ou.const
     if (isinstance(identifier, int) or
             isinstance(identifier, six.string_types) and identifier.isdigit()):
         try:
@@ -636,7 +646,7 @@ def find_root_ou(db, identifier):
     raise ValueError("invalid root ou: " + repr(identifier))
 
 
-def filter_by_spread(cache, spread):
+def filter_by_spread(db, cache, spread):
     """
     Return ou-mapping where all org units have the given spread.
 
@@ -647,7 +657,6 @@ def filter_by_spread(cache, spread):
     :param spread: only include org units with this spread
     :rtype dict:
     """
-    db = Factory.get("Database")()
     ou = Factory.get("OU")(db)
     ou_ids = ou.search(spread=spread, filter_quarantined=True)
     filtered_cache = {}
@@ -687,7 +696,6 @@ def prepare_employment(alist, cache, filtered):
     @return list of employments for export.
     """
     counter = [0, ]
-    from copy import deepcopy
     res = deepcopy(alist)
     for index, elm in enumerate(alist):
         temp = elm["ou_id"]
