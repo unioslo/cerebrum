@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2010-2023 University of Oslo, Norway
+# Copyright 2010-2025 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,30 +18,46 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-"""This script generates an XML file destined for the Cristin publishing system.
-
-The export contains information about:
-
-- OU: All OUs in the given perspective that are not in quarantine.
-
-- Persons: We fetch a union of persons by different criterias:
-
-  #. All persons that has an *employment* from the given source system. To fetch
-     employments we use the Cerebrum module `PersonEmployment`.
-
-  #. All persons that has a *TILKNYTTET* affiliation from the given source
-     system.
-
-Relevant docs:
-
-* <http://frida.usit.uio.no/prosjektet/dok/import/institusjonsdata/index.html>
-* CVS: cerebrum-sites/doc/intern/uio/archive/frida
-* <http://www.cristin.no/institusjonsdata/eksempel.xml>
-* <http://www.cristin.no/institusjonsdata/>
-
 """
+Legacy Cristin XML file export.
 
+This script generates an XML file destined for the Cristin publishing system.
+
+Cristin
+========
+Cristin (Current research information system in Norway) is a research
+publication register and publishing system.
+
+More info:
+
+- `The Cris/NVA service <https://sikt.no/tiltak/cris-nva-prosjektet>`_
+- `Cristin XML file integration
+  <https://www.cristin.no/ressurser/dokumentasjon/institusjonsdata/>`_
+
+
+Data
+=====
+The export contains:
+
+Organization
+    The organization tree: All active org units in the given perspective that
+    are not quarantined.
+
+    See: :func:`.output_org_units`
+
+Persons
+    All employees + certain affiliates.
+
+    Empoyees are fetched from :mod:`Cerebrum.modules.no.PersonEmployment`
+    (``mod_personemployment``), and will include anyone with an active
+    employment.
+
+    Other affiliates includes anyone with a `TILKNYTTET@<included-ou>` from the
+    source system used for this export.  This is the same source system used
+    for employee data.
+
+    See: :func:`.output_people` and func:`._cache_person_info`.
+"""
 from __future__ import (
     absolute_import,
     division,
@@ -60,32 +76,36 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.atomicfile import SimilarSizeWriter
 from Cerebrum.extlib import xmlprinter
+from Cerebrum.utils import transliterate
 
 XML_ENCODING = 'iso8859-1'
 
 logger = None
+to_xml_encoding = transliterate.for_encoding(XML_ENCODING)
 
 
-def output_element_helper(xml, element, value, attributes=dict()):
-    """A helper function to output XML elements.
+def output_element_helper(xml, element, value, attributes=None):
+    """
+    Add element to a given xmlwriter document.
 
-    The output element would look like this:
-
-    <ELEMENT KEY1='VALUE1' KEY2='VALUE2' ... >
-      VALUE
-    </ELEMENT>
-
-    ... where KEY, VALUE pairs come from ATTRIBUTES
-
-    This function is just a shorthand, to avoid mistyping the element names
-    in open and close tags.
+    :type xml: Cerebrum.extlib.xmlprinter.xmlprinter
+    :param str element: the tag name
+    :param str value: optional tag content (plaintext data)
+    :param dict attributes: optional tag attributes
     """
     # If there are no attributes and no textual value for the element, we do
     # not need it.
     if not attributes and (value is None or not six.text_type(value)):
         return
-    xml.startElement(element, attributes)
-    xml.data(six.text_type(value))
+
+    value = to_xml_encoding(six.text_type(value))
+    attrs = {
+        k: to_xml_encoding(six.text_type(v))
+        for k, v in (attributes or {}).items()
+    }
+
+    xml.startElement(element, attrs)
+    xml.data(value)
     xml.endElement(element)
 
 
@@ -144,7 +164,7 @@ def _cache_ou_data(perspective):
     return ous
 
 
-def output_OUs(writer, perspective, spread):
+def output_org_units(writer, perspective, spread):
     """Output all OUs exportable to Cristin...
 
     Cristin spec says absolutely nothing about which OUs should be
@@ -177,7 +197,10 @@ def output_OUs(writer, perspective, spread):
 
     writer.startElement("organisasjon")
 
-    filtered_ou_ids = [dict(row) for row in ou.search(spread=spread, filter_quarantined=True)]
+    filtered_ou_ids = [
+        dict(row)
+        for row in ou.search(spread=spread, filter_quarantined=True)
+    ]
     for row in filtered_ou_ids:
         ou_id = row["ou_id"]
         if ou_id not in ous:
@@ -221,6 +244,8 @@ def output_OUs(writer, perspective, spread):
                                             name_language=const.language_nb)
         output_element("navnBokmal", ou_name)
         for element in ("postadresse", "postnrOgPoststed", "land",):
+            logger.debug("element=%s, data=%s", repr(element),
+                         repr(data[element]))
             if element in data:
                 output_element(element, data[element])
         writer.endElement("enhet")
@@ -355,8 +380,8 @@ def _cache_person_info(perspective, source_system):
     """Preload info for all of our eligible bachelors...
 
     There is no elegant way of collecting all of the required info. The easiest
-    is probably to establish an id set for everybody we want to export, and then
-    incrementally augment the data set with what's needed.
+    is probably to establish an id set for everybody we want to export, and
+    then incrementally augment the data set with what's needed.
     """
 
     # First, collect the initial set of candidates. They are the ones with the
@@ -558,7 +583,7 @@ def output_xml(sink, tag, root_ou, perspective, source_system, spread):
     writer.startDocument(encoding=XML_ENCODING)
     writer.startElement("fridaImport")
     output_headers(writer, tag, root_ou)
-    output_OUs(writer, perspective, spread)
+    output_org_units(writer, perspective, spread)
     output_people(writer, perspective, source_system, spread)
     writer.endElement("fridaImport")
     writer.endDocument()
@@ -575,15 +600,15 @@ def find_root_ou(identifier):
     db = Factory.get("Database")()
     ou = Factory.get("OU")(db)
     co = Factory.get("Constants")()
-    if (isinstance(identifier, (long, int)) or
-            isinstance(identifier, (str, unicode)) and identifier.isdigit()):
+    if (isinstance(identifier, int) or
+            isinstance(identifier, six.string_types) and identifier.isdigit()):
         try:
             ou.find(int(identifier))
             return ou
         except Errors.NotFoundError:
             pass
 
-        if isinstance(identifier, (str, unicode)) and len(identifier) == 6:
+        if isinstance(identifier, six.string_types) and len(identifier) == 6:
             try:
                 ou.find_sko(identifier)
                 return ou
@@ -611,12 +636,15 @@ def find_root_ou(identifier):
 
 
 def filter_by_spread(cache, spread):
-    """Return a dict where each element has the spread.
+    """
+    Return ou-mapping where all org units have the given spread.
 
-    Shallow copy is made for values, so changing them will change the originals.
-    @param cache: dict with OU information.
-    @param spread: spread code to filter for.
-    @return dict with elements from cache that have the given spread.
+    Note that this is a shallow copy - the return value will see any change
+    done to the original mapping values.
+
+    :param dict cache: the original ou mapping ({ou-id: {...}})
+    :param spread: only include org units with this spread
+    :rtype dict:
     """
     db = Factory.get("Database")()
     ou = Factory.get("OU")(db)
@@ -632,7 +660,8 @@ def get_ou_for_export(cache, filtered, ou_id, counter):
     """Return ou_id that can be exported.
 
     @param cache: dict with ou information.
-    @param filtered: ous in this list/dict have spread that defines an exportable ou.
+    @param filtered:
+        ous in this list/dict have spread that defines an exportable ou.
     @param ou_id: current value.
     @param counter: list with one integer to count recursive calls.
     @return ou_id to export.
@@ -652,7 +681,8 @@ def prepare_employment(alist, cache, filtered):
 
     @param alist: employments to process.
     @param cache: dict with ous
-    @param filtered: ous in this dict have spread that defines an exportable ou.
+    @param filtered:
+        ous in this dict have spread that defines an exportable ou.
     @return list of employments for export.
     """
     counter = [0, ]
@@ -766,6 +796,7 @@ def main(argv):
                 'No OU has %s spread. To be exported to Cristin an OU'
                 ' must have this spread.', spread)
         sys.exit(1)
+
     with SimilarSizeStreamRecoder(output_file,
                                   mode='w',
                                   encoding=XML_ENCODING) as stream:
