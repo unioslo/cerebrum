@@ -64,23 +64,25 @@ from __future__ import (
     print_function,
     unicode_literals,
 )
-
-import getopt
-import sys
+import argparse
+import logging
 import time
+
 import six
 
 import cereconf
-
+import Cerebrum.logutils
+import Cerebrum.logutils.options
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.atomicfile import SimilarSizeWriter
 from Cerebrum.extlib import xmlprinter
 from Cerebrum.utils import transliterate
+from Cerebrum.utils import argutils
 
 XML_ENCODING = 'iso8859-1'
 
-logger = None
+logger = logging.getLogger(__name__)
 to_xml_encoding = transliterate.for_encoding(XML_ENCODING)
 
 
@@ -589,7 +591,7 @@ def output_xml(sink, tag, root_ou, perspective, source_system, spread):
     writer.endDocument()
 
 
-def find_root_ou(identifier):
+def find_root_ou(db, identifier):
     """Try to find the ou referred to by identifier.
 
     A bit like _get_ou() in bofhd... ou_id/stedkode are acceptable.
@@ -597,7 +599,6 @@ def find_root_ou(identifier):
 
     # in case it's a sko with "aa-bb-cc"
     identifier = identifier.replace("-", "")
-    db = Factory.get("Database")()
     ou = Factory.get("OU")(db)
     co = Factory.get("Constants")()
     if (isinstance(identifier, int) or
@@ -632,7 +633,7 @@ def find_root_ou(identifier):
                  "Available roots: %s", identifier,
                  ", ".join(typesetter(x) for x in
                            sorted(possible_roots)))
-    sys.exit(1)
+    raise ValueError("invalid root ou: " + repr(identifier))
 
 
 def filter_by_spread(cache, spread):
@@ -716,94 +717,109 @@ class SimilarSizeStreamRecoder(SimilarSizeWriter):
         return super(SimilarSizeStreamRecoder, self).write(data)
 
 
-def main(argv):
-    global logger
-    logger = Factory.get_logger("cronjob")
+def main(argv=None):
+    parser = argparse.ArgumentParser(
+        description="Write a legacy Cristin XML export file",
+    )
+    doc_args = parser.add_argument_group("XML document")
+    doc_args.add_argument(
+        "-o", "--output-file",
+        required=True,
+        help="Write XML to %(metavar)s (required)",
+        metavar="FILE",
+    )
+    doc_args.add_argument(
+        "-t", "--tag",
+        required=True,
+        help="Source tag (<kilde>) to set in the XML document (required)",
+        metavar="TAG",
+    )
 
-    root_ou = None
-    output_file = None
-    perspective = None
-    source_system = None
-    tag = None
-    spread = None  # export all OUs
-    args, junk = getopt.getopt(argv[1:],
-                               "o:r:p:s:t:",
-                               ("output-file=",
-                                "root-ou=",
-                                "perspective=",
-                                "source-system=",
-                                "tag=",
-                                "spread=",))
-    for option, value in args:
-        if option in ("-o", "--output-file",):
-            output_file = value
-        elif option in ("-r", "--root-ou",):
-            root_ou = value
-        elif option in ("-p", "--perspective"):
-            perspective = value
-        elif option in ("-s", "--source-system",):
-            source_system = value
-        elif option in ("-t", "--tag",):
-            tag = value
-        elif option in ("--spread",):
-            spread = value
+    org_args = parser.add_argument_group("Org units")
+    root_ou_arg = org_args.add_argument(
+        "-r", "--root-ou",
+        required=True,
+        help="Export OU tree under location code %(metavar)s (required)",
+        metavar="IIAAGG",
+    )
+    perspective_arg = org_args.add_argument(
+        "-p", "--perspective",
+        required=True,
+        help="Export OU tree according to perspective %(metavar)s (required)",
+        metavar="P",
+    )
+    spread_arg = org_args.add_argument(
+        "--spread",
+        help="Optional spread filter for org units",
+    )
 
-    if output_file is None:
-        logger.error("No output file name specified.")
-        sys.exit(1)
+    source_system_arg = parser.add_argument(
+        "-s", "--source-system",
+        required=True,
+        help="Use data and affs from source system %(metavar)s (required)",
+        metavar="SRC",
+    )
 
-    if root_ou is None:
-        logger.error("No root OU is specified.")
-        sys.exit(1)
+    Cerebrum.logutils.options.install_subparser(parser)
+    args = parser.parse_args(argv)
 
-    if tag is None:
-        logger.error("No tag is specified. Can't deduce value for <kilde>")
-        sys.exit(1)
+    Cerebrum.logutils.autoconf('cronjob', args)
+    logger.info('Start %s', parser.prog)
+    logger.debug('args: %s', repr(args))
 
-    const = Factory.get("Constants")()
-    if (not perspective or
-            not const.human2constant(perspective, const.OUPerspective)):
-        logger.error(
-            "Bogus perspective '%s'. Available options are: %s",
-            perspective,
-            ", ".join(six.text_type(x) for x in
-                      const.fetch_constants(const.OUPerspective)))
-        sys.exit(1)
-    perspective = const.human2constant(perspective, const.OUPerspective)
+    db = Factory.get("Database")()
+    const = Factory.get("Constants")(db)
 
-    if (not source_system or
-            not const.human2constant(source_system,
-                                     const.AuthoritativeSystem)):
-        logger.error(
-            "Bogus source '%s'. Available options are: %s",
-            source_system,
-            ", ".join(six.text_type(x) for x in
-                      const.fetch_constants(const.AuthoritativeSystem)))
-        sys.exit(1)
-    source_system = const.human2constant(source_system,
-                                         const.AuthoritativeSystem)
+    #
+    # Validate args
+    #
+    output_file = args.output_file
+    tag = args.tag
 
-    spread = const.human2constant(spread, const.Spread)
-    root_ou_obj = find_root_ou(root_ou)
+    with argutils.ParserContext(parser, root_ou_arg):
+        root_ou = args.root_ou
+        root_ou_obj = find_root_ou(db, root_ou)
+
+    with argutils.ParserContext(parser, perspective_arg):
+        perspective = const.get_constant(const.OUPerspective, args.perspective)
+
+    with argutils.ParserContext(parser, spread_arg):
+        spread = (
+            const.get_constant(const.Spread, args.spread)
+            if args.spread
+            else None
+        )
+
+    with argutils.ParserContext(parser, source_system_arg):
+        source_system = const.get_constant(const.AuthoritativeSystem,
+                                           args.source_system)
+
     if spread and not root_ou_obj.has_spread(spread):
         logger.error(
             'Root OU %s does not have %s spread. To export all OUs '
             'run the script without --spread option.',
-            root_ou,
-            spread)
+            root_ou, spread)
         if len(root_ou_obj.list_all_with_spread(spread)) == 0:
             logger.error(
                 'No OU has %s spread. To be exported to Cristin an OU'
                 ' must have this spread.', spread)
-        sys.exit(1)
+        raise ValueError("invalid spread %s for root ou %s"
+                         % (repr(spread), repr(root_ou)))
 
+    #
+    # Generate XML
+    #
+    logger.info("Generating Cristin XML for %s", repr(args.tag))
     with SimilarSizeStreamRecoder(output_file,
                                   mode='w',
                                   encoding=XML_ENCODING) as stream:
         stream.max_pct_change = 15
         output_xml(stream, tag, root_ou_obj, perspective, source_system,
                    spread)
+        logger.info("Cristin XML written to %s", repr(stream))
+
+    logger.info('Done %s', parser.prog)
 
 
 if __name__ == "__main__":
-    main(sys.argv)
+    main()
