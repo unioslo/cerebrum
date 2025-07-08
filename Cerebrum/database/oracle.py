@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright 2018 University of Oslo, Norway
+#
+# Copyright 2018-2025 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,14 +20,18 @@
 """
 Oracle DB functionality for the people
 """
-
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import codecs
 import datetime
 import os
 
 import cx_Oracle as cx_oracle_module  # noqa: N813
 import six
-from mx import DateTime
 
 from Cerebrum.database import (
     Cursor,
@@ -35,6 +40,7 @@ from Cerebrum.database import (
     kickstart,
 )
 from Cerebrum.Utils import read_password
+from Cerebrum.utils import date_compat
 
 from . import macros
 
@@ -45,7 +51,12 @@ import cereconf
 # Oracle type conversion
 #
 # Type Handlers with cx_Oracle are documented here:
-#   http://www.oracle.com/technetwork/articles/dsl/tuininga-cx-oracle-084866.html
+#
+#  <https://cx-oracle.readthedocs.io/en/8.3.0/user_guide/bind.html#changing-bind-data-types-using-an-input-type-handler>
+#  <https://cx-oracle.readthedocs.io/en/8.3.0/user_guide/sql_execution.html#outputtypehandlers>
+#
+#  <https://python-oracledb.readthedocs.io/en/latest/user_guide/bind.html#inputtypehandlers>
+#  <https://python-oracledb.readthedocs.io/en/latest/user_guide/sql_execution.html#outputtypehandlers>
 #
 # TODO: Should we normalize unicode data in the driver itself? That would kill
 # our ability to read/write and compare unicode data as-is, but would also make
@@ -53,17 +64,23 @@ import cereconf
 #
 
 
-def normalize(unicode_string):
-    return unicode_string
-
-
 def bytes2unicode(value):
     return value.decode('ascii')
 
 
-def datetime2mx(value):
-    return DateTime.DateTime(value.year, value.month, value.day, value.hour,
-                             value.minute, int(value.second))
+if ENABLE_MXDB:
+    import mx.DateTime
+
+    def datetime2mx(value):
+        """ datetime.datetime to mx.DateTime. """
+        return mx.DateTime.DateTime(
+            value.year, value.month, value.day,
+            value.hour, value.minute, int(value.second),
+        )
+else:
+    def datetime2mx(value):
+        """ datetime.datetime to mx.DateTime. """
+        raise NotImplementedError("no mx.DateTime support (ENABLE_MXDB)")
 
 
 def mx2datetime(value):
@@ -72,32 +89,45 @@ def mx2datetime(value):
 
 
 def cx_InputTypeHandler(cursor, value, numElements):  # noqa: N802, N803
+    """ Convert value from Cerebrum to cx_Oracle. """
+
+    # bytestring -> unicode
     if isinstance(value, bytes):
-        # inconverter vs outconverter
-        return cursor.var(six.text_type,
-                          arraysize=numElements,
-                          inconverter=bytes2unicode)
-    elif isinstance(value, six.text_type):
+        return cursor.var(
+            six.text_type,
+            arraysize=numElements,
+            inconverter=bytes2unicode,
+        )
+
+    if isinstance(value, six.text_type):
         # TODO: Normalize?
-        # return cursor.var(six.text_type,
-        #                   arraysize=numElements,
-        #                   inconverter=normalize)
-        pass
-    elif isinstance(value, DateTime.DateTimeType):
-        return cursor.var(datetime.datetime,
-                          arraysize=numElements,
-                          inconverter=mx2datetime)
+        return
+
+    if date_compat.is_mx_datetime(value):
+        # mx.DateTime -> datetime.datetime
+        return cursor.var(
+            datetime.datetime,
+            arraysize=numElements,
+            inconverter=mx2datetime,
+        )
 
 
 def cx_OutputTypeHandler(cursor, name, defaultType, size,  # noqa: N802, N803
                          precision, scale):
-    """ Type casting handler for the cx_Oracle database. """
+    """ Convert value from cx_Oracle to Cerebrum. """
 
     if ENABLE_MXDB and defaultType == cx_oracle_module.DATETIME:
-        return cursor.var(datetime.datetime, size,
-                          arraysize=cursor.arraysize,
-                          outconverter=datetime2mx)
+        # datetime.datetime -> mx.DateTime
+        return cursor.var(
+            datetime.datetime,
+            size,
+            arraysize=cursor.arraysize,
+            outconverter=datetime2mx,
+        )
+
     if defaultType in (cx_oracle_module.STRING, cx_oracle_module.FIXED_CHAR):
+        # string-like -> unicode
+        #
         # TODO: Normalize here? We have no control over the data in FS, but
         # then again, we might need the ability to get the data as-is as well.
         return cursor.var(six.text_type, size, cursor.arraysize)
@@ -119,6 +149,7 @@ class cx_OracleCursor(Cursor):  # noqa: N801
         # must do this, before feeding operation to the backend, since we've
         # effectively extended sql syntax.
         sql, binds = self._translate(operation, parameters)
+
         # Now that we have raw sql, we need to check if binds contains some
         # superfluous identifiers. If it does, we have to purge them, since
         # cx_Oracle bails with an error when there are more binds than free
@@ -128,6 +159,7 @@ class cx_OracleCursor(Cursor):  # noqa: N801
         #    information about this.) This costs extra time, but it is
         #    inevitable, since bindnames() requires a prepared statement.
         self._cursor.prepare(sql)
+
         # 2. Extract the bind names. This is the list we compare to binds. The
         #    problem is of course that this bastard upcases the names.
         actual_binds = self._cursor.bindnames()
@@ -140,8 +172,10 @@ class cx_OracleCursor(Cursor):  # noqa: N801
                 mybinds[next_bind.lower()] = binds[next_bind.lower()]
             else:
                 # what to do?
-                raise ValueError("Cannot remap bind name %s to "
-                                 "actual parameter" % next_bind)
+                raise ValueError(
+                    "Cannot remap bind name %s to actual parameter"
+                    % repr(next_bind)
+                )
 
         # super().execute will redo a considerable part of the work here. It
         # is a performance hit (FIXME: how much of a performance hit?), but
@@ -165,6 +199,7 @@ def ora_op_now(context=None):
 
 @ora_macros.register('from_dual')
 def ora_op_from_dual(context=None):
+    """ Oracle mock-table for selecting constants or performing functions. """
     return 'FROM DUAL'
 
 
