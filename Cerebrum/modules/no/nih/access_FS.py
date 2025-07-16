@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright 2002-2019 University of Oslo, Norway
+#
+# Copyright 2002-2025 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -16,8 +17,12 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-from __future__ import unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import time
 
 from Cerebrum.modules.no import access_FS
@@ -162,35 +167,6 @@ class NIHUndervisning(access_FS.Undervisning):
                               'autumn': 'HØST',
                               'spring': 'VÅR'})
 
-    def list_studenter_underv_enhet(self,
-                                    institusjonsnr,
-                                    emnekode,
-                                    versjonskode,
-                                    terminkode,
-                                    arstall,
-                                    terminnr):
-        """Finn fødselsnumrene til alle studenter på et gitt
-        undervisningsenhet. Skal brukes til å generere grupper for
-        adgang til CF."""
-        qry = """
-        SELECT DISTINCT
-          fodselsdato, personnr
-        FROM fs.undervisningsmelding
-        WHERE
-          institusjonsnr = :institusjonsnr AND
-          emnekode = :emnekode AND
-          versjonskode = :versjonskode AND
-          terminnr = :terminnr AND
-          terminkode = :terminkode AND
-          arstall = :arstall """
-        return self.db.query(qry, {'institusjonsnr': institusjonsnr,
-                                   'emnekode': emnekode,
-                                   'versjonskode': versjonskode,
-                                   'terminnr': terminnr,
-                                   'terminkode': terminkode,
-                                   'arstall': arstall}
-                             )
-
     def list_studenter_alle_kullklasser(self):
         """Hent alle studenter fordelt på kullklasser.
         """
@@ -260,16 +236,26 @@ class NIHStudieInfo(access_FS.StudieInfo):
 
     def list_emner(self):
         """Henter informasjon om emner."""
+        # Endring fra superklasse: inkluderer 'emnenavn_bokmal'
         qry = """
-        SELECT e.emnekode, e.versjonskode, e.institusjonsnr,
-               e.faknr_reglement, e.instituttnr_reglement,
-               e.gruppenr_reglement, e.studienivakode,
-               e.emnenavn_bokmal
-        FROM fs.emne e
-        WHERE e.institusjonsnr = %s AND
-              NVL(e.arstall_eks_siste, %s) >= %s - 1""" % (self.institusjonsnr,
-                                                           self.year, self.year)
-        return self.db.query(qry)
+          SELECT
+            e.emnekode,
+            e.versjonskode,
+            e.institusjonsnr,
+            e.faknr_reglement,
+            e.instituttnr_reglement,
+            e.gruppenr_reglement,
+            e.studienivakode,
+            e.emnenavn_bokmal
+          FROM fs.emne e
+          WHERE e.institusjonsnr = :institusjonsnr
+            AND NVL(e.arstall_eks_siste, :year) >= :year - 1
+        """
+        binds = {
+            'institusjonsnr': self.institusjonsnr,
+            'year': self.year,
+        }
+        return self.db.query(qry, binds)
 
 
 @fsobject('FS')

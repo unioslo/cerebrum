@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright 2002-2019 University of Oslo, Norway
+#
+# Copyright 2002-2025 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -16,8 +17,12 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-from __future__ import unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import time
 
 from Cerebrum.modules.no import access_FS
@@ -136,14 +141,14 @@ class HiOfUndervisning(access_FS.Undervisning):
           This year's 'HØST' is returned.
           If L{only_current} is False, also this year's 'VÅR' is included.
 
-        - From 15th of September to 31st of December: Only this year's 'HØST' is
-          returned.
+        - From 15th of September to 31st of December: Only this year's 'HØST'
+          is returned.
 
         @type only_current: bool
         @param only_current: If set to True, the query is limiting to only the
-            current term. If False, the previous term is also included if we are
-            early in the current term. This has no effect if the current date is
-            more than halfway into the current term.
+            current term. If False, the previous term is also included if we
+            are early in the current term. This has no effect if the current
+            date is more than halfway into the current term.
 
         @rtype: string
         @return: An SQL formatted string that should be put in a larger query.
@@ -225,36 +230,6 @@ class HiOfUndervisning(access_FS.Undervisning):
                                      'spring': 'VÅR'})
     # end list_aktiviteter
 
-    def list_studenter_underv_enhet(self,
-                                    institusjonsnr,
-                                    emnekode,
-                                    versjonskode,
-                                    terminkode,
-                                    arstall,
-                                    terminnr):
-        """Finn fødselsnumrene til alle studenter på et gitt
-        undervisningsenhet. Skal brukes til å generere grupper for
-        adgang til CF."""
-        qry = """
-        SELECT DISTINCT
-          fodselsdato, personnr
-        FROM fs.undervisningsmelding
-        WHERE
-          institusjonsnr = :institusjonsnr AND
-          emnekode = :emnekode AND
-          versjonskode = :versjonskode AND
-          terminnr = :terminnr AND
-          terminkode = :terminkode AND
-          arstall = :arstall """
-        return self.db.query(qry, {'institusjonsnr': institusjonsnr,
-                                   'emnekode': emnekode,
-                                   'versjonskode': versjonskode,
-                                   'terminnr': terminnr,
-                                   'terminkode': terminkode,
-                                   'arstall': arstall}
-                             )
-    # end list_studenter_underv_enhet
-
     def list_studenter_alle_undenh(self):
         """Hent alle studenter på alle undenh.
 
@@ -262,7 +237,7 @@ class HiOfUndervisning(access_FS.Undervisning):
         CF-utplukk og bør således ta minst alle studenter dette og neste
         semester.
         """
-
+        # TODO: This is not implemented in superclass
         qry = """
         SELECT
           fodselsdato, personnr,
@@ -273,13 +248,15 @@ class HiOfUndervisning(access_FS.Undervisning):
           terminkode in (:spring, :autumn) AND
           arstall >= :aar
         """
-
-        return self.db.query(qry,
-                             {"aar": self.year,
-                              'autumn': 'HØST',
-                              'spring': 'VÅR'},
-                              fetchall=True)
-    # end list_studenter_underv_enhet
+        return self.db.query(
+            qry,
+            {
+                "aar": self.year,
+                'autumn': 'HØST',
+                'spring': 'VÅR',
+            },
+            fetchall=True,
+        )
 
     def list_studenter_alle_kullklasser(self):
         """Hent alle studenter fordelt på kullklasser.

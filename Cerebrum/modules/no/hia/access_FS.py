@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright 2002-2019 University of Oslo, Norway
+#
+# Copyright 2002-2025 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -16,8 +17,12 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-from __future__ import unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import time
 
 from Cerebrum.modules.no import access_FS
@@ -46,7 +51,7 @@ class HiAStudent(access_FS.Student):
           s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
           s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
           p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
-          p.adresseland_hjemsted, 
+          p.adresseland_hjemsted,
           p.sprakkode_malform, sps.studieprogramkode, sps.studieretningkode,
           sps.studierettstatkode, sps.studentstatkode, sps.terminkode_kull,
           sps.arstall_kull, p.kjonn, p.status_dod,
@@ -87,8 +92,8 @@ class HiAStudent(access_FS.Student):
           s.adrlin3_kontakt, s.adresseland_kontakt,
           sp.studieprogramkode
         FROM fs.soknadsalternativ sa, fs.opptakstudieprogram osp,
-             fs.opptakstudieprogramtermin ost, fs.soknad s, 
-             fs.studieprogram sp, 
+             fs.opptakstudieprogramtermin ost, fs.soknad s,
+             fs.studieprogram sp,
              fs.person p LEFT JOIN fs.persontelefon pt ON
               pt.fodselsdato = p.fodselsdato AND
               pt.personnr = p.personnr AND
@@ -129,7 +134,7 @@ class HiAStudent(access_FS.Student):
           s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
           s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
           p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
-          p.adresseland_hjemsted, 
+          p.adresseland_hjemsted,
           p.sprakkode_malform, sps.studieprogramkode, sps.studieretningkode,
           sps.studierettstatkode, sps.studentstatkode, sps.terminkode_kull,
           sps.arstall_kull, p.kjonn, p.status_dod,
@@ -212,31 +217,6 @@ class HiAUndervisning(access_FS.Undervisning):
         params['spring'] = 'VÅR'
         params['autumn'] = 'HØST'
         return self.db.query(qry, params)
-
-    def list_studenter_underv_enhet(self, institusjonsnr, emnekode,
-                                    versjonskode, terminkode,
-                                    arstall, terminnr):
-        """Finn fødselsnumrene til alle studenter på et gitt
-        undervisningsenhet. Skal brukes til å generere grupper for
-        adgang til CF."""
-        qry = """
-        SELECT DISTINCT
-        fodselsdato, personnr
-        FROM fs.undervisningsmelding
-        WHERE
-          institusjonsnr = :institusjonsnr AND
-          emnekode = :emnekode AND
-          versjonskode = :versjonskode AND
-          terminnr = :terminnr AND
-          terminkode = :terminkode AND
-          arstall = :arstall """
-        return self.db.query(qry, {'institusjonsnr': institusjonsnr,
-                                   'emnekode': emnekode,
-                                   'versjonskode': versjonskode,
-                                   'terminnr': terminnr,
-                                   'terminkode': terminkode,
-                                   'arstall': arstall}
-                             )
 
     def list_studenter_kull_deprecated(self, studieprogramkode,
                                        terminkode, arstall):

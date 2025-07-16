@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright 2002-2019 University of Oslo, Norway
+#
+# Copyright 2002-2025 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -16,7 +17,12 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-from __future__ import unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import time
 
 from Cerebrum.modules.no import access_FS
@@ -380,12 +386,17 @@ class UiOStudent(access_FS.Student):
     def list_all_students_information(self, last_updated=None):
         extra = ""
         if last_updated:
-            extra = """
-            AND
-            (NVL(p.dato_siste_endring, TO_DATE('1970', 'YYYY')) >= :last_updated
-            OR NVL(s.dato_endring, TO_DATE('1970', 'YYYY')) >= :last_updated OR
-            NVL(s.dato_endret_semadr, TO_DATE('1970', 'YYYY')) >= :last_updated)
-            """
+            extra = " AND (%s) " % (
+                " OR ".join(
+                    "NVL(%s, TO_DATE('1970', 'YYYY')) >= :last_updated"
+                    for field in [
+                        # one of these must be after `last_updated`
+                        "p.dato_siste_endring",
+                        "s.dato_endring",
+                        "s.dato_endret_semadr",
+                    ]
+                )
+            )
         qry = """
         SELECT DISTINCT
             s.studentnr_tildelt
@@ -672,14 +683,19 @@ class UiOStudent(access_FS.Student):
     def list_studieopptak(self, last_updated=None):
         extra = ""
         if last_updated:
-            extra = """
-            AND
-            (NVL(sps.dato_endring, TO_DATE('1970', 'YYYY')) >= :last_updated
-            OR NVL(r.dato_endring, TO_DATE('1970', 'YYYY')) >= :last_updated
-            OR NVL(p.dato_sist_endret, TO_DATE('1970', 'YYYY')) >= :last_updated
-            OR NVL(sp.dato_sist_endret, TO_DATE('1970', 'YYYY'))>= :last_updated
-            OR NVL(s.dato_endring, TO_DATE('1970', 'YYYY')) >= :last_updated)
-            """
+            extra = " AND (%s) " % (
+                " OR ".join(
+                    "NVL(%s, TO_DATE('1970', 'YYYY')) >= :last_updated"
+                    for field in [
+                        # one of these must be after `last_updated`
+                        "sps.dato_endring",
+                        "r.dato_endring",
+                        "p.dato_sist_endret",
+                        "sp.dato_sist_endret",
+                        "s.dato_endring",
+                    ]
+                )
+            )
         qry = """
         SELECT DISTINCT
             s.studentnr_tildelt
@@ -1002,17 +1018,17 @@ class UiOUndervisning(access_FS.Undervisning):
           ve.vurdtidkode_reell=vt.vurdtidkode AND
           vt.arstall_gjelder_i >= :aar2
         """
-
-        result = self.db.query(
+        # TODO: This is not implemented in superclass
+        return self.db.query(
             qry,
-            {"aar1": self.prev_semester_year,
-             "aar2": self.prev_semester_year,
-             'autumn': 'HØST',
-             'spring': 'VÅR'},
-            fetchall=True
+            {
+                'aar1': self.prev_semester_year,
+                'aar2': self.prev_semester_year,
+                'autumn': "HØST",
+                'spring': "VÅR",
+            },
+            fetchall=True,
         )
-        return result
-
 
     def list_studenter_alle_undakt(self):
         """Hent alle studenter på alle undakt.
@@ -1214,7 +1230,8 @@ class UiOForkurs(access_FS.FSObject):
         INNER JOIN FS.STUDENT
           ON FS.STUDENT.FODSELSDATO = FS.VURDKOMBMELDING.FODSELSDATO
             AND FS.STUDENT.PERSONNR = FS.VURDKOMBMELDING.PERSONNR
-            AND FS.STUDENT.INSTITUSJONSNR_EIER = FS.VURDKOMBMELDING.INSTITUSJONSNR_EIER
+            AND FS.STUDENT.INSTITUSJONSNR_EIER =
+              FS.VURDKOMBMELDING.INSTITUSJONSNR_EIER
         INNER JOIN FS.PERSON
           ON FS.PERSON.FODSELSDATO = FS.STUDENT.FODSELSDATO
             AND FS.PERSON.PERSONNR = FS.STUDENT.PERSONNR
@@ -1222,7 +1239,8 @@ class UiOForkurs(access_FS.FSObject):
         LEFT JOIN FS.PERSONTELEFON
           ON FS.PERSON.FODSELSDATO = FS.PERSONTELEFON.FODSELSDATO
             AND FS.PERSON.PERSONNR = FS.PERSONTELEFON.PERSONNR
-            AND FS.PERSON.INSTITUSJONSNR_EIER = FS.PERSONTELEFON.INSTITUSJONSNR_EIER
+            AND FS.PERSON.INSTITUSJONSNR_EIER =
+              FS.PERSONTELEFON.INSTITUSJONSNR_EIER
             AND FS.PERSONTELEFON.TELEFONNRTYPEKODE LIKE 'MOBIL'
         WHERE FS.VURDKOMBMELDING.EMNEKODE LIKE '{}'""".format(course_code))
 
@@ -1314,9 +1332,14 @@ class FSvpd(FS):
            default_tablespace = 'USERS' AND account_status = 'OPEN'
            AND username LIKE :prefixed
         """
-        ret = ({'username': row['username'][len(prefix):]} for row in
-               self.db.query(query, {'prefixed': '%s%%' % prefix},
-                             fetchall=fetchall))
+        ret = (
+            {'username': row['username'][len(prefix):]}
+            for row in self.db.query(
+                query,
+                {'prefixed': '%s%%' % prefix},
+                fetchall=fetchall,
+            )
+        )
         if fetchall:
             return list(ret)
         return ret
