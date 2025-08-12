@@ -107,13 +107,15 @@ class BofhdCommandBase(object):
 
     def __init__(self, db, logger):
         self.__db = db
+        self.__ba = False
+        self.__const = False
+        self.__clconst = False
         self.__logger = logger
 
-        # TODO: Really?
-        self.OU_class = Factory.get("OU")
-        self.Account_class = Factory.get("Account")
-        self.Group_class = Factory.get("Group")
-        self.Person_class = Factory.get("Person")
+        self.ou_class = Factory.get("OU")
+        self.account_class = Factory.get("Account")
+        self.group_class = Factory.get("Group")
+        self.person_class = Factory.get("Person")
 
     @property
     def db(self):
@@ -124,31 +126,28 @@ class BofhdCommandBase(object):
     @property
     def ba(self):
         """ BofhdAuth. """
-        try:
+        if self.__ba:
             return self.__ba
-        except AttributeError:
-            if self.authz is None:
-                return None
-            self.__ba = self.authz(self.db)
-            return self.__ba
+        if self.authz is None:
+            return None
+        self.__ba = self.authz(self.db)
+        return self.__ba
 
     @property
     def const(self):
         """ Constants. """
-        try:
+        if self.__const:
             return self.__const
-        except AttributeError:
-            self.__const = Factory.get("Constants")(self.db)
-            return self.__const
+        self.__const = Factory.get("Constants")(self.db)
+        return self.__const
 
     @property
     def clconst(self):
         """ CLConstants. """
-        try:
+        if self.__clconst:
             return self.__clconst
-        except AttributeError:
-            self.__clconst = Factory.get("CLConstants")(self.db)
-            return self.__clconst
+        self.__clconst = Factory.get("CLConstants")(self.db)
+        return self.__clconst
 
     @property
     def logger(self):
@@ -435,7 +434,7 @@ class BofhdCommandBase(object):
         :param int ou_id: entity id of the org unit
         :param str stedkode: a six digit location code (stedkode)
         """
-        ou = self.OU_class(self.db)
+        ou = self.ou_class(self.db)
         if ou_id is None:
             try:
                 ou.find_sko(stedkode)
@@ -534,14 +533,14 @@ class BofhdCommandBase(object):
         @type actype: str
         @param actype: 'Account' or 'PosixUser'
 
-        @rtype: self.Account_class instance l
+        @rtype: self.account_class instance l
         @return:
           An account associated with the specified id (or an exception is
           raised if nothing suitable matches)
         """
         account = None
         if actype == 'Account':
-            account = self.Account_class(self.db)
+            account = self.account_class(self.db)
         elif actype == 'PosixUser':
             account = Factory.get('PosixUser')(self.db)
         else:
@@ -581,14 +580,14 @@ class BofhdCommandBase(object):
         @param idtype:
           ID type for the group_id specified.
 
-        @rtype: self.Group_class instance.
+        @rtype: self.group_class instance.
         @return:
           A group associated with the specified id (or an exception is raised
           if nothing suitable matches)
         """
         group = None
         if grtype == 'Group':
-            group = self.Group_class(self.db)
+            group = self.group_class(self.db)
         elif grtype == 'PosixGroup':
             group = Factory.get('PosixGroup')(self.db)
         elif grtype == 'DistributionGroup':
@@ -633,7 +632,7 @@ class BofhdCommandBase(object):
         # TODO: Normalize the arguments. This should have similar usage to
         # _get_account, _get_group, ...
         # Also, document the idtype/id combinations.
-        person = self.Person_class(self.db)
+        person = self.person_class(self.db)
         person.clear()
         try:
             if str(idtype) == 'account_name':
@@ -685,9 +684,9 @@ class BofhdCommandBase(object):
             The entity from which we should return the human-readable name.
         """
         # optimise for common cases:
-        if isinstance(entity, self.Account_class):
+        if isinstance(entity, self.account_class):
             return entity.account_name
-        elif isinstance(entity, self.Group_class):
+        elif isinstance(entity, self.group_class):
             return entity.group_name
         else:
             # TODO: extend as needed for quasi entity classes like Disk
@@ -762,8 +761,8 @@ class BofhdCommandBase(object):
         # Okey, we've run out of good options. Let's try a sensible fallback:
         # many entities have a generic name in entity_name. Let's use that:
         try:
-            etname = type("entity_with_name", (Entity.EntityName,
-                                               Entity.Entity), dict())
+            etname = type(six.ensure_str("entity_with_name"), (Entity.EntityName,
+                                                               Entity.Entity), {})
             etname = etname(self.db)
             etname.find(entity_id)
             if etname.get_names():
@@ -889,7 +888,7 @@ class BofhdCommonMethods(BofhdCommandBase):
         """
         self.ba.can_create_group(operator.get_entity_id(),
                                  groupname=groupname)
-        g = self.Group_class(self.db)
+        g = self.group_class(self.db)
         roles = GroupRoles(self.db)
 
         # Check if group name is already in use, raise error if so
