@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2010-2023 University of Oslo, Norway
+# Copyright 2010-2025 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,79 +18,117 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-"""This script generates an XML file destined for the Cristin publishing system.
-
-The export contains information about:
-
-- OU: All OUs in the given perspective that are not in quarantine.
-
-- Persons: We fetch a union of persons by different criterias:
-
-  #. All persons that has an *employment* from the given source system. To fetch
-     employments we use the Cerebrum module `PersonEmployment`.
-
-  #. All persons that has a *TILKNYTTET* affiliation from the given source
-     system.
-
-Relevant docs:
-
-* <http://frida.usit.uio.no/prosjektet/dok/import/institusjonsdata/index.html>
-* CVS: cerebrum-sites/doc/intern/uio/archive/frida
-* <http://www.cristin.no/institusjonsdata/eksempel.xml>
-* <http://www.cristin.no/institusjonsdata/>
-
 """
+Legacy Cristin XML file export.
 
+This script generates an XML file destined for the Cristin publishing system.
+
+Cristin
+========
+Cristin (Current research information system in Norway) is a research
+publication register and publishing system.
+
+More info:
+
+- `The Cris/NVA service <https://sikt.no/tiltak/cris-nva-prosjektet>`_
+- `Cristin XML file integration
+  <https://www.cristin.no/ressurser/dokumentasjon/institusjonsdata/>`_
+
+
+Data
+=====
+The export contains:
+
+Organization
+    The organization tree: All active org units in the given perspective that
+    are not quarantined.
+
+    See: :func:`.output_org_units`
+
+Persons
+    All employees + certain affiliates.
+
+    Empoyees are fetched from :mod:`Cerebrum.modules.no.PersonEmployment`
+    (``mod_personemployment``), and will include anyone with an active
+    employment.
+
+    Other affiliates includes anyone with a `TILKNYTTET@<included-ou>` from the
+    source system used for this export.  This is the same source system used
+    for employee data.
+
+    See: :func:`.output_people` and func:`._cache_person_info`.
+"""
 from __future__ import (
     absolute_import,
     division,
     print_function,
     unicode_literals,
 )
-
-import getopt
-import sys
+import argparse
+import logging
 import time
+from copy import deepcopy
+
 import six
 
 import cereconf
-
+import Cerebrum.logutils
+import Cerebrum.logutils.options
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.atomicfile import SimilarSizeWriter
 from Cerebrum.extlib import xmlprinter
+from Cerebrum.utils import transliterate
+from Cerebrum.utils import argutils
 
 XML_ENCODING = 'iso8859-1'
 
-logger = None
+logger = logging.getLogger(__name__)
+to_xml_encoding = transliterate.for_encoding(XML_ENCODING)
 
 
-def output_element_helper(xml, element, value, attributes=dict()):
-    """A helper function to output XML elements.
-
-    The output element would look like this:
-
-    <ELEMENT KEY1='VALUE1' KEY2='VALUE2' ... >
-      VALUE
-    </ELEMENT>
-
-    ... where KEY, VALUE pairs come from ATTRIBUTES
-
-    This function is just a shorthand, to avoid mistyping the element names
-    in open and close tags.
+def get_output_element_helper(xml_writer):
     """
-    # If there are no attributes and no textual value for the element, we do
-    # not need it.
-    if not attributes and (value is None or not six.text_type(value)):
-        return
-    xml.startElement(element, attributes)
-    xml.data(six.text_type(value))
-    xml.endElement(element)
+    Get a helper function for adding elements to a given xmlwriter document.
+
+    :type xml_writer: Cerebrum.extlib.xmlprinter.xmlprinter
+
+    :returns callable:
+        A callable that adds an element to the given document.
+
+        Function signature: func(name, value, attributes=None))
+    """
+    def add_element(name, value, attributes=None):
+        """
+        Add element to the current document.
+
+        :param str name: the tag name
+        :param str value: optional tag content (plaintext data)
+        :param dict attributes: optional tag attributes
+        """
+        # If there are no attributes and no textual value for the element, we
+        # do not need it.
+        if not attributes and (value is None or not six.text_type(value)):
+            return
+
+        value = to_xml_encoding(six.text_type(value))
+        attrs = {
+            k: to_xml_encoding(six.text_type(v))
+            for k, v in (attributes or {}).items()
+        }
+
+        xml_writer.startElement(name, attrs)
+        xml_writer.data(value)
+        xml_writer.endElement(name)
+
+    return add_element
 
 
 def output_headers(writer, tag, root_ou):
     """Generate a header with (mostly) static data"""
+    output_element = get_output_element_helper(writer)
+    const = root_ou.const
+
     writer.startElement("beskrivelse")
     output_element("kilde", tag)
     output_element("dato", time.strftime("%Y-%m-%d %H:%M:%S"))
@@ -98,7 +136,6 @@ def output_headers(writer, tag, root_ou):
 
     writer.startElement("institusjon")
     output_element("institusjonsnr", cereconf.DEFAULT_INSTITUSJONSNR)
-    const = Factory.get("Constants")()
     name = root_ou.get_name_with_language(name_variant=const.ou_name,
                                           name_language=const.language_nb,
                                           default="")
@@ -110,13 +147,11 @@ def output_headers(writer, tag, root_ou):
     writer.endElement("institusjon")
 
 
-def _cache_ou_data(perspective):
+def _cache_ou_data(db, perspective):
     """Fetch all relevant info for our OUs."""
     logger.debug("Starting caching ou_data")
-
-    db = Factory.get("Database")()
-    const = Factory.get("Constants")()
     ou = Factory.get("OU")(db)
+    const = ou.const
     ous = dict((x["ou_id"], {"parent_id": x["parent_id"]})
                for x in ou.get_structure_mappings(perspective))
 
@@ -130,21 +165,24 @@ def _cache_ou_data(perspective):
     # Now collect the address information
     for row in ou.list_entity_addresses(entity_type=const.entity_ou,
                                         address_type=const.address_post):
-        ous.setdefault(row["entity_id"], dict()).update(
-            {
-                "postadresse": ", ".join(row[x]
-                                         for x in ("address_text", "p_o_box")
-                                         if row[x]),
-                "postnrOgPoststed": " ".join(row[x]
-                                             for x in ("postal_number", "city")
-                                             if row[x]),
-                "land": row["country"],
-            })
+        ous.setdefault(row["entity_id"], dict()).update({
+            "postadresse": ", ".join(
+                row[x]
+                for x in ("address_text", "p_o_box")
+                if row[x]
+            ),
+            "postnrOgPoststed": " ".join(
+                row[x]
+                for x in ("postal_number", "city")
+                if row[x]
+            ),
+            "land": row["country"],
+        })
     logger.debug("Ending caching ou_data: %d entries", len(ous))
     return ous
 
 
-def output_OUs(writer, perspective, spread):
+def output_org_units(writer, db, perspective, spread):
     """Output all OUs exportable to Cristin...
 
     Cristin spec says absolutely nothing about which OUs should be
@@ -170,15 +208,18 @@ def output_OUs(writer, perspective, spread):
     else:
         logger.debug("Outputting all OUs")
 
-    ous = _cache_ou_data(perspective)
-    db = Factory.get("Database")()
+    ous = _cache_ou_data(db, perspective)
     ou = Factory.get("OU")(db)
-    const = Factory.get("Constants")()
+    const = ou.const
 
     writer.startElement("organisasjon")
+    output_element = get_output_element_helper(writer)
 
-    filtered_ou_ids = [dict(row) for row in ou.search(spread=spread, filter_quarantined=True)]
-    for row in filtered_ou_ids:
+    filtered_ou_ids = [
+        dict(row)
+        for row in ou.search(spread=spread, filter_quarantined=True)
+    ]
+    for row in sorted(filtered_ou_ids, key=(lambda r: r['ou_id'])):
         ou_id = row["ou_id"]
         if ou_id not in ous:
             logger.warn("No information about ou_id=%s cached", ou_id)
@@ -221,6 +262,8 @@ def output_OUs(writer, perspective, spread):
                                             name_language=const.language_nb)
         output_element("navnBokmal", ou_name)
         for element in ("postadresse", "postnrOgPoststed", "land",):
+            logger.debug("element=%s, data=%s", repr(element),
+                         repr(data[element]))
             if element in data:
                 output_element(element, data[element])
         writer.endElement("enhet")
@@ -229,12 +272,10 @@ def output_OUs(writer, perspective, spread):
     logger.debug("OU output complete")
 
 
-def _cache_person_names(cache, source_system):
+def _cache_person_names(db, cache, source_system):
     """Preload the interesting name tidbits."""
-
-    db = Factory.get("Database")()
     person = Factory.get("Person")(db)
-    const = Factory.get("Constants")()
+    const = person.const
 
     logger.debug("Caching person names")
     # Collect the names...
@@ -259,12 +300,11 @@ def _cache_person_names(cache, source_system):
     return cache
 
 
-def _cache_person_contact_info(cache, source_system):
+def _cache_person_contact_info(db, cache, source_system):
     """Preload the contact info tidbits."""
     logger.debug("Caching person contact info")
-    db = Factory.get("Database")()
     person = Factory.get("Person")(db)
-    const = Factory.get("Constants")()
+    const = person.const
     # Now, collect the contact info (tlf, fax, URL)
     for row in person.list_contact_info(source_system=source_system,
                                         contact_type=(const.contact_phone,
@@ -284,15 +324,14 @@ def _cache_person_contact_info(cache, source_system):
     return cache
 
 
-def _cache_person_external_id(cache, source_system):
+def _cache_person_external_id(db, cache, source_system):
     """Preload various external ids for our employee set.
 
     fnr is the only key of interest.
     """
     logger.debug("Caching person external ids")
-    db = Factory.get("Database")()
     person = Factory.get("Person")(db)
-    const = Factory.get("Constants")()
+    const = person.const
 
     for row in person.search_external_ids(source_system=source_system,
                                           id_type=const.externalid_fodselsnr,
@@ -305,10 +344,9 @@ def _cache_person_external_id(cache, source_system):
     return cache
 
 
-def _cache_person_reservation_data(cache, source_system):
+def _cache_person_reservation_data(db, cache, source_system):
     """Tag all employees as reserved/publishable."""
     logger.debug("Caching person reservation data")
-    db = Factory.get("Database")()
     group = Factory.get("Group")(db)
     try:
         if not hasattr(cereconf, "HIDDEN_PERSONS_GROUP"):
@@ -325,14 +363,13 @@ def _cache_person_reservation_data(cache, source_system):
     return cache
 
 
-def _cache_person_primary_account(cache, source_system):
+def _cache_person_primary_account(db, cache, source_system):
     """Locate primary accounts for everybody in cache."""
     # Ugh, this is so inelegant...
     logger.debug("Caching primary accounts")
     # 1. cache person_id -> primary account_id
-    db = Factory.get("Database")()
     account = Factory.get("Account")(db)
-    const = Factory.get("Constants")()
+    const = account.const
     pid2aid = dict((x["person_id"], x["account_id"])
                    for x in
                    account.list_accounts_by_type(primary_only=True))
@@ -351,24 +388,23 @@ def _cache_person_primary_account(cache, source_system):
     return cache
 
 
-def _cache_person_info(perspective, source_system):
+def _cache_person_info(db, perspective, source_system):
     """Preload info for all of our eligible bachelors...
 
     There is no elegant way of collecting all of the required info. The easiest
-    is probably to establish an id set for everybody we want to export, and then
-    incrementally augment the data set with what's needed.
+    is probably to establish an id set for everybody we want to export, and
+    then incrementally augment the data set with what's needed.
     """
 
     # First, collect the initial set of candidates. They are the ones with the
     # following affs:
     # ANSATT/* (however, NOT ANSATT/bilag), TILKNYTTET/*
     #
-    db = Factory.get("Database")()
     person = Factory.get("Person")(db)
-    const = Factory.get("Constants")()
+    const = person.const
 
     logger.debug("Caching person info")
-    ous = _cache_ou_data(perspective)
+    ous = _cache_ou_data(db, perspective)
     # person_id -> <dict with attributes>
     cache = dict()
 
@@ -402,11 +438,11 @@ def _cache_person_info(perspective, source_system):
             cache[person_id]["affiliations"] = list()
         cache[person_id]["affiliations"].append(dict(row))
 
-    cache = _cache_person_names(cache, source_system)
-    cache = _cache_person_contact_info(cache, source_system)
-    cache = _cache_person_external_id(cache, source_system)
-    cache = _cache_person_reservation_data(cache, source_system)
-    cache = _cache_person_primary_account(cache, source_system)
+    cache = _cache_person_names(db, cache, source_system)
+    cache = _cache_person_contact_info(db, cache, source_system)
+    cache = _cache_person_external_id(db, cache, source_system)
+    cache = _cache_person_reservation_data(db, cache, source_system)
+    cache = _cache_person_primary_account(db, cache, source_system)
 
     logger.debug("Caching person data complete: %d entries", len(cache))
     return cache
@@ -415,6 +451,7 @@ def _cache_person_info(perspective, source_system):
 def output_employment(writer, employment, ou_cache):
     """Output one complete employment element.
     """
+    output_element = get_output_element_helper(writer)
 
     ou_id = employment["ou_id"]
     try:
@@ -442,6 +479,7 @@ def output_employment(writer, employment, ou_cache):
 def output_guest(writer, entry, ou_cache):
     """Output one complete guest element (associated, ph.d students, etc).
     """
+    output_element = get_output_element_helper(writer)
     ou_id = entry["ou_id"]
     ou = ou_cache[ou_id]
     writer.startElement("gjest")
@@ -460,10 +498,10 @@ def output_guest(writer, entry, ou_cache):
     writer.endElement("gjest")
 
 
-def output_person(writer, chunk, ou_cache, ou_cache_export):
+def output_person(writer, db, chunk, ou_cache, ou_cache_export):
     """Output data about 1 person."""
-
-    const = Factory.get("Constants")()
+    output_element = get_output_element_helper(writer)
+    const = Factory.get("Constants")(db)
     rstatus = {True: "J", False: "N"}
 
     if const.externalid_fodselsnr not in chunk:
@@ -515,7 +553,7 @@ def output_person(writer, chunk, ou_cache, ou_cache_export):
     writer.endElement("person")
 
 
-def output_people(writer, perspective, source_system, spread):
+def output_people(writer, db, perspective, source_system, spread):
     """Output all people of interest.
 
     We publish people who are:
@@ -533,15 +571,15 @@ def output_people(writer, perspective, source_system, spread):
       - Guest info (from affs)
     """
     logger.debug("Output people started")
-    ous = _cache_ou_data(perspective)
-    ous_filtered = filter_by_spread(ous, spread)
+    ous = _cache_ou_data(db, perspective)
+    ous_filtered = filter_by_spread(db, ous, spread)
     logger.debug('cached ous %d, filtered ous %d.',
                  len(ous), len(ous_filtered))
-    people = _cache_person_info(perspective, source_system)
+    people = _cache_person_info(db, perspective, source_system)
     writer.startElement("personer")
-    for pid in people:
+    for pid in sorted(people):
         data = people[pid]
-        output_person(writer, data, ous, ous_filtered)
+        output_person(writer, db, data, ous, ous_filtered)
 
     writer.endElement("personer")
     logger.debug("Output people complete")
@@ -551,20 +589,19 @@ def output_xml(sink, tag, root_ou, perspective, source_system, spread):
     writer = xmlprinter.xmlprinter(sink,
                                    indent_level=2,
                                    data_mode=True)
-    global output_element
-    output_element = (lambda *rest, **kw:
-                      output_element_helper(writer, *rest, **kw))
+    db = root_ou._db
+
     # Incredibly enough, latin-1 is a requirement.
     writer.startDocument(encoding=XML_ENCODING)
     writer.startElement("fridaImport")
     output_headers(writer, tag, root_ou)
-    output_OUs(writer, perspective, spread)
-    output_people(writer, perspective, source_system, spread)
+    output_org_units(writer, db, perspective, spread)
+    output_people(writer, db, perspective, source_system, spread)
     writer.endElement("fridaImport")
     writer.endDocument()
 
 
-def find_root_ou(identifier):
+def find_root_ou(db, identifier):
     """Try to find the ou referred to by identifier.
 
     A bit like _get_ou() in bofhd... ou_id/stedkode are acceptable.
@@ -572,18 +609,17 @@ def find_root_ou(identifier):
 
     # in case it's a sko with "aa-bb-cc"
     identifier = identifier.replace("-", "")
-    db = Factory.get("Database")()
     ou = Factory.get("OU")(db)
-    co = Factory.get("Constants")()
-    if (isinstance(identifier, (long, int)) or
-            isinstance(identifier, (str, unicode)) and identifier.isdigit()):
+    co = ou.const
+    if (isinstance(identifier, int) or
+            isinstance(identifier, six.string_types) and identifier.isdigit()):
         try:
             ou.find(int(identifier))
             return ou
         except Errors.NotFoundError:
             pass
 
-        if isinstance(identifier, (str, unicode)) and len(identifier) == 6:
+        if isinstance(identifier, six.string_types) and len(identifier) == 6:
             try:
                 ou.find_sko(identifier)
                 return ou
@@ -607,18 +643,20 @@ def find_root_ou(identifier):
                  "Available roots: %s", identifier,
                  ", ".join(typesetter(x) for x in
                            sorted(possible_roots)))
-    sys.exit(1)
+    raise ValueError("invalid root ou: " + repr(identifier))
 
 
-def filter_by_spread(cache, spread):
-    """Return a dict where each element has the spread.
-
-    Shallow copy is made for values, so changing them will change the originals.
-    @param cache: dict with OU information.
-    @param spread: spread code to filter for.
-    @return dict with elements from cache that have the given spread.
+def filter_by_spread(db, cache, spread):
     """
-    db = Factory.get("Database")()
+    Return ou-mapping where all org units have the given spread.
+
+    Note that this is a shallow copy - the return value will see any change
+    done to the original mapping values.
+
+    :param dict cache: the original ou mapping ({ou-id: {...}})
+    :param spread: only include org units with this spread
+    :rtype dict:
+    """
     ou = Factory.get("OU")(db)
     ou_ids = ou.search(spread=spread, filter_quarantined=True)
     filtered_cache = {}
@@ -632,7 +670,8 @@ def get_ou_for_export(cache, filtered, ou_id, counter):
     """Return ou_id that can be exported.
 
     @param cache: dict with ou information.
-    @param filtered: ous in this list/dict have spread that defines an exportable ou.
+    @param filtered:
+        ous in this list/dict have spread that defines an exportable ou.
     @param ou_id: current value.
     @param counter: list with one integer to count recursive calls.
     @return ou_id to export.
@@ -652,11 +691,11 @@ def prepare_employment(alist, cache, filtered):
 
     @param alist: employments to process.
     @param cache: dict with ous
-    @param filtered: ous in this dict have spread that defines an exportable ou.
+    @param filtered:
+        ous in this dict have spread that defines an exportable ou.
     @return list of employments for export.
     """
     counter = [0, ]
-    from copy import deepcopy
     res = deepcopy(alist)
     for index, elm in enumerate(alist):
         temp = elm["ou_id"]
@@ -686,93 +725,109 @@ class SimilarSizeStreamRecoder(SimilarSizeWriter):
         return super(SimilarSizeStreamRecoder, self).write(data)
 
 
-def main(argv):
-    global logger
-    logger = Factory.get_logger("cronjob")
+def main(argv=None):
+    parser = argparse.ArgumentParser(
+        description="Write a legacy Cristin XML export file",
+    )
+    doc_args = parser.add_argument_group("XML document")
+    doc_args.add_argument(
+        "-o", "--output-file",
+        required=True,
+        help="Write XML to %(metavar)s (required)",
+        metavar="FILE",
+    )
+    doc_args.add_argument(
+        "-t", "--tag",
+        required=True,
+        help="Source tag (<kilde>) to set in the XML document (required)",
+        metavar="TAG",
+    )
 
-    root_ou = None
-    output_file = None
-    perspective = None
-    source_system = None
-    tag = None
-    spread = None  # export all OUs
-    args, junk = getopt.getopt(argv[1:],
-                               "o:r:p:s:t:",
-                               ("output-file=",
-                                "root-ou=",
-                                "perspective=",
-                                "source-system=",
-                                "tag=",
-                                "spread=",))
-    for option, value in args:
-        if option in ("-o", "--output-file",):
-            output_file = value
-        elif option in ("-r", "--root-ou",):
-            root_ou = value
-        elif option in ("-p", "--perspective"):
-            perspective = value
-        elif option in ("-s", "--source-system",):
-            source_system = value
-        elif option in ("-t", "--tag",):
-            tag = value
-        elif option in ("--spread",):
-            spread = value
+    org_args = parser.add_argument_group("Org units")
+    root_ou_arg = org_args.add_argument(
+        "-r", "--root-ou",
+        required=True,
+        help="Export OU tree under location code %(metavar)s (required)",
+        metavar="IIAAGG",
+    )
+    perspective_arg = org_args.add_argument(
+        "-p", "--perspective",
+        required=True,
+        help="Export OU tree according to perspective %(metavar)s (required)",
+        metavar="P",
+    )
+    spread_arg = org_args.add_argument(
+        "--spread",
+        help="Optional spread filter for org units",
+    )
 
-    if output_file is None:
-        logger.error("No output file name specified.")
-        sys.exit(1)
+    source_system_arg = parser.add_argument(
+        "-s", "--source-system",
+        required=True,
+        help="Use data and affs from source system %(metavar)s (required)",
+        metavar="SRC",
+    )
 
-    if root_ou is None:
-        logger.error("No root OU is specified.")
-        sys.exit(1)
+    Cerebrum.logutils.options.install_subparser(parser)
+    args = parser.parse_args(argv)
 
-    if tag is None:
-        logger.error("No tag is specified. Can't deduce value for <kilde>")
-        sys.exit(1)
+    Cerebrum.logutils.autoconf('cronjob', args)
+    logger.info('Start %s', parser.prog)
+    logger.debug('args: %s', repr(args))
 
-    const = Factory.get("Constants")()
-    if (not perspective or
-            not const.human2constant(perspective, const.OUPerspective)):
-        logger.error(
-            "Bogus perspective '%s'. Available options are: %s",
-            perspective,
-            ", ".join(six.text_type(x) for x in
-                      const.fetch_constants(const.OUPerspective)))
-        sys.exit(1)
-    perspective = const.human2constant(perspective, const.OUPerspective)
+    db = Factory.get("Database")()
+    const = Factory.get("Constants")(db)
 
-    if (not source_system or
-            not const.human2constant(source_system,
-                                     const.AuthoritativeSystem)):
-        logger.error(
-            "Bogus source '%s'. Available options are: %s",
-            source_system,
-            ", ".join(six.text_type(x) for x in
-                      const.fetch_constants(const.AuthoritativeSystem)))
-        sys.exit(1)
-    source_system = const.human2constant(source_system,
-                                         const.AuthoritativeSystem)
+    #
+    # Validate args
+    #
+    output_file = args.output_file
+    tag = args.tag
 
-    spread = const.human2constant(spread, const.Spread)
-    root_ou_obj = find_root_ou(root_ou)
+    with argutils.ParserContext(parser, root_ou_arg):
+        root_ou = args.root_ou
+        root_ou_obj = find_root_ou(db, root_ou)
+
+    with argutils.ParserContext(parser, perspective_arg):
+        perspective = const.get_constant(const.OUPerspective, args.perspective)
+
+    with argutils.ParserContext(parser, spread_arg):
+        spread = (
+            const.get_constant(const.Spread, args.spread)
+            if args.spread
+            else None
+        )
+
+    with argutils.ParserContext(parser, source_system_arg):
+        source_system = const.get_constant(const.AuthoritativeSystem,
+                                           args.source_system)
+
     if spread and not root_ou_obj.has_spread(spread):
         logger.error(
             'Root OU %s does not have %s spread. To export all OUs '
             'run the script without --spread option.',
-            root_ou,
-            spread)
+            root_ou, spread)
         if len(root_ou_obj.list_all_with_spread(spread)) == 0:
             logger.error(
                 'No OU has %s spread. To be exported to Cristin an OU'
                 ' must have this spread.', spread)
-        sys.exit(1)
+        raise ValueError("invalid spread %s for root ou %s"
+                         % (repr(spread), repr(root_ou)))
+
+    #
+    # Generate XML
+    #
+    logger.info("Generating Cristin XML for %s", repr(args.tag))
     with SimilarSizeStreamRecoder(output_file,
                                   mode='w',
                                   encoding=XML_ENCODING) as stream:
         stream.max_pct_change = 15
         output_xml(stream, tag, root_ou_obj, perspective, source_system,
                    spread)
+        logger.info("Cristin XML written to %s", repr(stream))
+
+    logger.info('Done %s', parser.prog)
 
 
 if __name__ == "__main__":
-    main(sys.argv)
+    main()
