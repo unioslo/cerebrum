@@ -112,10 +112,11 @@ class BofhdCommandBase(object):
         self.__clconst = False
         self.__logger = logger
 
-        self.ou_class = Factory.get("OU")
-        self.account_class = Factory.get("Account")
-        self.group_class = Factory.get("Group")
-        self.person_class = Factory.get("Person")
+        # TODO: Really?
+        self.OU_class = Factory.get("OU")
+        self.Account_class = Factory.get("Account")
+        self.Group_class = Factory.get("Group")
+        self.Person_class = Factory.get("Person")
 
     @property
     def db(self):
@@ -434,7 +435,7 @@ class BofhdCommandBase(object):
         :param int ou_id: entity id of the org unit
         :param str stedkode: a six digit location code (stedkode)
         """
-        ou = self.ou_class(self.db)
+        ou = self.OU_class(self.db)
         if ou_id is None:
             try:
                 ou.find_sko(stedkode)
@@ -533,14 +534,14 @@ class BofhdCommandBase(object):
         @type actype: str
         @param actype: 'Account' or 'PosixUser'
 
-        @rtype: self.account_class instance l
+        @rtype: self.Account_class instance l
         @return:
           An account associated with the specified id (or an exception is
           raised if nothing suitable matches)
         """
         account = None
         if actype == 'Account':
-            account = self.account_class(self.db)
+            account = self.Account_class(self.db)
         elif actype == 'PosixUser':
             account = Factory.get('PosixUser')(self.db)
         else:
@@ -580,14 +581,14 @@ class BofhdCommandBase(object):
         @param idtype:
           ID type for the group_id specified.
 
-        @rtype: self.group_class instance.
+        @rtype: self.Group_class instance.
         @return:
           A group associated with the specified id (or an exception is raised
           if nothing suitable matches)
         """
         group = None
         if grtype == 'Group':
-            group = self.group_class(self.db)
+            group = self.Group_class(self.db)
         elif grtype == 'PosixGroup':
             group = Factory.get('PosixGroup')(self.db)
         elif grtype == 'DistributionGroup':
@@ -632,7 +633,7 @@ class BofhdCommandBase(object):
         # TODO: Normalize the arguments. This should have similar usage to
         # _get_account, _get_group, ...
         # Also, document the idtype/id combinations.
-        person = self.person_class(self.db)
+        person = self.Person_class(self.db)
         person.clear()
         try:
             if str(idtype) == 'account_name':
@@ -684,9 +685,9 @@ class BofhdCommandBase(object):
             The entity from which we should return the human-readable name.
         """
         # optimise for common cases:
-        if isinstance(entity, self.account_class):
+        if isinstance(entity, self.Account_class):
             return entity.account_name
-        elif isinstance(entity, self.group_class):
+        elif isinstance(entity, self.Group_class):
             return entity.group_name
         else:
             # TODO: extend as needed for quasi entity classes like Disk
@@ -888,7 +889,7 @@ class BofhdCommonMethods(BofhdCommandBase):
         """
         self.ba.can_create_group(operator.get_entity_id(),
                                  groupname=groupname)
-        g = self.group_class(self.db)
+        g = self.Group_class(self.db)
         roles = GroupRoles(self.db)
 
         # Check if group name is already in use, raise error if so
