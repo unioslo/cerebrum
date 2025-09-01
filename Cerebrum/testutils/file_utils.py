@@ -147,12 +147,12 @@ def write_bytes(filename, bytestring):
         f.write(bytestring)
 
 
-def read_text(filename, text, encoding="utf-8"):
+def read_text(filename, encoding="utf-8"):
     with file_stream.get_input_context(filename, encoding=encoding) as f:
         return f.read()
 
 
-def read_bytes(filename, text):
+def read_bytes(filename):
     with file_stream.get_input_context(filename, encoding=None) as f:
         return f.read()
 
@@ -163,7 +163,7 @@ def write_json(filename, data, indent=2, sort_keys=True, **kwargs):
         json.dump(data, f, indent=2, sort_keys=True)
 
 
-def read_json(filename, data):
+def read_json(filename):
     encoding = None if str is bytes else "utf-8"
     with file_stream.get_input_context(filename, encoding=encoding) as f:
         return json.load(f)

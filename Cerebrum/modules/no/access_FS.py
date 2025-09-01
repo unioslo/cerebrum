@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright 2002-2024 University of Oslo, Norway
+#
+# Copyright 2002-2025 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -16,30 +17,40 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""
+Klasser for aksesering av FS.
 
-"""Klasser for aksesering av FS.  Institusjons-spesifik bruk av FS bør
+Institusjons-spesifik bruk av FS bør
 håndteres ved å subklasse relevante deler av denne koden.  Tilsvarende
 dersom man skal ha kode for en spesifik FS-versjon.
 
 Disse klassene er ment brukt ved å instansiere klassen FS
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
-from __future__ import unicode_literals
-
-import cereconf
-
-import time
-import xml.sax
 import collections
 import functools
+import inspect
+import logging
 import operator
+import time
+import xml.sax
+
 import six
 
-from Cerebrum import database as Database
+import cereconf
 from Cerebrum import Errors
+from Cerebrum import database as database_mod
 from Cerebrum.utils import phone
-from Cerebrum.Utils import Factory, dyn_import
+from Cerebrum.utils.module import import_item
 
+
+logger = logging.getLogger(__name__)
 
 # A tuple to hold the version number
 Version = collections.namedtuple('Version', 'major minor patch'.split())
@@ -122,9 +133,10 @@ class VersionSpec(object):
                 self.end_open == other.end_open)
 
     def __hash__(self):
-        return functools.reduce(operator.xor, map(hash,
-                                        [self.start, self.end,
-                                         self.start_open, self.end_open]))
+        return functools.reduce(
+            operator.xor,
+            map(hash, [self.start, self.end, self.start_open, self.end_open]),
+        )
 
     def __lt__(self, other):
         """
@@ -248,7 +260,6 @@ def fsobject(name, versions='>=1', version_to=None):
     and (version, version_to) is sent to parse_version_spec().
     :return: Decorating function
     """
-    import inspect
     if version_to:
         versions = tuple(versions, version_to)
 
@@ -292,20 +303,19 @@ def make_fs(db=None, user=None, database=None, override_version=None):
         (useful for testing)
     :returns: New FS object, initialized with db
     """
-    import inspect
     if db is None:
         user = user or cereconf.FS_USER
         database = database or cereconf.FS_DATABASE_NAME
-        DB_driver = getattr(cereconf, 'DB_DRIVER_ORACLE', 'cx_Oracle')
-        db = Database.connect(user=user, service=database,
-                              DB_driver=DB_driver)
+        db_driver = getattr(cereconf, 'DB_DRIVER_ORACLE', 'cx_Oracle')
+        db = database_mod.connect(user=user, service=database,
+                                  DB_driver=db_driver)
     if override_version:
         version = override_version
     else:
         version = _get_fs_version(db)
     module = getattr(cereconf, 'FS_MODULE', inspect.getmodule(
         make_fs).__name__)
-    dyn_import(module)
+    import_item(module)
     cls = find_best_version(module, 'FS', version)
     if cls:
         return cls(db)
@@ -1226,7 +1236,9 @@ class Student(FSObject):
 
 @fsobject('undervisning')
 class Undervisning(FSObject):
-    def list_aktivitet(self, Instnr, emnekode, versjon, termk,
+
+    def list_aktivitet(self, Instnr, emnekode,  # noqa: N803
+                       versjon, termk,
                        aar, termnr, aktkode):  # GetStudUndAktivitet
         qry = """
         SELECT
@@ -1331,7 +1343,8 @@ class Undervisning(FSObject):
                               'autumn': 'HØST',
                               'spring': 'VÅR'})
 
-    def get_undform_aktiviteter(self, Instnr, emnekode, versjon, termk,
+    def get_undform_aktiviteter(self, Instnr, emnekode,  # noqa: N803
+                                versjon, termk,
                                 aar, termnr, undformkode):
         """
         Returnerer alle aktiviteter med en gitt undformkode innen det
@@ -1392,65 +1405,42 @@ class Undervisning(FSObject):
                 'autumn': 'HØST',
                 'spring': 'VÅR'})
 
-    def list_studenter_underv_enhet(self, Instnr, emnekode,
-                                    versjon, termk, aar, termnr):
-        # Den ulekre repetisjonen av bind-parametere under synes
-        # dessverre å være nødvendig; ut fra foreløpig testing ser det
-        # ut til at enten Oracle eller DCOracle2 krever at dersom et
-        # statement består av flere uavhengige SELECTs, og SELECT
-        # nr. N bruker minst en bind-variabel nevnt i SELECT nr. x,
-        # der x < N, må SELECT nr. N *kun* bruke de bind-variablene
-        # som også finnes i SELECT nr. x.
-        qry = """
-        SELECT
-          fodselsdato, personnr
-        FROM
-          FS.UNDERVISNINGSMELDING
-        WHERE
-          institusjonsnr = :und_instnr AND
-          emnekode       = :und_emnekode AND
-          versjonskode   = :und_versjon AND
-          terminkode     = :und_terminkode AND
-          arstall        = :und_arstall AND
-          terminnr       = :und_terminnr
-        UNION
-        SELECT DISTINCT
-          fodselsdato, personnr
-        FROM
-          fs.vurdkombmelding vm, fs.vurderingstid vt,
-          fs.vurdkombenhet ve, fs.vurderingskombinasjon vk
-        WHERE
-          vm.institusjonsnr    = :instnr AND
-          vm.emnekode          = :emnekode AND
-          vm.versjonskode      = :versjon AND
-          vt.arstall_gjelder_i = :arstall AND
-          ve.arstall_reell = vt.arstall AND
-          ve.vurdtidkode_reell = vt.vurdtidkode AND
-          vm.institusjonsnr=ve.institusjonsnr AND
-          vm.emnekode=ve.emnekode AND
-          vm.versjonskode=ve.versjonskode AND
-          vm.vurdkombkode=ve.vurdkombkode AND
-          vm.vurdtidkode=ve.vurdtidkode AND
-          vm.arstall=ve.arstall AND
-          vm.vurdkombkode=ve.vurdkombkode AND
-          ve.institusjonsnr = vk.institusjonsnr AND
-          ve.emnekode = vk.emnekode AND
-          ve.versjonskode = vk.versjonskode AND
-          ve.vurdkombkode = vk.vurdkombkode AND
-          vk.vurdordningkode IS NOT NULL AND
-          vt.terminkode_gjelder_i = :termk
+    def list_studenter_underv_enhet(self,
+                                    institusjonsnr,
+                                    emnekode,
+                                    versjonskode,
+                                    terminkode,
+                                    arstall,
+                                    terminnr):
         """
-        return self.db.query(qry, {'und_instnr': Instnr,
-                                   'und_emnekode': emnekode,
-                                   'und_versjon': versjon,
-                                   'und_terminkode': termk,
-                                   'und_arstall': aar,
-                                   'und_terminnr': termnr,
-                                   'instnr': Instnr,
-                                   'emnekode': emnekode,
-                                   'versjon': versjon,
-                                   'arstall': aar,
-                                   'termk': termk})
+        Finn fødselsnumrene til alle studenter på et gitt undervisningsenhet.
+
+        Brukes i enkelte FS-importer + export_abc.
+        """
+        qry = """
+          SELECT DISTINCT
+            fodselsdato, personnr
+          FROM
+            fs.undervisningsmelding
+          WHERE
+            institusjonsnr = :institusjonsnr AND
+            emnekode = :emnekode AND
+            versjonskode = :versjonskode AND
+            terminnr = :terminnr AND
+            terminkode = :terminkode AND
+            arstall = :arstall
+        """
+        return self.db.query(
+            qry,
+            {
+                'institusjonsnr': institusjonsnr,
+                'emnekode': emnekode,
+                'versjonskode': versjonskode,
+                'terminnr': terminnr,
+                'terminkode': terminkode,
+                'arstall': arstall,
+            },
+        )
 
     def list_fagperson_semester(self):  # GetFagperson_50
         # (GetKursFagpersonundsemester var duplikat)
@@ -1784,18 +1774,26 @@ class StudieInfo(FSObject):
             qry += " WHERE status_utgatt = 'N'"
         return self.db.query(qry)
 
-    def list_emner(self):  # GetEmneinf
-        """For hvert definerte emne henter vi informasjon om
-           ansvarlig sted."""
+    def list_emner(self):
+        """Henter informasjon om emner."""
         qry = """
-        SELECT e.emnekode, e.versjonskode, e.institusjonsnr,
-               e.faknr_reglement, e.instituttnr_reglement,
-               e.gruppenr_reglement, e.studienivakode
-        FROM fs.emne e
-        WHERE e.institusjonsnr = %s AND
-        NVL(e.arstall_eks_siste, %s) >= %s - 1""" % (
-            self.institusjonsnr, self.year, self.year)
-        return self.db.query(qry)
+          SELECT
+            e.emnekode,
+            e.versjonskode,
+            e.institusjonsnr,
+            e.faknr_reglement,
+            e.instituttnr_reglement,
+            e.gruppenr_reglement,
+            e.studienivakode
+          FROM fs.emne e
+          WHERE e.institusjonsnr = :institusjonsnr
+            AND NVL(e.arstall_eks_siste, :year) >= :year - 1
+        """
+        binds = {
+            'institusjonsnr': self.institusjonsnr,
+            'year': self.year,
+        }
+        return self.db.query(qry, binds)
 
     def get_emne_i_studieprogram(self, emne):  # GetEmneIStudProg
         """Hent alle studieprogrammer et gitt emne kan inngå i."""
@@ -1859,13 +1857,14 @@ class StudieInfo(FSObject):
 
 @fsobject("FS")
 class FS(object):
+
     def __init__(self, db=None, user=None, database=None):
         if db is None:
             user = user or cereconf.FS_USER
             database = database or cereconf.FS_DATABASE_NAME
-            DB_driver = getattr(cereconf, 'DB_DRIVER_ORACLE', 'cx_Oracle')
+            db_driver = getattr(cereconf, 'DB_DRIVER_ORACLE', 'cx_Oracle')
             db = database.connect(user=user, service=database,
-                                  DB_driver=DB_driver)
+                                  DB_driver=db_driver)
         self.db = db
         self.fsversion = _get_fs_version(self.db)
         for comp in 'person student undervisning evu alumni forkurs'.split():
@@ -1875,7 +1874,6 @@ class FS(object):
     def _component(self, name):
         """Find fsobject for sub objects."""
         # TODO: Should we follow mro instead of use self and this module
-        import inspect
         cand = find_best_version(inspect.getmodule(self).__name__,
                                  name,
                                  self.fsversion)
@@ -1931,26 +1929,39 @@ class FS(object):
         return ''
 
 
-class element_attribute_xml_parser(xml.sax.ContentHandler, object):
+class _BaseParser(xml.sax.ContentHandler, object):
+    """ Parser/ContentHandler for FS files. """
+    # This class a Python 2 compatibility class - to ensure that our base
+    # class is a new-style class.
 
+
+class element_attribute_xml_parser(_BaseParser):  # noqa: N801
+    """
+    A simple XML file parser.
+
+    Simply runs a callback for each "enabled" xml element encountered in the
+    file.  All elements must be defined in the `elements` mapping.  The
+    callback only runs for "enabled" elements, i.e. element names that are
+    mapped to `True` in the `elements` dict.
+
+    A given element `<foo x="1" y="2"></foo>` will result in running
+    `callback("foo", {'x': "1", 'y': "2"})` if enabled.
+    """
+    #
+    # List of all expected element names.
+    #
+    # A ValueError is raised if we encounter an element name not defined here.
+    # Only "enabled" elements (i.e. mapped to `True`) will cause the callback
+    # to run - set the value to `False` to disable processing of a given
+    # element name.
+    #
     elements = {}
-    """A dict containing all valid element names for this parser.
-
-    The dict must have a key for each of the XML element names that
-    are valid for this parser.  The corresponding values indicate
-    whether or not the parser class should invoke the callback
-    function upon encountering such an element.
-
-    Subclasses should override this entire attribute (i.e. subclasses
-    should do elements = {key: value, ...}) rather than add more keys
-    to the class attribute in their parent class (i.e. subclasses
-    should not do elements[key] = value)."""
 
     def __init__(self, filename, callback):
         self._callback = callback
         xml.sax.parse(filename, self)
 
-    def startElement(self, name, attrs):
+    def startElement(self, name, attrs):  # noqa: N802
         if name not in self.elements:
             raise ValueError("Unknown XML element: %r" % (name,))
         # Only set self._in_element etc. for interesting elements.
@@ -1961,20 +1972,28 @@ class element_attribute_xml_parser(xml.sax.ContentHandler, object):
             self._callback(name, data)
 
 
-class non_nested_xml_parser(element_attribute_xml_parser):
+class non_nested_xml_parser(element_attribute_xml_parser):  # noqa: N801
+    """
+    A simple XML file parser for "flat" xml files.
 
+    This parser works just like `element_attribute_xml_parser`, but
+    additionally disallows enabled elements from being nested.
+
+    If this parser encounters an "enabled" element within another "enabled"
+    element, it will raise a RuntimeError.
+    """
     def __init__(self, filename, callback):
         self._in_element = None
         self._attrs = None
         super(non_nested_xml_parser, self).__init__(filename, callback)
 
-    def startElement(self, name, attrs):
+    def startElement(self, name, attrs):  # noqa: N802
         if name not in self.elements:
             raise ValueError("Unknown XML element: %r" % (name,))
         if self._in_element is not None:
             raise RuntimeError(
-                "Can't deal with nested elements (<%s> before </%s>)." % (
-                    name, self._in_element))
+                "Can't deal with nested elements (<%s> before </%s>)."
+                % (name, self._in_element))
         # Only set self._in_element etc. for interesting elements.
         if self.elements[name]:
             self._in_element = name
@@ -1982,7 +2001,7 @@ class non_nested_xml_parser(element_attribute_xml_parser):
             for k, v in attrs.items():
                 self._data[k] = v
 
-    def endElement(self, name):
+    def endElement(self, name):  # noqa: N802
         if name not in self.elements:
             raise ValueError("Unknown XML element: %r" % (name,))
         if self._in_element == name:
@@ -1990,41 +2009,44 @@ class non_nested_xml_parser(element_attribute_xml_parser):
             self._in_element = None
 
 
-class ou_xml_parser(element_attribute_xml_parser):
+class ou_xml_parser(element_attribute_xml_parser):  # noqa: N801
     "Parserklasse for ou.xml."
 
-    elements = {'data': False,
-                'sted': True,
-                'komm': True,
-                }
+    elements = {
+        'data': False,
+        'sted': True,
+        'komm': True,
+    }
 
 
-class person_xml_parser(non_nested_xml_parser):
+class person_xml_parser(non_nested_xml_parser):  # noqa: N801
     "Parserklasse for person.xml."
 
-    elements = {'data': False,
-                'aktiv': True,
-                'tilbud': True,
-                'evu': True,
-                'privatist_studieprogram': True,
-                'eksamen': True
-                }
+    elements = {
+        'data': False,
+        'aktiv': True,
+        'tilbud': True,
+        'evu': True,
+        'privatist_studieprogram': True,
+        'eksamen': True
+    }
 
 
-class roles_xml_parser(non_nested_xml_parser):
+class roles_xml_parser(non_nested_xml_parser):  # noqa: N801
     "Parserklasse for studieprog.xml."
 
-    elements = {'data': False,
-                'rolle': True,
-                }
+    elements = {
+        'data': False,
+        'rolle': True,
+    }
 
     target_key = "::rolletarget::"
 
     def __init__(self, *rest):
-        self.logger = Factory.get_logger()
+        self.logger = logger.getChild("roles_xml_parser")
         super(roles_xml_parser, self).__init__(*rest)
 
-    def endElement(self, name):
+    def endElement(self, name):  # noqa: N802
         if name == 'rolle':
             do_callback = self.validate_role(self._data)
             if not do_callback:
@@ -2090,7 +2112,7 @@ class roles_xml_parser(non_nested_xml_parser):
             'rolletype': None,
             'plnr': None,
             'periodestatuskode': None,
-            'personrollenr': None, 
+            'personrollenr': None,
         }
         data = attrs.copy()
         target = None
@@ -2153,45 +2175,51 @@ class roles_xml_parser(non_nested_xml_parser):
         return do_callback
 
 
-class studieprog_xml_parser(non_nested_xml_parser):
+class studieprog_xml_parser(non_nested_xml_parser):  # noqa: N801
     "Parserklasse for studieprog.xml."
 
-    elements = {'data': False,
-                'studprog': True,
-                }
+    elements = {
+        'data': False,
+        'studprog': True,
+    }
 
 
-class underv_enhet_xml_parser(non_nested_xml_parser):
+class underv_enhet_xml_parser(non_nested_xml_parser):  # noqa: N801
     "Parserklasse for underv_enhet.xml."
 
-    elements = {'undervenhet': False,
-                'undenhet': True,
-                }
+    elements = {
+        'undervenhet': False,
+        'undenhet': True,
+    }
 
 
-class student_undenh_xml_parser(non_nested_xml_parser):
+class student_undenh_xml_parser(non_nested_xml_parser):  # noqa: N801
     "Parserklasse for student_undenh.xml."
 
-    elements = {'data': False,
-                'student': True
-                }
+    elements = {
+        'data': False,
+        'student': True,
+    }
 
 
-class evukurs_xml_parser(non_nested_xml_parser):
+class evukurs_xml_parser(non_nested_xml_parser):  # noqa: N801
     "Parserklasse for evukurs.xml."
 
-    elements = {"data": False,
-                "evukurs": True}
-# end evukurs_xml_parser
+    elements = {
+        'data': False,
+        'evukurs': True,
+    }
 
 
-class emne_xml_parser(non_nested_xml_parser):
-    elements = {"data": False,
-                "emne": True}
-# end emne_xml_parser
+class emne_xml_parser(non_nested_xml_parser):  # noqa: N801
+
+    elements = {
+        'data': False,
+        'emne': True,
+    }
 
 
-class deltaker_xml_parser(xml.sax.ContentHandler, object):
+class deltaker_xml_parser(_BaseParser):  # noqa: N801
     "Parserklasse for å hente EVU kursdeltaker informasjon."
 
     def __init__(self, filename, callback):
@@ -2202,7 +2230,7 @@ class deltaker_xml_parser(xml.sax.ContentHandler, object):
                                 "nettpubl")
         xml.sax.parse(filename, self)
 
-    def startElement(self, name, attrs):
+    def startElement(self, name, attrs):  # noqa: N802
         if name not in self._legal_elements:
             raise ValueError("Unknown XML element: %r" % (name,))
 
@@ -2221,7 +2249,7 @@ class deltaker_xml_parser(xml.sax.ContentHandler, object):
             assert self._in_person, "<evu> outside of <person>!"
             self._in_person["evu"].append(tmp)
 
-    def endElement(self, name):
+    def endElement(self, name):  # noqa: N802
         if name not in self._legal_elements:
             raise ValueError("Unknown XML element: %r" % (name,))
 
