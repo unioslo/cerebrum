@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2015-2023 University of Oslo, Norway
+# Copyright 2015-2025 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -51,17 +51,32 @@ class JsonEncoder(json.JSONEncoder):
         return json.JSONEncoder.default(self, obj)
 
 
+def get_account_name_cache(db):
+    """ Get a cache of all account names (including expired accounts). """
+    ac = Factory.get('Account')(db)
+    cache = {}
+    logger.debug("caching account names...")
+    for row in ac.search(expire_start=None):
+        account_id = row['account_id']
+        account_name = row['name']
+        cache[account_id] = account_name
+    logger.info("Found %d account names", len(cache))
+    return cache
+
+
 def get_quarantines(db, quarantine_types):
-    """List quarantines.
+    """
+    List active account quarantines of the given type(s).
 
-    :param db: Database-object.
-    :param quarantine_types: Quarantine-types to filter by.
+    :type db: Cerebrum.database.Database
+    :param list quarantine_types: one or more quarantine types to filter by.
 
-    :param iterable quarantines: An iterable with quarantine db rows.
-    :return iterable: An iterable with quarantine db rows.
+    :returns generator: An iterable of matching quarantine dicts
     """
     eq = EntityQuarantine(db)
-    for row in eq.list_entity_quarantines(quarantine_types=quarantine_types):
+    for row in eq.list_entity_quarantines(
+            quarantine_types=quarantine_types,
+            entity_types=int(eq.const.entity_account)):
         yield {
             'entity_id': row['entity_id'],
             'quarantine_type': row['quarantine_type'],
@@ -72,24 +87,26 @@ def get_quarantines(db, quarantine_types):
         }
 
 
-def codes_to_human(db, quarantines):
-    """Convert Cerebrum-codes to more usable information.
-    :param db: Database-object.
-    :param en: Entity-object.
-    :param co: Constants-object.
-
-    :param iterable quarantines: An iterable with quarantine db rows.
-    :return iterable: An iterable with modified quarantine db rows.
+def prepare_entries(db, quarantines):
     """
-    en = Factory.get('Entity')(db)
+    Prepare quarantine entries from *get_quarantines* for export.
+
+    This step adds useful information like quarantine names and account names.
+
+    :type db: Cerebrum.database.Database
+    :param iterable quarantines: results from *get_quarantines*
+
+    :returns generator: An iterable with updated quarantine dicts
+    """
     co = Factory.get('Constants')(db)
+    name_cache = get_account_name_cache(db)
+
     for q in quarantines:
         q['quarantine_type'] = six.text_type(
             co.Quarantine(q['quarantine_type']))
-        en.clear()
-        en.find(q['entity_id'])
-        if en.entity_type == co.entity_account:
-            q['account_name'] = en.get_subclassed_object().account_name
+        name = name_cache.get(q['entity_id'])
+        if name:
+            q['account_name'] = name
             del q['entity_id']
         yield q
 
@@ -103,9 +120,16 @@ def write_report(filename, quarantines):
     # If the default str is a bytestring, then json.dump produces bytestrings
     # for our file stream:
     encoding = None if str is bytes else "utf-8"
+
+    # Sort results by quarantine start date and account name or id
+    quarantines = sorted(
+        quarantines,
+        key=lambda q: (q['start_date'].isoformat(),
+                       q.get('account_name') or six.text_type(q['entity_id']))
+    )
     with file_stream.get_output_context(filename, encoding=encoding) as stream:
         json.dump(
-            list(quarantines),
+            quarantines,
             stream,
             cls=JsonEncoder,
             indent=4,
@@ -116,9 +140,10 @@ def write_report(filename, quarantines):
         stream.write("\n")
 
 
-def main(inargs=None):
+def main(argv=None):
     parser = argparse.ArgumentParser(
-        description="Export quarantines in JSON-format to file")
+        description="Export quarantines in JSON-format to file",
+    )
     parser.add_argument(
         '--outfile',
         dest='output',
@@ -134,7 +159,7 @@ def main(inargs=None):
     )
 
     Cerebrum.logutils.options.install_subparser(parser)
-    args = parser.parse_args(inargs)
+    args = parser.parse_args(argv)
     Cerebrum.logutils.autoconf('cronjob', args)
 
     db = Factory.get('Database')()
@@ -145,7 +170,7 @@ def main(inargs=None):
     logger.info('Start: %s', parser.prog)
     logger.debug("quarantines: %r", quarantines)
 
-    quarantines = codes_to_human(db, get_quarantines(db, quarantines))
+    quarantines = prepare_entries(db, get_quarantines(db, quarantines))
     write_report(args.output, quarantines)
 
     logger.info('Report written to %s', args.output)
