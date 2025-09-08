@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2011-2024 University of Oslo, Norway
+# Copyright 2011-2025 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -41,11 +41,33 @@ from Cerebrum.utils import file_stream
 logger = logging.getLogger(__name__)
 
 
-def get_accounts(db, affiliations):
+def get_primary_account_cache(db):
+    ac = Factory.get('Account')(db)
+    cache = {}
+    logger.debug("caching primary accounts...")
+    for row in ac.list_accounts_by_type(primary_only=True):
+        person_id = row['person_id']
+        account_id = row['account_id']
+        cache[person_id] = account_id
+    logger.info("Found %d primary accounts", len(cache))
+    return cache
+
+
+def get_account_name_cache(db):
+    ac = Factory.get('Account')(db)
+    cache = {}
+    logger.debug("caching account names...")
+    for row in ac.search():
+        account_id = row['account_id']
+        account_name = row['name']
+        cache[account_id] = account_name
+    logger.info("Found %d account names", len(cache))
+    return cache
+
+
+def find_person_ids_by_affiliation(db, affiliations):
     pe = Factory.get("Person")(db)
     co = Factory.get("Constants")(db)
-    ac = Factory.get("Account")(db)
-
     person_ids = set()
     for aff_string in affiliations:
         logger.info("Prosessing people with aff %s", repr(aff_string))
@@ -57,24 +79,41 @@ def get_accounts(db, affiliations):
         logger.info("Found %d persons with aff '%s'", len(new_ids), aff_repr)
         person_ids.update(new_ids)
     logger.info("Found %d persons in total", len(person_ids))
+    return person_ids
+
+
+def get_accounts(db, affiliations):
+    # Find persons with one of the the given affiliations
+    person_ids = find_person_ids_by_affiliation(db, affiliations)
+
+    # Cache account selection and details
+    primary_accounts = get_primary_account_cache(db)
+    account_names = get_account_name_cache(db)
 
     # ..then retrieve the primary accounty for each of them
     no_primary_account = 0
+    no_name = 0
     all_accounts = set()
     for person_id in person_ids:
-        pe.clear()
-        pe.find(person_id)
-        primary_account_id = pe.get_primary_account()
+        primary_account_id = primary_accounts.get(person_id)
         if primary_account_id is None:
-            logger.debug("no primary account for person id=%d", pe.entity_id)
+            logger.debug("no primary account for person id=%d", person_id)
             no_primary_account += 1
             continue
-        ac.clear()
-        ac.find(primary_account_id)
-        all_accounts.add(ac.account_name)
+
+        name = account_names.get(primary_account_id)
+        if name is None:
+            logger.debug("no name for primary account id=%d (person id=%d)",
+                         primary_account_id, person_id)
+            no_name += 1
+            continue
+
+        all_accounts.add(name)
 
     logger.info("ignoring %d persons without primary accounts",
                 no_primary_account)
+    logger.info("ignoring %d primary accounts without name",
+                no_name)
     logger.info("found %d primary accounts", len(all_accounts))
     return all_accounts
 
