@@ -343,10 +343,20 @@ class CerebrumEntity(object):
                 return self.home[config.home_spread]
         elif isinstance(config, ConfigUtils.EmailAddrAttr):
             # Email Addresses
-            adr = self.maildata.get('alias')
-            prim = self.maildata.get('primary')
-            if adr:
-                return {'alias': adr, 'primary': prim}
+            all_addrs = self.maildata.get('alias')
+            primary_addr = self.maildata.get('primary')
+            if all_addrs:
+                return {
+                    'alias': all_addrs,
+                    'primary': primary_addr,
+
+                    # EmailAddrAttr more or less *requires* a transform
+                    # function to select and format an email address.  Let's
+                    # provide some basic entity data for the transform too.
+                    'ad_id': self.ad_id,
+                    'entity_id': self.entity_id,
+                    'entity_name': self.entity_name,
+                }
         elif isinstance(config, ConfigUtils.EmailQuotaAttr):
             # Email Quota
             if 'quota' in self.maildata:

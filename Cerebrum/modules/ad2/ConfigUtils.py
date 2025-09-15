@@ -540,17 +540,28 @@ class SimpleMemberAttr(CallbackAttr):
 
 
 class EmailAddrAttr(AttrConfig):
-    """Config for all e-mail addresses for an entity from the Email module.
+    """
+    E-mail address attribute config (`Cerebrum.modules.Email`).
 
-    Note that each given value contains the elements:
+    You *must* implement a `transform` to select an appropriate address from
+    the input given to this attribute config.  The input is a `dict` with:
 
-        - primary (string): The primary e-mail address for the entity.
-        - alias (list of strings): A list of all the e-mail aliases for the
-          entity.
+    primary (string):
+        The primary e-mail address for the entity
 
-    You would like to use L{transform} or other methods to set what you want
-    for the given attribute.
+    alias (list of strings):
+        A list of all the valid e-mail address aliases for the entity
 
+    ad_id (string):
+        The ad-id of the object.
+
+    entity_id (int):
+        The entity id of the object.
+
+    entity_name (str):
+        The entity name of the object (if any).
+
+    The typical implementation is `lambda x: x.get('primary')`.
     """
     pass
 
