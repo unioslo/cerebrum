@@ -107,6 +107,9 @@ class BofhdCommandBase(object):
 
     def __init__(self, db, logger):
         self.__db = db
+        self.__ba = False
+        self.__const = False
+        self.__clconst = False
         self.__logger = logger
 
         # TODO: Really?
@@ -124,31 +127,28 @@ class BofhdCommandBase(object):
     @property
     def ba(self):
         """ BofhdAuth. """
-        try:
+        if self.__ba:
             return self.__ba
-        except AttributeError:
-            if self.authz is None:
-                return None
-            self.__ba = self.authz(self.db)
-            return self.__ba
+        if self.authz is None:
+            return None
+        self.__ba = self.authz(self.db)
+        return self.__ba
 
     @property
     def const(self):
         """ Constants. """
-        try:
+        if self.__const:
             return self.__const
-        except AttributeError:
-            self.__const = Factory.get("Constants")(self.db)
-            return self.__const
+        self.__const = Factory.get("Constants")(self.db)
+        return self.__const
 
     @property
     def clconst(self):
         """ CLConstants. """
-        try:
+        if self.__clconst:
             return self.__clconst
-        except AttributeError:
-            self.__clconst = Factory.get("CLConstants")(self.db)
-            return self.__clconst
+        self.__clconst = Factory.get("CLConstants")(self.db)
+        return self.__clconst
 
     @property
     def logger(self):
@@ -762,8 +762,8 @@ class BofhdCommandBase(object):
         # Okey, we've run out of good options. Let's try a sensible fallback:
         # many entities have a generic name in entity_name. Let's use that:
         try:
-            etname = type("entity_with_name", (Entity.EntityName,
-                                               Entity.Entity), dict())
+            etname = type(six.ensure_str("entity_with_name"), (Entity.EntityName,
+                                                               Entity.Entity), {})
             etname = etname(self.db)
             etname.find(entity_id)
             if etname.get_names():
