@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-# Copyright 2014 University of Oslo, Norway
+#
+# Copyright 2014-2025 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,157 +18,244 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""
+Build simple groups from affiliation types.
 
-"""Populate memberships in «employee»-ish groups depending on affiliation."""
+This script is a legacy solution for implementing simple affiliation groups.
+The resulting groups will contain a list of the primary accounts for owners
+with a given affiliation type.
 
-from __future__ import unicode_literals
+This script is a good solution if an organization e.g. needs a single group
+with all employees, but has no use for group hierarchies with groups for each
+org unit.
 
-import sys
+Configuration
+--------------
+This script build groups for all entries in `cereconf.COLLECTION_GROUPS`.  The
+setting should contain a list of `(<group>, [<affiliation>, ...])` tuples.
+
+<group> (str)
+    The name of a pre-existing group in Cerebrum.
+
+<affiliation> (str)
+    A string with a given affiliation to include in the group, optionally
+    restricted to a source system or affiliation status:
+    `[<source>:]<affiliation>[/<status>].
+
+Example:
+::
+
+    COLLECTION_GROUPS = [
+        ("employee-ish", ["DFO_SAP:ANSATT", "GREG:TILKNYTTET/ekst_partner"]),
+        ("student-ish", ["STUDENT/aktiv", "STUDENT/ny"]),
+        ("guest-ish", ["TILKNYTTET"]),
+    ]
+
+
+See also
+---------
+There are other scripts in Cerebrum for more complex groups and use cases.
+
+`contrib/populate-automatic-groups.py`
+    A more generic solution for building group hierachies from affilations.
+
+`contrib/normalize-groups.py`
+    Script for building simple, normalized groups from group hierachies.
+    Memberships can be mapped to e.g. primary user accounts or all owned user
+    accounts.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+import argparse
+import logging
+import textwrap
 
 import six
-import logging
-import argparse
 
 import cereconf
 
 import Cerebrum.logutils
 import Cerebrum.logutils.options
-from Cerebrum.Utils import Factory
-from Cerebrum.utils.argutils import add_commit_args
 from Cerebrum import Errors
+from Cerebrum.Utils import Factory
+from Cerebrum.database.ctx import db_context
+from Cerebrum.group import group_sync
+from Cerebrum.utils.argutils import add_commit_args
 
 
 logger = logging.getLogger(__name__)
 
 
-def populate_group_memberships(db, gname, affiliations):
-    """Add and remove accounts from the group."""
-    co = Factory.get('Constants')(db)
-    pe = Factory.get('Person')(db)
+def get_group_by_name(db, group_name):
     gr = Factory.get('Group')(db)
+    gr.find_by_name(group_name)
+    return gr
 
-    logger.info('Populating memberships in %s with %s as criteria',
-                gname, six.text_type(affiliations))
 
-    # Verify group existence
+def parse_affiliation(const, value):
+    """ Parse a `[<source>:]<affiliation>[/<status>]` affiliation spec. """
+    source_system = None
+    affiliation = None
+    aff_status = None
+
+    # extract source system
+    if ":" in value:
+        raw_source, raw_aff = value.split(':', 1)
+        # We need to use human2constant to keep support for attr-lookups
+        source_system = const.human2constant(raw_source)
+        if (source_system is None
+                or not isinstance(source_system, const.AuthoritativeSystem)):
+            raise LookupError("Unkonwn source system %s (%s)"
+                              % (repr(raw_source), repr(value)))
+    else:
+        raw_aff = value
+
+    # parse affiliation
     try:
-        gr.find_by_name(gname)
-    except Errors.NotFoundError:
-        logger.error('Group %s does noe exist! Aborting…', gname)
-        sys.exit(1)
+        # We need to use human2constant to keep support for attr-lookups
+        tmp = const.human2constant(raw_aff)
+        # tmp is either None, PersonAffiliation, PersonAffStatus, or in extreme
+        # cases, the wrong constant type (e.g. someone put `"spread_foo"` in
+        # the config).  Let's re-parse or validate it with
+        # const.get_affiliation:
+        affiliation, aff_status = const.get_affiliation(tmp or raw_aff)
+    except Exception:
+        raise LookupError("Unkonwn affiliation %s (%s)"
+                          % (repr(raw_aff), repr(value)))
 
+    return (source_system, affiliation, aff_status)
+
+
+def prepare_config(db, config):
+    """
+    Validate and remap config to an iterable of groups and constants.
+
+    :returns generator:
+        yields tuples of (group, [(source, aff, status), ...]).
+
+        - The group is the actual group object to update the memberships of.
+        - The source, aff, and status are the actual constant objects to use in
+          the affiliation membership search.
+    """
+    seen_groups = set()
+
+    for i, (group_name, aff_specs) in enumerate(config):
+        try:
+            group = get_group_by_name(db, group_name)
+        except Errors.NotFoundError:
+            raise ValueError("invalid group name in config[%d]: %s"
+                             % (i, repr(group_name)))
+        if group.entity_id in seen_groups:
+            raise ValueError("duplicate group name in config[%d]: %s"
+                             % (i, repr(group_name)))
+        seen_groups.add(group.entity_id)
+        try:
+            affiliations = [parse_affiliation(group.const, aff_spec)
+                            for aff_spec in aff_specs]
+        except LookupError as e:
+            raise ValueError("invalid affiliation in config[%d]: %s" % (i, e))
+
+        yield group, affiliations
+
+
+def pretty_aff(source_system, affiliation, status):
+    result = six.text_type(status or affiliation)
+    if source_system:
+        result = six.text_type(source_system) + ":" + result
+    return result
+
+
+def populate_group_memberships(group, affiliations):
+    """Add and remove accounts from the group."""
+    pretty_affs = ", ".join(pretty_aff(*a) for a in affiliations)
+    logger.info("Updating %s (%d) with affs: %s",
+                group.group_name, group.entity_id, pretty_affs)
+
+    pe = Factory.get('Person')(group._db)
     members = set()
+
     # Look up affiliations
-    for aff in affiliations:
-        ss = None
-        # Parse affiliations and source system
-        if ':' in aff:
-            ss, aff = aff.split(':')
-            tmp_ss = co.human2constant(ss)
-            if not tmp_ss:
-                logger.error('Source system %s is unknown! Aborting…', ss)
-                sys.exit(3)
-            else:
-                ss = tmp_ss
+    for source, aff, status in affiliations:
+        if all(v is None for v in (source, aff, status)):
+            raise ValueError("empty affiliation spec")
 
-        # Verify that affiliation exists
-        tmp_aff = co.human2constant(aff)
-        if not tmp_aff:
-            logger.error('Affiliation %s is unknown! Aborting…', aff)
-            sys.exit(4)
-        else:
-            aff = tmp_aff
+        logger.debug("Collecting members from %s",
+                     pretty_aff(source, aff, status))
 
-        # Define common arguments
-        args = {'source_system': ss,
-                'ret_primary_acc': True}
-
-        # Verify correct affiliation type and store appropriatly in arguments.
-        if isinstance(aff, co.PersonAffiliation):
-            args['affiliation'] = aff
-        elif isinstance(aff, co.PersonAffStatus):
-            args['status'] = aff
-        else:
-            logger.error('Wrong affiliation type for %s! Aborting…', str(aff))
-
-        # Fetch the members that should be in the group
-        logger.info('Collecting candidates for %s:%s', str(ss), str(aff))
-        for person in pe.list_affiliations(**args):
+        # Fetch the members from affiliation.
+        lookup_args = {
+            'source_system': None if source is None else int(source),
+            'affiliation': None if aff is None else int(aff),
+            'status': None if status is None else int(status),
+            # row['person_id'] will be the primary account_id:
+            'ret_primary_acc': True,
+        }
+        # Consider caching <aff> -> <member-list>, in case multiple groups uses
+        # the same aff-criteria?
+        for person in pe.list_affiliations(**lookup_args):
             # The person_id here, is acctually the account_id :S
             members.add(person['person_id'])
 
-    # Fetch exisiting members
-    existing_members = set([x['member_id'] for x in
-                            gr.search_members(group_id=gr.entity_id)])
-
-    # Calculate whom to remove
-    to_remove = existing_members - members
-
-    # calculate whom to add
-    to_add = (existing_members & members) ^ members
-
-    logger.info('Removing %d from %s', len(to_remove), gname)
-    for x in to_remove:
-        gr.remove_member(x)
-
-    logger.info('Adding %d to %s', len(to_add), gname)
-    for x in to_add:
-        gr.add_member(x)
-
-    logger.info('Finished populating %s', gname)
+    group_sync.set_group_members(group, members)
+    logger.info("Group %s (%d) is up-to-date",
+                group.group_name, group.entity_id)
 
 
-description ="""
-Populate memberships in «employee»-ish groups depending on affiliation.
-"""
-
-epilog = """
-See cereconf.COLLECTION_GROUPS in default_config for configuration
-guidelines and more info.
-
-The following is copy-pasta from default_config. Might be out of date,
-so check default_config!
-
-Groups who has memberships populated by contrib/populate-collection-groups.py
-E.g. [('uio-tilk', ['system_sap:affiliation_tilknyttet',
-                    'system_fs:affiliation_student',
-                    'affiliation_tilknyttet_bilag'])]
-Will result in the group 'uio-tilk' beeing filled with primary accounts who
-have TILKNYTTET affiliations from SAP, STUDENT-affiliations from FS and
-TILKNYTTET/bilag from all source systems.
-
-The groups you specify in this configuration, must be created BEFORE
-populate-collection-groups.py is run!!!
-"""
-
-def main(inargs=None):
+def main(argv=None):
     """Arg parsing and handling."""
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        description=description,
-        epilog=epilog)
+        description=textwrap.dedent(
+            """
+            Populate configured group memberships from affiliations.
+            """
+        ).lstrip(),
+        epilog=textwrap.dedent(
+            """
+            Will sync memberships for the groups given in
+            `cereconf.COLLECTION_GROUPS`.
 
+            Example:
+
+              COLLECTION_GROUPS = [
+                ("uio-tilk", ["SAP:ANSATT", "FS:STUDENT",
+                              "TILKNYTTET/bilag"]),
+              ]
+
+            ... will ensure that the group 'uio-tilk' is filled with primary
+            accounts of persons with affiliation ANSATT from SAP, STUDENT from
+            FS or TILKNYTTET/bilag from any source system.
+
+            Any group mentioned in COLLECTION_GROUPS and processed by this
+            script *must* be created manually first!
+            """
+        ).lstrip(),
+    )
     add_commit_args(parser)
     Cerebrum.logutils.options.install_subparser(parser)
-    args = parser.parse_args(inargs)
+    args = parser.parse_args(argv)
 
+    Cerebrum.logutils.autoconf("cronjob", args)
+    logger.info("Start %s", parser.prog)
+    logger.debug("args: %s", repr(args))
 
-    Cerebrum.logutils.autoconf('cronjob', args)
+    dryrun = not args.commit
+    with db_context(Factory.get("Database")(), dryrun) as db:
+        db.cl_init(change_program=parser.prog)
 
-    db = Factory.get("Database")()
-    db.cl_init(change_program=sys.argv[0].split('/')[-1])
+        logger.debug("Validating cereconf.COLLECTION_GROUPS")
+        group_map = list(prepare_config(db, cereconf.COLLECTION_GROUPS))
 
-    logger.info('Starting to populate collection groups')
+        logger.debug("Populating %d groups...", len(group_map))
+        for group, affs in group_map:
+            populate_group_memberships(group, affs)
 
-    for gname, affs in cereconf.COLLECTION_GROUPS:
-        populate_group_memberships(db, gname, affs)
+    logger.info("Done %s:", parser.prog)
 
-    if args.commit:
-        db.commit()
-        logger.info("Committed all changes")
-    else:
-        db.rollback()
-        logger.info("Rolled back all changes")
 
 if __name__ == "__main__":
     main()
