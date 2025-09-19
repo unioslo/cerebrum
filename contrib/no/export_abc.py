@@ -269,7 +269,7 @@ def prepare_kull():
 
         xmlwriter.startElement("group")
         out("groupid", xml_id, {"groupidtype": get_group_id_type("kull")})
-        out("description", name_for_humans)
+        out("description", transliterate(name_for_humans))
         xmlwriter.endElement("group")
 
     return kull_cache
@@ -301,7 +301,7 @@ def prepare_ue():
 
         xmlwriter.startElement("group")
         out("groupid", xml_id, {"groupidtype": get_group_id_type("ue")})
-        out("description", name_for_humans)
+        out("description", transliterate(name_for_humans))
         xmlwriter.endElement("group")
 
     return ue_cache
