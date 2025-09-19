@@ -21,21 +21,25 @@
 """
 Export person information in the ABC Enterprise format.
 
-See: :mod:`Cerebrum.modules.no.abc_enterprise` for details.
+ABC Enterprise is (or was?) a standard by Uninett (now Sikt) to exchange data
+between user management systems (BAS) and student management systems (SAS).
 
---
+The standard consists of a data model and XML schema definition (XSD).  The
+schema includes objects to represent persons, groups, and org units.
 
-When adding extra contact-fields, be sure to quote the input string so that
-the argument is parsed correctly. When adding several contact fields, separate
-them by commas.
+The XML description and schema used to be available at
+`<http://uninettabc.no/?p=publikasjoner&sub=abc-enterprise>`_.
 
-Example: "cellular private:contact_private_mobile:system_sap,
-          cellular work:contact_mobile_phone:system_sap"
+A typical ABC XML file from Cerebrum would include:
 
-These two fields will be added as extra contactinfo-tags, like this:
+1. A preliminary header with ID and relationship types
+2. Organization object and org units
+3. Person objects and personal data (ids, names, username, email addresses)
+4. Relationships between objects, e.g.:
 
-<contactinfo contacttype="cellular private">value</contactinfo>
-<contactinfo contacttype="cellular work">value</contactinfo>
+   - Educational courses/units, and course participation
+   - Affiliation - person roles at org units
+   - Semester fee payment
 """
 from __future__ import (
     absolute_import,
@@ -426,7 +430,7 @@ class PersonIdCache(_GenericCache):
         const = person.const
 
         # This is dumb, but this export has always included external ids from
-        # systems outside of the system lookup order, of no other id of the
+        # systems outside of the system lookup order, if no other id of the
         # type is set
         lookup_order = SystemLookupOrder(const)
 
