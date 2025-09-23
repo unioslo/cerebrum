@@ -1044,11 +1044,10 @@ AUTOMATIC_GROUP_POPULATE_META_PREFIX = []
 AUTOMATIC_GROUP_LEGAL_PREFIXES = {}
 
 # Groups who has memberships populated by contrib/populate-collection-groups.py
-# E.g. [('uio-tilk', ['system_sap:affiliation_tilknyttet',
-#                     'system_fs:affiliation_student',
-#                     'affiliation_tilknyttet_bilag'])]
+#
+# E.g. [('uio-tilk', ['SAP:TILKNYTTET', 'FS:STUDENT', 'TILKNYTTET/bilag'])]
 # Will result in the group 'uio-tilk' beeing filled with primary accounts who
-# have TILKNYTTET affiliations from SAP, STUDENT-affiliations from FS and
+# have TILKNYTTET affiliations from SAP, STUDENT-affiliations from FS or
 # TILKNYTTET/bilag from all source systems.
 #
 # The groups you specify in this configuration, must be created BEFORE
