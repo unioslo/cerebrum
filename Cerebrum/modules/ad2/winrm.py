@@ -992,10 +992,23 @@ class WinRMProtocol(object):
         :raises URLError: When the server connection fails.
         :raises socket.timeout: When the socket connection times out.
         """
+        # The Python 2 implementation of HTTPConnection just naively joins
+        # together the request-line, headers, and body values.  A single
+        # unicode value here turns the entire process into a hot mess of
+        # implicit encode/decode.  Because of this, we need to ensure that the
+        # url + headers are byte values on PY2.
+        url = text_compat.to_str(self._http_url(address), "ascii")
+        headers = {
+            text_compat.to_str(k, "ascii"):
+            text_compat.to_str(v, "iso-8859-1")
+            for k, v in http_utils.merge_headers(
+                self._http_headers,
+                headers,
+            ).items()
+        }
         xml = xml_to_bytes(xml, self._winrm_encoding)
-        url = self._http_url(address)
-        headers = http_utils.merge_headers(self._http_headers, headers)
         req = urllib_request.Request(url, xml, headers)
+
         try:
             ret = self._opener.open(req)
         except urllib_error.HTTPError as e:
