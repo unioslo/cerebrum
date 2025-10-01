@@ -162,9 +162,3 @@ def test_mime_type_repr():
     obj = mime_type.MimeType("text", "plain", {'charset': "utf-8"})
     text = repr(obj)
     assert text == "<MimeType text/plain; charset=utf-8>"
-
-
-def test_format_mime_type():
-    value = mime_type.format_mime_type("text", "plain", {'charset': "utf-8"})
-    expected = "text/plain; charset=utf-8"
-    assert value == expected
