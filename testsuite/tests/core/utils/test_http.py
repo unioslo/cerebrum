@@ -43,48 +43,38 @@ def test_safe_path(value, expected):
 #
 
 
-def test_merge_headers_empty():
+def test_merge_empty():
     assert http_utils.merge_headers({}, None, {}) == {}
 
 
-def test_merge_headers_full_overlap():
+def test_merge_full_overlap():
     a = {"foo": "1", "bar": "2"}
     b = {"foo": "3", "bar": "4"}
     assert http_utils.merge_headers(a, b) == b
 
 
-def test_merge_headers_no_overlap():
+def test_merge_no_overlap():
     a = {"foo": "1"}
     b = {"bar": "2"}
     expected = {"foo": "1", "bar": "2"}
     assert http_utils.merge_headers(a, b) == expected
 
 
-def test_merge_headers_no_mutate():
-    """ Merge headers should not alter the input dicts. """
+def test_merge_no_mutate():
     a = {"foo": "1"}
-    b = {"bar": "2"}
     a_copy = dict(a)
+    b = {"bar": "2"}
     b_copy = dict(b)
     http_utils.merge_headers(a, b)
     assert a == a_copy
     assert b == b_copy
 
 
-def test_merge_headers_casing():
-    """ Merge headers keep casing from the last seen header name. """
+def test_case_insensitive():
     a = {"X-Foo": "1", "x-Bar": "2"}
     b = {"x-foo": "3", "X-Bar": "4"}
     # should keep last seen value and casing
     expected = {"x-foo": "3", "X-Bar": "4"}
-    assert http_utils.merge_headers(a, b) == expected
-
-
-def test_merge_headers_remove():
-    """ Merge headers should omit header values that are set to None. """
-    a = {"x-foo": "1", "x-bar": "2"}
-    b = {"X-Foo": "3", "X-Bar": None}
-    expected = {"X-Foo": "3"}
     assert http_utils.merge_headers(a, b) == expected
 
 

@@ -196,8 +196,3 @@ class MimeType(object):
 
     def __repr__(self):
         return "<MimeType {}>".format(six.text_type(self))
-
-
-def format_mime_type(media_type, media_subtype, parameters=None):
-    """ Format a mime type header. """
-    return six.text_type(MimeType(media_type, media_subtype, parameters))
