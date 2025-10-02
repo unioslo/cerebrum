@@ -439,15 +439,15 @@ def sql_push(db, queue, sub, key, iat=NotSet, nbf=NotSet, attempts=NotSet,
         if to_update:
             # update the given key/value pairs
             logger.debug('updating task %s/%s/%s with %r',
-                         queue, sub, key, to_update.keys())
+                         queue, sub, key, to_update)
             return _sql_update(db, queue, sub, key, **to_update)
         else:
             # no change
-            logger.debug('ignoring task %s/%s/%s: nothing to update',
-                         queue, sub, key)
+            logger.debug('ignoring task %s/%s/%s with current values %r: nothing to update',
+                         queue, sub, key, values)
             return None
     else:
-        logger.debug('inserting task %s/%s/%s', queue, sub, key)
+        logger.debug('inserting task %s/%s/%s with values: %r', queue, sub, key, values)
         return _sql_insert(db, queue, sub, key, **values)
 
 
