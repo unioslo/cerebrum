@@ -115,6 +115,7 @@ copy_uio = [
     'group_memberships_expanded',
     'group_padd',
     'group_personal',
+    'group_premove',
     'group_promote_posix',
     'group_remove',
     'group_remove_entity',
