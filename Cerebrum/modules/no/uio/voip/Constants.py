@@ -181,6 +181,17 @@ class VoipConstants(Constants.Constants):
         "autodial",
     )
 
+    voip_service_queue = VoipServiceTypeCode(
+        "voip_service_queue",
+        "queue",
+    )
+
+    voip_service_aa = VoipServiceTypeCode(
+        "voip_service_aa",
+        "auto attendant",
+    )
+
+
     ########################################################################
     # voip-client
     entity_voip_client = Constants._EntityTypeCode(
