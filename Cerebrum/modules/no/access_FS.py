@@ -1632,7 +1632,9 @@ class EVU(FSObject):
               e.etterutdkurskode=k.etterutdkurskode AND
               NVL(e.status_nettbasert_und, 'J') = 'J' AND
               k.kurstidsangivelsekode = e.kurstidsangivelsekode AND
-              NVL(e.dato_til, SYSDATE) >= SYSDATE - 30"""
+              NVL(e.dato_til, SYSDATE) >= SYSDATE - 30 AND
+              %s
+              """ % (self._is_alive())
         return self.db.query(qry)
 
     def list_kurs(self):  # GetEvuKurs

@@ -295,7 +295,9 @@ class HiAEVU(access_FS.EVU):
               NVL(e.status_nettbasert_und,'J')='J') AND
               NVL(k.svarstatkode_svar_pa_tilbud, 'N')='J' AND
               k.kurstidsangivelsekode = e.kurstidsangivelsekode AND
-              NVL(e.dato_til, SYSDATE) >= SYSDATE - 30"""
+              NVL(e.dato_til, SYSDATE) >= SYSDATE - 30 AND
+              %s
+              """ % (self._is_alive())
         return self.db.query(qry)
 
 
