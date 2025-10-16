@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2013 University of Oslo, Norway
+# Copyright 2013-2025 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,165 +18,149 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""Doing WinRM protocol stuff.
-
-The WinRM is the protocol that we are using to send CMD and Powershell commands
-to Windows machines.
-
 """
+Get WinRM data and start a Shell
 
-from __future__ import print_function
+This script is mostly useful for testing the WinRM configuration, or to clean
+up unclosed shells started by WinRM.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+import argparse
+import contextlib
+import logging
+import textwrap
 
-import getopt
-import sys
 from lxml import etree
 
 import adconf
-from Cerebrum.Utils import Factory, read_password
-from Cerebrum import Errors
-from Cerebrum.modules.ad2.winrm import WinRMClient, WinRMException
+import Cerebrum.logutils
+import Cerebrum.logutils.options
+from Cerebrum.modules.ad2 import cli
 
-logger = Factory.get_logger('console')
-db = Factory.get('Database')()
-co = Factory.get('Constants')(db)
-
-def usage(exitcode=0):
-    print("""Usage: winrm.py [OPTIONS]...
-
-    %(doc)s
-
-    Actions:
-
-    --delete-shell SHELLID
-                    Send a signal to delete the shell by the given ShellId and
-                    quit.
-
-    Options:
-
-    --type TYPE     If given, the server name, credentials and other settings
-                    are fetched from the given sync type. Otherwise you have to
-                    specify server name and authentication details.
-
-                    Note that the type must exist in adconf.SYNCS.
-
-    Options for when --type is not specified:
-
-    --host HOSTNAME The hostname of the Windows server that should execute the
-                    code. Needed if --type is not specified.
-
-    --port PORT     The port number on the Windows server. Default: 5986 for
-                    encrypted communication, otherwise 5985.
-
-    Other options:
-
-    --unencrypted   If the communication should go unencrypted. This should only
-                    be used for testing!
-
-    -h, --help      Show this and quit.
-
-    """ % {'doc': __doc__})
-    sys.exit(exitcode)
-
-def main():
-    try:
-        opts, args = getopt.getopt(sys.argv[1:],
-                                   "h",
-                                   ["help",
-                                    "unencrypted",
-                                    "type=",
-                                    "host=",
-                                    "delete-shell=",
-                                    "port="])
-    except getopt.GetoptError as e:
-        print(e)
-        usage(1)
-
-    encrypted = True
-    sync = None
-    host = port = None
-
-    for opt, val in opts:
-        # General options
-        if opt in ('-h', '--help'):
-            usage()
-        elif opt == '--unencrypted':
-            encrypted = False
-        elif opt == '--type':
-            if val not in adconf.SYNCS:
-                print("Sync type '%s' not found in config" % val)
-                print("Defined sync types:")
-                for typ in adconf.SYNCS:
-                    print('  %s' % typ)
-                sys.exit(2)
-            sync = adconf.SYNCS[val]
-        elif opt == '--host':
-            host = val
-        elif opt == '--port':
-            port = int(val)
-
-    if not host and not sync:
-        print("Need either --type or --host to connect to")
-        usage(1)
-
-    if not host:
-        host = sync['server']
-    if not port:
-        port = sync.get('port', None)
-    user = sync['auth_user']
-
-    logger.info("Start")
-    client = WinRMClient(host=host, port=port, encrypted=encrypted,
-                         logger=logger)
-    # TODO: add ca, client_key and client_cert
-    client._winrs_skip_cmd_shell = False
-    #client._winrs_consolemode_stdin = False
-    client.add_credentials(username=user,
-                           password=read_password(user, host))
+logger = logging.getLogger(__name__)
 
 
-    for opt, val in opts:
-        if opt == '--delete-shell':
-            logger.info("Deleting shell with ShellId: %s", val)
-            client.wsman_delete(val)
-            logger.info("Finished")
-            sys.exit()
-
-
-    # Get server identification:
-    logger.info("Identifying server")
-    ident = client.wsman_identify()
-    # TODO: doesn't work now
-    for key in ('ProtocolVersion', 'ProductVendor', 'ProductVersion'):
-        for event, elem in ident.iterfind('{http://schemas.dmtf.org/wbem/wsman/identity/1/wsmanidentity.xsd}%s' % key):
-            logger.info("  %s: %s", key, elem.text)
-
-    # List active shells and connections:
-    logger.info("Listing shells...")
-    resource = 'windows/shell'
-    req = client.wsman_enumerate(resource)
-    logger.debug("Got request Id: %s", req)
-    print(etree.tostring(client.wsman_pull(resource, req), pretty_print=True))
-
-    logger.info("Listing listeners...")
-    resource = 'winrm/config/listener'
-    req = client.wsman_enumerate(resource)
-    logger.debug("Got request Id: %s", req)
-    print(etree.tostring(client.wsman_pull(resource, req), pretty_print=True))
-
-    resource = 'http://schemas.microsoft.com/wbem/wsman/1/windows/shell/cmd'
-    req = client.wsman_get(resource)
-    logger.debug("Got request Id: %s", req)
-    print(etree.tostring(client.wsman_pull(resource, req), pretty_print=True))
-
-    # Try to create a WinRM shell:
+def create_shell(client):
     logger.info("Creating Shell...")
-    shellid = client.wsman_create()
-    logger.info("Success, got ShellId: %s", shellid)
+    shell_id = client.wsman_create()
+    logger.info("Created shell id=%s", repr(shell_id))
+    return shell_id
 
 
+def delete_shell(client, shell_id):
+    logger.info("Deleting shell with id=%s", repr(shell_id))
+    client.wsman_delete(shell_id)
+    logger.info("Delete shell with id=%s", repr(shell_id))
 
-    logger.info("Finished")
+
+@contextlib.contextmanager
+def debug_context(context):
+    logger.debug("getting %s ...", context)
+    try:
+        yield
+    except Exception:
+        logger.debug("unable to get %s", context, exc_info=True)
+
+
+def print_result(item, xml_result):
+    print(item)
+    print("-" * len(item))
+    if xml_result:
+        print(etree.tostring(xml_result, pretty_print=True))
+    else:
+        print("Unable to get " + item)
+    print()
+
+
+def get_info(client):
+    # wsman info
+    result = None
+    with debug_context("server identity"):
+        result = client.wsman_identify()
+    print_result("server identity", result)
+
+    # services
+    resource = 'config/listener'
+    result = None
+    with debug_context("listeners"):
+        request_id = client.wsman_enumerate(resource)
+        logger.debug("got request_id-id: %s", request_id)
+        result = client.wsman_pull(resource, request_id)
+    print_result("listeners", result)
+
+    # list shells
+    resource = 'windows/shell'
+    result = None
+    with debug_context("shell list"):
+        request_id = client.wsman_enumerate(resource)
+        logger.debug("got request_id-id: %s", request_id)
+        result = client.wsman_pull(resource, request_id)
+    print_result("shell list", result)
+
+    # Don't think the following has ever worked?
+    #
+    # I think the idea is to get the actual commands running in each shell.
+    # The documentation says the get command must be sent to a specific shell?
+    # Probably needs a Shell-Id selector (which we *could* get from the shell
+    # listing?).
+    resource = 'windows/shell/cmd'
+    result = None
+    with debug_context("running commands"):
+        request_id = client.wsman_get(resource)
+        logger.debug("got request-id: %s", request_id)
+        result = client.wsman_pull(resource, request_id)
+    print_result("running commands", result)
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description=textwrap.dedent(
+            """
+            Get info from a WinRM server and start a shell.
+
+            This script is mainly used to test the WinRM parts of an adconf
+            preset.
+            """
+        ).strip(),
+    )
+    parser.add_argument(
+        "--get-info",
+        action="store_true",
+        help="Enumerate info from the ad server",
+    )
+
+    # alternative actions
+    parser.add_argument(
+        "--delete-shell",
+        help="Send a signal to delete the given ShellId and exit",
+        metavar="<shell-id>"
+    )
+    get_client = cli.add_winrm_subparser(parser)
+    Cerebrum.logutils.options.install_subparser(parser)
+
+    args = parser.parse_args(argv)
+    Cerebrum.logutils.autoconf("console", args)
+    logger.info("Start %s", parser.prog)
+
+    client = get_client(adconf.SYNCS, args)
+    client._winrs_skip_cmd_shell = False
+
+    if args.get_info:
+        get_info(client)
+
+    if args.delete_shell:
+        delete_shell(client, args.delete_shell)
+    else:
+        create_shell(client)
+
+    logger.info("Done %s", parser.prog)
+
 
 if __name__ == '__main__':
     main()
-
