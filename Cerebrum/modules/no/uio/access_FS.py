@@ -1101,7 +1101,9 @@ class UiOEVU(access_FS.EVU):
               NVL(e.status_kontotildeling,'J')='J' AND
               k.kurstidsangivelsekode = e.kurstidsangivelsekode AND
               k.kursavbruddstatuskode IS NULL AND
-              NVL(e.dato_til, SYSDATE) >= SYSDATE - 30"""
+              NVL(e.dato_til, SYSDATE) >= SYSDATE - 30 AND
+              %s
+              """ % (self._is_alive())
         return self.db.query(qry)
 
     def list_kurs(self, date=time.localtime()):  # GetEvuKurs
