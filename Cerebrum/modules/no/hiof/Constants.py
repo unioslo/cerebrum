@@ -33,7 +33,7 @@ from Cerebrum.Constants import (
 from Cerebrum.modules.EntityTrait import _EntityTraitCode
 from Cerebrum.modules.PosixConstants import _PosixShellCode
 from Cerebrum.modules.ad2.Entity import ConstantsActiveDirectory
-from Cerebrum.modules.ad2.Entity import _ADAttrCode
+from Cerebrum.modules.ad_attributes.attr_constants import _ADAttrCode
 from Cerebrum.modules.bofhd_requests.constants import _BofhdRequestOpCode
 from Cerebrum.modules.no.Constants import (
     ConstantsUniversityColleges,
