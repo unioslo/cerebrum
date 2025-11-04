@@ -485,7 +485,7 @@ def make_inital_users(db):
 
 # Map sql module name to python module name
 MODULES = {
-    'ad': 'Cerebrum.modules.ADObject',
+    'ad_attributes': 'Cerebrum.modules.ad_attributes',
     'apikeys': 'Cerebrum.modules.apikeys',
     'auditlog': 'Cerebrum.modules.audit',
     'bofhd_requests': 'Cerebrum.modules.bofhd_requests',

@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright 2014 University of Oslo, Norway
+#
+# Copyright 2014-2025 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -16,20 +17,17 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-"""Changelog constants for AD2
 """
+Compatibility/legacy module with changelog onstants for AD attributes
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
-from Cerebrum import Constants
+from Cerebrum.modules.ad_attributes import adattr_constants
 
 
-class CLConstants(Constants.CLConstants):
-    # AD functionality
-    ad_attr_add = Constants._ChangeTypeCode(
-        'ad_attr', 'add', 'added AD-attribute for %(subject)s',
-        ('spread=%(string:spread)s, attr=%(string:attr)s, '
-         'value=%(string:value)s',))
-
-    ad_attr_del = Constants._ChangeTypeCode(
-        'ad_attr', 'remove', 'removed AD-attribute for %(subject)s',
-        ('spread=%(string:spread)s, attr=%(string:attr)s',))
+CLConstants = adattr_constants.AdAttributeChangeConstants

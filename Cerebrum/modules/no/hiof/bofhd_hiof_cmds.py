@@ -31,6 +31,7 @@ import cereconf
 from Cerebrum import Utils
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
+from Cerebrum.modules.ad_attributes import bofhd_adattr_cmds
 from Cerebrum.modules.apikeys import bofhd_apikey_cmds
 from Cerebrum.modules.audit import bofhd_history_cmds
 from Cerebrum.modules.bofhd import bofhd_access
@@ -416,6 +417,14 @@ class _AccessAuth(HiofAuth, bofhd_access.BofhdAccessAuth):
 
 class AccessCommands(bofhd_access.BofhdAccessCommands):
     authz = _AccessAuth
+
+
+class _AdAttrAuth(HiofAuth, bofhd_adattr_cmds.BofhdAdAttrAuth):
+    pass
+
+
+class AdAttrCommands(bofhd_adattr_cmds.BofhdAdAttrCommands):
+    authz = _AdAttrAuth
 
 
 class _ApiKeyAuth(HiofAuth, bofhd_apikey_cmds.BofhdApiKeyAuth):
