@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013 University of Oslo, Norway
+#
+# Copyright 2013-2025 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -16,51 +17,78 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""Configuration functionality for the Active Directory synchronisation.
+"""
+Attribute configuration for the Active Directory synchronisation.
 
 The AD sync is a bit configurable, to be able to fulfill most needs without
-having to develop complex subclasses for each instance. It tries to be flexible,
-at the cost of a bit more thorough and complicated configuration.
+having to develop complex subclasses for each instance. It tries to be
+flexible, at the cost of a bit more thorough and complicated configuration.
 
-Each setting should be well commented in this file, to inform developers and
-sysadmin about the usage and consequences of the setting.
+The classes in this file are typically used to configure individual attributes
+in a configuration module, `adconf`.
 
-The classes in this file is normally instantiated in L{adconf.py}, in each
-sync's 'attribute' element.
+There are two base confifuration classes:
 
-You have, for now, mainly two types of config classes in this file,
-L{AttrConfig} and L{AttrCriterias}. The L{AttrConfig} class adds settings for
-how to set and control what a given attribute should contain, and the
-L{AttrCriterias} sets the requirements that needs to be fullfilled for the
-L{AttrConfig} object it belongs should be used.
+:class:`.AttrConfig`
+    Configures how to set and control what a given attribute should contain
 
-Each element in a sync's 'attribute' dict could be defined with L{AttrConfig}
-class or a list thereof. A short example on how the config classes are used:
+:class:`.AttrCriterias`
+    Sets requirements that needs to be fullfilled for a given *AttrConfig*.
 
-    'attributes': {
+Each element in a sync's 'attribute' dict could be defined with a single,
+*AttrConfig* object, or a sequence of *AttrConfig* objects:
+::
+
+    attributes = {
         'DisplayName': ConfigUtils.PersonNameAttr(
-                            name_variant=co.name_full
-                            source_system=co.system_fs),
-        'Description': (ConfigUtils.NameAttr(
-                            name_variant=(co.personal_title, co.work_title),
-                            criterias=ConfigUtils.AttrCriterias(
-                                            spread=co.spread_lms)),
-                        ConfigUtils.TraitAttr(
-                            trait_type=co.trait_description
-                            # Traits contain both a strval and a numval:
-                            transform=lambda tr: tr['strval'].strip(),
-                            default={'strval': 'N/A'),
-                        ),
-        },
+            name_variant=co.name_full
+            source_system=co.system_fs,
+        ),
+        'Description': (
+            ConfigUtils.NameAttr(
+                name_variant=(co.personal_title, co.work_title),
+                criterias=ConfigUtils.AttrCriterias(
+                    spread=co.spread_lms,
+                ),
+            ),
+            ConfigUtils.TraitAttr(
+                trait_type=co.trait_description
+                # Traits contain both a strval and a numval:
+                transform=lambda tr: tr['strval'].strip(),
+                default={'strval': 'N/A'},
+            ),
+        ),
+    }
+
+
+If you need to dig into how each attribute is calculated:
+
+1. CerebrumEntity.modules.ad2.ADSync.<Sync>.fetch_cerebrum_entities starts the
+    cerebrum lookup of data
+
+2. It will create a bunch of CerebrumEntity objects of type
+    `adconf.SYNCS[<sync>][object_classes]`
+
+3. Each object generates attributes through its
+    `CerebrumEntity.calculate_ad_values`, which in turn uses these attribute
+    config objects to create a dict for comparison
 
 """
-
-import cereconf
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import six
 
 from Cerebrum.Utils import Factory, NotSet
+from Cerebrum import Constants as _constants  # noqa: N813
+from Cerebrum.modules.trait.constants import _EntityTraitCode
 
+# *sigh* - global database connection?
 db = Factory.get('Database')()
+
 # Note that the constants object is not instantiated, as we only need type
 # checking in here.
 const = Factory.get('Constants')
@@ -75,122 +103,79 @@ class CriteriaError(Exception):
     """Exception for when a AttrCriterias is not fullfilled."""
     pass
 
-# TODO: Add classes(?) for setting what default values should be, e.g. "NotSet"
-# (elns) for telling that the given attribute should not be overridden in AD if
-# this value occurs. This could e.g. be for avoiding to set attributes that
-# should only be set for given objects, while all the other objects should keep
-# their original value, administrered by the AD administrators - Not sure if we
-# should allow this, though - why not set attributes for all entities through
-# bofh?
-
 
 class AttrConfig(object):
-    """Configuration settings for an AD attribute.
+    """
+    Configuration of a given AD attribute.
 
-    This class, and its subclasses, is used to specify what a given attribute
-    should contain of information. The configuration is then used by the AD
-    sync to feed the given attribute with the values from db that matches these
-    criterias.
+    Note that the attribute configs themselves won't do any transforms or
+    lookups, they are only container objects with config attributes.
 
+    TODO: Some of the logic should be moved/implemented here, rather than
+    ``CerebrumData.CerebrumEntity.find_ad_attribute``
     """
     def __init__(self, default=NotSet, transform=None, spread=None,
                  source_systems=None, criterias=None, ad_transform=None):
-        """Setting the basic, most used config variables.
-
-        :type default: mixed
+        """
         :param default:
             The default value to set for the attribute if no other value is
-            found. Note that if this is a string, it is able to use some of the
-            basic variables for the entities:
+            found.
 
-            - `entity_name'
-            - `entity_id'
-            - `ad_id'
-            - `ou'
+            For string values, the following printf-style substitutions can be
+            used to insert attributes from the *CerebrumEntity*:
 
-            Use these through regular substition, e.g. "`%(ad_id)s`".
+            - `entity_name`
+            - `entity_id`
+            - `ad_id`
+            - `ou`
 
-            Also note that default values will also be passed through the
-            L{transform} function, if defined. If you set up a config with
-            special elements, like dicts, you need to feed the default value
-            with the same format to avoid type conflicts when transforming the
-            values.
+            Use these through regular substition, e.g. "%(ad_id)s".  Also note
+            that:
 
-            Note that L{default} is NOT set if the given criterias is not
-            matched for the entity. L{default} is only used if the criterias are
-            fullfilled but Cerebrum does not have the needed data for the given
-            entity.
+            - default values will be passed through any *transform* function
+            - *criterias* must be fulfilled for default values to be set
 
-        :type transform: callable
-        :param transform:
-            A function, e.g. a lambda, that should process the given value
-            before sending it to AD. This could for instance be used to strip
-            whitespace, or lowercase strings. For instance:
+        :param callable transform:
+            A callable that reveices a single attribute value and returns a
+            modified value.
 
-                lambda x: x[1:].lower()
-
-            though this specific example could be simplified:
-
-                string.lower
+            E.g.: `lambda x: x.lower()`
 
         :type spread: SpreadCode or sequence thereof
         :param spread:
-            TODO: The spread argument rather belongs to AttrCriterias. Remove
-            this when done updating adconf settings.
+            Deprecated setting - this has the same behaviour as setting
+            `criterias=AttrCriterias(spread=...)`.  Use `criterias` if this is
+            needed.
 
-            If set, defines what spread the entity must have for the value to be
-            set. If a sequence is given, the entity must have at least one of
-            the spreads. Entities without any of the given spreads would get
-            this attribute blanked out.
-
-            Note that spreads were originally meant to control what systems
-            information should get spread to - here we use it for modifying what
-            information goes over to a system, which could be discussed if is
-            wrong use of the spread definition. Therefore, use with care, to
-            avoid complications in the other parts of the business logic.
-
-            TODO: This should be moved into AttrCriterias
+            Note that this is also not correct use of spreads - we may want to
+            reconsider supporting this type of attribute/spread filtering
+            altogether.
 
         :type criterias: AttrCriterias
-        :param criterias:
-            A class that sets what criterias must be fullfilled before a value
-            could be set according to this ConfigAttr. This object is asked
-            before the given config is used. This includes the L{default}
-            setting, which is not set if the given criterias is not fullfilled.
+        :param AttrCriterias criterias:
+            A set of criterias that must be fulfilled by the object before
+            setting this attribute.
 
         :type source_systems: AuthoritativeSystemCode or sequence thereof
         :param source_systems:
-            One or more of the given source systems to retrieve the information
-            from, in prioritised order. If None is set, the attribute would be
-            given from any source system (TODO: need a default order for such).
+            A prioritized list of source systems to fetch data from.
 
-        :type ad_transform: callable
-        :param ad_transform:
-            A callable for modifying the attribute's value received from AD. The
-            value is modified before comparing it with the value from Cerebrum.
-            This could e.g. be used to ignore certain values in a multivalued
-            list, or lowercase the value(s) to be able to compare it case
-            insensitive.
+        :param callable ad_transform:
+            Transform/normalize the AD value for comparison.
 
-            The callable is not used if AD didn't have a value for this.
-
-            Examples::
-
-                ad_transform=lambda x: x.lower()
-
-                ad_transform=lambda x: filter(lambda e:
-                    e.startswith('x500:'), x)
-
-        # TODO: Should attributes behave differently when multiple values are
-        # accepted? For instance with the contact types.
+            This is typically used to normalize the AD value in scenarios
+            where the value we get from AD looks different from the value we
+            set in AD.
 
         """
         self.default = default
         if transform:
             self.transform = transform
-        self.source_systems = _prepare_constants(source_systems,
-                                                 const.AuthoritativeSystem)
-        self.spread = _prepare_constants(spread, const.Spread)
+        self.source_systems = _prepare_constants(
+            source_systems,
+            _constants._AuthoritativeSystemCode,
+        )
+        self.spread = _prepare_constants(spread, _constants._SpreadCode)
         if criterias and not isinstance(criterias, AttrCriterias):
             raise ConfigError('Criterias is not an AttrCriterias object')
         self.criterias = criterias
@@ -199,32 +184,27 @@ class AttrConfig(object):
         self.ad_transform = ad_transform
 
 
-def _prepare_constants(input, const_class):
+def _prepare_constants(values, const_class):
     """Prepare and validate given Cerebrum constant(s).
 
-    @type input: Cerebrum constant or sequence thereof or None
-    @param input: The constants that should be used.
+    :type input: Cerebrum constant or sequence thereof or None
+    :param input:
+        One or more constants to validate, or ``None``
 
-    @type const_class: A class or sequence thereof
-    @param const_class:
-        The class that the given constant(s) must be instances of to be valid.
-        If a sequence is given, the constants must be an instance of one of the
-        classes. Could for instance be a CerebrumCode class, or simply a
-        `basestring`.
+    :param const_class:
+        One or more classes to limit the given input constants to.
 
-    :rtype: sequence of Cerebrum constants
-    :return:
-        Return the given input, but makes sure that it is iterable. If it is not
-        iterable, it is returned as a tuple with one element.
-
+    :returns:
+        Returns the input sequence (if valid), or a tuple with the input value
+        (if valid), or None if the input was None
     """
-    if input:
-        if not isinstance(input, (list, tuple, set)):
-            input = (input,)
-        for i in input:
+    if values:
+        if not isinstance(values, (list, tuple, set)):
+            values = (values,)
+        for i in values:
             if not isinstance(i, const_class):
                 raise ConfigError('Not a %s: %s (%r)' % (const_class, i, i))
-    return input
+    return values
 
 
 class ContactAttr(AttrConfig):
@@ -252,8 +232,10 @@ class ContactAttr(AttrConfig):
 
         """
         super(ContactAttr, self).__init__(*args, **kwargs)
-        self.contact_types = _prepare_constants(contact_types,
-                                                const.ContactInfo)
+        self.contact_types = _prepare_constants(
+            contact_types,
+            _constants._ContactInfoCode,
+        )
 
 
 class NameAttr(AttrConfig):
@@ -279,10 +261,14 @@ class NameAttr(AttrConfig):
 
         """
         super(NameAttr, self).__init__(*args, **kwargs)
-        self.name_variants = _prepare_constants(name_variants,
-                                                (const.EntityNameCode,
-                                                 const.PersonName))
-        self.languages = _prepare_constants(languages, const.LanguageCode)
+        self.name_variants = _prepare_constants(
+            name_variants,
+            (_constants._EntityNameCode, _constants._PersonNameCode),
+        )
+        self.languages = _prepare_constants(
+            languages,
+            _constants._LanguageCode,
+        )
 
 
 class PersonNameAttr(AttrConfig):
@@ -300,8 +286,10 @@ class PersonNameAttr(AttrConfig):
 
         """
         super(PersonNameAttr, self).__init__(*args, **kwargs)
-        self.name_variants = _prepare_constants(name_variants,
-                                                const.PersonName)
+        self.name_variants = _prepare_constants(
+            name_variants,
+            _constants._PersonNameCode,
+        )
 
 
 class AddressAttr(AttrConfig):
@@ -311,41 +299,47 @@ class AddressAttr(AttrConfig):
     def __init__(self, address_types, *args, **kwargs):
         """Initiate an address attribute.
 
-        Note that each address is a dict and not a string. You therefore need to
-        use L{transform} to set the proper variable(s) you would like. Each
+        Note that each address is a dict and not a string. You therefore need
+        to use *transform* to set the proper variable(s) you would like. Each
         address consists of the elements:
 
-                - address_text
-                - p_o_box
-                - postal_number
-                - city
-                - country
+        - address_text
+        - p_o_box
+        - postal_number
+        - city
+        - country
 
-        Example on a transform callable::
+        Example on a transform callable:
+        ::
 
             lambda adr: adr['postal_number']
 
-        which would for instance return::
+        which would for instance return:
+        ::
 
             0360
 
-        You could also combine elements::
+        You could also combine elements:
+        ::
 
             def adrformat(adr)
                 if adr['p_o_box']:
                     return u'%s, %s' % (adr['address_text'], adr['p_o_box'])
                 return adr['address_text']
 
-        which could return::
+        which could return:
+        ::
 
             "Problemveien 1"
             "Problemveien 1, Postboks 120"
 
-        Note that the element "country" is a reference to a Country code::
+        Note that the element "country" is a reference to a Country code:
+        ::
 
             lambda adr: co.Country(adr['country']).country
 
-        which would give::
+        which would give:
+        ::
 
             "Sweden"
 
@@ -355,36 +349,34 @@ class AddressAttr(AttrConfig):
 
         """
         super(AddressAttr, self).__init__(*args, **kwargs)
-        self.address_types = _prepare_constants(address_types,
-                                                const.Address)
+        self.address_types = _prepare_constants(
+            address_types,
+            _constants._AddressCode,
+        )
 
 
 class ADAttributeAttr(AttrConfig):
+    """
+    Config for attributes fetched from the AD attribute module.
 
-    """ Config for attributes fetched from the AD attribute table in Cerebrum.
-
-    Certain attributes could be stored in the AD attribute table in Cerebrum, if
-    there are nowhere else to put the data. This table should not be used that
-    often, since most of the data Cerebrum should know about is put in other,
-    more proper places. Sometimes this table is needed for data that doesn't
-    belong anywhere else and no other easy options are available.
-
-    The AD attribute table sorts the attributes by spread. You could for
-    instance have a different `RoamingProfile` in two different AD domains.
-
+    This module stores AD attributes for a given entity.  The AD attribute
+    table stores attributes by spread.  You could for instance have a different
+    `RoamingProfile` in two different AD domains.
     """
     def __init__(self, attributes, *args, **kwargs):
-        """Initiate an AD attribute attribute.
+        """
+        Configure an AD attribute to include.
 
-        Might want to be able to override the spread setting in the future, but
-        that is not an option at the moment.
+        The spread is set by the sync profile.  Might want to be able to
+        override the spread setting in the future, but that is not an option at
+        the moment.
 
         :type attributes:
             Cerebrum.modules.ad2.Entity/ADAttribute or sequence thereof
+
         :param attributes:
             The name of the AD attribute constant(s) to use, in prioritized
             order. The first available attribute that is found is used.
-
         """
         super(ADAttributeAttr, self).__init__(*args, **kwargs)
         self.attributes = _prepare_constants(attributes, const.ADAttribute)
@@ -402,28 +394,33 @@ class ExternalIdAttr(AttrConfig):
 
         """
         super(ExternalIdAttr, self).__init__(*args, **kwargs)
-        self.id_types = _prepare_constants(id_types,
-                                           const.EntityExternalId)
+        self.id_types = _prepare_constants(
+            id_types,
+            _constants._EntityExternalIdCode,
+        )
 
 
 class TraitAttr(AttrConfig):
-    """Config for attributes retrieved from traits.
+    """
+    Config for attributes retrieved from traits.
 
-    Note that each trait is a dict that contains different elements, like strval
-    and numval, and must therefore be wrapped e.g. through L{transform}.
-
+    Each trait can contain values of different types and use cases (strval,
+    numval, date, target_id).  You *must* configure the TraitAttr with a
+    ``transform`` function to prepare a scalar value from a trait dict.
     """
     def __init__(self, traitcodes, *args, **kwargs):
-        """Initiate a config for given traits.
+        """
+        Configure a trait to include.
 
         This might be expanded later, if more criterias are needed.
 
-        @type traitcodes: EntityTraitCode or sequence thereof
-        @param traitcodes: What trait types to use, in prioritised order.
-
+        :type traitcodes: EntityTraitCode, list[EntityTraitCode]
+        :param traitcodes:
+            Trait codes to select, in preferred order.  The first matching
+            trait will be used.
         """
         super(TraitAttr, self).__init__(*args, **kwargs)
-        self.traitcodes = _prepare_constants(traitcodes, const.EntityTrait)
+        self.traitcodes = _prepare_constants(traitcodes, _EntityTraitCode)
 
 
 class MemberAttr(AttrConfig):
@@ -458,35 +455,44 @@ class MemberAttr(AttrConfig):
 
         """
         super(MemberAttr, self).__init__(*args, **kwargs)
-        self.member_spreads = _prepare_constants(member_spreads, const.Spread)
+        self.member_spreads = _prepare_constants(
+            member_spreads,
+            _constants._SpreadCode,
+        )
         self.person2primary = person2primary
 
 
 class CallbackAttr(AttrConfig):
-    """A special attribute, using callbacks with the entity as the argument.
+    """
+    Configure a generic attribute.
 
-    This class should normally not be used, as it requires internal knowledge of
-    how the entity object works, and it will also make the adconf a bit more
-    complex. Use this only if no other alternative is possible. The plus side of
-    this, is that we don't have to create subclasses for every single weird
+    This special attribute requires the use of a callback to select a scalar
+    attribute value.  The callback is presented with the full *Entity* object,
+    as fetched from Cerebrum.
+
+    This class should normally not be used, as it requires internal knowledge
+    of how the entity object works, and it will also make the adconf a bit more
+    complex. Use this only if no other alternative is possible. The plus side
+    of this, is that we don't have to create subclasses for every single weird
     attribute that is needed.
 
-    Example on usage:
+    Example use:
+    ::
 
         'DNSHostName': ConfigUtils.CallbackAttr(
-                        lambda ent: getattr(ent, 'hostname', '')
-                        ),
+            lambda entity: getattr(entity, 'hostname', ''),
+        ),
 
     """
     def __init__(self, callback, *args, **kwargs):
         """Initiate a config for a callback attribute.
 
-        @type callback: callable
-        @param callback: The callable to run for each entity.
+        :param callable callback:
+            A callback to process the entity into an attribute value
 
         """
         if not callable(callback):
-            raise ConfigError("Argument is not callable: %s" % callback)
+            raise ConfigError("Argument is not callable: " + repr(callback))
         super(CallbackAttr, self).__init__(*args, **kwargs)
         self.callback = callback
 
@@ -517,7 +523,7 @@ class SimpleMemberAttr(CallbackAttr):
             kv = p.split('=', 1)
             return '%s=%s' % (kv[0].upper(), kv[1].lower())
         try:
-            return u','.join(
+            return ','.join(
                 [format_part(part) for part in dn.split(',')])
         except IndexError:
             # Formatting failed, return as is and let the comparison fail.
@@ -535,7 +541,7 @@ class SimpleMemberAttr(CallbackAttr):
         # TODO: Should we do some uname -> ad_id conversion here, or has that
         # been done elsewhere?
         # TODO: Same as for the _ad_transform result: This should yield.
-        return [self.format_dn(u'CN=%s,%s' % (m.lower(), self._member_ou))
+        return [self.format_dn('CN=%s,%s' % (m.lower(), self._member_ou))
                 for m in getattr(crb_object, 'members', [])]
 
 
@@ -607,7 +613,9 @@ class PosixAttr(AttrConfig):
         - shell: string, strcode of a PosixShell constant, e.g. "bash"
         - gecos: string, free text
 
-    One of these could for instance be set through the L{transform} method, e.g:
+    One of these could for instance be set through the L{transform} method,
+    e.g:
+    ::
 
         lamba posix: posix.get('shell', '<N/A>')
 
@@ -615,30 +623,32 @@ class PosixAttr(AttrConfig):
     GID.
 
     """
-    # TODO: Should we have some shortcut settings, for making the config easier?
+    # TODO: Should we have some shortcut settings, for making the config
+    # easier?
     pass
 
 
 class HomeAttr(AttrConfig):
-    """Config for account's home directories.
+    """
+    Config for account home directories.
 
     The attribute data generated for the HomeAttr is a dict with information
     about the home registered for the given home spread. The dict contains the
     elements:
 
-        - homedir (str): The full path to the homedir of the account, as how the
-                         Account object defines how it should be. Note that if
-                         you need the path in a different format, you probably
-                         want to subclass the L{account.resolve_homedir} for the
-                         given instance instead of tweaking it here with
-                         L{transform}.
-        - home_spread (int): The spread for the home directory.
-        - status (int): The code from the AccountHomeStatus for the homedir,
-                        that could e.g. represent that the homedir is created,
-                        archived or failed to be created. Use
-                        "str(co.AccountHomeStatus(status))" to get a readable
-                        status.
+    homedir (str)
+        The full path to the homedir of the account, as how the Account object
+        defines how it should be. Note that if you need the path in a different
+        format, you probably want to subclass the ``account.resolve_homedir()``
+        for the given instance instead of tweaking it here with *transform*.
 
+    home_spread (int)
+        The spread for the home directory.
+
+    status (int)
+        The code from the AccountHomeStatus for the homedir, that could e.g.
+        represent that the homedir is created, archived or failed to be
+        created.
     """
     def __init__(self, home_spread, *args, **kwargs):
         """Initiate a config for a home directory attribute.
@@ -647,18 +657,20 @@ class HomeAttr(AttrConfig):
         @param home_spread:
             The spread for the homedir that should be used. An account is
             allowed to have different home directories per system. Note that
-            only one spread is allowed and supported, as only one home directory
-            is used per system.
+            only one spread is allowed and supported, as only one home
+            directory is used per system.
 
         """
         super(HomeAttr, self).__init__(*args, **kwargs)
-        if not isinstance(home_spread, const.Spread):
+        if not isinstance(home_spread, _constants._SpreadCode):
             raise ConfigError('Not a Spread: %s' % (home_spread,))
         self.home_spread = home_spread
 
 
+@six.python_2_unicode_compatible
 class AlwaysEqual(object):
     """Make value always compare equal to other"""
+
     def __init__(self, value):
         self.value = value
 
@@ -669,10 +681,7 @@ class AlwaysEqual(object):
         return False
 
     def __str__(self):
-        return "<[writeonly] %s>" % self.value
-
-    def __unicode__(self):
-        return u"<[writeonly] %s>" % self.value
+        return "<[writeonly] %s>" % (self.value,)
 
 
 def noupdate(ad_transform=None, attrclass=AttrConfig, *rest, **kw):
@@ -715,30 +724,30 @@ def noupdate(ad_transform=None, attrclass=AttrConfig, *rest, **kw):
 
 
 class AttrCriterias(object):
-    """Config class for setting criterias for entities' AttrConfigs.
+    """
+    Config class for setting criterias for entities' AttrConfigs.
 
     Each AttrConfig object could be set up with an AttrCriterias for defining
     what criterias that must be fullfilled for the AttrConfig to be set. By
     having the criterias in its own classes, we make it easier to gather the
     exact data that is needed from Cerebrum to check the criterias. The
-    criterias will in some situations be too limited, which makes it possible to
-    use a callback.
-
+    criterias will in some situations be too limited, which makes it possible
+    to use a callback.
     """
     def __init__(self, spreads=None, callback=None):
-        """Set up the initial criterias.
+        """
+        Set up initial criterias.
 
-        @type spreads: SpreadCode or list thereof
-        @param spreads:
-            If set, defines that at least one of the spreads must be set for the
-            entity to allow the given AttrConfig to be set.
+        :type spreads: SpreadCode, list[SpreadCode]
+        :param spreads:
+            If set, then one of the given spreads must be set for the entity to
+            allow the given AttrConfig to be set.
 
-        @type callback: callable
-        @param callback:
-            If flexibility is needed, you could use this callback for generating
-            a more specific criteria. The callable must accept one argument, a
-            L{CerebrumEntity} object, and must return True to tell that the
-            criteria was fullfilled.
+        :param callable callback:
+            If flexibility is needed, you could use this callback for
+            generating a more specific criteria. The callable must accept one
+            argument, a L{CerebrumEntity} object, and must return True to tell
+            that the criteria was fullfilled.
 
             Note however that the sync does not know what data the callable
             needs, so that has to be gathered manually (TODO: or we should
@@ -749,7 +758,7 @@ class AttrCriterias(object):
             fullfilled for the AttrConfig to be set.
 
         """
-        self.spreads = _prepare_constants(spreads, const.Spread)
+        self.spreads = _prepare_constants(spreads, _constants._SpreadCode)
         if callback:
             if not callable(callback):
                 raise ConfigError("Criteria not callable: %s" % callback)
@@ -781,7 +790,6 @@ class AccountCriterias(AttrCriterias):
     """Account specific criterias for an AttrConfig.
 
     The class could be extended by more criterias.
-
     """
     def __init__(self, primary_account=None, affiliations=None,
                  *args, **kwargs):
@@ -813,7 +821,7 @@ class AccountCriterias(AttrCriterias):
             attribute-configuration.
         """
         self.primary_account = primary_account
-        self.affiliations = _prepare_constants(affiliations, basestring)
+        self.affiliations = _prepare_constants(affiliations, six.string_types)
         super(AccountCriterias, self).__init__(*args, **kwargs)
 
     def check(self, ent):
