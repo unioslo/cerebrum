@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2012-2015 University of Oslo, Norway
+# Copyright 2012-2025 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -29,307 +29,339 @@ comparing it. If there are mismatches between Cerebrum and AD, AD gets updated.
 The quick sync does instead just check Cerebrum's change log and blindly sends
 the changes to AD. If AD complains, the changes will be processed later on.
 """
-from __future__ import print_function
-
-import getopt
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+import argparse
+import io
 import logging
-import sys
+import textwrap
 
 import adconf
 import Cerebrum.logutils
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.ad2.ADSync import BaseSync
+from Cerebrum.modules.ad2 import cli
+from Cerebrum.utils import date as date_utils
 
 logger = logging.getLogger(__name__)
 
 
-def usage(exitcode=0):
-    print("""Usage: sync.py [OPTIONS] --type TYPE
-
-    %(doc)s
-
-    Sync options:
-
-    --type TYPE     Which sync (adconf.SYNCS[TYPE]) sync to perform.
-
-                    Normally, the sync type is the name of a spread, which
-                    makes the entities with the given spread the targets.
-
-    --quick CL_NAME Run a quicksync (i.e. only send the latest Cerebrum changes
-                    to AD).  The default is a fullsync (i.e. compare all data
-                    in AD and Cerebrum).
-
-                    The CL_NAME is a CLHandler key to use for tracking changes
-                    that has already been processed.  Each quicksync needs to
-                    use its own key!
-
-    --change-id ID  Run the quicksync only for a given changelog event.
-
-                    The ID(s) must refer to changelog IDs, which are then
-                    processed as in the quicksync.  This option can be repeated
-                    for multiple IDs.
-
-    -d, --dryrun    Do not write changes back to AD (only log them).
-
-                    Useful when testing.  Note that the sync is still reading
-                    data from AD.
-
-    --sync_class CLS
-                    Override the sync_class from config.
-
-                    This option can be repeated.  If multiple sync classes are
-                    given, a new sync class will be created, with the the given
-                    classes as bases.
-
-    --add-subset    Add a name to the subset configuration list.
-
-                    If a subset list is given (as option, or in the config),
-                    only the entities and objects with a name in this list will
-                    be processed. This is for debugging and testing purposes
-                    only.  This option can be repeated.
-
-    --set VALUE=... Override any setting in the config.
-
-                    This is used to be able to set any configuration variable,
-                    e.g. 'store_sid' or 'move_objects'. The name and the value
-                    of a configuration variable must be separated with '='.
-
-                    This is for now only supported for config that requires
-                    strings (or integers).
-
-                    Note that setting config values like this does not have any
-                    input control. Use with care.
-
-    AD related options:
-
-    --host HOSTNAME The hostname of the Windows server we communicate with. We
-                    normally don't communicate with a domain controller
-                    directly, but rather through a Windows server which again
-                    communicates with AD.
-
-    --port PORT     The port number on the Windows server. Default: 5986 for
-                    encrypted communication, otherwise 5985.
-
-    --unencrypted   If the communication should go unencrypted. This should
-                    only be used for testing! We should e.g. not send passwords
-                    in plaintext unencrypted.
-
-    Mocking:
-
-    -m, --mock      Use a mock AD server rather than connect to AD.
-
-                    You'll typically want to load a state into the mock object,
-                    otherwise the mock ad environment will look empty.
-
-    -n, --store-mock-state <FILE>
-                    Store the mock state in a JSON file.
-
-                    This option will typically be used without --mock, in order
-                    to fetch actual ad data from an ad server.  The mock state
-                    can later be used with the --mock argument.
-
-    -l, --load-mock-state <FILE>
-                    Load the mocks state from a JSON file.
-
-                    This state file is typically generated with
-                    --store-mock-state.
-
-    Debug options:
-
-    --debug         Print debug information, mostly for developers.
-
-    --dump-cerebrum-data
-                    Only dump cerebrum data.
-
-                    Instead of syncing, just dump out how Cerebrum wants
-                    the AD side to look like.  The output is meant to be easy
-                    to search and compare, so the format is:
-
-                        ad-id;attribute-name;value
-
-                    For example:
-
-                        emplyees;GidNumber;1002
-                        bob;GivenName;Bob
-                        bob;EmployeeNumber;0123456
-
-                    The output is sorted by entity name and the attribute
-                    names.
-
-    Other options:
-
-    --logger-level LEVEL What log level should it start logging. This is
-                         handled by Cerebrum's logger. Default: DEBUG.
-
-    --logger-name NAME   The name of the log. Default: ad_sync. Could be
-                         specified to separate different syncs, e.g. one for
-                         users and one for groups. The behaviour is handled by
-                         Cerebrum's logger.
-
-                         Note that the logname must be defined in logging.ini.
-
-    -h, --help      Show this and quit.
-
-    """ % {'doc': __doc__})
-
-    sys.exit(exitcode)
-
-
 def print_cerebrum_data(sync):
     """ Format and print data collected from Cerebrum. """
-    atrnames = sorted(sync.config['attributes'])
-    for entname in sorted(sync.entities):
-        ent = sync.entities[entname]
-        print(';'.join((ent.ad_id, u'OU', ent.ou)).encode('utf-8'))
-        for atrname in atrnames:
-            print(';'.join((
-                ent.ad_id,
-                atrname,
-                unicode(ent.attributes.get(atrname, '<Not Set>')),
-            )).encode('utf-8'))
+    attrs = sorted(sync.config['attributes'])
+    for obj_name in sorted(sync.entities):
+        obj = sync.entities[obj_name]
+        logger.debug("obj: %s - %s", repr(obj), repr(obj.attributes))
+        print(";".join((obj.ad_id, "OU", obj.ou)))
+        for attr in attrs:
+            value = obj.attributes.get(attr, "<Not Set>")
+            print(";".join((obj.ad_id, attr, value)))
+
+
+def _get_proc_status():
+    """ Get process status from /proc/. """
+    # TODO: Should probably use /proc/self/stat for this?
+    with io.open("/proc/self/status", mode="r",
+                 encoding="utf-8", errors="ignore") as f:
+        for line in f:
+            try:
+                field, value = line.split(":", 1)
+            except Exception:
+                continue
+            yield (field.strip(), value.strip())
 
 
 def dump_mem_usage():
     """ Print memory usage. """
-    for line in open('/proc/self/status', 'r'):
-        if 'VmPeak' in line:
-            _, size, unit = line.split()
-            size = int(size)
-            if size > 1024:
-                if unit == 'kB':
-                    size = size / 1024
-                    unit = 'MB'
-            print("Memory peak:", str(size), str(unit))
+    proc_status = dict(_get_proc_status())
+    vm_peak = proc_status.get("VmPeak")
+    if vm_peak:
+        size, unit = vm_peak.split()
+        size = int(size)
+        if size > 1024:
+            if unit == 'kB':
+                size = size // 1024
+                unit = 'MB'
+        print("Memory peak:", str(size), str(unit))
 
 
-def main():
-    # Legacy autoconf -- checks sys.argv directly for log args
-    # TODO: Replace getopt with argparse
-    Cerebrum.logutils.autoconf('ad_sync', None)
+def get_sync_class(preset, bases):
+    """
+    Get sync class from 'sync_class' setting or argument.
 
-    try:
-        opts, args = getopt.getopt(sys.argv[1:],
-                                   "hdmn:l:",
-                                   ["help",
-                                    "dryrun",
-                                    "mock",
-                                    "store-mock-state=",
-                                    "load-mock-state=",
-                                    "debug",
-                                    "quick=",
-                                    "change-ids=",
-                                    "set=",
-                                    "unencrypted",
-                                    "dump-cerebrum-data",
-                                    "dump-diff",
-                                    "subset=",
-                                    "type=",
-                                    "sync_class=",
-                                    "host=",
-                                    "port="])
-    except getopt.GetoptError as e:
-        print(e)
-        usage(1)
+    :param str preset: Name of a sync preset in adconf.SYNCS
+    :param list bases: A list of mixins to use (from --sync-class)
+    :returns type: sync class to use
+    """
+    sync_class = BaseSync.get_class(classes=bases or [], sync_type=preset)
+    pretty_mro = ", ".join(repr(c) for c in type.mro(sync_class))
+    logger.debug("Using sync classes: %s", pretty_mro)
+    return sync_class
 
-    sync_type = None
-    sync_classes = []
-    # If we should do the quicksync instead of fullsync:
-    quicksync = False
-    change_ids = []
-    debug = dump_cerebrum_data = False
-    store_mock_state = load_mock_state = None
 
-    # The configuration for the sync
-    configuration = dict()
+def kv_pair(value):
+    """
+    Split a key-value argument.
 
-    for opt, val in opts:
-        # General options
-        if opt in ('-h', '--help'):
-            usage()
-        elif opt in ('-d', '--dryrun'):
-            configuration["dryrun"] = True
-        elif opt in ('-m', '--mock'):
-            configuration["mock"] = True
-        elif opt in ('-n', '--store-mock-state'):
-            store_mock_state = val
-        elif opt in ('-l', '--load-mock-state'):
-            load_mock_state = val
-        elif opt == '--unencrypted':
-            configuration['encrypted'] = False
-        elif opt == '--sync_class':
-            sync_classes.append(val)
-        elif opt == '--type':
-            if val not in adconf.SYNCS:
-                print("Sync type '%s' not found in config" % val)
-                print("Defined sync types:")
-                for typ in adconf.SYNCS:
-                    print('  %s' % typ)
-                sys.exit(2)
-            sync_type = configuration['sync_type'] = val
-        elif opt == '--host':
-            configuration['server'] = val
-        elif opt == '--port':
-            configuration['port'] = int(val)
-        elif opt == '--add-subset':
-            configuration.setdefault('subset', []).append(val)
-        elif opt == '--set':
-            key, value = val.split('=', 1)
-            configuration[key] = value
-        elif opt == '--change-ids':
-            change_ids.append(int(val))
-        elif opt == '--quick':
-            quicksync = val
-        elif opt == '--debug':
-            debug = True
-        elif opt == '--dump-cerebrum-data':
-            dump_cerebrum_data = True
-        else:
-            print("Unknown option: %s" % opt)
-            usage(1)
+    :param str value: a pair value ("key=value")
+    :returns tuple: ("key", "value")
+    """
+    return value.split('=', 1)
 
-    if not sync_type:
-        print("Need to specify what sync type to perform")
-        usage(1)
 
-    # Make use of config file settings, if not set otherwise by arguments
-    for key, value in adconf.SYNCS[sync_type].items():
-        if key not in configuration:
-            configuration[key] = value
+def main(argv=None):
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description=textwrap.dedent(
+            """
+            Run a sync with Active Directory.
+            """
+        ).lstrip(),
+    )
 
-    logger.info('start')
+    # Add basic winrm/powershell options
+    get_preset = cli.add_sync_subparser(parser)
 
-    sync_class = BaseSync.get_class(classes=sync_classes, sync_type=sync_type)
-    logger.debug("Using sync classes: %s" % ', '.join(repr(c) for c in
-                                                      type.mro(sync_class)))
+    #
+    # Sync options
+    #
+    sync_group = parser.add_argument_group(
+        "Sync configuration",
+        textwrap.dedent(
+            """
+            AD sync specific options.  Sync settings are mainly fetched from
+            the preset selected by the --type option.  Other options can be
+            used to override settings from the selected preset.
+
+            Available presets are defined in `adconf.SYNCS`.
+            """
+        ).lstrip(),
+    )
+    sync_group.add_argument(
+        "--add-subset",
+        action="append",
+        dest="subset",
+        help=textwrap.dedent(
+            """
+            Limit sync to ad objects with ad-id %(metavar)s.
+
+            The 'subset' setting limits the sync to a list of ad objects.  This
+            option *adds* objects to the subset list.
+            """
+        ).lstrip(),
+        metavar="ID",
+    )
+    quick_mutex = sync_group.add_mutually_exclusive_group()
+    quick_mutex.add_argument(
+        "--quick",
+        dest="quicksync_key",
+        help=textwrap.dedent(
+            """
+            Run a quicksync (for a sync-preset with quicksync settings).
+
+            This will process all previously unprocessed changes using the
+            change-handler key %(metavar)s.  Note that each sync must have its
+            own change-handler key.
+            """
+        ),
+        metavar="KEY",
+    )
+    quick_mutex.add_argument(
+        "--change-id",
+        action="append",
+        type=int,
+        dest="quicksync_ids",
+        help=textwrap.dedent(
+            """
+            Run a quicksync for the given change record.  %(metavar)s must be a
+            valid changelog id.  This option can be repeated to process
+            multiple change records.
+            """
+        ).lstrip(),
+        metavar="ID",
+    )
+    sync_group.add_argument(
+        "--sync-class",
+        action="append",
+        dest="sync_classes",
+        help=textwrap.dedent(
+            """
+            Override 'sync_class' setting.
+
+            This option can be repeated to create a sync class with mixins.
+            """
+        ).lstrip(),
+        metavar="CLS",
+    )
+    sync_group.add_argument(
+        "--set",
+        action="append",
+        type=kv_pair,
+        dest="overrides",
+        help=textwrap.dedent(
+            """
+            Override any setting.
+
+            Generally only works for string settings.  Note that values aren't
+            validated, so invalid values may break the sync.
+            """
+        ).lstrip(),
+        metavar="KEY=VALUE",
+    )
+
+    #
+    # Debug options
+    #
+    debug_group = parser.add_argument_group(
+        "Debug and development",
+        textwrap.dedent(
+            """
+            Various options for debugging in a dev environment.
+
+            Run a dry-run sync (prevent changes) and store current ad
+            state for the mock client:
+
+                sync --type <preset> --dryrun --store-debug-state state.json
+
+            Run a mock sync (compare cerebrum with mock-state and print
+            changes):
+
+                sync --type <preset> --mock --load-debug-state state.json
+
+            Dump the current cerebrum state as `ad-id;ad-attr;ad-value` lines:
+
+                sync --type <preset> --dump-cerebrum-data
+            """
+        ).lstrip(),
+    )
+    debug_group.add_argument(
+        "-d", "--dryrun",
+        action="store_true",
+        help="Do not write any changes to AD",
+    )
+    debug_group.add_argument(
+        "--debug",
+        action="store_true",
+        help="Print memory debug information after sync",
+    )
+    debug_group.add_argument(
+        "--dump-cerebrum-data",
+        action="store_true",
+        help=textwrap.dedent(
+            """
+            Fetch and print the cerebrum-data that should be in AD.
+            """
+        ).lstrip(),
+    )
+    debug_group.add_argument(
+        "-m", "--mock",
+        action="store_true",
+        help=textwrap.dedent(
+            """
+            Use a mock client rather than connect to AD.  The sync assumes AD
+            is empty unless you load a state file with --load-mock-state.
+            """
+        ).lstrip(),
+    )
+    debug_group.add_argument(
+        "-n", "--store-mock-state",
+        help=textwrap.dedent(
+            """
+            Store active directory state as JSON in %(metavar)s.  This is
+            usually done in a regular (or dryrun) sync, without --mock.
+            """
+        ).lstrip(),
+        metavar="FILE",
+    )
+    debug_group.add_argument(
+        "-l", "--load-mock-state",
+        help="""
+          Load a mock state state from JSON file %(metavar)s.  This is used
+          with --mock to test the sync without an AD connection.  Generate a
+          %(metavar)s with --store-mock-state.
+        """,
+        metavar="FILE",
+    )
+
+    Cerebrum.logutils.options.install_subparser(parser)
+
+    args = parser.parse_args(argv)
+    Cerebrum.logutils.autoconf("ad_sync", args)
+
+    logger.info("Start %s", parser.prog)
+    logger.debug("args: %s", repr(args))
+
+    #
+    # Validate arguments and build configuration
+    #
+    configuration = get_preset(adconf.SYNCS, args, dryrun=args.dryrun)
+    preset_name = configuration['sync_type']
+
+    # Apply override options
+    overrides = dict(args.overrides or {})
+    if overrides:
+        configuration.update(overrides)
+        logger.info("Preset overrides: %s",
+                    ", ".join("%s=%s" % (k, overrides[k])
+                              for k in sorted(overrides)))
+
+    # Apply --add-subset options
+    if args.subset:
+        subset = list(configuration.get('subset', []))
+        subset.extend(args.subset)
+        configuration['subset'] = subset
+    if configuration.get("subset"):
+        logger.info("Limit sync to subset: %s", repr(configuration['subset']))
+
+    # Apply --mock option
+    configuration['mock'] = args.mock
+    logger.info("Sync dryrun: %s", repr(configuration.get("dryrun", False)))
+    logger.info("Sync mock: %s", repr(configuration.get("mock", False)))
+
+    sync_class = get_sync_class(preset_name, args.sync_classes)
+
+    #
+    # Start sync
+    #
 
     db = Factory.get('Database')(client_encoding='UTF-8')
     db.cl_init(change_program="ad_sync")
     sync = sync_class(db=db, logger=logger.getChild('sync'))
     sync.configure(configuration)
 
-    # If debugging instead of syncing:
-    if dump_cerebrum_data:
-        # TODO: How to avoid fetching the get-dc call at init? Maybe it
-        # shouldn't be started somewhere else?
+    logger.info("Running sync with preset: %s", preset_name)
+    start = date_utils.now()
+
+    if args.dump_cerebrum_data:
+        logger.info("Only dumping Cerebrum data")
         sync.fetch_cerebrum_data()
         sync.calculate_ad_values()
         sync.server.close()
         print_cerebrum_data(sync)
-        return
+        raise SystemExit()
 
     try:
-        if load_mock_state:
-            sync.server._load_state(load_mock_state)
+        if args.load_mock_state:
+            logger.info("Loading server state from %s", args.store_mock_state)
+            sync.server._load_state(args.load_mock_state)
 
-        if change_ids:
-            sync.quicksync(change_ids=change_ids)
-        elif quicksync:
-            sync.quicksync(quicksync)
+        if args.quicksync_ids:
+            logger.info("Running quicksync for selected changes")
+            sync.quicksync(change_ids=args.quicksync_ids)
+        elif args.quicksync_key:
+            logger.info("Running quicksync using key: %s", args.quicksync_key)
+            sync.quicksync(changekey=args.quicksync_key)
         else:
+            logger.info("Running fullsync")
             sync.fullsync()
 
-        if store_mock_state:
-            sync.server._store_state(store_mock_state)
+        if args.store_mock_state:
+            logger.info("Storing server state as %s", args.store_mock_state)
+            sync.server._store_state(args.store_mock_state)
     finally:
         try:
             sync.server.close()
@@ -337,10 +369,13 @@ def main():
             # It's probably already closed
             pass
 
-    if debug:
+    runtime = date_utils.now() - start
+    logger.info("Sync %s done in %s", preset_name, runtime)
+
+    if args.debug:
         dump_mem_usage()
 
-    logger.info('done')
+    logger.info("Done %s", parser.prog)
 
 
 if __name__ == '__main__':
