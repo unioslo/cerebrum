@@ -176,7 +176,7 @@ _ASSIGNMENT_CODES = {
         'affiliation': "ANSATT/tekadm",
         'name': {
             'en': "Specialist Consultant",
-            'no': "Fagkonsulent",
+            'nb': "Fagkonsulent",
         },
     },
     20000400: {
