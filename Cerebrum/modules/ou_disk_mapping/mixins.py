@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright 2019 University of Oslo, Norway
+#
+# Copyright 2019-2025  University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,6 +20,13 @@
 """
 Mixins related to mod_ou_disk_mapping.
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+
 from Cerebrum.Disk import Disk
 from Cerebrum.OU import OU
 from .dbal import OUDiskMapping
