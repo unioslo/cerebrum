@@ -234,30 +234,41 @@ def test_handler_get_events(database, clconst, changelog_handler,
         assert int(added['change_type_id']) == int(fetched['change_type_id'])
 
 
+def test_handler_filter_events(database, clconst, changelog_handler,
+                               changelog_records):
+    event_types = (clconst.person_update,)
+    events = changelog_handler.get_events(CHANGE_KEY, event_types)
+    assert len(events) == 1
+    assert int(events[0]['change_type_id']) == int(clconst.person_update)
+
+
 def test_handler_commit_confirmations(database, clconst, changelog,
                                       changelog_handler, changelog_records):
-    # In our setup, we *should* have a single, continuous range of "handled"
-    # change ids, which ends before our two "fake" events.
-    # If we only confirm the last of the two events, we should end up with two
-    # separate ranges.  Let's test that this works as expected.
+    # This test is a bit messy, and tests a bunch of different things
+    #
+    # After our setup in `changelog_records`, we should have a single,
+    # continuous range of "handled" change ids, which ends before our two
+    # "fake" events.
+    # If we only confirm the first of the two last events, we should end up
+    # with two separate ranges.  Let's test that this works as expected.
     #
     events = changelog_handler.get_events(CHANGE_KEY, None)
 
-    # Sanity check our events
+    # Sanity check the ids of our events/records
     last_id = changelog.get_last_changelog_id()
     assert [e['change_id'] for e in events] == [last_id - 1, last_id]
 
-    # Confirm the last event - we've stubbed out the actual
-    # `changelog_handler.commit()`
+    # Confirm the second to last event - we've stubbed out the actual
+    # `changelog_handler.commit()` here, to keep our transaction going
     changelog_handler.confirm_event(events[-1])
     changelog_handler.commit_confirmations()
 
-    # We should now have a "hole" in our ranges that omits (last_id - 1):
+    # We should have a "hole" in our ranges that omits (last_id - 1):
     results = list(CLHandler.get_ranges_for_key(database, CHANGE_KEY))
     assert results == [(-1, last_id - 2), (last_id, last_id)]
 
-    # Let's double check by getting our events again - we should only get the
-    # unconfirmed event:
+    # We sneak in a second test here - when fetching "unhandled" events, we
+    # should now only get the unconfirmed change id (last_id - 1):
     events = changelog_handler.get_events(CHANGE_KEY, None)
     assert len(events) == 1
     assert events[0]['change_id'] == last_id - 1
