@@ -28,7 +28,7 @@ CHANGE_KEY = "test-a5b007fc03beca"
 
 @pytest.mark.parametrize(
     "value",
-    ["x", "Foo_Bar.Baz", "Foo-5678901234567890"],
+    ["x", "Foo_123.Baz", "Foo-5678901234567890", CHANGE_KEY],
 )
 def test_valid_change_keys(value):
     assert CLHandler.validate_change_key(value) == value
@@ -65,7 +65,7 @@ INITIAL_RANGES = [(4, 99), (200, 299), (400, 449)]
 
 @pytest.fixture
 def ranges(database):
-    """ a fixture that adds INITIAL_RANGES to the change handler tables. """
+    """ a fixture that adds INITIAL_RANGES to the changelog handler tables. """
     for first, last in reversed(INITIAL_RANGES):
         CLHandler.add_range_for_key(database, CHANGE_KEY, first, last)
     return INITIAL_RANGES
@@ -127,23 +127,31 @@ def test_ranges_to_limits(ranges, limits):
 #
 
 
-class _SimpleChangeLog(DatabaseAccessor.DatabaseAccessor,
-                       ChangeLog.ChangeLog):
-    def commit(self):
-        pass
-
-
-class _NoCommitHandler(CLHandler.CLHandler):
-    """
-    Every change handler id range update results in a `self.commit()`.  That
-    really doesn't work for us in tests, so let's stub out the
-    `DatabaseAccessor` transaction calls.
-    """
-    def rollback(self):
-        pass
+class _NoCommitMixin(DatabaseAccessor.DatabaseAccessor):
+    """ Prevent `DatabaseAccessor.commit()` from ending our transaction. """
 
     def commit(self):
         pass
+
+
+class _SimpleChangeLog(_NoCommitMixin, ChangeLog.ChangeLog):
+    pass
+
+
+@pytest.fixture
+def changelog(database):
+    cl = _SimpleChangeLog(database)
+    cl.cl_init(change_program=__name__)
+    return cl
+
+
+class _NoCommitHandler(_NoCommitMixin, CLHandler.CLHandler):
+    pass
+
+
+@pytest.fixture
+def changelog_handler(database):
+    return _NoCommitHandler(database)
 
 
 @pytest.fixture
@@ -184,17 +192,13 @@ def person(person_creator):
 
 
 @pytest.fixture
-def change_data(database, clconst, person):
-    # Set up some events
-    log = _SimpleChangeLog(database)
-    log.cl_init(change_program=__name__)
-
+def changelog_records(database, clconst, changelog, person):
     # We claim that all change_ids before now has been processed
-    last_id = log.get_last_changelog_id()
+    last_id = changelog.get_last_changelog_id()
     CLHandler.add_range_for_key(database, CHANGE_KEY, -1, last_id)
 
-    # Make some fake change records
-    events = [
+    # Make some fake changelog records
+    records = [
         {
             'subject_entity': person.entity_id,
             'change_type_id': clconst.person_create,
@@ -213,42 +217,40 @@ def change_data(database, clconst, person):
         },
     ]
 
-    for args in events:
-        log.log_change(**args)
-    log.write_log()
-    return events
+    for kwargs in records:
+        changelog.log_change(**kwargs)
+    changelog.write_log()
+    return records
 
 
-@pytest.fixture
-def handler(database):
-    return _NoCommitHandler(database)
-
-
-def test_handler_get_events(database, handler, clconst, change_data):
-    events = handler.get_events(CHANGE_KEY, None)
-    assert len(events) == len(change_data)
+def test_handler_get_events(database, clconst, changelog_handler,
+                            changelog_records):
+    events = changelog_handler.get_events(CHANGE_KEY, None)
+    assert len(events) == len(changelog_records)
 
     # We should get the events back in the same order we added them
-    for added, fetched in zip(change_data, events):
+    for added, fetched in zip(changelog_records, events):
         assert added['subject_entity'] == fetched['subject_entity']
         assert int(added['change_type_id']) == int(fetched['change_type_id'])
 
 
-def test_handler_commit_confirmations(database, handler, clconst, change_data):
+def test_handler_commit_confirmations(database, clconst, changelog,
+                                      changelog_handler, changelog_records):
     # In our setup, we *should* have a single, continuous range of "handled"
     # change ids, which ends before our two "fake" events.
     # If we only confirm the last of the two events, we should end up with two
     # separate ranges.  Let's test that this works as expected.
     #
-    events = handler.get_events(CHANGE_KEY, None)
+    events = changelog_handler.get_events(CHANGE_KEY, None)
 
     # Sanity check our events
-    last_id = _SimpleChangeLog(database).get_last_changelog_id()
+    last_id = changelog.get_last_changelog_id()
     assert [e['change_id'] for e in events] == [last_id - 1, last_id]
 
-    # Confirm the last event
-    handler.confirm_event(events[-1])
-    handler.commit_confirmations()  # we've stubbed out the actual commit here!
+    # Confirm the last event - we've stubbed out the actual
+    # `changelog_handler.commit()`
+    changelog_handler.confirm_event(events[-1])
+    changelog_handler.commit_confirmations()
 
     # We should now have a "hole" in our ranges that omits (last_id - 1):
     results = list(CLHandler.get_ranges_for_key(database, CHANGE_KEY))
@@ -256,6 +258,6 @@ def test_handler_commit_confirmations(database, handler, clconst, change_data):
 
     # Let's double check by getting our events again - we should only get the
     # unconfirmed event:
-    events = handler.get_events(CHANGE_KEY, None)
+    events = changelog_handler.get_events(CHANGE_KEY, None)
     assert len(events) == 1
     assert events[0]['change_id'] == last_id - 1
