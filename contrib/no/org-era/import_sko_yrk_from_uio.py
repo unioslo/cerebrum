@@ -35,6 +35,7 @@ from __future__ import (
 import argparse
 import csv
 import logging
+import io
 
 import Cerebrum.logutils
 import Cerebrum.logutils.options
@@ -46,25 +47,18 @@ logger = logging.getLogger(__name__)
 
 
 def import_csv(db, infile, delimiter):
-    with open(infile, 'r') as csvfile:
-        csv_reader = csv.reader(csvfile, delimiter=str(delimiter))
-        csv_reader.next()  # Skip header
+    with io.open(infile, mode='r', encoding="utf-8") as csvfile:
+        csv_reader = csv.reader(csvfile, delimiter=delimiter)
+        next(csv_reader)  # Skip header
 
         stilling = "Stillingen mangler beskrivelse"
         yrkeskodebetegnelse = "Yrkeskode mangler beskrivelse"
         for row in csv_reader:
             sko = row[0]
+            stilling = row[1]
+
             styrk = row[2]
-
-            try:
-                stilling = row[1].decode('utf-8')
-            except Exception as e:
-                logger.error(e)
-
-            try:
-                yrkeskodebetegnelse = row[3].decode('utf-8')
-            except Exception as e:
-                logger.error(e)
+            yrkeskodebetegnelse = row[3]
 
             if not sko or not styrk:
                 continue
@@ -101,6 +95,8 @@ def main(inargs=None):
 
     db = Factory.get('Database')()
     import_csv(db, args.file, args.delimiter)
+
+    # TODO: Should we remove obsolete STYRK-definitions?
 
     if args.commit:
         db.commit()
