@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2016-2022 University of Oslo, Norway
+# Copyright 2016-2025 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -25,13 +25,26 @@ Feide services and user AuthnLevel
 Currently, most of the functinality here is connected to the
 ``norEduPersonServiceAuthnLevel`` attribute in OrgLDIF.
 
-The database module ``feide_service``, along with py:mod:`.service`,
+The database module ``feide_service``, along with :mod:`.service`,
 allows us to store a required authentication level for a given (feide service,
 person) combination - i.e. require MFA for given users in given systems.
 
-py:mod:`.bofhd_feide_cmds` implements bofhd commands for adding feide services
+:mod:`.bofhd_feide_cmds` implements bofhd commands for adding feide services
 and setting required auth levels.
 
-py:mod:`.ldif_mixins` implements the export from this module to the
+:mod:`.ldif_mixins` implements the export from this module to the
 ``norEduPersonServiceAuthnLevel`` attribute.
+
+TODO
+----
+This module should probably be renamed to ``Cerebrum.modules.feide_service``
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+
+# Database module version (mod_feide_service.sql)
+__version__ = "1.1"
