@@ -39,7 +39,7 @@ class AdAttributeCleanupMixin(Entity):
 
     def delete(self):
         """Delete an entity's AD-attributes."""
-        adattr_db.delete_ad_attributes(entity_id=int(self.entity_id))
+        adattr_db.delete_ad_attributes(self._db, entity_id=int(self.entity_id))
         return super(AdAttributeCleanupMixin, self).delete()
 
 
