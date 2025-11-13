@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2011-2024 University of Oslo, Norway
+# Copyright 2011-2025 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -134,54 +134,52 @@ class ADclient(PowershellClient):
     # else is specified when running a command:
     object_class = 'user'
 
-    def update_dn(client, args):
+    def update_dn(self, args):
         """
-        Walk datastructure, and alter DNs.
+        Walk data structure of arguments, and update DN values.
 
         If no appropriate DNs are found, or there exists multiple DNs with
         similar CNs, the DN will not be altered.
 
-        :param args: The datastructure to operate on.
-        :return: The datastructure, with potentially altered DNs.
+        :param args: a data structure to operate on
+        :returns: the same data structure, with potentially altered DNs.
         """
-        update_dn = functools.partial(ADclient.update_dn.im_func, client)
-        if isinstance(args, basestring):
-            if (args.upper().startswith('CN') or
-                    args.upper().startswith('OU')):
+        if isinstance(args, six.string_types):
+            if (args.upper().startswith('CN')
+                    or args.upper().startswith('OU')):
                 rdn_type = args[:2].upper()
                 rdn = args[3:args.find(',')]
                 try:
-                    hits = client.find_object(
-                        attributes={rdn_type: rdn})
+                    hits = self.find_object(attributes={rdn_type: rdn})
                     # Use the new DN
                     if len(hits) == 1 and args != hits[0]['DistinguishedName']:
-                        client.logger.info('Using %s instead of %s as DN',
-                                           hits[0]['DistinguishedName'],
-                                           args)
+                        self.logger.info('Using %s instead of %s as DN',
+                                         hits[0]['DistinguishedName'], args)
                         return hits[0]['DistinguishedName']
                     # No difference, use the old DN
                     elif len(hits) == 1:
                         return args
                     # Could not find unique RDN, abort
                     else:
-                        client.logger.info(
+                        self.logger.info(
                             'CN=%s exists in multiple DNs, using original',
-                            rdn)
+                            rdn,
+                        )
                         # Provoke error-handler to run
                         raise Exception
                 except Exception:
                     return args
-            else:
-                return args
-        elif isinstance(args, (list, tuple)):
-            r = map(update_dn, args)
-            return r
-        elif isinstance(args, dict):
-            return {k: update_dn(v) for k, v in args.items()}
-        else:
             return args
 
-    def retry_with_mangled_dn(f):
+        if isinstance(args, (list, tuple)):
+            return [self.update_dn(a) for a in args]
+
+        if isinstance(args, dict):
+            return {k: self.update_dn(v) for k, v in args.items()}
+
+        return args
+
+    def retry_with_mangled_dn(f):  # noqa: N805
         """
         Try to handle update-failures by searching for alternate DNs.
 
@@ -189,21 +187,23 @@ class ADclient(PowershellClient):
         update.  DNs change, when objects are moved around by hand in
         Active Directory.
 
-        This function should be used as a decorator.
+        This function should *only* be used as a method decorator on methods
+        in this class or subclasses.
         """
         @functools.wraps(f)
-        def wrapper(*args, **kwds):
+        def wrapper(self, *args, **kwargs):
             try:
-                return f(*args, **kwds)
-            except SetAttributeException as e:
-                # Could not find the object, searching for alternative
-                # DN.
-                ar = [args[0]] + ADclient.update_dn.im_func(args[0], args[1:])
-                if ar == args:
+                return f(self, *args, **kwargs)
+            except SetAttributeException:
+                # Could not find the object, searching for alternative DN
+                new_args = self.update_dn(args)
+                if new_args == args:
                     # Re-raise the original exception, as no new DNs where
                     # found.
-                    raise e
-                return f(*ar, **kwds)
+                    raise
+
+                # TODO: Why don't we translate the kwargs here?
+                return f(self, *new_args, **kwargs)
 
         return wrapper
 
@@ -281,7 +281,7 @@ class ADclient(PowershellClient):
         # Guess the domain is not set then:
         return name, None
 
-    def _generate_ad_command(self, command, kwargs={}, novalueargs=()):
+    def _generate_ad_command(self, command, kwargs=None, novalueargs=None):
         """Generate a command for AD queries out of the given input.
 
         Most of the AD commands have the same format, and contains some of the
@@ -342,13 +342,16 @@ class ADclient(PowershellClient):
         dc = self.get_chosen_domaincontroller()
         if dc:
             kwargs['Server'] = dc
-        if isinstance(novalueargs, basestring):
+
+        kwargs = dict(kwargs) if kwargs else {}
+        novalueargs = novalueargs if novalueargs else ()
+        if isinstance(novalueargs, six.string_types):
             novalueargs = (novalueargs,)
         # The parameter "-Credential $cred" is special, as "$cred" should not
         # be wrapped inside a string. Everything else should, though.
-
+        #
         # Filter, process and remove empty arguments
-        for k in kwargs.copy():
+        for k in list(kwargs):
             if (kwargs[k]
                     or isinstance(kwargs[k], (bool, float))
                     or isinstance(kwargs[k], six.integer_types)):
@@ -359,7 +362,7 @@ class ADclient(PowershellClient):
 
         return '%s -Credential $cred %s %s' % (
             command,
-            ' '.join('-%s %s' % (k, v) for k, v in six.iteritems(kwargs)),
+            ' '.join('-%s %s' % (k, v) for k, v in kwargs.items()),
             ' '.join('-%s' % v for v in novalueargs))
 
     def get_data(self, commandid, signal=True, timeout_retries=50):
@@ -433,7 +436,7 @@ class ADclient(PowershellClient):
                     'value provided for add.+\n+.+not unique forest',
                     stderr)
                 or re.search(
-                    'New-AD[^:]+: Unknown error \(0x21c8\)',
+                    r'New-AD[^:]+: Unknown error \(0x21c8\)',
                     stderr)
             ):
                 # User Principal Names (UPN) must be globally unique, and is
@@ -458,22 +461,21 @@ class ADclient(PowershellClient):
     _pre_execution_code = """
         $pass = ConvertTo-SecureString -Force -AsPlainText %(ad_pasw)s;
         $cred = New-Object System.Management.Automation.PSCredential(%(ad_user)s, $pass);
-        """
+    """  # noqa: E501
 
     def execute(self, *args, **kwargs):
-        """Override the execute command with all the startup commands for AD.
-
+        """
+        Override the execute command with all the startup commands for AD.
         """
         setup = self._pre_execution_code % {
-            'ad_user': self.escape_to_string(getattr(self,
-                                                     'ad_account_username',
-                                                     None)),
-            'ad_pasw': self.escape_to_string(getattr(self,
-                                                     'ad_account_password',
-                                                     None)),
-                }
-        self.logger.debug4('Executing powershell command: %r',
-                           args)
+            'ad_user': self.escape_to_string(
+                getattr(self, 'ad_account_username', None),
+            ),
+            'ad_pasw': self.escape_to_string(
+                getattr(self, 'ad_account_password', None),
+            ),
+        }
+        self.logger.debug4('Executing powershell command: %r', args)
         return super(ADclient, self).execute(setup, *args, **kwargs)
 
     # Standard lines in powershell that we can't get rid of by powershell code.
@@ -624,7 +626,8 @@ class ADclient(PowershellClient):
                 for _type in other:
                     for o in other[_type]:
                         if o:
-                            self.logger.warn("Unknown output %s: %s", _type, o)
+                            self.logger.warning("Unknown output %s: %s",
+                                                _type, o)
 
     def disable_object(self, dn):
         """Set an object as not enabled.
@@ -890,7 +893,7 @@ class ADclient(PowershellClient):
         ret = self.get_output_json(self.run(cmd), dict())
         if not ret:
             e_msg = "Creating object %s not confirmed by AD" % name
-            self.logger.warn(e_msg)
+            self.logger.warning(e_msg)
             raise Exception(e_msg)
         self.logger.debug("New AD-object: %s" % ret)
         return ret
@@ -1005,7 +1008,7 @@ class ADclient(PowershellClient):
                         self._run_setadobject(ad_id, action, attrs)
                         return True
                     except SetAttributeException as e:
-                        self.logger.warn(
+                        self.logger.warning(
                             "Failed action %s for %s with element: '%s'"
                             " error: %s", action, ad_id, attrs, e)
                     return False
@@ -1025,7 +1028,7 @@ class ADclient(PowershellClient):
                                                   {atrname: element})
                         except SetAttributeException as e:
                             success = False
-                            self.logger.warn(
+                            self.logger.warning(
                                 "Failed updating %s for %s with element: '%s'"
                                 " error: %s", atrname, ad_id, element, e)
                 return success
@@ -1056,7 +1059,8 @@ class ADclient(PowershellClient):
                 if success:
                     self.logger.debug3("Attribute %s fully updated", k)
         if not success:
-            self.logger.warn("Unable to %s attributes for %s", action, ad_id)
+            self.logger.warning("Unable to %s attributes for %s",
+                                action, ad_id)
         return success
 
     def update_attributes(self, ad_id, attributes, old_attributes=None):
@@ -1327,8 +1331,8 @@ class ADclient(PowershellClient):
                 try:
                     self.run(cmd)
                 except PowershellException as e:
-                    self.logger.warn("Failed adding '%s' to group %s: %s",
-                                     groupid, member, e)
+                    self.logger.warning("Failed adding '%s' to group %s: %s",
+                                        groupid, member, e)
                     failed_members.append(member)
         return not failed_members
 
@@ -1440,7 +1444,7 @@ class ADclient(PowershellClient):
         out = self.run(cmd)
         return not out.get('stderr')
 
-    def set_password(self, ad_id, password, password_type='plainext'):
+    def set_password(self, ad_id, password, password_type="plaintext"):
         """Send a new password for a given object.
 
         This only works for Accounts.
@@ -1467,38 +1471,43 @@ class ADclient(PowershellClient):
         # reasons.
         # Encrypted passwords will be handled differently (decrypted) on the
         # AD-side (Windows server - side).
-        if password_type in ('password', 'password-base64'):  # GPG encrypted
+        if password_type in ('password', 'password-base64'):
+            # GPG encrypted
             if password.startswith('-----BEGIN PGP MESSAGE-----\n'):
                 password = base64.b64encode(password)
-            enc_passwd_dir = r"""C:\passwords"""  # paranoia
-            if (
-                    hasattr(cereconf, 'PASSWORD_TMP_STORE_DIR') and
-                    cereconf.PASSWORD_TMP_STORE_DIR):
-                enc_passwd_dir = cereconf.PASSWORD_TMP_STORE_DIR
-            tmp_enc_passwd_file = r"""{edir}\{ad_id}_encrypted_password.gpg""".format(
-                edir=enc_passwd_dir,
-                ad_id=ad_id).replace('\\\\', '\\')
+
+            enc_passwd_dir = (
+                getattr(cereconf, "PASSWORD_TMP_STORE_DIR", None)
+                or r"C:\passwords"
+            )
+            tmp_enc_passwd_file = (
+                r"{edir}\{ad_id}_encrypted_password.gpg".format(
+                    edir=enc_passwd_dir,
+                    ad_id=ad_id,
+                ).replace('\\\\', '\\')
+            )
+
             if password_type == 'password':
                 # encrypted clear UTF-8 text password (old format)
                 cmd = '''
                 try {{
-                    [System.Convert]::FromBase64String({pwd}) | Set-Content {tmp_enc_passwd_file} -encoding byte;
-                    $decrypted_text = gpg -q --batch --decrypt {tmp_enc_passwd_file};
+                    [System.Convert]::FromBase64String({pwd}) | Set-Content {pwfile} -encoding byte;
+                    $decrypted_text = gpg -q --batch --decrypt {pwfile};
                     $pwd = ConvertTo-SecureString -AsPlainText -Force $decrypted_text;
                     {cmd} -NewPassword $pwd;
                 }} catch {{
                     write-host {error};
                     exit 1;
                 }} finally {{
-                    Remove-Item {tmp_enc_passwd_file};
+                    Remove-Item {pwfile};
                 }}
-                '''
+                '''  # noqa: E501
             elif password_type == 'password-base64':
                 # ecrypted base64 enc. clear UTF-8 text password (new format)
                 cmd = '''
                 try {{
-                    [System.Convert]::FromBase64String({pwd}) | Set-Content {tmp_enc_passwd_file} -encoding byte;
-                    $decrypted_text = gpg -q --batch --decrypt {tmp_enc_passwd_file};
+                    [System.Convert]::FromBase64String({pwd}) | Set-Content {pwfile} -encoding byte;
+                    $decrypted_text = gpg -q --batch --decrypt {pwfile};
                     $passphrase = [System.Text.Encoding]::Unicode.GetString(
                         [System.Text.Encoding]::Convert(
                             [System.Text.Encoding]::UTF8,
@@ -1510,28 +1519,37 @@ class ADclient(PowershellClient):
                     write-host {error};
                     exit 1;
                 }} finally {{
-                    Remove-Item {tmp_enc_passwd_file};
+                    Remove-Item {pwfile};
                 }}
-                '''
+                '''  # noqa: E501
             cmd = cmd.format(
                 pwd=self.escape_to_string(password),
-                tmp_enc_passwd_file=tmp_enc_passwd_file,
+                pwfile=tmp_enc_passwd_file,
                 error='Unable to decrypt the password for: {0}'.format(ad_id),
-                cmd=self._generate_ad_command('Set-ADAccountPassword',
-                                              {'Identity': ad_id},
-                                              ['Reset']))
+                cmd=self._generate_ad_command(
+                    'Set-ADAccountPassword',
+                    {'Identity': ad_id},
+                    ['Reset'],
+                ),
+            )
         elif password_type == 'plaintext':
             try:
                 password = base64.b64encode(password)
             except UnicodeEncodeError:
                 password = base64.b64encode(password.encode('UTF-8'))
-            cmd = '''$b = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String({pwd}));
+            cmd = '''
+            $b = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String({pwd}));
             $pwd = ConvertTo-SecureString -AsPlainText -Force $b;
             {cmd} -NewPassword $pwd;
-            '''.format(pwd=self.escape_to_string(password),
-                       cmd=self._generate_ad_command('Set-ADAccountPassword',
-                                                     {'Identity': ad_id},
-                                                     ['Reset']))
+            '''  # noqa: E501
+            cmd = cmd.format(
+                pwd=self.escape_to_string(password),
+                cmd=self._generate_ad_command(
+                    'Set-ADAccountPassword',
+                    {'Identity': ad_id},
+                    ['Reset'],
+                ),
+            )
         else:
             raise Exception('Invalid password-type')
         if isinstance(cmd, bytes):
@@ -1639,22 +1657,25 @@ class ADclient(PowershellClient):
             syntax error, or any other error that could occur at once.
 
         """
-        for k in kwargs.copy():
+        for k in list(kwargs):
             kwargs[k] = self.escape_to_string(kwargs[k])
             if not kwargs[k]:
                 del kwargs[k]
         self.logger.info("Executing script %s, args: %s", script, kwargs)
-        params = ' '.join('-%s %s' % (x[0], x[1])
-                          for x in six.iteritems(kwargs))
-        cmd = '& %(cmd)s %(params)s' % {'cmd': self.escape_to_string(script),
-                                        'params': params}
+        cmd = '& %(cmd)s %(params)s' % {
+            'cmd': self.escape_to_string(script),
+            'params': ' '.join(
+                '-%s %s' % (param, value)
+                for param, value in kwargs.items()
+            ),
+        }
         if self.dryrun:
             return True
         # TODO: How about just executing it, and not getting the feedback from
         # it? Could it be done without WinRM complaining after some attempts?
         t = time.time()
         output = self.run(cmd)
-        self.logger.debug("Script %s got executed in %.2f seconds", script,
-                          time.time() - t)
+        self.logger.debug("Script %s got executed in %.2f seconds",
+                          script, time.time() - t)
         self.logger.debug4("Script output: %r", output)
         return output

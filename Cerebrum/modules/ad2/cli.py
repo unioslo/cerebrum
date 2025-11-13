@@ -19,6 +19,10 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
 Helpers for interacting with Active Directory in scripts.
+
+This module helps in keeping the cli options the same, while dealing with the
+wildly different ways to initialize the WinRM-/Powershell-client, and the
+AD-sync itself.
 """
 from __future__ import (
     absolute_import,
@@ -101,7 +105,7 @@ def get_preset(name, presets):
     preset = presets[name]
     if not isinstance(preset, dict):
         raise ValueError("Invalid preset {name} - check adconf preests")
-    return dict(preset)
+    return preset
 
 
 def add_winrm_subparser(parser):
@@ -110,9 +114,9 @@ def add_winrm_subparser(parser):
         "WinRM",
         textwrap.dedent(
             """
-            WinRM connection settings.  Settings are loaded from the given
-            preset, if given through --type.  Other options will override
-            settings from the preset.
+            WinRM connection settings.  Use --type to load default settings
+            from a preset.  Argument defaults and requirements only apply if
+            no value is given in a selected preset.
             """
         ).lstrip(),
     )
@@ -182,36 +186,6 @@ def add_winrm_subparser(parser):
         host_arg,
     )
     return get_client
-
-
-def add_ad_subparser(parser):
-    """ Add an ad client subparser to an existing ArgumentParser. """
-    winrm_factory = add_winrm_subparser(parser)
-
-    domain_subparser = parser.add_argument_group(
-        "Domain",
-        textwrap.dedent(
-            """
-            Active Directory domain settings.
-            """
-        ).lstrip(),
-    )
-    domain_subparser.add_argument(
-        "--domain",
-        dest=OPTION_WINRM_AD_DOMAIN,
-        help="Domain to manage",
-        metavar="DOMAIN",
-    )
-    domain_subparser.add_argument(
-        "--domain-user",
-        dest=OPTION_WINRM_AD_USER,
-        help="""
-          User for managing the AD domain.  Password is read from
-          `cereconf.DB_AUTH_DIR`.
-        """,
-        metavar="USERNAME",
-    )
-    return _AdClientFactory.from_winrm_factory(winrm_factory)
 
 
 class _WinrmClientFactory(object):
@@ -297,6 +271,36 @@ class _WinrmClientFactory(object):
         return client
 
 
+def add_ad_subparser(parser):
+    """ Add an ad client subparser to an existing ArgumentParser. """
+    winrm_factory = add_winrm_subparser(parser)
+
+    domain_subparser = parser.add_argument_group(
+        "Domain",
+        textwrap.dedent(
+            """
+            Active Directory domain settings.
+            """
+        ).lstrip(),
+    )
+    domain_subparser.add_argument(
+        "--domain",
+        dest=OPTION_WINRM_AD_DOMAIN,
+        help="Domain to manage",
+        metavar="DOMAIN",
+    )
+    domain_subparser.add_argument(
+        "--domain-user",
+        dest=OPTION_WINRM_AD_USER,
+        help="""
+          User for managing the AD domain.  Password is read from
+          `cereconf.DB_AUTH_DIR`.
+        """,
+        metavar="USERNAME",
+    )
+    return _AdClientFactory.from_winrm_factory(winrm_factory)
+
+
 class _AdClientFactory(_WinrmClientFactory):
     """ Get a configured ad client from subparser arguments. """
 
@@ -336,3 +340,67 @@ class _AdClientFactory(_WinrmClientFactory):
             'dryrun': dryrun,
         })
         return self.client_class(**init_args)
+
+
+# TODO: Improve config and sync init
+#
+# We should probably separate the config into different sections: client
+# settings, domain settings, and sync settings.
+#
+# Additionally, the ADSync object should *probably* be inited by getting a
+# *powershell* client + config sync section.  Ideally, the sync classes should
+# be completely unaware that there exists an `adconf` module...
+#
+
+
+def add_sync_subparser(parser):
+    """
+    Add ad client subparser (for ADSync) to an existing ArgumentParser.
+
+    This is similar to the `add_ad_subparser`, but returns an updated sync
+    config rather than a client factory.
+    """
+    client_factory = add_ad_subparser(parser)
+    return _AdSyncFactory.from_client_factory(client_factory)
+
+
+class _AdSyncFactory(_AdClientFactory):
+    """
+    An _AdClientFactory that returns an updated config rather than a client.
+    """
+
+    def _get_preset(self, presets, opts):
+        """ Make the preset arg mandatory. """
+        with argutils.ParserContext(self._parser, self._preset_arg):
+            if OPTION_WINRM_PRESET in opts:
+                preset = get_preset(opts[OPTION_WINRM_PRESET], presets)
+            else:
+                raise ValueError("preset required")
+        return preset
+
+    @classmethod
+    def from_client_factory(cls, client_factory):
+        return cls(client_factory._parser, client_factory._preset_arg,
+                   client_factory._host_arg)
+
+    def __call__(self, presets, args, dryrun):
+        opts = _extract_opts(args)
+        preset = self._get_preset(presets, opts)
+
+        # Use client args as calculated by the _AdClientFactory
+        client_args = self._get_client_args(preset, opts)
+        preset.update({
+            'server': client_args['host'],
+            'port': client_args['port'],
+            'encrypted': client_args['encrypted'],
+            'ca': client_args['ca'],
+            'domain_admin': client_args['domain_admin'],
+            'domain': client_args['domain'],
+            'auth_user': self._get_auth_user(preset, opts),
+            'sync_type': opts[OPTION_WINRM_PRESET],
+            'dryrun': dryrun,
+        })
+
+        logger.info("Sync preset: %s", repr(preset["sync_type"]))
+        logger.info("Sync dryrun: %s", repr(preset["dryrun"]))
+        return preset

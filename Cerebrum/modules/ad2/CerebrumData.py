@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2011-2024 University of Oslo, Norway
+# Copyright 2011-2025 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -63,6 +63,7 @@ import six
 
 from Cerebrum.Utils import NotSet
 from Cerebrum.modules.ad2 import ConfigUtils
+from Cerebrum.utils import text_compat
 
 
 class AttrNotFound(Exception):
@@ -71,8 +72,8 @@ class AttrNotFound(Exception):
 
 
 class CerebrumEntity(object):
-
-    """A representation for a Cerebrum Entity which may be exported to AD.
+    """
+    A representation for a Cerebrum object which may be exported to AD.
 
     This entity cache is for making it easier to compare entities from Cerebrum
     with objects in Active Directory.
@@ -84,29 +85,35 @@ class CerebrumEntity(object):
 
     Certain variables are worth mentioning:
 
-    - L{ad_id}: The Id for the object in AD. Use this to reference to the object
-      in AD. This is generated from Cerebrum, so the object might not exist in
-      AD, though. In powershell, you can reference to an object by:
-        - DistinguishedName
-        - GUID (objectGUID)
-        - SamAccountName - The object will then be searched for in the current
-                           OU and downwards.
-      The easiest is to use the SamAccountName, as this should be equal to the
-      CN in DN. If DN is given, we must know where the object is located. If
-      GUID should be used, we must store this Id in Cerebrum to be able to use
-      it.
+    *ad_id*:
+        The Id for the object in AD. Use this to reference to the object in AD.
+        This is generated from Cerebrum, so the object might not exist in AD,
+        though. In powershell, you can reference to an object by:
 
-    - L{changes}: A list of changes that should be sent to AD. This is filled
-      after the entity has been compared with data from AD.
+         - DistinguishedName
+         - GUID (objectGUID)
+         - SamAccountName - The object will then be searched for in the current
+                            OU and downwards.
 
-    - L{ad_data}: Data that is retrieved from AD for later use, e.g. for the
-      membership sync that goes after the groups themselves has been synced. It
-      is put into its own dict to separate it from what is generated from
-      Cerebrum's data.
+        The easiest is to use the SamAccountName, as this should be equal to
+        the CN in DN. If DN is given, we must know where the object is located.
+        If GUID should be used, we must store this Id in Cerebrum to be able to
+        use it.
+
+    *changes*:
+        A list of changes that should be sent to AD. This is filled after the
+        entity has been compared with data from AD.
+
+    *ad_data*:
+        Data that is retrieved from AD for later use, e.g. for the membership
+        sync that goes after the groups themselves has been synced. It is put
+        into its own dict to separate it from what is generated from Cerebrum's
+        data.
 
     TODO: Some reorganisation is needed: The class should do more for the sync.
     My guess is that the logic thing to do is to put all that treats _one_
-    entity in here, and let ADSync only do what should be done for all entities.
+    entity in here, and let ADSync only do what should be done for all
+    entities.
     """
 
     def __init__(self, logger, config, entity_id, entity_name):
@@ -152,9 +159,10 @@ class CerebrumEntity(object):
         # different objects are put in various AD OUs.
         self.ou = self.config['target_ou']
 
-        # A list of spreads registered on the entity. Could be used to e.g. give
-        # users with spread to Exchange or Lync extra attributes. Might not be
-        # filled with spreads if not needed, this depends on the configuration.
+        # A list of spreads registered on the entity. Could be used to e.g.
+        # give users with spread to Exchange or Lync extra attributes. Might
+        # not be filled with spreads if not needed, this depends on the
+        # configuration.
         self.spreads = []
 
         # Other information that _could_ get registered for the entity,
@@ -194,8 +202,8 @@ class CerebrumEntity(object):
         # Attributes defined by the config:
         for atrname, config in six.iteritems(self.config['attributes']):
             # Some attributes are not configured, but e.g. defined as None in
-            # the config. We expect those to be handled by subclasses and ignore
-            # them here:
+            # the config. We expect those to be handled by subclasses and
+            # ignore them here:
             if not isinstance(config, (ConfigUtils.AttrConfig, list, tuple)):
                 continue
             if not isinstance(config, (list, tuple)):
@@ -281,8 +289,8 @@ class CerebrumEntity(object):
                 if vinfos is None:
                     continue
                 if getattr(config, 'languages', None):
-                    for l in config.languages:
-                        name = vinfos.get(str(l))
+                    for lang in config.languages:
+                        name = vinfos.get(str(lang))
                         if name:
                             return name
                 else:
@@ -380,11 +388,12 @@ class CerebrumEntity(object):
         # Use default value, if defined by config:
         if (isinstance(config, ConfigUtils.AttrConfig) and
                 config.default is not NotSet):
-            # Add some substitution data to be used for strings: TODO: Should we
-            # include all the attributes for the entity that contains primitive
-            # values in here? Would then for instance be able to include
-            # 'description' for groups, for instance. The downside is that it is
-            # a bit internal, and might change in the future.
+            # Add some substitution data to be used for strings.
+            # TODO: Should we include all the attributes for the entity that
+            # contains primitive values in here? Would then for instance be
+            # able to include 'description' for groups, for instance. The
+            # downside is that it is a bit internal, and might change in the
+            # future.
             return config.default
         raise AttrNotFound('No attribute found after attr config')
 
@@ -399,7 +408,8 @@ class CerebrumEntity(object):
 
         Some extra data is given to the attribute, e.g. through. string
         substitutions. Also, if the attribute is defined with a L{transform}
-        function in the given config, this is called when setting the attribute.
+        function in the given config, this is called when setting the
+        attribute.
 
         @type key: string
         @param key: The name of the attribute that wants to be set.
@@ -440,18 +450,14 @@ class CerebrumEntity(object):
         if not force and key in self.attributes:
             return False
 
-        if isinstance(value, str):
-            # This will fail if str contains special characters. Input should
-            # rather be in unicode by default, but that is not always as easy to
-            # do everywhere. Should rather be using from __future__ import
-            # unicode_literals. Remove this when fully migrated to unicode!
-            value = unicode(value)
+        if isinstance(value, bytes):
+            value = text_compat.to_text(value)
 
-        # Remove whitespace before and after data. AD is stripping this out when
-        # saving the value, so if we strip too, the comparing gets easier.
-        if isinstance(value, basestring):
-            value = value.strip()
+        # Remove whitespace before and after data. AD is stripping this out
+        # when saving the value, so if we strip too, the comparing gets easier.
+        if isinstance(value, six.text_type):
             # TODO: also remove double white spaces from all attributes?
+            value = value.strip()
 
         if transform and hasattr(config, 'transform'):
             value = config.transform(value)
@@ -488,11 +494,13 @@ class CerebrumEntity(object):
         """
         if isinstance(value, (tuple, list)):
             return tuple(self._add_attribute_data(e) for e in value)
-        if isinstance(value, basestring):
-            return value % {'entity_name': self.entity_name,
-                            'entity_id': self.entity_id,
-                            'ad_id': self.ad_id,
-                            'ou': self.ou, }
+        if isinstance(value, six.string_types):
+            return value % {
+                'entity_name': self.entity_name,
+                'entity_id': self.entity_id,
+                'ad_id': self.ad_id,
+                'ou': self.ou,
+            }
         return value
 
     @property
@@ -626,15 +634,17 @@ class CerebrumContact(CerebrumEntity):
         Calculate forward attributes for the accounts with forward
         email addresses.
         """
-        self.forward_attrs["name"] = "Contact for " + self.name
-        self.forward_attrs["displayName"] = "Contact for " + self.name
-        self.forward_attrs["mail"] = self.forward_addr
-        self.forward_attrs["mailNickname"] = self.forward_addr
-        self.forward_attrs["sAMAccountName"] = "contact_for_" + self.forward_addr
-        self.forward_attrs["proxyAddresses"] = self.forward_addr
-        self.forward_attrs["msExchPoliciesExcluded"] = True
-        self.forward_attrs["msExchHideFromAddressLists"] = True
-        self.forward_attrs["targetAddress"] = self.forward_addr
+        self.forward_attrs.update({
+            'name': "Contact for " + self.name,
+            'displayName': "Contact for " + self.name,
+            'mail': self.forward_addr,
+            'mailNickname': self.forward_addr,
+            'sAMAccountName': "contact_for_" + self.forward_addr,
+            'proxyAddresses': self.forward_addr,
+            'msExchPoliciesExcluded': True,
+            'msExchHideFromAddressLists': True,
+            'targetAddress': self.forward_addr,
+        })
 
 
 class CerebrumGroup(CerebrumEntity):
