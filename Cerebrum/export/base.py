@@ -95,17 +95,17 @@ class EntityCache(object):
             self.found[entity_id] = result
 
     def __getitem__(self, entity_id):
+        miss = KeyError(repr(entity_id))
+        if entity_id not in self.found:
+            if self.cached_all:
+                raise miss
+            if entity_id in self.missing:
+                raise miss
+            self.update_one(entity_id)
+
         if entity_id in self.found:
             return self.found[entity_id]
-        if self.cached_all or entity_id in self.missing:
-            raise KeyError(repr(entity_id))
-
-        self.update_one(entity_id)
-
-        if entity_id in self.found:
-            return self.found[entity_id]
-        else:
-            raise KeyError(repr(entity_id))
+        raise miss
 
     def get(self, entity_id, default=None):
         try:
