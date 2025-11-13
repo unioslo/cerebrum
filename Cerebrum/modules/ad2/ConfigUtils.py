@@ -919,10 +919,16 @@ class AccountCriterias(AttrCriterias):
 
             # Tuple type for custom field comparison (force choose_comparator
             # usage for Cerebrum Entities).
-            t = type('T', (tuple,), {
-                '__eq__': lambda x, y: all(
-                    choose_comparator(e1, e2) for
-                    (e1, e2) in zip(x, y))})
+            t = type(
+                str('T'),
+                (tuple,),
+                {
+                    str('__eq__'): lambda x, y: all(
+                            choose_comparator(e1, e2)
+                            for (e1, e2) in zip(x, y)
+                    ),
+                },
+            )
 
             def check_account_aff(ac, aff, ou):
                 """Check an if the account has an appropriate affiliation.
