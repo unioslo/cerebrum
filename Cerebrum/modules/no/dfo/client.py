@@ -243,9 +243,18 @@ class SapClient(reprutils.ReprFieldMixin):
 
         # Could be *no employee*
         if response.status_code == 404:
+            # check for error message
             fault = _extract_fault(response)
             if fault and fault.startswith("IKKE ANSATT"):
                 return None
+
+            # check for empty object (as with 200 - i.e. {"ansatt": []})
+            try:
+                data = response.json()
+                if 'ansatt' in data and not data['ansatt']:
+                    return None
+            except Exception:
+                pass
 
         response.raise_for_status()
 
