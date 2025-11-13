@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2016-2018 University of Oslo, Norway
+# Copyright 2016-2025 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,28 +18,33 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import re
 
 from Cerebrum.Utils import Factory, prepare_string, argument_to_sql
+from Cerebrum import Entity
 
 
-Entity_class = Factory.get("Entity")
-
-
-class FeideService(Entity_class):
+class FeideService(Entity.Entity):
     """ Keeps track of Feide services. """
 
     __read_attr__ = ('__in_db',)
     __write_attr__ = ('feide_id', 'name')
 
     def clear(self):
+        super(FeideService, self).clear()
         self.__super.clear()
         self.clear_class(FeideService)
         self.__updated = []
 
     def populate(self, feide_id, name):
-        Entity_class.populate(self, self.const.entity_feide_service)
+        super(FeideService, self).populate(self.const.entity_feide_service)
         try:
             if not self.__in_db:
                 raise RuntimeError('populate() called multiple times.')
@@ -50,46 +55,46 @@ class FeideService(Entity_class):
 
     def write_db(self):
         """Sync instance with Cerebrum database."""
-        self.__super.write_db()
+        super(FeideService, self).write_db()
         if not self.__updated:
             return None
-        binds = {'service_id': self.entity_id,
-                 'feide_id': self.feide_id,
-                 'name': self.name}
+        binds = {
+            'service_id': int(self.entity_id),
+            'feide_id': self.feide_id,
+            'name': self.name,
+        }
         is_new = not self.__in_db
         if is_new:
             insert_stmt = """
-            INSERT INTO [:table schema=cerebrum name=feide_service_info]
-              (service_id, feide_id, name)
-            VALUES (:service_id, :feide_id, :name)"""
-            self.execute(insert_stmt, binds)
-            self._db.log_change(self.entity_id,
-                                self.clconst.feide_service_add,
-                                None,
-                                change_params=binds)
-        else:
-            exists_stmt = """
-              SELECT EXISTS (
-              SELECT 1
-              FROM [:table schema=cerebrum name=feide_service_info]
-              WHERE service_id=:service_id AND
-                    feide_id=:feide_id AND
-                    name=:name
-              )
+              INSERT INTO [:table schema=cerebrum name=feide_service_info]
+                (service_id, feide_id, name)
+              VALUES
+                (:service_id, :feide_id, :name)
             """
-            if not self.query_1(exists_stmt, binds):
-                # True positive
-                update_stmt = """
-                  UPDATE [:table schema=cerebrum name=feide_service_info]
-                  SET feide_id=:feide_id, name=:name
-                  WHERE service_id=:service_id
-                """
-                self.execute(update_stmt, binds)
-                self._db.log_change(self.entity_id,
-                                    self.clconst.feide_service_mod,
-                                    None,
-                                    change_params={'feide_id': self.feide_id,
-                                                   'name': self.name})
+            self._db.execute(insert_stmt, binds)
+            self._db.log_change(
+                subject_entity=self.entity_id,
+                change_type_id=self.clconst.feide_service_add,
+                destination_entity=None,
+                change_params=binds,
+            )
+        else:
+            update_stmt = """
+              UPDATE [:table schema=cerebrum name=feide_service_info]
+              SET feide_id=:feide_id, name=:name
+              WHERE service_id=:service_id
+              RETURNING service_id, feide_id, name
+            """
+            for row in self._db.query(update_stmt, binds):
+                self._db.log_change(
+                    subject_entity=row['service_id'],
+                    change_type_id=self.clconst.feide_service_mod,
+                    destination_entity=None,
+                    change_params={
+                        'feide_id': row['feide_id'],
+                        'name': row['name'],
+                    },
+                )
         del self.__in_db
         self.__in_db = True
         self.__updated = []
@@ -102,14 +107,23 @@ class FeideService(Entity_class):
             fsal = FeideServiceAuthnLevelMixin(self._db)
             for authn in fsal.search_authn_level(service_id=self.entity_id):
                 fsal.remove_authn_level(**authn)
-            self.execute("""
-            DELETE FROM [:table schema=cerebrum name=feide_service_info]
-            WHERE service_id = :service_id""", {'service_id': self.entity_id})
-            self._db.log_change(
-                self.entity_id, self.clconst.feide_service_del, None,
-                change_params={'feide_id': self.feide_id,
-                               'name': self.name})
-        self.__super.delete()
+            delete_stmt = """
+              DELETE FROM [:table schema=cerebrum name=feide_service_info]
+              WHERE service_id = :service_id
+              RETURNING service_id, feide_id, name
+            """
+            binds = {'service_id': int(self.entity_id)}
+            for row in self._db.query(delete_stmt, binds):
+                self._db.log_change(
+                    subject_entity=row['service_id'],
+                    change_type_id=self.clconst.feide_service_del,
+                    destination_entity=None,
+                    change_params={
+                        'feide_id': row['feide_id'],
+                        'name': row['name'],
+                    },
+                )
+        super(FeideService, self).delete()
 
     def illegal_name(self, name, max_length=128):
         """ Return a string with error message if service name is illegal. """
@@ -126,11 +140,16 @@ class FeideService(Entity_class):
     def find(self, service_id):
         """ Associate the object with the Feide service whose identifier
         is service_id. """
-        self.__super.find(service_id)
-        (self.feide_id, self.name) = self.query_1("""
-        SELECT feide_id, name
-        FROM [:table schema=cerebrum name=feide_service_info]
-        WHERE service_id=:service_id""", {'service_id': service_id})
+        service_id = int(service_id)
+        super(FeideService, self).find(service_id)
+        (self.feide_id, self.name) = self._db.query_1(
+            """
+              SELECT feide_id, name
+              FROM [:table schema=cerebrum name=feide_service_info]
+              WHERE service_id=:service_id
+            """,
+            {'service_id': service_id},
+        )
         try:
             del self.__in_db
         except AttributeError:
@@ -140,10 +159,14 @@ class FeideService(Entity_class):
 
     def find_by_name(self, name):
         """ Look up a Feide service by name. """
-        service_id = self.query_1("""
-        SELECT service_id
-        FROM [:table schema=cerebrum name=feide_service_info]
-        WHERE name=:name""", {'name': name})
+        service_id = self.query_1(
+            """
+              SELECT service_id
+              FROM [:table schema=cerebrum name=feide_service_info]
+              WHERE name=:name
+            """,
+            {'name': name},
+        )
         self.find(service_id)
 
     def search(self, feide_id=None, name=None):
@@ -156,11 +179,15 @@ class FeideService(Entity_class):
             where.append("fsi.feide_id=:feide_id")
         where_str = "WHERE " + " AND ".join(where) if where else ""
         binds = {'feide_id': feide_id, 'name': name}
-        return self.query("""
-        SELECT DISTINCT fsi.service_id AS service_id,
-                        fsi.feide_id AS feide_id,
-                        fsi.name AS name
-        FROM %s %s""" % (','.join(tables), where_str), binds)
+        return self.query(
+            """
+              SELECT DISTINCT
+                fsi.service_id AS service_id,
+                fsi.feide_id AS feide_id,
+                fsi.name AS name
+              FROM %s %s
+            """ % (','.join(tables), where_str),
+            binds)
 
     def get_person_to_authn_level_map(self):
         """ Creates a mapping from person_id to (feide_id, level). """
@@ -234,7 +261,7 @@ class FeideService(Entity_class):
         return persons
 
 
-class FeideServiceAuthnLevelMixin(Entity_class):
+class FeideServiceAuthnLevelMixin(Entity.Entity):
     """ Mixin class for entity authentication levels. """
 
     def delete(self):
@@ -242,32 +269,42 @@ class FeideServiceAuthnLevelMixin(Entity_class):
         if self.entity_id:
             for authn in self.search_authn_level(entity_id=self.entity_id):
                 self.remove_authn_level(**authn)
-        self.__super.delete()
+        super(FeideServiceAuthnLevelMixin, self).delete()
 
     def add_authn_level(self, service_id, level, entity_id=None):
         """ Add an authentication level. """
         if entity_id is None:
             entity_id = self.entity_id
-        self.execute("""
-        INSERT INTO [:table schema=cerebrum name=feide_service_authn_level]
-          (service_id, entity_id, level)
-        VALUES (:service_id, :entity_id, :level)""",
-                     {'service_id': service_id,
-                      'entity_id': entity_id,
-                      'level': level})
+        self.execute(
+            """
+              INSERT INTO
+                [:table schema=cerebrum name=feide_service_authn_level]
+                (service_id, entity_id, level)
+              VALUES
+                (:service_id, :entity_id, :level)
+            """,
+            {
+                'service_id': int(service_id),
+                'entity_id': int(entity_id),
+                'level': int(level),
+            },
+        )
         self._db.log_change(
-            entity_id,
-            self.clconst.feide_service_authn_level_add,
-            service_id,
-            change_params={'level': level})
+            subject_entity=entity_id,
+            change_type_id=self.clconst.feide_service_authn_level_add,
+            destination_entity=service_id,
+            change_params={'level': level},
+        )
 
     def remove_authn_level(self, service_id, level, entity_id=None):
         """ Remove an authentication level. """
         if entity_id is None:
             entity_id = self.entity_id
-        binds = {'service_id': service_id,
-                 'entity_id': entity_id,
-                 'level': level}
+        binds = {
+            'service_id': int(service_id),
+            'entity_id': int(entity_id),
+            'level': int(level),
+        }
         exists_stmt = """
           SELECT EXISTS (
             SELECT 1
@@ -285,12 +322,15 @@ class FeideServiceAuthnLevelMixin(Entity_class):
           WHERE service_id=:service_id AND
                 entity_id=:entity_id AND
                 level=:level
+          RETURNING service_id, entity_id, level
         """
-        self.execute(delete_stmt, binds)
-        self._db.log_change(entity_id,
-                            self.clconst.feide_service_authn_level_del,
-                            service_id,
-                            change_params={'level': level})
+        for row in self._db.query(delete_stmt, binds):
+            self._db.log_change(
+                subject_entity=row['entity_id'],
+                change_type_id=self.clconst.feide_service_authn_level_del,
+                destination_entity=row['service_id'],
+                change_params={'level': row['level']},
+            )
 
     def search_authn_level(self, service_id=None, entity_id=None, level=None):
         """ Search authentication levels. """
@@ -304,11 +344,18 @@ class FeideServiceAuthnLevelMixin(Entity_class):
         if level is not None:
             where.append("fsal.level=:level")
         where_str = "WHERE " + " AND ".join(where) if where else ""
-        binds = {'service_id': service_id,
-                 'entity_id': entity_id,
-                 'level': level}
-        return self.query("""
-        SELECT DISTINCT fsal.service_id AS service_id,
-                        fsal.entity_id AS entity_id,
-                        fsal.level AS level
-        FROM %s %s""" % (','.join(tables), where_str), binds)
+        binds = {
+            'service_id': service_id,
+            'entity_id': entity_id,
+            'level': level,
+        }
+        return self.query(
+            """
+              SELECT DISTINCT
+                fsal.service_id AS service_id,
+                fsal.entity_id AS entity_id,
+                fsal.level AS level
+              FROM %s %s
+            """ % (','.join(tables), where_str),
+            binds,
+        )

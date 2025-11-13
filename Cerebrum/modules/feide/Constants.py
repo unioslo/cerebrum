@@ -18,6 +18,12 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """Constants for the feide service"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import Cerebrum.Constants
 from Cerebrum.modules.bofhd.bofhd_constants import _AuthRoleOpCode
