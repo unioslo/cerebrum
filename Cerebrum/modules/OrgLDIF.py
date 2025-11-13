@@ -43,6 +43,7 @@ from Cerebrum.QuarantineHandler import QuarantineHandler
 from Cerebrum.Utils import Factory, make_timer
 from Cerebrum.export.auth import AuthExporter
 from Cerebrum.export import addresses as addr_export
+from Cerebrum.export import localized_name as name_export
 from Cerebrum.modules.LDIFutils import (
     attr_unique,
     entry_string,
@@ -146,6 +147,37 @@ class LanguageSettings(object):
             for lang, val in sorted_values:
                 opt = self.get_opt(lang)
                 entry.setdefault(attr + opt, []).append(val)
+
+
+class LdapNameGetter(name_export.NameGetter):
+    """ Helper class to pick out one or more localized names for an entity. """
+
+    def __init__(self, cache, name_types, languages):
+        """
+        :type cache: name_export.NameCache
+        :param name_types: a sequence of _EntityNameCode values
+        :param languages: a sequence of _LanguageCode values
+        """
+        # expand to (name-0, lang-0), (name-0, lang-1), ..., (name-N, lang-N)
+        name_priority = [
+            (name, lang)
+            for name in name_types
+            for lang in languages
+        ]
+        selector = name_export.NameSelector(name_priority)
+        super(LdapNameGetter, self).__init__(cache, selector)
+
+    def get_all(self, entity_id):
+        """ Get all available localized name types. """
+        results = self.get_names(entity_id)
+        return list(name_export.group_names_by_type(results))
+
+    def get_first(self, entity_id):
+        """ Get the first available localized name type. """
+        results = self.get_names(entity_id)
+        grouped = name_export.group_names_by_type(results)
+        for name_type, names in grouped:
+            return names
 
 
 class OrgLdifConfig(object):
@@ -441,6 +473,31 @@ class OrgLDIF(object):
                 outfile.write(entry_string(dn, entry, False))
         return dn
 
+    def _update_ou_names(self, ou_id, entry):
+        """
+        Update entry with org unit names.
+
+        This helper adds entry['cn'], entry['ou'], and
+        entry['norEduOrgAcronym'].
+        """
+        cn = self.get_ou_cn(ou_id)
+        acronyms = self.get_ou_acronyms(ou_id)
+        ou = self.get_ou_names(ou_id)
+
+        if not all((cn, ou)):
+            # We're missing required name attributes, abort
+            return False
+
+        if cn:
+            self.add_lang_names(entry, 'cn', cn)
+
+        if acronyms:
+            self.add_lang_names(entry, 'norEduOrgAcronym', acronyms)
+
+        for _, names in ou:
+            self.add_lang_names(entry, 'ou', names)
+        return True
+
     def make_ou_entry(self, ou_id, parent_dn):
         # Return (the OU's DN,        entry) for this OU,
         #     or (the OU's parent DN, None)  to omit the OU entry.
@@ -451,37 +508,18 @@ class OrgLDIF(object):
         if self.test_omit_ou():
             return parent_dn, None
 
-        name_variants = (self.const.ou_name_acronym,
-                         self.const.ou_name_short,
-                         self.const.ou_name,
-                         self.const.ou_name_display)
-        var2pref = dict([(v, i) for i, v in enumerate(name_variants)])
-        ou_names = {}
-        for row in self.ou.search_name_with_language(
-                entity_id=self.ou.entity_id,
-                name_language=self.languages,
-                name_variant=name_variants):
-            name = row["name"].strip()
-            if name:
-                pref = var2pref[int(row['name_variant'])]
-                lnames = ou_names.setdefault(pref, [])
-                lnames.append((int(row['name_language']), name))
-        if not ou_names:
-            logger.warn("No names could be located for ou_id=%s", ou_id)
-            return parent_dn, None
         entry = {'objectClass': ['top', 'organizationalUnit']}
         entry.update(self.ou_attrs)
-        if 0 in ou_names:
-            self.add_lang_names(entry, 'norEduOrgAcronym', ou_names[0])
-        ou_names = [names for _, names in sorted(ou_names.items())]
-        for names in ou_names:
-            self.add_lang_names(entry, 'ou', names)
-        self.add_lang_names(entry, 'cn', ou_names[-1])
+
+        if not self._update_ou_names(ou_id, entry):
+            logger.warning("No names could be located for ou_id=%s", ou_id)
+            return parent_dn, None
+
         dn = self.make_ou_dn(entry, parent_dn or self.ou_dn)
         if not dn:
             return parent_dn, None
 
-        for attr in entry.keys():
+        for attr in list(entry.keys()):
             if attr == 'ou' or attr.startswith('ou;'):
                 entry[attr] = attr_unique(entry[attr], normalize_string)
         self.fill_ou_entry_contacts(entry)
@@ -1369,6 +1407,70 @@ class OrgLDIF(object):
             ),
             self.format_postal_addr,
         )
+
+    #
+    # Org unit names and acronyms
+    #
+    @lazy_property
+    def ou_name_cache(self):
+        """ ou name cache. """
+        # This cache needs to contain all values used by the `get_ou_acronyms`,
+        # `get_ou_cn`, and `get_ou_names` getters.
+        cache = name_export.NameCache(
+            self.db,
+            languages=self.lang_opts.languages,
+            entity_types=(self.const.entity_ou,),
+        )
+        timer = make_timer(logger, "Caching org unit names ...")
+        cache.update_all()
+        timer("... done caching org unit names")
+        logger.info("Found names for %d org units", len(cache.found))
+        return cache
+
+    @lazy_property
+    def get_ou_acronyms(self):
+        """ get a localized org unit acronym. """
+        # This can be used to select 'norEduOrgAcronym' for org units
+        # subclasses
+        names = LdapNameGetter(
+            self.ou_name_cache,
+            [self.const.ou_name_acronym],
+            self.lang_opts.languages,
+        )
+        # Use the first available type
+        return names.get_first
+
+    @lazy_property
+    def get_ou_names(self):
+        """ get localized org unit names, ordered by priority.  """
+        names = LdapNameGetter(
+            self.ou_name_cache,
+            (
+                self.const.ou_name_acronym,
+                self.const.ou_name_short,
+                self.const.ou_name,
+                self.const.ou_name_display,
+            ),
+            self.lang_opts.languages,
+        )
+        # Use all names, in the prioritized order
+        return names.get_all
+
+    @lazy_property
+    def get_ou_cn(self):
+        """ get a localized common name for the given org unit. """
+        names = LdapNameGetter(
+            self.ou_name_cache,
+            (
+                self.const.ou_name_display,
+                self.const.ou_name,
+                self.const.ou_name_short,
+                self.const.ou_name_acronym,
+            ),
+            self.lang_opts.languages,
+        )
+        # Use the first available name of the given type
+        return names.get_first
 
 
 def _split_name(fullname=None, givenname=None, lastname=None):

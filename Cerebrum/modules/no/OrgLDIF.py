@@ -222,37 +222,18 @@ class NorEduOrgLdifMixin(OrgLDIF):
         if self.test_omit_ou():
             return parent_dn, None
 
-        name_variants = (self.const.ou_name_acronym,
-                         self.const.ou_name_short,
-                         self.const.ou_name,
-                         self.const.ou_name_display)
-        var2pref = dict([(v, i) for i, v in enumerate(name_variants)])
-        ou_names = {}
-        for row in self.ou.search_name_with_language(
-                entity_id=self.ou.entity_id,
-                name_language=self.languages,
-                name_variant=name_variants):
-            name = row["name"].strip()
-            if name:
-                pref = var2pref[int(row['name_variant'])]
-                lnames = ou_names.setdefault(pref, [])
-                lnames.append((int(row['name_language']), name))
-        if not ou_names:
-            logger.warn("No names could be located for ou_id=%s", ou_id)
-            return parent_dn, None
-
         ldap_ou_id = self.get_unique_ou_id()
         self.ou_uniq_id2ou_id[ldap_ou_id] = ou_id
         self.ou_id2ou_uniq_id[ou_id] = ldap_ou_id
         entry = {
             'objectClass': ['top', 'organizationalUnit', 'norEduOrgUnit'],
-            'norEduOrgUnitUniqueIdentifier': (ldap_ou_id,)}
-        if 0 in ou_names:
-            self.add_lang_names(entry, 'norEduOrgAcronym', ou_names[0])
-        ou_names = [names for ou_pref, names in sorted(ou_names.items())]
-        for names in ou_names:
-            self.add_lang_names(entry, 'ou', names)
-        self.add_lang_names(entry, 'cn', ou_names[-1])
+            'norEduOrgUnitUniqueIdentifier': (ldap_ou_id,),
+        }
+
+        if not self._update_ou_names(ou_id, entry):
+            logger.warning("No names could be located for ou_id=%s", ou_id)
+            return parent_dn, None
+
         entry.update(self.FEIDE_ou_common_attrs)
         if self.FEIDE_class_obsolete:
             entry['objectClass'].append(self.FEIDE_class_obsolete)
