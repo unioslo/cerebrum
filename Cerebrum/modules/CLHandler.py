@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003-2023 University of Oslo, Norway
+# Copyright 2003-2025 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -20,66 +20,186 @@
 """
 Proccess and tag events from changelog.
 
-This module adds a data model for fetching and and processing changes from the
-changelog.  This is done by keeping a separate table that lists processed
-change ids.
-"""
+This module adds a handler that can keep track of *processed* change ids from
+:mod:`Cerebrum.modules.ChangeLog`, for a given *change key*.
 
+Scripts that needs sequential processing of changes, can choose a unique
+*change key*, and then request unprocessed events (change log records) from the
+:class:`.CLHandler` defined in this module.
+
+Each processed change should be *confirmed* after processing.  The CLHandler
+will then keep track of (ranges of) confirmed change ids for each given *change
+key*, which will omit them from future requests for unprocessed changes.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import itertools
+import string
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 
 
-class CLHandler(DatabaseAccessor):
+_VALID_CHANGE_KEY_CHARS = frozenset(
+    string.ascii_letters + string.digits + "-_."
+)
 
-    """CLHandler provides methods for update notifications when data
+
+def validate_change_key(value):
+    """ Validate a change key.  """
+    # This needs be be called when adding a new change handler range for a
+    # *change key*.  It's mostly here to give a better error message whenever a
+    # given change key is too long (db constraint), but also to prevent weird
+    # change keys.
+    if set(value) - _VALID_CHANGE_KEY_CHARS:
+        raise ValueError("invalid change key: " + repr(value))
+    if len(value) > 20 or len(value) < 1:
+        raise ValueError("invalid change key: " + repr(value))
+    return value
+
+
+def get_all_ranges(db):
+    """ Get the full change handler table. """
+    return db.query(
+        """
+          SELECT evthdlr_key, first_id, last_id
+          FROM [:table schema=cerebrum name=change_handler_data]
+          ORDER BY evthdlr_key, first_id, last_id
+        """
+    )
+
+
+def get_ranges_for_key(db, key):
+    """ Get all id ranges handled by a given change *key*.  """
+    return [
+        (int(row['first_id']), int(row['last_id']))
+        for row in db.query(
+            """
+              SELECT first_id, last_id
+              FROM [:table schema=cerebrum name=change_handler_data]
+              WHERE evthdlr_key=:key
+              ORDER BY first_id, last_id
+            """,
+            {'key': key},
+        )
+    ]
+
+
+def clear_ranges_for_key(db, key):
+    return db.query(
+        """
+          DELETE FROM [:table schema=cerebrum name=change_handler_data]
+          WHERE evthdlr_key=:key
+          RETURNING evthdlr_key, first_id, last_id
+        """,
+        {'key': key},
+    )
+
+
+def add_range_for_key(db, key, first_id, last_id):
+    return db.query_1(
+        """
+          INSERT INTO [:table schema=cerebrum name=change_handler_data]
+            (evthdlr_key, first_id, last_id)
+          VALUES
+            (:key, :first, :last)
+          RETURNING
+            evthdlr_key, first_id, last_id
+        """,
+        {
+            'key': validate_change_key(key),
+            'first': int(first_id),
+            'last': int(last_id),
+        },
+    )
+
+
+def _ranges_to_limits(ranges):
+    """
+    Convert an iterable of ranges to an iterable of limits.
+
+    A range is a tuple with a (first, last) value, inclusive.  Limits are the
+    inverse - the search terms for e.g.  `ChangeLog.get_log_events()` to get
+    all ids that *aren't* covered by a range.
+    """
+    prev = -1
+    for first_id, last_id in sorted(ranges):
+        if prev < first_id - 1:
+            yield (prev + 1, first_id - 1)
+        prev = last_id
+
+    yield (prev + 1, None)
+
+
+class CLHandler(DatabaseAccessor):
+    """
+    Handle changes for a given change key.
+
+    CLHandler provides methods for update notifications when data
     is changed in Cerebrum using the ChangeLog.
 
-    A key is used to keep track of which events was last reveived.
+    A "change-key" is used to keep track of events to receive and process.  To
+    process any unprocessed changes for a given key:
+    ::
+
+        handler = CLHandler(database)
+        change_types = <relevant change type codes>
+        for change_id in handler.get_events("my-key", change_types):
+            if handle_event(database, change_id):
+                handler.confirm_event(change_id)
+
+        handler.commit_confirmations()
     """
 
     def get_events(self, key, types):
-        """Fetch all new events of type key.
+        """
+        Fetch all new events of type key.
 
-        types is a tuple of event-types to listen for, or None.  The client
-        should call confirm_event() for each event that it does not want
-        to receive again, and commit_confirmations() once all events are
-        processed."""
+        :type key: str
+        :param key:
+            A change handler key to find unprocessed events for, *and* to use
+            in later calls to :meth:`.commit_confirmations`.  See
+            :func:`.validate_change_key` for valid change key values.
 
-        prev_ranges = self._get_last_changes(key)
-        if len(prev_ranges) == 0:
-            prev_ranges = [[-1, -1]]
-        self._prev_ranges = prev_ranges
-        self._confirmed_events = set()
-        self._sent_events = set()
+        :type types: list[_ChangeTypeCode]
+        :param list types:
+            Filter unprocessed change-log records by types.
+
+            Use ``None`` to get all records, or provide a list of change types
+            to include as a sequence of _ChangeTypeCode values.  This is the
+            same parameter as ``types`` in :meth:`ChangeLog.get_log_events`.
+        """
+        key = validate_change_key(key)
+        prev_ranges = list(get_ranges_for_key(self._db, key))
+
+        events = []
+        for min_id, max_id in _ranges_to_limits(prev_ranges):
+            events.extend(
+                self._db.get_log_events(min_id, max_id=max_id, types=types))
+
+        # Setup for commit_confirmations()
+        # TODO: This should ideally be re-written as a context manager
         self._current_key = key
-        ret = []
-        for n in range(len(prev_ranges)):
-            if n == len(prev_ranges)-1:
-                min_id = prev_ranges[-1][1] + 1
-                max_id = None
-            else:
-                min_id = prev_ranges[n][1] + 1
-                max_id = prev_ranges[n+1][0] - 1
-            for evt in self._db.get_log_events(min_id,
-                                               max_id=max_id, types=types):
-                ret.append(evt)
-                self._sent_events.add(int(evt['change_id']))
-        return ret
+        self._prev_ranges = prev_ranges
+        self._sent_events = set(int(e['change_id']) for e in events)
+        self._confirmed_events = set()
 
-    def _get_last_changes(self, key):
-        return [[int(r['first_id']), int(r['last_id'])]
-                for r in self.query("""
-        SELECT first_id, last_id
-        FROM [:table schema=cerebrum name=change_handler_data]
-        WHERE evthdlr_key=:key
-        ORDER BY first_id""", {'key': key})]
+        return events
 
     def confirm_event(self, evt):
-        "Confirm that a given event was received OK."
+        """
+        Confirm processing of an event.
+
+        This should be called for every event that won't need re-processing
+        the next time this change key is processed.
+        """
         self._confirmed_events.add(int(evt['change_id']))
 
     def commit_confirmations(self):
-        """Update database with confirmed events.
+        """
+        Update database with confirmed events.
 
         Note that this method runs L{db.commit()}, which means that you can't
         run this if you try to dryrun functionality and wants to do a rollback
@@ -149,8 +269,8 @@ class CLHandler(DatabaseAccessor):
                 sorted(self._sent_events | prev),
                 (self._confirmed_events | prev).__contains__):
             if not isconf:
-                end = values.next() - 1
-                ranges.append([start, end])
+                end = next(values) - 1
+                ranges.append((start, end))
                 try:
                     start = max(values) + 1
                 except Exception:
@@ -158,8 +278,10 @@ class CLHandler(DatabaseAccessor):
         # If the last line is a C-line (might be the only line, too), we create
         # a range ending with the highest id returned.
         if isconf:
-            ranges.append([start,
-                           max(itertools.chain(prev, self._confirmed_events))])
+            ranges.append((
+                start,
+                max(itertools.chain(prev, self._confirmed_events)),
+            ))
 
         if self._prev_ranges == ranges:
             return
@@ -180,29 +302,31 @@ class CLHandler(DatabaseAccessor):
             be a two element list, where the first element represents the
             `first_id` and the second the `last_id`. Example:
 
-                [[10, 110],
-                 [112, 201],
-                 [204, 415],
-                 ]
+                [(10, 110), (112, 201), (204, 415)]
 
         """
-        self.execute("""
-        DELETE FROM [:table schema=cerebrum name=change_handler_data]
-        WHERE evthdlr_key=:key""", {'key': key})
+        # Clear all previous ranges
+        clear_ranges_for_key(self._db, key)
 
-        for r in ranges:
-            self.execute("""
-            INSERT INTO [:table schema=cerebrum name=change_handler_data]
-               (evthdlr_key, first_id, last_id)
-               VALUES (:key, :first, :last)""", {
-                'key': key, 'first': r[0], 'last': r[1]})
+        # Insert current ranges
+        for first_id, last_id in ranges:
+            add_range_for_key(self._db, key, first_id, last_id)
+
         self.commit()
 
     def _update_last_change_id(self, key, value):
-        self.execute("""
-        UPDATE [:table schema=cerebrum name=change_handler_data]
-        SET last_id=:value
-        WHERE evthdlr_key=:key""", {'key': key, 'value': value})
+        # TODO: Do we need this? Only used by a cerebrum-hacks script...
+        self.execute(
+            """
+              UPDATE [:table schema=cerebrum name=change_handler_data]
+              SET last_id=:value
+              WHERE evthdlr_key=:key
+            """,
+            {
+                'key': validate_change_key(key),
+                'value': int(value),
+            },
+        )
 
     def list_handler_data(self):
         """Return all the registered change handler data.
@@ -210,9 +334,7 @@ class CLHandler(DatabaseAccessor):
         This is mostly for debugging. You should probably use `get_events(key)`
         instead of this method, for retrieving the events in a more suitable
         fashion.
-
         """
-        return self.query("""
-            SELECT *
-            FROM [:table schema=cerebrum name=change_handler_data]
-            ORDER BY evthdlr_key""")
+        # TODO: Do we need this?
+        # Only used by contrib/change-handler-manipulate.py
+        return get_all_ranges(self._db)
