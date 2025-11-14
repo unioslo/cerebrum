@@ -535,8 +535,8 @@ class BaseSync(object):
             client_cert=self.config.get('client_cert'),
             client_key=self.config.get('client_key'),
             dryrun=self.config['dryrun'])
-        if 'dc_server' in self.config:
-            self.server.set_domain_controller(self.config['dc_server'])
+        if self.config.get('dc_server'):
+            self.server.domain_controller = self.config['dc_server']
 
     def add_admin_message(self, level, msg):
         """Add a message to be given to the administrators of the AD domain.
