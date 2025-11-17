@@ -88,6 +88,11 @@ from .winrm import PowershellException
 logger = logging.getLogger(__name__)
 
 
+def _noop(*args, **kwargs):
+    """ A noop function. """
+    pass
+
+
 class BaseSync(object):
 
     """Class for the generic AD synchronisation functionality.
@@ -585,12 +590,11 @@ class BaseSync(object):
                     self.logger.warning("No change_id %s", i)
 
         # Re-writeable functions for cl.confirm and cl.commit
-        confirm = (
-            lambda e: cl.confirm_event(e)
-        )
-        commit = (
-            lambda dryrun: None if dryrun else cl.commit_confirmations()
-        )
+        cl_confirm = cl.confirm_event
+        if self.config['dryrun']:
+            cl_commit = _noop
+        else:
+            cl_commit = cl.commit_confirmations
 
         if changekey:
             self.logger.debug("Processing changekey: %s", changekey)
@@ -600,8 +604,8 @@ class BaseSync(object):
             events = _events_for_change_ids(change_ids)
             # Do not commit to CLHandler -- that won't work if cl is not set up
             # with a changekey
-            commit = (lambda r: None)
-            confirm = (lambda d: None)
+            cl_commit = _noop
+            cl_confirm = _noop
         else:
             raise Exception("Missing changekey or change_ids")
 
@@ -610,9 +614,11 @@ class BaseSync(object):
             timestamp = int(
                 date_utils.to_timestamp(
                     date_compat.get_datetime_tz(row['tstamp'])))
-            handle_key = tuple((int(row['change_type_id']),
-                                row['subject_entity'],
-                                row['dest_entity']))
+            handle_key = (
+                int(row['change_type_id']),
+                row['subject_entity'],
+                row['dest_entity'],
+            )
             change_type = self.clconst.ChangeType(int(row['change_type_id']))
             stats['seen'] += 1
 
@@ -621,7 +627,7 @@ class BaseSync(object):
                 stats['skipped'] += 1
                 self.logger.info("Skipping too old change_id: %s",
                                  row['change_id'])
-                confirm(row)
+                cl_confirm(row)
                 continue
             # Ignore seen (change_type, subject, dest) tuples
             if handle_key in already_handled:
@@ -631,7 +637,7 @@ class BaseSync(object):
                     " for subject=%s, dest=%s", row['change_id'],
                     str(change_type), row['subject_entity'],
                     row['dest_entity'])
-                confirm(row)
+                cl_confirm(row)
                 continue
 
             self.logger.debug(
@@ -642,7 +648,7 @@ class BaseSync(object):
             try:
                 if self.process_cl_event(row):
                     stats['processed'] += 1
-                    confirm(row)
+                    cl_confirm(row)
                 else:
                     stats['skipped'] += 1
                     self.logger.debug(
@@ -655,8 +661,8 @@ class BaseSync(object):
                     row['change_id'], change_type, row['subject_entity'],
                     exc_info=1)
             else:
-                commit(self.config['dryrun'])
-        commit(self.config['dryrun'])
+                cl_commit()
+        cl_commit()
         self.logger.info("Handled %(seen)d events, processed: %(processed)d,"
                          " skipped: %(skipped)d, failed: %(failed)d", stats)
         self.logger.info("Quicksync done")
@@ -714,14 +720,20 @@ class BaseSync(object):
         self.fetch_cerebrum_entities()
         self.logger.debug("Fetched %d cerebrum entities", len(self.entities))
         # Make a mapping from entity_id to the entity:
-        self.id2entity = dict((self.entities[e].entity_id, self.entities[e])
-                              for e in self.entities)
+        self.id2entity = {
+            self.entities[e].entity_id: self.entities[e]
+            for e in self.entities
+        }
         # Make a mapping from entity_name to the entity:
-        self.name2entity = dict((self.entities[e].entity_name,
-                                 self.entities[e]) for e in self.entities)
+        self.name2entity = {
+            self.entities[e].entity_name: self.entities[e]
+            for e in self.entities
+        }
         # Make a mapping from ad_id to the entity:
-        self.adid2entity = dict((self.entities[e].ad_id.lower(),
-                                 self.entities[e]) for e in self.entities)
+        self.adid2entity = {
+            self.entities[e].ad_id.lower(): self.entities[e]
+            for e in self.entities
+        }
         if len(self.entities) != len(self.adid2entity):
             self.logger.warning("Mismatch in mapping of ad_id -> entity_id")
         self.fetch_quarantines()
@@ -737,7 +749,7 @@ class BaseSync(object):
         entities to synchronize with AD.
 
         """
-        raise Exception('Must be defined in the proper subclass')
+        raise NotImplementedError('Must be defined in the proper subclass')
 
     def fetch_quarantines(self):
         """Get all quarantines from Cerebrum and update L{self.entities} with
@@ -1233,6 +1245,7 @@ class BaseSync(object):
         if atr.lower() == 'samaccountname':
             if a is None or c.lower() != a.lower():
                 return (True, None, None)
+
         # Order does not matter in multivalued attributes
         seq = (list, tuple, set)
         if isinstance(c, seq) and (isinstance(a, seq) or a is None):
