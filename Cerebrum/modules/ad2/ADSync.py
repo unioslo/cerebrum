@@ -1246,6 +1246,13 @@ class BaseSync(object):
             if a is None or c.lower() != a.lower():
                 return (True, None, None)
 
+        # Certain attributes can be set to empty, which in some versions of AD
+        # return the string literal "FALSE".  This is a workaroudn for some
+        # attributes that are known to cause issues:
+        if (atr.lower() in ("description", "homedirectory", "mail")
+                and a == "FALSE" and not c):
+            return (False, None, None)
+
         # Order does not matter in multivalued attributes
         seq = (list, tuple, set)
         if isinstance(c, seq) and (isinstance(a, seq) or a is None):
