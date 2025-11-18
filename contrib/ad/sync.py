@@ -56,7 +56,6 @@ def print_cerebrum_data(sync):
     attrs = sorted(sync.config['attributes'])
     for obj_name in sorted(sync.entities):
         obj = sync.entities[obj_name]
-        logger.debug("obj: %s - %s", repr(obj), repr(obj.attributes))
         print(";".join((obj.ad_id, "OU", obj.ou)))
         for attr in attrs:
             value = obj.attributes.get(attr, "<Not Set>")
