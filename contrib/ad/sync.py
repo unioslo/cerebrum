@@ -46,6 +46,7 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules.ad2.ADSync import BaseSync
 from Cerebrum.modules.ad2 import cli
 from Cerebrum.utils import date as date_utils
+from Cerebrum.utils import text_compat
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +60,8 @@ def print_cerebrum_data(sync):
         print(";".join((obj.ad_id, "OU", obj.ou)))
         for attr in attrs:
             value = obj.attributes.get(attr, "<Not Set>")
-            print(";".join((obj.ad_id, attr, value)))
+            fields = (obj.ad_id, attr, value)
+            print(";".join(text_compat.to_text(f) for f in fields))
 
 
 def _get_proc_status():
