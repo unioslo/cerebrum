@@ -51,8 +51,24 @@ OPTION_LOGGER_NAME = 'logger_name'
 OPTION_SENTRY = 'sentry_enable'
 
 
-def install_subparser(parser):
-    """ Add a logging subparser to an existing ArgumentParser. """
+_OPTIONS = (
+    OPTION_CAPTURE_EXC,
+    OPTION_CAPTURE_WARN,
+    OPTION_LOGGER_LEVEL,
+    OPTION_LOGGER_NAME,
+    OPTION_SENTRY,
+)
+
+
+def install_subparser(parser, defaults=None):
+    """
+    Add a logging subparser to an existing ArgumentParser.
+
+    :param parser: an argument parser to add a logging subparser to
+    :param defaults: an optional dict of default logging argument values
+
+    :returns: the added subparser
+    """
     subparser = parser.add_argument_group('Logging',
                                           'Override default log configuration')
 
@@ -125,6 +141,12 @@ def install_subparser(parser):
         action='store_false',
         help="Disable sentry",
     )
+
+    if defaults:
+        for k in defaults:
+            if k not in _OPTIONS:
+                raise ValueError("Invalid default value: " + repr(k))
+        subparser.set_defaults(**defaults)
 
     return subparser
 
