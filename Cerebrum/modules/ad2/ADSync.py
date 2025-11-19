@@ -2353,7 +2353,7 @@ class UserSync(BaseSync):
             homespreads.add(atr.home_spread)
         if not homespreads:
             return
-        self.logger.debug("Fetch home directories...")
+        self.logger.debug("Fetching home directories...")
         i = 0
         for sp in homespreads:
             for row in self.ac.list_account_home(
@@ -2377,21 +2377,23 @@ class UserSync(BaseSync):
         self.logger.debug("Found %d account home directories", i)
 
     def fetch_posix(self):
-        """Fetch the POSIX data for users, if needed.
-
-        """
+        """ Fetch the POSIX data for users, if needed. """
         if not ConfigUtils.has_config(self.config['attributes'],
                                       ConfigUtils.PosixAttr):
             # No need for any posix data
+            self.logger.debug("Ignoring posix data")
             return
-        self.logger.debug("Fetch posix data...")
+
+        self.logger.debug("Fetching posix data...")
         pg = Factory.get('PosixGroup')(self.db)
         pu = Factory.get('PosixUser')(self.db)
 
         # Map from group_id to GID:
-        posix_group_id2gid = dict((eid, gid) for eid, gid in
-                                  pg.list_posix_groups())
-        self.logger.debug("Found %d posix groups", len(posix_group_id2gid))
+        posix_group_id2gid = {
+            row['group_id']: row['posix_gid']
+            for row in pg.list_posix_groups()
+        }
+        self.logger.info("Found %d posix groups", len(posix_group_id2gid))
 
         i = 0
         for row in pu.list_posix_users():
@@ -2399,12 +2401,14 @@ class UserSync(BaseSync):
             if ent:
                 if not hasattr(ent, 'posix'):
                     ent.posix = {}
-                ent.posix['uid'] = int(row['posix_uid']) or ''
-                ent.posix['gid'] = posix_group_id2gid.get(row['gid'], '')
-                ent.posix['shell'] = str(self.co.PosixShell(row['shell']))
-                ent.posix['gecos'] = row['gecos']
+                ent.posix.update({
+                    'uid': int(row['posix_uid']),
+                    'gid': posix_group_id2gid.get(row['gid'], ''),
+                    'shell': six.text_type(self.co.PosixShell(row['shell'])),
+                    'gecos': row['gecos'],
+                })
                 i += 1
-        self.logger.debug("Found %d posix users", i)
+        self.logger.info("Found %d posix users", i)
 
     def fetch_passwords(self):
         """Fetch passwords for accounts that are new in AD.
@@ -2609,11 +2613,11 @@ class UserSync(BaseSync):
                         row['subject_entity'])
                     return False
 
-            if not isinstance(pw, unicode):
+            if isinstance(pw, bytes):
                 try:
-                    pw = unicode(pw, 'UTF-8')
+                    pw = pw.decode("UTF-8")
                 except UnicodeDecodeError:
-                    pw = unicode(pw, 'ISO-8859-1')
+                    pw = pw.decode("ISO-8859-1")
             return self.server.set_password(name, pw, password_type=tag)
 
         elif row['change_type_id'] in (self.clconst.quarantine_add,
@@ -2643,7 +2647,7 @@ class UserSync(BaseSync):
             # have no AD-object to pass to the self.script function...
             #     simple_object = dict(DistinguishedName=ent.dn)
             #     self.*able_object(simple_object)
-
+            #
             if QuarantineHandler.check_entity_quarantines(
                     self.db, self.ac.entity_id).is_locked():
                 return self.server.disable_object(ent.dn)
@@ -2971,14 +2975,12 @@ class GroupSync(BaseSync):
         self.logger.debug2("Fetched %d memberships", i)
 
     def fetch_posix(self):
-        """Fetch the POSIX data for groups, if needed.
-
-        """
+        """ Fetch the POSIX data for groups, if needed. """
         if not ConfigUtils.has_config(self.config['attributes'],
                                       ConfigUtils.PosixAttr):
-            # No need for any posix data
+            self.logger.debug("Ignoring posix data")
             return
-        self.logger.debug("Fetch posix data...")
+        self.logger.debug("Fetching posix group data...")
         pg = Factory.get('PosixGroup')(self.db)
         i = 0
         for row in pg.list_posix_groups():
@@ -2986,7 +2988,9 @@ class GroupSync(BaseSync):
             if ent:
                 if not hasattr(ent, 'posix'):
                     ent.posix = {}
-                ent.posix['gid'] = int(row['posix_gid']) or ''
+                ent.posix.update({
+                    'gid': int(row['posix_gid']),
+                })
                 i += 1
         self.logger.debug("Found %d posix groups", i)
 
@@ -3059,45 +3063,6 @@ class HostSync(BaseSync):
                 continue
             self.entities[name] = self.cache_entity(int(row["host_id"]), name,
                                                     row['description'])
-
-
-class MailTargetSync(BaseSync):
-
-    """Extra sync functionality for getting MailTarget data.
-
-    Entities could be connected to mailtargets in Cerebrum, e.g. with e-mail
-    addresses, e-mail quota and spam settings. The retrievement of this data
-    should be done in this class.
-
-    """
-    def __init__(self, *args, **kwargs):
-        """Instantiate the MailTarget objects."""
-        super(MailTargetSync, self).__init__(*args, **kwargs)
-        self.mailtarget = Email.EmailTarget(self.db)
-        self.mailquota = Email.EmailQuota(self.db)
-
-    def fetch_cerebrum_data(self):
-        """Fetch the needed mail data for the entities."""
-        super(MailTargetSync, self).fetch_cerebrum_data()
-
-        # Map from target_id to entity_id:
-        targetid2entityid = dict((r['target_id'], r['target_entity_id']) for r
-                                 in self.mailtarget.list_email_targets_ext())
-        for target_id, entity_id in six.iteritems(targetid2entityid):
-            ent = self.entities.get(entity_id)
-            if ent:
-                ent.maildata['target_id'] = target_id
-
-        # E-mail quotas:
-        for row in self.mailquota.list_email_quota_ext():
-            if row['target_id'] not in targetid2entityid:
-                self.logger.debug2("Ignoring quotas for non-cached target: %s",
-                                   row['target_id'])
-                continue
-            ent = self.id2entity.get(targetid2entityid[row['target_id']])
-            if ent:
-                ent.maildata['quota_soft'] = row['quota_soft']
-                ent.maildata['quota_hard'] = row['quota_hard']
 
 
 class ProxyAddressesCompare(BaseSync):
