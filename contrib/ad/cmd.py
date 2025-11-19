@@ -78,10 +78,7 @@ def main(argv=None):
     get_client = cli.add_winrm_subparser(parser)
     Cerebrum.logutils.options.install_subparser(
         parser,
-        defaults={
-            # Interactive script - disable sentry by default
-            Cerebrum.logutils.options.OPTION_SENTRY: False,
-        },
+        default_enable_sentry=False,
     )
 
     args = parser.parse_args(argv)

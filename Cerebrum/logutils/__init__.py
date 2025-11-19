@@ -162,3 +162,19 @@ def autoconf(name, namespace=None):
     config.configure(c, logger_name or name, logger_level)
     # TODO: Changing a global, should use locks?
     _configured = True
+
+
+def autoconf_interactive(namespace):
+    """
+    Run config.configure for interactive scripts with a commit flag
+
+    In practice this function just runs autoconf(), but:
+
+    1. Requires argparse to actually be in use, and to have a commit flag
+    2. Sets default logger preset: "tee" in commit-mode, or "console" in dryrun
+    """
+    if namespace.commit:
+        preset = "tee"
+    else:
+        preset = "console"
+    autoconf(preset, namespace)
