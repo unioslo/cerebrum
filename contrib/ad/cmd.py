@@ -18,10 +18,10 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""Running cmd commands against a Windows machine.
+"""
+Run commands (in cmd.exe through winrm) on a Windows machine.
 
-This script is for running generic cmd commands against Windows and AD, e.g.
-commands against winrm.
+This script is for running generic commands against Windows and AD.
 
 If you want to run powershell commands, you could either run::
 
@@ -30,150 +30,85 @@ If you want to run powershell commands, you could either run::
 or you could just use L{powershell.py}, which sets up a bit more for you, e.g.
 credentials for the AD environment.
 
-Examples::
+Examples:
+::
 
     # Get the WinRM configuration:
     winrm get winrm/config
 
-    # TODO
-
 Note that, due to limitations in the communication with WinRM, the code have to
-finish execution before you could see the result. You will therefore not be able
-to run a cmd shell, or any other shell, interactively. This might change if we
-get more time working with the WinRM protocol.
+finish execution before you could see the result. You will therefore not be
+able to run a cmd shell, or any other shell, interactively. This might change
+if we get more time working with the WinRM protocol.
 
 Don't forget to escape the dollar and other Windows related characters in your
 shell!
-
 """
-
-from __future__ import print_function
-
-import getopt
-import sys
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+import argparse
+import logging
 
 import adconf
-from Cerebrum.Utils import Factory, read_password
-from Cerebrum import Errors
-from Cerebrum.modules.ad2.winrm import WinRMClient
+import Cerebrum.logutils
+import Cerebrum.logutils.options
+from Cerebrum.modules.ad2 import cli
 
-logger = Factory.get_logger('console')
-db = Factory.get('Database')()
-co = Factory.get('Constants')(db)
 
-def usage(exitcode=0):
-    print("""Usage: cmd.py [OPTIONS] CODE...
+logger = logging.getLogger(__name__)
+description = __doc__.strip().splitlines()[0]
+epilog = "\n".join(__doc__.strip().splitlines()[1:]).strip()
 
-    %(doc)s
 
-    Parameters:
+def main(argv=None):
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description=description,
+        epilog=epilog,
+    )
+    parser.add_argument(
+        "command",
+        nargs="+",
+    )
 
-    CODE            The cmd code that should be executed. The output from the
-                    code is returned back to stdout.
+    get_client = cli.add_winrm_subparser(parser)
+    Cerebrum.logutils.options.install_subparser(
+        parser,
+        defaults={
+            # Interactive script - disable sentry by default
+            Cerebrum.logutils.options.OPTION_SENTRY: False,
+        },
+    )
 
-    Options:
+    args = parser.parse_args(argv)
+    Cerebrum.logutils.autoconf("console", args)
 
-    --type TYPE     If given, the server name, credentials and other settings
-                    are fetched from the given sync type. Otherwise you have to
-                    specify server name and authentication details.
+    logger.info("Start %s", parser.prog)
+    logger.debug("args: %s", repr(args))
 
-                    Note that the type must exist in adconf.SYNCS.
-
-    Options for when --type is not specified:
-
-    --host HOSTNAME The hostname of the Windows server that should execute the
-                    code. Needed if --type is not specified.
-
-    --port PORT     The port number on the Windows server. Default: 5986 for
-                    encrypted communication, otherwise 5985.
-
-    Other options:
-
-    --unencrypted   If the communication should go unencrypted. This should only
-                    be used for testing!
-
-    -h, --help      Show this and quit.
-
-    """ % {'doc': __doc__})
-    sys.exit(exitcode)
-
-def main():
-    try:
-        opts, args = getopt.getopt(sys.argv[1:],
-                                   "h",
-                                   ["help",
-                                    "unencrypted",
-                                    "type=",
-                                    "host=",
-                                    "port="])
-    except getopt.GetoptError as e:
-        print(e)
-        usage(1)
-
-    encrypted = True
-    sync = None
-    host = port = None
-
-    for opt, val in opts:
-        # General options
-        if opt in ('-h', '--help'):
-            usage()
-        elif opt == '--unencrypted':
-            encrypted = False
-        elif opt == '--type':
-            if val not in adconf.SYNCS:
-                print("Sync type '%s' not found in config" % val)
-                print("Defined sync types:")
-                for typ in adconf.SYNCS:
-                    print('  %s' % typ)
-                sys.exit(2)
-            sync = adconf.SYNCS[val]
-        elif opt == '--host':
-            host = val
-        elif opt == '--port':
-            port = int(val)
-        else:
-            print("Unknown option: %s" % opt)
-            usage(1)
-
-    if not host and not sync:
-        print("Need either --type or --host to connect to")
-        usage(1)
-
-    if not args:
-        print("Command to run is required")
-        usage(1)
-
-    if not host:
-        host = sync['server']
-    if not port:
-        port = sync.get('port', None)
-    user = sync['auth_user']
-
-    client = WinRMClient(host=host, port=port, encrypted=encrypted,
-                         logger=logger)
-    # TODO: add ca, client_key and client_cert
+    client = get_client(adconf.SYNCS, args)
     client._winrs_skip_cmd_shell = False
-    #client._winrs_consolemode_stdin = False
-    client.add_credentials(username=user,
-                           password=read_password(user, host))
     client.connect()
 
-    code = ' '.join(args)
-    logger.debug("Running code: %s" % code)
-
+    command = " ".join(args.command)
+    logger.info("Running command: %s", command)
     try:
-        out = client.run(code)
+        out = client.run(command)
     finally:
         client.close()
+
     for outtype in ('stderr', 'stdout'):
         data = out.get(outtype)
         if data:
             print('%s:' % outtype.upper())
             print(data)
             print()
-    logger.debug("Done")
+    logger.info("Done")
+
 
 if __name__ == '__main__':
     main()
-
