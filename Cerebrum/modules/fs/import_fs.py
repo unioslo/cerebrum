@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2002-2023 University of Oslo, Norway
+# Copyright 2002-2025 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -24,8 +24,6 @@ from __future__ import (
     print_function,
     unicode_literals,
 )
-
-import json
 import logging
 from datetime import date, datetime, timedelta
 from collections import defaultdict
@@ -46,7 +44,7 @@ logger = logging.getLogger(__name__)
 class FsImporter(object):
     def __init__(self, gen_groups, include_delete, commit,
                  studieprogramfile, source, rules, adr_map,
-                 rule_map=None, reg_fagomr=False,
+                 rule_map=None,
                  reservation_query=None):
         # Variables passed to/from main
         self.db = Factory.get('Database')()
@@ -59,7 +57,6 @@ class FsImporter(object):
         self.gen_groups = gen_groups
         self.include_delete = include_delete
 
-        self.reg_fagomr = reg_fagomr
         self._init_aff_status_pri_order()
         self.rules = rules
         if rule_map:
@@ -169,6 +166,8 @@ class FsImporter(object):
         """Called when we have fetched all data on a person from the xml
         file.  Updates/inserts name, address and affiliation
         information."""
+        # TODO: We should probably normalize the data in `person_info` before
+        # doing any imports
         try:
             fnr = self._get_fnr(person_info)
         except fodselsnr.InvalidFnrError:
@@ -190,15 +189,28 @@ class FsImporter(object):
 
         if self._db_add_person(person, person_info, pd):
             # Perform following operations only if _db_add_person didn't fail
-            if self.reg_fagomr:
-                self._register_fagomrade(person, person_info)
-            if self.gen_groups:
-                self._add_reservations(person_info, person)
+            self._update_person(person, person_info)
 
             if self.commit:
                 self.db.commit()
             else:
                 self.db.rollback()
+
+    def _update_person(self, person, person_info):
+        """
+        Run optional person updates.
+
+        :type person: Cerebrum.Person.Person
+        :param person: A populated person object for the given *person_info*
+
+        :type person_info: dict
+        :param person_info: StudentInfoParser result
+        """
+        # This is where we add *optional* or local import business logic.
+        # This contains some *optional* imports, and subclasses can override
+        # this and add extra import logic.
+        if self.gen_groups:
+            self._add_reservations(person_info, person)
 
     def _get_person(self, fnr, studentnr):
         fsids = [(self.co.externalid_fodselsnr, fnr)]
@@ -741,39 +753,3 @@ class FsImporter(object):
                     'Removing publish consent for person {person_id} with '
                     'expired FS affiliations'.format(person_id=person_id))
 
-    def _register_fagomrade(self, person, person_info):
-        """Register 'fagomrade'/'fagfelt' for a person.
-        This is stored in trait_fagomrade_fagfelt as a pickled list of strings.
-        The trait is not set if no 'fagfelt' is registered.
-
-        @param person:
-          Person db proxy associated with a newly created/fetched person.
-
-        @param person_info:
-          Dict returned by StudentInfoParser.
-
-        """
-        fnr = "%06d%05d" % (int(person_info["fodselsdato"]),
-                            int(person_info["personnr"]))
-
-        fagfelt_trait = person.get_trait(trait=self.co.trait_fagomrade_fagfelt)
-        fagfelt = []
-
-        # Extract fagfelt from any fagperson rows
-        if 'fagperson' in person_info:
-            fagfelt = [data.get('fagfelt') for data in person_info['fagperson']
-                       if data.get('fagfelt') is not None]
-            # Sort alphabetically as the rows are returned in random order
-            fagfelt.sort()
-
-        if fagfelt_trait and not fagfelt:
-            logger.debug('Removing fagfelt for %s', fnr)
-            person.delete_trait(code=self.co.trait_fagomrade_fagfelt)
-        elif fagfelt:
-            logger.debug('Populating fagfelt for %s', fnr)
-            person.populate_trait(
-                code=self.co.trait_fagomrade_fagfelt,
-                date=datetime.now(),
-                strval=json.dumps(fagfelt))
-
-        person.write_db()
