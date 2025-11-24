@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2005-2024 University of Oslo, Norway
+# Copyright 2005-2025 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -22,9 +22,16 @@ Trait mixin for Cerebrum.Entity.
 
 See :mod:`Cerebrum.modules.trait` for more info.
 
-TODO: This module should be refactored to use
-:mod:`Cerebrum.modules.trait.trait_db`, and moved to
-``Cerebrum.modules.trait.mixins``.
+TODO
+----
+This module should be refactored to use :mod:`Cerebrum.modules.trait.trait_db`,
+and moved to ``Cerebrum.modules.trait.trait_mixins``.
+
+We may want to get rid of some old Cerebrum-isms here as well.  The trait
+caching (per entity) doesn't really help much, as we still need to do an
+expensive `Entity.find()` on every entity we want to update.  We could probably
+get rid of the `populate_trait() + write_db()` pattern, and replace it with
+`trait_db.set_trait` for most scenarios.
 """
 from __future__ import (
     absolute_import,
@@ -37,6 +44,7 @@ from Cerebrum.Constants import _ChangeTypeCode, _get_code
 from Cerebrum.Entity import Entity
 from Cerebrum.Utils import NotSet
 from Cerebrum.modules.trait.constants import _EntityTraitCode
+from Cerebrum.modules.trait import trait_db
 from Cerebrum.utils import text_compat
 from Cerebrum.utils.date_compat import get_datetime_naive
 
@@ -67,54 +75,44 @@ class EntityTrait(Entity):
         for code in self.__trait_updates:
             params = self._pickle_fixup(self.__traits[code])
             if self.__trait_updates[code] == 'UPDATE':
-                binds = ", ".join(["%s=:%s" % (c, c)
-                                   for c in self.__traits[code]])
-                # Find out if we are simply "touch"-ing a trait thus
-                # updating its date. We shouldn't changelog such an event.
+                # TODO: Figure out what to do with this - we *should* changelog
+                # date changes as well.
                 #
-                # Old trait is fished out of the database with a
-                # query. get_traits()
-                # ignore the database when self.__traits is set (as it should).
+                # We should find all places where we actually update traits
+                # with a new `date`, and check whether this is neccessary.  If
+                # we want to update a date, it *should* be changelogged.  If we
+                # just set a date for debugging, we should reconsider...
+                assignments = ", ".join("%s=:%s" % (c, c)
+                                        for c in self.__traits[code])
                 changelog = True
-                try:
-                    old_trait = self.query_1("""
-                    SELECT *
-                    FROM [:table schema=cerebrum name=entity_trait]
-                    WHERE entity_id=:entity_id AND code=:code
-                    """, {'entity_id': self.entity_id, 'code': int(code)})
-
+                old_trait = trait_db.get_trait(self._db, self.entity_id, code)
+                if old_trait:
                     changelog = False
                     for i in ('target_id', 'numval', 'strval'):
-                        if old_trait.get(i) != self.__traits[code].get(i):
+                        if old_trait[i] != self.__traits[code].get(i):
                             changelog = True
-                except Errors.NotFoundError:
-                    pass
-                self.execute("""
-                UPDATE [:table schema=cerebrum name=entity_trait]
-                SET %s
-                WHERE entity_id = :entity_id AND code = :code
-                """ % binds,
-                             self.__traits[code])
+                self.execute(
+                    """
+                    UPDATE [:table schema=cerebrum name=entity_trait]
+                    SET {}
+                    WHERE entity_id = :entity_id AND code = :code
+                    """.format(assignments),
+                    self.__traits[code],
+                )
                 if changelog:
-                    self._db.log_change(self.entity_id, self.clconst.trait_mod,
-                                        None,
-                                        change_params=params)
+                    self._db.log_change(
+                        self.entity_id,
+                        self.clconst.trait_mod,
+                        None,
+                        change_params=params,
+                    )
             else:
-                binds = ", ".join([":%s" % c
-                                   for c in self.__traits[code]])
-                self.execute("""
-                INSERT INTO [:table schema=cerebrum name=entity_trait]
-                (%s) VALUES (%s)
-                """ % (", ".join(self.__traits[code].keys()), binds),
-                             self.__traits[code])
-                self._db.log_change(self.entity_id, self.clconst.trait_add,
-                                    None,
-                                    change_params=params)
+                values = self.__traits[code]
+                trait_db.set_trait(self._db, **values)
         self.__trait_updates = {}
 
     def delete_trait(self, code):
         """Remove the entity's trait identified by code value."""
-
         code = _EntityTraitCode(code)
         # get_traits populates __traits as a side effect
         if code not in self.get_traits():
@@ -125,27 +123,10 @@ class EntityTrait(Entity):
                 del self.__traits[code]
                 return
             del self.__trait_updates[code]
-        params = self._pickle_fixup(self.__traits[code])
-        binds = {'entity_id': self.entity_id,
-                 'code': int(code)}
-        exists_stmt = """
-        SELECT EXISTS (
-          SELECT 1
-          FROM [:table schema=cerebrum name=entity_trait]
-          WHERE entity_id=:entity_id AND code=:code
-        )
-        """
-        if not self.query_1(exists_stmt, binds):
-            # False positive
-            return
-        delete_stmt = """
-        DELETE FROM [:table schema=cerebrum name=entity_trait]
-        WHERE entity_id=:entity_id AND code=:code
-        """
-        self.execute(delete_stmt, binds)
-        self._db.log_change(self.entity_id, self.clconst.trait_del, None,
-                            change_params=params)
-        del self.__traits[code]
+
+        trait_db.clear_trait(self._db, self.entity_id, code)
+        if code in self.__traits:
+            del self.__traits[code]
 
     def delete(self):
         """To delete this entity we need to remove all traits first.
@@ -186,16 +167,8 @@ class EntityTrait(Entity):
 
         """
         if not self.__traits:
-            for row in self.query(
-                    """
-                    SELECT entity_id, entity_type, code,
-                           target_id, date, numval, strval
-                    FROM [:table schema=cerebrum name=entity_trait]
-                    WHERE entity_id=:entity_id
-                    """,
-                    {
-                        'entity_id': self.entity_id,
-                    }):
+            for row in trait_db.search_traits(self._db,
+                                              entity_id=int(self.entity_id)):
                 row = dict(row)
                 row['date'] = get_datetime_naive(row['date'])
                 self.__traits[_EntityTraitCode(row['code'])] = row
@@ -271,8 +244,21 @@ class EntityTrait(Entity):
         @param fetchall:
           Controls whether to fetch all rows into memory at once.
         """
-        # TODO: Should be replaced by a slightly simplified
-        # trait_db.search_traits()
+        # This is a legacy search function with some truly odd behaviour:
+        #
+        # - Searching for an empty list turns into a `column IS NULL` criteria.
+        #   In all other equivalent functions and methods, it turns into
+        #   `column IN ()` - i.e. no match.
+        #
+        # - Searching for `None` results in a `IS NULL` check, even for values
+        #    that cannot be `NULL`
+        #
+        # - Searching for a pattern ignores any `strval` given.  If the pattern
+        #   is `None`, we force a `strval IS NULL` check, regardless of any
+        #   value given as `strval` argument to this method.
+        #
+        # We should probably find all use of `EntityTrait.list_traits` and
+        # replace it with `trait_db.search_traits`
 
         # If value is a sequence, then normalise *MUST* be a callable.
         def add_cond(col, value, normalise=False):
