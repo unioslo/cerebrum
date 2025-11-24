@@ -2343,9 +2343,11 @@ class UserSync(BaseSync):
             ids = self.id2entity.keys()
 
         # Need a map from EmailTarget's target_id to entity_id:
-        targetid2entityid = dict((r['target_id'], r['target_entity_id']) for r
-                                 in self.mailtarget.list_email_targets_ext(
-                                     target_entity_id=ids))
+        mailtarget = Email.EmailTarget(self.db)
+        targetid2entityid = {
+            r['target_id']: r['target_entity_id']
+            for r in mailtarget.list_email_targets_ext(target_entity_id=ids)
+        }
         for target_id, entity_id in six.iteritems(targetid2entityid):
             ent = self.entities.get(entity_id)
             if ent:
