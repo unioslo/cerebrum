@@ -2686,7 +2686,7 @@ class UserSync(BaseSync):
                     self.logger.warning(
                         "Account %s missing plaintext password",
                         row['subject_entity'])
-                    return False
+                    return True
 
             if not isinstance(pw, unicode):
                 try:
