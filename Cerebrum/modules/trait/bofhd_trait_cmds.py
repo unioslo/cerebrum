@@ -652,10 +652,10 @@ entity commands, e.g.:
 _trait_filter_text_blurb = """
 Each trait-filter follows a format of <param>:<value>.
 
-Example:  Find all traits that have both an numval = 10 *and* a strval = "foo
+Example:  Find all traits with both a numval = 10 *and* a strval = "foo
 bar".
 
-    `trait search numval:10 "strval:foo bar"`
+    `trait search min:10 max:10 "text:foo bar"`
 
 Valid filter <param> values
 ----------------------------
