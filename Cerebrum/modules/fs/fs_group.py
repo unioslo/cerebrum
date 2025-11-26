@@ -407,9 +407,9 @@ class FsGroupCategorizer(object):
             ('evu-role', make_regex(evu_unit, role), 2, DEFAULT_GRACE),
             ('evu-role-sub', make_regex(evu_unit, subrole), 2, DEFAULT_GRACE),
             # fs:kull
-            ('kull-ue', make_regex(kull), 6, None),
-            ('kull-ua', make_regex(kull_unit), 6, None),
-            ('kull-role', make_regex(kull_unit, role), 6, None),
+            ('kull-ue', make_regex(kull), 6, DEFAULT_GRACE),
+            ('kull-ua', make_regex(kull_unit), 6, DEFAULT_GRACE),
+            ('kull-role', make_regex(kull_unit, role), 6, DEFAULT_GRACE),
 
             # Non uio types:
             # fs:<institusjonsnr>:evu
@@ -429,9 +429,10 @@ class FsGroupCategorizer(object):
             ('sp-super', make_regex(sp_supergroup), None, None),
             ('sp', make_regex(sp), 3, DEFAULT_GRACE),
 
-            ('sp-kull-type', make_regex(sp_kull_type), 6, None),
-            ('sp-kull-role', make_regex(sp_kull, role), 6, None),
-            ('sp-kull-role-sub', make_regex(sp_kull, subrole), 6, None),
+            ('sp-kull-type', make_regex(sp_kull_type), 6, DEFAULT_GRACE),
+            ('sp-kull-role', make_regex(sp_kull, role), 6, DEFAULT_GRACE),
+            ('sp-kull-role-sub', make_regex(sp_kull, subrole), 6,
+             DEFAULT_GRACE),
 
             ('sp-rolle-type', make_regex(sp_rolle_type), 3, DEFAULT_GRACE),
             ('sp-rolle', make_regex(sp_rolle_type, role), 3, DEFAULT_GRACE),
