@@ -151,7 +151,7 @@ class RecordFetcher(object):
         contactinfo = [row['contact_value']
                        for row in ac.get_contact_info(type=co.contact_email)]
 
-        # Find changes related to this accountany group membership changes
+        # Find changes related to this account and any group membership changes
         record = self.get_last_audit_record(ac.entity_id)
         if record:
             audit_at = record.timestamp
