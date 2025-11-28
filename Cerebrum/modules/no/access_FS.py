@@ -80,7 +80,7 @@ def _get_fs_version(db):
     """
     result = db.query_1("SELECT Sisteversjon_Database FROM fs.Systemverdier")
     assert result[:2] == "FS"
-    vt = (tuple(int(v) for v in result[2:].split(".")) + (0, 0, 0))[:3]
+    vt = (tuple(int(v) for v in result[2:].split(".") if v != "") + (0, 0, 0))[:3]
     return Version(*vt)
 
 
