@@ -254,6 +254,28 @@ def test_search_operator(database, clconst, records, operator_id, group):
     assert len(results) == 4
 
 
+def test_search_order_and_limit(database, clconst, records, group):
+    results = auditdb.sql_search(
+        database,
+        entities=int(group.entity_id),
+        fetchall=True,
+        descending=False,
+        limit=1,
+    )
+    assert len(results) == 1
+    assert results[0]['change_type'] == clconst.entity_add
+
+    results = auditdb.sql_search(
+        database,
+        entities=int(group.entity_id),
+        fetchall=True,
+        descending=True,
+        limit=1,
+    )
+    assert len(results) == 1
+    assert results[0]['change_type'] == clconst.group_mod
+
+
 def test_delete_records(database, clconst, records, operator_id, group):
     auditdb.sql_delete(
         database,
