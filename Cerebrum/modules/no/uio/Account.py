@@ -31,6 +31,7 @@ from Cerebrum.modules.bofhd_requests.request import BofhdRequests
 from Cerebrum.Utils import Factory
 from Cerebrum.utils import date_compat
 
+
 class AccountUiOMixin(Account.Account):
     """Account mixin class providing functionality specific to UiO.
 
@@ -38,8 +39,16 @@ class AccountUiOMixin(Account.Account):
     ensure that any Account objects generated through
     Cerebrum.Utils.Factory.get() provide functionality that reflects
     the policies of the University of Oslo.
-
     """
+
+    def wants_auth_type(self, method):
+        """ Get rid of auth_type_md4_nt at uio """
+        # TODO: When all passwords have been cycled:
+        #  1. Remove hash from cereconf
+        #  2. Remove this method override
+        #  3. Run script to delete all remaining hashes of this type
+        #     (hacks/felles/drop-auth-type.py)
+        return method != self.const.auth_type_md4_nt
 
     def add_spread(self, spread):
         #
