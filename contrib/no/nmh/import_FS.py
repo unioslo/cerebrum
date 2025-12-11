@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2002-2018 University of Oslo, Norway
+# Copyright 2002-2025 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,101 +18,192 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-from __future__ import unicode_literals
+"""
+FS import for NMH.
 
-import logging
+fagfelt trait
+    The NMH import adds import of a trait for storing field of study in a
+    special trait (fagfelt).
+
+    NMH has a custom query for getting these values from FS in
+    :meth:`Cerebrum.modules.no.nmh.access_FS.NMHUndervisning.list_fagperson_semester`
+    The values are later used to generate `eduPersonEntitlement` in
+    :mod:`Cerebrum.modules.no.nmh.OrgLdif`.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import argparse
-from os.path import join as pj
+import json
+import logging
+import os.path
 
+import cereconf
 import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum.modules.fs.import_fs import FsImporter
 from Cerebrum.modules.no.uio.AutoStud import StudentInfo
 from Cerebrum.utils.argutils import add_commit_args
 
-import cereconf
-
-# Globals
 logger = logging.getLogger(__name__)
 
 
+def parse_fagfelt(person_info):
+    """
+    Extract subject area values from student data.
+
+    >>> parse_fagfelt({})
+    None
+    >>> parse_fagfelt({'fagperson': [{'fagfelt': 'foo'}, {'fagfelt': 'bar'}]})
+    ["bar", "foo"]
+    """
+    fagperson = person_info.get('fagperson')
+    if not fagperson:
+        return None
+    fields = [
+        f['fagfelt']
+        for f in (fagperson.get('fagfelt') or ())
+        if f.get('fagfelt')
+    ]
+    if not fields:
+        return None
+    return sorted(fields)
+
+
 class FsImporterNmh(FsImporter):
-    def _add_reservations(self, person_info, new_person):
-        should_add = False
-        if 'nettpubl' in person_info:
-            for row in person_info['nettpubl']:
-                if row.get('akseptansetypekode', "") == "NETTPUBL" and row.get(
-                        'status_svar', "") == "J":
-                    should_add = True
 
-        if should_add:
-            # The student has explicitly given us permission to be
-            # published in the directory.
-            self._add_res(new_person.entity_id)
-        else:
-            # The student either hasn't registered an answer to
-            # the "Can we publish info about you in the directory"
-            # question at all, or has given an explicit "I don't
-            # want to appear in the directory" answer.
-            self._rem_res(new_person.entity_id)
+    def _update_person(self, person, person_info):
+        super(FsImporterNmh, self)._update_person(person, person_info)
+        self._register_fagomrade(person, person_info)
+
+    def _register_fagomrade(self, person, person_info):
+        """
+        Add subject / field (fagomrade / fagfelt) for a person.
+
+        This is stored in a custom NMH trait (trait_fagomrade_fagfelt) as a
+        JSON-serialized list of strings.
+
+        The trait is not set if no 'fagfelt' is registered.
+        """
+        trait_type = self.co.trait_fagomrade_fagfelt
+        old_fagfelt = person.get_trait(trait=trait_type) or {}
+
+        # Extract fagfelt from any fagperson rows
+        new_fagfelt = parse_fagfelt(person_info)
+        new_serialized = json.dumps(new_fagfelt)
+
+        if old_fagfelt and not new_fagfelt:
+            logger.debug("Removing fagfelt for person id: %d",
+                         person.entity_id)
+            person.delete_trait(code=trait_type)
+            person.write_db()
+        elif new_fagfelt and new_serialized != old_fagfelt.get('strval'):
+            logger.debug("Updating fagfelt for person id: %d",
+                         person.entity_id)
+            person.populate_trait(code=trait_type, strval=new_serialized)
+            person.write_db()
 
 
-def main():
-    # parsing
+def main(argv=None):
     parser = argparse.ArgumentParser()
-    parser = add_commit_args(parser, default=True)
-    parser.add_argument(
-        '-v', '--verbose',
-        action='count')
     parser.add_argument(
         '-p', '--person-file',
         dest='personfile',
-        default=pj(cereconf.FS_DATA_DIR, "merged_persons.xml"))
+        default=os.path.join(cereconf.FS_DATA_DIR, "merged_persons.xml"),
+    )
     parser.add_argument(
         '-s', '--studieprogram-file',
         dest='studieprogramfile',
-        default=pj(cereconf.FS_DATA_DIR, "studieprog.xml"))
+        default=os.path.join(cereconf.FS_DATA_DIR, "studieprog.xml"),
+    )
     parser.add_argument(
         '-g', '--generate-groups',
         dest='gen_groups',
-        action='store_true')
+        action='store_true',
+    )
     parser.add_argument(
         '-d', '--include-delete',
         dest='include_delete',
-        action='store_true')
-
+        action='store_true',
+    )
+    add_commit_args(parser, default=True)
     Cerebrum.logutils.options.install_subparser(parser)
-    args = parser.parse_args()
+
+    args = parser.parse_args(argv)
     Cerebrum.logutils.autoconf('cronjob', args)
+
+    logger.info("Start %s", parser.prog)
+    logger.debug("args: %s", repr(args))
 
     source = 'system_fs'
     rules = [
         ('fagperson', ('_arbeide', '_hjemsted', '_besok_adr')),
         ('aktiv', ('_hjemsted', '_semadr', None)),
         ('evu', ('_job', '_hjem', None)),
-        ]
-    adr_map = {
-        '_arbeide': ('adrlin1_arbeide', 'adrlin2_arbeide', 'adrlin3_arbeide',
-                     'postnr_arbeide', 'adresseland_arbeide'),
-        '_hjemsted': ('adrlin1_hjemsted', 'adrlin2_hjemsted',
-                      'adrlin3_hjemsted', 'postnr_hjemsted',
-                      'adresseland_hjemsted'),
-        '_semadr': ('adrlin1_semadr', 'adrlin2_semadr', 'adrlin3_semadr',
-                    'postnr_semadr', 'adresseland_semadr'),
-        '_job': ('adrlin1_job', 'adrlin2_job', 'adrlin3_job', 'postnr_job',
-                 'adresseland_job'),
-        '_hjem': ('adrlin1_hjem', 'adrlin2_hjem', 'adrlin3_hjem',
-                  'postnr_hjem', 'adresseland_hjem'),
-        '_besok_adr': ('institusjonsnr', 'faknr', 'instituttnr', 'gruppenr')
-        }
+    ]
+    address_map = {
+        '_arbeide': (
+            'adrlin1_arbeide',
+            'adrlin2_arbeide',
+            'adrlin3_arbeide',
+            'postnr_arbeide',
+            'adresseland_arbeide',
+        ),
+        '_hjemsted': (
+            'adrlin1_hjemsted',
+            'adrlin2_hjemsted',
+            'adrlin3_hjemsted',
+            'postnr_hjemsted',
+            'adresseland_hjemsted',
+        ),
+        '_semadr': (
+            'adrlin1_semadr',
+            'adrlin2_semadr',
+            'adrlin3_semadr',
+            'postnr_semadr',
+            'adresseland_semadr',
+        ),
+        '_job': (
+            'adrlin1_job',
+            'adrlin2_job',
+            'adrlin3_job',
+            'postnr_job',
+            'adresseland_job',
+        ),
+        '_hjem': (
+            'adrlin1_hjem',
+            'adrlin2_hjem',
+            'adrlin3_hjem',
+            'postnr_hjem',
+            'adresseland_hjem',
+        ),
+        '_besok_adr': (
+            'institusjonsnr',
+            'faknr',
+            'instituttnr',
+            'gruppenr',
+        ),
+    }
 
-    fs_importer = FsImporterNmh(args.gen_groups, args.include_delete,
-                                args.commit, args.studieprogramfile, source,
-                                rules, adr_map, reg_fagomr=True)
+    fs_importer = FsImporterNmh(
+        gen_groups=args.gen_groups,
+        include_delete=args.include_delete,
+        commit=args.commit,
+        studieprogramfile=args.studieprogramfile,
+        source=source,
+        rules=rules,
+        adr_map=address_map,
+    )
 
-    StudentInfo.StudentInfoParser(args.personfile,
-                                  fs_importer.process_person_callback,
-                                  logger)
+    # Run import
+    StudentInfo.StudentInfoParser(
+        args.personfile,
+        fs_importer.process_person_callback,
+        logger,
+    )
 
     if args.include_delete:
         fs_importer.rem_old_aff()
@@ -124,8 +215,8 @@ def main():
         fs_importer.db.rollback()
         logger.info('Dry run. Changes to the database were rolled back')
 
-    logger.info("Found %d persons without name.", fs_importer.no_name)
-    logger.info("Completed")
+    logger.info("Found %d persons without name", fs_importer.no_name)
+    logger.info("Done %s", parser.prog)
 
 
 if __name__ == '__main__':
