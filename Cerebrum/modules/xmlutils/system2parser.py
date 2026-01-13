@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright 2005 University of Oslo, Norway
+#
+# Copyright 2005-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -16,13 +17,22 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
 """
+Get XML parser by source system.
+
 This module implements a convenience layer for selecting appropriate XML
 parsers.
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
-from Cerebrum.modules.xmlutils import sapxml2object, ltxml2object, fsxml2object
+from Cerebrum.modules.xmlutils import fsxml2object
+from Cerebrum.modules.xmlutils import ltxml2object
+from Cerebrum.modules.xmlutils import sapxml2object
 
 
 def system2parser(system_name):
@@ -31,13 +41,17 @@ def system2parser(system_name):
     The keys are the constant names for the corresponding systems.
     """
 
-    obj = {"system_lt": ltxml2object.LTXMLDataGetter,
-           "LT": ltxml2object.LTXMLDataGetter,
-           "system_sap": sapxml2object.SAPXMLDataGetter,
-           "SAP": sapxml2object.SAPXMLDataGetter,
-           "system_orgreg": sapxml2object.SAPXMLDataGetter,
-           "orgreg-tree": sapxml2object.SAPXMLDataGetter,
-           "system_fs": fsxml2object.FSXMLDataGetter,
-           "FS": fsxml2object.FSXMLDataGetter, }.get(system_name)
+    obj = {
+        "system_lt": ltxml2object.LTXMLDataGetter,
+        "LT": ltxml2object.LTXMLDataGetter,
+
+        "system_sap": sapxml2object.SAPXMLDataGetter,
+        "SAP": sapxml2object.SAPXMLDataGetter,
+
+        "system_orgreg": sapxml2object.SAPXMLDataGetter,
+        "orgreg-tree": sapxml2object.SAPXMLDataGetter,
+
+        "system_fs": fsxml2object.FSXMLDataGetter,
+        "FS": fsxml2object.FSXMLDataGetter,
+    }.get(system_name)
     return obj
-# end system2parser
