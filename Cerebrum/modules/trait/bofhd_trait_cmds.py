@@ -44,6 +44,7 @@ from Cerebrum.modules.bofhd.cmd_param import (
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.help import merge_help_strings
 from Cerebrum.modules.EntityTrait import EntityTrait
+from Cerebrum.utils import date_compat
 
 from . import trait_db
 from .constants import _EntityTraitCode
@@ -223,11 +224,12 @@ class TraitCommands(BofhdCommonMethods):
         filter_d['limit'] = limit + 1
         for i, row in enumerate(trait_db.search_traits(self.db, **filter_d)):
             if i < limit:
+                # Note: trait 'date' is actually a naive datetime ('TIMESTAMP')
+                _date = date_compat.get_datetime_naive(row['date'])
                 trait_repr = ", ".join(
                     "{}={}".format(k, repr(v))
                     for k, v in (
-                        ("date", (row['date'].isoformat()
-                                  if row['date'] else None)),
+                        ("date", _date.isoformat() if _date else None),
                         ("numval", row['numval']),
                         ("strval", row['strval']),
                         ("target_id", row['target_id']),
@@ -240,7 +242,7 @@ class TraitCommands(BofhdCommonMethods):
                     'code_str': trait_map[row['code']],
                     'entity_id': row['entity_id'],
                     'target_id': row['target_id'],
-                    'date': row['date'],
+                    'date': _date,
                     'numval': row['numval'],
                     'strval': row['strval'],
                     'trait_repr': trait_repr,
