@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2005-2025 University of Oslo, Norway
+# Copyright 2005-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -72,8 +72,6 @@ class XMLOU2Object(XMLEntity2Object):
             if element.get(key):
                 value = ensure_unicode(element.get(key), self.encoding)
                 return value
-            # fi
-        # od
 
         # NB! A name that is not there *must* be represented as None. "" (empty
         # string) is NOT the same as no name.
@@ -112,14 +110,12 @@ class XMLOU2Object(XMLEntity2Object):
 
         # A lot of data is buried in attributes
         # Own ID -- sko
-        sko = tuple([int(element.get(x)) for x in ("fakultetnr",
-                                                   "instituttnr",
-                                                   "gruppenr")])
+        sko = tuple(int(element.get(x))
+                    for x in ("fakultetnr", "instituttnr", "gruppenr"))
         result.add_id(result.NO_SKO, sko)
         # Parent ID -- sko
-        sko = tuple([int(element.get(x)) for x in ("fakultetnr_for_org_sted",
-                                                   "instituttnr_for_org_sted",
-                                                   "gruppenr_for_org_sted")])
+        sko = tuple(int(element.get(x + "_for_org_sted"))
+                    for x in ("fakultetnr", "instituttnr", "gruppenr"))
         result.parent = (result.NO_SKO, sko)
 
         # Some weird ID
@@ -168,13 +164,18 @@ class XMLOU2Object(XMLEntity2Object):
                 street = (extract("adresselinje1_%s_adr" % xmlkind),
                           extract("adresselinje2_%s_adr" % xmlkind))
             result.add_address(
-                DataAddress(kind=kind,
-                            street=street,
-                            zip=zip,
-                            city=extract("poststednavn_%s_adr" % xmlkind),
-                            country=extract("landnavn_%s_adr" % xmlkind)))
+                DataAddress(
+                    kind=kind,
+                    street=street,
+                    zip=zip,
+                    city=extract("poststednavn_%s_adr" % xmlkind),
+                    country=extract("landnavn_%s_adr" % xmlkind),
+                )
+            )
 
-        # FIXME: priority assignment is a bit random at the moment.
+        # Priority assignment is a bit random - will be assigned in the order
+        # given by the xml object.  Priority is generally not well implemented,
+        # and we should avoid importing multiple contacts of the same type.
         priority = 0
         for sub in element.findall("komm"):
             ct = self._make_contact(sub)
