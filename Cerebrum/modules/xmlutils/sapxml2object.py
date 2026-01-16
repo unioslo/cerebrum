@@ -57,7 +57,6 @@ from Cerebrum.modules.xmlutils.xml2object import (
     DataContact,
     DataName,
     DataOU,
-    HRDataPerson,
     XMLDataGetter,
     XMLEntity2Object,
     ensure_unicode,
@@ -72,19 +71,6 @@ def deuglify_phone(phone):
         phone = phone.replace(junk, "")
 
     return phone
-
-
-class SAPPerson(HRDataPerson):
-
-    """Class for representing SAP_specific information about people."""
-
-    SAP_NR = "Ansattnr"
-
-    def validate_id(self, kind, value):
-        if kind in (self.SAP_NR,):
-            return
-
-        super(SAPPerson, self).validate_id(kind, value)
 
 
 def make_sko(data):

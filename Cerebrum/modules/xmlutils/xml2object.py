@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2005-2025 University of Oslo, Norway
+# Copyright 2005-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -794,8 +794,6 @@ class XMLEntity2Object(object):
         (i.e. L{functor}) will be called on an instance (it is a bound
         method). IOW, this class and its subclasses are the sole target
         audience for this method.
-
-        Check sapxml2object.py for some use cases.
 
         Caveat: for static methods this wrapper WILL FAIL! I.e. functor *must*
         be a non-static method of a subclass of this class.

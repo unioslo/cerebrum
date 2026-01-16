@@ -20,12 +20,10 @@ from Cerebrum.modules.xmlutils import fsxml2object
 TESTS = {
     "FS": fsxml2object.FSXMLDataGetter,
     "LT": ltxml2object.LTXMLDataGetter,
-    "SAP": sapxml2object.SAPXMLDataGetter,
     "orgreg-tree": sapxml2object.SAPXMLDataGetter,
     "system_fs": fsxml2object.FSXMLDataGetter,
     "system_lt": ltxml2object.LTXMLDataGetter,
     "system_orgreg": sapxml2object.SAPXMLDataGetter,
-    "system_sap": sapxml2object.SAPXMLDataGetter,
 }
 
 

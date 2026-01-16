@@ -20,8 +20,7 @@
 """
 This module implements an abstraction layer for LT-compatible data.
 
-Data from LT is similar to SAPUIO-data (see :mod:`.sapxml2object`), and comes
-in the form of an XML file with org-units:
+Data from LT comes in the form of an XML file with org-units:
 ::
 
     <data>
