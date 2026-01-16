@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2002-2024 University of Oslo, Norway
+# Copyright 2002-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -45,7 +45,7 @@ import Cerebrum.utils.module
 import Cerebrum.utils.secrets
 import Cerebrum.utils.text_compat
 
-if sys.version_info >= (3,3):
+if sys.version_info >= (3, 3):
     from collections.abc import Iterable, Sequence, Sized
 else:
     from collections import Iterable, Sequence, Sized
@@ -346,7 +346,7 @@ def exception_wrapper(functor, exc_list=None, return_on_exc=None, logger=None):
             return functor(*rest, **kw_args)
         except exc_list:
             if logger:
-                logger.warn(format_exception_context(*sys.exc_info()))
+                logger.warning(format_exception_context(*sys.exc_info()))
         return return_on_exc
 
     return wrapper
