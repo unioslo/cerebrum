@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2005-2025 University of Oslo, Norway
+# Copyright 2005-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -39,9 +39,9 @@ SAPUiO compatible data comes in the form of XML files with org-units:
       ...
     </sap2bas_data>
 
-
-See ``contrib/orgreg/orgreg-fetch-legacy-xml.py`` for a script that produces a
-SAPUiO-compatible XML file.
+Note that this is a legacy module.  It is *only* used to import a
+sap2bas-compatible orgreg ou file.  See
+``contrib/orgreg/orgreg-fetch-legacy-xml.py`` for details on this file.
 """
 from __future__ import (
     absolute_import,
@@ -66,24 +66,17 @@ from Cerebrum.utils import date_compat
 
 def deuglify_phone(phone):
     """Remove junk like ' ' and '-' from phone numbers."""
-
     for junk in (" ", "-"):
         phone = phone.replace(junk, "")
-
     return phone
 
 
 def make_sko(data):
     """Make a sko, (faculty, institute, group)-tuple, out of data."""
-
-    # FIXME: re?
     try:
         int(data)
     except Exception:
-        # TBD: What do we do here?
         return None
-    # yrt
-
     return tuple([int(x) for x in (data[:2], data[2:4], data[4:])])
 
 
@@ -98,7 +91,6 @@ class XMLOU2Object(XMLEntity2Object):
 
     """A converter class that maps ElementTree's Element to DataOU."""
 
-    # TBD: Bind it to Cerebrum constants?
     tag2type = {
         "Stedkode": DataOU.NO_SKO,
         "Akronym": DataOU.NAME_ACRONYM,
@@ -147,7 +139,6 @@ class XMLOU2Object(XMLEntity2Object):
             if answer is not None and answer.text:
                 return ensure_unicode(answer.text, self.encoding)
             return ""
-        # end
 
         kind = ext("Type")
         if not kind:
@@ -201,12 +192,8 @@ class XMLOU2Object(XMLEntity2Object):
 
     def next_object(self, element):
         """Return the next DataOU object."""
-
         result = DataOU()
 
-        # IVR 2007-12-24 FIXME: One of the attributes is special, and tags the
-        # OU's intended usage code (bruksområde). Find out which attribute
-        # this is.
         # Iterate over *all* subelements
         for sub in element.getiterator():
             value = None
@@ -247,9 +234,6 @@ class XMLOU2Object(XMLEntity2Object):
         for tmp in element.findall(".//Bruksomrade/Type"):
             if tmp.text == "Tillatt Organisasjon":
                 result.publishable = True
-            # <StedType> tell us how an OU can be used. This information is
-            # represented in Cerebrum with the help of spreads and can be
-            # accessed via the EntitySpread interface.
             result.add_usage_code(tmp.text)
 
         celems = element.findall("Kommunikasjon")
