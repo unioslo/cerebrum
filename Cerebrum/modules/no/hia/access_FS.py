@@ -35,11 +35,15 @@ fsobject = access_FS.fsobject
 class HiAStudent(access_FS.Student):
 
     def list_aktiv(self, fodselsdato=None, personnr=None):
-        """ Hent opplysninger om studenter definert som aktive
-        ved HiA. En aktiv student er en student som har et gyldig
-        opptak til et studieprogram der studentstatuskode er 'AKTIV'
-        eller 'PERMISJON' og sluttdatoen er enten i fremtiden eller
-        ikke satt."""
+        """
+        Hent opplysninger om studenter definert som aktive ved UiA.
+
+        En aktiv student er en student som har et gyldig opptak til et
+        studieprogram der studentstatuskode er 'AKTIV' eller 'PERMISJON' og
+        sluttdatoen er enten i fremtiden eller ikke satt. I 2026 ba UiA om å
+        også inkludere de med studentstakode 'UTDPLANOK'.
+
+        """
 
         extra = ""
         if fodselsdato and personnr:
@@ -71,7 +75,7 @@ class HiAStudent(access_FS.Student):
           %s
           %s AND
           sps.status_privatist = 'N' AND
-          sps.studentstatkode IN ('AKTIV', 'PERMISJON') AND
+          sps.studentstatkode IN ('AKTIV', 'PERMISJON', 'UTDPLANOK') AND
           NVL(sps.dato_studierett_gyldig_til,SYSDATE)>= SYSDATE
           """ % (extra, self._is_alive())
         return self.db.query(qry, locals())
