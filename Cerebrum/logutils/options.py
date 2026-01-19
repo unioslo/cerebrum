@@ -51,8 +51,46 @@ OPTION_LOGGER_NAME = 'logger_name'
 OPTION_SENTRY = 'sentry_enable'
 
 
-def install_subparser(parser):
-    """ Add a logging subparser to an existing ArgumentParser. """
+def install_subparser(parser,
+                      default_capture_exceptions=None,
+                      default_capture_warnings=None,
+                      default_level=None,
+                      default_preset=None,
+                      default_enable_sentry=None):
+    """
+    Add a logging subparser to an existing ArgumentParser.
+
+    Default values for the logger arguments are read from a *logenv* config
+    file.  By setting argument defaults, you will override the default value
+    set in the config file.  See :mod:`.config` for details on the different
+    settings.
+
+    Overriding defaults are typically useful in interactive scripts, where you
+    may want to change the behaviour which is usually tailored for crontab
+    style scripts.
+
+    :param parser: an argument parser to add a logging subparser to
+
+    :param bool default_capture_exceptions:
+        Set a default value for capturing exceptions.
+
+    :param bool default_capture_warnings:
+        Set a default value for capturing warnings.
+
+    :param str default_level:
+        Set a default log level filter.
+
+    :param str default_preset:
+        Set a default logger preset.  This isn't all that useful - a default
+        value is required when calling `autoconf` anyway.
+
+    :param bool default_enable_sentry:
+        Set a default value for Sentry.  This is usually to *disable* sentry
+        by default, since a working sentry dsn is required in the config to
+        enable.
+
+    :returns: the added subparser
+    """
     subparser = parser.add_argument_group('Logging',
                                           'Override default log configuration')
 
@@ -74,6 +112,7 @@ def install_subparser(parser):
         action='store_false',
         help="Disable exception capture",
     )
+    exc_mutex.set_defaults(**{OPTION_CAPTURE_EXC: default_capture_exceptions})
 
     # Enable or disable logger warnings "hook"
     warn_mutex = subparser.add_mutually_exclusive_group()
@@ -91,6 +130,7 @@ def install_subparser(parser):
         action='store_false',
         help="Disable warnings capture",
     )
+    warn_mutex.set_defaults(**{OPTION_CAPTURE_WARN: default_capture_warnings})
 
     # Select a logger preset
     # TODO: This should be renamed to `--logger-preset`,
@@ -99,6 +139,7 @@ def install_subparser(parser):
         '--logger-name',
         metavar='NAME',
         dest=OPTION_LOGGER_NAME,
+        default=default_preset,
         help="Override logger configuration",
     )
 
@@ -107,6 +148,7 @@ def install_subparser(parser):
         '--logger-level',
         metavar='LEVEL',
         dest=OPTION_LOGGER_LEVEL,
+        default=default_level,
         help="Override logger level",
     )
 
@@ -125,7 +167,7 @@ def install_subparser(parser):
         action='store_false',
         help="Disable sentry",
     )
-
+    sentry_mutex.set_defaults(**{OPTION_SENTRY: default_enable_sentry})
     return subparser
 
 

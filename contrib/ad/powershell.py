@@ -111,7 +111,10 @@ def main(argv=None):
         help="Powershell cmdlet and args",
     )
     get_client = cli.add_ad_subparser(parser)
-    Cerebrum.logutils.options.install_subparser(parser)
+    Cerebrum.logutils.options.install_subparser(
+        parser,
+        default_enable_sentry=False,
+    )
 
     args = parser.parse_args(argv)
     Cerebrum.logutils.autoconf("console", args)

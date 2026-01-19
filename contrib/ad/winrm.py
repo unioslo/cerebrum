@@ -142,7 +142,10 @@ def main(argv=None):
         metavar="<shell-id>"
     )
     get_client = cli.add_winrm_subparser(parser)
-    Cerebrum.logutils.options.install_subparser(parser)
+    Cerebrum.logutils.options.install_subparser(
+        parser,
+        default_enable_sentry=False,
+    )
 
     args = parser.parse_args(argv)
     Cerebrum.logutils.autoconf("console", args)
