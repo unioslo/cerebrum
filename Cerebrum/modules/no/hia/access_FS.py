@@ -41,7 +41,7 @@ class HiAStudent(access_FS.Student):
         En aktiv student er en student som har et gyldig opptak til et
         studieprogram der studentstatuskode er 'AKTIV' eller 'PERMISJON' og
         sluttdatoen er enten i fremtiden eller ikke satt. I 2026 ba UiA om å
-        også inkludere de med studentstakode 'UTDPLANOK'.
+        også inkludere de med studentstatkode 'UTDPLANOK'.
 
         """
 
