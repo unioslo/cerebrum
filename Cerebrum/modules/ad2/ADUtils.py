@@ -47,6 +47,7 @@ from __future__ import (
 import base64
 import collections
 import functools
+import logging
 import re
 import time
 
@@ -59,6 +60,9 @@ from Cerebrum.Utils import read_password
 from Cerebrum.modules.ad2.winrm import CommandTooLongException
 from Cerebrum.modules.ad2.winrm import PowershellClient
 from Cerebrum.modules.ad2.winrm import PowershellException, ExitCodeException
+from Cerebrum.utils.descriptors import lazy_property
+
+logger = logging.getLogger(__name__)
 
 
 class ObjectAlreadyExistsException(PowershellException):
@@ -339,9 +343,8 @@ class ADclient(PowershellClient):
                 Get-ADUser -Credential $cred -Filter '*'
 
         """
-        dc = self.get_chosen_domaincontroller()
-        if dc:
-            kwargs['Server'] = dc
+        if self.domain_controller:
+            kwargs['Server'] = self.domain_controller
 
         kwargs = dict(kwargs) if kwargs else {}
         novalueargs = novalueargs if novalueargs else ()
@@ -1180,6 +1183,7 @@ class ADclient(PowershellClient):
         self.logger.debug2("Get attribute %s from AD for %s" % (attributename,
                                                                 adid))
         # No dryrun here, since it's read-only
+        # E.g.: execute("(Get-ADObject -Identity foo -Properties bar).bar")
         cmdid = self.execute('(%s).%s' % (
             self._generate_ad_command('Get-ADObject',
                                       {'Identity': adid,
@@ -1559,47 +1563,25 @@ class ADclient(PowershellClient):
         out = self.run(cmd)
         return not out.get('stderr')
 
-    def set_domain_controller(self, server):
-        """Override what DC server the AD commands are sent to.
-
-        This forces what DC the sync should get and set its data for. The sync
-        then doesn't ask AD about what DC to use anymore.
-
+    @lazy_property
+    def domain_controller(self):
         """
-        # We might want to validate the server name, to give feedback early. If
-        # it's invalid, we get feedback after the first powershell call for AD.
-        self._chosen_dc = server
+        Look up and cache a domain controller to use.
 
-    def get_chosen_domaincontroller(self, reset=False):
-        """Get the preferred Domain Controller (DC) to talk with.
+        We ask (Get-ADDomainController) for a preferred DC to use, and cache it
+        so all commands run on the same DC.  We try to run all commands on the
+        same DC in order to avoid race conditions as the DCs sync updates
+        between themselves.
 
-        If not DC server is set, we ask AD for a preferred DC server. The
-        answer is cached, so the next time asked, we reuse the same DC.
-
-        We cache a preferred DC to sync with to avoid that we have to wait
-        inbetween the updates for the DCs to have synced. We could still go
-        without this, but then we could get race conditions. Domain Controllers
-        are normally reached semi-randomly, to avoid that one DC gets overused.
-
-        @type reset: bool
-        @param reset:
-            If True, we should ignore the already chosen DC and pick one again.
-            If False, the already chosen DC is returned.
-
-        @rtype: str
-        @return:
-            The Name attribute for the chosen DC is returned, as this could be
-            used directly in the powershell commands.
-
+        - to reset and re-initialize: ``del obj.domain_controller``
+        - to override: ``obj.domain_controller = "my-dc.example.org"``
         """
-        if reset or not getattr(self, '_chosen_dc', False):
-            # Can't make use of _generate_ad_command here, as it calls this
-            # method.
-            cmd = "Get-ADDomainController -Credential $cred | ConvertTo-Json"
-            ret = self.get_output_json(self.run(cmd), dict())
-            self._chosen_dc = ret['Name']
-            self.logger.debug("Preferred DC: %s", self._chosen_dc)
-        return self._chosen_dc
+        # Can't use `_generate_ad_command` as it looks up *this* value
+        cmd = "Get-ADDomainController -Credential $cred | ConvertTo-Json"
+        response = self.get_output_json(self.run(cmd), {})
+        name = response['Name']
+        logger.info("Found preferred DC: %s", name)
+        return name
 
     def update_recipient(self, ad_dn):
         """Run the cmdlet Update-Recipient for a given object.
