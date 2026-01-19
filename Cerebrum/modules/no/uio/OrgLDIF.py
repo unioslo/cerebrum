@@ -30,6 +30,7 @@ from itertools import product
 
 from Cerebrum.export import addresses as addr_export
 from Cerebrum.modules.OrgLDIF import OrgLdifGroupMixin
+from Cerebrum.modules.OrgLDIF import LdapNameGetter
 from Cerebrum.modules.feide.ldif_mixins import NorEduAuthnLevelMixin
 from Cerebrum.modules.no.OrgLDIF import NorEduOrgLdifMixin
 from Cerebrum.modules.no.OrgLDIF import NorEduSmsAuthnMixin
@@ -42,6 +43,7 @@ from Cerebrum.modules.LDIFutils import (
 )
 from Cerebrum.QuarantineHandler import QuarantineHandler
 from Cerebrum.Utils import make_timer
+from Cerebrum.utils.descriptors import lazy_property
 
 logger = logging.getLogger(__name__)
 
@@ -62,47 +64,105 @@ class _UioGroupMixin(OrgLdifGroupMixin, NorEduOrgLdifMixin):
     person_memberof_class = 'uioMembership'
 
 
-class _UioAddressMixin(addr_export._AddressFormatter):
+class _UioAddressMixin(NorEduOrgLdifMixin):
     """
-    Override which fields are included in addresses.
+    Change address selection and formatting at UiO.
 
-    Special behaviour for UiO:
+    Changes the personal address selection to use the org unit address from the
+    primary affiliation.
+
+    Also changes the default post and street address formatting rules (for both
+    personal addresses and org unit addresses):
 
      - Only use p/o box values at postal code x3xx
      - Append "Blindern" to p/o box values
      - Only p/o box or address, never both
-     - Prefer p/o box, even for street addresses (this one is odd - probably
+     - Prefer p/o box, even for street addresses (this one is odd, probably
        not intended?)
     """
-    def _is_blindern(self, fields):
-        try:
-            postal_code = int(fields['postal_number'] or 0)
-        except ValueError:
-            return False
-        return postal_code // 100 == 3
+    class _UioAddressFormatterMixin(addr_export._AddressFormatter):
+        """ Override some default address formatting rules. """
+        def _is_blindern(self, fields):
+            try:
+                postal_code = int(fields['postal_number'] or 0)
+            except ValueError:
+                return False
+            return postal_code // 100 == 3
 
-    def _get_values(self, fields):
-        postbox = (fields['p_o_box'] or "").strip() or None
-        if postbox and self._is_blindern(fields):
-            yield "Pb. {} - Blindern".format(postbox)
-        else:
-            for addr_line in (fields['address_text']).split("\n"):
-                yield (addr_line or "").strip() or None
-        yield self._get_city_line(fields)
-        yield self._get_country(fields)
+        def _get_values(self, fields):
+            postbox = (fields['p_o_box'] or "").strip() or None
+            if postbox and self._is_blindern(fields):
+                yield "Pb. {} - Blindern".format(postbox)
+            else:
+                for addr_line in (fields['address_text']).split("\n"):
+                    yield (addr_line or "").strip() or None
+            yield self._get_city_line(fields)
+            yield self._get_country(fields)
+
+    class _UioStreetAddr(_UioAddressFormatterMixin,
+                         addr_export._LdapStreetAddress):
+        """ Street address formatter. """
+        pass
+
+    class _UioPostalAddr(_UioAddressFormatterMixin,
+                         addr_export._LdapPostalAddress):
+        """ Post address formatter. """
+        pass
+
+    format_street_addr = _UioStreetAddr()
+    format_postal_addr = _UioPostalAddr()
+
+    def _get_primary_ou_id(self, person_id):
+        """ map person_id to primary ou_id. """
+        _, ou_id, _ = self.make_edu_person_primary_aff(person_id)
+        return ou_id
+
+    def get_person_street_addr(self, person_id):
+        """ get street address for person. """
+        # UiO uses the org unit addresses for persons
+        ou_id = self._get_primary_ou_id(person_id)
+        if ou_id:
+            return self.get_ou_street_addr(ou_id)
+        return None
+
+    def get_person_postal_addr(self, person_id):
+        """ get postal address for person. """
+        # UiO uses the org unit addresses for persons
+        ou_id = self._get_primary_ou_id(person_id)
+        if ou_id:
+            return self.get_ou_postal_addr(ou_id)
+        return None
 
 
-class _UioStreetAddr(_UioAddressMixin, addr_export._LdapStreetAddress):
-    pass
+class _UioOrgUnitNameMixin(NorEduOrgLdifMixin):
+    """
+    Change org unit name selection for UiO.
 
-
-class _UioPostalAddr(_UioAddressMixin, addr_export._LdapPostalAddress):
-    pass
+    UiO prefers *shortname* over *acronym*, for historical reasons.
+    """
+    @lazy_property
+    def get_ou_names(self):
+        """ get localized org unit names, ordered by priority.  """
+        names = LdapNameGetter(
+            self.ou_name_cache,
+            (
+                self.const.ou_name_short,
+                self.const.ou_name_acronym,
+                self.const.ou_name,
+                self.const.ou_name_display,
+            ),
+            self.lang_opts.languages,
+        )
+        # Use all names, in the prioritized order
+        return names.get_all
 
 
 class UioOrgLdif(NorEduSmsAuthnMixin,
                  NorEduAuthnLevelMixin,
                  OrgLdifCourseMixin,
+                 _UioAddressMixin,
+                 # TODO: Needs to be enabled on 2026-01-20
+                 # _UioOrgUnitNameMixin,
                  _UioGroupMixin,
                  OrgLdifEntitlementsMixin):
     """Mixin class for norEduLDIFMixin(OrgLDIF) with UiO modifications."""
@@ -397,32 +457,3 @@ class UioOrgLdif(NorEduSmsAuthnMixin,
                 return person_id in self.fs_samtykke
         # Otherwise hide the person.
         return False
-
-    #
-    # Address stuff for UiO
-    #
-
-    # Custom formatters
-    format_street_addr = _UioStreetAddr()
-    format_postal_addr = _UioPostalAddr()
-
-    def _get_primary_ou_id(self, person_id):
-        """ map person_id to primary ou_id. """
-        _, ou_id, _ = self.make_edu_person_primary_aff(person_id)
-        return ou_id
-
-    def get_person_street_addr(self, person_id):
-        """ get street address for person. """
-        # UiO uses the org unit addresses for persons
-        ou_id = self._get_primary_ou_id(person_id)
-        if ou_id:
-            return self.get_ou_street_addr(ou_id)
-        return None
-
-    def get_person_postal_addr(self, person_id):
-        """ get postal address for person. """
-        # UiO uses the org unit addresses for persons
-        ou_id = self._get_primary_ou_id(person_id)
-        if ou_id:
-            return self.get_ou_postal_addr(ou_id)
-        return None
