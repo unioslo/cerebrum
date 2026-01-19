@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2015-2019 University of Oslo, Norway""
+# Copyright 2015-2025 University of Oslo, Norway""
 #
 # This file is part of Cerebrum.
 #
@@ -33,14 +33,18 @@ This script was moved here from the 'cerebrum_config' repository.  The original
     Date:   Wed May 23 19:34:39 2018 +0200
 
 """
-
-from __future__ import absolute_import, print_function
-
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import argparse
 import datetime
 import email
 import io
 import logging
+import textwrap
 
 import Cerebrum.logutils
 import Cerebrum.logutils.options
@@ -48,7 +52,8 @@ import Cerebrum.utils.email
 from Cerebrum.Entity import EntitySpread
 from Cerebrum.Utils import Factory
 from Cerebrum.utils import argutils
-from Cerebrum.utils.aggregate import unique
+from Cerebrum.utils import date_compat
+from Cerebrum.utils import file_stream
 
 logger = logging.getLogger(__name__)
 
@@ -73,8 +78,7 @@ def iter_account_quarantines(db, q_types):
     for row in ac.list_entity_quarantines(entity_types=co.entity_account,
                                           quarantine_types=q_types,
                                           only_active=False):
-        yield (row['entity_id'],
-               datetime.date.fromordinal(row['start_date'].absdate))
+        yield (row['entity_id'], date_compat.get_date(row['start_date']))
 
 
 def make_account_name_lookup(db):
@@ -84,9 +88,8 @@ def make_account_name_lookup(db):
     """
     ac = Factory.get('Account')(db)
     logger.debug("caching account names...")
-    cache = dict()
-    for row in ac.search(expire_start=None):
-        cache[row['account_id']] = row['name']
+    cache = {row['account_id']: row['name']
+             for row in ac.search(expire_start=None)}
     logger.debug("done caching account names")
 
     def get_account_name(entity_id):
@@ -111,7 +114,7 @@ def make_spread_filter(db):
         for entity_id, spread_code
         in es.list_all_with_spread(entity_types=co.entity_account))
     logger.debug("done caching spreads")
-    return lambda entity_id: entity_id in cache
+    return (lambda entity_id: entity_id in cache)
 
 
 def make_date_filter(start, end):
@@ -141,12 +144,14 @@ def get_quarantined(db, start, end, q_types):
         Returns a generator that yields account names.
     """
     get_account_name = make_account_name_lookup(db)
-    filter_date = make_date_filter(start, end)
-    filter_spread = make_spread_filter(db)
+    is_active = make_date_filter(start, end)
+    has_spread = make_spread_filter(db)
 
-    for account_id, quar_date in filter(
-            lambda t: filter_spread(t[0]) and filter_date(t[1]),
-            iter_account_quarantines(db, q_types=q_types)):
+    for account_id, quar_date in iter_account_quarantines(db, q_types=q_types):
+        if not has_spread(account_id):
+            continue
+        if not is_active(quar_date):
+            continue
         account_name = get_account_name(account_id)
         yield account_name
 
@@ -188,29 +193,26 @@ def prepare_report(template, account_names, charset=EMAIL_CHARSET):
 
 def days_ago_date_type(value):
     days = abs(int(value))
-    return datetime.date.fromordinal(datetime.date.today().toordinal() - days)
+    return datetime.date.today() - datetime.timedelta(days=days)
 
 
 description = """
-Generate and send an email report of accounts with quarantines.
-
-This script generates a list of *active users* with quarantines, accordig to a
-time criteria based on the date when the active quarantine was set first.
+Generate a list of active users with quarantines of a given age.
 """.strip()
 
 epilog = """
 Examples:
 
-- To generate a list of users with quarantines of type "auto_no_aff" or
-  "auto_inaktiv", that has been active for at least 30 days:
+  Generate a list of obsolete users, quarantined with "auto_no_aff" or
+  "auto_inaktiv" for at least 30 days:
 
-      quarantine_users_report.py -b 30 -q auto_no_aff -q auto_inaktiv
+      quarantine_users_report.py -b 30 -q auto_no_aff -q auto_inaktiv -o -
 
-- To generate a list of users with a recent "autopassord" quarantine:
+  Generate a list of users recently quarantined with "autopassord":
 
-      quarantine_users_report.py -a 30 -q autopassord
+      quarantine_users_report.py -a 30 -q autopassord -o -
 
-- To generate a list of all quarantines from the last week, and send by mail:
+  Generate a list of all quarantines from the last week, and send by mail:
 
       quarantine_users_report.py -a 7 --mail /path/to/email-template.txt
       quarantine_users_report.py -a 7 --mail <(cat <<"EOF"
@@ -231,52 +233,101 @@ def main(inargs=None):
         description=description,
         epilog=epilog,
     )
-
-    # TODO: Rework so that *both* before and after can be used
-    date_arg = parser.add_mutually_exclusive_group(required=True)
-    date_arg.add_argument(
-        '-a', '--after',
-        metavar='DAYS',
-        type=days_ago_date_type,
-        help='report quarantines started after %(metavar)s days ago')
-    date_arg.add_argument(
-        '-b', '--before',
-        metavar='DAYS',
-        type=days_ago_date_type,
-        help='report quarantines started before %(metavar)s days ago')
-
-    parser.add_argument(
-        '-m', '--mail',
-        metavar='FILE',
-        dest='template',
-        help="use template from %(metavar)s and send report by mail")
-    q_arg = parser.add_argument(
-        '-q', '--quarantine',
-        dest='quarantines',
-        action='append',
-        default=[],
-        help="only report on quarantines of this type")
-
     parser.add_argument(
         '-d', '--dryrun',
         action='store_true',
         default=False,
-        help="dryrun, don't send mail even if an email template is supplied")
+        help="dryrun, don't send mail even if an email template is supplied",
+    )
 
+    select_group = parser.add_argument_group(
+        "Selection",
+        textwrap.dedent(
+            """
+            Quarantine selection parameters.
+
+            Select whether to include quarantines started before or after a
+            given date with `--before` / `--after` (required).
+
+            Select one or more quarantines with the `--quarantine` argument.
+            If no quarantines are given, all quarantines will be considered.
+            """
+        ).strip(),
+    )
+    # TODO: Rework so that *both* before and after can be used
+    date_arg = select_group.add_mutually_exclusive_group(required=True)
+    date_arg.add_argument(
+        '-a', '--after',
+        type=days_ago_date_type,
+        help='report quarantines started after %(metavar)s days ago',
+        metavar='DAYS',
+    )
+    date_arg.add_argument(
+        '-b', '--before',
+        type=days_ago_date_type,
+        help='report quarantines started before %(metavar)s days ago',
+        metavar='DAYS',
+    )
+    q_arg = select_group.add_argument(
+        '-q', '--quarantine',
+        dest='quarantines',
+        action='append',
+        default=[],
+        help="only report on quarantines of this type",
+    )
+
+    report_group = parser.add_argument_group(
+        "Report",
+        textwrap.dedent(
+            """
+            Where to write or send the report (required).
+
+            To send by email:
+                `--mail` is an actual email text template, including headers
+                (To, From, etc...).  The placeholder value `${REPORT}` is
+                replaced by a list of quarantined account names.
+
+            To write a file:
+                `--output-file` is the name of a text file where the list of
+                quarantined account names are written.  Use "-" to write to
+                stdout.
+            """
+        ).strip(),
+    )
+    report_group.add_argument(
+        '-m', '--mail',
+        dest='template',
+        help="send account list by email according to template %(metavar)s",
+        metavar='FILE',
+    )
+    report_group.add_argument(
+        '-o', '--output-file',
+        dest="output_file",
+        help="write account list to %(metavar)s",
+        metavar="FILE",
+    )
     Cerebrum.logutils.options.install_subparser(parser)
-    args = parser.parse_args(inargs)
-    Cerebrum.logutils.autoconf('cronjob', args)
 
-    logger.info('Start of script %s', parser.prog)
+    args = parser.parse_args(inargs)
+    Cerebrum.logutils.autoconf("cronjob", args)
+
+    logger.info("Start %s", parser.prog)
     logger.debug("args: %r", args)
 
     db = Factory.get('Database')()
     co = Factory.get('Constants')(db)
 
+    # extra argument sanity checks:
+
+    if not any((args.template, args.output_file)):
+        parser.error("must provide one of: --mail, --output-file")
+
     quarantines = [
         argutils.get_constant(db, parser, co.Quarantine, q_value, q_arg)
         for q_value in args.quarantines
     ] or None
+
+    # fetch quarantined accounts:
 
     logger.info("quarantines: %r", quarantines)
     logger.info("mail template: %r", args.template)
@@ -284,23 +335,27 @@ def main(inargs=None):
     logger.info("before: %s", args.before)
 
     message = get_template(args.template) if args.template else None
-
     logger.debug("fetching quarantined accounts...")
-    accounts = list(unique(get_quarantined(db, args.after, args.before,
-                                           q_types=quarantines)))
+    accounts = sorted(set(get_quarantined(db, args.after, args.before,
+                                          q_types=quarantines)))
     logger.info("found %d quarantined accounts to report", len(accounts))
 
-    # For legacy reasons -- this script has always written the account names to
-    # stdout. TODO: This can probably be removed?
-    for account_name in accounts:
-        print(account_name)
+    # generate reports:
+
+    if args.output_file:
+        logger.debug("writing report to %s", args.output_file)
+        with file_stream.get_output_context(args.output_file,
+                                            encoding="utf-8") as f:
+            for account_name in accounts:
+                print(account_name, file=f)
+        logger.info("wrote report to file %s", repr(f))
 
     if message:
         logger.debug("sending report by mail")
         prepare_report(message, accounts)
         Cerebrum.utils.email.send_message(message, debug=args.dryrun)
 
-    logger.info('Done with script %s', parser.prog)
+    logger.info('Done %s', parser.prog)
 
 
 if __name__ == "__main__":
