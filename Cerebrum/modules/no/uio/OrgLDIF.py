@@ -161,8 +161,7 @@ class UioOrgLdif(NorEduSmsAuthnMixin,
                  NorEduAuthnLevelMixin,
                  OrgLdifCourseMixin,
                  _UioAddressMixin,
-                 # TODO: Needs to be enabled on 2026-01-20
-                 # _UioOrgUnitNameMixin,
+                 _UioOrgUnitNameMixin,
                  _UioGroupMixin,
                  OrgLdifEntitlementsMixin):
     """Mixin class for norEduLDIFMixin(OrgLDIF) with UiO modifications."""
