@@ -266,10 +266,7 @@ def import_org_units(sources, target_system, cer_ou_tab, dryrun, _today=None):
             if clean_obsolete_ous:
                 args = (xmlou, cer_ou_tab)
 
-            status, ou_id = db_writer.store_ou(*args)
-
-            if verbose:
-                logger.debug("**** %s ****", status)
+            ou_id = db_writer.store_ou(*args)
 
             # Not sure why this casting to int is required for PostgreSQL
             stedkode2ou[formatted_sko] = int(ou_id)
