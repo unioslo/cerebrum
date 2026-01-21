@@ -330,9 +330,9 @@ class OrgUnitMapper(object):
     def get_usage(self, ou_data):
         """ Usage codes for this org unit.
 
-        Known usage codes are defined in ``cereconf.OU_USAGE_SPREAD``, and are
-        used to map various tags and properties from the source system to
-        automatic spreads.
+        Usage codes are *tags* that can be used in the import.  E.g. in
+        ``cereconf.OU_USAGE_SPREAD``, where usage codes can map to given
+        spreads in the ou sync.
         """
         if not self.is_valid(ou_data):
             return ()
