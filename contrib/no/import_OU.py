@@ -42,8 +42,9 @@ import six
 import cereconf
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.email import sendmail
-from Cerebrum.modules.xmlutils.system2parser import system2parser
+from Cerebrum.modules.import_utils import syncs
 from Cerebrum.modules.xmlutils.object2cerebrum import XML2Cerebrum
+from Cerebrum.modules.xmlutils.system2parser import system2parser
 from Cerebrum.utils import date_compat
 
 
@@ -198,7 +199,8 @@ def rec_make_ou(my_sko, ou, existing_ou_mappings, org_units,
     existing_ou_mappings[my_ouid] = parent_ouid
 
 
-def import_org_units(sources, target_system, cer_ou_tab, dryrun, _today=None):
+def import_org_units(sources, target_system, cer_ou_tab, dryrun, def_kat_merke,
+                     _today=None):
     """
     Scan the sources and import all the OUs into Cerebrum.
 
@@ -234,13 +236,16 @@ def import_org_units(sources, target_system, cer_ou_tab, dryrun, _today=None):
         parser = system2parser(system)(filename, logger, False)
         for xmlou in parser.iter_ou():
             formatted_sko = format_sko(xmlou)
+            try:
+                debug_name = xmlou.get_name_with_lang(xmlou.NAME_SHORT,
+                                                      "no", "nb", "nn", "en")
+            except Exception:
+                debug_name = None
+
             if not formatted_sko:
                 ids = list(xmlou.iterids())
-                names = [six.text_type(x) + ': ' + '; '.join(six.text_type(n)
-                                                             for n in y)
-                         for x, y in xmlou.iternames()]
-                logger.error("Missing sko for OU %r (names: %s). Skipped!",
-                             ids, names)
+                logger.error("Missing sko for OU '%s' (ids: %s). Skipped!",
+                             debug_name, repr(ids))
                 continue
 
             start_date = date_compat.get_date(xmlou.start_date)
@@ -256,19 +261,9 @@ def import_org_units(sources, target_system, cer_ou_tab, dryrun, _today=None):
             else:
                 org_units[formatted_sko] = xmlou
 
-            if verbose:
-                logger.debug("Processing sko=%r (%s)",
-                             formatted_sko,
-                             xmlou.get_name_with_lang(xmlou.NAME_SHORT,
-                                                      "no", "nb", "nn", "en"))
+            logger.debug("Processing sko=%r (%s)", formatted_sko, debug_name)
 
-            args = (xmlou, None)
-            if clean_obsolete_ous:
-                args = (xmlou, cer_ou_tab)
-
-            ou_id = db_writer.store_ou(*args)
-
-            # Not sure why this casting to int is required for PostgreSQL
+            ou_id = db_writer.store_ou(xmlou, cer_ou_tab)
             stedkode2ou[formatted_sko] = int(ou_id)
             if not dryrun:
                 db.commit()
@@ -435,8 +430,6 @@ Imports OU data from systems that use 'stedkoder' (e.g. SAP, FS, LT or ORGREG)
 
 
 def main():
-    global verbose, clean_obsolete_ous, def_kat_merke
-
     try:
         opts, args = getopt.getopt(
             sys.argv[1:],
@@ -457,7 +450,7 @@ def main():
     sources = []
     clean_obsolete_ous = False
     def_kat_merke = False
-    cer_ou_tab = dict()
+    obsolete_ous = {}
     target_system = None
     email_notify = []
     old_cere_ous = dict()
@@ -494,16 +487,24 @@ def main():
     logger.info('Start')
     logger.debug('args: %s', repr(sys.argv))
 
+    if verbose:
+        # include actual ou input values in sync
+        syncs.enable_debug_log()
+
     if email_notify:
         old_cere_ous = get_cere_ou_table()
 
     if clean_obsolete_ous:
-        cer_ou_tab = get_cere_ou_table()
+        obsolete_ous = get_cere_ou_table()
         logger.debug("Collected %d ou_id->sko mappings from Cerebrum",
-                     len(cer_ou_tab))
+                     len(obsolete_ous))
 
-    import_org_units(sources, target_system, cer_ou_tab, dryrun)
-    set_quaran(cer_ou_tab, dryrun)
+    import_org_units(sources, target_system, obsolete_ous, dryrun,
+                     def_kat_merke)
+
+    if clean_obsolete_ous:
+        logger.debug("Locking obsolete org units...")
+        set_quaran(obsolete_ous, dryrun)
 
     if email_notify:
         new_cere_ous = list_new_ous(old_cere_ous)
