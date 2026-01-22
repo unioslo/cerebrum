@@ -263,7 +263,7 @@ def output_org_units(writer, db, perspective, spread):
         output_element("navnBokmal", ou_name)
         for element in ("postadresse", "postnrOgPoststed", "land",):
             logger.debug("element=%s, data=%s", repr(element),
-                         repr(data[element]))
+                         repr(data.get(element)))
             if element in data:
                 output_element(element, data[element])
         writer.endElement("enhet")
