@@ -9,7 +9,6 @@ from __future__ import (
     unicode_literals,
 )
 import datetime
-import logging
 import textwrap
 
 import pytest
@@ -18,19 +17,6 @@ import six
 from Cerebrum.testutils import file_utils
 
 from Cerebrum.modules.xmlutils import xml2object
-from Cerebrum.testutils.log_utils import StrictNullHandler
-
-
-@pytest.fixture(scope="module", autouse=True)
-def logger():
-    return logging.getLogger(__name__)
-
-
-@pytest.fixture(scope="module", autouse=True)
-def _patch_logging(logger):
-    """ catch badly formatted log records in log messages. """
-    logger.addHandler(StrictNullHandler())
-    logger.setLevel(-100)
 
 
 @pytest.fixture(autouse=True)
@@ -45,13 +31,6 @@ def _patch_cereconf(cereconf):
 #
 # test get_xml_file_encoding
 #
-
-
-@pytest.fixture(scope='module')
-def write_dir():
-    """ Creates a temporary directory for this test module. """
-    with file_utils.tempdir_ctx(prefix="test-xmlutils-") as tempdir:
-        yield tempdir
 
 
 @pytest.fixture(params=["utf-8", "iso8859-1", "ascii"])

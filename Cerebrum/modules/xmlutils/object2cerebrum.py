@@ -89,10 +89,10 @@ class XML2Cerebrum(object):
             self.xmladdr2db[
                 DataAddress.ADDRESS_OTHER_BESOK] = const.address_other_street
 
-        self.idxml2db = {HRDataPerson.NO_SSN: const.externalid_fodselsnr,
-                         HRDataPerson.PASSNR: const.externalid_pass_number,
-                         SAPPerson.SAP_NR: const.externalid_sap_ansattnr, }
-    # end __init__
+        self.idxml2db = {
+            HRDataPerson.NO_SSN: const.externalid_fodselsnr,
+            HRDataPerson.PASSNR: const.externalid_pass_number,
+        }
 
     def locate_or_create_person(self, xmlperson, dbperson):
         """Locate (or indeed create) the proper person entity in the db.
@@ -199,7 +199,6 @@ class XML2Cerebrum(object):
                 list(xmlperson.iterids()))
 
         return True
-    # end locate_or_create_person
 
     def match_sap_ids(self, xmlperson, dbperson):
         "Check if SAP IDs (ansatt#) on file matches the value in Cerebrum."
@@ -213,7 +212,6 @@ class XML2Cerebrum(object):
 
         # Either the DB is empty (a new ID is allowed) or they *MUST* match
         return (sap_id_in_db == "") or (sap_id_on_file == sap_id_in_db)
-    # end match_sap_ids
 
     def store_person(self, xmlperson, work_titles, affiliations, traits):
         """Store all information we can from xmlperson.
@@ -374,7 +372,6 @@ class XML2Cerebrum(object):
             status = "UPDATE"
 
         return status, person.entity_id
-    # end store_person
 
     @staticmethod
     def _calculate_precedence(source_system, main):
@@ -419,7 +416,6 @@ class XML2Cerebrum(object):
                              self.constants.PersonAffiliation(aff),
                              self.constants.PersonAffStatus(aff_stat),
                              ou_id)
-    # end _assign_person_affiliations
 
     def _assign_person_traits(self, person, traits):
         """Assign HR-data originated traits to a person.
@@ -450,7 +446,6 @@ class XML2Cerebrum(object):
                              person.entity_id,
                              self.constants.EntityTrait(trait),
                              ou_id, roleid)
-    # end _assign_person_traits
 
     def __ou_is_expired(self, xmlou):
         """Check if OU is expired compared to today's date."""
