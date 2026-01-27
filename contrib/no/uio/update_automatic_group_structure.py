@@ -18,7 +18,8 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""Update automatic groups so that they reflect the OU-structure of an
+"""
+Update automatic groups so that they reflect the OU-structure of an
 organization
 
 This script affects two kinds of automatic groups:
@@ -90,17 +91,22 @@ import six
 
 from Cerebrum import logutils
 from Cerebrum.Utils import Factory
+from Cerebrum.group import group_sync
 from Cerebrum.modules.automatic_group.structure import (
-    get_automatic_group,
-    meta_group_members,
-    update_members,
     cache_stedkoder,
-    get_current_members,
-    get_automatic_group_ids
+    get_automatic_group,
+    get_automatic_group_ids,
+    meta_group_members,
 )
 from Cerebrum.utils import argutils
 
 logger = logging.getLogger(__name__)
+
+
+def _get_group_by_id(db, group_id):
+    gr = Factory.get("Group")(db)
+    gr.find(group_id)
+    return gr
 
 
 def process_prefix(db, ou, gr, co, prefix, perspective, ou_id2sko):
@@ -134,9 +140,8 @@ def process_meta_groups(db, ou, gr, prefix, meta_prefix, perspective,
         )
 
     for group_id, wanted_members in six.iteritems(meta_groups):
-        logger.info('Group: %s, needs members: %s', group_id, wanted_members)
-        current_members = set(get_current_members(gr, group_id))
-        update_members(gr, group_id, current_members, wanted_members)
+        group = _get_group_by_id(db, group_id)
+        group_sync.set_group_members(wanted_members)
 
     return meta_groups
 

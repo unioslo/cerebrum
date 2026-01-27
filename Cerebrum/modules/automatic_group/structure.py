@@ -21,8 +21,9 @@
 Functionality for building group hierarchies based on org trees.
 
 TODO: This module needs revision.  It was built for- and only used for *manager
-groups* (see Cerebrum.modules.no.uio.leader_groups).  Parts of this module
-should be moved there.
+groups* (see Cerebrum.modules.no.uio.leader_groups), but is named as if
+re-usable for other purposes.  Most of this module should probably be moved
+there.
 
 TODO: This sub-module should probably be named something like
 `Cerebrum.modules.org_groups`, to better reflect what it actually *does*.
@@ -74,11 +75,6 @@ def get_automatic_group(database, stedkode, prefix):
     return template(database)
 
 
-def get_current_members(gr, group_id):
-    return (r['member_id'] for r in gr.search_members(group_id=group_id,
-                                                      indirect_members=False))
-
-
 def get_automatic_group_ids(gr, co, prefix):
     return (r['group_id'] for r in gr.search(
         name=prefix + '*',
@@ -113,16 +109,6 @@ def meta_group_members(db, ou, ou_id, perspective, prefix, ou_id2sko):
             yield get_automatic_group(db,
                                       ou_id2sko[child_id],
                                       prefix).entity_id
-
-
-def update_members(gr, group_id, current_members, wanted_members):
-    """Make sure only the wanted members are in group 'group_id'"""
-    gr.clear()
-    gr.find(group_id)
-    for member_id in wanted_members.difference(current_members):
-        gr.add_member(member_id)
-    for member_id in current_members.difference(wanted_members):
-        gr.remove_member(member_id)
 
 
 def update_memberships(gr, entity_id, current_memberships, wanted_memberships):
