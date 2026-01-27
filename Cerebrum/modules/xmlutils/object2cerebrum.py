@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2005-2024 University of Oslo, Norway
+# Copyright 2005-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -24,7 +23,12 @@ This module provides an interface to store objects representing XML
 information in Cerebrum. It is intended to go together with xml2object
 module (and its various incarnations (SAP, LT, etc.).
 """
-from __future__ import unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import collections
 import cereconf
 import datetime
@@ -34,7 +38,6 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.xmlutils.xml2object import DataAddress, DataContact
 from Cerebrum.modules.xmlutils.xml2object import HRDataPerson
-from Cerebrum.modules.xmlutils.sapxml2object import SAPPerson
 from Cerebrum.utils import date_compat
 
 
@@ -80,10 +83,10 @@ class XML2Cerebrum:
             self.xmladdr2db[
                 DataAddress.ADDRESS_OTHER_BESOK] = const.address_other_street
 
-        self.idxml2db = {HRDataPerson.NO_SSN: const.externalid_fodselsnr,
-                         HRDataPerson.PASSNR: const.externalid_pass_number,
-                         SAPPerson.SAP_NR: const.externalid_sap_ansattnr, }
-    # end __init__
+        self.idxml2db = {
+            HRDataPerson.NO_SSN: const.externalid_fodselsnr,
+            HRDataPerson.PASSNR: const.externalid_pass_number,
+        }
 
     def locate_or_create_person(self, xmlperson, dbperson):
         """Locate (or indeed create) the proper person entity in the db.
@@ -190,7 +193,6 @@ class XML2Cerebrum:
                 list(xmlperson.iterids()))
 
         return True
-    # end locate_or_create_person
 
     def match_sap_ids(self, xmlperson, dbperson):
         "Check if SAP IDs (ansatt#) on file matches the value in Cerebrum."
@@ -204,7 +206,6 @@ class XML2Cerebrum:
 
         # Either the DB is empty (a new ID is allowed) or they *MUST* match
         return (sap_id_in_db == "") or (sap_id_on_file == sap_id_in_db)
-    # end match_sap_ids
 
     def store_person(self, xmlperson, work_titles, affiliations, traits):
         """Store all information we can from xmlperson.
@@ -365,7 +366,6 @@ class XML2Cerebrum:
             status = "UPDATE"
 
         return status, person.entity_id
-    # end store_person
 
     @staticmethod
     def _calculate_precedence(source_system, main):
@@ -410,7 +410,6 @@ class XML2Cerebrum:
                              self.constants.PersonAffiliation(aff),
                              self.constants.PersonAffStatus(aff_stat),
                              ou_id)
-    # end _assign_person_affiliations
 
     def _assign_person_traits(self, person, traits):
         """Assign HR-data originated traits to a person.
@@ -441,7 +440,6 @@ class XML2Cerebrum:
                              person.entity_id,
                              self.constants.EntityTrait(trait),
                              ou_id, roleid)
-    # end _assign_person_traits
 
     def __ou_is_expired(self, xmlou):
         """Check if OU is expired compared to today's date."""
@@ -532,7 +530,6 @@ class XML2Cerebrum:
             status = "UPDATE"
 
         return status, ou.entity_id
-    # end store_ou
 
     def _sync_all_ou_contacts(self, ou, xmlou):
         """Register all contact information for ou from xmlou."""
@@ -542,7 +539,6 @@ class XML2Cerebrum:
                                      self.xmlcontact2db[contact.kind],
                                      contact.value,
                                      contact_pref=contact.priority)
-    # end _sync_all_ou_contacts
 
     def _sync_all_ou_addresses(self, ou, xmlou):
         """Register all addresses for ou from xmlou."""
@@ -555,7 +551,6 @@ class XML2Cerebrum:
                                 city=addr.city,
                                 # TBD: country code table i Cerebrum is empty
                                 country=None)
-    # end _sync_all_ou_addresses
 
     def _sync_all_ou_names(self, ou, xmlou):
         """Synchronise name data in all languages for the specified OU.
@@ -588,7 +583,6 @@ class XML2Cerebrum:
                                               name_language=name_language,
                                               name=xml_name.value)
         return ou
-    # end _sync_all_ou_names
 
     def _sync_all_ou_spreads(self, ou, xmlou):
         """Synchronise all spreads for a specified OU.
@@ -620,7 +614,6 @@ class XML2Cerebrum:
             op = ou.write_db()
 
         return op
-    # end _sync_all_ou_spreads
 
     def _sync_auto_ou_spreads(self, ou, usage_codes):
         """Synchronise auto-assigned OU spreads for ou.
@@ -680,7 +673,6 @@ class XML2Cerebrum:
         ou.write_db()
 
         return status
-    # end _sync_ou_spreads
 
     def _load_usage_spreads(self, iterable, desired_entity_type):
         """Convert a sequence of string codes to spread constants.
@@ -721,5 +713,3 @@ class XML2Cerebrum:
                 self.logger.warn("Cowardly refusing to use unknown spread %s",
                                  item)
         return result
-    # end _load_usage_spreads
-# end XML2Cerebrum
