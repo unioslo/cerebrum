@@ -2387,7 +2387,7 @@ class BofhdExtension(BofhdCommonMethods):
         ou = self._get_ou(stedkode=ou)
         try:
             affiliation, status = self.const.get_affiliation(affstr)
-        except Errors.NotFoundError:
+        except (LookupError, Errors.NotFoundError):
             raise CerebrumError("invalid affiliation: " + repr(affstr))
         if sourcestr is None:
             source_system = None
@@ -2395,7 +2395,7 @@ class BofhdExtension(BofhdCommonMethods):
             try:
                 source_system = self.const.get_constant(
                     self.const.AuthoritativeSystem, sourcestr)
-            except Errors.NotFoundError:
+            except (LookupError, Errors.NotFoundError):
                 raise CerebrumError("invalid source system: "
                                     + repr(sourcestr))
 
