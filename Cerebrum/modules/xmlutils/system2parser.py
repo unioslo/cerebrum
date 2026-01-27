@@ -46,7 +46,7 @@ def system2parser(system_name):
         "LT": ltxml2object.LTXMLDataGetter,
 
         "system_orgreg": sapxml2object.SAPXMLDataGetter,
-        "orgreg-tree": sapxml2object.SAPXMLDataGetter,
+        "ORGREG": sapxml2object.SAPXMLDataGetter,
 
         "system_fs": fsxml2object.FSXMLDataGetter,
         "FS": fsxml2object.FSXMLDataGetter,
