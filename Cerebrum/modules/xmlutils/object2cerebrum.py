@@ -36,7 +36,6 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.ou_import import legacy_xml2ou
 from Cerebrum.modules.ou_import import ou_sync
-from Cerebrum.modules.xmlutils.sapxml2object import SAPPerson
 from Cerebrum.modules.xmlutils.xml2object import DataAddress, DataContact
 from Cerebrum.modules.xmlutils.xml2object import HRDataPerson
 from Cerebrum.utils import date_compat
