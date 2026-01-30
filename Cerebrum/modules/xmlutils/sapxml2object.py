@@ -60,6 +60,7 @@ from Cerebrum.modules.xmlutils.xml2object import (
     XMLDataGetter,
     XMLEntity2Object,
     ensure_unicode,
+    iter_element,
 )
 from Cerebrum.utils import date_compat
 
@@ -172,7 +173,7 @@ class XMLOU2Object(XMLEntity2Object):
         # Accumulate the results. One <stednavn> gives rise to several
         # DataName instances.
         result = list()
-        for tmp in sub.getiterator():
+        for tmp in iter_element(sub):
             if tmp.tag not in tag2kind or not tmp.text:
                 continue
 
@@ -195,7 +196,7 @@ class XMLOU2Object(XMLEntity2Object):
         result = DataOU()
 
         # Iterate over *all* subelements
-        for sub in element.getiterator():
+        for sub in iter_element(element):
             value = None
             if sub.text:
                 value = ensure_unicode(sub.text.strip(), self.encoding)

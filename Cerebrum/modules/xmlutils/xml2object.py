@@ -52,8 +52,8 @@ from __future__ import (
 import copy
 import datetime
 import io
+import sys
 import time
-from xml.etree.cElementTree import parse, iterparse, ElementTree
 
 import six
 
@@ -63,6 +63,27 @@ from Cerebrum import Utils
 from Cerebrum.utils import date_compat
 from Cerebrum.utils import sorting
 from Cerebrum.utils import text_compat
+
+# PY3: Replace this with:
+#     from xml.etree import ElementTree
+if sys.version_info < (3, 3):
+    from xml.etree import cElementTree as ElementTree
+    _LEGACY_ITER = True
+else:
+    from xml.etree import ElementTree
+    _LEGACY_ITER = False
+
+
+# PY3: Replace calls to iter_element(<foo>, ...) with <foo>.iter(...)
+def iter_element(element, *args, **kwargs):
+    # Compatibility function for Python < 3.2
+    # Note: Since `Element` may not be a pure-python object, we can't assign /
+    # reference e.g. `Element.getiterator` from the class - we have to have
+    # this if/else work on a Element class instance.
+    if _LEGACY_ITER:
+        return element.getiterator(*args, **kwargs)
+    else:
+        return element.iter(*args, **kwargs)
 
 
 def get_xml_file_encoding(file_name):
@@ -701,7 +722,7 @@ class XMLDataGetter(AbstractDataGetter):
             # Remember that the elements *MUST* be explicitely released if
             # they are no longer needed (or they'll end up cached in memory;
             # something we are trying to avoid here).
-            self._data_source = parse(self._filename)
+            self._data_source = ElementTree.parse(self._filename)
 
 
 class XMLEntity2Object(object):
@@ -855,7 +876,7 @@ class XMLEntity2Object(object):
         """
 
         stream = io.BytesIO()
-        ElementTree(element).write(stream)
+        ElementTree.ElementTree(element).write(stream)
         return stream.getvalue()
 
 
@@ -870,7 +891,9 @@ class XMLEntityIterator(object):
 
     def __init__(self, filename, element):
         # iterparse itself is not necessarily an iterator. Therefore iter()
-        self.it = iter(iterparse(filename, (str("start"), str("end"))))
+        self.it = iter(
+            ElementTree.iterparse(filename, (str("start"), str("end")))
+        )
         self.element_name = element
 
         # Keep track of the root element (to prevent element caching)
