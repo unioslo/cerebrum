@@ -596,7 +596,7 @@ class XmlToOrgUnit(xml2object.XMLEntity2Object):
         }
 
         # Iterate over *all* subelements
-        for sub in element.getiterator():
+        for sub in xml2object.iter_element(element):
             if sub.tag == element.tag:
                 continue
             if sub.tag == "ouid":
