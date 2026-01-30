@@ -94,7 +94,7 @@ class _UioAddressMixin(NorEduOrgLdifMixin):
             if postbox and self._is_blindern(fields):
                 yield "Pb. {} - Blindern".format(postbox)
             else:
-                for addr_line in (fields['address_text']).split("\n"):
+                for addr_line in (fields['address_text'] or "").split("\n"):
                     yield (addr_line or "").strip() or None
             yield self._get_city_line(fields)
             yield self._get_country(fields)

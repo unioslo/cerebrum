@@ -225,9 +225,9 @@ class LegacyObjectMapper(ou_model.OrgUnitMapper):
     def get_usage(self, ou_data):
         """ Usage codes for this org unit.
 
-        Known usage codes are defined in ``cereconf.OU_USAGE_SPREAD``, and are
-        used to map various tags and properties from the source system to
-        automatic spreads.
+        All valid usage codes are defined in ``cereconf.OU_USAGE_SPREAD`` for
+        `DataOU` objects, which means they all map to a given spread for the
+        OU.
         """
         if not self.is_valid(ou_data):
             return ()

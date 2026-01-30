@@ -62,7 +62,7 @@ class OuWriter(object):
     """
 
     # See `default_spreads`:
-    usage_to_spread = cereconf.OU_USAGE_SPREAD
+    usage_to_spread = getattr(cereconf, "OU_USAGE_SPREAD", None) or {}
 
     # Institution for Stedkode ids
     institution = cereconf.DEFAULT_INSTITUSJONSNR

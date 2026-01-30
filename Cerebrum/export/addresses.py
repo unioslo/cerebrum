@@ -297,7 +297,7 @@ class _LdapPostalAddress(_AddressFormatter):
         yield ("Pb. {}".format(postbox) if postbox else None)
 
         # address lines
-        for addr_line in (fields['address_text']).split("\n"):
+        for addr_line in (fields['address_text'] or "").split("\n"):
             yield _normalize(addr_line)
 
         # "<post-code> <city>" or "<post-code>" or "<city>" or None
@@ -319,7 +319,7 @@ class _LdapStreetAddress(_AddressFormatter):
 
     def _get_values(self, fields):
         # ignore p_o_box
-        for addr_line in (fields['address_text']).split("\n"):
+        for addr_line in (fields['address_text'] or "").split("\n"):
             yield _normalize(addr_line)
         yield self._get_city_line(fields)
         yield self._get_country(fields)

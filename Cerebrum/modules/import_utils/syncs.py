@@ -400,9 +400,15 @@ class AddressSync(_KeyValueSync):
 
     def __call__(self, entity, pairs):
         # normalize values
-        pairs = tuple(
+        normalized = (
             (addr_type, self.__normalize_addr(addr_value))
             for addr_type, addr_value in pairs
+        )
+        # remove empty addresses
+        pairs = tuple(
+            (addr_type, addr_value)
+            for addr_type, addr_value in normalized
+            if any(t[1] for t in addr_value)
         )
         return super(AddressSync, self).__call__(entity, pairs)
 

@@ -179,6 +179,18 @@ def test_sync_no_change(sync, const, addr_helper, person):
     assert addr_helper.get(person, const.address_post)
 
 
+def test_sync_empty(sync, const, person):
+    """ check that sync does not add an empty address. """
+    addr = {key: None for key in ADDRS[0]}
+    new = [(const.address_post, addr)]
+    added, updated, removed = sync(person, new)
+
+    # Check add/update/remove return value
+    assert added == set()
+    assert updated == set()
+    assert removed == set()
+
+
 def test_sync_affected(database, const, addr_helper, person):
     """ check that affect_types only touches the given types. """
     addr_helper.set(person, const.address_post, ADDRS[0])
