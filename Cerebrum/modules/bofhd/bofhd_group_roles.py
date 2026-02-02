@@ -315,6 +315,11 @@ class BofhdGroupRoleCommands(BofhdCommandBase):
                 "%s (%d) is not admin for %s (%d)"
                 % (self._get_name(admin), admin.entity_id,
                    group.group_name, group.entity_id))
+        if (group.group_type == self.const.group_type_policy
+                    and len(group.get_group_admins(group.entity_id)) == 1):
+            raise CerebrumError(
+                "Policy-groups needs atleast one admin")
+
         roles.remove_admin_from_group(int(admin.entity_id),
                                       int(group.entity_id))
         return self._format_response(group, admin, key="admin")

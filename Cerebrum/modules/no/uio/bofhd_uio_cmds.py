@@ -517,6 +517,11 @@ class BofhdExtension(BofhdCommonMethods):
         :param member_type: str type of member
         :return:
         """
+
+        grp = self._get_group(dest_group)
+        if (grp.group_type == self.const.group_type_policy and not member_type == "group"):
+            raise CerebrumError("Cannot add non-group members to policy groups")
+
         if member_type == "group":
             src_entity = self._get_group(src_name)
         elif member_type == "account":
@@ -1711,6 +1716,18 @@ class BofhdExtension(BofhdCommonMethods):
         self.ba.can_set_group_type(operator.get_entity_id(), grp, group_type)
         if self._is_perishable_manual_group(grp):
             grp.set_default_expire_date()
+
+        if group_type == self.const.group_type_policy: 
+            nongroup_members = set(member for member in grp.search_members(group_id=grp.entity_id, 
+                            indirect_members=False, member_filter_expired=False) 
+                            if member.member_type != self.const.entity_group)
+            
+            if len(nongroup_members) > 0:
+                raise CerebrumError("Group '%s' has non-group members" %
+                                                (grp.group_name,))
+            if len(grp.get_group_admins(grp.entity_id)) == 0:
+                raise CerebrumError("Group '%s' has no admins" % (grp.group_name,))
+
         grp.group_type = group_type
         grp.write_db()
         return {

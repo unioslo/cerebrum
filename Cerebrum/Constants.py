@@ -1693,6 +1693,11 @@ class CommonConstants(ConstantsBase):
         'derived-group',
         'Automatic group - periodically maintained to mirror another group'
         ' or group hierarchy')
+    
+    group_type_policy = _GroupTypeCode(
+        'policy-group',
+        'Manual group - Group inhabited by other groups for group policies'
+    )
 
     #
     # _GroupVisibilityCode - Group.visibility values

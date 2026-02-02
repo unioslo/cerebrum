@@ -349,10 +349,16 @@ class GroupModeratorResource(Resource):
     @api.response(204, "moderator removed")
     @api.response(400, 'invalid opset')
     @api.response(404, 'group or moderator not found')
+    @api.response(409, 'too few administrators')
     def delete(self, name, role, admin_id):
         """ Remove a group moderator. """
         group = find_group(name)
         roles = GroupRoles(db.connection)
+        if (group.group_type == db.const.group_type_policy and 
+                    len(group.get_group_admins(group.entity_id)) == 1):
+            abort(409, message="cannot remove last administrator")
+
+
         roles.remove_admin_from_group(admin_id, group.entity_id)
 
 
@@ -591,12 +597,15 @@ class GroupMemberResource(Resource):
     @auth.require()
     @api.response(200, 'member added', GroupMember)
     @api.response(404, 'group or member not found')
+    @api.response(422, 'policy-groups accepts only group members')
     @api.marshal_with(GroupMember)
     def put(self, name, member_id):
         """ Add member to group. """
         group = find_group(name)
         member = find_entity(member_id)
         if not group.has_member(member.entity_id):
+            if group.group_type == db.const.group_type_policy and not member.member_type == db.const.entity_group:
+                abort(422, "Cannot add non-group members to policy groups")
             group.add_member(member.entity_id)
         name = utils.get_entity_name(member)
         return {
