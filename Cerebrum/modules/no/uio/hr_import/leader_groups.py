@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2020-2022 University of Oslo, Norway
+# Copyright 2020-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -32,14 +32,38 @@ from __future__ import (
 import logging
 
 from Cerebrum.Utils import Factory
-
-from Cerebrum.modules.automatic_group import manager_groups
+from Cerebrum.group.template import GroupTypeTemplate
+from Cerebrum.modules.automatic_group import template_helpers
 
 logger = logging.getLogger(__name__)
 
 
+class ManagerGroups(template_helpers.AutomaticGroupCache):
+    """ Manager group template, rules, and cache. """
+
+    template = GroupTypeTemplate(
+        # TODO: Fix this - it should probably have it's own type, or a more
+        # generic type:
+        group_type="affiliation-group",
+        # TODO: Fix this - it should probably be "A":
+        group_visibility="I",
+        conflict=GroupTypeTemplate.CONFLICT_UPDATE,
+    )
+
+    prefix = "adm-leder-"
+    description_fmt = "Administrerende leder ved {}"
+    required_spreads = frozenset(("group@ldap", "AD_group", "NIS_ng@uio"))
+
+
+class ManagerSupergroups(ManagerGroups):
+    """ Manager supergroup template, rules, and cache. """
+
+    prefix = "meta-adm-leder-"
+    description_fmt = "Administrerende ledere ved {} og underenheter"
+
+
 def get_manager_group(db, identifier):
-    return manager_groups.get_manager_group(db, identifier)
+    return ManagerGroups.assert_group(db, identifier)
 
 
 def _get_group_by_id(db, group_id):
@@ -82,16 +106,6 @@ class ManagerGroupSync(object):
         self.db = db
         self.const = Factory.get('Constants')(self.db)
 
-    def _get_current_groups(self, person_id):
-        """
-        Get all current manager group memberships for a given person.
-        """
-        return manager_groups.list_manager_groups(
-            self.db,
-            include_expired=True,
-            member_id=int(person_id),
-        )
-
     def _fetch_group_ids(self, ou_objects):
         """
         Convert a collection of OU objects into a set of manager group ids
@@ -104,8 +118,8 @@ class ManagerGroupSync(object):
             # TODO: This group may not exist, e.g. if it's quarantined...
             #       We should probably use the same criterias as the
             #       manager_groups module.
-            mgr_group_id = get_manager_group(self.db, stedkode).entity_id
-            yield mgr_group_id
+            mgr_group = ManagerGroups.assert_group(self.db, stedkode)
+            yield mgr_group.entity_id
 
     def sync(self, person_id, ou_objects):
         """
@@ -122,7 +136,11 @@ class ManagerGroupSync(object):
         logger.debug("manager groups for person_id=%r: %r",
                      person_id, require_memberships)
 
-        current_memberships = set(self._get_current_groups(person_id))
+        current_memberships = ManagerGroups.list_groups(
+            self.db,
+            include_expired=True,
+            member_id=int(person_id),
+        )
         if require_memberships == current_memberships:
             return
 

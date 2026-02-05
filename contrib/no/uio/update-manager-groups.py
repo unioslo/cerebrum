@@ -31,7 +31,7 @@ This is similar to e.g. ``contrib/populate-automatic-groups.py``, but with a
 simplified hierarchy, and without populating the "leaf groups".
 
 Groups
-======
+=======
 The groups maintained by this script falls into two categories:
 
 Manager groups
@@ -48,7 +48,7 @@ Manager supergroups:
     supergroups and maintains supergroup memberships.
 
 Example
-=======
+========
 Given an org tree with the following location codes (-> indicates
 parent-child relationship):
 ::
@@ -92,7 +92,7 @@ import six
 from Cerebrum import logutils
 from Cerebrum.Utils import Factory
 from Cerebrum.group import group_sync
-from Cerebrum.modules.automatic_group import manager_groups
+from Cerebrum.modules.no.uio.hr_import import leader_groups as mgr_groups
 from Cerebrum.utils import argutils
 
 logger = logging.getLogger(__name__)
@@ -164,20 +164,25 @@ def update_manager_groups(db, perspective, id_map):
     group_structure = dict(build_org_structure(db, perspective, id_map))
 
     logger.debug("Building current manager groups...")
-    group_cache = manager_groups.ManagerGroupCache(db)
+    # group_cache = manager_groups.ManagerGroupCache(db)
+
+    groups = mgr_groups.ManagerGroups(db)
+    supergroups = mgr_groups.ManagerSupergroups(db)
+
     current_groups = set()
     for parent_ident, children in group_structure.items():
         # Build and sync supergroup and member groups:
         #  - supergroup (e.g. meta-adm-leder-102200)
         #  - member group (e.g. adm-leder-102200)
         #  - org subunit members (e.g. adm-leder-102234, adm-leder-102235, ...)
-        supergroup = group_cache.get_supergroup(parent_ident)
-        member_ids = set((group_cache.get_group(parent_ident).entity_id,))
-        member_ids.update(group_cache.get_group(child_ident).entity_id
+        supergroup = supergroups.get_group(parent_ident)
+        member_ids = set((groups.get_group(parent_ident).entity_id,))
+        member_ids.update(groups.get_group(child_ident).entity_id
                           for child_ident in children)
+
         group_sync.set_group_members(supergroup, member_ids)
 
-        # Include up-to-date groups in return value
+        # Include all up-to-date group ids in return value
         current_groups.add(supergroup.entity_id)
         current_groups.update(member_ids)
 
@@ -197,8 +202,8 @@ def process_manager_groups(db, perspective):
     logger.info("Found %d org units", len(id_map))
 
     logger.debug("Cache all existing manager groups...")
-    initial_groups = manager_groups.list_manager_supergroups(db)
-    initial_groups.update(manager_groups.list_manager_groups(db))
+    initial_groups = mgr_groups.ManagerGroups.list_groups(db)
+    initial_groups.update(mgr_groups.ManagerSupergroups.list_groups(db))
     logger.info("Found %d existing manager groups and supergroups",
                 len(initial_groups))
 
@@ -224,13 +229,12 @@ def expire_groups(db, obsolete_groups):
 
 def main(inargs=None):
     parser = argparse.ArgumentParser(
-        description='Update automatic groups so that they reflect the '
-                    'OU-structure of an organization')
+        description="Update manager groups and group structure",
+    )
     perspective_arg = parser.add_argument(
         '--perspective',
         type=six.text_type,
-        help='Set the system perspective to fetch the OU structure from, '
-             'e.g. SAP or FS.',
+        help="Org tree perspective for manager supergroups (e.g. orgreg-tree)",
         required=True
     )
     argutils.add_commit_args(parser)
