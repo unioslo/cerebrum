@@ -28,6 +28,7 @@ from Cerebrum.modules.EntityTrait import EntityTrait
 from Cerebrum.modules.apikeys import bofhd_apikey_cmds
 from Cerebrum.modules.audit import bofhd_history_cmds
 from Cerebrum.modules.bofhd import bofhd_access
+from Cerebrum.modules.bofhd import bofhd_addresses
 from Cerebrum.modules.bofhd import bofhd_external_id
 from Cerebrum.modules.bofhd import bofhd_group_roles
 from Cerebrum.modules.bofhd import bofhd_misc_sms
@@ -387,6 +388,10 @@ class BofhdRequestsAuth(UioAuth, RequestsAuth):
 
 
 class AccessAuth(UioAuth, bofhd_access.BofhdAccessAuth):
+    pass
+
+
+class AddressAuth(UioAuth, bofhd_addresses.BofhdAddressAuth):
     pass
 
 
