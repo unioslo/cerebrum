@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2020 University of Oslo, Norway
+# Copyright 2020-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,64 +19,63 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
-Update automatic groups so that they reflect the OU-structure of an
-organization
+Build and maintain a manager groups.
 
-This script affects two kinds of automatic groups:
+These groups reflects an organization tree i Cerebrum (i.e. ou perspective).
 
-1. regular automatic groups:
-    The names of these groups are on the form <aff_or_role>-<stedkode>. They
-    typically contain persons/accounts with some kind of affiliation or role
-    at the organizational unit. This script does NOT do anything to maintain
-    the memberships in these groups.
+This script simply builds a series of groups and supergroups, but does not care
+about the final "leaf group" members - this is maintained by the event-driven
+hr-import (see :mod:`Cerebrum.modules.no.uio.hr_import.leader_groups`).
 
-2. meta groups:
-    The names of these groups are on the form meta-<aff_or_role>-<stedkode>.
-    They should only contain regular automatic groups which are at the unit
-    itself or under the organizational unit in the OU-hierarchy.
+This is similar to e.g. ``contrib/populate-automatic-groups.py``, but with a
+simplified hierarchy, and without populating the "leaf groups".
 
-Here is an example of an OU-structure at an organization and the resulting
-group-structure from running this script:
+Groups
+======
+The groups maintained by this script falls into two categories:
 
-    OU-structure (-> indicates parent-child relationship):
+Manager groups
+    Group that represents manager(s) at a given org unit, named
+    <prefix>-<location-code>.  This script doesn't touch memberships in these
+    groups - it just creates or deletes them according to the current org tree.
 
-        (stedkode 320000) ----+->(stedkode 325000)+->(stedkode 325100)
-                              |
-                              +->(stedkode 321000)+->(stedkode 321003)
-                                                  |
-                                                  +->(stedkode 321001)
+Manager supergroups:
+    Group that represents managers employed under a given org unit,
+    meta-<prefix>-<location-code>.
 
-    Group-structure (-> indicates group-member relationship):
+    Each meta group contains all *manager groups* that are organized under
+    this location code in the org tree.  This script creates and deletes
+    supergroups and maintains supergroup memberships.
 
-        (meta-adm-leder-320000)----+->(adm-leder-320000)
-                                   |
-                                   +->(adm-leder-325000)
-                                   |
-                                   +->(adm-leder-325100)
-                                   |
-                                   +->(adm-leder-321000)
-                                   |
-                                   +->(adm-leder-321003)
-                                   |
-                                   +->(adm-leder-321001)
+Example
+=======
+Given an org tree with the following location codes (-> indicates
+parent-child relationship):
+::
 
-        (meta-adm-leder-325000)----+->(adm-leder-325000)
-                                   |
-                                   +->(adm-leder-325100)
+                       +-> (stedkode 325000) -+-> (stedkode 325100)
+                       |
+    (stedkode 320000) -+                      +-> (stedkode 321001)
+                       |                      |
+                       +-> (stedkode 321000) -+-> (stedkode 321003)
 
-        (meta-adm-leder-321000)----+->(adm-leder-321000)
-                                   |
-                                   +->(adm-leder-321003)
-                                   |
-                                   +->(adm-leder-321001)
+... then this script would typically create the following groups and
+memberships (-> indicates group-member relationship):
+::
 
-Note:
-    The main difference between this script and 'populate-automatic-groups.py'
-    is that this script does not add members to the regular automatic groups.
-    This means that it generates generates groups for all non-quarantined
-    OUs at run time, whether those OUs have anyone affiliated to them or not.
-    'populate-automatic-groups.py' on the other hand does not generate groups
-    for OUs where no persons are currently affiliated.
+                             +-> (adm-leder-320000)
+                             +-> (adm-leder-325000)
+    (meta-adm-leder-320000) -+-> (adm-leder-325100)
+                             +-> (adm-leder-321000)
+                             +-> (adm-leder-321003)
+                             +-> (adm-leder-321001)
+
+    (meta-adm-leder-325000) -+-> (adm-leder-325000)
+                             +-> (adm-leder-325100)
+
+                             +-> (adm-leder-321000)
+    (meta-adm-leder-321000) -+-> (adm-leder-321003)
+                             +-> (adm-leder-321001)
 """
 from __future__ import (
     absolute_import,
@@ -87,20 +86,65 @@ from __future__ import (
 import argparse
 import datetime
 import logging
+
 import six
 
 from Cerebrum import logutils
 from Cerebrum.Utils import Factory
 from Cerebrum.group import group_sync
-from Cerebrum.modules.automatic_group.structure import (
-    cache_stedkoder,
-    get_automatic_group,
-    get_automatic_group_ids,
-    meta_group_members,
-)
+from Cerebrum.modules.automatic_group import manager_groups
 from Cerebrum.utils import argutils
 
 logger = logging.getLogger(__name__)
+
+
+def build_id_map(db):
+    """ Build an org unit id to location code mapping. """
+    ou = Factory.get("OU")(db)
+    id_map = {}
+    for row in ou.get_stedkoder():
+        ou.clear()
+        ou.find(row['ou_id'])
+        if not ou.get_entity_quarantine(only_active=True):
+            id_map[ou.entity_id] = ou.get_stedkode()
+    return id_map
+
+
+def build_org_structure(db, perspective, id_map):
+    """
+    Build an org tree using given identifiers.
+
+    :param db:
+    :param perspective: org tree to use
+    :param dict id_map:
+        A map of ou_id to alternative ou identifiers.
+
+        The new identifier will be used in the return values.
+
+        Only org units with a mapped identifier will be included in the
+        hierarchy.
+
+        Will currently include all children, regardless of ou state
+        This means that children of itermediate disabled/quarantined/otherwise
+        omitted org units will be included.
+    """
+    org_tree = {}
+
+    logger.debug("caching org tree...")
+    ou = Factory.get("OU")(db)
+    for ou_id in id_map:
+        org_tree[ou_id] = set(
+            child_id
+            for child_id in ou.list_children(perspective,
+                                             entity_id=ou_id,
+                                             recursive=True)
+            if child_id in id_map
+        )
+
+    for ou_id in sorted(org_tree):
+        ident = id_map[ou_id]
+        children = [id_map[child_id] for child_id in org_tree[ou_id]]
+        yield ident, children
 
 
 def _get_group_by_id(db, group_id):
@@ -109,58 +153,71 @@ def _get_group_by_id(db, group_id):
     return gr
 
 
-def process_prefix(db, ou, gr, co, prefix, perspective, ou_id2sko):
-    logger.info('Processing prefix: %s', prefix)
-    meta_prefix = 'meta-' + prefix
-    logger.info('Caching initial groups: %s*', meta_prefix)
-    initial_meta_groups = set(get_automatic_group_ids(gr, co, meta_prefix))
-    meta_groups = process_meta_groups(db,
-                                      ou,
-                                      gr,
-                                      prefix,
-                                      meta_prefix,
-                                      perspective,
-                                      ou_id2sko)
-    logger.info('Expire redundant groups: %s*, %s*', prefix, meta_prefix)
-    expire_redundant_groups(gr, meta_groups, initial_meta_groups)
-    logger.info('Now got %s %s* groups', len(meta_groups), meta_prefix)
+def update_manager_groups(db, perspective, id_map):
+    """
+    Build group hierarchy of manager groups.
+
+    :param perspective: The org tree perspective to use
+    :param dict id_map: A set of org units (and their loation codes)
+    """
+    logger.debug("Building manager group hierarchy...")
+    group_structure = dict(build_org_structure(db, perspective, id_map))
+
+    logger.debug("Building current manager groups...")
+    group_cache = manager_groups.ManagerGroupCache(db)
+    current_groups = set()
+    for parent_ident, children in group_structure.items():
+        # Build and sync supergroup and member groups:
+        #  - supergroup (e.g. meta-adm-leder-102200)
+        #  - member group (e.g. adm-leder-102200)
+        #  - org subunit members (e.g. adm-leder-102234, adm-leder-102235, ...)
+        supergroup = group_cache.get_supergroup(parent_ident)
+        member_ids = set((group_cache.get_group(parent_ident).entity_id,))
+        member_ids.update(group_cache.get_group(child_ident).entity_id
+                          for child_ident in children)
+        group_sync.set_group_members(supergroup, member_ids)
+
+        # Include up-to-date groups in return value
+        current_groups.add(supergroup.entity_id)
+        current_groups.update(member_ids)
+
+    return current_groups
 
 
-def process_meta_groups(db, ou, gr, prefix, meta_prefix, perspective,
-                        ou_id2sko):
-    meta_groups = {}
-    logger.info('Caching members for %s*', meta_prefix)
-    for ou_id, stedkode in six.iteritems(ou_id2sko):
-        group = get_automatic_group(db,
-                                    stedkode,
-                                    meta_prefix)
-        logger.info('Processing group: %s', group.group_name)
-        meta_groups[group.entity_id] = set(
-            meta_group_members(db, ou, ou_id, perspective, prefix, ou_id2sko)
-        )
+def process_manager_groups(db, perspective):
+    """
+    Build group hierarchy of manager groups.
 
-    for group_id, wanted_members in six.iteritems(meta_groups):
-        group = _get_group_by_id(db, group_id)
-        group_sync.set_group_members(wanted_members)
+    :param str prefix: The group name prefix to build groups for
+    :param perspective: The org tree perspective to use
+    :param dict id_map: A set of org units (and their loation codes)
+    """
+    logger.debug("Caching org units...")
+    id_map = build_id_map(db)
+    logger.info("Found %d org units", len(id_map))
 
-    return meta_groups
+    logger.debug("Cache all existing manager groups...")
+    initial_groups = manager_groups.list_manager_supergroups(db)
+    initial_groups.update(manager_groups.list_manager_groups(db))
+    logger.info("Found %d existing manager groups and supergroups",
+                len(initial_groups))
+
+    current_groups = update_manager_groups(db, perspective, id_map)
+    logger.info("Updated %d current manager groups and supergroups",
+                len(current_groups))
+
+    obsolete_groups = initial_groups - current_groups
+    expire_groups(db, obsolete_groups)
+    logger.info("Removed %d obsolete manager groups and supergroups",
+                len(obsolete_groups))
 
 
-def expire_redundant_groups(gr, meta_groups, initial_meta_groups):
+def expire_groups(db, obsolete_groups):
     today = datetime.date.today()
-    meta_groups = set(meta_groups)
-    for group_id in initial_meta_groups.difference(meta_groups):
-        gr.clear()
-        gr.find(group_id)
-        logger.info('Expire meta group: %s', gr.group_name)
-        gr.expire_date = today
-        gr.write_db()
-        # We deduce that if we deleted meta-<prefix>-<stedkode> we should also
-        # delete <prefix>-<stedkode>.
-        group_name = gr.group_name[5:]
-        gr.clear()
-        gr.find_by_name(group_name)
-        logger.info('Expire non-meta group: %s', group_name)
+    for group_id in obsolete_groups:
+        gr = _get_group_by_id(db, group_id)
+        logger.info("Set expire date for obsolete group: %s",
+                    gr.group_name)
         gr.expire_date = today
         gr.write_db()
 
@@ -176,19 +233,12 @@ def main(inargs=None):
              'e.g. SAP or FS.',
         required=True
     )
-    parser.add_argument(
-        '--prefix',
-        type=six.text_type,
-        action='append',
-        default=[],
-        help='Prefix for the automatic groups this script creates',
-        required=True
-    )
     argutils.add_commit_args(parser)
-
     logutils.options.install_subparser(parser)
+
     args = parser.parse_args(inargs)
-    logutils.autoconf('cronjob', args)
+    logutils.autoconf("cronjob", args)
+
     db = Factory.get('Database')()
     db.cl_init(change_program=parser.prog)
     co = Factory.get('Constants')(db)
@@ -196,13 +246,8 @@ def main(inargs=None):
     perspective = argutils.get_constant(db, parser, co.OUPerspective,
                                         args.perspective,
                                         argument=perspective_arg)
-    ou = Factory.get('OU')(db)
-    gr = Factory.get('Group')(db)
 
-    logger.info('Caching OUs')
-    ou_id2sko = cache_stedkoder(ou)
-    for prefix in args.prefix:
-        process_prefix(db, ou, gr, co, prefix, perspective, ou_id2sko)
+    process_manager_groups(db, perspective)
 
     if args.commit:
         logger.info('Committing changes')

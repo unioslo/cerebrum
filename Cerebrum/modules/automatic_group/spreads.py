@@ -1,6 +1,6 @@
 # coding: utf-8
 #
-# Copyright 2020 University of Oslo, Norway
+# Copyright 2020-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,37 +17,80 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-from __future__ import unicode_literals
+"""
+Module for applying spreads to a given set of groups.
+
+TODO
+====
+This module needs revision.  It was built for- and only used for *manager
+groups* (see :mod:`Cerebrum.modules.no.uio.hr_import.leader_groups`).
+
+The general idea here with *matching rules* and a list of spreads is OK, but
+should probably be formalized a bit more (e.g. a better representation of the
+rules).
+
+The rules themselves should probably be moved to an appropriate location (e.g.
+:mod:`Cerebrum.modules.no.uio.hr_import.leader_groups`).
+
+Also, see the *TODOs* in :mod:`.structure`.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+
 import collections
+
 import six
 
+from . import manager_groups
+
+
 RULES = {
-    'adm-leder-':
-        (('group@ldap', 'AD_group', 'NIS_ng@uio'),
-         {'name': 'adm-leder-*',
-          'group_type': 'affiliation-group',
-          'filter_expired': True}),
-    'meta-adm-leder-':
-        (('group@ldap', 'AD_group', 'NIS_ng@uio'),
-         {'name': 'meta-adm-leder-*',
-          'group_type': 'affiliation-group',
-          'filter_expired': True})
+    manager_groups.GROUP_NAME_PREFIX: (
+        ('group@ldap', 'AD_group', 'NIS_ng@uio'),
+        {
+            'name': 'adm-leder-*',
+            'group_type': 'affiliation-group',
+            'filter_expired': True,
+        },
+    ),
+    manager_groups.META_GROUP_NAME_PREFIX: (
+        ('group@ldap', 'AD_group', 'NIS_ng@uio'),
+        {
+            'name': 'meta-adm-leder-*',
+            'group_type': 'affiliation-group',
+            'filter_expired': True,
+        },
+    ),
 }
 
 
 def load_rules(co, names):
     rules = {}
-    for name in names:
-        spreads, filters = RULES[name]
-        spreads = set(co.Spread(s) for s in spreads)
-        if 'group_type' in filters:
-            if isinstance(filters['group_type'], six.text_type):
-                filters['group_type'] = co.GroupType(filters['group_type'])
+    for rule_name in names:
+        raw_spreads, raw_filters = RULES[rule_name]
+        spreads = set(
+            co.get_constant(co.Spread, s)
+            for s in raw_spreads,
+        )
+        filters = {
+            'name': raw_filters['name'],
+            'filter_expired': raw_filters['filter_expired'],
+        }
+        raw_group_type = raw_filters['group_type']
+        if raw_group_type and 'group_type' in raw_filters:
+            if isinstance(raw_group_type, six.text_type):
+                filters['group_type'] = co.get_constant(raw_group_type,
+                                                        co.GroupType)
             elif isinstance(filters['group_type'], collections.Iterable):
                 filters['group_type'] = tuple(
-                    co.GroupType(gt) for gt in filters['group_type']
+                    co.get_constant(co.GroupType, gt)
+                    for gt in raw_group_type
                 )
-        rules[name] = (spreads, filters)
+        rules[rule_name] = (spreads, filters)
     return rules
 
 
