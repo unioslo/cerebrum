@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2004-2020 University of Oslo, Norway
+# Copyright 2004-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -20,6 +20,26 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
 Script for joining duplicate person objects in a single person object
+
+TODO
+====
+Simpler updates
+    Remove the current *affect* + *populate* pattern.
+
+    We shouldn't have to list and process *all* possible source systems + type
+    codes.  The general update should simply be:
+
+    1. Fetch all entries from *source*
+    2. For each entry, add to *target* unless already present
+
+
+*join* entity methods
+    Each functional component should be moved to the appropriate class.
+
+    Maybe the Entity base class and each subclass/mixin should have a
+    `target.join_from(source)` method, which would update the target entity
+    from the source entity, and clear the data from source?
+
 """
 import sys
 import logging
@@ -33,9 +53,300 @@ from Cerebrum.utils.argutils import add_commit_args
 logger = logging.getLogger(__name__)
 
 
+def _get_person_by_id(db, person_id):
+    pe = Factory.get("Person")(db)
+    pe.find(int(person_id))
+    return pe
+
+
+def _get_account_by_id(db, account_id):
+    ac = Factory.get("Account")(db)
+    ac.find(int(account_id))
+    return ac
+
+
+def _get_group_by_id(db, group_id):
+    gr = Factory.get("Group")(db)
+    gr.find(int(group_id))
+    return gr
+
+
+def copy_person_names(source, target):
+    """
+    Copy missing names from *source* to *target*.
+    """
+    logger.info("Copying names from person id=%d to person id=%d",
+                source.entity_id, target.entity_id)
+    db = target._db
+    const = target.const
+    source_systems = const.fetch_constants(const.AuthoritativeSystem)
+
+    # old_id = old_person.entity_id
+    target_id = int(target.entity_id)
+
+    variants = []
+    for code in source.list_person_name_codes():
+        variants.append(int(code['code']))
+
+    for source_sys in source_systems:
+        logger.debug("person_name: %s", source_sys)
+        # We re-find a fresh person object so we can re-populate for each
+        # source system
+        person = _get_person_by_id(db, target_id)
+        person.affect_names(source_sys, *variants)
+        for code in variants:
+            try:
+                person.populate_name(code,
+                                     source.get_name(source_sys, code))
+            except Errors.NotFoundError:
+                pass
+            try:
+                person.populate_name(code,
+                                     target.get_name(source_sys, code))
+            except Errors.NotFoundError:
+                pass
+        person.write_db()
+
+
+def move_extid(source, target):
+    """
+    Move missing external ids from *source* to *target*.
+    """
+    # Note: This will *clear* all external ids from *source*.  This must be
+    # done to avoid a unique constraint preventing two entities having the same
+    # id from the same source system.
+    logger.info("Moving external ids from id=%d to id=%d",
+                source.entity_id, target.entity_id)
+    assert source._db is target._db
+    db = target._db
+    const = target.const
+    source_systems = const.fetch_constants(const.AuthoritativeSystem)
+
+    source_id = int(source.entity_id)
+    target_id = int(target.entity_id)
+
+    types = set()
+    for row in source.get_external_id():
+        types.add(int(row['id_type']))
+    for row in target.get_external_id():
+        types.add(int(row['id_type']))
+    if not types:
+        # Nothing to move
+        return
+
+    for source_sys in source_systems:
+        logger.debug("person_external_id: %s", source_sys)
+
+        # We need to re-find objects for each source system, as we can only run
+        # *affect_external_id* once per person
+
+        to_update = _get_person_by_id(db, target_id)
+        to_update.affect_external_id(source_sys, *types)
+        try:
+            for row in source.get_external_id(source_sys):
+                to_update.populate_external_id(source_sys,
+                                               row['id_type'],
+                                               row['external_id'])
+        except Errors.NotFoundError:
+            pass
+
+        try:
+            for row in to_update.get_external_id(source_sys):
+                to_update.populate_external_id(source_sys,
+                                               row['id_type'],
+                                               row['external_id'])
+        except Errors.NotFoundError:
+            pass
+
+        # We need to explicitly remove old data from our source object, to
+        # avoid hitting certain duplicate id constraints
+        to_clear = _get_person_by_id(db, source_id)
+        to_clear.affect_external_id(source_sys, *types)
+        to_clear.write_db()
+
+        to_update.write_db()
+
+
+def copy_contact_info(source, target):
+    """
+    Copy missing contact info from *source* to *target*.
+    """
+    logger.info("Copying contacts from id=%d to id=%d",
+                source.entity_id, target.entity_id)
+    db = target._db
+    const = target.const
+    source_systems = const.fetch_constants(const.AuthoritativeSystem)
+
+    target_id = int(target.entity_id)
+
+    for source_sys in source_systems:
+        logger.debug("entity_contact_info: %s", source_sys)
+
+        to_update = _get_person_by_id(db, target_id)
+        for row in source.get_contact_info(source_sys):
+            to_update.populate_contact_info(
+                row['source_system'], row['contact_type'],
+                row['contact_value'],
+                row['contact_pref'], row['description'], row['contact_alias'])
+        for row in target.get_contact_info(source_sys):
+            to_update.populate_contact_info(
+                row['source_system'], row['contact_type'],
+                row['contact_value'],
+                row['contact_pref'], row['description'], row['contact_alias'])
+        to_update.write_db()
+
+
+def copy_addresses(source, target):
+    """ Copy missing addresses from *source* to *target*. """
+    logger.info("Copying addresses from id=%d to id=%d",
+                source.entity_id, target.entity_id)
+    db = target._db
+    const = target.const
+    source_systems = const.fetch_constants(const.AuthoritativeSystem)
+
+    target_id = int(target.entity_id)
+
+    for source_sys in source_systems:
+        logger.debug("entity_address: %s", source_sys)
+
+        to_update = _get_person_by_id(db, target_id)
+        try:
+            for row in source.get_entity_address(source_sys):
+                to_update.populate_address(
+                    row['source_system'], row['address_type'],
+                    row['address_text'], row['p_o_box'], row['postal_number'],
+                    row['city'], row['country'])
+        except Errors.NotFoundError:
+            pass
+        try:
+            for row in target.get_entity_address(source_sys):
+                to_update.populate_address(
+                    row['source_system'], row['address_type'],
+                    row['address_text'], row['p_o_box'], row['postal_number'],
+                    row['city'], row['country'])
+        except Errors.NotFoundError:
+            pass
+        to_update.write_db()
+
+
+def copy_quarantines(source, target):
+    """ Copy quarantines from *source* to *target*. """
+    logger.info("Copying quarantines from id=%d to id=%d",
+                source.entity_id, target.entity_id)
+    # Note: This will potentially *replace* a similar quarantine on *target*.
+    #
+    # We should probably consider start/end dates if both objects has the same
+    # quarantine!
+    for row in source.get_entity_quarantine():
+        logger.info("adding quarantine to id=%d: %s", target.entity_id, row)
+        target.add_entity_quarantine(
+            row['quarantine_type'], row['creator_id'],
+            row['description'], row['start_date'], row['end_date'])
+
+
+def copy_spreads(source, target):
+    """ Copy quarantines from *source* to *target*. """
+    logger.info("Copying spreads from id=%d to id=%d",
+                source.entity_id, target.entity_id)
+    for row in source.get_spread():
+        if not target.has_spread(row['spread']):
+            logger.info("adding spread to id=%d: %s",
+                        target.entity_id, row['spread'])
+            target.add_spread(row['spread'])
+
+
+def copy_affiliations(source, target):
+    """ Copy person affiliations from *source* to *target*. """
+    logger.info("Copying affiliations from id=%d to id=%d",
+                source.entity_id, target.entity_id)
+    db = target._db
+    const = target.const
+    source_systems = const.fetch_constants(const.AuthoritativeSystem)
+
+    target_id = int(target.entity_id)
+
+    for source_sys in source_systems:
+        logger.debug("person_affiliation: %s", source_sys)
+        to_update = _get_person_by_id(db, target_id)
+        do_del = []
+        for aff in source.list_affiliations(person_id=int(source.entity_id),
+                                            source_system=int(source_sys),
+                                            include_deleted=True):
+            to_update.populate_affiliation(
+                aff['source_system'], aff['ou_id'], aff['affiliation'],
+                aff['status'], aff['precedence'])
+            if aff['deleted_date']:
+                do_del.append((int(aff['ou_id']), int(aff['affiliation']),
+                               int(aff['source_system'])))
+        for aff in target.list_affiliations(person_id=int(target.entity_id),
+                                            source_system=int(source_sys)):
+            to_update.populate_affiliation(
+                aff['source_system'], aff['ou_id'], aff['affiliation'],
+                aff['status'], aff['precedence'])
+            try:
+                do_del.remove((int(aff['ou_id']), int(aff['affiliation']),
+                               int(aff['source_system'])))
+            except ValueError:
+                pass
+        to_update.write_db()
+        for aff in do_del:
+            to_update.delete_affiliation(*aff)
+
+
+def move_user_accounts(source, target):
+    """ Move personal user accounts from *source* to *target*. """
+    logger.info("Moving user accounts from id=%d to id=%d",
+                source.entity_id, target.entity_id)
+    assert source._db is target._db
+    db = target._db
+    account = Factory.get('Account')(db)
+
+    old_account_types = []
+    # To avoid FK contraint on account_type, we must first remove all
+    # account_types
+    for row in account.get_account_types(owner_id=int(source.entity_id),
+                                         filter_expired=False):
+        ac = _get_account_by_id(db, row['account_id'])
+        ac.del_account_type(row['ou_id'], row['affiliation'])
+        old_account_types.append(dict(row))
+
+    for row in account.list_accounts_by_owner_id(int(source.entity_id),
+                                                 filter_expired=False):
+        ac = _get_account_by_id(db, row['account_id'])
+        ac.owner_id = target.entity_id
+        ac.write_db()
+        logger.info("Moving account %s (%d) from owner id=%d to id=%d",
+                    ac.account_name, ac.entity_id, source.entity_id,
+                    target.entity_id)
+    for row in old_account_types:
+        ac = _get_account_by_id(db, row['account_id'])
+        ac.set_account_type(row['ou_id'], row['affiliation'], row['priority'])
+
+
+def move_memberships(source, target):
+    """ Move group memberships from *source* to *target*. """
+    logger.info("Copying memberships from id=%d to id=%d",
+                source.entity_id, target.entity_id)
+    assert source._db is target._db
+    db = target._db
+    group = Factory.get('Group')(db)
+    for row in group.search(member_id=int(source.entity_id),
+                            filter_expired=False,
+                            indirect_members=False):
+        group = _get_group_by_id(db, row['group_id'])
+        logger.info("removing id=%d to group %s (%d)",
+                    source.entity_id, group.group_name, group.entity_id)
+        group.remove_member(source.entity_id)
+        if not group.has_member(target.entity_id):
+            logger.info("adding id=%d to group %s (%d)",
+                        target.entity_id, group.group_name, group.entity_id)
+            group.add_member(target.entity_id)
+
+
 def person_join(old_person, new_person, with_uio_ephorte, with_uio_voip,
                 database):
-    """Add information from old person to new person without overwriting
+    """
+    Move missing information from old person to new person.
 
     :param old_person: Populated person object for old person
     :param new_person: Populated person object for new person
@@ -44,187 +355,24 @@ def person_join(old_person, new_person, with_uio_ephorte, with_uio_voip,
     :param database: Cerebrum database connection
     :return:
     """
-    const = Factory.get('Constants')(database)
-    source_systems = const.fetch_constants(const.AuthoritativeSystem)
+    new_dob = new_person.birth_date or old_person.birth_date
+    if new_person.birth_date != new_dob:
+        logger.info("Updating date of birth for id=%d", new_person.entity_id)
+        new_person.birth_date = new_dob
+        new_person.write_db()
 
-    logger.debug(('source_systems: %r', source_systems))
+    move_extid(old_person, new_person)
+    copy_person_names(old_person, new_person)
+    copy_contact_info(old_person, new_person)
+    copy_addresses(old_person, new_person)
+    copy_quarantines(old_person, new_person)
+    copy_spreads(old_person, new_person)
+    copy_affiliations(old_person, new_person)
+    move_user_accounts(old_person, new_person)
+    move_memberships(old_person, new_person)
 
     old_id = old_person.entity_id
     new_id = new_person.entity_id
-
-    # birth_date
-    new_person.birth_date = new_person.birth_date or old_person.birth_date
-    new_person.write_db()
-    # person_external_id
-    types = {}
-    for row in old_person.get_external_id():
-        types[int(row['id_type'])] = 1
-    for row in new_person.get_external_id():
-        types[int(row['id_type'])] = 1
-    types = types.keys()
-    for source_sys in source_systems:
-        logger.debug("person_external_id: %s", source_sys)
-        new_person.clear()  # Avoid "Attribute '_extid_source' is read-only."
-        new_person.find(new_id)
-        new_person.affect_external_id(source_sys, *types)
-        old_person.clear()
-        old_person.find(old_id)
-        old_person.affect_external_id(source_sys, *types)
-        try:
-            for row in old_person.get_external_id(source_sys):
-                new_person.populate_external_id(source_sys, row['id_type'],
-                                                row['external_id'])
-        except Errors.NotFoundError:
-            continue  # Old person didn't have data, no point in continuing
-        try:
-            for row in new_person.get_external_id(source_sys):
-                new_person.populate_external_id(source_sys, row['id_type'],
-                                                row['external_id'])
-        except Errors.NotFoundError:
-            pass
-        old_person.write_db()  # Avoids unique external_id constraint violation
-        new_person.write_db()
-
-    # person_name
-    variants = []
-    for code in old_person.list_person_name_codes():
-        variants.append(int(code['code']))
-    for source_sys in source_systems:
-        logger.debug("person_name: %s", source_sys)
-        new_person.clear()
-        new_person.find(new_id)
-        new_person.affect_names(source_sys, *variants)
-        for code in variants:
-            try:
-                new_person.populate_name(code,
-                                         old_person.get_name(source_sys, code))
-            except Errors.NotFoundError:
-                pass
-            try:
-                new_person.populate_name(code,
-                                         new_person.get_name(source_sys, code))
-            except Errors.NotFoundError:
-                pass
-        new_person.write_db()
-
-    # entity_contact_info
-    for source_sys in source_systems:
-        logger.debug("entity_contact_info: %s", source_sys)
-        new_person.clear()
-        new_person.find(new_id)
-        for row in old_person.get_contact_info(source_sys):
-            new_person.populate_contact_info(
-                row['source_system'], row['contact_type'],
-                row['contact_value'],
-                row['contact_pref'], row['description'], row['contact_alias'])
-        for row in new_person.get_contact_info(source_sys):
-            new_person.populate_contact_info(
-                row['source_system'], row['contact_type'],
-                row['contact_value'],
-                row['contact_pref'], row['description'], row['contact_alias'])
-        new_person.write_db()
-
-    # entity_address
-    for source_sys in source_systems:
-        logger.debug("entity_address: %s", source_sys)
-        new_person.clear()
-        new_person.find(new_id)
-        try:
-            for row in old_person.get_entity_address(source_sys):
-                new_person.populate_address(
-                    row['source_system'], row['address_type'],
-                    row['address_text'], row['p_o_box'], row['postal_number'],
-                    row['city'], row['country'])
-        except Errors.NotFoundError:
-            pass
-        try:
-            for row in new_person.get_entity_address(source_sys):
-                new_person.populate_address(
-                    row['source_system'], row['address_type'],
-                    row['address_text'], row['p_o_box'], row['postal_number'],
-                    row['city'], row['country'])
-        except Errors.NotFoundError:
-            pass
-        new_person.write_db()
-
-    # entity_quarantine
-    for row in old_person.get_entity_quarantine():
-        logger.debug("entity_quarantine: %s", row)
-        new_person.add_entity_quarantine(
-            row['quarantine_type'], row['creator_id'],
-            row['description'], row['start_date'], row['end_date'])
-
-    # entity_spread
-    for row in old_person.get_spread():
-        logger.debug("entity_spread: %s", row['spread'])
-        if not new_person.has_spread(row['spread']):
-            new_person.add_spread(row['spread'])
-
-    # person_affiliation
-    for source_sys in source_systems:
-        logger.debug("person_affiliation: %s", source_sys)
-        new_person.clear()
-        new_person.find(new_id)
-        do_del = []
-        for aff in old_person.list_affiliations(old_person.entity_id,
-                                                source_sys,
-                                                include_deleted=True):
-            new_person.populate_affiliation(
-                aff['source_system'], aff['ou_id'], aff['affiliation'],
-                aff['status'], aff['precedence'])
-            if aff['deleted_date']:
-                do_del.append((int(aff['ou_id']), int(aff['affiliation']),
-                               int(aff['source_system'])))
-        for aff in new_person.list_affiliations(new_person.entity_id,
-                                                source_sys):
-            new_person.populate_affiliation(
-                aff['source_system'], aff['ou_id'], aff['affiliation'],
-                aff['status'], aff['precedence'])
-            try:
-                do_del.remove((int(aff['ou_id']), int(aff['affiliation']),
-                               int(aff['source_system'])))
-            except ValueError:
-                pass
-        new_person.write_db()
-        for aff in do_del:
-            new_person.delete_affiliation(*aff)
-
-    # account_type
-    account = Factory.get('Account')(database)
-    old_account_types = []
-    # To avoid FK contraint on account_type, we must first remove all
-    # account_types
-    for row in account.get_account_types(owner_id=old_person.entity_id,
-                                         filter_expired=False):
-        account.clear()
-        account.find(row['account_id'])
-        account.del_account_type(row['ou_id'], row['affiliation'])
-        old_account_types.append(row)
-        logger.debug("account_type: %s", account.account_name)
-    for row in account.list_accounts_by_owner_id(old_person.entity_id,
-                                                 filter_expired=False):
-        account.clear()
-        account.find(row['account_id'])
-        account.owner_id = new_person.entity_id
-        account.write_db()
-        logger.debug("account owner: %s", account.account_name)
-    for row in old_account_types:
-        account.clear()
-        account.find(row['account_id'])
-        account.set_account_type(row['ou_id'], row['affiliation'],
-                                 row['priority'])
-
-    # group_member
-    group = Factory.get('Group')(database)
-    for row in group.search(member_id=int(old_person.entity_id),
-                            filter_expired=False,
-                            indirect_members=False):
-        group.clear()
-        group.find(row['group_id'])
-        logger.debug("group_member: %s" % group.group_name)
-        if not group.has_member(new_person.entity_id):
-            group.add_member(new_person.entity_id)
-        group.remove_member(old_person.entity_id)
 
     if with_uio_ephorte:
         join_ephorte_roles(old_id, new_id, database)
