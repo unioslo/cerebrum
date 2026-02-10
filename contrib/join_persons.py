@@ -41,9 +41,15 @@ Simpler updates
     from the source entity, and clear the data from source?
 
 """
-import sys
-import logging
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import argparse
+import logging
+import textwrap
 
 from Cerebrum import Errors
 from Cerebrum import logutils
@@ -75,8 +81,8 @@ def copy_person_names(source, target):
     """
     Copy missing names from *source* to *target*.
     """
-    logger.info("Copying names from person id=%d to person id=%d",
-                source.entity_id, target.entity_id)
+    logger.debug("person name: copying from person id=%d to person id=%d",
+                 source.entity_id, target.entity_id)
     db = target._db
     const = target.const
     source_systems = const.fetch_constants(const.AuthoritativeSystem)
@@ -89,7 +95,7 @@ def copy_person_names(source, target):
         variants.append(int(code['code']))
 
     for source_sys in source_systems:
-        logger.debug("person_name: %s", source_sys)
+        logger.debug("person name: %s", source_sys)
         # We re-find a fresh person object so we can re-populate for each
         # source system
         person = _get_person_by_id(db, target_id)
@@ -115,8 +121,8 @@ def move_extid(source, target):
     # Note: This will *clear* all external ids from *source*.  This must be
     # done to avoid a unique constraint preventing two entities having the same
     # id from the same source system.
-    logger.info("Moving external ids from id=%d to id=%d",
-                source.entity_id, target.entity_id)
+    logger.debug("external id: moving from id=%d to id=%d",
+                 source.entity_id, target.entity_id)
     assert source._db is target._db
     db = target._db
     const = target.const
@@ -135,7 +141,7 @@ def move_extid(source, target):
         return
 
     for source_sys in source_systems:
-        logger.debug("person_external_id: %s", source_sys)
+        logger.debug("external id: %s", source_sys)
 
         # We need to re-find objects for each source system, as we can only run
         # *affect_external_id* once per person
@@ -171,8 +177,8 @@ def copy_contact_info(source, target):
     """
     Copy missing contact info from *source* to *target*.
     """
-    logger.info("Copying contacts from id=%d to id=%d",
-                source.entity_id, target.entity_id)
+    logger.debug("contact info: copying from id=%d to id=%d",
+                 source.entity_id, target.entity_id)
     db = target._db
     const = target.const
     source_systems = const.fetch_constants(const.AuthoritativeSystem)
@@ -180,7 +186,7 @@ def copy_contact_info(source, target):
     target_id = int(target.entity_id)
 
     for source_sys in source_systems:
-        logger.debug("entity_contact_info: %s", source_sys)
+        logger.debug("contact info: %s", source_sys)
 
         to_update = _get_person_by_id(db, target_id)
         for row in source.get_contact_info(source_sys):
@@ -198,8 +204,8 @@ def copy_contact_info(source, target):
 
 def copy_addresses(source, target):
     """ Copy missing addresses from *source* to *target*. """
-    logger.info("Copying addresses from id=%d to id=%d",
-                source.entity_id, target.entity_id)
+    logger.debug("address: copying from id=%d to id=%d",
+                 source.entity_id, target.entity_id)
     db = target._db
     const = target.const
     source_systems = const.fetch_constants(const.AuthoritativeSystem)
@@ -207,7 +213,7 @@ def copy_addresses(source, target):
     target_id = int(target.entity_id)
 
     for source_sys in source_systems:
-        logger.debug("entity_address: %s", source_sys)
+        logger.debug("address: %s", source_sys)
 
         to_update = _get_person_by_id(db, target_id)
         try:
@@ -231,14 +237,15 @@ def copy_addresses(source, target):
 
 def copy_quarantines(source, target):
     """ Copy quarantines from *source* to *target*. """
-    logger.info("Copying quarantines from id=%d to id=%d",
-                source.entity_id, target.entity_id)
+    logger.debug("quarantine: copying from id=%d to id=%d",
+                 source.entity_id, target.entity_id)
     # Note: This will potentially *replace* a similar quarantine on *target*.
     #
     # We should probably consider start/end dates if both objects has the same
     # quarantine!
     for row in source.get_entity_quarantine():
-        logger.info("adding quarantine to id=%d: %s", target.entity_id, row)
+        logger.info("quarantine: adding to id=%d: %s",
+                    source.entity_id, target.entity_id, row)
         target.add_entity_quarantine(
             row['quarantine_type'], row['creator_id'],
             row['description'], row['start_date'], row['end_date'])
@@ -246,19 +253,19 @@ def copy_quarantines(source, target):
 
 def copy_spreads(source, target):
     """ Copy quarantines from *source* to *target*. """
-    logger.info("Copying spreads from id=%d to id=%d",
-                source.entity_id, target.entity_id)
+    logger.debug("spread: copying from id=%d to id=%d",
+                 source.entity_id, target.entity_id)
     for row in source.get_spread():
         if not target.has_spread(row['spread']):
-            logger.info("adding spread to id=%d: %s",
+            logger.info("spread: adding to id=%d: %s",
                         target.entity_id, row['spread'])
             target.add_spread(row['spread'])
 
 
 def copy_affiliations(source, target):
     """ Copy person affiliations from *source* to *target*. """
-    logger.info("Copying affiliations from id=%d to id=%d",
-                source.entity_id, target.entity_id)
+    logger.debug("affiliation: copying from id=%d to id=%d",
+                 source.entity_id, target.entity_id)
     db = target._db
     const = target.const
     source_systems = const.fetch_constants(const.AuthoritativeSystem)
@@ -266,7 +273,7 @@ def copy_affiliations(source, target):
     target_id = int(target.entity_id)
 
     for source_sys in source_systems:
-        logger.debug("person_affiliation: %s", source_sys)
+        logger.debug("affiliation: %s", source_sys)
         to_update = _get_person_by_id(db, target_id)
         do_del = []
         for aff in source.list_affiliations(person_id=int(source.entity_id),
@@ -295,8 +302,8 @@ def copy_affiliations(source, target):
 
 def move_user_accounts(source, target):
     """ Move personal user accounts from *source* to *target*. """
-    logger.info("Moving user accounts from id=%d to id=%d",
-                source.entity_id, target.entity_id)
+    logger.debug("user account: moving from id=%d to id=%d",
+                 source.entity_id, target.entity_id)
     assert source._db is target._db
     db = target._db
     account = Factory.get('Account')(db)
@@ -315,9 +322,8 @@ def move_user_accounts(source, target):
         ac = _get_account_by_id(db, row['account_id'])
         ac.owner_id = target.entity_id
         ac.write_db()
-        logger.info("Moving account %s (%d) from owner id=%d to id=%d",
-                    ac.account_name, ac.entity_id, source.entity_id,
-                    target.entity_id)
+        logger.info("user account: moving account %s (%d) to id=%d",
+                    ac.account_name, ac.entity_id, target.entity_id)
     for row in old_account_types:
         ac = _get_account_by_id(db, row['account_id'])
         ac.set_account_type(row['ou_id'], row['affiliation'], row['priority'])
@@ -325,8 +331,8 @@ def move_user_accounts(source, target):
 
 def move_memberships(source, target):
     """ Move group memberships from *source* to *target*. """
-    logger.info("Copying memberships from id=%d to id=%d",
-                source.entity_id, target.entity_id)
+    logger.debug("group: copying memberships from id=%d to id=%d",
+                 source.entity_id, target.entity_id)
     assert source._db is target._db
     db = target._db
     group = Factory.get('Group')(db)
@@ -334,294 +340,269 @@ def move_memberships(source, target):
                             filter_expired=False,
                             indirect_members=False):
         group = _get_group_by_id(db, row['group_id'])
-        logger.info("removing id=%d to group %s (%d)",
+        logger.info("group: removing id=%d from %s (%d)",
                     source.entity_id, group.group_name, group.entity_id)
         group.remove_member(source.entity_id)
         if not group.has_member(target.entity_id):
-            logger.info("adding id=%d to group %s (%d)",
+            logger.info("group: adding id=%d to %s (%d)",
                         target.entity_id, group.group_name, group.entity_id)
             group.add_member(target.entity_id)
 
 
-def person_join(old_person, new_person, with_uio_ephorte, with_uio_voip,
-                database):
+def person_join(source, target, with_uio_ephorte, with_uio_voip):
     """
     Move missing information from old person to new person.
 
-    :param old_person: Populated person object for old person
-    :param new_person: Populated person object for new person
-    :param with_uio_ephorte: Include ephorte information for UiO
-    :param with_uio_voip: Include voip information for UiO
-    :param database: Cerebrum database connection
-    :return:
+    :param source: person object to fetch from and delete
+    :param target: person object to update and keep
+    :param with_uio_ephorte: merge manual ephorte/elements roles
+    :param with_uio_voip: merge voip addresses
     """
-    new_dob = new_person.birth_date or old_person.birth_date
-    if new_person.birth_date != new_dob:
-        logger.info("Updating date of birth for id=%d", new_person.entity_id)
-        new_person.birth_date = new_dob
-        new_person.write_db()
+    new_dob = target.birth_date or source.birth_date
+    if target.birth_date != new_dob:
+        logger.info("basic: updating date of birth for id=%d",
+                    target.entity_id)
+        target.birth_date = new_dob
+        target.write_db()
 
-    move_extid(old_person, new_person)
-    copy_person_names(old_person, new_person)
-    copy_contact_info(old_person, new_person)
-    copy_addresses(old_person, new_person)
-    copy_quarantines(old_person, new_person)
-    copy_spreads(old_person, new_person)
-    copy_affiliations(old_person, new_person)
-    move_user_accounts(old_person, new_person)
-    move_memberships(old_person, new_person)
-
-    old_id = old_person.entity_id
-    new_id = new_person.entity_id
+    move_extid(source, target)
+    copy_person_names(source, target)
+    copy_contact_info(source, target)
+    copy_addresses(source, target)
+    copy_quarantines(source, target)
+    copy_spreads(source, target)
+    copy_affiliations(source, target)
+    move_user_accounts(source, target)
+    move_memberships(source, target)
 
     if with_uio_ephorte:
-        join_ephorte_roles(old_id, new_id, database)
-        join_elements_roles(old_id, new_id, database)
+        join_ephorte_roles(source, target)
+        join_elements_roles(source, target)
 
     if with_uio_voip:
-        join_uio_voip_objects(old_id, new_id, database)
+        join_uio_voip_objects(source, target)
 
     # EntityConsentMixin
-    join_consents(old_person, new_person)
+    move_consents(source, target)
 
 
-def join_consents(old_person, new_person):
-    """Join consent information to new person
-
-    :param old_person: populated old person object
-    :param new_person: populated new person object
-    :return:
-    """
-    if not hasattr(new_person, 'list_consents'):
+def move_consents(source, target):
+    """ Move consent data from *source* to *target*. """
+    logger.debug("consent: moving from id=%d to id=%d",
+                 source.entity_id, target.entity_id)
+    assert source._db is target._db
+    if not hasattr(target, "list_consents"):
         return
-    old_consents = old_person.list_consents(entity_id=old_person.entity_id)
-    if not old_consents:
+    to_move = source.list_consents(entity_id=int(source.entity_id))
+    if not to_move:
         return
-    for old_consent in old_consents:
-        new_consent = new_person.list_consents(
-            entity_id=new_person.entity_id,
-            consent_code=old_consent['consent_code'])
+    for consent in to_move:
+        has_consent = target.list_consents(
+            entity_id=int(target.entity_id),
+            consent_code=consent['consent_code'])
+        if has_consent:
+            has_consent = has_consent[0]
 
-        if new_consent:
-            new_consent = new_consent[0]
-        keep = not new_consent
-        logger.info(
-            'consent: old person has consent. '
-            'joining with new? %s consent=%s', keep, dict(old_consent))
-        if keep:
-            new_person.set_consent(
-                consent_code=old_consent['consent_code'],
-                description=old_consent['description'])
-        old_person.remove_consent(consent_code=old_consent['consent_code'])
-    old_person.write_db()
-    new_person.write_db()
+        logger.debug(
+            "consent: type=%s source=%s target=%s",
+            consent['consent_code'], dict(consent), dict(has_consent))
+
+        source.remove_consent(consent_code=consent['consent_code'])
+        logger.info("consent: remove type=%s from id=%d",
+                    consent['consent_type'], source.entity_id)
+        if not has_consent:
+            logger.info("consent: add type=%s to id=%d",
+                        consent['consent_type'], target.entity_id)
+            target.set_consent(
+                consent_code=consent['consent_code'],
+                description=consent['description'])
+    source.write_db()
+    target.write_db()
 
 
-def join_ephorte_roles(old_id, new_id, database):
-    """Add old ephorte roles to new person
-
-    :param old_id: entity_id of old person object
-    :param new_id: entity_id of new person object
-    :param database: database connection
-    :return:
+def _join_ephorte_roles(source, target, role_db, role_sys_hint="ephorte"):
     """
-    # All ephorte roles belonging to old_person must be deleted.
-    # Any roles that are manual (auto=F) should be given to new person
+    Move manual roles from *source* to *target*
+    """
+    # All ephorte roles belonging to source must be deleted.
+    # Any roles that are manual (auto=F) should be given to target
+    source_id = int(source.entity_id)
+    target_id = int(target.entity_id)
+
+    for row in role_db.list_roles(person_id=source_id):
+        role_str = "role ({}, {}, {}, {})".format(
+            row['role_type'], row['adm_enhet'], row['arkivdel'],
+            row['journalenhet'],
+        )
+        if row['auto_role'] == 'F':
+            # TODO: we should check if a person has a role before
+            # adding, so that we don't need the try: ... except:...
+            # but that is a bit swinish the way Ephorte.py is
+            # designed at the moment and will be more dirty than this
+            # hack. Ephorte.py will be redesigned pretty soon.
+            try:
+                role_db.add_role(
+                    target_id,
+                    int(row['role_type']),
+                    int(row['adm_enhet']),
+                    row['arkivdel'],
+                    row['journalenhet'],
+                    auto_role='F',
+                )
+                logger.info("%s: added %s to %d",
+                            role_sys_hint, role_str, target_id)
+            except Exception as exc:
+                logger.warning("%s: couldn't transfer %s to %s - %s",
+                               role_sys_hint, role_str, target_id, exc)
+
+        role_db.remove_role(source_id, int(row['role_type']),
+                            int(row['adm_enhet']),
+                            row['arkivdel'], row['journalenhet'])
+        logger.info("%s: removed %s from %d",
+                    role_sys_hint, role_str, source_id)
+
+
+def join_ephorte_roles(source, target):
     from Cerebrum.modules.no.uio.Ephorte import EphorteRole
-    ephorte_role = EphorteRole(database)
-
-    for row in ephorte_role.list_roles(person_id=old_id):
-        role_str = "ephorte role (%s, %s, %s, %s) from %s" % (
-            row['role_type'], row['adm_enhet'], row['arkivdel'],
-            row['journalenhet'], old_id)
-        if row['auto_role'] == 'F':
-            # TODO: we should check if a person has a role before
-            # adding, so that we don't need the try: ... except:...
-            # but that is a bit swinish the way Ephorte.py is
-            # designed at the moment and will be more dirty than this
-            # hack. Ephorte.py will be redesigned pretty soon.
-            try:
-                ephorte_role.add_role(new_id,
-                                      int(row['role_type']),
-                                      int(row['adm_enhet']),
-                                      row['arkivdel'],
-                                      row['journalenhet'],
-                                      auto_role='F')
-                logger.debug("Transferring %s to %s", role_str, new_id)
-            except Exception as exc:
-                logger.warning("Couldn't transfer %s to %s\n%s",
-                               role_str, new_id, exc)
-        else:
-            logger.debug("Removing %s", role_str)
-        # Remove role from old_person
-        ephorte_role.remove_role(old_id, int(row['role_type']),
-                                 int(row['adm_enhet']),
-                                 row['arkivdel'], row['journalenhet'])
+    assert source._db is target._db
+    logger.debug("ephorte: moving from id=%d to id=%d",
+                 source.entity_id, target.entity_id)
+    _join_ephorte_roles(source, target, EphorteRole(target._db),
+                        role_sys_hint="ephorte")
 
 
-def join_elements_roles(old_id, new_id, database):
-    """Add old ePhorte Elements roles to new person
-
-    :param old_id: entity_id of old person object
-    :param new_id: entity_id of new person object
-    :param database: database connection
-    :return:
-    """
-    # All ephorte roles belonging to old_person must be deleted.
-    # Any roles that are manual (auto=F) should be given to new person
+def join_elements_roles(source, target):
     from Cerebrum.modules.no.uio.Elements import ElementsRole
-    ephorte_role = ElementsRole(database)
-
-    for row in ephorte_role.list_roles(person_id=old_id):
-        role_str = "ephorte role (%s, %s, %s, %s) from %s" % (
-            row['role_type'], row['adm_enhet'], row['arkivdel'],
-            row['journalenhet'], old_id)
-        if row['auto_role'] == 'F':
-            # TODO: we should check if a person has a role before
-            # adding, so that we don't need the try: ... except:...
-            # but that is a bit swinish the way Ephorte.py is
-            # designed at the moment and will be more dirty than this
-            # hack. Ephorte.py will be redesigned pretty soon.
-            try:
-                ephorte_role.add_role(new_id,
-                                      int(row['role_type']),
-                                      int(row['adm_enhet']),
-                                      row['arkivdel'],
-                                      row['journalenhet'],
-                                      auto_role='F')
-                logger.debug("Transferring %s to %s", role_str, new_id)
-            except Exception as exc:
-                logger.warning("Couldn't transfer %s to %s\n%s",
-                               role_str, new_id, exc)
-        else:
-            logger.debug("Removing %s", role_str)
-        # Remove role from old_person
-        ephorte_role.remove_role(old_id, int(row['role_type']),
-                                 int(row['adm_enhet']),
-                                 row['arkivdel'], row['journalenhet'])
+    assert source._db is target._db
+    logger.debug("elements: moving from id=%d to id=%d",
+                 source.entity_id, target.entity_id)
+    _join_ephorte_roles(source, target, ElementsRole(target._db),
+                        role_sys_hint="elements")
 
 
-def join_uio_voip_objects(old_id, new_id, database):
-    """Transfer voip objects from person old_id to person new_id.
+def join_uio_voip_objects(source, target):
+    """
+    Transfer voip objects from *source* to *target*.
 
-    Respect that a person can have at most one voip_address, i.e.
-    transfer happens only if old_id owns one address and new_id
-    owns none. In case old_id owns no voip_address, nothing is transfered
-    and join continues. Otherwise, join rolls back.
-    :type old_id: int
-    :param old_id: person id
-    :type new_id: int
-    :param new_id: person id
-    :param database: database connection
+    We need to maintain that a person can have *at most* one voip_address.
+
+    This means a transfer only happens if *source* owns one address, and
+    *target* owns none.  If both objects own addresses, or the *source* somehow
+    owns multiple addresses, we need to abort and clean up manually!
     """
     from Cerebrum.modules.no.uio.voip.voipAddress import VoipAddress
-    voip_addr = VoipAddress(database)
+    assert source._db is target._db
+    source_id = int(source.entity_id)
+    target_id = int(target.entity_id)
+
+    voip_addr = VoipAddress(target._db)
     voip_addr.clear()
-    old_person_voip_addr = voip_addr.search(owner_entity_id=old_id)
-    new_person_voip_addr = voip_addr.search(owner_entity_id=new_id)
-    if (len(old_person_voip_addr) == 1
-            and not new_person_voip_addr):
+    old_person_voip_addr = voip_addr.search(owner_entity_id=source_id)
+    new_person_voip_addr = voip_addr.search(owner_entity_id=target_id)
+    if (len(old_person_voip_addr) == 1 and not new_person_voip_addr):
         # Transfer
         voip_addr.clear()
         try:
-            voip_addr.find_by_owner_id(old_id)
+            voip_addr.find_by_owner_id(source_id)
         except Errors.NotFoundError:
-            logger.info("No voip address found for owner id %s", old_id)
+            logger.info("No voip address found for owner id %s", source_id)
             return
         logger.debug("Change owner of voip_address %s to %s",
-                     voip_addr.entity_id,
-                     new_id)
-        voip_addr.populate(new_id)
+                     voip_addr.entity_id, target_id)
+        voip_addr.populate(target_id)
         voip_addr.write_db()
     elif not old_person_voip_addr:
-        logger.info("Nothing to transfer."
-                    " Person %s owns no voip addresses", old_id)
+        logger.debug("voip: person id=%d owns no voip addresses", source_id)
     else:
         logger.warning("Source person %s owns voip addresses: %s",
-                       old_id, old_person_voip_addr)
+                       source_id, old_person_voip_addr)
         logger.warning("Target person %s owns voip addresses:%s",
-                       new_id, new_person_voip_addr)
-        database.rollback()
-        logger.warning("Cannot transfer, rollback all changes."
-                       "Manual intervention required to join voip objects.")
-        sys.exit(1)
+                       target_id, new_person_voip_addr)
+        raise RuntimeError(
+            "Both persons own voip addresses: "
+            "Manual intervention required to join voip objects.")
 
 
-def main():
-    """Parse arguments and run the appropriate functions
-
-    :return:
-    """
+def main(argv=None):
     parser = argparse.ArgumentParser(
-        description='''Merges all information about a person identified by
-        entity_id into the new person, not overwriting existing values in
-        new person.  The old_person entity is permanently removed from the
-         database.''')
+        description=textwrap.dedent(
+            """
+            Merge two person objects into one.
 
-    # Add commit/dryrun arguments
+            Merges all information from an *old* person object into the *new*
+            person object.  The script will not replace any info in the *new*
+            person object, and the *old* person object is deleted.
+            """
+        ).lstrip(),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "--old",
+        dest="source_id",
+        type=int,
+        required=True,
+        help="Merge from, and delete person object %(metavar)s",
+        metavar="ID",
+    )
+    parser.add_argument(
+        "--new",
+        dest="target_id",
+        type=int,
+        required=True,
+        help="Merge to, and keep person object %(metavar)s",
+        metavar="ID",
+    )
+    parser.add_argument(
+        "--ephorte-uio",
+        dest="with_uio_ephorte",
+        help="Transfer ephorte/elements roles",
+        action="store_true",
+    )
+    parser.add_argument(
+        "--voip-uio",
+        dest="with_uio_voip",
+        help="Transfer VoIP addresses",
+        action="store_true",
+    )
     parser = add_commit_args(parser)
-
-    parser.add_argument(
-        '--old',
-        help='Old entity_id',
-        required=True,
-        type=int)
-    parser.add_argument(
-        '--new',
-        help='New entity_id',
-        required=True,
-        type=int)
-    parser.add_argument(
-        '--ephorte-uio',
-        dest='with_uio_ephorte',
-        help='transfer uio-ephorte roles',
-        action='store_true')
-    parser.add_argument(
-        '--voip-uio',
-        dest='with_uio_voip',
-        help='transfer voip objects',
-        action='store_true')
-
     logutils.options.install_subparser(parser)
-    args = parser.parse_args()
-    logutils.autoconf('tee', args)
 
-    logger.info('Start of script %s', parser.prog)
+    args = parser.parse_args(argv)
+    logutils.autoconf_interactive(args)
+    logger.info("start %s", parser.prog)
     logger.debug('args: %r', args)
 
-    #
-    # Initialize globals
-    #
     database = Factory.get('Database')()
     database.cl_init(change_program="join_persons")
     clconst = Factory.get('CLConstants')(database)
 
-    old_person = Factory.get('Person')(database)
-    old_person.find(args.old)
-    new_person = Factory.get('Person')(database)
-    new_person.find(args.new)
+    source = _get_person_by_id(database, args.source_id)
+    target = _get_person_by_id(database, args.target_id)
+
     database.log_change(
-        new_person.entity_id,
+        target.entity_id,
         clconst.person_join,
         None,
         change_params={
-            "old": old_person.entity_id,
-            "new": new_person.entity_id
+            "old": source.entity_id,
+            "new": target.entity_id
         },
     )
 
-    person_join(old_person, new_person,
-                args.with_uio_ephorte, args.with_uio_voip, database)
-    old_person.delete()
+    logger.info("Joining person id=%d into person id=%d",
+                source.entity_id, target.entity_id)
+    person_join(source, target, args.with_uio_ephorte, args.with_uio_voip)
+
+    logger.info("Deleting person id=%d", source.entity_id)
+    source.delete()
 
     if args.commit:
         database.commit()
-        logger.info('Changes were committed to the database')
+        logger.info("commit")
     else:
         database.rollback()
-        logger.info('Dry run. Changes to the database were rolled back')
-
-    logger.info('Done with script %s', parser.prog)
+        logger.info("rollback (dryrun)")
+    logger.info("done %s", parser.prog)
 
 
 if __name__ == '__main__':
