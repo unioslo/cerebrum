@@ -32,14 +32,21 @@ Simpler updates
     1. Fetch all entries from *source*
     2. For each entry, add to *target* unless already present
 
-
-*join* entity methods
-    Each functional component should be moved to the appropriate class.
+Testable *join* helpers
+    Each functional component should be moved to an appropriate module, and get
+    unit tests.
 
     Maybe the Entity base class and each subclass/mixin should have a
-    `target.join_from(source)` method, which would update the target entity
-    from the source entity, and clear the data from source?
+    ``target.join_from(source)`` method, which would update the target entity
+    from the source entity?  This is probably the simplest way to organize
+    this, but also a bit messy as we need to mutate/update the *source* in some
+    cases...
 
+    The mixin approach would also remove the need for ephorte and voip switches
+    - this would be automatically done if appropriate mixins are in place.
+
+    Or maybe we should have a `Cerebrum[.modules].merge_utils` module with
+    helpers similar to `Cerebrum.modules.import_utils.syncs`?
 """
 from __future__ import (
     absolute_import,
@@ -50,6 +57,8 @@ from __future__ import (
 import argparse
 import logging
 import textwrap
+
+import six
 
 from Cerebrum import Errors
 from Cerebrum import logutils
@@ -77,6 +86,59 @@ def _get_group_by_id(db, group_id):
     return gr
 
 
+def _log_changes(change_type, ident, before, after):
+    """
+    Calculate and log changes from *before*/*after* sets.
+
+    Before/after are compatible sets of tuples, where each tuple contains
+    ``(key, value)``, where the key is a tuple of CerebrumCode values or (some
+    other primary key value).
+
+    :param set before: a set of value tuples
+    :param set after: a set of value tuples
+
+    :returns tuple:
+        A tuple with three sets; added, updated, removed
+
+        Each set contains the keys that has been added, updated, or removed
+        according to the input sets.
+    """
+    # Ideally, we shouldn't need this at all - changes *should* be logged as
+    # they are written to the database.  Newer or refactored modules does this
+    # better - notice how traits or otp codes are shown if present when
+    # deleting the source object.
+    def _get_changes(before, after):
+        before_types = set(t[0] for t in before)
+        after_types = set(t[0] for t in after)
+        removed = before_types - after_types
+        added = after_types - before_types
+        updated = set(t[0] for t in (after - before)) - added
+        return added, updated, removed
+
+    def _pretty_keys(keyset):
+        return ", ".join(sorted("/".join(six.text_type(k) for k in key)
+                                for key in keyset))
+
+    added, updated, removed = _get_changes(before, after)
+    if added:
+        logger.info("%s: id=%s, added: %s", change_type, ident,
+                    _pretty_keys(added))
+    if updated:
+        # Note: This script should *generally* not produce any updates, but we
+        # may encounter updates for:
+        # - person names (the cached source system)
+        # - quarantines (if both persons have a given quarantine, this is
+        #                however likely not intended)
+        # - affiliations (e.g. last_seen is always touched)
+        logger.info("%s: id=%s, updated: %s", change_type, ident,
+                    _pretty_keys(updated))
+    if removed:
+        logger.info("%s: id=%s, removed: %s", change_type, ident,
+                    _pretty_keys(removed))
+    if not any((added, removed, updated)):
+        logger.info("%s: id=%s, no change", change_type, ident)
+
+
 def copy_person_names(source, target):
     """
     Copy missing names from *source* to *target*.
@@ -94,8 +156,18 @@ def copy_person_names(source, target):
     for code in source.list_person_name_codes():
         variants.append(int(code['code']))
 
+    def _get_current(person):
+        for row in person.get_names():
+            key = (
+                six.text_type(const.AuthoritativeSystem(row['source_system'])),
+                six.text_type(const.PersonName(row['name_variant'])),
+            )
+            value = (row['name'],)
+            yield (key, value)
+
+    before = set(_get_current(target))
+
     for source_sys in source_systems:
-        logger.debug("person name: %s", source_sys)
         # We re-find a fresh person object so we can re-populate for each
         # source system
         person = _get_person_by_id(db, target_id)
@@ -112,6 +184,9 @@ def copy_person_names(source, target):
             except Errors.NotFoundError:
                 pass
         person.write_db()
+
+    _log_changes("person name", target.entity_id,
+                 before, set(_get_current(target)))
 
 
 def move_extid(source, target):
@@ -136,16 +211,25 @@ def move_extid(source, target):
         types.add(int(row['id_type']))
     for row in target.get_external_id():
         types.add(int(row['id_type']))
+
     if not types:
         # Nothing to move
         return
 
-    for source_sys in source_systems:
-        logger.debug("external id: %s", source_sys)
+    def _get_current(curr):
+        for row in curr.get_external_id():
+            key = (
+                six.text_type(const.AuthoritativeSystem(row['source_system'])),
+                six.text_type(const.EntityExternalId(row['id_type'])),
+            )
+            value = (row['external_id'],)
+            yield (key, value)
 
+    before = set(_get_current(target))
+
+    for source_sys in source_systems:
         # We need to re-find objects for each source system, as we can only run
         # *affect_external_id* once per person
-
         to_update = _get_person_by_id(db, target_id)
         to_update.affect_external_id(source_sys, *types)
         try:
@@ -172,6 +256,9 @@ def move_extid(source, target):
 
         to_update.write_db()
 
+    _log_changes("external id", target.entity_id,
+                 before, set(_get_current(target)))
+
 
 def copy_contact_info(source, target):
     """
@@ -185,9 +272,19 @@ def copy_contact_info(source, target):
 
     target_id = int(target.entity_id)
 
-    for source_sys in source_systems:
-        logger.debug("contact info: %s", source_sys)
+    def _get_current(curr):
+        for row in curr.get_contact_info():
+            key = (
+                six.text_type(const.AuthoritativeSystem(row['source_system'])),
+                six.text_type(const.ContactInfo(row['contact_type'])),
+            )
+            value = (row['contact_value'], row['contact_pref'],
+                     row['description'], row['contact_alias'])
+            yield (key, value)
 
+    before = set(_get_current(target))
+
+    for source_sys in source_systems:
         to_update = _get_person_by_id(db, target_id)
         for row in source.get_contact_info(source_sys):
             to_update.populate_contact_info(
@@ -201,6 +298,9 @@ def copy_contact_info(source, target):
                 row['contact_pref'], row['description'], row['contact_alias'])
         to_update.write_db()
 
+    _log_changes("contact info", target.entity_id,
+                 before, set(_get_current(target)))
+
 
 def copy_addresses(source, target):
     """ Copy missing addresses from *source* to *target*. """
@@ -212,9 +312,19 @@ def copy_addresses(source, target):
 
     target_id = int(target.entity_id)
 
-    for source_sys in source_systems:
-        logger.debug("address: %s", source_sys)
+    def _get_current(curr):
+        for row in curr.get_entity_address():
+            key = (
+                six.text_type(const.AuthoritativeSystem(row['source_system'])),
+                six.text_type(const.Address(row['address_type'])),
+            )
+            value = (row['address_text'], row['p_o_box'],
+                     row['postal_number'], row['city'], row['country'])
+            yield (key, value)
 
+    before = set(_get_current(target))
+
+    for source_sys in source_systems:
         to_update = _get_person_by_id(db, target_id)
         try:
             for row in source.get_entity_address(source_sys):
@@ -234,36 +344,56 @@ def copy_addresses(source, target):
             pass
         to_update.write_db()
 
+    _log_changes("address", target.entity_id,
+                 before, set(_get_current(target)))
+
 
 def copy_quarantines(source, target):
     """ Copy quarantines from *source* to *target*. """
     logger.debug("quarantine: copying from id=%d to id=%d",
                  source.entity_id, target.entity_id)
+    const = target.const
+
+    def _get_current(curr):
+        for row in curr.get_entity_quarantine():
+            key = (six.text_type(const.Quarantine(row['quarantine_type'])),)
+            value = (row['creator_id'], row['description'],
+                     row['create_date'], row['start_date'],
+                     row['end_date'], row['disable_until'])
+            yield key, value
+
+    before = set(_get_current(target))
+
     # Note: This will potentially *replace* a similar quarantine on *target*.
     #
     # We should probably consider start/end dates if both objects has the same
     # quarantine!
     for row in source.get_entity_quarantine():
-        logger.info("quarantine: adding to id=%d: %s",
-                    source.entity_id, target.entity_id, row)
         target.add_entity_quarantine(
             row['quarantine_type'], row['creator_id'],
             row['description'], row['start_date'], row['end_date'])
+
+    _log_changes("quarantine", target.entity_id, before,
+                 set(_get_current(target)))
 
 
 def copy_spreads(source, target):
     """ Copy quarantines from *source* to *target*. """
     logger.debug("spread: copying from id=%d to id=%d",
                  source.entity_id, target.entity_id)
+    const = target.const
+
     for row in source.get_spread():
-        if not target.has_spread(row['spread']):
-            logger.info("spread: adding to id=%d: %s",
-                        target.entity_id, row['spread'])
-            target.add_spread(row['spread'])
+        spread = const.Spread(row['spread'])
+        if not target.has_spread(spread):
+            logger.info("spread: id=%s, adding: %s",
+                        target.entity_id, spread)
+            target.add_spread(spread)
 
 
 def copy_affiliations(source, target):
     """ Copy person affiliations from *source* to *target*. """
+    # Note that we also copy *deleted* affiliations
     logger.debug("affiliation: copying from id=%d to id=%d",
                  source.entity_id, target.entity_id)
     db = target._db
@@ -272,8 +402,21 @@ def copy_affiliations(source, target):
 
     target_id = int(target.entity_id)
 
+    def _get_current(person):
+        for row in person.list_affiliations(person_id=int(person.entity_id),
+                                            include_deleted=True):
+            key = (
+                six.text_type(const.AuthoritativeSystem(row['source_system'])),
+                six.text_type(const.PersonAffiliation(row['affiliation'])),
+                six.text_type(row['ou_id']),
+            )
+            value = (row['status'], row['precedence'], row['create_date'],
+                     row['deleted_date'], row['last_date'])
+            yield (key, value)
+
+    before = set(_get_current(target))
+
     for source_sys in source_systems:
-        logger.debug("affiliation: %s", source_sys)
         to_update = _get_person_by_id(db, target_id)
         do_del = []
         for aff in source.list_affiliations(person_id=int(source.entity_id),
@@ -298,6 +441,9 @@ def copy_affiliations(source, target):
         to_update.write_db()
         for aff in do_del:
             to_update.delete_affiliation(*aff)
+
+    _log_changes("affiliation", target.entity_id, before,
+                 set(_get_current(target)))
 
 
 def move_user_accounts(source, target):
@@ -382,8 +528,11 @@ def person_join(source, target, with_uio_ephorte, with_uio_voip):
     if with_uio_voip:
         join_uio_voip_objects(source, target)
 
-    # EntityConsentMixin
     move_consents(source, target)
+    # TODO: We should probably consider traits?
+    # TODO: We should probably consider special consent/reservation logic not
+    # represented through the consent module?
+    # TODO: We should probably consider personal otp secrets?
 
 
 def move_consents(source, target):
@@ -393,31 +542,38 @@ def move_consents(source, target):
     assert source._db is target._db
     if not hasattr(target, "list_consents"):
         return
-    to_move = source.list_consents(entity_id=int(source.entity_id))
-    if not to_move:
-        return
-    for consent in to_move:
-        has_consent = target.list_consents(
-            entity_id=int(target.entity_id),
-            consent_code=consent['consent_code'])
-        if has_consent:
-            has_consent = has_consent[0]
+    const = target.const
 
-        logger.debug(
-            "consent: type=%s source=%s target=%s",
-            consent['consent_code'], dict(consent), dict(has_consent))
+    def _get_current(curr):
+        for row in curr.list_consents(entity_id=int(curr.entity_id)):
+            key = (
+                const.EntityConsent(row['consent_code']),
+            )
+            value = (row['set_at'], row['description'])
+            yield key, value
 
-        source.remove_consent(consent_code=consent['consent_code'])
-        logger.info("consent: remove type=%s from id=%d",
-                    consent['consent_type'], source.entity_id)
-        if not has_consent:
-            logger.info("consent: add type=%s to id=%d",
-                        consent['consent_type'], target.entity_id)
-            target.set_consent(
-                consent_code=consent['consent_code'],
-                description=consent['description'])
-    source.write_db()
-    target.write_db()
+    to_move = set(_get_current(source))
+    before = set(_get_current(target))
+    if to_move:
+        target_types = set(t[0] for t in before)
+
+        for key, value in to_move:
+            consent_type = key[0]
+            description = value[1]
+
+            # TODO: This shouldn't be neccessary - the mixin should remove
+            # consents on source.delete()!
+            source.remove_consent(consent_code=consent_type)
+            if key not in target_types:
+                target.set_consent(
+                    consent_code=consent_type,
+                    description=description,
+                )
+        source.write_db()
+        target.write_db()
+
+    _log_changes("consent", target.entity_id, before,
+                 set(_get_current(target)))
 
 
 def _join_ephorte_roles(source, target, role_db, role_sys_hint="ephorte"):
@@ -568,7 +724,7 @@ def main(argv=None):
     logutils.options.install_subparser(parser)
 
     args = parser.parse_args(argv)
-    logutils.autoconf_interactive(args)
+    logutils.autoconf_interactive(args)  # console or tee
     logger.info("start %s", parser.prog)
     logger.debug('args: %r', args)
 
