@@ -216,7 +216,8 @@ def person_join(old_person, new_person, with_uio_ephorte, with_uio_voip,
 
     # group_member
     group = Factory.get('Group')(database)
-    for row in group.search(member_id=old_person.entity_id,
+    for row in group.search(member_id=int(old_person.entity_id),
+                            filter_expired=False,
                             indirect_members=False):
         group.clear()
         group.find(row['group_id'])
@@ -227,6 +228,7 @@ def person_join(old_person, new_person, with_uio_ephorte, with_uio_voip,
 
     if with_uio_ephorte:
         join_ephorte_roles(old_id, new_id, database)
+        join_elements_roles(old_id, new_id, database)
 
     if with_uio_voip:
         join_uio_voip_objects(old_id, new_id, database)
@@ -279,6 +281,48 @@ def join_ephorte_roles(old_id, new_id, database):
     # Any roles that are manual (auto=F) should be given to new person
     from Cerebrum.modules.no.uio.Ephorte import EphorteRole
     ephorte_role = EphorteRole(database)
+
+    for row in ephorte_role.list_roles(person_id=old_id):
+        role_str = "ephorte role (%s, %s, %s, %s) from %s" % (
+            row['role_type'], row['adm_enhet'], row['arkivdel'],
+            row['journalenhet'], old_id)
+        if row['auto_role'] == 'F':
+            # TODO: we should check if a person has a role before
+            # adding, so that we don't need the try: ... except:...
+            # but that is a bit swinish the way Ephorte.py is
+            # designed at the moment and will be more dirty than this
+            # hack. Ephorte.py will be redesigned pretty soon.
+            try:
+                ephorte_role.add_role(new_id,
+                                      int(row['role_type']),
+                                      int(row['adm_enhet']),
+                                      row['arkivdel'],
+                                      row['journalenhet'],
+                                      auto_role='F')
+                logger.debug("Transferring %s to %s", role_str, new_id)
+            except Exception as exc:
+                logger.warning("Couldn't transfer %s to %s\n%s",
+                               role_str, new_id, exc)
+        else:
+            logger.debug("Removing %s", role_str)
+        # Remove role from old_person
+        ephorte_role.remove_role(old_id, int(row['role_type']),
+                                 int(row['adm_enhet']),
+                                 row['arkivdel'], row['journalenhet'])
+
+
+def join_elements_roles(old_id, new_id, database):
+    """Add old ePhorte Elements roles to new person
+
+    :param old_id: entity_id of old person object
+    :param new_id: entity_id of new person object
+    :param database: database connection
+    :return:
+    """
+    # All ephorte roles belonging to old_person must be deleted.
+    # Any roles that are manual (auto=F) should be given to new person
+    from Cerebrum.modules.no.uio.Elements import ElementsRole
+    ephorte_role = ElementsRole(database)
 
     for row in ephorte_role.list_roles(person_id=old_id):
         role_str = "ephorte role (%s, %s, %s, %s) from %s" % (
