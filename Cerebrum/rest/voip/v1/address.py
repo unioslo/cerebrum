@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2016-2024 University of Oslo, Norway
+# Copyright 2016-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -160,19 +160,19 @@ class VoipAddressNumberResource(Resource):
     @api.response(201, 'Number added')
     @db.autocommit
     def post(self, address_id):
-        """Add a phone number to a voip address."""
+        """Add a phone number to a voip address.
+
+        If contact_type is contact_voip_extension and contact_value is empty
+        or not provided, an available extension will be automatically assigned.
+        """
+        import logging
+        logger = logging.getLogger(__name__)
+
         data = api.payload
 
         contact_type_str = data.get('contact_type')
         contact_full = data.get('contact_value')
         priority = data.get('priority')
-
-        if not contact_full:
-            abort(400, message="contact_value is required")
-
-        # Check that the number is not in use
-        if utils.get_contact_info(db.connection, contact_full):
-            abort(400, message="Number {} already in use".format(contact_full))
 
         # Get or create the address
         owner = utils.get_voip_owner(db.connection, address_id)
@@ -193,10 +193,24 @@ class VoipAddressNumberResource(Resource):
         else:
             contact_type = db.const.contact_voip_extension
 
-        # Deduce 5-digit alias if appropriate
-        contact_alias = None
-        if contact_type == db.const.contact_voip_extension:
-            contact_alias = contact_full[-5:]
+        # Auto-assign extension if contact_full is empty and type is extension
+        if (contact_type == db.const.contact_voip_extension
+                and (not contact_full or contact_full == "")):
+            contact_full, contact_alias = utils.find_available_extension(db.connection)
+            logger.info("Auto-assigned extension %s (full: %s) for owner id=%s",
+                        contact_alias, contact_full, owner.entity_id)
+        else:
+            if not contact_full:
+                abort(400, message="contact_value is required")
+
+            # Check that the number is not in use
+            if utils.get_contact_info(db.connection, contact_full):
+                abort(400, message="Number {} already in use".format(contact_full))
+
+            # Deduce 5-digit alias if appropriate
+            contact_alias = None
+            if contact_type == db.const.contact_voip_extension:
+                contact_alias = contact_full[-5:]
 
         # Validate the numbers
         if not address.contact_is_valid(contact_type, contact_full, contact_alias):
@@ -243,7 +257,9 @@ class VoipAddressNumberResource(Resource):
 
         return {
             'message': 'Associated {}/{} with owner id={}{}'.format(
-                contact_full, contact_alias, owner.entity_id, warn)
+                contact_full, contact_alias, owner.entity_id, warn),
+            'contact_full': contact_full,
+            'contact_alias': contact_alias,
         }, 201
 
 

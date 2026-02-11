@@ -138,8 +138,8 @@ def create_models(api):
             description='Contact type code',
         ),
         'contact_value': base_fields.String(
-            required=True,
-            description='Full phone number',
+            required=False,
+            description='Full phone number (optional for extensions - will auto-assign if empty)',
         ),
         'priority': base_fields.Integer(
             description='Priority (optional, auto-assigned if not provided)',

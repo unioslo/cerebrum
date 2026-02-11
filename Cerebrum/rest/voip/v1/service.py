@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2016-2024 University of Oslo, Norway
+# Copyright 2016-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #

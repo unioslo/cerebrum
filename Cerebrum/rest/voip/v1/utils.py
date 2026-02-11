@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2016-2024 University of Oslo, Norway
+# Copyright 2016-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -33,9 +33,12 @@ from flask_restx import abort
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.Entity import EntityContactInfo
+from Cerebrum.modules.bofhd.errors import CerebrumError
 from Cerebrum.modules.no.uio.voip.voipService import VoipService
 from Cerebrum.modules.no.uio.voip.voipAddress import VoipAddress
 from Cerebrum.modules.no.uio.voip.voipClient import VoipClient
+from Cerebrum.modules.no.uio.voip.bofhd_voip_cmds import find_available_voip_extension
+
 
 
 def get_voip_service(db, designation):
@@ -336,3 +339,23 @@ def get_voip_owner(db, designation):
         pass
 
     abort(404, message="Cannot locate person/voip-service: {}".format(designation))
+
+
+def find_available_extension(db):
+    """
+    Find an available 5-digit extension and construct a valid full number.
+
+    Wrapper around the XMLRPC/bofhd implementation.
+
+    :param db: Database connection
+    :return: Tuple (contact_full, contact_alias) where contact_full is
+             the complete phone number (+47XXXXXXXX) and contact_alias is the
+             5-digit extension
+    :raises: 400 if no available extension can be found
+    """
+    const = Factory.get('Constants')(db)
+
+    try:
+        return find_available_voip_extension(db, const)
+    except CerebrumError as e:
+        abort(400, message=str(e))
