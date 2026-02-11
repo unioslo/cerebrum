@@ -123,3 +123,23 @@ PROXY_AUTH = {
 # correctly.  These IPs will be omitted from logs.
 #
 TRUSTED_HOSTS = []
+
+# Namespaces
+#
+# NAMESPACES contains the default core API namespaces that should always be
+# added to the API.
+#
+# NAMESPACES_EXTRA can be set in an institution's restconfig.py to add optional
+# namespaces.
+
+NAMESPACES = [
+    "Cerebrum.rest.api.v1.account:api",
+    "Cerebrum.rest.api.v1.context:api",
+    "Cerebrum.rest.api.v1.emailaddress:api",
+    "Cerebrum.rest.api.v1.group:api",
+    "Cerebrum.rest.api.v1.ou:api",
+    "Cerebrum.rest.api.v1.person:api",
+    "Cerebrum.rest.api.v1.search:api",
+]
+
+NAMESPACES_EXTRA = []
