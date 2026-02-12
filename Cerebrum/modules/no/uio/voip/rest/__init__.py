@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2026 University of Oslo, Norway
+# Copyright 2016-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,7 +18,10 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
-The Cerebrum VOIP API.
+VOIP REST API module.
+
+This module provides REST API endpoints for VOIP service and address management.
+To include it in a given API, its namespaces have to be included in restconfig.py.
 """
 from __future__ import (
     absolute_import,
@@ -26,26 +29,3 @@ from __future__ import (
     print_function,
     unicode_literals,
 )
-
-from flask import Blueprint
-from flask_restx import Api
-
-__version__ = '1.0'
-
-blueprint = Blueprint('voip_api_v1', __name__)
-
-api = Api(
-    blueprint,
-    version=__version__,
-    title='Cerebrum VOIP REST API',
-    description=(
-        'VOIP microservice API for managing voip services and addresses.'
-    ),
-    contact='cerebrum-kontakt@usit.uio.no',
-)
-
-from .service import api as service_ns
-from .address import api as address_ns
-
-api.add_namespace(service_ns)
-api.add_namespace(address_ns)

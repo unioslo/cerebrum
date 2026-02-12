@@ -37,7 +37,7 @@ from Cerebrum import Errors
 from Cerebrum.Entity import EntityContactInfo
 from Cerebrum.modules.no.uio.voip.voipAddress import VoipAddress
 from Cerebrum.modules.no.uio.voip.voipClient import VoipClient
-from Cerebrum.rest.voip import db, auth
+from Cerebrum.rest.api import db, auth
 from . import utils
 from . import models as model_module
 

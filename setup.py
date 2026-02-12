@@ -383,6 +383,7 @@ setup(
         'Cerebrum/modules/no/orgera',
         'Cerebrum/modules/no/uio',
         'Cerebrum/modules/no/uio/voip',
+        'Cerebrum/modules/no/uio/voip/rest',
         'Cerebrum/modules/no/uio/AutoStud',
         'Cerebrum/modules/no/uio/exchange',
         'Cerebrum/modules/no/uio/hr_import',
