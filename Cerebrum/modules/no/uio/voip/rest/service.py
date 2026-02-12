@@ -107,10 +107,10 @@ class VoipServiceListResource(Resource):
             const = db.const
             service_type_const = const.VoipServiceTypeCode(service_type)
             answer.append({
-                "entity_id": entity_id,
+                "service_id": entity_id,
                 "description": description,
                 "service_type": six.text_type(service_type_const),
-                "ou_id": ou_id,
+                "ou": {'id': ou_id},
                 "location": utils.typeset_ou(db.connection, ou_id),
                 "traits": [],
             })
@@ -169,8 +169,7 @@ class VoipServiceListResource(Resource):
             )
 
         return {
-            'entity_id': service.entity_id,
-            'message': 'Created voip_service with id={}'.format(service.entity_id)
+            'service_id': service.entity_id,
         }, 201
 
 
@@ -187,17 +186,20 @@ class VoipServiceResource(Resource):
 
         service_type = db.const.VoipServiceTypeCode(service.service_type)
         return {
-            'entity_id': service.entity_id,
+            'service_id': service.entity_id,
             'service_type': six.text_type(service_type),
             'description': service.description,
-            'ou_id': service.ou_id,
+            'ou': {'id': service.ou_id},
             'location': utils.typeset_ou(db.connection, service.ou_id),
             'traits': utils.typeset_traits(db.connection, service.get_traits()),
         }
 
     @auth.require()
     @api.expect(models['VoipServiceUpdate'])
+    @api.marshal_with(models['VoipService'])
     @api.response(200, 'Service updated')
+    @api.response(400, 'Invalid service type, description, or OU')
+    @api.response(404, 'Service or OU not found')
     @db.autocommit
     def put(self, service_id):
         """Update voip service information."""
@@ -225,25 +227,22 @@ class VoipServiceResource(Resource):
 
         service.write_db()
 
+        service_type = db.const.VoipServiceTypeCode(service.service_type)
         return {
-            'entity_id': service.entity_id,
-            'message': 'Updated voip_service with id={}'.format(service.entity_id)
+            'service_id': service.entity_id,
+            'service_type': six.text_type(service_type),
+            'description': service.description,
+            'ou': {'id': service.ou_id},
+            'location': utils.typeset_ou(db.connection, service.ou_id),
+            'traits': utils.typeset_traits(db.connection, service.get_traits()),
         }
 
     @auth.require()
-    @api.response(200, 'Service deleted')
+    @api.response(204, 'Service deleted')
+    @api.response(404, 'Service not found')
     @db.autocommit
     def delete(self, service_id):
         """Delete a voip service."""
         service = utils.get_voip_service(db.connection, service_id)
-
-        entity_id = service.entity_id
-        description = service.description
-
         service.delete()
-
-        return {
-            'entity_id': entity_id,
-            'message': 'Deleted voip_service id={}, {}'.format(
-                entity_id, description)
-        }
+        return None, 204

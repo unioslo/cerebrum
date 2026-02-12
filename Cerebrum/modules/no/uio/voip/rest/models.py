@@ -29,13 +29,15 @@ from __future__ import (
 
 from flask_restx import fields as base_fields
 from Cerebrum.rest.api import fields
+from Cerebrum.rest.api.v1 import models
 
 
 def create_models(api):
     """Create and return API models."""
 
     VoipService = api.model('VoipService', {
-        'entity_id': base_fields.Integer(
+        'href': fields.href('.service', description='URL to this service'),
+        'service_id': base_fields.Integer(
             description='Service entity ID',
         ),
         'service_type': base_fields.String(
@@ -44,8 +46,9 @@ def create_models(api):
         'description': base_fields.String(
             description='Service description',
         ),
-        'ou_id': base_fields.Integer(
-            description='Organizational unit ID',
+        'ou': fields.base.Nested(
+            models.OU,
+            description='Organizational unit',
         ),
         'location': base_fields.String(
             description='Location (OU representation)',
@@ -91,7 +94,8 @@ def create_models(api):
     })
 
     VoipAddress = api.model('VoipAddress', {
-        'entity_id': base_fields.Integer(
+        'href': fields.href('.address', description='URL to this address'),
+        'address_id': base_fields.Integer(
             description='Address entity ID',
         ),
         'owner_entity_id': base_fields.Integer(

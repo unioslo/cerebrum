@@ -81,7 +81,7 @@ class VoipAddressListResource(Resource):
         for address in voip_addresses:
             voip_attrs = address.get_voip_attributes()
             answer.append({
-                "entity_id": address.entity_id,
+                "address_id": address.entity_id,
                 "owner_entity_id": address.owner_entity_id,
                 "owner_entity_type": six.text_type(voip_attrs["owner_type"]),
                 "cn": voip_attrs["cn"],
@@ -117,7 +117,7 @@ class VoipAddressResource(Resource):
 
         attrs = address.get_voip_attributes()
         return {
-            'entity_id': address.entity_id,
+            'address_id': address.entity_id,
             'owner_entity_id': owner.entity_id,
             'owner_entity_type': six.text_type(
                 db.const.EntityType(owner.entity_type)),
