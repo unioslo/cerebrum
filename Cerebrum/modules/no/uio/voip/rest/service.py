@@ -56,6 +56,8 @@ class VoipServiceListResource(Resource):
 
     @auth.require()
     @api.marshal_with(models.VoipServiceList)
+    @api.response(200, 'Service found')
+    @api.response(400, 'Missing required search parameter')
     @api.doc(expect=[service_search_parser])
     def get(self):
         """
@@ -117,6 +119,7 @@ class VoipServiceListResource(Resource):
     @auth.require()
     @api.expect(models.VoipServiceCreate)
     @api.response(201, 'Service created')
+    @api.response(400, 'Service not created')
     @db.autocommit
     def post(self):
         """Create a new voip service."""
@@ -176,6 +179,8 @@ class VoipServiceResource(Resource):
     """Resource for a single voip service."""
 
     @auth.require()
+    @api.response(200, 'Service found')
+    @api.response(404, 'Service not found')
     @api.marshal_with(models.VoipService)
     def get(self, service_id):
         """Get voip service information."""

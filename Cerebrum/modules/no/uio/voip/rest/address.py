@@ -59,6 +59,7 @@ class VoipAddressListResource(Resource):
 
     @auth.require()
     @api.response(200, 'Address found')
+    @api.response(400, 'Missing required search parameter')
     @api.marshal_with(models.VoipAddressList)
     @api.doc(expect=[address_search_parser])
     def get(self):
@@ -148,6 +149,7 @@ class VoipAddressResource(Resource):
 
     @auth.require()
     @api.response(204, 'Address deleted')
+    @api.response(400, 'Address with VOIP clients not deleted')
     @db.autocommit
     def delete(self, address_id):
         """Delete a voip address."""
@@ -174,6 +176,7 @@ class VoipAddressNumberResource(Resource):
     @auth.require()
     @api.expect(models.VoipAddressNumber)
     @api.response(201, 'Number added')
+    @api.response(400, 'Number not added')
     @db.autocommit
     def post(self, address_id):
         """Add a phone number to a voip address.
@@ -297,6 +300,7 @@ class VoipAddressNumberDeleteResource(Resource):
 
     @auth.require()
     @api.response(204, 'Number deleted')
+    @api.response(400, 'Ambiguous number not deleted')
     @api.response(404, 'Number not found')
     @api.doc(expect=[number_delete_parser])
     @db.autocommit
