@@ -48,12 +48,26 @@ def build_blueprint(config=None):
         contact='cerebrum-kontakt@usit.uio.no',
     )
 
-    # Load core namespaces and any extra namespaces from config
-    all_namespaces = (
-        config.get('NAMESPACES', []) +
-        config.get('NAMESPACES_EXTRA', [])
-    )
-    for namespace_spec in all_namespaces:
+    # Add core namespaces
+    from .account import api as account_ns
+    from .context import api as context_ns
+    from .emailaddress import api as emailaddress_ns
+    from .group import api as group_ns
+    from .ou import api as ou_ns
+    from .person import api as person_ns
+    from .search import api as search_ns
+
+    api.add_namespace(account_ns)
+    api.add_namespace(group_ns)
+    api.add_namespace(emailaddress_ns)
+    api.add_namespace(context_ns)
+    api.add_namespace(ou_ns)
+    api.add_namespace(person_ns)
+    api.add_namespace(search_ns)
+
+    # Add any extra namespaces from config
+    namespaces = config.get('NAMESPACES_EXTRA', [])
+    for namespace_spec in namespaces:
         namespace = Cerebrum.utils.module.resolve(namespace_spec)
         api.add_namespace(namespace)
 
