@@ -34,20 +34,20 @@ import Cerebrum.utils.module
 
 __version__ = '1.0'
 
+blueprint = Blueprint('api_v1', __name__)
+
+api = Api(
+    blueprint,
+    version=__version__,
+    title='Cerebrum REST API',
+    description=(
+        'Cerebrum is a user administration and '
+        'identity management system.'
+    ),
+    contact='cerebrum-kontakt@usit.uio.no',
+)
+
 def build_blueprint(config=None):
-    blueprint = Blueprint('api_v1', __name__)
-
-    api = Api(
-        blueprint,
-        version=__version__,
-        title='Cerebrum REST API',
-        description=(
-            'Cerebrum is a user administration and '
-            'identity management system.'
-        ),
-        contact='cerebrum-kontakt@usit.uio.no',
-    )
-
     # Add core namespaces
     from .account import api as account_ns
     from .context import api as context_ns
@@ -71,4 +71,4 @@ def build_blueprint(config=None):
         namespace = Cerebrum.utils.module.resolve(namespace_spec)
         api.add_namespace(namespace)
 
-    return api
+    return blueprint
