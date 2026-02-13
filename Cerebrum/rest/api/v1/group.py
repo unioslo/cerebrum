@@ -194,7 +194,7 @@ class GroupResource(Resource):
     new_group_parser = api.parser()
     new_group_parser.add_argument(
         'visibility',
-        choices=set(GroupVisibility._rev_map.keys()),
+        choices=list(set(GroupVisibility._rev_map.keys())),
         required=True,
         location=('form', 'json'),
         case_sensitive=False,
