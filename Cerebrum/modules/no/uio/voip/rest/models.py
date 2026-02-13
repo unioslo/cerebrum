@@ -97,11 +97,9 @@ VoipAddress = api.model('VoipAddress', {
     'address_id': base_fields.Integer(
         description='Address entity ID',
     ),
-    'owner_entity_id': base_fields.Integer(
-        description='Owner entity ID',
-    ),
-    'owner_entity_type': base_fields.String(
-        description='Owner entity type',
+    'owner': fields.base.Nested(
+        models.EntityOwner,
+        description='Entity owner',
     ),
     'cn': base_fields.String(
         description='Common name',

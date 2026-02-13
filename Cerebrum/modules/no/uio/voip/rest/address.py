@@ -38,6 +38,7 @@ from Cerebrum.Entity import EntityContactInfo
 from Cerebrum.modules.no.uio.voip.voipAddress import VoipAddress
 from Cerebrum.modules.no.uio.voip.voipClient import VoipClient
 from Cerebrum.rest.api import db, auth
+from Cerebrum.rest.api import utils as api_utils
 from . import utils
 from . import models
 
@@ -77,10 +78,20 @@ class VoipAddressListResource(Resource):
         answer = []
         for address in voip_addresses:
             voip_attrs = address.get_voip_attributes()
+            owner = address.get_owner()
+            owner_name = api_utils.get_entity_name(owner)
             answer.append({
                 "address_id": address.entity_id,
-                "owner_entity_id": address.owner_entity_id,
-                "owner_entity_type": six.text_type(voip_attrs["owner_type"]),
+                "owner": {
+                    "id": address.owner_entity_id,
+                    "type": owner.entity_type,
+                    "name": owner_name,
+                    "href": api_utils.href_from_entity_type(
+                        entity_type=owner.entity_type,
+                        entity_id=address.owner_entity_id,
+                        entity_name=owner_name,
+                    ),
+                },
                 "cn": voip_attrs["cn"],
                 "sip_uri": voip_attrs.get("voipSipUri", ""),
                 "sip_primary_uri": voip_attrs.get("voipSipPrimaryUri", ""),
@@ -113,11 +124,19 @@ class VoipAddressResource(Resource):
         ])
 
         attrs = address.get_voip_attributes()
+        owner_name = api_utils.get_entity_name(owner)
         return {
             'address_id': address.entity_id,
-            'owner_entity_id': owner.entity_id,
-            'owner_entity_type': six.text_type(
-                db.const.EntityType(owner.entity_type)),
+            'owner': {
+                'id': owner.entity_id,
+                'type': owner.entity_type,
+                'name': owner_name,
+                'href': api_utils.href_from_entity_type(
+                    entity_type=owner.entity_type,
+                    entity_id=owner.entity_id,
+                    entity_name=owner_name,
+                ),
+            },
             'cn': attrs["cn"],
             'sip_uri': attrs["voipSipUri"],
             'sip_primary_uri': attrs["voipSipPrimaryUri"],
