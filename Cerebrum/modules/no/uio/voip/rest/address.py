@@ -39,12 +39,9 @@ from Cerebrum.modules.no.uio.voip.voipAddress import VoipAddress
 from Cerebrum.modules.no.uio.voip.voipClient import VoipClient
 from Cerebrum.rest.api import db, auth
 from . import utils
-from . import models as model_module
+from . import models
 
 api = Namespace('addresses', description='VOIP address operations')
-
-# Create models
-models = model_module.create_models(api)
 
 
 @api.route('/', endpoint='addresses-list')
@@ -61,7 +58,7 @@ class VoipAddressListResource(Resource):
 
     @auth.require()
     @api.response(200, 'Address found')
-    @api.marshal_with(models['VoipAddressList'])
+    @api.marshal_with(models.VoipAddressList)
     @api.doc(expect=[address_search_parser])
     def get(self):
         """
@@ -103,7 +100,7 @@ class VoipAddressResource(Resource):
 
     @auth.require()
     @api.response(200, 'Address found')
-    @api.marshal_with(models['VoipAddress'])
+    @api.marshal_with(models.VoipAddress)
     def get(self, address_id):
         """Get voip address information."""
         address = utils.get_voip_address(db.connection, address_id)
@@ -156,7 +153,7 @@ class VoipAddressNumberResource(Resource):
     """Resource for managing phone numbers on a voip address."""
 
     @auth.require()
-    @api.expect(models['VoipAddressNumber'])
+    @api.expect(models.VoipAddressNumber)
     @api.response(201, 'Number added')
     @db.autocommit
     def post(self, address_id):

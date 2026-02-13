@@ -29,3 +29,11 @@ from __future__ import (
     print_function,
     unicode_literals,
 )
+
+from flask_restx import Namespace
+from Cerebrum.rest.api import db, auth
+
+# Create a namespace for defining models
+api = Namespace('voip', description='VOIP operations')
+
+__all__ = ['db', 'auth', 'api']

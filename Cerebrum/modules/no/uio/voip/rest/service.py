@@ -37,12 +37,9 @@ from Cerebrum import Errors
 from Cerebrum.modules.no.uio.voip.voipService import VoipService
 from Cerebrum.rest.api import db, auth
 from . import utils
-from . import models as model_module
+from . import models
 
 api = Namespace('services', description='VOIP service operations')
-
-# Create models
-models = model_module.create_models(api)
 
 
 @api.route('/', endpoint='services-list')
@@ -58,7 +55,7 @@ class VoipServiceListResource(Resource):
     )
 
     @auth.require()
-    @api.marshal_with(models['VoipServiceList'])
+    @api.marshal_with(models.VoipServiceList)
     @api.doc(expect=[service_search_parser])
     def get(self):
         """
@@ -118,7 +115,7 @@ class VoipServiceListResource(Resource):
         return {'services': answer}
 
     @auth.require()
-    @api.expect(models['VoipServiceCreate'])
+    @api.expect(models.VoipServiceCreate)
     @api.response(201, 'Service created')
     @db.autocommit
     def post(self):
@@ -179,7 +176,7 @@ class VoipServiceResource(Resource):
     """Resource for a single voip service."""
 
     @auth.require()
-    @api.marshal_with(models['VoipService'])
+    @api.marshal_with(models.VoipService)
     def get(self, service_id):
         """Get voip service information."""
         service = utils.get_voip_service(db.connection, service_id)
@@ -195,8 +192,8 @@ class VoipServiceResource(Resource):
         }
 
     @auth.require()
-    @api.expect(models['VoipServiceUpdate'])
-    @api.marshal_with(models['VoipService'])
+    @api.expect(models.VoipServiceUpdate)
+    @api.marshal_with(models.VoipService)
     @api.response(200, 'Service updated')
     @api.response(400, 'Invalid service type, description, or OU')
     @api.response(404, 'Service or OU not found')
