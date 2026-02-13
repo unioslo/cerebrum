@@ -30,45 +30,33 @@ from __future__ import (
 from flask import Blueprint
 from flask_restx import Api
 
-import Cerebrum.utils.module
-
 __version__ = '1.0'
 
-def build_blueprint(config=None):
-    blueprint = Blueprint('api_v1', __name__)
+blueprint = Blueprint('api_v1', __name__)
 
-    api = Api(
-        blueprint,
-        version=__version__,
-        title='Cerebrum REST API',
-        description=(
-            'Cerebrum is a user administration and '
-            'identity management system.'
-        ),
-        contact='cerebrum-kontakt@usit.uio.no',
-    )
+api = Api(
+    blueprint,
+    version=__version__,
+    title='Cerebrum REST API',
+    description=(
+        'Cerebrum is a user administration and '
+        'identity management system.'
+    ),
+    contact='cerebrum-kontakt@usit.uio.no',
+)
 
-    # Add core namespaces
-    from .account import api as account_ns
-    from .context import api as context_ns
-    from .emailaddress import api as emailaddress_ns
-    from .group import api as group_ns
-    from .ou import api as ou_ns
-    from .person import api as person_ns
-    from .search import api as search_ns
+from .account import api as account_ns
+from .context import api as context_ns
+from .emailaddress import api as emailaddress_ns
+from .group import api as group_ns
+from .ou import api as ou_ns
+from .person import api as person_ns
+from .search import api as search_ns
 
-    api.add_namespace(account_ns)
-    api.add_namespace(group_ns)
-    api.add_namespace(emailaddress_ns)
-    api.add_namespace(context_ns)
-    api.add_namespace(ou_ns)
-    api.add_namespace(person_ns)
-    api.add_namespace(search_ns)
-
-    # Add any extra namespaces from config
-    namespaces = config.get('NAMESPACES_EXTRA', [])
-    for namespace_spec in namespaces:
-        namespace = Cerebrum.utils.module.resolve(namespace_spec)
-        api.add_namespace(namespace)
-
-    return api
+api.add_namespace(account_ns)
+api.add_namespace(group_ns)
+api.add_namespace(emailaddress_ns)
+api.add_namespace(context_ns)
+api.add_namespace(ou_ns)
+api.add_namespace(person_ns)
+api.add_namespace(search_ns)

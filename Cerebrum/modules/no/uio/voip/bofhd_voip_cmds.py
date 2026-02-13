@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
 #
-# Copyright 2010-2026 University of Oslo, Norway
+# Copyright 2010-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -47,53 +47,6 @@ from .voipClient import VoipClient
 from .voipService import VoipService
 
 logger = logging.getLogger(__name__)
-
-
-def find_available_voip_extension(db, const):
-    """Find an available 5-digit extension and construct a valid full number.
-
-    This is a helper function that can be called by both XMLRPC and REST APIs.
-
-    :param db: Database connection
-    :param const: Constants object
-    :return: Tuple (contact_full, contact_alias) where contact_full is
-             the complete phone number (+47XXXXXXXX) and contact_alias is the
-             5-digit extension
-    :raises: CerebrumError if no available extension can be found
-    """
-    from Cerebrum.modules.no.uio.voip.voipAddress import is_valid_voip_number
-
-    # Get all existing extensions
-    eci = EntityContactInfo(db)
-    used_aliases = set()
-    used_fulls = set()
-
-    for row in eci.list_contact_info(source_system=const.system_voip):
-        if row.get("contact_alias"):
-            used_aliases.add(row["contact_alias"])
-        if row.get("contact_value"):
-            used_fulls.add(row["contact_value"])
-
-    valid_ranges = getattr(cereconf, "VOIP_VALID_PHONE_RANGES", [])
-    if not valid_ranges:
-        valid_ranges = [("22800000", "22899999")]
-
-    for lo_str, hi_str in valid_ranges:
-        lo = int(lo_str)
-        hi = int(hi_str)
-
-        for full_number_int in range(lo, hi + 1):
-            full_number = str(full_number_int).zfill(8)
-            extension = full_number[-5:]
-            contact_full = "+47" + full_number
-            contact_alias = extension
-
-            if (contact_full not in used_fulls
-                    and contact_alias not in used_aliases):
-                if is_valid_voip_number(contact_full, contact_alias):
-                    return contact_full, contact_alias
-
-    raise CerebrumError("No available extensions found in configured ranges")
 
 
 class BofhdVoipCommands(BofhdCommonMethods):
@@ -458,17 +411,6 @@ class BofhdVoipCommands(BofhdCommonMethods):
             result.append(dict(row))
 
         return result
-
-    def _find_available_extension(self):
-        """Find an available 5-digit extension and construct a valid full number.
-
-        Returns a tuple (contact_full, contact_alias) where contact_full is
-        the complete phone number (+47XXXXXXXX) and contact_alias is the
-        5-digit extension.
-
-        Raises CerebrumError if no available extension can be found.
-        """
-        return find_available_voip_extension(self.db, self.const)
 
     def _collect_constants(self, const_type):
         """Return a suitable data structure containing all constants of the
@@ -1088,10 +1030,6 @@ class BofhdVoipCommands(BofhdCommonMethods):
 
         If no priority is specified, one is chosen automatically (it would be
         the lowest possible priority)
-
-        If contact_type is contact_voip_extension and contact_full is empty
-        (empty string or None), an available extension will be automatically
-        assigned.
         """
 
         def owner_has_contact(owner, contact_value):
@@ -1116,6 +1054,10 @@ class BofhdVoipCommands(BofhdCommonMethods):
 
         self.ba.can_alter_number(operator.get_entity_id())
 
+        # Make sure that the number is not in use.
+        if self._get_contact_info(contact_full):
+            raise CerebrumError("Number %s already in use." % contact_full)
+
         # Is there an address for that owner already?
         owner = self._get_voip_owner(designation)
         address = self._get_or_create_voip_address(owner.entity_id)
@@ -1126,20 +1068,10 @@ class BofhdVoipCommands(BofhdCommonMethods):
         else:
             contact_type = self.const.contact_voip_extension
 
-        # Auto-assign extension if contact_full is empty and type is extension
-        if (contact_type == self.const.contact_voip_extension
-                and (not contact_full or contact_full == "")):
-            contact_full, contact_alias = self._find_available_extension()
-            logger.info("Auto-assigned extension %s (full: %s) for owner id=%s",
-                        contact_alias, contact_full, owner.entity_id)
-        else:
-            if self._get_contact_info(contact_full):
-                raise CerebrumError("Number %s already in use." % contact_full)
-
-            # Deduce 5-digit alias, if contact info is of the proper type.
-            contact_alias = None
-            if contact_type == self.const.contact_voip_extension:
-                contact_alias = contact_full[-5:]
+        # Deduce 5-digit alias, if contact info is of the proper type.
+        contact_alias = None
+        if contact_type == self.const.contact_voip_extension:
+            contact_alias = contact_full[-5:]
 
         # Check the numbers for syntax errors
         if not address.contact_is_valid(contact_type,

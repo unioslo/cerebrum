@@ -123,10 +123,3 @@ PROXY_AUTH = {
 # correctly.  These IPs will be omitted from logs.
 #
 TRUSTED_HOSTS = []
-
-# Namespaces
-#
-# NAMESPACES_EXTRA can be set in an institution's restconfig.py to add optional
-# namespaces to the API.
-
-NAMESPACES_EXTRA = []
