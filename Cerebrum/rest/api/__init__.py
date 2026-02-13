@@ -60,7 +60,7 @@ def create_app(config=None):
     })
 
     from Cerebrum.rest.api import v1
-    app.register_blueprint(v1.blueprint, url_prefix='/v1')
+    app.register_blueprint(v1.build_blueprint(app.config), url_prefix='/v1')
 
     @app.before_request
     def register_request_start():
