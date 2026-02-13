@@ -30,8 +30,7 @@ from __future__ import (
 from flask_restx import fields as base_fields
 from Cerebrum.rest.api import fields
 from Cerebrum.rest.api.v1 import models
-
-from . import api
+from Cerebrum.rest.api.v1 import api
 
 
 VoipService = api.model('VoipService', {
