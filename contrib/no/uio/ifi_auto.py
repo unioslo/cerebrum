@@ -169,6 +169,7 @@ def shorten_course_name(course):
     fgname = fgname.replace("in", "in", 1)
     fgname = fgname.replace("dig", "id", 1)
     fgname = fgname.replace("tool", "it", 1)
+    fgname = fgname.replace("sifi", "is", 1)
     return fgname[:6]
 
 
