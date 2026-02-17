@@ -1892,6 +1892,24 @@ class BofhdExtension(BofhdCommonMethods):
         }
 
     #
+    # group refresh_expire
+    #
+    all_commands["group_refresh_expire"] = Command(
+        ("group", "refresh_expire"),
+        GroupName(),
+        perm_filter="can_delete_group",
+    )
+
+    def group_refresh_expire(self, operator, group):
+        grp = self._get_group(group)
+
+        if not grp.expire_date:
+            raise CerebrumError("Group '%s' has no expire date" %
+                                (grp.group_name,))
+
+        return self.group_set_expire(operator, group)
+
+    #
     # group set_visibility
     #
     all_commands['group_set_visibility'] = Command(
