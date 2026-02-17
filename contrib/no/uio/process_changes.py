@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003-2023 University of Oslo, Norway
+# Copyright 2003-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -41,13 +41,10 @@ from __future__ import (
 )
 
 import getopt
-import os
+import logging
 import sys
 
-import six
-
-import cereconf
-
+import Cerebrum.logutils
 from Cerebrum import Errors
 from Cerebrum.Entity import EntityQuarantine
 from Cerebrum.Utils import Factory
@@ -56,20 +53,13 @@ from Cerebrum.modules import PosixGroup
 from Cerebrum.modules.bofhd_requests.request import BofhdRequests
 from Cerebrum.utils import date_compat
 from Cerebrum.utils import json
+from Cerebrum.modules.no.uio import reguser
 
 
-logger = Factory.get_logger("cronjob")
+logger = logging.getLogger(__name__)
 
-db = Factory.get('Database')()
-db.cl_init(change_program="process_changes")
-cl_const = Factory.get('CLConstants')(db)
-const = Factory.get('Constants')(db)
-
-debug_hostlist = None
 
 DEBUG = False
-SUDO_CMD = "sudo"
-SSH_CEREBELLUM = ["/usr/bin/ssh", cereconf.ARCHIVE_USER_SERVER]
 
 
 class EvtHandler(object):
@@ -89,6 +79,7 @@ class EvtHandler(object):
 
     def __init__(self, db):
         self.db = db
+        self.const = Factory.get('Constants')(db)
 
     def get_triggers(self):
         """
@@ -122,7 +113,7 @@ class MakeUser(EvtHandler):
     def __init__(self, db):
         super(MakeUser, self).__init__(db)
         # TODO: change if we decide to allow different homedirs for same user
-        self.home_spread = const.spread_uio_nis_user
+        self.home_spread = self.const.spread_uio_nis_user
 
     def get_triggers(self):
         return ("account_home_added", "homedir_update")
@@ -132,9 +123,9 @@ class MakeUser(EvtHandler):
             logger.debug("Creating entity_id=%s", evt.fields.subject_entity)
             try:
                 if self._make_user(evt['subject_entity']):
-                    status = const.home_status_on_disk
+                    status = self.const.home_status_on_disk
                 else:
-                    status = const.home_status_create_failed
+                    status = self.const.home_status_create_failed
             except Errors.NotFoundError:
                 # A reserved user or similar that don't get a homedir
                 return True
@@ -143,11 +134,11 @@ class MakeUser(EvtHandler):
             home = posix_user.get_home(self.home_spread)
             posix_user.set_homedir(current_id=home['homedir_id'],
                                    status=status)
-            db.commit()
+            self.db.commit()
         return True
 
     def notify_homedir_update(self, evt, params):
-        acc = Factory.get("Account")(db)
+        acc = Factory.get("Account")(self.db)
         try:
             x, accid, x, x, status = acc.get_homedir(params['homedir_id'])
         except Errors.NotFoundError:
@@ -160,16 +151,16 @@ class MakeUser(EvtHandler):
                          params['homedir_id'], evt['subject_entity'])
             return True
         acc.find(accid)
-        guest_trait = acc.get_trait(const.trait_uio_guest_owner)
-        if (guest_trait and status == const.home_status_archived and
+        guest_trait = acc.get_trait(self.const.trait_uio_guest_owner)
+        if (guest_trait and status == self.const.home_status_archived and
                 not acc.is_expired()):
             logger.debug("Creating fresh home directory for guest %d", accid)
             if not self._make_user(evt['subject_entity']):
                 return False
             logger.debug("Successfully created home %d", params['homedir_id'])
             acc.set_homedir(current_id=params['homedir_id'],
-                            status=const.home_status_on_disk)
-            db.commit()
+                            status=self.const.home_status_on_disk)
+            self.db.commit()
         return True
 
     def _get_make_user_data(self, entity_id):
@@ -184,15 +175,11 @@ class MakeUser(EvtHandler):
 
         disk = Factory.get('Disk')(self.db)
         disk.find(home['disk_id'])
-
-        host = Factory.get('Host')(self.db)
-        host.find(disk.host_id)
         return {
             'uname': posix_user.account_name,
-            'uid': six.text_type(posix_user.posix_uid),
-            'gid': six.text_type(posix_group.posix_gid),
+            'uid': posix_user.posix_uid,
+            'gid': posix_group.posix_gid,
             'gecos': posix_user.get_gecos(),
-            'host': host.name,
             'home': home,
             'homedir': homedir,
         }
@@ -204,33 +191,22 @@ class MakeUser(EvtHandler):
             logger.warn("NotFound error for entity_id %s",
                         entity_id, exc_info=1)
             raise
-        if int(info['home']['status']) == const.home_status_on_disk:
+        if int(info['home']['status']) == self.const.home_status_on_disk:
             logger.warn("User already on disk? %s", entity_id)
             return
         if info['homedir'] is None:
             logger.warn("No home for %s", entity_id)
             return
 
-        args = [
-            SUDO_CMD, cereconf.CREATE_USER_SCRIPT,
-            '--username', info['uname'],
-            '--homedir', info['homedir'],
-            '--uid', info['uid'],
-            '--gid', info['gid'],
-            '--gecos', '"' + info['gecos'] + '"'
-        ]
-        if DEBUG:
-            args.append('--debug')
-        cmd = SSH_CEREBELLUM + [" ".join(args), ]
-        logger.debug("Doing: %s", cmd)
-        if debug_hostlist is None or info['host'] in debug_hostlist:
-            errnum = os.spawnv(os.P_WAIT, cmd[0], cmd)
-        else:
-            errnum = 0
-        if not errnum:
-            return 1
-        logger.error("%s returned %i", cmd, errnum)
-        return 0
+        username = info['username']
+        homedir = info['homedir']
+        uid = int(info['uid'])
+        gid = int(info['gid'])
+        gecos = info['gecos']
+
+        runner = reguser.ReguserCommands(dryrun=False, remote_dryrun=False,
+                                         debug=DEBUG)
+        return runner.create_user(username, homedir, uid, gid, gecos)
 
 
 class Quarantine2Request(EvtHandler):
@@ -241,8 +217,8 @@ class Quarantine2Request(EvtHandler):
 
     def __init__(self, db):
         super(Quarantine2Request, self).__init__(db)
-        self.br = BofhdRequests(db, const)
-        self.eq = EntityQuarantine(db)
+        self.br = BofhdRequests(self.db, self.const)
+        self.eq = EntityQuarantine(self.db)
 
     def get_triggers(self):
         return ("quarantine_add", "quarantine_mod", "quarantine_del")
@@ -270,12 +246,12 @@ class Quarantine2Request(EvtHandler):
                 self.br.add_request(
                     operator=None,
                     when=when,
-                    op_code=const.bofh_quarantine_refresh,
+                    op_code=self.const.bofh_quarantine_refresh,
                     entity_id=evt['subject_entity'],
                     destination_id=None,
                     state_data=int(params['q_type']),
                 )
-            db.commit()
+            self.db.commit()
         return True
 
     def notify_quarantine_mod(self, evt, params):
@@ -289,7 +265,7 @@ class Quarantine2Request(EvtHandler):
             self.br.add_request(
                 operator=None,
                 when=when,
-                op_code=const.bofh_quarantine_refresh,
+                op_code=self.const.bofh_quarantine_refresh,
                 entity_id=evt['subject_entity'],
                 destination_id=None,
                 state_data=int(params['q_type']),
@@ -298,12 +274,12 @@ class Quarantine2Request(EvtHandler):
         self.br.add_request(
             operator=None,
             when=self.br.now,
-            op_code=const.bofh_quarantine_refresh,
+            op_code=self.const.bofh_quarantine_refresh,
             entity_id=evt['subject_entity'],
             destination_id=None,
             state_data=int(params['q_type']),
         )
-        db.commit()
+        self.db.commit()
         return True
 
     def notify_quarantine_del(self, evt, params):
@@ -311,25 +287,26 @@ class Quarantine2Request(EvtHandler):
         # combination as they are no longer needed
         for row in self.br.get_requests(
                 entity_id=evt['subject_entity'],
-                operation=int(const.bofh_quarantine_refresh)):
+                operation=int(self.const.bofh_quarantine_refresh)):
             if int(row['state_data']) == int(params['q_type']):
                 self.br.delete_request(request_id=row['request_id'])
         self.br.add_request(
             operator=None,
             when=self.br.now,
-            op_code=const.bofh_quarantine_refresh,
+            op_code=self.const.bofh_quarantine_refresh,
             entity_id=evt['subject_entity'],
             destination_id=None,
             state_data=int(params['q_type']),
         )
-        db.commit()
+        self.db.commit()
         return True
 
 
-def process_changelog(evt_key, classes):
+def process_changelog(db, evt_key, classes):
     """Process the entries from changelog identifying previous events
     by evt_key, and using events and callback methods in classes
     """
+    cl_const = Factory.get('CLConstants')(db)
 
     evt_id2call_back = {}
     for c in classes:
@@ -337,6 +314,7 @@ def process_changelog(evt_key, classes):
             evt_id2call_back.setdefault(int(getattr(cl_const, t)), []).append(
                 getattr(c, "notify_%s" % t))
 
+    # TODO: Do we need a separate transaction here?
     ei = CLHandler.CLHandler(Factory.get('Database')())
     for evt in ei.get_events(evt_key, evt_id2call_back.keys()):
         ok = []
@@ -353,12 +331,12 @@ def process_changelog(evt_key, classes):
     ei.commit_confirmations()
 
 
-def process_changes():
+def process_changes(db):
     # TODO: Make db here, rather than globally
     classes = (MakeUser(db), Quarantine2Request(db))
     keys = dict([(c.evt_key, None) for c in classes]).keys()
     for k in keys:
-        process_changelog(k, filter(lambda c: c.evt_key == k, classes))
+        process_changelog(db, k, filter(lambda c: c.evt_key == k, classes))
 
 
 def usage(exitcode=0):
@@ -376,16 +354,13 @@ def usage(exitcode=0):
 
 
 def main():
-    global debug_hostlist, DEBUG
+    global DEBUG
+    Cerebrum.logutils.autoconf("cronjob", None)
     try:
         opts, args = getopt.getopt(
             sys.argv[1:],
-            'hdi:p',
-            ['help',
-             'debug',
-             'insert=',
-             'process-changes',
-             'debug-hosts='])
+            'hdp',
+            ['help', 'debug', 'process-changes'])
     except getopt.GetoptError:
         usage(1)
     if not opts:
@@ -395,15 +370,10 @@ def main():
             usage()
         elif opt in ('-d', '--debug'):
             DEBUG = True
-        elif opt in ('-i', '--insert'):
-            # insert_account_in_cl doesn't exist?
-            raise NotImplementedError("gone")
-            # insert_account_in_cl(val)
         elif opt in ('-p', '--process-changes'):
-            process_changes()
-        elif opt == '--debug-hosts':
-            debug_hostlist = val.split(",")
-            print(debug_hostlist)
+            db = Factory.get('Database')()
+            db.cl_init(change_program="process_changes")
+            process_changes(db)
 
 
 if __name__ == '__main__':
