@@ -121,7 +121,7 @@ class ReguserCommands(reprutils.ReprEvalMixin):
 
     def _run_command(self, cmd):
         if self.dryrun:
-            logger.info("Stop before running: %s", subproc.pretty_cmd(cmd))
+            logger.info("dryrun: %s", subproc.format_command(cmd))
             return True
         result_t = subproc.run(cmd, retval=(subproc.RETURN_RC,))
         return not result_t[0]

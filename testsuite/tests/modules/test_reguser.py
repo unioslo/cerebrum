@@ -14,7 +14,7 @@ import os
 import pytest
 
 from Cerebrum.modules.no.uio import reguser
-from Cerebrum.utils.subproc import pretty_cmd
+from Cerebrum.utils.subproc import format_command
 from Cerebrum.testutils.log_utils import StrictNullHandler
 
 
@@ -123,7 +123,7 @@ def test_create_user(runner):
 def test_create_user_logs(caplog, runner):
     caplog.set_level(logging.DEBUG)
     runner.create_user(*CREATE_ARGS)
-    plain_cmd = pretty_cmd(runner._create_user_cmd(*CREATE_ARGS))
+    plain_cmd = format_command(runner._create_user_cmd(*CREATE_ARGS))
 
     assert len(caplog.records) == 2
 
@@ -132,7 +132,7 @@ def test_create_user_logs(caplog, runner):
     assert caplog.records[0].levelno == logging.DEBUG
     assert caplog.records[0].message == debug_msg
 
-    info_msg = "Stop before running: " + plain_cmd
+    info_msg = "dryrun: " + plain_cmd
     assert caplog.records[1].levelno == logging.INFO
     assert caplog.records[1].message == info_msg
 
@@ -162,7 +162,7 @@ def test_delete_user(runner):
 def test_delete_user_logs(caplog, runner):
     caplog.set_level(logging.DEBUG)
     runner.delete_user(*DELETE_ARGS)
-    plain_cmd = pretty_cmd(runner._delete_user_cmd(*DELETE_ARGS))
+    plain_cmd = format_command(runner._delete_user_cmd(*DELETE_ARGS))
 
     assert len(caplog.records) == 2
 
@@ -171,7 +171,7 @@ def test_delete_user_logs(caplog, runner):
     assert caplog.records[0].levelno == logging.DEBUG
     assert caplog.records[0].message == debug_msg
 
-    info_msg = "Stop before running: " + plain_cmd
+    info_msg = "dryrun: " + plain_cmd
     assert caplog.records[1].levelno == logging.INFO
     assert caplog.records[1].message == info_msg
 
@@ -204,7 +204,7 @@ def test_move_user(runner):
 def test_move_user_logs(caplog, runner):
     caplog.set_level(logging.DEBUG)
     runner.move_user(*MOVE_ARGS)
-    plain_cmd = pretty_cmd(runner._move_user_cmd(*MOVE_ARGS))
+    plain_cmd = format_command(runner._move_user_cmd(*MOVE_ARGS))
 
     assert len(caplog.records) == 2
 
@@ -213,6 +213,6 @@ def test_move_user_logs(caplog, runner):
     assert caplog.records[0].levelno == logging.DEBUG
     assert caplog.records[0].message == debug_msg
 
-    info_msg = "Stop before running: " + plain_cmd
+    info_msg = "dryrun: " + plain_cmd
     assert caplog.records[1].levelno == logging.INFO
     assert caplog.records[1].message == info_msg

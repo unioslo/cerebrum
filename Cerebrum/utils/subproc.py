@@ -44,7 +44,13 @@ from . import text_compat
 logger = logging.getLogger(__name__)
 
 
-def pretty_cmd(argv):
+def format_command(argv):
+    """
+    Format a command string from an argument list
+
+    :type argv: list[str]
+    :rtype: str
+    """
     if hasattr(shlex, "join"):
         return shlex.join(argv)
     else:
@@ -122,7 +128,7 @@ def run(argv, retval=None, encoding="utf-8",
         for fd in (proc.stdout, proc.stderr)
         if fd is not None
     }
-    pretty = pretty_cmd(argv)
+    pretty = format_command(argv)
 
     # fanout stdout, stderr -> loggers
     output_logger = logger  # in case we want to change logger
@@ -201,8 +207,8 @@ def _main():
 
     argv = sys.argv[1:]
     stdout, stderr = run(argv, retval=("stdout", "stderr"))
-    print(pretty_cmd(argv), "stdout:", len(stdout), "chars")
-    print(pretty_cmd(argv), "stderr:", len(stderr), "chars")
+    print(format_command(argv), "stdout:", len(stdout), "chars")
+    print(format_command(argv), "stderr:", len(stderr), "chars")
 
 
 if __name__ == "__main__":

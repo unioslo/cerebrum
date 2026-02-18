@@ -191,3 +191,9 @@ def test_run_logging_no_levels(caplog):
     subproc.run(cmd, retval=(), log_stdout=None, log_stderr=None)
 
     assert len(caplog.records) == 3
+
+
+def test_format_command():
+    cmd = ["echo", "foo bar", "baz"]
+    expected = "echo 'foo bar' baz"
+    assert subproc.format_command(cmd) == expected
