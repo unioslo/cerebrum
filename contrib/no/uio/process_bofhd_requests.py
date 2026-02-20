@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003-2023 University of Oslo, Norway
+# Copyright 2003-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -34,7 +34,6 @@ from __future__ import (
 import argparse
 import datetime
 import logging
-import pickle
 
 import six
 
@@ -48,7 +47,6 @@ from Cerebrum.group.GroupRoles import GroupRoles
 from Cerebrum.modules import Email
 from Cerebrum.modules import PosixGroup
 from Cerebrum.modules.bofhd_requests import process_requests
-from Cerebrum.utils import json
 from Cerebrum.utils.argutils import get_constant
 
 logger = logging.getLogger(__name__)
@@ -64,8 +62,6 @@ constants_cls = Utils.Factory.get('Constants')
 operations_map = process_requests.OperationsMap()
 
 # plaintext-constants
-sympa_create_op = six.text_type(constants_cls.bofh_sympa_create)
-sympa_remove_op = six.text_type(constants_cls.bofh_sympa_remove)
 move_user_op = six.text_type(constants_cls.bofh_move_user)
 move_user_now_op = six.text_type(constants_cls.bofh_move_user_now)
 quarantine_refresh_op = six.text_type(constants_cls.bofh_quarantine_refresh)
@@ -78,92 +74,6 @@ delete_user_op = six.text_type(constants_cls.bofh_delete_user)
 # something else.  The proper solution is to change the databasetable
 # and/or letting state_data be pickled.
 default_spread = six.text_type(constants_cls.spread_uio_nis_user)
-
-
-@operations_map(sympa_create_op, delay=2*60)
-def proc_sympa_create(db, request):
-    """Execute the request for creating a sympa mailing list.
-
-    :param request:
-        a dict-like object describing the sympa list creation request
-    """
-
-    try:
-        listname = get_address(db, request["entity_id"])
-    except Errors.NotFoundError:
-        logger.info("Sympa list address id:%s is deleted! No need to create",
-                    request["entity_id"])
-        return True
-
-    try:
-        state = json.loads(request["state_data"])
-    except ValueError:
-        state = None
-
-    # Remove this when there's no chance of pickled data
-    if state is None:
-        try:
-            state = pickle.loads(request["state_data"])
-        except Exception:
-            pass
-
-    if state is None:
-        logger.error("Cannot parse request state for sympa list=%s: %s",
-                     listname, request["state_data"])
-        return True
-
-    try:
-        host = state["runhost"]
-        profile = state["profile"]
-        description = state["description"]
-        admins = state["admins"]
-        admins = ",".join(admins)
-    except KeyError:
-        logger.error("No host/profile/description specified for sympa list %s",
-                     listname)
-        return True
-
-    # 2008-08-01 IVR FIXME: Safe quote everything fished out from state.
-    cmd = [cereconf.SYMPA_SCRIPT, host, 'newlist',
-           listname, admins, profile, description]
-    return Utils.spawn_and_log_output(cmd) == EXIT_SUCCESS
-
-
-@operations_map(sympa_remove_op, delay=2*60)
-def proc_sympa_remove(db, request):
-    """Execute the request for removing a sympa mailing list.
-
-    :param request:
-        a dict-like object containing all the parameters for sympa list removal
-    """
-
-    try:
-        state = json.loads(request["state_data"])
-    except ValueError:
-        state = None
-
-    # Remove this when there's no chance of pickled data
-    if state is None:
-        try:
-            state = pickle.loads(request["state_data"])
-        except Exception:
-            pass
-
-    if state is None:
-        logger.error("Cannot parse request state for sympa request %s: %s",
-                     request["request_id"], request["state_data"])
-        return True
-
-    try:
-        listname = state["listname"]
-        host = state["run_host"]
-    except KeyError:
-        logger.error("No listname/runhost specified for request %s",
-                     request["request_id"])
-        return True
-
-    cmd = [cereconf.SYMPA_SCRIPT, host, 'rmlist', listname]
-    return Utils.spawn_and_log_output(cmd) == EXIT_SUCCESS
 
 
 def get_address(db, address_id):
@@ -282,7 +192,8 @@ def proc_delete_user(db, r):
         pass
     else:
         if home['status'] == const.home_status_on_disk:
-            if not delete_user(db, uname, old_host, '%s/%s' % (old_disk, uname),
+            if not delete_user(db, uname, old_host,
+                               '%s/%s' % (old_disk, uname),
                                operator, mail_server):
                 return False
 
@@ -480,7 +391,7 @@ def main():
         '-t', '--type',
         dest='types',
         action='append',
-        choices=['email', 'sympa', 'move', 'quarantine', 'delete'],
+        choices=['move', 'quarantine', 'delete'],
         required=True,
     )
     parser.add_argument(
