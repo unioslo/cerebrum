@@ -23,14 +23,17 @@ Wrapper module for running sympa commands
 Sympa commands is simply a script we run to create and delete email lists in
 Sympa.
 
-More info: TODO
-
 Configuration
 =============
 The following settings from :mod:`cereconf` applies to this modoule:
 
 ``SYMPA_SCRIPT``
     Location of the sympa script to run.
+
+    This should generally refer to ``contrib/sympa/sympa_wrapper.py``, or a
+    compatible script.
+
+    TODO: Move the *actual* sympa commands here?
 """
 from __future__ import (
     absolute_import,
