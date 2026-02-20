@@ -26,7 +26,6 @@ from __future__ import (
     print_function,
     # TODO: unicode_literals,
 )
-
 import errno
 import fcntl
 import logging
@@ -47,6 +46,7 @@ from Cerebrum.modules.no.uio.AutoStud.Util import AutostudError
 from Cerebrum.utils import date as date_utils
 from Cerebrum.utils import date_compat
 from Cerebrum.utils import mappings
+from Cerebrum.utils import reprutils
 
 
 logger = logging.getLogger(__name__)
@@ -138,6 +138,90 @@ class RequestLockHandler(object):
             self.lockfd = None
 
 
+class SimpleRequestProcessor(reprutils.ReprFieldMixin):
+    """
+    Simple bofhd request processor.
+
+    This request processor handles a single operation type and callback, and
+    leaves operation type management to the caller.
+    """
+    repr_id = False
+    repr_module = False
+    repr_fields = ("dryrun",)
+
+    def __init__(self, db, dryrun=True):
+        self.db = db
+        self.co = Factory.get("Constants")(db)
+        self.br = BofhdRequests(self.db, self.co)
+        self.dryrun = dryrun
+
+    def _on_success(self, request_id, request):
+        self.br.delete_request(request_id=request_id)
+        if not self.dryrun:
+            self.db.commit()
+
+    def _on_failure(self, request_id, request, delay=0):
+        if not self.dryrun:
+            self.db.rollback()
+        if delay:
+            self.br.delay_request(request_id, minutes=(delay // 60))
+            if not self.dryrun:
+                self.db.commit()
+
+    def __call__(self, op_type, callback, delay=0, max_requests=0):
+        """
+        :param op_type:
+            bofhd request operation type to process
+
+        :param callback:
+            Callback to run for each request.
+
+            The callback should accept 2 positional arguments, and an arbitrary
+            number of keyword arguments:
+
+                callback(database, request_dict, dryrun=None, **kwargs)
+
+        :param int delay:
+            an optional delay (in seconds) to postpone failed requests
+
+        :param int limit:
+            an optional max_requests limit
+        """
+        counter = 0
+        logger.debug("%s(%s, %s, delay=%d, max_requests=%d)",
+                     repr(self), op_type, repr(callback), delay, max_requests)
+        for r in self.br.get_requests(operation=op_type, only_runnable=True):
+            request_id = r['request_id']
+            run_at = date_compat.get_datetime_tz(r['run_at'])
+            logger.debug("processing request: id=%d, run_at=%s, state=%s",
+                         request_id, run_at, repr(r['state_data']))
+            if not is_valid_request(self.br, request_id):
+                # In non-dryrun mode, this loop will re-start our
+                # transaction again and again, which means our list of
+                # requests may be out-of-date
+                logger.warning("request id=%d gone", request_id)
+                continue
+
+            with closing(RequestLockHandler()) as reqlock:
+                if not reqlock.grab(request_id):
+                    continue
+                logger.debug("request id=%s, type=%s callback=%s start",
+                             request_id, op_type, repr(callback))
+                counter += 1
+                if callback(self.db, dict(r), dryrun=self.dryrun):
+                    self._on_success(request_id, r)
+                    logger.info("request id=%s, type=%s processed",
+                                request_id, op_type)
+                else:
+                    self._on_failure(request_id, r)
+                    logger.warning("request id=%s, type=%s failed",
+                                   request_id, op_type)
+
+            if max_requests and counter >= max_requests:
+                logger.warning("abort: processed %d requests", counter)
+                break
+
+
 class OperationsMap(mappings.SimpleMap):
     """
     A dict for mapping one or more keys to a function and settings
@@ -188,7 +272,7 @@ class OperationsMap(mappings.SimpleMap):
 
 class RequestProcessor(object):
     """
-    Request processor.
+    Legacy request processor.
 
     Note: :meth:`.process_requests` calls commit/rollback on the
     database object given to this object!
