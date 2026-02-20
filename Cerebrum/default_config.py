@@ -155,9 +155,7 @@ MVUSER_SCRIPT = '/cerebrum/sbin/mvuser'
 RMUSER_SCRIPT = '/cerebrum/sbin/aruser'
 LEGAL_BATCH_MOVE_TIMES = '22:00-06:00'
 SYMPA_SCRIPT = None
-CONVERT_MAILCONFIG_SCRIPT = None
 MVMAIL_SCRIPT = None
-SUBSCRIBE_SCRIPT = None
 RSH_CMD = '/usr/bin/ssh'
 
 # Temporary switch until someone can figure out why mktime won't work
