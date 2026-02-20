@@ -401,6 +401,7 @@ setup(
         'Cerebrum/modules/posix',
         'Cerebrum/modules/pwcheck',
         'Cerebrum/modules/printutils',
+        'Cerebrum/modules/sympa',
         'Cerebrum/modules/tasks',
         'Cerebrum/modules/trait',
         'Cerebrum/modules/templates',
