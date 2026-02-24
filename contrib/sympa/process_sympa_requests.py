@@ -41,7 +41,6 @@ from __future__ import (
 
 import argparse
 import logging
-import pickle
 
 import Cerebrum.logutils
 import Cerebrum.logutils.options
@@ -50,8 +49,8 @@ from Cerebrum import Utils
 from Cerebrum.modules import Email
 from Cerebrum.modules.bofhd_requests import process_requests
 from Cerebrum.modules.sympa.commands import SympaCommands
+from Cerebrum.modules.sympa import sympa_requests
 from Cerebrum.utils import date as date_utils
-from Cerebrum.utils import json
 
 logger = logging.getLogger(__name__)
 
@@ -66,29 +65,6 @@ def get_address_from_id(db, address_id):
     ed.find(ea.email_addr_domain_id)
     return "%s@%s" % (ea.email_addr_local_part,
                       ed.rewrite_special_domains(ed.email_domain_name))
-
-
-def _get_request_data(request):
-    """ Unserialize request state data. """
-    try:
-        state = json.loads(request["state_data"])
-    except ValueError:
-        state = None
-
-    # Remove this when there's no chance of pickled data
-    if state is None:
-        try:
-            state = pickle.loads(request["state_data"])
-            logger.warning("legacy pickle state for request id=%d",
-                           request['request_id'])
-        except Exception:
-            pass
-
-    if state is None:
-        state = {}
-        logger.warning("no state for request id=%d", request['request_id'])
-
-    return state
 
 
 def sympa_create(db, request, dryrun=True, **kwargs):
@@ -109,24 +85,14 @@ def sympa_create(db, request, dryrun=True, **kwargs):
                     request['entity_id'])
         return True
 
-    state = _get_request_data(request)
-    if not state:
-        logger.error("Missing data for sympa create request id=%d: %s",
-                     request['request_id'], repr(request["state_data"]))
+    params = sympa_requests.get_params_newlist(request)
+    if not params:
         return True
 
-    try:
-        runhost = state["runhost"]
-        admins = ",".join(state["admins"])
-        profile = state["profile"]
-        description = state["description"]
-    except (KeyError, ValueError, TypeError):
-        logger.error("Missing params for sympa create request id=%d: %s",
-                     request['request_id'], repr(request["state_data"]))
-        return True
+    params['listname'] = listname
 
     runner = SympaCommands(dryrun)
-    return runner.newlist(runhost, listname, admins, profile, description)
+    return runner.newlist(**params)
 
 
 def sympa_remove(db, request, dryrun=True, **kwargs):
@@ -137,22 +103,12 @@ def sympa_remove(db, request, dryrun=True, **kwargs):
         a dict-like object with request parameters
     """
     logger.info("removing sympa list (request id: %d)", request['request_id'])
-    state = _get_request_data(request)
-    if not state:
-        logger.error("Missing data for sympa create request id=%d: %s",
-                     request['request_id'], repr(request["state_data"]))
-        return True
-
-    try:
-        runhost = state["run_host"]
-        listname = state["listname"]
-    except KeyError:
-        logger.error("Missing params for sympa delete request id=%d: %s",
-                     request['request_id'], repr(request["state_data"]))
+    params = sympa_requests.get_params_rmlist(request)
+    if not params:
         return True
 
     runner = SympaCommands(dryrun)
-    return runner.rmlist(runhost, listname)
+    return runner.rmlist(**params)
 
 
 def _drop_request(op, request, dryrun=True, **kwargs):

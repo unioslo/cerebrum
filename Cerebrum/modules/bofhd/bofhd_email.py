@@ -42,7 +42,6 @@ from __future__ import (
     print_function,
     unicode_literals,
 )
-import datetime
 import logging
 import re
 import textwrap
@@ -76,9 +75,7 @@ from Cerebrum.modules.bofhd.cmd_param import (
 )
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.help import merge_help_strings
-from Cerebrum.modules.bofhd_requests.request import BofhdRequests
-from Cerebrum.utils import json
-from Cerebrum.utils import date as date_utils
+from Cerebrum.modules.sympa import sympa_requests
 from Cerebrum.utils import email as email_utils
 
 
@@ -3547,26 +3544,9 @@ class BofhdSympaCommands(BofhdEmailBase):
         ea = Email.EmailAddress(self.db)
         ea.clear()
         ea.find_by_local_part_and_domain(lp, ed.entity_id)
-        list_id = ea.entity_id
-        state = {
-            "runhost": run_host,
-            "admins": admin_list,
-            "profile": list_profile,
-            "description": list_description,
-        }
-        br = BofhdRequests(self.db, self.const)
-
-        # IVR 2009-04-17 +30 minute delay to allow changes to spread to
-        # LDAP. The postmasters are nagging for that delay. All questions
-        # should be directed to them (this is similar to delaying a delete
-        # request).
-        br.add_request(
-            operator=operator.get_entity_id(),
-            when=date_utils.now() + datetime.timedelta(minutes=30),
-            op_code=self.const.bofh_sympa_create,
-            entity_id=list_id,
-            destination_id=ea.entity_id,
-            state_data=json.dumps(state),
+        sympa_requests.request_newlist(
+            operator.get_entity_id(), ea, run_host,
+            admin_list, list_profile, list_description,
         )
         return {'listname': listname}
 
@@ -3612,7 +3592,6 @@ class BofhdSympaCommands(BofhdEmailBase):
                 % (listname, self.const.EmailTarget(et.email_target_type)))
 
         epat = Email.EmailPrimaryAddressTarget(self.db)
-        list_id = ea.entity_id
         # Now, there are *many* ETs/EAs associated with one sympa list. We
         # have to wipe them all out.
         if not self._validate_sympa_list(listname):
@@ -3620,6 +3599,11 @@ class BofhdSympaCommands(BofhdEmailBase):
 
         # needed for pattern interpolation below (these are actually used)
         local_part, domain = self._split_email_address(listname)
+
+        if force_request:
+            # Add bofhd request before we delete the email target
+            sympa_requests.request_rmlist(operator.get_entity_id(), ea,
+                                          run_host, listname)
 
         for pattern, pipe_destination in _sympa_addr2alias:
             address = pattern % {
@@ -3652,25 +3636,6 @@ class BofhdSympaCommands(BofhdEmailBase):
             except Errors.NotFoundError:
                 pass
 
-        if not force_request:
-            return {'listname': listname, 'request': False}
-
-        br = BofhdRequests(self.db, self.const)
-        state = {
-            'run_host': run_host,
-            'listname': listname,
-        }
-        br.add_request(
-            operator=operator.get_entity_id(),
-            # IVR 2008-08-04 +1 hour to allow changes to spread to
-            # LDAP. This way we'll have a nice SMTP-error, rather
-            # than a confusing error burp from sympa.
-            when=date_utils.now() + datetime.timedelta(hours=1),
-            op_code=self.const.bofh_sympa_remove,
-            entity_id=list_id,
-            destination_id=None,
-            state_data=json.dumps(state),
-        )
         return {'listname': listname, 'request': True}
 
     #
