@@ -156,6 +156,12 @@ class ConstantsCommon(Constants.Constants):
         "Group is a personal file group.",
     )
 
+    trait_critical_group = _EntityTraitCode(
+        'critical_group',
+        Constants.Constants.entity_group,
+        "Group is critical for operations.",
+    )
+
     trait_group_entitlement = _EntityTraitCode(
         'entitlement',
         Constants.Constants.entity_group,
