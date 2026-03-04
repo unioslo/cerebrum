@@ -21,8 +21,26 @@
 """
 Process bofhd requests for UiO.
 
-This script reads from the bofhd_request table in the database and picks the
-requests of the given types for processing.
+This script processes selected request types from the
+:mod:`Cerebrum.modules.bofhd_requests` module.
+
+These requests are typically changes that:
+
+1. Are costly, and should not delay the script/process that caused them
+2. Should be delayed until a specific point in time
+3. Adds complexity to anotherwise simple function
+
+More specifically, these changes mosly involves moving or archiving user home
+directories.
+
+There are other scripts with similar or related behaviour:
+
+- ``process_changes.py`` deals with *creating* home directories.  This
+  operation is typically triggered by the *change log*, rather than being bofhd
+  requests.
+
+- ``process_sympa_request.py`` creates and removes email lists from bofhd
+  requests.
 """
 from __future__ import (
     absolute_import,
@@ -47,16 +65,12 @@ from Cerebrum.group.GroupRoles import GroupRoles
 from Cerebrum.modules import Email
 from Cerebrum.modules import PosixGroup
 from Cerebrum.modules.bofhd_requests import process_requests
+from Cerebrum.modules.no.uio import reguser
 from Cerebrum.utils.argutils import get_constant
 
 logger = logging.getLogger(__name__)
 
-SSH_CMD = "/usr/bin/ssh"
-SUDO_CMD = "sudo"
-SSH_CEREBELLUM = [SSH_CMD, cereconf.ARCHIVE_USER_SERVER]
-
 DEBUG = False
-EXIT_SUCCESS = 0
 
 constants_cls = Utils.Factory.get('Constants')
 operations_map = process_requests.OperationsMap()
@@ -74,15 +88,6 @@ delete_user_op = six.text_type(constants_cls.bofh_delete_user)
 # something else.  The proper solution is to change the databasetable
 # and/or letting state_data be pickled.
 default_spread = six.text_type(constants_cls.spread_uio_nis_user)
-
-
-def get_address(db, address_id):
-    ea = Email.EmailAddress(db)
-    ea.find(address_id)
-    ed = Email.EmailDomain(db)
-    ed.find(ea.email_addr_domain_id)
-    return "%s@%s" % (ea.email_addr_local_part,
-                      ed.rewrite_special_domains(ed.email_domain_name))
 
 
 @operations_map(move_user_op, move_user_now_op, delay=24*60)
@@ -279,45 +284,41 @@ def _get_default_group(db, account_id):
 def delete_user(db, uname, old_host, old_home, operator, mail_server):
     account = get_account(db, name=uname)
     const = account.const
-    generation = account.get_trait(const.trait_account_generation)
-    if generation:
-        generation = generation['numval'] + 1
-    else:
-        generation = 1
-
-    args = [
-        SUDO_CMD, cereconf.RMUSER_SCRIPT,
-        '--username', account.account_name,
-        '--deleted-by', operator,
-        '--homedir', old_home,
-        '--generation', str(generation)
-    ]
-    if DEBUG:
-        args.append('--debug')
-    cmd = SSH_CEREBELLUM + [" ".join(args), ]
-
-    if Utils.spawn_and_log_output(cmd, connect_to=[old_host]) == EXIT_SUCCESS:
+    generation_trait = account.get_trait(const.trait_account_generation) or {}
+    generation = (generation_trait.get('numval') or 0) + 1
+    success = reguser.ReguserCommands(
+        dryrun=False,
+        remote_dryrun=False,
+        remote_debug=DEBUG,
+    ).delete_user(
+        username=account.account_name,
+        deleted_by=operator,
+        homedir=old_home,
+        generation=generation,
+    )
+    if success:
         account.populate_trait(const.trait_account_generation,
                                numval=generation)
         account.write_db()
         return True
-    return False
+    else:
+        return False
 
 
 def move_user(uname, uid, gid, old_host, old_disk, new_host, new_disk,
               operator):
-    args = [SUDO_CMD, cereconf.MVUSER_SCRIPT,
-            '--user', uname,
-            '--uid', str(uid),
-            '--gid', str(gid),
-            '--old-disk', old_disk,
-            '--new-disk', new_disk,
-            '--operator', operator]
-    if DEBUG:
-        args.append('--debug')
-    cmd = SSH_CEREBELLUM + [" ".join(args), ]
-    return (Utils.spawn_and_log_output(cmd, connect_to=[old_host, new_host]) ==
-            EXIT_SUCCESS)
+    return reguser.ReguserCommands(
+        dryrun=False,
+        remote_dryrun=False,
+        remote_debug=DEBUG,
+    ).move_user(
+        user=uname,
+        uid=uid,
+        gid=gid,
+        old_disk=old_disk,
+        new_disk=new_disk,
+        operator=operator,
+    )
 
 
 def get_disk(db, disk_id):
