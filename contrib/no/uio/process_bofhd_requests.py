@@ -66,7 +66,6 @@ from Cerebrum.modules import Email
 from Cerebrum.modules import PosixGroup
 from Cerebrum.modules.bofhd_requests import process_requests
 from Cerebrum.modules.no.uio import reguser
-from Cerebrum.utils.argutils import get_constant
 
 logger = logging.getLogger(__name__)
 
@@ -408,40 +407,6 @@ def main():
         action='store_true',
         help='Perform the queued operations',
     )
-    args, _rest = parser.parse_known_args()
-
-    has_move_arg = 'move' in args.types
-    arg_group = parser.add_argument_group('Required for move_student requests')
-    arg_group.add_argument(
-        '--ou-perspective',
-        dest='ou_perspective',
-        default='perspective_fs',
-    )
-    arg_group.add_argument(
-        '--emne-info-file',
-        dest='emne_info_file',
-        default=None,
-        required=has_move_arg,
-    )
-    arg_group.add_argument(
-        '--studconfig-file',
-        dest='studconfig_file',
-        default=None,
-        required=has_move_arg,
-    )
-    arg_group.add_argument(
-        '--studie-progs-file',
-        dest='studieprogs_file',
-        default=None,
-        required=has_move_arg,
-    )
-    arg_group.add_argument(
-        '--student-info-file',
-        dest='student_info_file',
-        default=None,
-        required=has_move_arg,
-    )
-
     Cerebrum.logutils.options.install_subparser(parser)
     args = parser.parse_args()
 
@@ -456,24 +421,6 @@ def main():
     const = constants_cls(db)
 
     if args.process:
-        if has_move_arg:
-            logger.info('Processing move requests')
-            # Asserting that a legal value is assigned to args.ou_perspective
-            args.ou_perspective = get_constant(db, parser, const.OUPerspective,
-                                               args.ou_perspective)
-            spread = const.get_constant(const.Spread, default_spread)
-            msp = process_requests.MoveStudentProcessor(
-                db,
-                const,
-                args.ou_perspective,
-                args.emne_info_file,
-                args.studconfig_file,
-                args.studieprogs_file,
-                default_spread=spread,
-            )
-            # Convert move_student requests into move_user requests
-            msp.process_requests(args.student_info_file)
-
         logger.info('Processing regular requests')
         rp = process_requests.RequestProcessor(db, const)
         rp.process_requests(operations_map, args.types, args.max_requests)
