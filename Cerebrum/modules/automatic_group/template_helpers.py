@@ -24,9 +24,7 @@ Example use:
 ::
 
     class FooGroups(AutomaticGroupCache):
-        '''
-        Define a group template + naming and spread rules
-        '''
+        " Defines group type template, naming, and spread rules "
 
         template = GroupTypeTemplate(
             group_type="internal-group",
@@ -37,7 +35,7 @@ Example use:
         description_fmt = "Foo-group {}"
         required_spreads = frozenset(("group@ldap",))
 
-    # Use as a cache
+    # Create or fetch + update, and cache groups
     my_foo_groups = FooGroups(db)
     foo_bar = my_foo_groups.get_group("bar")
 
@@ -56,14 +54,16 @@ import logging
 from Cerebrum.Constants import _SpreadCode
 from Cerebrum.Utils import Factory
 from Cerebrum.group.template import _get_group_type
-from Cerebrum.group.template import GroupTypeTemplate
 from Cerebrum.utils import reprutils
 
 logger = logging.getLogger(__name__)
 
 
 class DefaultSpreads(reprutils.ReprEvalMixin):
-    """ A set of default spreads to an entity. """
+    """ A set of default spreads to add to an entity. """
+
+    # Maybe this should be a generic group template feature?  It should
+    # probably follow the GroupTypeTemplate.conflict_resolution rules.
 
     repr_module = False
     repr_args_attr = "spreads"
@@ -119,15 +119,23 @@ class AutomaticGroupRules(object):
     1. Group name and description formatting
     2. Group lookup
     """
+    # Required: Template for group type, e.g.:
+    #   template = GroupTypeTemplate(
+    #       group_type="internal-group",
+    #       group_visibility="I",
+    #       conflict=GroupTypeTemplate.CONFLICT_ERROR,
+    #   )
     template = None
-    GroupTypeTemplate(
-        group_type="internal-group",
-        group_visibility="I",
-        conflict=GroupTypeTemplate.CONFLICT_ERROR,
-    )
 
+    # Optional: Group name prefix and suffix.
+    #   `format_name(ident)` builds group name `prefix + ident + suffix`.
+    #   Override to implement different naming scheme.
     prefix = None
     suffix = None
+
+    # Recommended: Group description format
+    #   `format_description(ident)` builds description `fmt.format(ident)`
+    #   Override to implement different description formatting.
     description_fmt = "automatic group {}"
 
     @classmethod
@@ -179,6 +187,10 @@ class AutomaticGroupCache(AutomaticGroupRules):
     """
     Automatic group cache, with default spread check + update for groups.
     """
+    # Add required spreads, e.g.:
+    #   required_spreads = frozenset(("group@ldap", "AD_group"))
+    required_spreads = frozenset()
+
     def __init__(self, db):
         if self.required_spreads:
             default_spreads = DefaultSpreads.lookup_spreads(
