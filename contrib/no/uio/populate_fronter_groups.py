@@ -1387,7 +1387,7 @@ def sync_group(affil, gname, descr, mtype, memb, visible=False, recurse=True,
     try:
         group = get_group(gname)
     except Errors.NotFoundError:
-        logger.debug('Creating group with name %s', gname)
+        logger.info('Creating group with name %s', gname)
         group = Factory.get('Group')(db)
         group.clear()
         group.populate(
@@ -1417,7 +1417,7 @@ def sync_group(affil, gname, descr, mtype, memb, visible=False, recurse=True,
                     today +
                     datetime.timedelta(days=grace['high_limit'])
             )
-            logger.debug('Postponing expire_date of group %s to %s',
+            logger.info('Postponing expire_date of group %s to %s',
                          gname,
                          group.expire_date)
             group.write_db()
@@ -1430,7 +1430,7 @@ def sync_group(affil, gname, descr, mtype, memb, visible=False, recurse=True,
             if member in members and member not in exclude['users']:
                 del members[member]
             else:
-                logger.debug("sync_group(): Deleting member %d" % member)
+                logger.info("sync_group(): Deleting member %d" % member)
                 group.remove_member(member)
                 #
                 # Supergroups will only contain groups that have been
@@ -1455,7 +1455,7 @@ def sync_group(affil, gname, descr, mtype, memb, visible=False, recurse=True,
 
     # Finally fixup fronter spreads, if we have to.
     if auto_spread is not NotSet:
-        logger.debug("Group %s changes fronter spreads", gname)
+        logger.info("Group %s changes fronter spreads", gname)
         if auto_spread:
             add_spread_to_group(gname, co.spread_fronter_dotcom)
         else:
@@ -1508,7 +1508,7 @@ def destroy_group(gname, max_recurse=2, recurse=True):
         for r in et.get_addresses():
             ea.clear()
             ea.find(r['address_id'])
-            logger.debug("deleting address %s@%s" %
+            logger.info("deleting address %s@%s" %
                          (r['local_part'], r['domain']))
             ea.delete()
         et.delete()
@@ -1558,14 +1558,14 @@ def add_spread_to_group(group, spread):
     gr = get_group(group)
     if not gr.has_spread(spread):
         gr.add_spread(spread)
-        logger.debug("Adding spread %s to %s" % (spread, group))
+        logger.info("Adding spread %s to %s" % (spread, group))
 
 
 def remove_spread_from_group(group, spread):
     gr = get_group(group)
     if gr.has_spread(spread):
         gr.delete_spread(spread)
-        logger.debug("Removing spread %s from %s" % (spread, group))
+        logger.info("Removing spread %s from %s" % (spread, group))
 
 
 def get_group(value):
