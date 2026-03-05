@@ -858,7 +858,7 @@ def populate_enhet_groups(enhet_id, role_mapping):
         # TODO: generaliser ifi-hack seinare
         # IVR 2008-05-14: itslp added at ifi-drift's request
         year, semester = get_year_and_semester()
-        if (re.match(r"(dig|inf|in|med-inf|tool|humit|itslp|mat-in)",
+        if (re.match(r"(dig|inf|in|med-inf|tool|humit|itslp|mat-in|sifi)",
                      emnekode.lower()) and
                 termk == semester and
                 aar == str(year)):
