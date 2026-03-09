@@ -24,7 +24,7 @@ from __future__ import (
     absolute_import,
     division,
     print_function,
-    # TODO: unicode_literals,
+    unicode_literals,
 )
 import errno
 import fcntl
@@ -33,15 +33,11 @@ import os
 import time
 from contextlib import closing
 
-import six
-
 import cereconf
 
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd_requests.request import BofhdRequests
-from Cerebrum.utils import date as date_utils
 from Cerebrum.utils import date_compat
-from Cerebrum.utils import mappings
 from Cerebrum.utils import reprutils
 
 
@@ -52,13 +48,12 @@ default_lockdir = getattr(cereconf, 'BOFHD_REQUEST_LOCK_DIR', None)
 def is_ok_batch_time():
     now = time.strftime("%H:%M")
     times = cereconf.LEGAL_BATCH_MOVE_TIMES.split('-')
-    if times[0] > times[1]:  # Like '20:00-08:00'
-        if now > times[0] or now < times[1]:
-            return True
-    else:  # Like '08:00-20:00'
-        if times[0] < now < times[1]:
-            return True
-    return False
+    if times[0] > times[1]:
+        # E.g. '20:00-08:00'
+        return now > times[0] or now < times[1]
+    else:
+        # E.g.'08:00-20:00'
+        return times[0] < now < times[1]
 
 
 def is_valid_request(br, req_id):
@@ -66,13 +61,6 @@ def is_valid_request(br, req_id):
     for r in br.get_requests(request_id=req_id):
         return True
     return False
-
-
-def set_operator(db, entity_id=None):
-    if entity_id:
-        db.cl_init(change_by=entity_id)
-    else:
-        db.cl_init(change_program='process_bofhd_r')
 
 
 class RequestLockHandler(object):
@@ -212,127 +200,3 @@ class SimpleRequestProcessor(reprutils.ReprFieldMixin):
             if max_requests and counter >= max_requests:
                 logger.warning("abort: processed %d requests", counter)
                 break
-
-
-class OperationsMap(mappings.SimpleMap):
-    """
-    A dict for mapping one or more keys to a function and settings
-
-    Example:
-    ::
-
-        handlers = OperationsMap()
-
-        @handlers("br_move_user", delay=3)
-        def move_user(request):
-            # ...
-            pass
-
-        @handlers("br_move_user_now", delay=0)
-        def move_user_now(request):
-            # ...
-            pass
-
-        processor = RequestProcessor(...)
-        processor.process_requests(handlers, ("move",), ...)
-        6)
-    """
-
-    def __call__(self, *keys, **settings):
-        """
-        Registers decorated function with the given keys.
-
-        :param *list keys:
-            A list of operations / keys to use the decorated function for.
-
-        :param **dict settings:
-            Settings to be used by RequestProcessor.
-
-            See the chosen request processor for valid settings.  Invalid
-            settings are usually ignored.
-
-        :return callable:
-            Returns a function decorator.
-        """
-        def register(func):
-            value = [func, settings]
-            for key in keys:
-                self.set(key, value)
-            return func
-        return register
-
-
-class RequestProcessor(object):
-    """
-    Legacy request processor.
-
-    Note: :meth:`.process_requests` calls commit/rollback on the
-    database object given to this object!
-    """
-
-    def __init__(self, db, co):
-        super(RequestProcessor, self).__init__()
-        self.db = db
-        self.co = co
-        self.op_type_map = {
-            'quarantine':
-                [co.bofh_quarantine_refresh],
-            'delete':
-                [co.bofh_archive_user,
-                 co.bofh_delete_user],
-            'move':
-                [co.bofh_move_user_now,
-                 co.bofh_move_user],
-            'email':
-                [co.bofh_email_create,
-                 co.bofh_email_delete],
-            'sympa':
-                [co.bofh_sympa_create,
-                 co.bofh_sympa_remove],
-        }
-
-    def process_requests(self, operations_map, op_types, max_requests):
-        max_runtime = date_utils.to_seconds(minutes=30)
-        with closing(RequestLockHandler()) as reqlock:
-            br = BofhdRequests(self.db, self.co)
-            for t in op_types:
-                logger.info("Processing operation type %r", t)
-                for op in self.op_type_map[t]:
-                    op_key = six.text_type(op)
-                    logger.info("Processing operation %r (%r)", op_key, op)
-                    if op_key not in operations_map:
-                        logger.info('Unable to process operation %r (%r)',
-                                    op_key, op)
-                        continue
-                    func, settings = operations_map[op_key]
-                    delay = settings.get('delay', 0)
-                    set_operator(self.db)
-                    start_time = time.time()
-                    for r in br.get_requests(operation=op, only_runnable=True):
-                        reqid = r['request_id']
-                        logger.debug("Req: %s %d at %s, state %r",
-                                     op_key, reqid, r['run_at'],
-                                     r['state_data'])
-                        if (time.time() - start_time) > max_runtime:
-                            break
-                        run_at = date_compat.get_datetime_tz(r['run_at'])
-                        if run_at and run_at > date_utils.now():
-                            continue
-                        # Moving users only at ok times
-                        if (op == self.co.bofh_move_user
-                                and not is_ok_batch_time()):
-                            break
-                        if not is_valid_request(br, reqid):
-                            continue
-                        if reqlock.grab(reqid):
-                            if max_requests <= 0:
-                                break
-                            max_requests -= 1
-                            if func(self.db, r):
-                                br.delete_request(request_id=reqid)
-                                self.db.commit()
-                            else:
-                                self.db.rollback()
-                                if delay:
-                                    br.delay_request(reqid, minutes=delay)
-                                    self.db.commit()
