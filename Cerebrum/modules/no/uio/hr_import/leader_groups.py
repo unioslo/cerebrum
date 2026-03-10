@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2020-2022 University of Oslo, Norway
+# Copyright 2020-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -32,19 +32,71 @@ from __future__ import (
 import logging
 
 from Cerebrum.Utils import Factory
-
-from Cerebrum.modules.automatic_group.structure import (
-    get_automatic_group,
-    update_memberships,
-)
+from Cerebrum.group.template import GroupTypeTemplate
+from Cerebrum.modules.automatic_group import template_helpers
 
 logger = logging.getLogger(__name__)
 
-MANAGER_GROUP_PREFIX = 'adm-leder-'
+
+class ManagerGroups(template_helpers.AutomaticGroupCache):
+    """ Manager group template, rules, and cache. """
+
+    template = GroupTypeTemplate(
+        # TODO: Fix this - it should probably have it's own type, or a more
+        # generic type:
+        group_type="affiliation-group",
+        # TODO: Fix this - it should probably be "A":
+        group_visibility="I",
+        conflict=GroupTypeTemplate.CONFLICT_UPDATE,
+    )
+
+    prefix = "adm-leder-"
+    description_fmt = "Administrerende leder ved {}"
+    required_spreads = frozenset(("group@ldap", "AD_group", "NIS_ng@uio"))
+
+
+class ManagerSupergroups(ManagerGroups):
+    """ Manager supergroup template, rules, and cache. """
+
+    prefix = "meta-adm-leder-"
+    description_fmt = "Administrerende ledere ved {} og underenheter"
 
 
 def get_manager_group(db, identifier):
-    return get_automatic_group(db, identifier, MANAGER_GROUP_PREFIX)
+    return ManagerGroups.assert_group(db, identifier)
+
+
+def _get_group_by_id(db, group_id):
+    gr = Factory.get('Group')(db)
+    gr.find(group_id)
+    return gr
+
+
+def update_memberships(db, entity_id, current_memberships, wanted_memberships):
+    """Make sure entity 'entity_id' is member of groups 'wanted_membeships'
+
+    This method differentiates the current and wanted memberships of an entity
+    and makes the necessary updates to the entity's memberships.
+
+    :type db: Cerebrum.database.Database
+    :param entity_id: entity to add
+    :type current_memberships: set
+    :type wanted_memberships: set
+    """
+    to_add = set(wanted_memberships) - set(current_memberships)
+    to_remove = set(current_memberships) - set(wanted_memberships)
+    for group_id in to_add:
+        gr = _get_group_by_id(db, group_id)
+        # If we blindly trust the current_memberships input, we may run into
+        # problems.  Often, the search for current memberships will *omit
+        # expired groups*, and the wanted_memberships *includes* expired
+        # groups.
+        if not gr.has_member(entity_id):
+            gr.add_member(entity_id)
+    for group_id in to_remove:
+        gr = _get_group_by_id(db, group_id)
+        if gr.has_member(entity_id):
+            gr.remove_member(entity_id)
 
 
 class ManagerGroupSync(object):
@@ -53,19 +105,6 @@ class ManagerGroupSync(object):
     def __init__(self, db):
         self.db = db
         self.const = Factory.get('Constants')(self.db)
-
-    def _get_current_groups(self, person_id):
-        """
-        Get all current manager group memberships for a given person.
-        """
-        gr = Factory.get('Group')(self.db)
-
-        return (r['group_id'] for r in
-                gr.search(member_id=person_id,
-                          name=MANAGER_GROUP_PREFIX + '*',
-                          group_type=self.const.group_type_affiliation,
-                          filter_expired=False,
-                          fetchall=False))
 
     def _fetch_group_ids(self, ou_objects):
         """
@@ -76,8 +115,11 @@ class ManagerGroupSync(object):
         """
         for ou in ou_objects:
             stedkode = ou.get_stedkode()
-            mgr_group_id = get_manager_group(self.db, stedkode).entity_id
-            yield mgr_group_id
+            # TODO: This group may not exist, e.g. if it's quarantined...
+            #       We should probably use the same criterias as the
+            #       manager_groups module.
+            mgr_group = ManagerGroups.assert_group(self.db, stedkode)
+            yield mgr_group.entity_id
 
     def sync(self, person_id, ou_objects):
         """
@@ -94,7 +136,11 @@ class ManagerGroupSync(object):
         logger.debug("manager groups for person_id=%r: %r",
                      person_id, require_memberships)
 
-        current_memberships = set(self._get_current_groups(person_id))
+        current_memberships = ManagerGroups.list_groups(
+            self.db,
+            include_expired=True,
+            member_id=int(person_id),
+        )
         if require_memberships == current_memberships:
             return
 
@@ -103,7 +149,7 @@ class ManagerGroupSync(object):
             person_id, require_memberships - current_memberships,
             current_memberships - require_memberships)
 
-        update_memberships(Factory.get('Group')(self.db),
+        update_memberships(self.db,
                            person_id,
                            current_memberships,
                            require_memberships)
