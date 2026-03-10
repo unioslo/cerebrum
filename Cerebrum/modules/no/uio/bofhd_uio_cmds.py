@@ -39,6 +39,7 @@ from Cerebrum.modules import Email
 from Cerebrum.modules.AccountPolicy import AccountPolicy
 from Cerebrum.modules.apikeys import bofhd_apikey_cmds
 from Cerebrum.modules.audit import bofhd_history_cmds
+from Cerebrum.modules.bofhd import bofhd_addresses
 from Cerebrum.modules.bofhd import bofhd_core_help
 from Cerebrum.modules.bofhd import bofhd_external_id
 from Cerebrum.modules.bofhd import bofhd_group_roles
@@ -519,8 +520,10 @@ class BofhdExtension(BofhdCommonMethods):
         """
 
         grp = self._get_group(dest_group)
-        if (grp.group_type == self.const.group_type_policy and not member_type == "group"):
-            raise CerebrumError("Cannot add non-group members to policy groups")
+        if (grp.group_type == self.const.group_type_policy
+                and member_type != "group"):
+            raise CerebrumError(
+                "Cannot add non-group members to policy groups")
 
         if member_type == "group":
             src_entity = self._get_group(src_name)
@@ -1717,16 +1720,22 @@ class BofhdExtension(BofhdCommonMethods):
         if self._is_perishable_manual_group(grp):
             grp.set_default_expire_date()
 
-        if group_type == self.const.group_type_policy: 
-            nongroup_members = set(member for member in grp.search_members(group_id=grp.entity_id, 
-                            indirect_members=False, member_filter_expired=False) 
-                            if member.member_type != self.const.entity_group)
-            
+        if group_type == self.const.group_type_policy:
+            nongroup_members = set(
+                member for member in grp.search_members(
+                    group_id=grp.entity_id,
+                    indirect_members=False,
+                    member_filter_expired=False,
+                )
+                if member.member_type != self.const.entity_group
+            )
+
             if len(nongroup_members) > 0:
-                raise CerebrumError("Group '%s' has non-group members" %
-                                                (grp.group_name,))
+                raise CerebrumError("Group '%s' has non-group members"
+                                    % (grp.group_name,))
             if len(grp.get_group_admins(grp.entity_id)) == 0:
-                raise CerebrumError("Group '%s' has no admins" % (grp.group_name,))
+                raise CerebrumError("Group '%s' has no admins"
+                                    % (grp.group_name,))
 
         grp.group_type = group_type
         grp.write_db()
@@ -5262,6 +5271,10 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
 
 class AccessCommands(bofhd_access.BofhdAccessCommands):
     authz = bofhd_auth.AccessAuth
+
+
+class AddressCommands(bofhd_addresses.BofhdAddressCommands):
+    authz = bofhd_auth.AddressAuth
 
 
 class ApiKeyCommands(bofhd_apikey_cmds.BofhdApiKeyCommands):
