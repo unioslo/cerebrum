@@ -66,7 +66,10 @@ class VoipServiceListResource(Resource):
         Search by entity_id, description, ou_id, or stedkode.
         """
         args = self.service_search_parser.parse_args()
-        designation = args.get('search', '').strip()
+        try:
+            designation = args.get('search', '').strip()
+        except AttributeError:
+            designation = None
 
         if not designation:
             abort(400, message="Search parameter is required")
