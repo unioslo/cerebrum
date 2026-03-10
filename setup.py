@@ -386,7 +386,6 @@ setup(
         'Cerebrum/modules/no/uio/dfo',
         'Cerebrum/modules/no/hia',
         'Cerebrum/modules/no/hia/exchange',
-        'Cerebrum/modules/no/hiof',
         'Cerebrum/modules/no/nmh',
         'Cerebrum/modules/no/nih',
         'Cerebrum/modules/orgreg',
