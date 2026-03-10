@@ -738,7 +738,6 @@ class BaseSync(object):
             self.logger.warning("Mismatch in mapping of ad_id -> entity_id")
         self.fetch_quarantines()
         self.fetch_spreads()
-        self.fetch_attributes()
         if self.config['store_sid']:
             self.fetch_sids()
 
@@ -801,42 +800,6 @@ class BaseSync(object):
                 ent.spreads.append(row['spread'])
                 i += 1
         self.logger.debug("Fetched %d entity spreads", i)
-
-    def fetch_attributes(self):
-        """Get all AD attributes stored in Cerebrum and add them to the cached
-        entities.
-
-        """
-        # Check if data from the attribute table is needed:
-        attrtypes = set()
-        for c in ConfigUtils.get_config_by_type(self.config['attributes'],
-                                                ConfigUtils.ADAttributeAttr):
-            attrtypes.update(c.attributes)
-        if not attrtypes:
-            return
-        self.logger.debug("Fetch from attribute table: %s",
-                          ', '.join(str(a) for a in attrtypes))
-        ids = None
-        if self.config['subset']:
-            ids = self.id2entity.keys()
-            # Handle empty lists:
-            if not ids:
-                return
-        i = 0
-        for row in self.ent.list_ad_attributes(
-                entity_id=ids,
-                spread=self.config['target_spread'],
-                attribute=attrtypes):
-            e = self.id2entity.get(row['entity_id'], None)
-            if e:
-                attr = int(row['attr_code'])
-                attrcode = self.co.ADAttribute(attr)
-                if attrcode.multivalued:
-                    e.cere_attributes.setdefault(attr, []).append(row['value'])
-                else:
-                    e.cere_attributes[attr] = row['value']
-                i += 1
-        self.logger.debug("Fetched %d AD attributes from Cerebrum", i)
 
     def fetch_sids(self):
         """Get all SIDs stored in Cerebrum and add them to the cached entities.

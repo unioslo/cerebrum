@@ -42,7 +42,7 @@ How the caching class(es) should be used:
     # 2. Add more data to the cache:
     ent.description = en.description
     ent.active = bool(en.get_quarantines())
-    for atr in en.get_ad_attributes():
+    for attr, value in [...]:
         ent.set_attribute(atr...)
     ...
 
@@ -329,12 +329,6 @@ class CerebrumEntity(object):
                     # default order from cereconf!
                     for s in six.itervalues(ainfos):
                         return s
-        elif isinstance(config, ConfigUtils.ADAttributeAttr):
-            # AD attributes from Cerebrum's attribute table
-            for attr in config.attributes:
-                a = self.cere_attributes.get(int(attr))
-                if a:
-                    return a
         elif isinstance(config, ConfigUtils.TraitAttr):
             # Traits
             for code in config.traitcodes:
