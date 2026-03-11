@@ -280,12 +280,11 @@ SYNCS = {}
 #   TODO: are there shorter constants names to use instead?
 #
 #   Example:
-#       (('account_password', 'set'), # password changes
-#        ('account', 'create'),   # new accounts
-#        ('person_name', 'modify'),    # a person's name is changed
-#        ('ad_attr', 'add'),        # an AD-attribute is set
-#        ('ad_attr', 'remove')),       # an AD-attribute is removed
-#        )
+#     (
+#       ('account_password', 'set'),  # password changes
+#       ('account', 'create'),        # new accounts
+#       ('person_name', 'modify'),    # a person's name is changed
+#     )
 #
 # - changes_too_old_seconds (int):
 #

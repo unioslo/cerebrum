@@ -77,16 +77,16 @@ SYNCS['AD_account'] = {
     # What change types the quicksync should treat:
     # TODO: note that if new change types are added, all such events would
     # be processed, even those created before the previous quicksync run.
-    'change_types': (#('account', 'create'),
-        #('account', 'deactivate'),
-        #('account', 'modify'),
+    'change_types': (
+        # ('account', 'create'),
+        # ('account', 'deactivate'),
+        # ('account', 'modify'),
         ('account_password', 'set'),
         ('quarantine', 'add'),
         ('quarantine', 'modify'),
         ('quarantine', 'remove'),
         ('quarantine', 'refresh'),
-        ('ad_attr', 'add'),
-        ('ad_attr', 'remove')),
+    ),
 
     'attributes': {'SamAccountName': None,
                    #'Name': None, # TODO: how should we update Name - can't be
