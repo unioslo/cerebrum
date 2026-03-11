@@ -69,7 +69,10 @@ class VoipAddressListResource(Resource):
         Search by entity_id, owner_entity_id, or contact info.
         """
         args = self.address_search_parser.parse_args()
-        designation = args.get('search', '').strip()
+        try:
+            designation = args.get('search', '').strip()
+        except AttributeError:
+            designation = None
 
         if not designation:
             abort(400, message="Search parameter is required")
