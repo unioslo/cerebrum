@@ -141,9 +141,6 @@ class ProfileDefinition(object):
     def __str__(self):
         return "ProfileDefinition object({})".format(self.name)
 
-    def __repr__(self):
-        return "ProfileDefinition(config={}, name={}, super={})".format(self.config, self.name, self.super)
-
     def post_config(self, lookup_helper, config):
         self._convert_to_database_refs(lookup_helper, config)
 
