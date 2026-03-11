@@ -841,7 +841,7 @@ def migrate_to_rel_0_9_22():
             # uio
             aos.find_by_name('Group-owner')
         except Errors.NotFoundError:
-            # uia and hiof
+            # uia
             aos.find_by_name('groupmod-priv')
     except Errors.NotFoundError:
         print("No admin or owner opset found, nothing to do")
