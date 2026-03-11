@@ -66,7 +66,6 @@ logger = logging.getLogger(__name__)
 # Missing event categories
 # categories:
 #     ac_type -> ?
-#     ad_attr -> ad_attribute
 #     disk -> ?
 #     disk_quota -> ?
 #     dlgroup -> distribution_group
