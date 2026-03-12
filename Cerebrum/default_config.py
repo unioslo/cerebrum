@@ -153,12 +153,9 @@ during debugging."""
 CREATE_USER_SCRIPT = '/local/etc/reguser/mkhomedir'
 MVUSER_SCRIPT = '/cerebrum/sbin/mvuser'
 RMUSER_SCRIPT = '/cerebrum/sbin/aruser'
-ARCHIVE_MAIL_SCRIPT = '/cerebrum/sbin/archivemail'
 LEGAL_BATCH_MOVE_TIMES = '22:00-06:00'
 SYMPA_SCRIPT = None
-CONVERT_MAILCONFIG_SCRIPT = None
 MVMAIL_SCRIPT = None
-SUBSCRIBE_SCRIPT = None
 RSH_CMD = '/usr/bin/ssh'
 
 # Temporary switch until someone can figure out why mktime won't work
