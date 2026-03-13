@@ -60,16 +60,8 @@ def parse_fagfelt(person_info):
     >>> parse_fagfelt({'fagperson': [{'fagfelt': 'foo'}, {'fagfelt': 'bar'}]})
     ["bar", "foo"]
     """
-    fagperson = person_info.get('fagperson')
-    if not fagperson:
-        return None
-    fields = [
-        f['fagfelt']
-        for f in (fagperson.get('fagfelt') or ())
-        if f.get('fagfelt')
-    ]
-    if not fields:
-        return None
+    fagperson = person_info.get('fagperson') or []
+    fields = [f['fagfelt'] for f in fagperson if f.get('fagfelt')]
     return sorted(fields)
 
 
