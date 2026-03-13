@@ -179,11 +179,11 @@ def run(argv, retval=None, encoding="utf-8",
 
     if rc < 0:
         # err = True
-        level = logging.ERROR
+        level = logging.WARNING
         etype = "signal"
     elif rc > 0:
         # err = True
-        level = logging.ERROR
+        level = logging.WARNING
         etype = "exit"
     else:
         # err = False
