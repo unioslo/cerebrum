@@ -35,12 +35,13 @@ class CLConstants(Constants.CLConstants):
     ou_disk_add = Constants._ChangeTypeCode(
         "ou_disk_mapping",
         "add",
-        "Default disk for aff %(aff)s set to %(disk)s",
-
+        "Added default disk for %(subject)s",
+        ("aff=%(string:aff)s", "path=%(string:path)s"),
     )
 
     ou_disk_remove = Constants._ChangeTypeCode(
         "ou_disk_mapping",
         "remove",
-        "Default disk for aff %(aff)s removed",
+        "Removed default disk for %(subject)s",
+        ("aff=%(string:aff)s", "path=%(string:path)s"),
     )
