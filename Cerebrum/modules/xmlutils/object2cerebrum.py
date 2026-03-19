@@ -451,26 +451,14 @@ class XML2Cerebrum(object):
         end_date = date_compat.get_date(xmlou.end_date)
         return end_date and end_date < datetime.date.today()
 
-    def store_ou(self, xmlou, old_ou_cache=None):
+    def store_ou(self, xmlou):
         """
         Store DataOU data in Cerebrum.
 
         :param DataOU xmlou:
             Object parsed from xml file using system2parser
 
-        :param dict old_ou_cache:
-            A set of current, unprocessed org units in Cerebrum.
-
-            This set will be updated.  Any org unit remaining in the set after
-            processing all xml objects are no longer present in the source
-            system.
+        :rtype: Cerebrum.OU.OU
         """
         prepared_ou = self.ou_mapper.prepare(xmlou)
-        ou = self.ou_writer.sync_ou(prepared_ou)
-        ou_id = int(ou.entity_id)
-
-        if old_ou_cache and ou_id in old_ou_cache:
-            self.logger.debug("removing ou id=%d from old ou cache", ou_id)
-            del old_ou_cache[ou_id]
-
-        return ou_id
+        return self.ou_writer.sync_ou(prepared_ou)

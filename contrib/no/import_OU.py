@@ -263,8 +263,13 @@ def import_org_units(sources, target_system, cer_ou_tab, dryrun, def_kat_merke,
 
             logger.debug("Processing sko=%r (%s)", formatted_sko, debug_name)
 
-            ou_id = db_writer.store_ou(xmlou, cer_ou_tab)
-            stedkode2ou[formatted_sko] = int(ou_id)
+            ou_id = int(db_writer.store_ou(xmlou).entity_id)
+            stedkode2ou[formatted_sko] = ou_id
+
+            if cer_ou_tab and ou_id in cer_ou_tab:
+                logger.debug("removing ou id=%d from old ou cache", ou_id)
+                del cer_ou_tab[ou_id]
+
             if not dryrun:
                 db.commit()
 
@@ -323,7 +328,8 @@ def set_quaran(cer_ou_tab, dryrun, _today=None):
         ous.clear()
         ous.find(k)
         if (ous.get_entity_quarantine(qtype=co.quarantine_ou_notvalid) == []):
-            logger.debug("Add quarantine for id=%r", ous.entity_id)
+            logger.info("Adding quarantine for ou id=%d (sko=%s)",
+                        ous.entity_id, cer_ou_tab[k])
             ous.add_entity_quarantine(co.quarantine_ou_notvalid,
                                       acc.entity_id,
                                       description='import_OU',
@@ -503,7 +509,7 @@ def main():
                      def_kat_merke)
 
     if clean_obsolete_ous:
-        logger.debug("Locking obsolete org units...")
+        logger.debug("Locking %d obsolete org units...", len(obsolete_ous))
         set_quaran(obsolete_ous, dryrun)
 
     if email_notify:
