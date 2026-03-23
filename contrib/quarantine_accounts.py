@@ -609,6 +609,13 @@ def main(inargs=None):
         metavar="<quarantine>",
     )
     q_args.add_argument(
+        "--set-quarantine",
+        action="store_true",
+        default=False,
+        dest="set_quarantine",
+        help="Set the quarantine for un-affiliated persons",
+    )
+    q_args.add_argument(
         "-i", "--ignore-quarantines",
         action="store_true",
         default=False,
@@ -638,8 +645,11 @@ def main(inargs=None):
     email_args.add_argument(
         "-m", "--template",
         dest="notify_template_file",
-        required=True,
-        help="Notify quarantined users using the template in %(metavar)s",
+        default=None,
+        help=(
+            "Notify quarantined users using the template in %(metavar)s. "
+            "Required when --set-quarantine is used."
+        ),
         metavar="<file>",
     )
     email_args.add_argument(
@@ -662,11 +672,18 @@ def main(inargs=None):
     args = parser.parse_args(inargs)
     Cerebrum.logutils.autoconf('cronjob', args)
 
+    if not args.set_quarantine and not args.remove_quarantine:
+        parser.error("missing --set-quarantine or --remove-quarantine")
+
+    if args.set_quarantine and not args.notify_template_file:
+        parser.error("--template is required when --set-quarantine is used")
+
     db = Factory.get('Database')()
     db.cl_init(change_program='quarantine_accounts')
     co = Factory.get('Constants')(db)
 
     quarantine = co.get_constant(co.Quarantine, args.quarantine)
+    set_q = args.set_quarantine
     force_q = args.force_quarantine
     remove_q = args.remove_quarantine
     offset_q = args.offset_quarantine
@@ -678,15 +695,16 @@ def main(inargs=None):
         invalid_affs.extend(parse_affs(co, raw_affs))
 
     grace = args.grace
-    template = EmailTemplate.from_file(args.notify_template_file)
+    template = (EmailTemplate.from_file(args.notify_template_file)
+                if args.notify_template_file else None)
     dryrun = args.dryrun
     if dryrun:
         db.commit = db.rollback
     debug_verbose = args.print_emails
 
     logger.info("start %s", parser.prog)
-    logger.info('quarantine: %s (offset=%d, force=%r, remove=%r)',
-                quarantine, offset_q, force_q, remove_q)
+    logger.info('quarantine: %s (offset=%d, set=%r, force=%r, remove=%r)',
+                quarantine, offset_q, set_q, force_q, remove_q)
     logger.info('affiliation: ignore=%s, grace=%d',
                 [six.text_type(a) for a in invalid_affs], grace)
     logger.info('template: %s', args.notify_template_file)
@@ -695,17 +713,18 @@ def main(inargs=None):
     logger.info("caching affiliated/unaffiliated persons...")
     affiliated, not_affiliated = find_candidates(db, invalid_affs, grace)
 
-    logger.info("caching quarantined accounts...")
-    quarantined = find_quarantined_accounts(
-        db, quarantine if force_q else None)
+    if set_q:
+        logger.info("caching quarantined accounts...")
+        quarantined = find_quarantined_accounts(
+            db, quarantine if force_q else None)
 
-    logger.info("setting quarantines...")
-    set_quarantine(db,
-                   template=template,
-                   pids=not_affiliated,
-                   quar=quarantine,
-                   offset=offset_q,
-                   quarantined=quarantined)
+        logger.info("setting quarantines...")
+        set_quarantine(db,
+                       template=template,
+                       pids=not_affiliated,
+                       quar=quarantine,
+                       offset=offset_q,
+                       quarantined=quarantined)
 
     if remove_q:
         logger.info('clearing quarantines...')
