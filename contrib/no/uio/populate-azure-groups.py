@@ -177,20 +177,8 @@ class MembershipBuilder(object):
         group_sync.set_group_members(group, member_ids)
 
 
-def main():
-    parser = argparse.ArgumentParser(
-        description="Populate it-uio-ms365-* groups for Azure licensing",
-    )
-    add_commit_args(parser, default=False)
-    Cerebrum.logutils.options.install_subparser(parser)
-
-    args = parser.parse_args()
-    default_log_preset = "cronjob" if args.commit else "console"
-    Cerebrum.logutils.autoconf(default_log_preset, args)
-
-    db = Factory.get('Database')()
-    db.cl_init(change_program='populate-azure-groups.py')
-
+def populate_azure_groups(db):
+    """ Update Azure groups from current database state. """
     membership_builder = MembershipBuilder(db)
     sync_group = membership_builder.sync_group
 
@@ -341,6 +329,23 @@ def main():
         exclude_groups=["postmaster-eo-migrerte"],
         intersect=True,
     )
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Populate it-uio-ms365-* groups for Azure licensing",
+    )
+    add_commit_args(parser, default=False)
+    Cerebrum.logutils.options.install_subparser(parser)
+
+    args = parser.parse_args()
+    default_log_preset = "cronjob" if args.commit else "console"
+    Cerebrum.logutils.autoconf(default_log_preset, args)
+
+    db = Factory.get('Database')()
+    db.cl_init(change_program='populate-azure-groups.py')
+
+    populate_azure_groups(db)
 
     if args.commit:
         db.commit()
