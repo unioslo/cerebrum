@@ -215,12 +215,6 @@ def main(argv=None):
         help="Send report by email using template %(metavar)s",
         metavar="TEMPLATE",
     )
-    parser.add_argument(
-        "-p", "--person",
-        action="store_true",
-        dest="ignore",
-        help="Deprecated - has no effect",
-    )
     Cerebrum.logutils.options.install_subparser(parser)
 
     args = parser.parse_args(argv)
@@ -237,10 +231,9 @@ def main(argv=None):
     if not any((args.filename, args.template)):
         parser.error("Missing template or report file")
 
-    with argutils.ParserContext(parser, spread_arg):
-        spread = getattr(co, args.spread)
-        int(spread)
-    logger.debug("using person spread: %s", repr(spread))
+    spread = argutils.get_constant(db, parser, co.Spread,
+                                   args.spread, spread_arg)
+    logger.debug("using person spread: %s", spread)
 
     send_report = None
     if args.template:
