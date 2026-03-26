@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2022-2025 University of Oslo, Norway
+# Copyright 2022-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -35,13 +35,16 @@ from __future__ import (
     unicode_literals,
 )
 import argparse
+import datetime
 import logging
 
 import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum.Utils import Factory
+from Cerebrum.utils import date_compat
 from Cerebrum.utils.argutils import add_commit_args
 from Cerebrum.group import group_sync
+from Cerebrum.group.template import GroupTypeTemplate
 
 logger = logging.getLogger(__name__)
 
@@ -52,12 +55,62 @@ def get_group_by_name(db, group_name):
     return gr
 
 
+get_azure_group = GroupTypeTemplate(
+    group_type="derived-group",
+    group_visibility="A",
+    group_expire=None,
+    conflict=GroupTypeTemplate.CONFLICT_UPDATE,
+)
+
+
+def get_membership_group(db, group_name):
+    """ Get membership include/exclude group. """
+    today = datetime.date.today()
+    gr = get_group_by_name(db, group_name)
+
+    # Check group expire date
+    expire_date = date_compat.get_date(gr.expire_date)
+    gr_ident = "%s (%d)" % (gr.group_name, gr.entity_id)
+    if expire_date and expire_date < today:
+        logger.error("Include/exclude group %s is expired: %s",
+                     gr_ident, expire_date.isoformat())
+    elif expire_date and expire_date < (today + datetime.timedelta(days=14)):
+        logger.warning("Include/exclude group %s expires soon: %s",
+                       gr_ident, expire_date.isoformat())
+
+    return gr
+
+
+def get_exchange_accounts(db):
+    """
+    Get all active personal user accounts with an exchange spread.
+
+    :rtype: generator
+    :returns: tuples of (member_id, member_type)
+    """
+    ac = Factory.get('Account')(db)
+    const = Factory.get('Constants')(db)
+    logger.debug("Fetching all accounts with exchange spread...")
+    for row in ac.list_accounts_by_type(
+            account_spread=const.spread_exchange_account,
+            filter_expired=True):
+        
+        yield (row['account_id'], int(const.entity_account))
+
+
 class MembershipBuilder(object):
 
     def __init__(self, db):
         self.db = db
         self.group_cache = {}
         self.account_cache = group_sync.AccountOwnerCache(db)
+
+    def _only_secondary_accounts(self, iterable):
+        members = set(iterable)
+        all_accounts = set(self.account_cache.only_accounts(members,
+                                                            all_accounts=True))
+        primary_accounts = set(self.account_cache.primary_accounts(members))
+        return all_accounts - primary_accounts
 
     def calculate_members(
             self,
@@ -104,13 +157,13 @@ class MembershipBuilder(object):
         for group_name in (include_groups or []):
             include_members.update(
                 group_sync.find_effective_members(
-                    get_group_by_name(self.db, group_name)))
+                    get_membership_group(self.db, group_name)))
 
         exclude_members = set()
         for group_name in (exclude_groups or []):
             exclude_members.update(
                 group_sync.find_effective_members(
-                    get_group_by_name(self.db, group_name)))
+                    get_membership_group(self.db, group_name)))
 
         # normalize members
         include_members = set(transform(include_members))
@@ -131,10 +184,10 @@ class MembershipBuilder(object):
             wanted = include_members - exclude_members
         return group_sync.get_member_ids(wanted)
 
-    def sync_group(self, group_name, member_type="person",
+    def sync_group(self, group_name, group_desc, member_type="person",
                    include_groups=None, exclude_groups=None,
                    exclude_quarantined=False, intersect=False):
-        group = get_group_by_name(self.db, group_name)
+        group = get_azure_group(self.db, group_name, group_desc)
 
         wanted = self.calculate_members(
             member_type=member_type,
@@ -160,7 +213,7 @@ def main():
 
     db = Factory.get('Database')()
     db.cl_init(change_program='populate-azure-groups.py')
-
+    const = Factory.get('Constants')(db)
     sync_group = MembershipBuilder(db).sync_group
 
     #
@@ -168,6 +221,7 @@ def main():
     #
     sync_group(
         "it-uio-ms365-betalende-utflatet",
+        "Betalt Azure-lisens - Normalisert kopi av 'it-uio-ms365-betalende'",
         # TODO: This group should probably also be normalized using:
         # member_type="person",
         member_type=None,
@@ -179,6 +233,7 @@ def main():
     )
     sync_group(
         "it-uio-ms365-ansatt",
+        "Ansatt-lisens i Azure",
         member_type="person",
         include_groups=[
            "meta-ansatt-vitenskapelig-900000",
@@ -191,6 +246,7 @@ def main():
     )
     sync_group(
         "it-uio-ms365-student",
+        "Student-lisens i Azure",
         member_type="person",
         include_groups=["meta-student-900000"],
         exclude_groups=[
@@ -200,6 +256,7 @@ def main():
     )
     sync_group(
         "it-uio-ms365-andre",
+        "Annen Azure-lisens",
         member_type="person",
         include_groups=[
             "meta-ansatt-bilag-900000",
@@ -222,6 +279,7 @@ def main():
     #
     sync_group(
         "it-uio-ms365-quarantine",
+        "Lisensgruppe for brukere i karantene i Azure",
         member_type="person",
         include_groups=[
             "meta-ansatt-bilag-900000",
@@ -242,6 +300,7 @@ def main():
     #
     sync_group(
         "it-uio-ms365-ansatt-publisert",
+        "Ansatte som kan være synlige i Azure",
         member_type="person",
         include_groups=["it-uio-ms365-ansatt"],
         exclude_groups=["DFO-elektroniske-reservasjoner"],
@@ -256,12 +315,14 @@ def main():
     #
     sync_group(
         "it-uio-ms365-student-u-exo",
+        "Studenter uten Exchange Online",
         member_type="person",
         include_groups=["it-uio-ms365-student"],
         exclude_groups=["postmaster-eo-migrerte"],
     )
     sync_group(
         "it-uio-ms365-student-m-exo",
+        "Studenter med Exchange Online",
         member_type="person",
         include_groups=["it-uio-ms365-student"],
         exclude_groups=["postmaster-eo-migrerte"],
@@ -270,12 +331,14 @@ def main():
 
     sync_group(
         "it-uio-ms365-betalende-u-exo",
+        "Betalte lisenser uten Exchange Online",
         member_type="person",
         include_groups=["it-uio-ms365-betalende-utflatet"],
         exclude_groups=["postmaster-eo-migrerte"],
     )
     sync_group(
         "it-uio-ms365-betalende-m-exo",
+        "Betalte lisenser med Exchange Online",
         member_type="person",
         include_groups=["it-uio-ms365-betalende-utflatet"],
         exclude_groups=["postmaster-eo-migrerte"],
@@ -284,16 +347,66 @@ def main():
 
     sync_group(
         "it-uio-ms365-andre-u-exo",
+        "Andre lisenser uten Exchange Online",
         member_type="person",
         include_groups=["it-uio-ms365-andre"],
         exclude_groups=["postmaster-eo-migrerte"],
     )
     sync_group(
         "it-uio-ms365-andre-m-exo",
+        "Andre lisenser med Exchange Online",
         member_type="person",
         include_groups=["it-uio-ms365-andre"],
         exclude_groups=["postmaster-eo-migrerte"],
         intersect=True,
+    )
+
+    all_exchange_accounts = set(get_exchange_accounts(db))
+    logger.debug("Found %d user accounts with exchange spread",
+                 len(all_exchange_accounts))
+
+    exchange_group = get_azure_group(
+        db,
+        "it-uio-brukere-postboks",
+        "Alle brukere med Exchange-postboks",
+    )
+    group_sync.set_group_members(
+        exchange_group,
+        group_sync.get_member_ids(all_exchange_accounts),
+    )
+
+    # Secondary members
+    # Get all primary accounts from the 4 main license groups
+    licensed_users = sync_group.calculate_members(
+        include_groups=[
+            "it-uio-ms365-betalende-utflatet",
+            "it-uio-ms365-student",
+            "it-uio-ms365-ansatt",
+            "it-uio-ms365-andre",
+        ],
+        member_type="primary",
+        exclude_quarantined=False,
+    )
+    logger.debug("Found %d licensed primary accounts", 
+                 len(licensed_users))
+
+    # Subtract licensed primary accounts from all exchange accounts
+    nonlicensed_accounts = all_exchange_accounts - set(
+        (entity_id, int(const.entity_account))
+        for entity_id in licensed_users
+    )
+    logger.debug("Found %d non-licensed user accounts", 
+                 len(nonlicensed_accounts))
+
+    # Create the secondary users group
+    nonlicensed_group = get_azure_group(
+        db,
+        "it-uio-ms365-sekunderbrukere",
+        "Alle ikke-primærbrukere med Exchange-postboks",
+    )
+    group_sync.set_group_members(
+        nonlicensed_group,
+        group_sync.get_member_ids(nonlicensed_accounts),
     )
 
     if args.commit:
