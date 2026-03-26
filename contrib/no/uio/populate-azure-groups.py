@@ -118,7 +118,8 @@ class MembershipBuilder(object):
             exclude_groups=None,
             member_type=None,
             intersect=False,
-            exclude_quarantined=False):
+            exclude_quarantined=False,
+    ):
         """
         Calculate a set of member ids from existing groups.
 
@@ -182,7 +183,7 @@ class MembershipBuilder(object):
             wanted = include_members.intersection(exclude_members)
         else:
             wanted = include_members - exclude_members
-        return group_sync.get_member_ids(wanted)
+        return wanted
 
     def sync_group(self, group_name, group_desc, member_type="person",
                    include_groups=None, exclude_groups=None,
@@ -196,25 +197,15 @@ class MembershipBuilder(object):
             intersect=intersect,
             exclude_quarantined=exclude_quarantined,
         )
+        member_ids = group_sync.get_member_ids(wanted)
+        group_sync.set_group_members(group, member_ids)
 
-        group_sync.set_group_members(group, wanted)
 
-
-def main():
-    parser = argparse.ArgumentParser(
-        description="Populate it-uio-ms365-* groups for Azure licensing",
-    )
-    add_commit_args(parser, default=False)
-    Cerebrum.logutils.options.install_subparser(parser)
-
-    args = parser.parse_args()
-    default_log_preset = "cronjob" if args.commit else "console"
-    Cerebrum.logutils.autoconf(default_log_preset, args)
-
-    db = Factory.get('Database')()
-    db.cl_init(change_program='populate-azure-groups.py')
+def populate_azure_groups(db):
+    """ Update Azure groups from current database state. """
+    membership_builder = MembershipBuilder(db)
     const = Factory.get('Constants')(db)
-    sync_group = MembershipBuilder(db).sync_group
+    sync_group = membership_builder.sync_group
 
     #
     # Main ms365 license categories: betalende -> ansatt -> student -> andre
@@ -230,6 +221,7 @@ def main():
             # group hierarchy.
             "it-uio-ms365-betalende",
         ],
+        exclude_quarantined=False,
     )
     sync_group(
         "it-uio-ms365-ansatt",
@@ -253,6 +245,7 @@ def main():
             "it-uio-ms365-betalende-utflatet",
             "it-uio-ms365-ansatt",
         ],
+        exclude_quarantined=False,
     )
     sync_group(
         "it-uio-ms365-andre",
@@ -279,7 +272,7 @@ def main():
     #
     sync_group(
         "it-uio-ms365-quarantine",
-        "Lisensgruppe for brukere i karantene i Azure",
+        "Azure-brukere i karantene",
         member_type="person",
         include_groups=[
             "meta-ansatt-bilag-900000",
@@ -293,6 +286,7 @@ def main():
             "it-uio-ms365-ansatt",
             "it-uio-ms365-andre",
         ],
+        exclude_quarantined=False,
     )
 
     #
@@ -408,6 +402,23 @@ def main():
         nonlicensed_group,
         group_sync.get_member_ids(nonlicensed_accounts),
     )
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Populate it-uio-ms365-* groups for Azure licensing",
+    )
+    add_commit_args(parser, default=False)
+    Cerebrum.logutils.options.install_subparser(parser)
+
+    args = parser.parse_args()
+    default_log_preset = "cronjob" if args.commit else "console"
+    Cerebrum.logutils.autoconf(default_log_preset, args)
+
+    db = Factory.get('Database')()
+    db.cl_init(change_program='populate-azure-groups.py')
+
+    populate_azure_groups(db)
 
     if args.commit:
         db.commit()

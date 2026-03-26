@@ -169,7 +169,7 @@ def get_params_rmlist(request):
         return {}
 
     retval = {}
-    for old_key, new_key in [("run_host", "runhost")
+    for old_key, new_key in [("run_host", "runhost"),
                              ("listname", "listname")]:
         if not state.get(old_key):
             logger.error("no %s param for sympa remove request id=%d: %s",
