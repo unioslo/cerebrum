@@ -24,6 +24,22 @@ Generate a report of person primary accounts and affiliations.
 The report only includes persons with a given spread.  The report can be
 written to a file (or stdout), or it can be sent by email using the Cerebrum
 email templating system.
+
+History
+--------
+This script originally came from a different repository, and has a fairly
+complicated history, it was:
+
+- originally added to the old, common config repo, `cerebrum_config`, as
+  `list_compare_notes_accounts.py`
+- later renamed (or perhaps copied and modified) to
+  `list_compare_spread_accounts.py`
+- migrated to the config repo `crb-config-uio`, along with all other uio config
+- moved here, first as `list_compare_spread_accounts.py`, and then re-written
+  and renamed to its current name
+
+The original git commit history is included in its first commit in this
+repository.
 """
 from __future__ import (
     absolute_import,
