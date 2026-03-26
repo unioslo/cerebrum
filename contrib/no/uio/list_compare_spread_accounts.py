@@ -18,263 +18,253 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-from __future__ import print_function
-
-__doc__ = """
-
-This script generates a list of all user accounts with a specific spread along
-with the person affiliations and their organisation numbers (could be sent by
-email as well).
-If provided a list of users in input it would dump the same list in output but
-with a different ordering and an extra column confirming whether the user has
-this spread or not.
-If used with the -p or --person switch this script returns a list of primary
-users for persons that have the spread in question on the person object level in
-the Cerebrum database.
-
-Usage:
-      list_compare_spread_accounts.py (-s|--spread     CONSTANT STRING)
-                                      [-i|--input-file [PATH/]FILENAME]
-                                      [-m|--mail       [PATH/]FILENAME]
-                                      [-f|--file       [PATH/]FILENAME]
-                                      [-p|--person]
-                                      [-h|--help]
-
-      Where:
-       -s or --spread     is a mandatory argument to specify the spread used as
-                          a selection criteria, e.g. spread_uio_ad_account .
-       -i or --input-file is an optional argument that should be a file and the
-                          path to it, that file should contain a list of user
-                          names (one user name per line), this list is taken
-                          and is returned as output where every user name that
-                          has this spread is returned with extra comments on the
-                          line detailing the affiliations with OUs for that user
-                          on the person level as well as saying that he/she has
-                          that spread.
-       -f or --file       is an optional argument to dump the output in a file
-                          with path, otherwise the output is dumped to the logs.
-       -m or --mail       is an optional argument to point to the mail template
-                          file with the recipients that will be mailed the
-                          output of the script.
-       -p or --person     is an optional argument to force looking for a spread
-                          on the person object level.
-       -h or --help       shows this message and all the above text and quits.
 """
+Generate a report of person primary accounts and affiliations.
 
-import sys
-import getopt
-import smtplib
+The report only includes persons with a given spread.  The report can be
+written to a file (or stdout), or it can be sent by email using the Cerebrum
+email templating system.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+import argparse
 import email
+import io
+import logging
+import smtplib
+import textwrap
 
-from Cerebrum import Utils
+import Cerebrum.logutils
+import Cerebrum.logutils.options
+from Cerebrum.Utils import Factory
+from Cerebrum.utils import argutils
+from Cerebrum.utils import file_stream
 from Cerebrum.utils.email import sendmail
-from Cerebrum import Errors
 
-logger   = Utils.Factory.get_logger("cronjob")
-database = Utils.Factory.get('Database')()
-person   = Utils.Factory.get('Person')(database)
-account  = Utils.Factory.get('Account')(database)
-co       = Utils.Factory.get('Constants')(database)
-ou       = Utils.Factory.get('OU')(database)
+logger = logging.getLogger(__name__)
 
-list_target     =[]
-stedkoder       = ou.get_stedkoder()
-sted_koder      = {}
 
-for k in stedkoder:
-  sted_koder[k[0]]= ("%02d" %k[3]) + ("%02d" %k[4]) + ("%02d" %k[5])
+class TemplateSender(object):
+    """ Self contained email template sender. """
 
-# Core functions
+    def __init__(self, filename):
+        with io.open(filename, mode="r", encoding="ascii") as f:
+            self.msg = email.message_from_file(f)
 
-# Generate list of users with spread
-def generate_list_spread_users(input_spread):
-    # Loop through all the person ID's
-    for pid in dump_person_ids():
-        # Check if the spread exists for the user accounts for every person and
-        # push the user account in the list "list_target" if its the case.
+    @property
+    def template(self):
+        return self.msg.get_payload(decode=1)
+
+    def __call__(self, report):
+        send_mail(
+            self.msg['To'],
+            self.msg['From'],
+            self.msg['Subject'],
+            self.template.replace('${REPORT}', report),
+            self.msg['Cc'],
+        )
+        logger.info("Email sent to %s and %s (copy)",
+                    self.msg['To'], self.msg['Cc'])
+
+
+def get_location_codes(db):
+    ou = Factory.get('OU')(db)
+    for row in ou.get_stedkoder():
+        location_code = ("%02d" * 3) % (row['fakultet'], row['institutt'],
+                                        row['avdeling'])
+        yield (row['ou_id'], location_code)
+
+
+def get_account_by_id(db, account_id):
+    ac = Factory.get("Account")(db)
+    ac.find(int(account_id))
+    return ac
+
+
+def get_persons_with_spread(db, spread):
+    """ Get person ids with the given *spread*. """
+    pe = Factory.get("Person")(db)
+    candidates = set(
+        row['entity_id']
+        for row in pe.list_all_with_spread(
+            spreads=(int(spread),),
+            entity_types=(int(pe.const.entity_person),),
+        )
+    )
+    logger.debug("found %d candidates with spread %s", len(candidates), spread)
+    return candidates
+
+
+def get_report_data(db, person_ids):
+    """ Get primary users and affiliations for the given persons. """
+    pe = Factory.get('Person')(db)
+    ac = Factory.get("Account")(db)
+
+    stedkoder = dict(get_location_codes(db))
+
+    def get_primary_username(pid):
+        person_accounts = ac.list_accounts_by_owner_id(person_id)
+        account_id = person_accounts[0]['account_id']
+        account = get_account_by_id(db, account_id)
+        return account.account_name
+
+    def get_affiliations(pid):
+        for row in pe.list_affiliations(person_id=int(pid)):
+            yield "@".join((
+                str(pe.const.PersonAffStatus(row['status'])),
+                stedkoder[row['ou_id']],
+            ))
+
+    for person_id in person_ids:
         try:
-            a = account.list_accounts_by_type(person_id=pid,
-                                account_spread=int(getattr(co, input_spread)))
-            generate_account_name(a,pid)
-        except:
+            username = get_primary_username(person_id)
+        except Exception:
+            logger.warning("No primary account found for person id=%d",
+                           person_id)
             continue
-# End generate list of users with spread
 
-# Generate list of primary users for the persons with the spread
-def generate_list_person_spread_users(input_spread):
-    for pid in dump_person_ids():
-        # Check if the spread exists for the person and then
-        # push its first user account in the list "list_target" if its the case.
-        if person.get_spread():
-         for k in person.get_spread():
-             if int(getattr(co, input_spread)) in k:
-              try:
-               a = account.list_accounts_by_owner_id(pid)
-               generate_account_name(a,pid)
-              except:
-               continue
-# End generate list of primary users for persons with spread
+        affiliations = list(get_affiliations(person_id))
 
-# End core functions
+        yield (username, affiliations)
 
-# List person ID's function
-def dump_person_ids():
-    # Loop through all the person entities
-    for p in person.list_persons():
-        pid = p["person_id"]
-        # Test if initialisation of person succeeds and person exists
-        try:
-            person.clear()
-            person.find(pid)
-        except Errors.NotFoundError:
-               logger.warn("list_persons() reported a person, but person.find()"
-                           "did not find it")
-               continue
-        yield pid
-# End list person ID's function
 
-# Generate account names function from account IDs dictionnary and push the 1st
-# account name in a list along with all the affiliations and OUs for the person
-def generate_account_name(listPersonAccounts=[],personid=None):
-        account.clear()
-        try:
-            account.find(listPersonAccounts[0]['account_id'])
-            b = account.account_name
-            affs = ''
-            for row in person.list_affiliations(person_id=personid):
-                aff = str(co.PersonAffStatus(row['status'])) + '@' + \
-                        sted_koder[row['ou_id']]
-                affs = '%s \t %s' % (affs, aff)
-            re = '%s \t %s' % (b, affs)
-        except:
-              pass
-        if b:
-             list_target.append(re)
-# End generate account names function
+def format_report(items):
+    def _generate_lines():
+        for username, affiliations in sorted(items,
+                                             key=lambda t: t[0]):
+            yield "\t".join((username,) + tuple(affiliations))
 
-# Email sending function
+    lines = list(_generate_lines())
+    logger.debug("Prepared report with %d entries", len(lines))
+    return "\n".join(lines) + "\n"
+
+
+def write_report(filename, report):
+    with file_stream.get_output_context(filename, encoding="utf-8") as f:
+        f.write(report)
+        logger.info("Wrote report to: %s", f)
+
+
 def send_mail(mail_to, mail_from, subject, body, mail_cc=None):
-    """Function for sending the output as email.
-    """
     try:
         sendmail(mail_to, mail_from, subject, body, cc=mail_cc)
     except smtplib.SMTPRecipientsRefused as e:
         failed_recipients = e.recipients
         logger.error("Failed to send report <%d>", len(failed_recipients))
-        for email, condition in failed_recipients.iteritems():
+        for _, condition in failed_recipients.iteritems():
             logger.error("Failed to send report: %s", condition)
     except smtplib.SMTPException as msg:
         logger.error("Error sending to %s: %s" % (mail_to, msg))
         return False
     return True
-# End email sending function
 
-# Gives usage info or how to use the program and its options and arguments.
-def usage(message=None,message2=None):
-   if message is not None:
-           print("\n%s" % message, file=sys.stderr)
-   if message2 is not None:
-           print("\n\n%s\n" % message2, file=sys.stdout)
-   print(__doc__, file=sys.stderr)
-# End usage
-
-# Main function
 
 def main(argv=None):
-    argv = sys.argv
-    try:
-        opts, args = getopt.getopt(argv[1:],
-                                   "s:i:f:m:ph",
-                                   ["spread=","input-file=","file=","mail=",
-                                    "person","help",])
-    except getopt.GetoptError as error:
-          usage(message=error.msg,message2=None)
-          return 1
+    parser = argparse.ArgumentParser(
+        description=textwrap.dedent(
+            """
+            Generate a report of person primary accounts and affiliations.
+            """
+        ).strip(),
+        epilog=textwrap.dedent(
+            """
+            FILE:
+                An optional file where the report will be written.  Use '{}' to
+                write report to stdout.
 
-    output_stream = sys.stdout
-    filein     = None
-    spread     = None
-    email_info = None
-    person_spd = False
+            TEMPLATE:
+                An optional template for sending the report by email.
 
-#   Trap the arguments and switches given to the script from the command line
-    for opt, val in opts:
-        if opt in ('-s', '--spread',):
-            try:
-                spread = str(val)
-            except:
-                logger.error("can't assign the spread value, exiting.")
-                return 1
-        elif opt in ('-f', '--file',):
-            try:
-                output_stream = open(val, "w")
-            except:
-                logger.error("can't open file, writing to console")
-        elif opt in ('-i', '--input-file',):
-            try:
-                filein = open(val, "r")
-            except:
-                logger.error("can't open file: "+val+" continuing without")
-        elif opt in ('-m','--mail'):
-            try:
-                f = open(val)
-                msg = email.message_from_file(f)
-                f.close()
-                email_info = {
-                    'Subject': msg['Subject'],
-                    'To': msg['To'],
-                    'From': msg['From'],
-                    'Cc': msg['Cc'],
-                    'Body': msg.get_payload(decode=1)
-                }
-            except IOError as e:
-                logger.error('Mail body file: \'%s\'' % e)
-                sys.exit(2)
-        elif opt in ('-p', '--person',):
-            person_spd = True
-        elif opt in ('-h', '--help',):
-            usage(message=None,message2=None)
-            return 0
+                This uses the legacy email template system in Cerebrum, where
+                the template itself defines recipients in its email headers.
+                The ${{REPORT}} template variable will be replaced with the
+                report.  See Cerebrum.utils.email for more details on this
+                templating system.
 
-#   Code execution
-    if hasattr(co, spread):
-        if person_spd:
-            generate_list_person_spread_users(spread)
-        else:
-            generate_list_spread_users(spread)
-    else:
-       logger.error("Wrong spread, or a spread value is not provided, look in "
-                    "the database for valid values.")
-       usage(message=None,message2=None)
-       return 1
-    if email_info:
-        body = email_info['Body']
-        d = ('\n'.join(map(str, list_target)))
-        body = body.replace('${REPORT}', d)
-        send_mail(email_info['To'], email_info['From'], email_info['Subject'],
-                  body, email_info['Cc'])
-        logger.info("Email sent to " + email_info['To'] + " and " +
-                                                  email_info['Cc'] + " (copy).")
-    if filein:
-        c = filein.read().splitlines()
-        for i in list_target:
-            e = (i.split(' \t '))[0]
-            if e in c:
-                h = c.index(e)
-                c.pop(h)
-                c.insert(h, i + " has spread: " + spread)
-        for k in c:
-            output_stream.write(k +"\n")
-    else:
-        for j in list_target:
-            output_stream.write(j+"\n")
-    if output_stream not in (sys.stdout, sys.stderr):
-      output_stream.close()
-    return 0
+            Report:
+                The report consists of the primary account username, and a list
+                of affiliations, on format: `<username>[\\t<affiliation>...]`.
 
-# End main
+                Example:
+
+                    foo<tab>ANSATT@900000<tab>STUDENT@900000
+                    bar<tab>TILKNYTTET@900000
+            """
+        ).strip().format(file_stream.DEFAULT_STDOUT_NAME),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    spread_arg = parser.add_argument(
+        "-s", "--spread",
+        required=True,
+        help="Only include persons with spread %(metavar)s (required)",
+        metavar="SPREAD",
+    )
+    parser.add_argument(
+        "-f", "--file",
+        dest="filename",
+        help="Write report to %(metavar)s",
+        metavar="FILE",
+    )
+    parser.add_argument(
+        "-m", "--mail",
+        dest="template",
+        help="Send report by email using template %(metavar)s",
+        metavar="TEMPLATE",
+    )
+    parser.add_argument(
+        "-p", "--person",
+        action="store_true",
+        dest="ignore",
+        help="Deprecated - has no effect",
+    )
+    Cerebrum.logutils.options.install_subparser(parser)
+
+    args = parser.parse_args(argv)
+    Cerebrum.logutils.autoconf("cronjob", args)
+
+    db = Factory.get('Database')()
+    co = Factory.get('Constants')(db)
+
+    logger.info("Start %s", parser.prog)
+    logger.debug("args: %s", repr(args))
+
+    # Check and prepare arguments
+
+    if not any((args.filename, args.template)):
+        parser.error("Missing template or report file")
+
+    with argutils.ParserContext(parser, spread_arg):
+        spread = getattr(co, args.spread)
+        int(spread)
+    logger.debug("using person spread: %s", repr(spread))
+
+    send_report = None
+    if args.template:
+        send_report = TemplateSender(args.template)
+        logger.debug("read email template: %s", repr(args.template))
+
+    filename = args.filename
+    if filename:
+        logger.debug("writing report to: %s", repr(filename))
+
+    # Generate and write report
+
+    candidates = get_persons_with_spread(db, spread)
+    report_data = list(get_report_data(db, candidates))
+    report = format_report(report_data)
+
+    if send_report:
+        send_report(report)
+
+    if filename:
+        write_report(filename, report)
+
+    logger.info("Done %s", parser.prog)
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()
