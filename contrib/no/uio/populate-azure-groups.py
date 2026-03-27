@@ -91,9 +91,8 @@ def get_exchange_accounts(db):
     ac = Factory.get('Account')(db)
     const = Factory.get('Constants')(db)
     logger.debug("Fetching all accounts with exchange spread...")
-    for row in ac.list_accounts_by_type(
-            account_spread=const.spread_exchange_account,
-            filter_expired=True):
+    for row in ac.search(
+            spread=const.spread_exchange_account):
         yield (row['account_id'], int(const.entity_account))
 
 
@@ -103,13 +102,6 @@ class MembershipBuilder(object):
         self.db = db
         self.group_cache = {}
         self.account_cache = group_sync.AccountOwnerCache(db)
-
-    def _only_secondary_accounts(self, iterable):
-        members = set(iterable)
-        all_accounts = set(self.account_cache.only_accounts(members,
-                                                            all_accounts=True))
-        primary_accounts = set(self.account_cache.primary_accounts(members))
-        return all_accounts - primary_accounts
 
     def calculate_members(
             self,
@@ -212,8 +204,6 @@ def populate_azure_groups(db):
     sync_group(
         "it-uio-ms365-betalende-utflatet",
         "Betalt Azure-lisens - Normalisert kopi av 'it-uio-ms365-betalende'",
-        # TODO: This group should probably also be normalized using:
-        # member_type="person",
         member_type="person",
         include_groups=[
             # "betalende" are manually maintained in a `it-*-ms365-betalende`
