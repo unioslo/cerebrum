@@ -72,8 +72,8 @@ def get_membership_group(db, group_name):
     expire_date = date_compat.get_date(gr.expire_date)
     gr_ident = "%s (%d)" % (gr.group_name, gr.entity_id)
     if expire_date and expire_date < today:
-        logger.error("Include/exclude group %s is expired: %s",
-                     gr_ident, expire_date.isoformat())
+        logger.warning("Include/exclude group %s is expired: %s",
+                       gr_ident, expire_date.isoformat())
     elif expire_date and expire_date < (today + datetime.timedelta(days=14)):
         logger.warning("Include/exclude group %s expires soon: %s",
                        gr_ident, expire_date.isoformat())
@@ -94,7 +94,6 @@ def get_exchange_accounts(db):
     for row in ac.list_accounts_by_type(
             account_spread=const.spread_exchange_account,
             filter_expired=True):
-        
         yield (row['account_id'], int(const.entity_account))
 
 
@@ -215,7 +214,7 @@ def populate_azure_groups(db):
         "Betalt Azure-lisens - Normalisert kopi av 'it-uio-ms365-betalende'",
         # TODO: This group should probably also be normalized using:
         # member_type="person",
-        member_type=None,
+        member_type="person",
         include_groups=[
             # "betalende" are manually maintained in a `it-*-ms365-betalende`
             # group hierarchy.
@@ -304,7 +303,7 @@ def populate_azure_groups(db):
     # Exchange Online (exo) migration groups
     #
     # As accounts are migrated to exo, they are manually added to
-    # `postmaster-eo-migrerte`.  These groups categorize persons according to
+    # `postmaster-eo-migrerte`. These groups categorize persons according to
     # their main group and exo status.
     #
     sync_group(
@@ -381,7 +380,7 @@ def populate_azure_groups(db):
         member_type="primary",
         exclude_quarantined=False,
     )
-    logger.debug("Found %d licensed primary accounts", 
+    logger.debug("Found %d licensed primary accounts",
                  len(licensed_users))
 
     # Subtract licensed primary accounts from all exchange accounts
@@ -389,7 +388,7 @@ def populate_azure_groups(db):
         (entity_id, int(const.entity_account))
         for entity_id in licensed_users
     )
-    logger.debug("Found %d non-licensed user accounts", 
+    logger.debug("Found %d non-licensed user accounts",
                  len(nonlicensed_accounts))
 
     # Create the secondary users group
