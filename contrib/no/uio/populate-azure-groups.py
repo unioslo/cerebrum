@@ -368,7 +368,6 @@ def populate_azure_groups(db):
         group_sync.get_member_ids(all_exchange_accounts),
     )
 
-    # Secondary members
     # Get all primary accounts from the 4 main license groups
     licensed_users = sync_group.calculate_members(
         include_groups=[
@@ -391,7 +390,6 @@ def populate_azure_groups(db):
     logger.debug("Found %d non-licensed user accounts",
                  len(nonlicensed_accounts))
 
-    # Create the secondary users group
     nonlicensed_group = get_azure_group(
         db,
         "it-uio-ms365-sekunderbrukere",
