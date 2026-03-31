@@ -320,13 +320,6 @@ AD_DIST_GRP_ATTRIBUTES = ()
 AD_DIST_GRP_DEFAULTS = {}
 AD_DIST_GRP_UPDATE_EX = ()
 
-# Note: The following are only used by hiof ad scripts.  They should probably
-# not be defined here in the default config, but hard-coded in the relevant
-# hiof modules, or just exist in the hiof cereconf.
-AD_DEFAULT_OU = '0'
-AD_ACCOUNT_SPREADS = None
-AD_TRAIT_TYPES = None
-
 # Exchange-related variables
 #
 # exchange-related-jazz

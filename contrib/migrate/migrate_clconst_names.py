@@ -40,7 +40,6 @@ MAPPING = {
     ('ac_type', 'add'): ('account_type', 'add'),
     ('ac_type', 'del'): ('account_type', 'remove'),
     ('ac_type', 'mod'): ('account_type', 'modify'),
-    ('ad_attr', 'del'): ('ad_attr', 'remove'),
     ('apikey', 'apikey_add'): ('apikey', 'add'),
     ('apikey', 'apikey_del'): ('apikey', 'remove'),
     ('apikey', 'apikey_mod'): ('apikey', 'modify'),

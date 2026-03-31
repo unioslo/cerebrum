@@ -555,7 +555,7 @@ class FsImporter(object):
         if self.reservation_query:
             # For use when the institution only wants to check publishing
             # rights for specific groups of users
-            # Method currently used by uia, nih and hiof
+            # Method currently used by uia and nih
             for dta_type in person_info.keys():
                 p = person_info[dta_type][0]
                 if isinstance(p, str):

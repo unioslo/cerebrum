@@ -355,33 +355,6 @@ class AddressAttr(AttrConfig):
         )
 
 
-class ADAttributeAttr(AttrConfig):
-    """
-    Config for attributes fetched from the AD attribute module.
-
-    This module stores AD attributes for a given entity.  The AD attribute
-    table stores attributes by spread.  You could for instance have a different
-    `RoamingProfile` in two different AD domains.
-    """
-    def __init__(self, attributes, *args, **kwargs):
-        """
-        Configure an AD attribute to include.
-
-        The spread is set by the sync profile.  Might want to be able to
-        override the spread setting in the future, but that is not an option at
-        the moment.
-
-        :type attributes:
-            Cerebrum.modules.ad2.Entity/ADAttribute or sequence thereof
-
-        :param attributes:
-            The name of the AD attribute constant(s) to use, in prioritized
-            order. The first available attribute that is found is used.
-        """
-        super(ADAttributeAttr, self).__init__(*args, **kwargs)
-        self.attributes = _prepare_constants(attributes, const.ADAttribute)
-
-
 class ExternalIdAttr(AttrConfig):
     """Config for attributes using external IDs.
 

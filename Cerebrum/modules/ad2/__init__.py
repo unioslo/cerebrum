@@ -84,14 +84,6 @@ The AD sync is split into multiple modules:
     ``adconf.SYNCS[<preset>['attributes']``.  Very tightly integrated with
     :mod:`.CerebrumData` and :mod:`.ADSync`.
 
-:mod:`.Entity`
-    *Entity* is an entity mixin for storing ad specific attributes in Cerebrum.
-    Attribtues can be stored e.g. as traits, or in a specific `ad_attribute`
-    table.  See also :mod:`.bofhd_ad_cmds` for managing attributes.
-
-    TODO: These modules are poorly named, and don't really belong here.
-    Should probably be moved to ``Cerebrum.modules.ad_attrs.*`` or similar.
-
 
 TODO
 ====
