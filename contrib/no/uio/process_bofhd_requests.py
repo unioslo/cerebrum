@@ -30,7 +30,7 @@ These requests are typically changes that:
 2. Should be delayed until a specific point in time
 3. Adds complexity to an otherwise simple function
 
-More specifically, these changes mosly involves moving or archiving user home
+More specifically, these changes mostly involves moving or archiving user home
 directories.
 
 There are other scripts with similar or related behaviour:
