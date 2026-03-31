@@ -423,7 +423,7 @@ class GuestUtils(object):
         tmp = {}       # found subsets placed here for later ordering
         ret = []       # list of subsets returned.
 
-        available_guests.sort()
+        available_guests = sorted(available_guests)
         first = available_guests[0]
         last = available_guests[0]
         for i in available_guests[1:]:

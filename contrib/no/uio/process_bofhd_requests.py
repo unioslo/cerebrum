@@ -21,19 +21,41 @@
 """
 Process bofhd requests for UiO.
 
-This script reads from the bofhd_request table in the database and picks the
-requests of the given types for processing.
+This script processes selected request types from the
+:mod:`Cerebrum.modules.bofhd_requests` module.
+
+These requests are typically changes that:
+
+1. Are costly, and should not delay the script/process that caused them
+2. Should be delayed until a specific point in time
+3. Adds complexity to an otherwise simple function
+
+More specifically, these changes mostly involves moving or archiving user home
+directories.
+
+There are other scripts with similar or related behaviour:
+
+- ``process_changes.py`` deals with *creating* home directories.  This
+  operation is typically triggered by the *change log*, rather than being bofhd
+  requests.
+
+- ``process_sympa_request.py`` creates and removes email lists from bofhd
+  requests.
+
+- ``preprocess-move-students.py`` creates *move* requests for this script.
 """
 from __future__ import (
     absolute_import,
     division,
     print_function,
-    # TODO: unicode_literals,
+    unicode_literals,
 )
 
 import argparse
+import contextlib
 import datetime
 import logging
+import os
 
 import six
 
@@ -42,442 +64,495 @@ import cereconf
 import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum import Errors
-from Cerebrum import Utils
+from Cerebrum.Utils import Factory
 from Cerebrum.group.GroupRoles import GroupRoles
-from Cerebrum.modules import Email
-from Cerebrum.modules import PosixGroup
 from Cerebrum.modules.bofhd_requests import process_requests
-from Cerebrum.utils.argutils import get_constant
+from Cerebrum.modules.no.uio import reguser
+from Cerebrum.utils import date as date_utils
 
 logger = logging.getLogger(__name__)
 
-SSH_CMD = "/usr/bin/ssh"
-SUDO_CMD = "sudo"
-SSH_CEREBELLUM = [SSH_CMD, cereconf.ARCHIVE_USER_SERVER]
+RequestProcessor = process_requests.SimpleRequestProcessor
 
-DEBUG = False
-EXIT_SUCCESS = 0
-
-constants_cls = Utils.Factory.get('Constants')
-operations_map = process_requests.OperationsMap()
-
-# plaintext-constants
-move_user_op = six.text_type(constants_cls.bofh_move_user)
-move_user_now_op = six.text_type(constants_cls.bofh_move_user_now)
-quarantine_refresh_op = six.text_type(constants_cls.bofh_quarantine_refresh)
-archive_user_op = six.text_type(constants_cls.bofh_archive_user)
-delete_user_op = six.text_type(constants_cls.bofh_delete_user)
-
-# TODO: now that we support multiple homedirs, we need to which one an
-# operation is valid for.  This information should be stored in
-# state_data, but for e-mail commands this column is already used for
-# something else.  The proper solution is to change the databasetable
-# and/or letting state_data be pickled.
+# Default homedir spread (for user delete/archive).  We cant't really support
+# archiving other homedirs, as we only have one "generation" counter.
+constants_cls = Factory.get('Constants')
 default_spread = six.text_type(constants_cls.spread_uio_nis_user)
 
 
-def get_address(db, address_id):
-    ea = Email.EmailAddress(db)
-    ea.find(address_id)
-    ed = Email.EmailDomain(db)
-    ed.find(ea.email_addr_domain_id)
-    return "%s@%s" % (ea.email_addr_local_part,
-                      ed.rewrite_special_domains(ed.email_domain_name))
+def _get_entity_by_id(db, factory_name, entity_id):
+    obj = Factory.get(factory_name)(db)
+    obj.find(int(entity_id))
+    return obj
 
 
-@operations_map(move_user_op, move_user_now_op, delay=24*60)
-def proc_move_user(db, r):
-    try:
-        account, uname, old_host, old_disk = get_account_and_home(
-            db, r['entity_id'], type='PosixUser',
-            spread=r['state_data'])
-        new_host, new_disk = get_disk(db, r['destination_id'])
-    except Errors.NotFoundError:
-        logger.error("move_request: user %i not found", r['entity_id'])
-        return False
-    if account.is_expired():
-        logger.warn("Account %s is expired, cancelling request",
-                    account.account_name)
-        return False
-    process_requests.set_operator(db, r['requestee_id'])
-    try:
-        operator = get_account(db, r['requestee_id']).account_name
-    except Errors.NotFoundError:
-        # The mvuser script requires a valid address here.  We
-        # may want to change this later.
-        operator = "cerebrum"
-    group = get_group(db, account.gid_id, grtype='PosixGroup')
-
-    if move_user(uname, int(account.posix_uid), int(group.posix_gid),
-                 old_host, old_disk, new_host, new_disk, operator):
-        logger.debug('user %s moved from %s to %s',
-                     uname, old_disk, new_disk)
-        spread = account.const.get_constant(account.const.Spread,
-                                            default_spread)
-        ah = account.get_home(spread)
-        account.set_homedir(current_id=ah['homedir_id'],
-                            disk_id=r['destination_id'])
-        account.write_db()
-        return True
-    else:
-        return new_disk == old_disk
+def _get_account_by_id(db, entity_id, posix=False):
+    return _get_entity_by_id(
+        db, "PosixUser" if posix else "Account", entity_id)
 
 
-@operations_map(quarantine_refresh_op, delay=0)
-def proc_quarantine_refresh(db, r):
+def _get_disk_by_id(db, entity_id):
+    return _get_entity_by_id(db, "Disk", entity_id)
+
+
+def _get_group_by_id(db, entity_id, posix=False):
+    return _get_entity_by_id(db, "PosixGroup" if posix else "Group", entity_id)
+
+
+def _get_host_by_id(db, entity_id):
+    return _get_entity_by_id(db, "Host", entity_id)
+
+
+def _get_initial_account(db):
+    obj = Factory.get("Account")(db)
+    obj.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
+    return obj
+
+
+@contextlib.contextmanager
+def operator_context(db, requestee_id):
     """
-    process_changes.py has added bofh_quarantine_refresh for the
-    start/disable/end dates for the quarantines.  Register a
-    quarantine_refresh change-log event so that changelog-based
-    quicksync script can revalidate the quarantines.
+    Set temporary operator context from request.
+
+    Sets changelog operator from *requestee_id*, with fallback to a default if
+    the id no longer exists.  Yields an operator name for use in reguser
+    commands.
     """
-    cl_const = Utils.Factory.get('CLConstants')(db)
-    process_requests.set_operator(db, r['requestee_id'])
-    db.log_change(r['entity_id'], cl_const.quarantine_refresh, None)
-    return True
-
-
-@operations_map(archive_user_op, delay=2*60)
-def proc_archive_user(db, r):
-    const = constants_cls(db)
-    spread = const.get_constant(const.Spread, default_spread)
-    # TODO: check spread in r['state_data']
-    account, uname, old_host, old_disk = get_account_and_home(
-        db, r['entity_id'], spread=spread)
-    operator = get_account(db, r['requestee_id']).account_name
-    if delete_user(db, uname, old_host, '%s/%s' % (old_disk, uname),
-                   operator, ''):
-        try:
-            home = account.get_home(spread)
-        except Errors.NotFoundError:
-            pass
-        else:
-            account.set_homedir(current_id=home['homedir_id'],
-                                status=const.home_status_archived)
-        return True
-    else:
-        return False
-
-
-@operations_map(delete_user_op, delay=2*60)
-def proc_delete_user(db, r):
-    const = constants_cls(db)
-    spread = const.get_constant(const.Spread, default_spread)
-    # TODO: check spread in r['state_data']
-    #
-    # IVR 2007-01-25 We do not care if it's a posix user or not.
-    # TVL 2013-12-09 Except that if it's a POSIX user, it should retain a
-    #                personal file group.
-    account, uname, old_host, old_disk = get_account_and_home(
-        db, r['entity_id'], spread=spread)
-    if account.is_deleted():
-        logger.warn("%s is already deleted" % uname)
-        return True
-    process_requests.set_operator(db, r['requestee_id'])
-    operator = get_account(db, r['requestee_id']).account_name
-    et = Email.EmailTarget(db)
+    # Get operator id (changelog) and name (reguser script)
     try:
-        et.find_by_target_entity(account.entity_id)
-        es = Email.EmailServer(db)
-        es.find(et.email_server_id)
-        mail_server = es.name
+        _operator = _get_account_by_id(db, requestee_id)
+        operator_id = _operator.entity_id
+        operator_name = _operator.account_name
     except Errors.NotFoundError:
-        mail_server = ''
+        _operator = _get_initial_account(db)
+        operator_id = _operator.entity_id
+        # TODO: Why is this hard-coded to "cerebrum"?
+        operator_name = "cerebrum"
 
-    account.expire_date = datetime.date.today()
-    account.write_db()
+    old_prog, old_id = db.change_program, db.change_by
+    db.cl_init(change_program=old_prog, change_by=operator_id)
     try:
-        home = account.get_home(spread)
-    except Errors.NotFoundError:
-        pass
-    else:
-        if home['status'] == const.home_status_on_disk:
-            if not delete_user(db, uname, old_host,
-                               '%s/%s' % (old_disk, uname),
-                               operator, mail_server):
-                return False
-
-            account.set_homedir(current_id=home['homedir_id'],
-                                status=const.home_status_archived)
-    # Remove references in other tables
-    # Note that we preserve the quarantines for deleted users
-    # TBD: Should we have an API function for this?
-    for s in account.get_spread():
-        account.delete_spread(s['spread'])
-
-    # Make sure the user's default file group is a personal group
-    group = Utils.Factory.get('Group')(db)
-    default_group = _get_default_group(db, account.entity_id)
-    pu = Utils.Factory.get('PosixUser')(db)
-
-    try:
-        pu.find(account.entity_id)
-    except Errors.NotFoundError:
-        pass
-    else:
-        # The account is a PosixUser, special care needs to be taken with
-        # regards to its default file group (dfg)
-        personal_fg = pu.find_personal_group()
-        if personal_fg is None:
-            # Create a new personal file group
-            op = Utils.Factory.get('Account')(db)
-            op.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
-            with pu._new_personal_group(op.entity_id) as new_group:
-                personal_fg = new_group
-                roles = GroupRoles(db)
-                roles.add_admin_to_group(pu.entity_id, personal_fg.entity_id)
-                pu.map_user_spreads_to_pg()
-            logger.debug("Created group: '%s'. Group ID = %d",
-                         personal_fg.group_name, personal_fg.entity_id)
-
-        pg = Utils.Factory.get('PosixUser')(db)
-        # If user has a personal group, but it currently isn't a posix group.
-        # This scenario should never really occur, but hey, this is Cerebrum.
-        if not personal_fg.has_extension('PosixGroup'):
-            pg.populate(parent=personal_fg)
-            pg.write_db()
-            personal_fg = pg
-        # Set group to be dfg for the user.
-        if personal_fg.entity_id != default_group:
-            pu.gid_id = personal_fg.entity_id
-            pu.write_db()
-            default_group = _get_default_group(db, account.entity_id)
-
-    # Remove the user from groups
-    group.clear()
-    for g in group.search(member_id=account.entity_id,
-                          indirect_members=False):
-        group.clear()
-        group.find(g['group_id'])
-        #
-        # all posixuser-objects have to keep their membership
-        # in their default group due to a FK-constraint from
-        # posix_user to group_member
-        if g['group_id'] == default_group:
-            logger.debug("Skipping default group %s for user %s",
-                         group.group_name, account.account_name)
-            continue
-        group.remove_member(account.entity_id)
-
-    # Remove password from user
-    account.delete_password()
-
-    return True
+        yield operator_name
+    finally:
+        db.cl_init(change_program=old_prog, change_by=old_id)
 
 
-def _get_default_group(db, account_id):
-    try:
-        # only posix_user-objects have a default group
-        account = Utils.Factory.get('PosixUser')(db)
-        account.clear()
-        account.find(account_id)
-    except Errors.NotFoundError:
-        return None
-    return account.gid_id
-
-
-def delete_user(db, uname, old_host, old_home, operator, mail_server):
-    account = get_account(db, name=uname)
-    const = account.const
-    generation = account.get_trait(const.trait_account_generation)
-    if generation:
-        generation = generation['numval'] + 1
-    else:
-        generation = 1
-
-    args = [
-        SUDO_CMD, cereconf.RMUSER_SCRIPT,
-        '--username', account.account_name,
-        '--deleted-by', operator,
-        '--homedir', old_home,
-        '--generation', str(generation)
-    ]
-    if DEBUG:
-        args.append('--debug')
-    cmd = SSH_CEREBELLUM + [" ".join(args), ]
-
-    if Utils.spawn_and_log_output(cmd, connect_to=[old_host]) == EXIT_SUCCESS:
-        account.populate_trait(const.trait_account_generation,
-                               numval=generation)
-        account.write_db()
-        return True
-    return False
-
-
-def move_user(uname, uid, gid, old_host, old_disk, new_host, new_disk,
-              operator):
-    args = [SUDO_CMD, cereconf.MVUSER_SCRIPT,
-            '--user', uname,
-            '--uid', str(uid),
-            '--gid', str(gid),
-            '--old-disk', old_disk,
-            '--new-disk', new_disk,
-            '--operator', operator]
-    if DEBUG:
-        args.append('--debug')
-    cmd = SSH_CEREBELLUM + [" ".join(args), ]
-    return (Utils.spawn_and_log_output(cmd, connect_to=[old_host, new_host]) ==
-            EXIT_SUCCESS)
-
-
-def get_disk(db, disk_id):
-    disk = Utils.Factory.get('Disk')(db)
-    disk.clear()
-    disk.find(disk_id)
-    host = Utils.Factory.get('Host')(db)
-    host.clear()
-    host.find(disk.host_id)
-    return host.name, disk.path
-
-
-def get_account(db, account_id=None, name=None):
-    assert account_id or name
-    acc = Utils.Factory.get('Account')(db)
-    if account_id:
-        acc.find(account_id)
-    elif name:
-        acc.find_by_name(name)
-    return acc
-
-
-def get_account_and_home(db, account_id, type='Account', spread=None):
-    if type == 'Account':
-        account = Utils.Factory.get('Account')(db)
-    elif type == 'PosixUser':
-        account = Utils.Factory.get('PosixUser')(db)
-    account.clear()
-    account.find(account_id)
+def get_home_disk(account, spread=None):
+    """ Get homedir id and disk-id for a given account. """
     if spread is None:
         spread = account.const.get_constant(account.const.Spread,
                                             default_spread)
-    uname = account.account_name
+    home = account.get_home(spread)
+    if home['home'] is None and home['disk_id']:
+        return (int(home['homedir_id']), int(home['disk_id']))
+    raise Errors.NotFoundError("no home disk")
+
+
+def proc_move_user(db, r, dryrun=True, **kwargs):
+    """
+    Move user homedir from request.
+
+    This operation is intended to process br_move_user and br_move_user_now
+    requests.  It requires:
+
+      - request_id
+      - requestee_id (operator that requested the change)
+      - entity_id (of the account to move)
+      - desitination_id (entity id of the target disk)
+      - state_date (a spread identifying the homedir to move)
+    """
+    #
+    # setup - find and check: account, old home, new home
+    #
+    try:
+        # must be a PosixAccount - as we need uid and gid for mvuser
+        account = _get_account_by_id(db, r['entity_id'], posix=True)
+    except Errors.NotFoundError:
+        logger.error("proc_move_user: posix account id=%d not found",
+                     r['entity_id'])
+        # TODO: False? This request will probably never succeed...
+        return False
+
+    account_repr = "%s (%d)" % (account.account_name, account.entity_id)
+    if account.is_expired():
+        logger.warning("proc_move_user: account %s is expired", account_repr)
+        # TODO: False? This request will probably never succeed...
+        return False
+
+    const = account.const
+    spread = const.get_constant(const.Spread, r['state_data'])
+    try:
+        # TODO: should we not check the current status?
+        homedir_id, disk_id = get_home_disk(account, spread)
+        old_disk = _get_disk_by_id(db, disk_id).path
+    except Errors.NotFoundError:
+        logger.error("proc_move_user: no homedir disk for %s", account_repr)
+        # TODO: False? This request will probably never succeed...
+        return False
+
+    try:
+        new_disk = _get_disk_by_id(db, r['destination_id']).path
+    except Errors.NotFoundError:
+        logger.error("proc_move_user: invalid homedir disk (%r) for %s",
+                     r['destination_id'], account_repr)
+        # TODO: False? This request will probably never succeed...
+        return False
+
+    if new_disk == old_disk:
+        logger.warning("proc_move_user: Account %s is already on target disk",
+                       account_repr)
+        return True
+
+    #
+    # move account from old host/disk to new host/disk
+    #
+    runner = reguser.ReguserCommands(dryrun=dryrun, remote_dryrun=False,
+                                     remote_debug=False)
+    with operator_context(db, r['requestee_id']) as operator_name:
+        group = _get_group_by_id(db, account.gid_id, posix=True)
+
+        if runner.move_user(user=account.account_name,
+                            uid=int(account.posix_uid),
+                            gid=int(group.posix_gid),
+                            old_disk=old_disk,
+                            new_disk=new_disk,
+                            operator=operator_name):
+            logger.info("proc_move_user: Moved account %s from %s to %s",
+                        account_repr, old_disk, new_disk)
+            account.set_homedir(current_id=homedir_id,
+                                disk_id=r['destination_id'])
+            account.write_db()
+            return True
+        else:
+            logger.error(
+                "proc_move_user: Failed to move account %s from %s to %s",
+                account_repr, old_disk, new_disk)
+            return False
+
+
+#
+# Archive user and archive helpers
+#
+
+
+def archive_user(account, spread, operator_name, dryrun=True):
+    """ Archive a user account homedir """
+    db = account._db
+    const = account.const
+    account_repr = "%s (%d)" % (account.account_name, account.entity_id)
+    try:
+        homedir_id, disk_id = get_home_disk(account, spread)
+        old_disk = _get_disk_by_id(db, disk_id).path
+    except Errors.NotFoundError:
+        logger.error("archive_user: unable to archive - no homedir for %s",
+                     account_repr)
+        return False
+
+    # Archive homedir
+    generation_trait = account.get_trait(const.trait_account_generation) or {}
+    generation = (generation_trait.get('numval') or 0) + 1
+    homedir = os.path.join(old_disk, account.account_name)
+    runner = reguser.ReguserCommands(dryrun=dryrun, remote_dryrun=False,
+                                     remote_debug=False)
+
+    if runner.delete_user(username=account.account_name, homedir=homedir,
+                          deleted_by=operator_name, generation=generation):
+        account.set_homedir(current_id=homedir_id,
+                            status=const.home_status_archived)
+        account.populate_trait(const.trait_account_generation,
+                               numval=generation)
+        account.write_db()
+        logger.info("archive_user: archived homedir %s for account %s",
+                    homedir, account_repr)
+        return True
+    else:
+        logger.error("archive_user: archive homedir %s failed for account %s",
+                     homedir, account_repr)
+        return False
+
+
+def proc_archive_user(db, r, dryrun=True, **kwargs):
+    """
+    Archive a user homedir on request.
+
+    This action *can* archive any user homedir, but really only runs on
+    *release_guest*, which starts the process of resetting an active guest
+    account (guestNNN/gjestNNN).
+
+    The archive operation causes a homedir:modify.  This change is processed by
+    ``process_changes.py``, which creates a new homedir and puts the guest back
+    into the uio guest account pool.
+    """
+    try:
+        account = _get_account_by_id(db, r['entity_id'])
+    except Errors.NotFoundError:
+        logger.error("proc_archive_user: account id=%d not found",
+                     r['entity_id'])
+        return False
+    const = account.const
+    spread = const.get_constant(const.Spread, default_spread)
+    with operator_context(db, r['requestee_id']) as operator_name:
+        return archive_user(account, spread, operator_name, dryrun=dryrun)
+
+
+#
+# Delete user and delete helpers
+#
+
+
+def _needs_archiving(account, spread):
+    """ Check if an account homedir needs archiving. """
+    const = account.const
     try:
         home = account.get_home(spread)
+        status = const.AccountHomeStatus(home['status'])
     except Errors.NotFoundError:
-        return account, uname, None, None
-    if home['home'] is None:
-        if home['disk_id'] is None:
-            return account, uname, None, None
-        host, home = get_disk(db, home['disk_id'])
-    else:
-        host = None  # TODO:  How should we handle this?
-        home = home['home']
-    return account, uname, host, home
+        status = None
+
+    if status == const.home_status_on_disk:
+        logger.debug("account id=%d homedir on disk", account.entity_id)
+        return True
+
+    if status is None:
+        logger.debug("account id=%d has no homedir", account.entity_id)
+        return False
+
+    logger.debug("account id=%d homedir not on disk (%s)",
+                 account.entity_id, six.text_type(status))
+    return False
 
 
-def get_group(db, group_id, grtype="Group"):
-    if grtype == "Group":
-        group = Utils.Factory.get('Group')(db)
-    elif grtype == "PosixGroup":
-        group = PosixGroup.PosixGroup(db)
-    group.clear()
-    group.find(group_id)
-    return group
+def assert_dfg(account):
+    """
+    Ensure that a posix user dfg is its personal file group.
+
+    This must be done when deleting a posix user, to ensure that it is restored
+    correctly if and when that happens.
+    """
+    account_repr = "%s (%d)" % (account.account_name, account.entity_id)
+    db = account._db
+    try:
+        pu = _get_account_by_id(db, account.entity_id, posix=True)
+    except Errors.NotFoundError:
+        logger.debug("assert_dfg: account %s is not a posix account",
+                     account_repr)
+        return
+
+    logger.debug("assert_dfg: checking posix account %s", account_repr)
+    default_group = pu.gid_id
+
+    # The account is a PosixUser, special care needs to be taken with
+    # regards to its default file group (dfg)
+    personal_fg = pu.find_personal_group()
+    if personal_fg is None:
+        # Create a new personal file group
+        op = _get_initial_account(db)
+        with pu._new_personal_group(op.entity_id) as new_group:
+            personal_fg = new_group
+            roles = GroupRoles(db)
+            roles.add_admin_to_group(pu.entity_id, personal_fg.entity_id)
+            pu.map_user_spreads_to_pg()
+        logger.info("assert_dfg: created personal fg for %s - %s (%d)",
+                    account_repr, personal_fg.group_name,
+                    personal_fg.entity_id)
+
+    # If user has a personal group, but it currently isn't a posix group.
+    # This scenario should never really occur, but hey, this is Cerebrum.
+    if not personal_fg.has_extension('PosixGroup'):
+        pg = Factory.get('PosixUser')(db)
+        pg.populate(parent=personal_fg)
+        pg.write_db()
+        personal_fg = pg
+        logger.info("assert_dfg: posix promoted %s (%d)",
+                    account_repr, personal_fg.group_name,
+                    personal_fg.entity_id)
+
+    # Set personal_fg to be dfg for the user.
+    if personal_fg.entity_id != default_group:
+        pu.gid_id = personal_fg.entity_id
+        pu.write_db()
+        default_group = personal_fg.entity_id
+        logger.info("assert_dfg: updated dfg for %s to %s (%d)",
+                    account_repr, personal_fg.group_name,
+                    personal_fg.entity_id)
+
+    return default_group
+
+
+def proc_delete_user(db, r, dryrun=True, **kwargs):
+    """
+    Delete user and archive homedir from request.
+
+    This operation is intended to process br_delete_user requests, and
+    requires:
+
+      - request_id
+      - requestee_id (operator that requested the change)
+      - entity_id (of the account to delete)
+    """
+    try:
+        account = _get_account_by_id(db, r['entity_id'])
+    except Errors.NotFoundError:
+        logger.error("proc_delete_user: account id=%d not found",
+                     r['entity_id'])
+        return False
+    account_repr = "%s (%d)" % (account.account_name, account.entity_id)
+    if account.is_deleted():
+        logger.warning("proc_delete_user: Account %s is deleted", account_repr)
+        return True
+
+    # TODO: Should we not archive *all* networked homedirs?
+    const = account.const
+    spread = const.get_constant(const.Spread, default_spread)
+
+    with operator_context(db, r['requestee_id']) as operator_name:
+        if _needs_archiving(account, spread):
+            if not archive_user(account, spread, operator_name,
+                                dryrun=dryrun):
+                return False
+
+        # set expire date
+        account.expire_date = datetime.date.today()
+        account.write_db()
+        logger.info("proc_delete_user: set expire date for %s to %s",
+                    account_repr, account.expire_date)
+
+        # remove spreads
+        for s in account.get_spread():
+            account.delete_spread(s['spread'])
+            logger.info("proc_delete_user: removed %s spread code=%d",
+                        account_repr, s['spread'])
+
+        # ensure correct dfg if posix user
+        dfg_id = assert_dfg(account)
+
+        # remove user from all groups except dfg
+        group = Factory.get('Group')(account._db)
+        for g in group.search(member_id=account.entity_id,
+                              indirect_members=False,
+                              filter_expired=False):
+            if g['group_id'] == dfg_id:
+                # all posixuser-objects have to keep their membership
+                # in their default group due to a FK-constraint from
+                # posix_user to group_member
+                continue
+            group.clear()
+            group.find(g['group_id'])
+            group.remove_member(account.entity_id)
+            logger.info("proc_delete_user: removed %s from group %s (%d)",
+                        account_repr, group.group_name, group.entity_id)
+
+        # clear password
+        account.delete_password()
+        logger.info("proc_delete_user: cleared password for %s", account_repr)
+        return True
+
+
+#
+# Quarantine refresh
+#
+
+
+def proc_quarantine_refresh(db, r, dryrun=True, **kwargs):
+    """
+    Add a quarantine refresh event from request.
+
+    This is a special change that simply adds a changelog-event for
+    quarantines.  The request is issued by `process_changes.py` -- see this
+    script for details.
+    """
+    cl_const = Factory.get('CLConstants')(db)
+    with operator_context(db, r['requestee_id']):
+        db.log_change(r['entity_id'], cl_const.quarantine_refresh, None)
+        return True
 
 
 def main():
-    global DEBUG
-    # TODO: DEBUG is the only global state left in this script.  We need to
-    # figure out a better way to pass CLI-args into operations_map callbacks.
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        '-d', '--debug',
-        dest='debug',
-        action='store_true',
-        help='Turn on debugging',
+    parser = argparse.ArgumentParser(
+        description=(
+            "Process homedir management and other delayed bofhd request tasks"
+        ),
     )
+    # TODO: For proper debugging and testing, We may want separate --dryrun
+    # override flags for the clhandler and the sympa commands
+    commit_mutex = parser.add_mutually_exclusive_group()
+    commit_mutex.add_argument(
+        "--commit",
+        action="store_true",
+        dest="commit",
+        help="Run remote scripts and commit changes",
+    )
+    commit_mutex.add_argument(
+        "--dryrun",
+        action="store_false",
+        dest="commit",
+        help="Don't run scripts or commit changes (default)",
+    )
+    commit_mutex.set_defaults(commit=False)
+
     parser.add_argument(
-        '-t', '--type',
-        dest='types',
-        action='append',
-        choices=['move', 'quarantine', 'delete'],
+        "-t", "--type",
+        dest="category",
+        action="append",
+        choices=("move", "delete", "quarantine"),
         required=True,
-    )
-    parser.add_argument(
-        '-m', '--max',
-        dest='max_requests',
-        default=999999,
-        help='Perform up to this number of requests',
-        type=int,
-    )
-    parser.add_argument(
-        '-p', '--process',
-        dest='process',
-        action='store_true',
-        help='Perform the queued operations',
-    )
-    args, _rest = parser.parse_known_args()
-
-    has_move_arg = 'move' in args.types
-    arg_group = parser.add_argument_group('Required for move_student requests')
-    arg_group.add_argument(
-        '--ou-perspective',
-        dest='ou_perspective',
-        default='perspective_fs',
-    )
-    arg_group.add_argument(
-        '--emne-info-file',
-        dest='emne_info_file',
-        default=None,
-        required=has_move_arg,
-    )
-    arg_group.add_argument(
-        '--studconfig-file',
-        dest='studconfig_file',
-        default=None,
-        required=has_move_arg,
-    )
-    arg_group.add_argument(
-        '--studie-progs-file',
-        dest='studieprogs_file',
-        default=None,
-        required=has_move_arg,
-    )
-    arg_group.add_argument(
-        '--student-info-file',
-        dest='student_info_file',
-        default=None,
-        required=has_move_arg,
+        help="Process request category %(metavar)s",
+        metavar="TYPE",
     )
 
     Cerebrum.logutils.options.install_subparser(parser)
+
     args = parser.parse_args()
+    Cerebrum.logutils.autoconf("daily", args)
+    dryrun = not args.commit
 
-    Cerebrum.logutils.autoconf('bofhd_req', args)
-    DEBUG = args.debug
-
-    logger.info('Start %s', parser.prog)
+    logger.info('start %s', parser.prog)
     logger.debug('args: %r', args)
 
-    db = Utils.Factory.get('Database')()
-    db.cl_init(change_program='process_bofhd_r')
-    const = constants_cls(db)
+    db = Factory.get('Database')()
+    db.cl_init(change_program=parser.prog)
+    const = Factory.get('Constants')(db)
+    process_operation = RequestProcessor(db, dryrun=dryrun)
 
-    if args.process:
-        if has_move_arg:
-            logger.info('Processing move requests')
-            # Asserting that a legal value is assigned to args.ou_perspective
-            args.ou_perspective = get_constant(db, parser, const.OUPerspective,
-                                               args.ou_perspective)
-            spread = const.get_constant(const.Spread, default_spread)
-            msp = process_requests.MoveStudentProcessor(
-                db,
-                const,
-                args.ou_perspective,
-                args.emne_info_file,
-                args.studconfig_file,
-                args.studieprogs_file,
-                default_spread=spread,
-            )
-            # Convert move_student requests into move_user requests
-            msp.process_requests(args.student_info_file)
+    operations = []
 
-        logger.info('Processing regular requests')
-        rp = process_requests.RequestProcessor(db, const)
-        rp.process_requests(operations_map, args.types, args.max_requests)
+    if "quarantine" in args.category:
+        operations.append({
+            'op_type': const.bofh_quarantine_refresh,
+            'callback': proc_quarantine_refresh,
+        })
 
-    logger.info('Done %s', parser.prog)
+    if "delete" in args.category:
+        operations.append({
+            'op_type': const.bofh_archive_user,
+            'callback': proc_archive_user,
+            'delay': date_utils.to_seconds(hours=2),
+        })
+        operations.append({
+            'op_type': const.bofh_delete_user,
+            'callback': proc_delete_user,
+            'delay': date_utils.to_seconds(hours=2),
+        })
+
+    if "move" in args.category:
+        operations.append({
+            'op_type': const.bofh_move_user_now,
+            'callback': proc_move_user,
+            'delay': date_utils.to_seconds(days=1),
+        })
+
+    if "move" in args.category and process_requests.is_ok_batch_time():
+        operations.append({
+            'op_type': const.bofh_move_user,
+            'callback': proc_move_user,
+            'delay': date_utils.to_seconds(days=1),
+        })
+
+    logger.debug("processing requests...")
+    for kwargs in operations:
+        process_operation(**kwargs)
+
+    logger.info('done %s', parser.prog)
 
 
 if __name__ == '__main__':
