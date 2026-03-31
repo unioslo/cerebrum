@@ -120,10 +120,11 @@ def operator_context(db, requestee_id):
     """
     # Get operator id (changelog) and name (reguser script)
     try:
-        _operator = _get_account_by_id(db, requestee_id)
+        _operator = _get_account_by_id(db, int(requestee_id))
         operator_id = _operator.entity_id
         operator_name = _operator.account_name
-    except Errors.NotFoundError:
+    except (Errors.NotFoundError, TypeError):
+        # TypeError - from `requestee_id is None`
         _operator = _get_initial_account(db)
         operator_id = _operator.entity_id
         # TODO: Why is this hard-coded to "cerebrum"?
