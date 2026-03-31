@@ -195,7 +195,6 @@ class MembershipBuilder(object):
 def populate_azure_groups(db):
     """ Update Azure groups from current database state. """
     membership_builder = MembershipBuilder(db)
-    const = Factory.get('Constants')(db)
     sync_group = membership_builder.sync_group
 
     #
@@ -373,10 +372,7 @@ def populate_azure_groups(db):
                  len(licensed_users))
 
     # Subtract licensed primary accounts from all exchange accounts
-    nonlicensed_accounts = all_exchange_accounts - set(
-        (entity_id, int(const.entity_account))
-        for entity_id in licensed_users
-    )
+    nonlicensed_accounts = all_exchange_accounts - licensed_users
     logger.debug("Found %d non-licensed user accounts",
                  len(nonlicensed_accounts))
 
