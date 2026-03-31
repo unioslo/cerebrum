@@ -81,21 +81,6 @@ def get_membership_group(db, group_name):
     return gr
 
 
-def get_exchange_accounts(db):
-    """
-    Get all active personal user accounts with an exchange spread.
-
-    :rtype: generator
-    :returns: tuples of (member_id, member_type)
-    """
-    ac = Factory.get('Account')(db)
-    const = Factory.get('Constants')(db)
-    logger.debug("Fetching all accounts with exchange spread...")
-    for row in ac.search(
-            spread=const.spread_exchange_account):
-        yield (row['account_id'], int(const.entity_account))
-
-
 class MembershipBuilder(object):
 
     def __init__(self, db):
@@ -195,7 +180,6 @@ class MembershipBuilder(object):
 def populate_azure_groups(db):
     """ Update Azure groups from current database state. """
     membership_builder = MembershipBuilder(db)
-    const = Factory.get('Constants')(db)
     sync_group = membership_builder.sync_group
 
     #
@@ -204,7 +188,9 @@ def populate_azure_groups(db):
     sync_group(
         "it-uio-ms365-betalende-utflatet",
         "Betalt Azure-lisens - Normalisert kopi av 'it-uio-ms365-betalende'",
-        member_type="person",
+        # TODO: This group should probably also be normalized using:
+        # member_type="person",
+        member_type=None,
         include_groups=[
             # "betalende" are manually maintained in a `it-*-ms365-betalende`
             # group hierarchy.
@@ -293,7 +279,7 @@ def populate_azure_groups(db):
     # Exchange Online (exo) migration groups
     #
     # As accounts are migrated to exo, they are manually added to
-    # `postmaster-eo-migrerte`. These groups categorize persons according to
+    # `postmaster-eo-migrerte`.  These groups categorize persons according to
     # their main group and exo status.
     #
     sync_group(
@@ -342,52 +328,6 @@ def populate_azure_groups(db):
         include_groups=["it-uio-ms365-andre"],
         exclude_groups=["postmaster-eo-migrerte"],
         intersect=True,
-    )
-
-    all_exchange_accounts = set(get_exchange_accounts(db))
-    logger.debug("Found %d user accounts with exchange spread",
-                 len(all_exchange_accounts))
-
-    exchange_group = get_azure_group(
-        db,
-        "it-uio-brukere-postboks",
-        "Alle brukere med Exchange-postboks",
-    )
-    group_sync.set_group_members(
-        exchange_group,
-        group_sync.get_member_ids(all_exchange_accounts),
-    )
-
-    # Get all primary accounts from the 4 main license groups
-    licensed_users = sync_group.calculate_members(
-        include_groups=[
-            "it-uio-ms365-betalende-utflatet",
-            "it-uio-ms365-student",
-            "it-uio-ms365-ansatt",
-            "it-uio-ms365-andre",
-        ],
-        member_type="primary",
-        exclude_quarantined=False,
-    )
-    logger.debug("Found %d licensed primary accounts",
-                 len(licensed_users))
-
-    # Subtract licensed primary accounts from all exchange accounts
-    nonlicensed_accounts = all_exchange_accounts - set(
-        (entity_id, int(const.entity_account))
-        for entity_id in licensed_users
-    )
-    logger.debug("Found %d non-licensed user accounts",
-                 len(nonlicensed_accounts))
-
-    nonlicensed_group = get_azure_group(
-        db,
-        "it-uio-ms365-sekunderbrukere",
-        "Alle ikke-primærbrukere med Exchange-postboks",
-    )
-    group_sync.set_group_members(
-        nonlicensed_group,
-        group_sync.get_member_ids(nonlicensed_accounts),
     )
 
 
