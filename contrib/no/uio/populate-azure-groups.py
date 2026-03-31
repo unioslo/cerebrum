@@ -359,7 +359,7 @@ def populate_azure_groups(db):
     )
 
     # Get all primary accounts from the 4 main license groups
-    licensed_users = sync_group.calculate_members(
+    licensed_users = membership_builder.calculate_members(
         include_groups=[
             "it-uio-ms365-betalende-utflatet",
             "it-uio-ms365-student",
