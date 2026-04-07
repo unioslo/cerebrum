@@ -89,7 +89,7 @@ def get_quarantined_accounts(db, quarantines):
         start_date = date_compat.get_date(row['start_date'])
         end_date = date_compat.get_date(row['end_date'])
         disable_until = date_compat.get_date(row['disable_until'])
-        if start_date and start_date < today:
+        if start_date and start_date > today:
             # Quarantine must have taken effect *before* today.
             continue
         if end_date and end_date <= today:
