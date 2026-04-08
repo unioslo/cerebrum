@@ -573,15 +573,8 @@ class XmlToOrgUnit(xml2object.XMLEntity2Object):
     #  2. the XMLEntity2Object._make_date method
     include_date = False
 
-    # Raise an error if ouid is invalid (to test the exception_wrapper)
-    raise_exc = False
-
-    @xml2object.XMLEntity2Object.exception_wrapper
     def _validate_object(self, obj):
         is_valid = obj['ouid'] is not None
-
-        if self.raise_exc and not is_valid:
-            raise ValueError("invalid ou: " + repr(obj))
 
         return is_valid
 
@@ -605,9 +598,6 @@ class XmlToOrgUnit(xml2object.XMLEntity2Object):
                 obj['parent'] = int(sub.text)
             if sub.tag == "date" and self.include_date:
                 obj['date'] = self._make_date(sub.text)
-            if sub.tag == "unknown_tag" and self.raise_exc:
-                # test next(XMLEntity2Object) error handling
-                raise ValueError("unknown tag")
 
         if not self._validate_object(obj):
             return None
@@ -644,16 +634,6 @@ def test_parse_xml_file_iter(example_xml_file, logger):
     # Check that we get our org units in xml-order
     assert next(org_units) == {'ouid': 101, 'parent': None}
     assert next(org_units) == {'ouid': 102, 'parent': 101}
-
-    with pytest.raises(StopIteration):
-        next(org_units)
-
-
-def test_parse_xml_file_exc_wrapper(example_xml_file, logger):
-    parser = XmlGetter(example_xml_file, logger, fetchall=True)
-    org_units = parser.iter_ou(raise_exc=True)
-
-    assert next(org_units) == {'ouid': 101, 'parent': None}
 
     with pytest.raises(StopIteration):
         next(org_units)

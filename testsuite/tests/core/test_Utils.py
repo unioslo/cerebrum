@@ -1,12 +1,12 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-"""Testing of Utils.py's functionality."""
-
-import re
+""" Unit tests for :mod:`Cerebrum.Utils` """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import sys
-
-import pytest
 
 import Cerebrum.Utils as Utils
 
@@ -31,73 +31,6 @@ def noop():
 def raise1():
     """ Function to raise ValueError. """
     raise ValueError("raise1")
-
-
-# Utils.format_exception_context
-@pytest.mark.parametrize('args', ((), (None,), (None, None)))
-def test_format_exception_context_wrong_args(args):
-    """ Utils.format_exception_context with invalid arguments. """
-    with pytest.raises(TypeError):
-        Utils.format_exception_context(*args)
-
-
-def test_format_exception_context_no_exc():
-    """ Utils.format_exception_context with empty arguments. """
-    retval = Utils.format_exception_context(None, None, None)
-    assert retval == ''
-
-
-def test_format_exception_context1():
-    """ Utils.format_exception_context with valid arguments. """
-    try:
-        raise ValueError("ioshivfq")
-    except ValueError:
-        message = Utils.format_exception_context(*sys.exc_info())
-        pattern = " ".join((
-            "Exception",
-            r"(?:<type 'exceptions.ValueError'>|<class 'ValueError'>)",
-            r"occured \(in context.*:",
-        ))
-        assert re.search(pattern, message)
-        assert "ioshivfq" in message
-
-
-# Utils.exception_wrapper
-
-def test_exception_wrapper_returns_callable():
-    """ Utils.exception_wrapper returns callable. """
-    assert hasattr(Utils.exception_wrapper(noop), '__call__')
-    Utils.exception_wrapper(noop)()
-
-
-@pytest.mark.parametrize('args', ((), (None,) * 5))
-def test_exception_wrapper_arg_count(args):
-    """ Utils.exception_wrapper with invalid arguments. """
-    with pytest.raises(TypeError):
-        Utils.exception_wrapper(*args)
-
-
-def test_exception_wrapper_behaviour():
-    """ Utils.exception_wrapper with valid arguments. """
-    # Ignoring all exceptions with defaults always yields None
-    assert Utils.exception_wrapper(noop, None)() is None
-    # Ignoring the exception raised with defaults always yields None
-    assert Utils.exception_wrapper(raise1, ValueError)() is None
-    # Exceptions can be given as tuples ...
-    assert Utils.exception_wrapper(raise1, (ValueError,))() is None
-    # ... lists
-    assert Utils.exception_wrapper(raise1, [ValueError, ])() is None
-    # ... or sets without affecting the result
-    assert Utils.exception_wrapper(raise1, set((ValueError,)))() is None
-
-    # Exception not matching the spec are not caught
-    with pytest.raises(ValueError):
-        Utils.exception_wrapper(raise1, AttributeError)()
-
-    # Return value with no exceptions is not altered
-    assert Utils.exception_wrapper(noop, None, '')() is None
-    # Return value with exceptions matches the arg
-    assert Utils.exception_wrapper(raise1, ValueError, '')() == ''
 
 
 # Utils.NotSet
