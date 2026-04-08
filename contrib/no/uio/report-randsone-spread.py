@@ -73,7 +73,11 @@ class TemplateSender(object):
 
     @property
     def template(self):
-        return self.msg.get_payload(decode=1)
+        # `decode=False` may seem counter-intuitive, but this refers to the
+        # *transfer encoding* (which our template shouldn't use).
+        # Setting this to *False* will actually ensure that our message is
+        # decoded according to the content encoding.
+        return self.msg.get_payload(decode=False)
 
     def __call__(self, report):
         send_mail(
@@ -255,6 +259,8 @@ def main(argv=None):
     if args.template:
         send_report = TemplateSender(args.template)
         logger.debug("read email template: %s", repr(args.template))
+
+        logger.info("report template: %s", type(send_report.template))
 
     filename = args.filename
     if filename:
