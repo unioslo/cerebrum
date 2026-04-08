@@ -19,6 +19,19 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
 This module contains a number of core utilities used everywhere in the tree.
+
+TODO
+-----
+This module should be removed, and all helpers moved into more suitable
+modules.
+
+History
+-------
+Some functionality has already been relocated, but with compatibility imports
+here, as they are widely used.
+
+If you're looking for ``log_and_spawn_output``, then this has been replaced by
+similar functionality in `Cerebrum.utils.subproc`.
 """
 from __future__ import (
     absolute_import,
@@ -28,11 +41,9 @@ from __future__ import (
 )
 
 import os
-import select
 import sys
 import time
 import traceback
-from subprocess import Popen, PIPE
 
 import six
 
@@ -71,86 +82,6 @@ class _NotSet(Cerebrum.meta.SingletonMixin):
 
 
 NotSet = _NotSet()
-
-
-def spawn_and_log_output(
-        cmd,
-        log_exit_status=True,
-        connect_to=[],
-        shell=False):
-    """Run command and copy stdout to logger.debug and stderr to
-    logger.error.  cmd may be a sequence.  connect_to is a list of
-    servers which will be contacted.  If debug_hostlist is set and
-    does not contain these servers, the command will not be run and
-    success is always reported.
-
-    Return the exit code if the process exits normally, or the
-    negative signal value if the process was killed by a signal.
-
-    :type cmd: basestr or sequence of basestr
-    :param cmd: Command, see subprocess.Popen argument args
-
-    :type log_exit_status: bool
-    :param log_exit_status: emit log message with exit status?
-
-    :type connect_to: list of str
-    :param connect_to: Spawned command will connect to resource (hostlist),
-                       only runs command if cereconf.DEBUG_HOSTLIST is None,
-                       or contains the given resource
-
-    :type shell: bool
-    :param shell: run command in shell, or directly with os.exec*()
-
-    :rtype: int
-    :return: spawned programme's exit status
-    """
-    # select on pipes and Popen3 only works in Unix.
-    exit_success = 0
-    logger = Factory.get_logger()
-    if cereconf.DEBUG_HOSTLIST is not None:
-        for srv in connect_to:
-            if srv not in cereconf.DEBUG_HOSTLIST:
-                logger.debug("Won't connect to %s, won't spawn %r",
-                             srv, cmd)
-                return exit_success
-
-    proc = Popen(cmd, bufsize=10240, close_fds=True,
-                 stdin=PIPE, stdout=PIPE, stderr=PIPE)
-    pid = proc.pid
-    if log_exit_status:
-        logger.debug('Spawned %r, pid %d', cmd, pid)
-    proc.stdin.close()
-    descriptor = {proc.stdout: logger.debug,
-                  proc.stderr: logger.error}
-    while descriptor:
-        # select() is called for _every_ line, since we can't inspect
-        # the buffering in Python's file object.  This works OK since
-        # select() will return "readable" for an unread EOF, and
-        # Python won't read the EOF until the buffers are exhausted.
-        ready, _, _ = select.select(list(descriptor.keys()), [], [])
-        for fd in ready:
-            line = fd.readline()
-            if line == '':
-                fd.close()
-                del descriptor[fd]
-            else:
-                descriptor[fd]("[%d] %s", pid, line.rstrip())
-    status = proc.wait()
-    if status == exit_success and log_exit_status:
-        logger.debug("[%d] Completed successfully", pid)
-    elif os.WIFSIGNALED(status):
-        # The process was killed by a signal.
-        status = os.WTERMSIG(status)
-        if log_exit_status:
-            logger.error('[%d] Command "%r" was killed by signal %d',
-                         pid, cmd, status)
-    else:
-        # The process exited with an exit status
-        status = os.WSTOPSIG(status)
-        if log_exit_status:
-            logger.error("[%d] Return value was %d from command %r",
-                         pid, status, cmd)
-    return status
 
 
 class Factory(object):

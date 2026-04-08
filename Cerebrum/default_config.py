@@ -145,10 +145,6 @@ NAME_DOMAINS_THAT_DENY_CHANGE = ()
 
 DEFAULT_OU = None   # Used by bofh "account affadd" if OU is not set
 
-DEBUG_HOSTLIST = None
-"""If set, a list of hostnames which are safe to run commands on
-during debugging."""
-
 # Used by run_privileged_command.py:
 CREATE_USER_SCRIPT = '/local/etc/reguser/mkhomedir'
 MVUSER_SCRIPT = '/cerebrum/sbin/mvuser'
