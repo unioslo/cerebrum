@@ -23,7 +23,34 @@ This module contains a number of core utilities used everywhere in the tree.
 TODO
 -----
 This module should be removed, and all helpers moved into more suitable
-modules.
+modules:
+
+`NotSet`
+    This singleton should probably be moved into a separate module in
+    `Cerebrum`, along with other singletons (a few scripts and modules creates
+    unique types or objects to be used as a singleton).
+
+`Factory`
+    Should have its own module, e.g. `Cerebrum.factory`
+
+`argument_to_sql`
+    This should be moved to e.g. `Cerebrum.database.query_utils`.
+
+`prepare_string`
+    All use of this function should be replaced by `Pattern` or
+    `pattern_helper` from `Cerebrum.database.query_utils`.
+
+`make_timer`
+    Should probably relocated to somewhere in `Cerebrum.logutils`.
+
+    This helper has a lot of duplicates with similar functionality in other
+    scripts and modules.  All of these should probably be merged together, or
+    placed into the same module.
+
+Compatibility imports
+    We should find all current use of the compatibility imports, and update to
+    the new, canonical placements.
+
 
 History
 -------
