@@ -2,6 +2,14 @@
 Bofhd - development
 ====================
 
+.. admonition:: Needs review
+
+   This is an old, and slightly unstructured document.
+
+   It should probably be split into separate documents, and structured a bit
+   better.
+
+
 .. contents:: Contents
 .. section-numbering::
 
