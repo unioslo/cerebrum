@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2005 University of Oslo, Norway
+# Copyright 2005-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,9 +18,8 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-""" 
-This is a script for changing the state of guest users. 
+"""
+This is a script for changing the state of guest users.
 
 Guest users that have been allocated and have passed the requested
 period when this script runs will be in release_quarantine. That means
@@ -47,14 +46,15 @@ from Cerebrum.modules.bofhd_requests.request import BofhdRequests
 
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
-ac = Factory.get('Account')(db)    
-grp = Factory.get('Group')(db)    
+ac = Factory.get('Account')(db)
+grp = Factory.get('Group')(db)
 logger = Factory.get_logger("cronjob")
 today = mx.DateTime.today()
 
 db.cl_init(change_program="release_guests")
 
-## This function is taken from bofhd_guestaccount_utils.py
+# This function is taken from bofhd_guestaccount_utils.py
+
 
 def update_group_memberships(account_id):
     """Make sure that the account is a member of exactly the
@@ -90,9 +90,11 @@ def update_group_memberships(account_id):
 
 # This is a hack to get the operator_id needed for add_request
 uname2entity_id = {}
+
+
 def get_operator_id(uname):
-    account = Factory.get('Account')(db)    
-    if not uname2entity_id.has_key(uname):
+    account = Factory.get('Account')(db)
+    if uname not in uname2entity_id:
         account.find_by_name(uname)
         uname2entity_id[uname] = account.entity_id
     return uname2entity_id[uname]
@@ -103,7 +105,7 @@ def release(guest, owner, start_date, dryrun=False):
 
     if dryrun:
         grp.clear()
-        grp.find(owner)                
+        grp.find(owner)
         logger.debug("DRYRUN: %s, with owner %s should be released %s" % (
             guest, grp.group_name, start_date))
         return
@@ -115,7 +117,7 @@ def release(guest, owner, start_date, dryrun=False):
     ac.write_db()
     update_group_memberships(ac.entity_id)
     # Finally, register a request to archive the home directory.
-    # A new directory will be created when archival has been done.        
+    # A new directory will be created when archival has been done.
     br = BofhdRequests(db, co)
     br.add_request(get_operator_id('cerebrum'), br.now,
                    co.bofh_archive_user, ac.entity_id, None,
@@ -134,17 +136,17 @@ def make_guest_available(guest, dryrun=False):
     except Errors.NotFoundError:
         logger.warning("Cannot get home for %s. Missing spread?" % guest)
         return
-    
+
     if not home_status or home_status['status'] != co.home_status_on_disk:
-        logger.warning("%s has home_status != on_disk. Cannot make available!" %
+        logger.warning("%s has home_status != on_disk. Cannot make available!",
                        guest)
-        return 
+        return
     # Check if there is a bofh_archive_user request for this user
     # If so, the user is not ready
     br = BofhdRequests(db, co)
     if br.get_requests(ac.entity_id, operation=co.bofh_archive_user):
         logger.debug("guest %s has a archive_user request. Not available!")
-        return 
+        return
     # Make guest available by removing quarantine. Everything else is ready
     if not dryrun:
         ac.delete_entity_quarantine(co.quarantine_guest_release)
@@ -183,8 +185,9 @@ def release_guests(guests=[], dryrun=False):
             continue
 
         # Only check accounts with active quarantine, that is guests
-        # that are out of date        
-        for q in ac.get_entity_quarantine(co.quarantine_guest_release, only_active=True):
+        # that are out of date
+        for q in ac.get_entity_quarantine(co.quarantine_guest_release,
+                                          only_active=True):
             # Check if guest has a temporary owner
             if trait['target_id'] is None:
                 # No owner. Check if end of quarantine_period is reached
@@ -202,7 +205,7 @@ def usage(exitcode=0):
     print("""Usage: release_guests.py [options]
     -d || --dryrun
     -g || --guest
-    
+
     The script checks specified guest(s) or all guest users.
 
     If a guest account is allocated and the end date for that
@@ -230,7 +233,7 @@ def main():
         if opt in ('--help', '-h'):
             usage()
         elif opt in ('--dryrun', '-d'):
-            dryrun=True
+            dryrun = True
         elif opt in ('--guest', '-g'):
             if '-' in val:
                 first, last = val.split('-')
@@ -241,10 +244,9 @@ def main():
                     guests.append('%s%03d' % (prefix, i))
             else:
                 guests.append(val)
-            
+
     release_guests(guests, dryrun=dryrun)
 
 
 if __name__ == '__main__':
     main()
-    
