@@ -795,10 +795,17 @@ class BofhdCommandBase(object):
 
         These are: - group_type_manual
                    - group_type_unknown
+
+        Groups with the trait_critical_group trait are exempt and never
+        considered perishable.
         """
         group_type = self.const.get_constant(_GroupTypeCode, gr.group_type)
-        return (six.text_type(group_type)
-                in cereconf.PERISHABLE_MANUAL_GROUP_TYPES)
+        if six.text_type(group_type) not in cereconf.PERISHABLE_MANUAL_GROUP_TYPES:
+            return False
+        critical_trait = getattr(self.const, 'trait_critical_group', None)
+        if critical_trait is not None and gr.get_trait(critical_trait):
+            return False
+        return True
 
     def _raise_PermissionDenied_if_not_manual_group(self, gr):  # noqa: N802
         if not self._is_manual_group(gr):
