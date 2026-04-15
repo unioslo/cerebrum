@@ -19,73 +19,47 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
-This is a script for changing the state of guest users.
+This script returns guest accounts back into the guest account pool.
 
-Guest users that have been allocated and have passed the requested
-period when this script runs will be in release_quarantine. That means
-that every step that needs to be done to make the guest user ready for
-new requests is done, except removing the quarantine.
+The typical guest account cleanup goes as follows:
 
-Guest users that have been in quarantine and have passed the
-quarantine period when this script runs will be made available for new
-requests.
-
-The script should preferably run once a day.
+1. Guest account gets quarantined (from the initial guest allocation)
+2. When the quarantine starts, this script will initialize cleanup
+3. process_bofhd_requests.py will archive the homedir
+4. process_changes.py will create a new, empty homedir
+5. This script will release the account back into the pool of available guest
+   accounts.
 """
-
-from __future__ import print_function
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    # unicode_literals
+)
+import datetime
 import getopt
 import sys
-import mx
 
 import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory, NotSet
-from Cerebrum.modules.PosixUser import PosixUser
 from Cerebrum.modules.bofhd_requests.request import BofhdRequests
+from Cerebrum.modules.no.uio.bofhd_guestaccount_utils import GuestUtils
+from Cerebrum.utils import date_compat
 
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
 ac = Factory.get('Account')(db)
 grp = Factory.get('Group')(db)
 logger = Factory.get_logger("cronjob")
-today = mx.DateTime.today()
 
 db.cl_init(change_program="release_guests")
 
-# This function is taken from bofhd_guestaccount_utils.py
-
 
 def update_group_memberships(account_id):
-    """Make sure that the account is a member of exactly the
-    groups specified in cereconf.GUESTS_DEFAULT_FILEGROUP and
-    cereconf.GUESTS_MEMBER_GROUPS.
-
-    """
-    user = PosixUser(db)
-    user.find(account_id)
-    gr = Factory.get("Group")(db)
-    gr.find_by_name(cereconf.GUESTS_DEFAULT_FILEGROUP)
-    user.gid_id = gr.entity_id
-    user.write_db()
-    req_groups = [gr.entity_id]
-    # Add guest to the required groups
-    for gr_name in cereconf.GUESTS_MEMBER_GROUPS:
-        gr.clear()
-        gr.find_by_name(gr_name)
-        req_groups.append(gr.entity_id)
-        member = gr.has_member(account_id)
-        if member:
-            gr.remove_member(account_id)
-            member = False
-        if not member:
-            gr.add_member(account_id)
-    # Expel guest from any extra groups
-    for row in gr.search(member_id=account_id):
-        if row['group_id'] not in req_groups:
-            gr.clear()
-            gr.find(row['group_id'])
-            gr.remove_member(account_id)
+    """ Reset guest account group memberships. """
+    utils = GuestUtils(db, logger.getChild("guest_utils"))
+    utils.update_group_memberships(account_id)
 
 
 # This is a hack to get the operator_id needed for add_request
@@ -100,15 +74,17 @@ def get_operator_id(uname):
     return uname2entity_id[uname]
 
 
-def release(guest, owner, start_date, dryrun=False):
-    "Make guest ready for release_quarantine"
+def release(guest, owner, start_date):
+    """
+    Make guest ready for release_quarantine.
 
-    if dryrun:
-        grp.clear()
-        grp.find(owner)
-        logger.debug("DRYRUN: %s, with owner %s should be released %s" % (
-            guest, grp.group_name, start_date))
-        return
+    This does the initial guest cleanup, and requests archiving of the guest
+    homedir.
+
+    :param str guest: username of the guest
+    :param int owner: the guest owner id (obsolete?)
+    :param start_date: current quarantine start date (obsolete?)
+    """
     # Set owner to None
     ac.populate_trait(co.trait_uio_guest_owner, target_id=None)
     logger.debug("Removed owner_id in owner_trait for %s" % guest)
@@ -125,11 +101,13 @@ def release(guest, owner, start_date, dryrun=False):
     logger.debug("Added archive_user request for %s" % guest)
 
 
-def make_guest_available(guest, dryrun=False):
+def make_guest_available(guest):
     """
-    Check that guest is ready for new requests, and delete quarantine if so
-    """
+    Add guest back into the available guest account pool.
 
+    This finalizes the guest cleanup, after the old homedir has been archived,
+    and a new homedir has been created.
+    """
     # Check that home_status=on_disk. If not, the guest isn't available
     try:
         home_status = ac.get_home(spread=co.spread_uio_nis_user)
@@ -148,21 +126,20 @@ def make_guest_available(guest, dryrun=False):
         logger.debug("guest %s has a archive_user request. Not available!")
         return
     # Make guest available by removing quarantine. Everything else is ready
-    if not dryrun:
-        ac.delete_entity_quarantine(co.quarantine_guest_release)
-        logger.debug("removing quarantine for %s" % guest)
-    else:
-        logger.debug("DRYRUN: should have removed quarantine for %s" % guest)
+    ac.delete_entity_quarantine(co.quarantine_guest_release)
+    logger.debug("removing quarantine for %s" % guest)
 
 
-def release_guests(guests=[], dryrun=False):
+def release_guests(guests=None):
     """
-    1. Find allocated guest accounts that are out of date. Ready these
-       accounts for release quarantine.
-
-    2. Find release_quarantined guest accounts that are out of date
-       and make them available for new requests.
+    Process guests that are ready for release back into the guest account pool.
     """
+    today = datetime.date.today()
+    quarantine_offset = datetime.timedelta(
+        days=int(cereconf.GUESTS_QUARANTINE_PERIOD),
+    )
+    guests = list(guests or ())
+
     if not guests:
         # Find all guest accounts
         for row in ac.list_traits(co.trait_uio_guest_owner, target_id=NotSet):
@@ -188,17 +165,15 @@ def release_guests(guests=[], dryrun=False):
         # that are out of date
         for q in ac.get_entity_quarantine(co.quarantine_guest_release,
                                           only_active=True):
+            start_date = date_compat.get_date(q['start_date'],
+                                              allow_none=False)
             # Check if guest has a temporary owner
             if trait['target_id'] is None:
                 # No owner. Check if end of quarantine_period is reached
-                if q['start_date'] + cereconf.GUESTS_QUARANTINE_PERIOD < today:
-                    make_guest_available(guest, dryrun=dryrun)
-            else:
-                if q['start_date'] < today:
-                    release(guest, trait['target_id'], q['start_date'].date,
-                            dryrun=dryrun)
-    if not dryrun:
-        db.commit()
+                if start_date + quarantine_offset < today:
+                    make_guest_available(guest)
+            elif start_date < today:
+                release(guest, trait['target_id'], start_date)
 
 
 def usage(exitcode=0):
@@ -245,7 +220,20 @@ def main():
             else:
                 guests.append(val)
 
+    prog = "release_guests"
+    commit = not dryrun
+
+    logger.info("Start %s", prog)
+
     release_guests(guests, dryrun=dryrun)
+
+    if commit:
+        logger.info("commiting changes")
+        db.commit()
+    else:
+        logger.info("rolling back changes (dryrun)")
+        db.rollback()
+    logger.info("Done %s", prog)
 
 
 if __name__ == '__main__':
