@@ -21,116 +21,184 @@
 """
 This script returns guest accounts back into the guest account pool.
 
+Release process
+----------------
 The typical guest account cleanup goes as follows:
 
-1. Guest account gets quarantined (from the initial guest allocation)
-2. When the quarantine starts, this script will initialize cleanup
+1. Guest account is quarantined (from the initial guest allocation)
+2. When the quarantine starts, this script will initialize release
 3. process_bofhd_requests.py will archive the homedir
 4. process_changes.py will create a new, empty homedir
 5. This script will release the account back into the pool of available guest
    accounts.
+
+Glossary
+--------
+
+Guest account pool
+    A set of guest accounts that are ready to be reserved for use.
+
+Reserved guest account
+    A guest account that has been taken out of the guest account pool and is
+    allocated to an owner group.  This account is either reserved for use,
+    or in active use.
+
+Released guest account
+    A guest account that is in the guest account pool, ready to be reserved.
+
+    Releasing a guest is a multi-step process to move a guest account back into
+    the guest account pool.
+
+Owner trait
+    Guest accounts that belong to the guest account pool are identified with
+    the ``trait_uio_guest_owner`` trait.
+
+    The 'target_id' indicates if the guest account is allocated to a given
+    owner group.  This value is set whenever the account has been reserved for
+    use, and unset when the account is released.
+
+Guest quarantine
+    All reserved guests will have the `quarantine_guest_release` quarantine.
+
+    When the account is allocated to an owner, the quarantine will be set to a
+    future date.  When the quarantine takes effect, the guest is ready to be
+    released back into the guest account pool.
+
+
+TODO
+----
+We may want to move the homedir archive and re-create here, rather than relying
+on other scripts to run for this process.  It would make everything a bit
+easier to follow.
 """
 from __future__ import (
     absolute_import,
     division,
     print_function,
-    # unicode_literals
+    unicode_literals,
 )
 import datetime
 import getopt
+import logging
 import sys
 
 import cereconf
+import Cerebrum.logutils
 from Cerebrum import Errors
-from Cerebrum.Utils import Factory, NotSet
+from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd_requests.request import BofhdRequests
-from Cerebrum.modules.no.uio.bofhd_guestaccount_utils import GuestUtils
+from Cerebrum.modules.no.uio.bofhd_guestaccounts_utils import GuestUtils
+from Cerebrum.modules.trait import trait_db
 from Cerebrum.utils import date_compat
 
-db = Factory.get('Database')()
-co = Factory.get('Constants')(db)
-ac = Factory.get('Account')(db)
-grp = Factory.get('Group')(db)
-logger = Factory.get_logger("cronjob")
-
-db.cl_init(change_program="release_guests")
+logger = logging.getLogger(__name__)
 
 
-def update_group_memberships(account_id):
+def get_account_by_id(db, account_id):
+    ac = Factory.get("Account")(db)
+    ac.find(int(account_id))
+    return ac
+
+
+def get_account_by_name(db, account_name):
+    ac = Factory.get("Account")(db)
+    ac.find_by_name(account_name)
+    return ac
+
+
+def update_group_memberships(account):
     """ Reset guest account group memberships. """
+    db = account._db
     utils = GuestUtils(db, logger.getChild("guest_utils"))
-    utils.update_group_memberships(account_id)
+    utils.update_group_memberships(int(account.entity_id))
 
 
-# This is a hack to get the operator_id needed for add_request
-uname2entity_id = {}
-
-
-def get_operator_id(uname):
-    account = Factory.get('Account')(db)
-    if uname not in uname2entity_id:
-        account.find_by_name(uname)
-        uname2entity_id[uname] = account.entity_id
-    return uname2entity_id[uname]
-
-
-def release(guest, owner, start_date):
+def prepare_release(account, operator):
     """
-    Make guest ready for release_quarantine.
+    Initialize guest account release.
 
     This does the initial guest cleanup, and requests archiving of the guest
     homedir.
 
-    :param str guest: username of the guest
-    :param int owner: the guest owner id (obsolete?)
-    :param start_date: current quarantine start date (obsolete?)
+    :param account: the guest account
     """
-    # Set owner to None
-    ac.populate_trait(co.trait_uio_guest_owner, target_id=None)
-    logger.debug("Removed owner_id in owner_trait for %s" % guest)
+    db = account._db
+    const = account.const
+    account_repr = "%s (%d)" % (account.account_name, account.entity_id)
+
+    # Set owner-trait to None
+    account.populate_trait(const.trait_uio_guest_owner, target_id=None)
+    logger.debug("Cleared owner-trait for account %s", account_repr)
+
     # Set new password
-    ac.set_password(ac.make_passwd(guest))
-    ac.write_db()
-    update_group_memberships(ac.entity_id)
+    account.set_password(account.make_passwd(account.account_name))
+    account.write_db()
+    logger.debug("Reset password for account %s", account_repr)
+
+    update_group_memberships(account)
+    logger.debug("Reset group memberships for account %s", account_repr)
+
     # Finally, register a request to archive the home directory.
     # A new directory will be created when archival has been done.
-    br = BofhdRequests(db, co)
-    br.add_request(get_operator_id('cerebrum'), br.now,
-                   co.bofh_archive_user, ac.entity_id, None,
-                   state_data=int(co.spread_uio_nis_user))
-    logger.debug("Added archive_user request for %s" % guest)
+    br = BofhdRequests(db, const)
+    br.add_request(operator.entity_id, br.now,
+                   const.bofh_archive_user, account.entity_id, None,
+                   state_data=int(const.spread_uio_nis_user))
+    logger.debug("Added homedir archive request for account %s", account_repr)
 
 
-def make_guest_available(guest):
+def finalize_release(account):
     """
     Add guest back into the available guest account pool.
 
     This finalizes the guest cleanup, after the old homedir has been archived,
     and a new homedir has been created.
-    """
-    # Check that home_status=on_disk. If not, the guest isn't available
-    try:
-        home_status = ac.get_home(spread=co.spread_uio_nis_user)
-    except Errors.NotFoundError:
-        logger.warning("Cannot get home for %s. Missing spread?" % guest)
-        return
 
-    if not home_status or home_status['status'] != co.home_status_on_disk:
-        logger.warning("%s has home_status != on_disk. Cannot make available!",
-                       guest)
-        return
+    :param account: the guest account
+    """
+    db = account._db
+    const = account.const
+    account_repr = "%s (%d)" % (account.account_name, account.entity_id)
+
+    # Check if account has a new homeidr (home_status=on_disk). If not, the
+    # guest isn't available.
+    try:
+        home_status = account.get_home(spread=const.spread_uio_nis_user)
+    except Errors.NotFoundError:
+        logger.warning("No homedir for account %s - missing spread?",
+                       account_repr)
+        return False
+
+    if not home_status or home_status['status'] != const.home_status_on_disk:
+        logger.warning("Invalid homedir for %s - not on disk", account_repr)
+        return False
     # Check if there is a bofh_archive_user request for this user
     # If so, the user is not ready
-    br = BofhdRequests(db, co)
-    if br.get_requests(ac.entity_id, operation=co.bofh_archive_user):
-        logger.debug("guest %s has a archive_user request. Not available!")
-        return
+    br = BofhdRequests(db, const)
+    if br.get_requests(account.entity_id, operation=const.bofh_archive_user):
+        logger.debug("Pending archive request for account %s - must wait",
+                     account_repr)
+        return False
     # Make guest available by removing quarantine. Everything else is ready
-    ac.delete_entity_quarantine(co.quarantine_guest_release)
-    logger.debug("removing quarantine for %s" % guest)
+    account.delete_entity_quarantine(const.quarantine_guest_release)
+    logger.debug("Removed quarantine for account %s", account_repr)
+    return True
 
 
-def release_guests(guests=None):
+def _iter_candicate_guests(db, guests=None):
+    if guests:
+        for username in guests:
+            yield get_account_by_name(db, username)
+        return
+
+    # Find all guest accounts
+    const = Factory.get("Constants")(db)
+    for row in trait_db.search_traits(db,
+                                      code=int(const.trait_uio_guest_owner)):
+        yield get_account_by_id(db, int(row['entity_id']))
+
+
+def release_guests(db, guests=None):
     """
     Process guests that are ready for release back into the guest account pool.
     """
@@ -138,42 +206,38 @@ def release_guests(guests=None):
     quarantine_offset = datetime.timedelta(
         days=int(cereconf.GUESTS_QUARANTINE_PERIOD),
     )
-    guests = list(guests or ())
+    const = Factory.get("Constants")(db)
+    guest_owner_trait = const.trait_uio_guest_owner
+    guest_quarantine = const.quarantine_guest_release
+    operator = get_account_by_name(db, "cerebrum")
 
-    if not guests:
-        # Find all guest accounts
-        for row in ac.list_traits(co.trait_uio_guest_owner, target_id=NotSet):
-            e_id = row['entity_id']
-            try:
-                ac.clear()
-                ac.find(e_id)
-                uname = ac.account_name
-            except Errors.NotFoundError:
-                logger.error("No account with entity_id=%r", e_id)
-                continue
-            guests.append(uname)
+    for account in _iter_candicate_guests(db, guests):
+        account_repr = "%s (%d)" % (account.account_name, account.entity_id)
 
-    for guest in guests:
-        ac.clear()
-        ac.find_by_name(guest)
-        trait = ac.get_trait(co.trait_uio_guest_owner)
+        trait = account.get_trait(guest_owner_trait)
         if trait is None:
-            logger.error("%s is not a guest" % guest)
+            logger.error("Account %s is not a guest", account_repr)
             continue
+        owner_id = trait['target_id']
 
-        # Only check accounts with active quarantine, that is guests
-        # that are out of date
-        for q in ac.get_entity_quarantine(co.quarantine_guest_release,
-                                          only_active=True):
-            start_date = date_compat.get_date(q['start_date'],
+        for row in account.get_entity_quarantine(guest_quarantine,
+                                                 only_active=True):
+            start_date = date_compat.get_date(row['start_date'],
                                               allow_none=False)
-            # Check if guest has a temporary owner
-            if trait['target_id'] is None:
-                # No owner. Check if end of quarantine_period is reached
-                if start_date + quarantine_offset < today:
-                    make_guest_available(guest)
-            elif start_date < today:
-                release(guest, trait['target_id'], start_date)
+            if owner_id is not None and start_date < today:
+                # Guest account has an owner and is quarantined.
+                # It should be reset and added back into the pool, so let's
+                # initiate that process.
+                prepare_release(account, operator)
+                logger.info("Initiated guest release for %s", account_repr)
+
+            elif owner_id is None and start_date + quarantine_offset < today:
+                # No owner, but quarantined - and quarantine is old enough
+                # that the homedir should have been archived.
+                # This guest account is probably ready for release, so let's
+                # check and try to release.
+                if finalize_release(account):
+                    logger.info("Released guest %s", account_repr)
 
 
 def usage(exitcode=0):
@@ -196,9 +260,11 @@ def usage(exitcode=0):
 
 
 def main():
+    Cerebrum.logutils.autoconf("cronjob", None)
+
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'hdg:', [
-            'help', 'dryrun', 'guest'])
+            'help', 'dryrun', 'guest='])
     except getopt.GetoptError:
         usage(1)
 
@@ -223,9 +289,12 @@ def main():
     prog = "release_guests"
     commit = not dryrun
 
+    db = Factory.get('Database')()
+    db.cl_init(change_program=prog)
+
     logger.info("Start %s", prog)
 
-    release_guests(guests, dryrun=dryrun)
+    release_guests(db, guests)
 
     if commit:
         logger.info("commiting changes")
