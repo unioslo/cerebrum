@@ -23,18 +23,18 @@ This script returns guest accounts back into the guest account pool.
 
 Release process
 ----------------
-The typical guest account cleanup goes as follows:
+The typical guest account cleanup goes through the following steps:
 
 1. Guest account is quarantined (from the initial guest allocation)
-2. When the quarantine starts, this script will initialize release
-3. process_bofhd_requests.py will archive the homedir
-4. process_changes.py will create a new, empty homedir
-5. This script will release the account back into the pool of available guest
+2. This script starts the release process when the quarantine takes effect.
+3. `process_bofhd_requests.py` will then archive the homedir
+4. `process_changes.py` will create a new, empty homedir
+5. After `cereconf.GUESTS_QUARANTINE_PERIOD` days, this script will finalize
+   the release, and move the account back into the pool of available guest
    accounts.
 
 Glossary
 --------
-
 Guest account pool
     A set of guest accounts that are ready to be reserved for use.
 
@@ -70,6 +70,10 @@ TODO
 We may want to move the homedir archive and re-create here, rather than relying
 on other scripts to run for this process.  It would make everything a bit
 easier to follow.
+
+All functionality related to the guest account pool should probably be moved
+into its own module.  A lot code related to the guest account processes is
+duplicated, and spread across multiple modules.
 """
 from __future__ import (
     absolute_import,
@@ -77,19 +81,22 @@ from __future__ import (
     print_function,
     unicode_literals,
 )
+import argparse
 import datetime
-import getopt
 import logging
-import sys
+import textwrap
 
 import cereconf
 import Cerebrum.logutils
+import Cerebrum.logutils.options
 from Cerebrum import Errors
+from Cerebrum.database.ctx import db_context
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd_requests.request import BofhdRequests
 from Cerebrum.modules.no.uio.bofhd_guestaccounts_utils import GuestUtils
 from Cerebrum.modules.trait import trait_db
 from Cerebrum.utils import date_compat
+from Cerebrum.utils import argutils
 
 logger = logging.getLogger(__name__)
 
@@ -104,6 +111,10 @@ def get_account_by_name(db, account_name):
     ac = Factory.get("Account")(db)
     ac.find_by_name(account_name)
     return ac
+
+
+def get_account_repr(account):
+    return "%s (%d)" % (account.account_name, account.entity_id)
 
 
 def update_group_memberships(account):
@@ -124,19 +135,18 @@ def prepare_release(account, operator):
     """
     db = account._db
     const = account.const
-    account_repr = "%s (%d)" % (account.account_name, account.entity_id)
+    account_repr = get_account_repr(account)
 
-    # Set owner-trait to None
-    account.populate_trait(const.trait_uio_guest_owner, target_id=None)
-    logger.debug("Cleared owner-trait for account %s", account_repr)
+    # Reset owner trait (unset all values)
+    trait_db.set_trait(db, int(account.entity_id), int(account.entity_type),
+                       int(const.trait_uio_guest_owner))
 
     # Set new password
     account.set_password(account.make_passwd(account.account_name))
     account.write_db()
-    logger.debug("Reset password for account %s", account_repr)
 
     update_group_memberships(account)
-    logger.debug("Reset group memberships for account %s", account_repr)
+    logger.info("Reset group memberships for account %s", account_repr)
 
     # Finally, register a request to archive the home directory.
     # A new directory will be created when archival has been done.
@@ -144,7 +154,7 @@ def prepare_release(account, operator):
     br.add_request(operator.entity_id, br.now,
                    const.bofh_archive_user, account.entity_id, None,
                    state_data=int(const.spread_uio_nis_user))
-    logger.debug("Added homedir archive request for account %s", account_repr)
+    logger.info("Added homedir archive request for account %s", account_repr)
 
 
 def finalize_release(account):
@@ -158,47 +168,54 @@ def finalize_release(account):
     """
     db = account._db
     const = account.const
-    account_repr = "%s (%d)" % (account.account_name, account.entity_id)
+    account_repr = get_account_repr(account)
 
-    # Check if account has a new homeidr (home_status=on_disk). If not, the
-    # guest isn't available.
-    try:
-        home_status = account.get_home(spread=const.spread_uio_nis_user)
-    except Errors.NotFoundError:
-        logger.warning("No homedir for account %s - missing spread?",
+    # Check if there is an archive request in queue for this user.  If so, the
+    # user is not ready to be released.
+    br = BofhdRequests(db, const)
+    if br.get_requests(account.entity_id, operation=const.bofh_archive_user):
+        logger.warning("Pending archive request for account %s - must wait",
                        account_repr)
         return False
 
-    if not home_status or home_status['status'] != const.home_status_on_disk:
-        logger.warning("Invalid homedir for %s - not on disk", account_repr)
-        return False
-    # Check if there is a bofh_archive_user request for this user
-    # If so, the user is not ready
-    br = BofhdRequests(db, const)
-    if br.get_requests(account.entity_id, operation=const.bofh_archive_user):
-        logger.debug("Pending archive request for account %s - must wait",
+    # Check if account has a new homedir on disk.  If not, the user is not
+    # ready to be released.
+    try:
+        home_status = account.get_home(spread=const.spread_uio_nis_user)
+    except Errors.NotFoundError:
+        logger.error("No homedir for account %s - missing spread?",
                      account_repr)
+        return False
+    if home_status['status'] != const.home_status_on_disk:
+        logger.warning("Invalid homedir for %s - not on disk", account_repr)
         return False
     # Make guest available by removing quarantine. Everything else is ready
     account.delete_entity_quarantine(const.quarantine_guest_release)
-    logger.debug("Removed quarantine for account %s", account_repr)
+    logger.info("Removed quarantine for account %s", account_repr)
     return True
 
 
-def _iter_candicate_guests(db, guests=None):
-    if guests:
-        for username in guests:
-            yield get_account_by_name(db, username)
-        return
+def select_guests(db, usernames):
+    """ Get guest accounts from a list of usernames. """
+    owner_trait = Factory.get("Constants")(db).trait_uio_guest_owner
+    for username in usernames:
+        account = get_account_by_name(db, username)
+        trait = account.get_trait(owner_trait)
+        if not trait:
+            logger.warning("Ignoring %s (%d) - not a guest account",
+                           account.account_name, account.entity_id)
+            continue
+        yield account
 
-    # Find all guest accounts
-    const = Factory.get("Constants")(db)
-    for row in trait_db.search_traits(db,
-                                      code=int(const.trait_uio_guest_owner)):
+
+def list_guests(db):
+    """ Get all guest accounts. """
+    owner_trait = Factory.get("Constants")(db).trait_uio_guest_owner
+    for row in trait_db.search_traits(db, code=int(owner_trait)):
         yield get_account_by_id(db, int(row['entity_id']))
 
 
-def release_guests(db, guests=None):
+def release_guests(db, guest_accounts):
     """
     Process guests that are ready for release back into the guest account pool.
     """
@@ -211,14 +228,9 @@ def release_guests(db, guests=None):
     guest_quarantine = const.quarantine_guest_release
     operator = get_account_by_name(db, "cerebrum")
 
-    for account in _iter_candicate_guests(db, guests):
-        account_repr = "%s (%d)" % (account.account_name, account.entity_id)
-
-        trait = account.get_trait(guest_owner_trait)
-        if trait is None:
-            logger.error("Account %s is not a guest", account_repr)
-            continue
-        owner_id = trait['target_id']
+    for account in guest_accounts:
+        account_repr = get_account_repr(account)
+        owner_id = account.get_trait(guest_owner_trait)['target_id']
 
         for row in account.get_entity_quarantine(guest_quarantine,
                                                  only_active=True):
@@ -240,69 +252,81 @@ def release_guests(db, guests=None):
                     logger.info("Released guest %s", account_repr)
 
 
-def usage(exitcode=0):
-    print("""Usage: release_guests.py [options]
-    -d || --dryrun
-    -g || --guest
+def guest_range(value):
+    """
+    Convert a guest range into individual usernames.
 
-    The script checks specified guest(s) or all guest users.
+    :param str value:
+        A value on format <prefix><start>-<end>, e.g. guest150-159
 
-    If a guest account is allocated and the end date for that
-    allocation is reached, the guest account shall be put in
-    release_quarantine.
-
-    If a guest in release_quarantine has reached the end of the
-    quarantine_period, make it available for new requests again.
-
-    if --dryrun option is specified only reporting is done.
-    """)
-    sys.exit(exitcode)
-
-
-def main():
-    Cerebrum.logutils.autoconf("cronjob", None)
-
+    :returns:
+        Returns an iterable of usernames.
+    """
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'hdg:', [
-            'help', 'dryrun', 'guest='])
-    except getopt.GetoptError:
-        usage(1)
+        prefix_start, end_raw = value.split('-')
+        prefix = prefix_start.rstrip('0123456789')
+        start = int(prefix_start[len(prefix):])
+        end = int(end_raw)
+    except (TypeError, ValueError) as e:
+        raise ValueError("Invalid range %s (%s)" % (repr(value), e))
+    for i in range(start, end + 1):
+        yield "{}{:03d}".format(prefix, i)
 
-    guests = []
-    dryrun = False
-    for opt, val in opts:
-        if opt in ('--help', '-h'):
-            usage()
-        elif opt in ('--dryrun', '-d'):
-            dryrun = True
-        elif opt in ('--guest', '-g'):
-            if '-' in val:
-                first, last = val.split('-')
-                prefix = first.rstrip('0123456789')
-                first = int(first[len(prefix):])
-                last = int(last)
-                for i in range(first, last+1):
-                    guests.append('%s%03d' % (prefix, i))
-            else:
-                guests.append(val)
 
-    prog = "release_guests"
-    commit = not dryrun
+def main(argv=None):
+    parser = argparse.ArgumentParser(
+        description="Release guests back into the guest account pool",
+        epilog=textwrap.dedent(
+            """
+            This script prepares and finalizes guest accounts for release back
+            into pool of available guest accounts.
 
-    db = Factory.get('Database')()
-    db.cl_init(change_program=prog)
+            Processing can be restricted to a selection of guest accounts with
+            the --guest or --range options, e.g.:
 
-    logger.info("Start %s", prog)
+                %(prog)s --guest guest132 --range guest150-159
 
-    release_guests(db, guests)
+            If no accounts are selected, the script will process all guest
+            accounts that are ready for release.
+            """
+        ).lstrip(),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "-g", "--guest",
+        dest="guests",
+        action="append",
+        help="Process guest account %(metavar)s (repeatable)",
+        metavar="USERNAME",
+    )
+    parser.add_argument(
+        "-r", "--range",
+        dest="guests",
+        action=argutils.ExtendAction,
+        type=guest_range,
+        help="Process a range of guest accounts",
+        metavar="RANGE",
+    )
+    argutils.add_commit_args(parser)
+    Cerebrum.logutils.options.install_subparser(parser)
 
-    if commit:
-        logger.info("commiting changes")
-        db.commit()
-    else:
-        logger.info("rolling back changes (dryrun)")
-        db.rollback()
-    logger.info("Done %s", prog)
+    args = parser.parse_args(argv)
+    Cerebrum.logutils.autoconf("cronjob", args)
+
+    logger.info("Start %s", parser.prog)
+    logger.debug("args: %s", repr(args))
+
+    with db_context(Factory.get('Database')(), dryrun=not args.commit) as db:
+        db.cl_init(change_program=parser.prog)
+
+        if args.guests:
+            guests = select_guests(db, args.guests)
+        else:
+            guests = list_guests(db)
+
+        release_guests(db, sorted(guests, key=lambda ac: ac.account_name))
+
+    logger.info("Done %s", parser.prog)
 
 
 if __name__ == '__main__':
