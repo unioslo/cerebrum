@@ -130,12 +130,11 @@ def operator_context(db, requestee_id):
         # TODO: Why is this hard-coded to "cerebrum"?
         operator_name = "cerebrum"
 
-    old_prog, old_id = db.change_program, db.change_by
-    db.cl_init(change_program=old_prog, change_by=operator_id)
+    old_id, db.change_by = db.change_by, operator_id
     try:
         yield operator_name
     finally:
-        db.cl_init(change_program=old_prog, change_by=old_id)
+        db.change_by = old_id
 
 
 def get_home_disk(account, spread=None):
