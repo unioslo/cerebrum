@@ -113,9 +113,11 @@ class BofhdContactAuth(BofhdAuth):
     """ Auth for entity contactinfo_* commands. """
 
     def _get_personal_accounts(self, entity):
-        if (entity.entity_type == self.const.entity_account
-                and entity.owner_type == self.const.entity_person):
-            owner_id = entity.owner_id
+        if entity.entity_type == self.const.entity_account:
+            account = Factory.get('Account')(self._db)
+            account.find(entity.entity_id)
+            if account.owner_type == self.const.entity_person:
+                owner_id = account.owner_id
         elif entity.entity_type == self.const.entity_person:
             owner_id = entity.entity_id
         else:
