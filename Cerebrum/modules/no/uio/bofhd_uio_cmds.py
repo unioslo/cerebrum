@@ -2178,8 +2178,7 @@ class BofhdExtension(BofhdCommonMethods):
         # affiliation status usually are kept related, the list for
         # each affiliation will tend to be sorted as well.  Not so for
         # the affiliations themselves.
-        keys = tmp.keys()
-        keys.sort()
+        keys = sorted(tmp)
         ret = []
         for k in keys:
             for r in tmp[k]:
