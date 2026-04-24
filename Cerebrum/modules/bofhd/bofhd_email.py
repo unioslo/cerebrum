@@ -1961,9 +1961,11 @@ class BofhdEmailCommands(BofhdEmailBase):
             raise PermissionDenied("Currently limited to superusers")
         et, acc = self._get_email_target_and_account(uname)
         ea = Email.EmailAddress(self.db)
-        if address == '':
-            return "Primary address cannot be an empty string!"
-        lp, dom = address.split('@')
+        if not address:
+            raise CerebrumError("Primary address cannot be an empty string!")
+        if "@" not in address:
+            raise CerebrumError("Not a valid email address")
+        lp, dom = address.split("@")
         ed = self._get_email_domain_from_str(dom)
         ea.clear()
         try:
