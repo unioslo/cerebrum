@@ -29,7 +29,6 @@ External db     table/source                            Cerebrum group
 FSPROD          select username FROM all_users          fsprod
 FSSBKURS        select username FROM all_users          fssbkurs
 AJPROD          select username FROM all_users          ajprod
-OAPRD           select user_name FROM applsys.fnd_user  oaprd
 
 After the update, each group in cerebrum contains only the members listed in
 the corresponding external database. That is, if
@@ -78,7 +77,6 @@ from Cerebrum.utils.atomicfile import AtomicFileWriter
 from Cerebrum.utils import argutils
 from Cerebrum.modules.no.uio.access_FS import FS, FSvpd
 from Cerebrum.modules.no.uio.access_AJ import AJ
-from Cerebrum.modules.no.uio.access_OA import OA
 
 from Cerebrum.config.configuration import (Configuration, ConfigDescriptor,
                                            Namespace)
@@ -98,7 +96,6 @@ def get_accessor(acc):
         FSvpd=FSvpd,
         FS=FS,
         AJ=AJ,
-        OA=OA,
     )[acc]
 
 
