@@ -604,7 +604,7 @@ class FsImporter(object):
             return None
         return ret
 
-    def rem_old_aff(self, spare_active_account_affs=False):
+    def rem_old_aff(self):
         """ Remove old affiliations.
 
         This method loops through the global `old_affs` mapping. The
@@ -669,28 +669,6 @@ class FsImporter(object):
                 logger.warning("Couldn't find person id=%s, not removing aff",
                                person_id)
                 continue
-
-            # If the spare_active_account_affs flag is set to true, the
-            # affiliation is spared if the person has any active accounts
-            # (expire_date > today) with the same affiliation
-            if spare_active_account_affs:
-                acs = person.get_accounts()
-                spare_aff = False
-                for ac in acs:
-                    account = Factory.get("Account")(self.db)
-                    account.find(ac[0])
-                    if (account.expire_date
-                            and date.today() < get_date(account.expire_date)
-                            and any(aff['affiliation'] in affi
-                                    for affi in account.get_account_types(
-                                        filter_expired=False))):
-                        logger.debug("Sparing aff (%s) for person_id=%r at"
-                                     " ou_id=%r, person has active account"
-                                     " affiliation", aff_id, person_id, ou_id)
-                        spare_aff = True
-                if spare_aff:
-                    stats['grace'] += 1
-                    continue
 
             logger.info("Removing aff %s for person=%s, at ou_id=%s",
                         self.co.PersonAffiliation(aff_id), person_id, ou_id)
