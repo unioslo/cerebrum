@@ -28,6 +28,7 @@ import re
 from collections import defaultdict
 from itertools import product
 
+import cereconf
 from Cerebrum.export import addresses as addr_export
 from Cerebrum.modules.OrgLDIF import OrgLdifGroupMixin
 from Cerebrum.modules.OrgLDIF import LdapNameGetter
@@ -408,7 +409,7 @@ class UioOrgLdif(NorEduSmsAuthnMixin,
         self.sap_res = self.init_person_group("DFO-elektroniske-reservasjoner")
         self.manuelt_samtykke = self.init_person_group(
             "manuelt-aktivt-samtykke")
-        self.fs_samtykke = self.init_person_group("FS-aktivt-samtykke")
+        self.fs_samtykke = self.init_person_group(cereconf.FS_GROUP_NAME)
 
     def is_person_visible(self, person_id):
         """ Override with UiO specific visibility.
