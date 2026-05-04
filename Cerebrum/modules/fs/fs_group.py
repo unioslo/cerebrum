@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright 2019 University of Oslo, Norway
+# Copyright 2019-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -188,13 +188,33 @@ annen navne-syntaks:
                    forelesere"
 """
 
-from __future__ import unicode_literals
-import re
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import datetime
 import logging
+import re
 
+import cereconf
+from Cerebrum.group.template import GroupTemplate
 
 logger = logging.getLogger(__name__)
+
+
+# This group is unrelated to the other groups in this module
+
+get_fs_consent_group = GroupTemplate(
+    group_name=cereconf.FS_GROUP_NAME,
+    group_description=cereconf.FS_GROUP_DESC,
+    group_type="internal-group",
+    group_visibility="I",
+    group_expire=None,
+    conflict=GroupTemplate.CONFLICT_IGNORE,
+)
+
 
 # Default grace for fs groups. When a group's expire_date is in less than
 # low_limit days, the expire_date is extended to high_limit days, if the group
