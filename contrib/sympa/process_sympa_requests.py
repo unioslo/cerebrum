@@ -81,12 +81,13 @@ def sympa_create(db, request, dryrun=True, **kwargs):
         # This means that the address for the email list was deleted after
         # the request was created.  This *basically* means someone created
         # an email list, and then immediately deleted it.
-        logger.info("No address id=%d for sympa list",
-                    request['entity_id'])
+        logger.info("Ignoring request id=%d - no address id=%d for sympa list",
+                    request['request_id'], request['entity_id'])
         return True
 
     params = sympa_requests.get_params_newlist(request)
     if not params:
+        logger.error("Invalid sympa create request (%s)", repr(request))
         return True
 
     params['listname'] = listname
@@ -105,6 +106,7 @@ def sympa_remove(db, request, dryrun=True, **kwargs):
     logger.info("removing sympa list (request id: %d)", request['request_id'])
     params = sympa_requests.get_params_rmlist(request)
     if not params:
+        logger.error("Invalid sympa remove request (%s)", repr(request))
         return True
 
     runner = SympaCommands(dryrun)

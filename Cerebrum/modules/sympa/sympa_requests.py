@@ -142,16 +142,16 @@ def get_params_newlist(request):
     """
     state = _deserialize_state(request)
     if not state:
-        logger.error("no params for sympa create request id=%d: %s",
-                     request['request_id'], repr(request["state_data"]))
+        logger.warning("no params for sympa create request id=%d: %s",
+                       request['request_id'], repr(request["state_data"]))
         return {}
 
     retval = {}
     for k in ("runhost", "admins", "profile", "description"):
         if not state.get(k):
-            logger.error("no %s param for sympa create request id=%d: %s",
-                         k, request['request_id'],
-                         repr(request["state_data"]))
+            logger.warning("no %s param for sympa create request id=%d: %s",
+                           k, request['request_id'],
+                           repr(request["state_data"]))
             return {}
         retval[k] = state[k]
     # admins is serialized as a list, but we need a single comma-separated
@@ -164,17 +164,17 @@ def get_params_rmlist(request):
     """ Extract parameters for removing a sympa list. """
     state = _deserialize_state(request)
     if not state:
-        logger.error("no params for sympa remove request id=%d: %s",
-                     request['request_id'], repr(request["state_data"]))
+        logger.warning("no params for sympa remove request id=%d: %s",
+                       request['request_id'], repr(request["state_data"]))
         return {}
 
     retval = {}
     for old_key, new_key in [("run_host", "runhost"),
                              ("listname", "listname")]:
         if not state.get(old_key):
-            logger.error("no %s param for sympa remove request id=%d: %s",
-                         old_key, request['request_id'],
-                         repr(request["state_data"]))
+            logger.warning("no %s param for sympa remove request id=%d: %s",
+                           old_key, request['request_id'],
+                           repr(request["state_data"]))
             return {}
         retval[new_key] = state[old_key]
     return retval
