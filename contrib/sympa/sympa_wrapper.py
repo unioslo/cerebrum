@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright 2008 University of Oslo, Norway
+#
+# Copyright 2008-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,85 +18,136 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-
-"""This script passes on sympa list commands to the sympa servers.
-
-This is the final step on Cerebrum's side of sympa list administration. The
-script passes these commands:
-
-  - list creation
-  - list deletion
-
-to the specified sympa server.
 """
+Sympa command wrapper.
 
-import os
+This script passes on sympa list commands to the sympa servers.  This script
+formats the actual commands for our sympa server, and translates the following
+commands to actual sympa commands:
+
+``sympa_wrapper.py <host> newlist <listname> <admins> <profile> <description>``
+    Creates a new list, <listname>, using sympa host <host>.
+
+    - <listname> must be the full list address
+    - <admins> is a comma-separated list of e-mail addresses
+
+``sympa_wrapper.py <host> rmlist <listname>``
+    Removes an existing list, <listname>, using sympa host <host>.
+
+    - <listname> may be just the localpart of the email list address.
+
+
+TODO
+----
+These commands should probably just be moved into the
+``Cerebrum.modules.sympa.commands`` module, rather than using this wrapper
+script.
+
+The email address validation should be moved to the sympa request processing
+and/or the bofhd-commands that creates sympa requests?.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+import logging
 import re
 import sys
 
-import cereconf
-from Cerebrum import Utils
+import Cerebrum.logutils
+# import Cerebrum.logutils.options
+from Cerebrum.utils import subproc
 
-Factory = Utils.Factory
-logger = Factory.get_logger("cronjob")
+logger = logging.getLogger(__name__)
+
+
+REGEX_LOCALPART = re.compile(
+    r"""
+    ^                   # Start of string
+    [                   # Allow the following characters...
+    \w                  # - alphanumerics
+    !#-\'*+./=?^`{-~-   # - these special characters
+    ]+                  # ... to occur in any order, at least 1 char
+    (@|$)               # Must be followed by "@" or end-of-string
+    """,
+    re.VERBOSE,
+)
+
+REGEX_DOMAIN = re.compile(
+    r"""
+    @            # Adding a list must always provide a domain
+    ([\w-]+\.)+  # At least two parts, parts separated by '.'
+    ([\w-]+)     # Each part consists of alphanumerics and/or '-'
+    $            # And nothing more than that.
+    """,
+    re.VERBOSE,
+)
 
 
 def validate_address(addr, mode="any"):
     """Make sure e-mail addresses are valid."""
     # For more extensive info on e-mail-addresses:
     #    http://en.wikipedia.org/wiki/Email_address
-    logger.info("Checking address '%s'; mode: %s" % (addr, mode))
-    if (re.match(r"""^                   # Start of string
-                     [                   # Allow the following characters...
-                     \w                  # - alphanumerics
-                     !#-\'*+./=?^`{-~-   # - these special characters
-                     ]+                  # ... to occur in any order, at least 1 char
-                     (@|$)               # Must be followed by "@" or end-of-string
-                     """, addr, re.VERBOSE) and (mode == 'rmlist' or
-         (addr.count('@') == 1 and
-          re.search(r"""@            # Adding a list must always provide a domain
-                        ([\w-]+\.)+  # At least two parts, parts separated by '.'
-                        ([\w-]+)     # Each part consists of alphanumerics and/or '-'
-                        $            # And nothing more than that.
-                        """, addr, re.VERBOSE)))):
+    logger.debug("Checking address=%s, mode=%s", repr(addr), repr(mode))
+
+    localpart_ok = REGEX_LOCALPART.match(addr)
+    domain_ok = addr.count('@') == 1 and REGEX_DOMAIN.search(addr)
+
+    if (localpart_ok) and (mode == 'rmlist' or domain_ok):
         return True
-    logger.error("Illegal address: '%s'" % addr)
-    raise ValueError("Illegal address: '%s'" % addr)
+    logger.error("Illegal address: %s", repr(addr))
+    raise ValueError("Illegal address: " + repr(addr))
 
 
 def main():
+    # For now - legacy mode
+    Cerebrum.logutils.autoconf("cronjob", None)
+
     host, command, listname = sys.argv[1:4]
     admin = profile = description = None
     remote_user = "cerebrum"
     validate_address(listname, mode=command)
-    
+
     if command == "newlist":
         admin, profile, description = sys.argv[4:]
         admin = admin.split(",")
         for a in admin:
             validate_address(a)
 
-        args = ["/usr/bin/sudo",
-                "PKG=%s" % host,
-                "/site/bin/createlist",
-                "--listname", listname,
-                "--type", '"' + profile + '"',
-                "--subject", '"' + description + '"',]
+        args = [
+            "/usr/bin/sudo",
+            "PKG=%s" % (host,),
+            "/site/bin/createlist",
+            "--listname", listname,
+            "--type", profile,
+            "--subject", description,
+        ]
         for a in admin:
             args.extend(("--owner", a))
-            
-    elif command == "rmlist":
-        args = ["/usr/bin/sudo", "PKG=%s" % host, "/site/bin/closelist", listname]
-    else:
-        raise ValueError("Unknown command <%s> for sympa list" % command)
 
-    to_exec = " ".join(args)
-    logger.info("Complete command to be run on remote host: '%s'" % to_exec)
-    args = ["/usr/bin/ssh", "%s@%s" % (remote_user, host),
-            "" + to_exec + " > /dev/null 2>&1" + ""]
-    logger.info("Executing command: '%s'" % " ".join(args))
-    os.execv(args[0], args)
+    elif command == "rmlist":
+        args = [
+            "/usr/bin/sudo",
+            "PKG=%s" % (host,),
+            "/site/bin/closelist", listname]
+
+    else:
+        raise ValueError("Unknown command <%s> for sympa list" % (command,))
+
+    logger.debug("sympa_wrapper command: %s", " ".join(args))
+
+    to_exec = subproc.format_command(args)
+    args = [
+        "/usr/bin/ssh",
+        "%s@%s" % (remote_user, host),
+        to_exec,
+    ]
+    logger.info("running: '%s'", " ".join(args))
+    ret = subproc.run(args, retval=(subproc.RETURN_RC,))
+    rc = ret[0]
+    raise SystemExit(rc)
 
 
 if __name__ == "__main__":
