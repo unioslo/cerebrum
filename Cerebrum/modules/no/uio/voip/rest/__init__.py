@@ -20,8 +20,16 @@
 """
 VOIP REST API module.
 
-This module provides REST API endpoints for VOIP service and address management.
-To include it in a given API, its namespaces have to be included in restconfig.py.
+This module provides REST API endpoints for VOIP service and address
+management.
+
+To include it in a given API, add the *api* namespace defined in this module to
+*restconfig*:
+::
+
+    NAMESPACES_EXTRA = [
+      "Cerebrum.modules.no.uio.voip.rest:api",
+    ]
 """
 from __future__ import (
     absolute_import,
@@ -30,10 +38,22 @@ from __future__ import (
     unicode_literals,
 )
 
-from flask_restx import Namespace
-from Cerebrum.rest.api import db, auth
+from . import service
+from . import address
+from . import models
+from . import utils
 
-# Create a namespace for defining models
-api = Namespace('voip', description='VOIP operations')
+api = models.api
 
-__all__ = ['db', 'auth', 'api']
+
+# Would it be better to design the voip namespace as an Api Blueprint,
+# and have service and address as separate namespaces?
+
+
+__all__ = [
+    "address",
+    "api",
+    "models",
+    "service",
+    "utils",
+]

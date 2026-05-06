@@ -26,15 +26,25 @@ from __future__ import (
     print_function,
     unicode_literals,
 )
+import textwrap
 
+from flask_restx import Namespace
 from flask_restx import fields as base_fields
 from Cerebrum.rest.api import fields
 from Cerebrum.rest.api.v1 import models
-from Cerebrum.rest.api.v1 import api
+
+
+api = Namespace(
+    "voip",
+    description="VoIP service and address namespace",
+)
 
 
 VoipService = api.model('VoipService', {
-    'href': fields.href('.service', description='URL to this service'),
+    'href': fields.href(
+        '.voip-service',
+        description='URL to this service',
+    ),
     'service_id': base_fields.Integer(
         description='Service entity ID',
     ),
@@ -92,7 +102,10 @@ VoipServiceUpdate = api.model('VoipServiceUpdate', {
 })
 
 VoipAddress = api.model('VoipAddress', {
-    'href': fields.href('.address', description='URL to this address'),
+    'href': fields.href(
+        '.voip-address',
+        description='URL to this address',
+    ),
     'address_id': base_fields.Integer(
         description='Address entity ID',
     ),
@@ -139,7 +152,12 @@ VoipAddressNumber = api.model('VoipAddressNumber', {
     ),
     'contact_value': base_fields.String(
         required=False,
-        description='Full phone number (optional for extensions - will auto-assign if empty)',
+        description=textwrap.dedent(
+            """
+            Full phone number (optional for extensions - will auto-assign
+            if empty)
+            """
+        ).strip(),
     ),
     'priority': base_fields.Integer(
         description='Priority (optional, auto-assigned if not provided)',

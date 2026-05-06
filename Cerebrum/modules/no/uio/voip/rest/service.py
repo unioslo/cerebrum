@@ -30,8 +30,7 @@ from __future__ import (
 )
 
 import six
-import cereconf
-from flask_restx import Namespace, Resource, abort
+from flask_restx import Resource, abort
 
 from Cerebrum import Errors
 from Cerebrum.modules.no.uio.voip.voipService import VoipService
@@ -39,10 +38,10 @@ from Cerebrum.rest.api import db, auth
 from . import utils
 from . import models
 
-api = Namespace('services', description='VOIP service operations')
+api = models.api
 
 
-@api.route('/', endpoint='services-list')
+@api.route("/services/", endpoint="voip-service-list")
 class VoipServiceListResource(Resource):
     """Resource for voip service creation and search."""
 
@@ -50,14 +49,13 @@ class VoipServiceListResource(Resource):
     service_search_parser.add_argument(
         'search',
         type=str,
-        required=False,
+        required=True,
         help='Search parameter (entity_id, description, ou_id, or stedkode)',
     )
 
     @auth.require()
     @api.marshal_with(models.VoipServiceList)
     @api.response(200, 'Service found')
-    @api.response(400, 'Missing required search parameter')
     @api.doc(expect=[service_search_parser])
     def get(self):
         """
@@ -97,11 +95,12 @@ class VoipServiceListResource(Resource):
         # Try by OU
         try:
             ou = utils.get_ou(db.connection, designation)
+        except Exception:
+            pass
+        else:
             for row in vs.search(ou_id=ou.entity_id):
                 collect[row["entity_id"]] = (
                     row["description"], row["service_type"], row["ou_id"])
-        except:
-            pass
 
         answer = []
         for entity_id in collect:
@@ -176,7 +175,7 @@ class VoipServiceListResource(Resource):
         }, 201
 
 
-@api.route('/<int:service_id>', endpoint='service')
+@api.route("/services/<int:service_id>", endpoint="voip-service")
 @api.doc(params={'service_id': 'Service entity ID'})
 class VoipServiceResource(Resource):
     """Resource for a single voip service."""
@@ -196,7 +195,8 @@ class VoipServiceResource(Resource):
             'description': service.description,
             'ou': {'id': service.ou_id},
             'location': utils.typeset_ou(db.connection, service.ou_id),
-            'traits': utils.typeset_traits(db.connection, service.get_traits()),
+            'traits': utils.typeset_traits(db.connection,
+                                           service.get_traits()),
         }
 
     @auth.require()
@@ -239,7 +239,8 @@ class VoipServiceResource(Resource):
             'description': service.description,
             'ou': {'id': service.ou_id},
             'location': utils.typeset_ou(db.connection, service.ou_id),
-            'traits': utils.typeset_traits(db.connection, service.get_traits()),
+            'traits': utils.typeset_traits(db.connection,
+                                           service.get_traits()),
         }
 
     @auth.require()

@@ -30,8 +30,7 @@ from __future__ import (
 )
 
 import six
-import cereconf
-from flask_restx import Namespace, Resource, abort
+from flask_restx import Resource, abort
 
 from Cerebrum import Errors
 from Cerebrum.Entity import EntityContactInfo
@@ -42,10 +41,10 @@ from Cerebrum.rest.api import utils as api_utils
 from . import utils
 from . import models
 
-api = Namespace('addresses', description='VOIP address operations')
+api = models.api
 
 
-@api.route('/', endpoint='addresses-list')
+@api.route("/addresses/", endpoint="voip-address-list")
 class VoipAddressListResource(Resource):
     """Resource for voip address search."""
 
@@ -53,7 +52,7 @@ class VoipAddressListResource(Resource):
     address_search_parser.add_argument(
         'search',
         type=str,
-        required=False,
+        required=True,
         help='Search parameter (entity_id, owner_id, contact info)',
     )
 
@@ -77,7 +76,8 @@ class VoipAddressListResource(Resource):
         if not designation:
             abort(400, message="Search parameter is required")
 
-        voip_addresses = utils.get_voip_address(db.connection, designation, all_matches=True)
+        voip_addresses = utils.get_voip_address(db.connection, designation,
+                                                all_matches=True)
 
         answer = []
         for address in voip_addresses:
@@ -108,7 +108,7 @@ class VoipAddressListResource(Resource):
         return {'addresses': answer}
 
 
-@api.route('/<int:address_id>', endpoint='address')
+@api.route("/addresses/<int:address_id>", endpoint="voip-address")
 @api.doc(params={'address_id': 'Address entity ID or owner ID'})
 class VoipAddressResource(Resource):
     """Resource for a single voip address."""
@@ -146,7 +146,8 @@ class VoipAddressResource(Resource):
             'sip_primary_uri': attrs["voipSipPrimaryUri"],
             'e164_uri': attrs["voipE164Uri"],
             'extension_uri': attrs["voipExtensionUri"],
-            'traits': utils.typeset_traits(db.connection, address.get_traits()),
+            'traits': utils.typeset_traits(db.connection,
+                                           address.get_traits()),
             'clients': client_ids,
         }
 
@@ -167,11 +168,12 @@ class VoipAddressResource(Resource):
                       address.entity_id, len(clients)))
 
         address_id = address.entity_id
-        owner = address.get_owner()
+        address.get_owner()
         address.delete()
 
 
-@api.route('/<int:address_id>/numbers', endpoint='address-numbers')
+@api.route("/addresses/<int:address_id>/numbers",
+           endpoint="voip-address-number-list")
 @api.doc(params={'address_id': 'Address entity ID or owner ID'})
 class VoipAddressNumberResource(Resource):
     """Resource for managing phone numbers on a voip address."""
@@ -218,16 +220,20 @@ class VoipAddressNumberResource(Resource):
         # Auto-assign extension if contact_full is empty and type is extension
         if (contact_type == db.const.contact_voip_extension
                 and (not contact_full or contact_full == "")):
-            contact_full, contact_alias = utils.find_available_extension(db.connection)
-            logger.info("Auto-assigned extension %s (full: %s) for owner id=%s",
-                        contact_alias, contact_full, owner.entity_id)
+            contact_full, contact_alias = (
+                utils.find_available_extension(db.connection)
+            )
+            logger.info(
+                "Auto-assigned extension %s (full: %s) for owner id=%s",
+                contact_alias, contact_full, owner.entity_id)
         else:
             if not contact_full:
                 abort(400, message="contact_value is required")
 
             # Check that the number is not in use
             if utils.get_contact_info(db.connection, contact_full):
-                abort(400, message="Number {} already in use".format(contact_full))
+                abort(400,
+                      message="Number {} already in use".format(contact_full))
 
             # Deduce 5-digit alias if appropriate
             contact_alias = None
@@ -235,7 +241,8 @@ class VoipAddressNumberResource(Resource):
                 contact_alias = contact_full[-5:]
 
         # Validate the numbers
-        if not address.contact_is_valid(contact_type, contact_full, contact_alias):
+        if not address.contact_is_valid(contact_type, contact_full,
+                                        contact_alias):
             abort(400, message="({}, {}) is not a valid number pair".format(
                 contact_full, contact_alias))
 
@@ -248,8 +255,9 @@ class VoipAddressNumberResource(Resource):
 
         if (owner_has_contact(owner, contact_full) or
                 (contact_alias and owner_has_contact(owner, contact_alias))):
-            abort(400, message="{} or {} has already been registered for {}".format(
-                contact_full, contact_alias, owner.entity_id))
+            abort(400,
+                  message="{} or {} has already been registered for {}".format(
+                      contact_full, contact_alias, owner.entity_id))
 
         # Determine priority
         if priority is None:
@@ -285,7 +293,8 @@ class VoipAddressNumberResource(Resource):
         }, 201
 
 
-@api.route('/<int:address_id>/numbers/<string:number>', endpoint='address-number')
+@api.route("/addresses/<int:address_id>/numbers/<string:number>",
+           endpoint="voip-address-number")
 @api.doc(params={
     'address_id': 'Address entity ID or owner ID',
     'number': 'Phone number to delete'
