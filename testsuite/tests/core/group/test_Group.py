@@ -295,7 +295,7 @@ def test_search_description_wildcard(gr, groups, group_ds):
 
 def test_search_expired(gr, groups, group_ds):
     """ Group.search() filter_expired keyword argument. """
-    non_expired = filter(datasource.nonexpired_filter, groups)
+    non_expired = list(filter(datasource.nonexpired_filter, groups))
     if (len(groups) - len(non_expired)) < 1:
         pytest.skip('Test needs at least one expired group')
 
@@ -331,7 +331,7 @@ def test_search_spread(gr, groups, group_spread):
 
 def test_empty_search(gr, groups):
     """ Group.search() without args. """
-    non_expired = filter(datasource.nonexpired_filter, groups)
+    non_expired = list(filter(datasource.nonexpired_filter, groups))
     if len(non_expired) < 1:
         pytest.skip('Test needs at least one non-expired group')
 
@@ -421,7 +421,7 @@ def test_search_members_by_id(gr, groups):
 
 def test_search_members_member_id_indirect_expired(gr, groups):
     """ Group.search_members() indirect members, filtering expired. """
-    non_expired = filter(datasource.nonexpired_filter, groups)
+    non_expired = list(filter(datasource.nonexpired_filter, groups))
     if len(non_expired) < 3:
         pytest.skip('Test needs at least three non-expired groups')
 
@@ -437,7 +437,7 @@ def test_search_members_member_id_indirect_expired(gr, groups):
 
 
 def test_search_members_by_type(gr, groups, initial_account):
-    non_expired = filter(datasource.nonexpired_filter, groups)
+    non_expired = list(filter(datasource.nonexpired_filter, groups))
     if len(non_expired) < 2:
         pytest.skip('Test needs at least two non-expired groups')
 
@@ -457,7 +457,7 @@ def test_search_members_by_type(gr, groups, initial_account):
 
 
 def test_search_members_by_spread(gr, groups, group_spread):
-    non_expired = filter(datasource.nonexpired_filter, groups)
+    non_expired = list(filter(datasource.nonexpired_filter, groups))
     if len(non_expired) < 2:
         pytest.skip('Test needs at least two non-expired groups')
 

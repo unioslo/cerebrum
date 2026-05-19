@@ -1101,9 +1101,9 @@ class EntityContactInfo(Entity):
         spec_sorted = sorted(pref_sorted, key=partial(order_to_spec, spec))
 
         # Filter out elements that are not defined in the spec
-        return filter(
+        return list(filter(
             lambda e: not isinstance(order_to_spec(spec, e), Exclude),
-            spec_sorted)
+            spec_sorted))
 
 
 class EntityAddress(Entity):

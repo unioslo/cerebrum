@@ -1,5 +1,12 @@
 # -*- coding: utf-8 -*-
 """ Basic tests for Cerebrum.Entity.EntitySpread. """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+
 import pytest
 
 
