@@ -43,6 +43,8 @@ from __future__ import (
     unicode_literals,
 )
 
+import six
+
 import pytest
 from Cerebrum.Errors import NotFoundError
 
@@ -315,6 +317,8 @@ def test_human2constant_str_intval(constants, Language):
 
 
 def test_pickle_constants(constants, CerebrumCode):
+    if six.PY3:
+        pytest.skip('Ignore test for python3')
     import pickle
     import cPickle
 
@@ -327,7 +331,7 @@ def test_pickle_constants(constants, CerebrumCode):
         sp, cp = pickle.loads(sps), cPickle.loads(cps)
         assert sp == cp == c
         assert int(sp) == int(cp) == int(c)
-        assert unicode(sp) == unicode(cp) == unicode(c)
+        assert six.text_type(sp) == six.text_type(cp) == six.text_type(c)
         assert sp.str == cp.str == c.str
         c.delete()
         c.__class__._cache = {}

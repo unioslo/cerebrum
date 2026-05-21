@@ -76,7 +76,8 @@ def test_parse_metainfo_name():
 def test_parse_metainfo_version():
     key, value = sql_parser.parse_metainfo("version=1.3")
     assert key == "version"
-    assert value == MockVersion(1, 3)
+    assert value.version == MockVersion(1, 3).version
+    assert value.prerelease == MockVersion(1, 3).prerelease
 
 
 def test_parse_metainfo_invalid_key():
