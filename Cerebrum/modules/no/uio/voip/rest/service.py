@@ -33,6 +33,8 @@ import six
 from flask_restx import Resource, abort
 
 from Cerebrum import Errors
+from Cerebrum.modules.no.uio.voip.voipAddress import VoipAddress
+from Cerebrum.modules.no.uio.voip.voipClient import VoipClient
 from Cerebrum.modules.no.uio.voip.voipService import VoipService
 from Cerebrum.rest.api import db, auth
 from . import utils
@@ -112,8 +114,6 @@ class VoipServiceListResource(Resource):
                 "description": description,
                 "service_type": six.text_type(service_type_const),
                 "ou": {'id': ou_id},
-                "location": utils.typeset_ou(db.connection, ou_id),
-                "traits": [],
             })
 
         return {'services': answer}
@@ -145,13 +145,11 @@ class VoipServiceListResource(Resource):
         service.write_db()
 
         # Create a corresponding voip_address
-        from Cerebrum.modules.no.uio.voip.voipAddress import VoipAddress
         address = VoipAddress(db.connection)
         address.populate(service.entity_id)
         address.write_db()
 
         # Create default softphone client
-        from Cerebrum.modules.no.uio.voip.voipClient import VoipClient
         client = VoipClient(db.connection)
         if not client.search(
             voip_address_id=address.entity_id,

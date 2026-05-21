@@ -40,7 +40,8 @@ api = Namespace(
 )
 
 
-VoipService = api.model('VoipService', {
+# Basic VoipService reference item (basic info)
+VoipServiceListItem = api.model('VoipServiceListItem', {
     'href': fields.href(
         '.voip-service',
         description='URL to this service',
@@ -58,19 +59,25 @@ VoipService = api.model('VoipService', {
         models.OU,
         description='Organizational unit',
     ),
+})
+
+
+# A list of VoipServiceListItem values
+VoipServiceList = api.model('VoipServiceList', {
+    'services': base_fields.List(
+        base_fields.Nested(VoipServiceListItem),
+        description='List of voip services',
+    ),
+})
+
+
+VoipService = VoipServiceListItem.inherit('VoipService', {
     'location': base_fields.String(
         description='Location (OU representation)',
     ),
     'traits': base_fields.List(
         base_fields.String,
         description='Entity traits',
-    ),
-})
-
-VoipServiceList = api.model('VoipServiceList', {
-    'services': base_fields.List(
-        base_fields.Nested(VoipService),
-        description='List of voip services',
     ),
 })
 
