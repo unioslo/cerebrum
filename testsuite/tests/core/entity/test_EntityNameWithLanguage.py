@@ -1,6 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """ Basic tests for Cerebrum.Entity.EntityNameWithLanguage. """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+
 import pytest
 
 
@@ -74,12 +81,12 @@ def entities(entity_obj, entity_type, name_foo, name_bar, languages):
 
 def test_add_name_with_language(entity, name_foo, languages):
     for num, lang in enumerate(languages):
-        print num, str(lang), lang.description
+        print(num, str(lang), lang.description)
         entity.add_name_with_language(name_foo, lang, lang.description)
 
     for num, lang in enumerate(languages):
         localized = entity.get_name_with_language(name_foo, lang)
-        print num, localized
+        print(num, localized)
         assert len(localized) > 1
         assert localized == lang.description
 
@@ -87,16 +94,16 @@ def test_add_name_with_language(entity, name_foo, languages):
 def test_update_name_with_language(entity, name_foo, languages):
     for num, lang in enumerate(languages):
         num = num * 2
-        print num, str(lang), lang.description
+        print(num, str(lang), lang.description)
         entity.add_name_with_language(name_foo, lang, str(num))
-        print num + 1, str(lang), lang.description
+        print(num + 1, str(lang), lang.description)
         entity.add_name_with_language(name_foo, lang, str(num + 1))
 
     for num, lang in enumerate(languages):
         # Only the last one should exist
         num = num * 2 + 1
         localized = entity.get_name_with_language(name_foo, lang)
-        print num, localized
+        print(num, localized)
         assert localized == str(num)
 
 

@@ -281,6 +281,9 @@ class _CerebrumCode(DatabaseAccessor):
         cls._cache[code] = new
         return new
 
+    def __getnewargs__(self):
+        return (self.int or self.str, )
+
     # TBD: Should this take DatabaseAccessor args as well?  Maybe use
     # some kind of currying in Constants to avoid having to pass the
     # Database arg every time?

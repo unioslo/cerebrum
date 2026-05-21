@@ -7,6 +7,7 @@ from collections import namedtuple
 from functools import partial
 
 import pytest
+import six
 from six.moves.queue import Empty
 
 
@@ -123,7 +124,7 @@ def test_log_args_error(log_queue, log_proto, log_handler):
 def test_logrecord_repr_unpickleable(log_queue, log_proto, log_handler):
     # The items thrown on a multiprocessing queue must be pickleable
     unpickleable = lambda x: x * 2  # noqa: E731
-    with pytest.raises(pickle.PicklingError):
+    with pytest.raises(AttributeError if six.PY3 else pickle.PicklingError):
         # Make sure it's not pickleable
         pickle.dumps(unpickleable)
 

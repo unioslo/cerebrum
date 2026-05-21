@@ -36,7 +36,14 @@ Functionality
     CerebrumCode.
 
 """
-from __future__ import unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+
+import six
 
 import pytest
 from Cerebrum.Errors import NotFoundError
@@ -99,7 +106,7 @@ def languages(Language):
 @pytest.fixture
 def simple_const(CerebrumCode):
     code = CerebrumCode('simple', description='simple')
-    print 'simple db', code.sql, code.sql._cursor
+    print('simple db', code.sql, code.sql._cursor)
     code.insert()
     return code
 
@@ -134,14 +141,14 @@ def constants(constant_module, Language, EntityType):
 def test_init_simple_cerebrum_code(CerebrumCode):
     strval = 'ddf6ebf5ea3bbb3e'
     code = CerebrumCode(strval)
-    print repr(code)
+    print(repr(code))
     assert str(code) == strval
 
 
 def test_insert(CerebrumCode):
     code = CerebrumCode('cdd0de3e59cd93eb', description='insert test')
     code.insert()
-    print repr(code)
+    print(repr(code))
     int(code)
     assert True  # Found the constant with int()
 
@@ -198,7 +205,7 @@ def test_constant_with_language(languages, CerebrumCode):
 def test_pickle(simple_const):
     pickle = pytest.importorskip("pickle")
     pickle_str = pickle.dumps(simple_const)
-    print pickle_str
+    print(pickle_str)
     assert True
 
 
@@ -217,12 +224,12 @@ def test_map_constants(constants, Language, EntityType):
 
 
 def test_init_insert(constants, Language, EntityType):
-    clist = filter(
+    clist = list(filter(
         lambda attr: isinstance(attr, (Language, EntityType)),
-        map(lambda name: getattr(constants, name), dir(constants)))
-    print clist
+        map(lambda name: getattr(constants, name), dir(constants))))
+    print(clist)
     stats = constants.initialize(update=False, delete=False)
-    print stats
+    print(stats)
     assert stats['total'] == len(clist)
     assert stats['inserted'] == len(clist)
     for const in clist:
@@ -231,19 +238,19 @@ def test_init_insert(constants, Language, EntityType):
 
 
 def test_init_update(constants, Language, EntityType):
-    clist = filter(
+    clist = list(filter(
         lambda attr: isinstance(attr, (Language, EntityType)),
-        map(lambda name: getattr(constants, name), dir(constants)))
-    print clist
+        map(lambda name: getattr(constants, name), dir(constants))))
+    print(clist)
     # Insert constants
     stats = constants.initialize(update=False, delete=False)
-    print stats
+    print(stats)
     assert stats['total'] == len(clist)
     assert stats['inserted'] == len(clist)
     # Update
     constants.lang_foo._desc = 'something else'
     stats = constants.initialize(update=True, delete=False)
-    print stats
+    print(stats)
     assert stats['total'] == len(clist)
     assert stats['updated'] == 1
     # TODO: Read updated description from db?
@@ -256,17 +263,17 @@ def test_init_delete(constants, Language, EntityType):
     clist = filter(
         lambda attr: isinstance(attr, (Language, EntityType)),
         map(lambda name: getattr(constants, name), dir(constants)))
-    print clist
+    print(clist)
     stats = constants.initialize(update=False, delete=False)
-    print stats
+    print(stats)
     assert stats['total'] == len(clist)
     assert stats['inserted'] == len(clist)
     # Delete
-    print dir(constants)
-    print clist
+    print(dir(constants))
+    print(clist)
     delattr(type(constants), 'lang_foo')
     stats = constants.initialize(update=True, delete=True)
-    print stats
+    print(stats)
     assert stats['total'] == len(clist) - 1
     assert stats['deleted'] == 1
 
@@ -310,6 +317,8 @@ def test_human2constant_str_intval(constants, Language):
 
 
 def test_pickle_constants(constants, CerebrumCode):
+    if six.PY3:
+        pytest.skip('Ignore test for python3')
     import pickle
     import cPickle
 
@@ -322,7 +331,7 @@ def test_pickle_constants(constants, CerebrumCode):
         sp, cp = pickle.loads(sps), cPickle.loads(cps)
         assert sp == cp == c
         assert int(sp) == int(cp) == int(c)
-        assert unicode(sp) == unicode(cp) == unicode(c)
+        assert six.text_type(sp) == six.text_type(cp) == six.text_type(c)
         assert sp.str == cp.str == c.str
         c.delete()
         c.__class__._cache = {}
