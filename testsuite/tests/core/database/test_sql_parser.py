@@ -14,6 +14,7 @@ import pytest
 
 from Cerebrum.database import sql_parser
 from Cerebrum.testutils import file_utils
+from distutils.version import StrictVersion
 
 
 @pytest.fixture(scope='module')
@@ -27,6 +28,12 @@ class MockVersion(object):
     def __init__(self, major, minor, patch=0, prerelease=None):
         self.version = (major, minor, patch)
         self.prerelease = prerelease
+
+    def __eq__(self, other):
+        if isinstance(other, StrictVersion) or isinstance(other, MockVersion):
+            return self.version == other.version \
+                and self.prerelease == other.prerelease
+        return False
 
 
 #
@@ -76,8 +83,7 @@ def test_parse_metainfo_name():
 def test_parse_metainfo_version():
     key, value = sql_parser.parse_metainfo("version=1.3")
     assert key == "version"
-    assert value.version == MockVersion(1, 3).version
-    assert value.prerelease == MockVersion(1, 3).prerelease
+    assert value == MockVersion(1, 3)
 
 
 def test_parse_metainfo_invalid_key():
