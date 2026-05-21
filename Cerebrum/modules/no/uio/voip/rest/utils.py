@@ -36,9 +36,9 @@ from Cerebrum.Entity import EntityContactInfo
 from Cerebrum.modules.bofhd.errors import CerebrumError
 from Cerebrum.modules.no.uio.voip.voipService import VoipService
 from Cerebrum.modules.no.uio.voip.voipAddress import VoipAddress
-from Cerebrum.modules.no.uio.voip.voipClient import VoipClient
-from Cerebrum.modules.no.uio.voip.bofhd_voip_cmds import find_available_voip_extension
-
+from Cerebrum.modules.no.uio.voip.bofhd_voip_cmds import (
+    find_available_voip_extension,
+)
 
 
 def get_voip_service(db, designation):
@@ -60,10 +60,12 @@ def get_voip_service(db, designation):
             service.find(int(designation))
             return service
         except Errors.NotFoundError:
-            abort(404, message="No voip_service with id={}".format(designation))
+            abort(404,
+                  message="No voip_service with id={}".format(designation))
 
     # Try exact description match
-    ids = service.search_voip_service_by_description(designation, exact_match=True)
+    ids = service.search_voip_service_by_description(designation,
+                                                     exact_match=True)
     if len(ids) == 1:
         service.find(ids[0]["entity_id"])
         return service
@@ -108,11 +110,15 @@ def get_constant(db, designation, const_type):
     :raises: 400 if not found
     """
     const = Factory.get('Constants')(db)
-    cnst = const.fetch_constants(const_type, designation)
-    if len(cnst) == 0:
-        abort(400, message="Unknown {} constant: {}".format(
-            six.text_type(const_type), designation))
-    return cnst[0]
+    try:
+        return const.get_constant(const_type, designation)
+    except LookupError:
+        abort(
+            400,
+            message="Unknown {} constant: {}".format(
+                six.text_type(const_type), designation,
+            ),
+        )
 
 
 def assert_unused_service_description(db, description):
@@ -124,10 +130,12 @@ def assert_unused_service_description(db, description):
     :raises: 400 if description is in use
     """
     vs = VoipService(db)
-    services = vs.search_voip_service_by_description(description, exact_match=True)
+    services = vs.search_voip_service_by_description(description,
+                                                     exact_match=True)
     if services:
-        abort(400, message="Description must be unique. In use by id={}".format(
-            services[0]['entity_id']))
+        abort(400,
+              message="Description must be unique. In use by id={}".format(
+                  services[0]['entity_id']))
 
 
 def typeset_ou(db, ou_id):
@@ -251,9 +259,13 @@ def get_voip_address(db, designation, all_matches=False):
     2. By owner_entity_id
     3. By contact_info
 
-    :param db: Database connection
-    :param designation: Search parameter
-    :param all_matches: If True, return all matches; if False, return first unique match
+    :param db:
+        Database connection
+    :param designation:
+        Search parameter
+    :param all_matches:
+        If True, return all matches; if False, return first unique match
+
     :return: VoipAddress instance (if all_matches=False) or list of instances
     :raises: 404 if no matches found
     """
@@ -278,9 +290,16 @@ def get_voip_address(db, designation, all_matches=False):
         abort(404, message="No voip_address matches: {}".format(designation))
 
     if not all_matches and len(result) > 1:
-        abort(400, message="Cannot uniquely determine voip_address from: {}. "
-              "Matching ids: {}".format(
-                  designation, ", ".join(str(int(x.entity_id)) for x in result)))
+        abort(
+            400,
+            message=(
+                "Cannot uniquely determine voip_address from: {}. "
+                "Matching ids: {}"
+            ).format(
+                designation,
+                ", ".join(str(int(x.entity_id)) for x in result),
+            ),
+        )
 
     return result
 
@@ -335,10 +354,12 @@ def get_voip_owner(db, designation):
     # Try service
     try:
         return get_voip_service(db, designation)
-    except:
+    except Exception:
         pass
-
-    abort(404, message="Cannot locate person/voip-service: {}".format(designation))
+    abort(
+        404,
+        message="Cannot locate person/voip-service: {}".format(designation),
+    )
 
 
 def find_available_extension(db):
