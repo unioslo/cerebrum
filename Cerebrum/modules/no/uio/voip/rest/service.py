@@ -32,7 +32,6 @@ from __future__ import (
 import six
 from flask_restx import Resource, abort
 
-from Cerebrum import Errors
 from Cerebrum.modules.no.uio.voip.voipAddress import VoipAddress
 from Cerebrum.modules.no.uio.voip.voipClient import VoipClient
 from Cerebrum.modules.no.uio.voip.voipService import VoipService
@@ -43,16 +42,64 @@ from . import models
 api = models.api
 
 
+def search_voip_services(ou_id=None, description=None):
+    """
+    Basic voip service search implementation.
+
+    TODO: This should probably be a generic query - not specific to the API.
+
+    :param ou_id:
+        If provided, only return services at the given org unit(s).
+
+    :param description:
+        If provided, only return services that include the given description
+    """
+    vs = VoipService(db.connection)
+    all_services = {
+        row['entity_id']: dict(row)
+        for row in vs.search()
+    }
+    matches = set(all_services)
+
+    if ou_id is not None:
+        matches &= set(
+            row['entity_id']
+            for row in vs.search(ou_id=ou_id)
+        )
+
+    if description is not None:
+        matches &= set(
+            row['entity_id']
+            for row in vs.search_voip_service_by_description(
+                description, exact_match=False)
+        )
+
+    for entity_id in sorted(matches):
+        yield all_services[entity_id]
+
+
 @api.route("/services/", endpoint="voip-service-list")
 class VoipServiceListResource(Resource):
-    """Resource for voip service creation and search."""
+    """ VoIP service collection resource - list, search, or create service. """
 
     service_search_parser = api.parser()
     service_search_parser.add_argument(
-        'search',
+        "ou-id",
+        type=int,
+        required=False,
+        help="Only include services for the given org unit id (ou entity-id)",
+    )
+    service_search_parser.add_argument(
+        "location",
+        type=int,
+        required=False,
+        help="Only include services by org unit location code (stedkode)",
+    )
+    service_search_parser.add_argument(
+        "description",
         type=str,
-        required=True,
-        help='Search parameter (entity_id, description, ou_id, or stedkode)',
+        required=False,
+        help="Only include services with the given description substring",
     )
 
     @auth.require()
@@ -60,63 +107,36 @@ class VoipServiceListResource(Resource):
     @api.response(200, 'Service found')
     @api.doc(expect=[service_search_parser])
     def get(self):
-        """
-        Search for voip services.
-
-        Search by entity_id, description, ou_id, or stedkode.
-        """
+        """ List or search for voip services. """
         args = self.service_search_parser.parse_args()
-        try:
-            designation = args.get('search', '').strip()
-        except AttributeError:
-            designation = None
 
-        if not designation:
-            abort(400, message="Search parameter is required")
+        # Sanity check our ou-id + location args
+        # (i.e. translate to a single ou_id)
+        ou_ids = set()
+        if args['ou-id'] is not None:
+            ou = utils.get_ou_by_id(args['ou-id'])
+            ou_ids.add(ou.entity_id)
+        if args['location'] is not None:
+            ou = utils.get_ou_by_location(args['location'])
+            ou_ids.add(ou.entity_id)
+        if ou_ids > 1:
+            abort(400, message="conflicting ou identifiers")
+        if ou_ids < 1:
+            ou_ids = None
 
-        collect = dict()
-        vs = VoipService(db.connection)
+        description = args['description']
 
-        # Try by-id lookup first
-        if designation.isdigit():
-            try:
-                vs.find(int(designation))
-                collect[vs.entity_id] = (
-                    vs.description, vs.service_type, vs.ou_id)
-            except Errors.NotFoundError:
-                pass
-
-        # Try by description
-        for exact_match in (True, False):
-            results = vs.search_voip_service_by_description(
-                designation, exact_match=exact_match)
-            for row in results:
-                collect[row["entity_id"]] = (
-                    row["description"], row["service_type"], row["ou_id"])
-
-        # Try by OU
-        try:
-            ou = utils.get_ou(db.connection, designation)
-        except Exception:
-            pass
-        else:
-            for row in vs.search(ou_id=ou.entity_id):
-                collect[row["entity_id"]] = (
-                    row["description"], row["service_type"], row["ou_id"])
-
-        answer = []
-        for entity_id in collect:
-            description, service_type, ou_id = collect[entity_id]
-            const = db.const
-            service_type_const = const.VoipServiceTypeCode(service_type)
-            answer.append({
-                "service_id": entity_id,
-                "description": description,
-                "service_type": six.text_type(service_type_const),
-                "ou": {'id': ou_id},
+        matches = []
+        svc_type_cls = db.const.VoipServiceTypeCode
+        for row in search_voip_services(ou_id=ou_ids, description=description):
+            service_type = svc_type_cls(row['service_type'])
+            matches.append({
+                "service_id": row['entity_id'],
+                "service_type": six.text_type(service_type),
+                "description": row['description'],
+                "ou": {'id': row['ou_id']},
             })
-
-        return {'services': answer}
+        return {'services': matches}
 
     @auth.require()
     @api.expect(models.VoipServiceCreate)
@@ -173,6 +193,22 @@ class VoipServiceListResource(Resource):
         }, 201
 
 
+def _build_service_response(service):
+    """Build a VoipService model from a VoipService entity. """
+    service_type = db.const.VoipServiceTypeCode(service.service_type)
+    return {
+        'service_id': service.entity_id,
+        'service_type': six.text_type(service_type),
+        'description': service.description,
+        'ou': {
+            'id': service.ou_id,
+        },
+        'location': utils.typeset_ou(db.connection, service.ou_id),
+        'traits': utils.typeset_traits(db.connection,
+                                       service.get_traits()),
+    }
+
+
 @api.route("/services/<int:service_id>", endpoint="voip-service")
 @api.doc(params={'service_id': 'Service entity ID'})
 class VoipServiceResource(Resource):
@@ -185,17 +221,7 @@ class VoipServiceResource(Resource):
     def get(self, service_id):
         """Get voip service information."""
         service = utils.get_voip_service(db.connection, service_id)
-
-        service_type = db.const.VoipServiceTypeCode(service.service_type)
-        return {
-            'service_id': service.entity_id,
-            'service_type': six.text_type(service_type),
-            'description': service.description,
-            'ou': {'id': service.ou_id},
-            'location': utils.typeset_ou(db.connection, service.ou_id),
-            'traits': utils.typeset_traits(db.connection,
-                                           service.get_traits()),
-        }
+        return _build_service_response(service)
 
     @auth.require()
     @api.expect(models.VoipServiceUpdate)
@@ -229,17 +255,7 @@ class VoipServiceResource(Resource):
                 service.ou_id = ou.entity_id
 
         service.write_db()
-
-        service_type = db.const.VoipServiceTypeCode(service.service_type)
-        return {
-            'service_id': service.entity_id,
-            'service_type': six.text_type(service_type),
-            'description': service.description,
-            'ou': {'id': service.ou_id},
-            'location': utils.typeset_ou(db.connection, service.ou_id),
-            'traits': utils.typeset_traits(db.connection,
-                                           service.get_traits()),
-        }
+        return _build_service_response(service)
 
     @auth.require()
     @api.response(204, 'Service deleted')

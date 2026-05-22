@@ -39,6 +39,7 @@ from Cerebrum.modules.no.uio.voip.voipAddress import VoipAddress
 from Cerebrum.modules.no.uio.voip.bofhd_voip_cmds import (
     find_available_voip_extension,
 )
+from Cerebrum.rest.api import db as _db
 
 
 def get_voip_service(db, designation):
@@ -71,6 +72,26 @@ def get_voip_service(db, designation):
         return service
 
     abort(404, message="Could not find voip_service: {}".format(designation))
+
+
+def get_ou_by_id(ou_id):
+    db = _db.connection
+    ou = Factory.get("OU")(db)
+    try:
+        ou.find(int(ou_id))
+        return ou
+    except (Errors.NotFoundError, ValueError):
+        abort(404, message="No ou with id=%s" + repr(ou_id))
+
+
+def get_ou_by_location(ou_id):
+    db = _db.connection
+    ou = Factory.get("OU")(db)
+    try:
+        ou.find_sko(format(int(ou_id), '06d'))
+        return ou
+    except (Errors.NotFoundError, ValueError):
+        abort(404, message="No ou with location=%s" + repr(ou_id))
 
 
 def get_ou(db, designation):
