@@ -35,47 +35,12 @@ from flask_restx import Resource, abort
 from Cerebrum.modules.no.uio.voip.voipAddress import VoipAddress
 from Cerebrum.modules.no.uio.voip.voipClient import VoipClient
 from Cerebrum.modules.no.uio.voip.voipService import VoipService
+from Cerebrum.modules.no.uio.voip.voipService import search_voip_service
 from Cerebrum.rest.api import db, auth
 from . import utils
 from . import models
 
 api = models.api
-
-
-def search_voip_services(ou_id=None, description=None):
-    """
-    Basic voip service search implementation.
-
-    TODO: This should probably be a generic query - not specific to the API.
-
-    :param ou_id:
-        If provided, only return services at the given org unit(s).
-
-    :param description:
-        If provided, only return services that include the given description
-    """
-    vs = VoipService(db.connection)
-    all_services = {
-        row['entity_id']: dict(row)
-        for row in vs.search()
-    }
-    matches = set(all_services)
-
-    if ou_id is not None:
-        matches &= set(
-            row['entity_id']
-            for row in vs.search(ou_id=ou_id)
-        )
-
-    if description is not None:
-        matches &= set(
-            row['entity_id']
-            for row in vs.search_voip_service_by_description(
-                description, exact_match=False)
-        )
-
-    for entity_id in sorted(matches):
-        yield all_services[entity_id]
 
 
 @api.route("/services/", endpoint="voip-service-list")
@@ -99,7 +64,10 @@ class VoipServiceListResource(Resource):
         "description",
         type=str,
         required=False,
-        help="Only include services with the given description substring",
+        help=(
+            "Only include services with the given description"
+            " (supports case-sensitive glob-like patterns)"
+        ),
     )
 
     @auth.require()
@@ -119,16 +87,20 @@ class VoipServiceListResource(Resource):
         if args['location'] is not None:
             ou = utils.get_ou_by_location(args['location'])
             ou_ids.add(ou.entity_id)
-        if ou_ids > 1:
+        if len(ou_ids) > 1:
+            # TODO: We *could* support OR-ing the ou-id and location
+            # parameters, but it really doesn't make sense
+            # We could also logically AND them, i.e. return an empty result.
             abort(400, message="conflicting ou identifiers")
-        if ou_ids < 1:
+        if len(ou_ids) < 1:
             ou_ids = None
 
         description = args['description']
 
         matches = []
         svc_type_cls = db.const.VoipServiceTypeCode
-        for row in search_voip_services(ou_id=ou_ids, description=description):
+        for row in search_voip_service(db.connection, ou_id=ou_ids,
+                                       description_like=description):
             service_type = svc_type_cls(row['service_type'])
             matches.append({
                 "service_id": row['entity_id'],

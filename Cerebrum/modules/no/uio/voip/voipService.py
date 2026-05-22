@@ -31,9 +31,103 @@ from __future__ import (
     unicode_literals,
 )
 
+from Cerebrum.database import query_utils
 from Cerebrum.Entity import EntityContactInfo
 from Cerebrum.Utils import argument_to_sql
 from Cerebrum.modules.EntityTrait import EntityTrait
+
+
+def _select_voip_service(
+        entity_id=None, service_type=None, ou_id=None,
+        description=None, description_like=None, description_ilike=None,
+        _prefix=''):
+    """
+    Generate clauses and binds for voip_service queries.
+
+    Columns
+        All column match fields can either be:
+
+        1. The default value - which means no filter will be applied
+        2. A single, exact value to find
+        3. A sequence of values, but:
+           - `None` cannot be used in sequences
+           - Patterns does not support multiple values
+
+        In columns with multiple filter rules (i.e. description), each given
+        column filter will be OR-ed.
+
+    :param entity_id: only include results for these entities
+    :param service_type: only include results of these service types
+    :param ou_id: only include results for these org unit ids
+
+    :param description: only include results for these descriptions
+    :param description_like: include results matching this description pattern
+    :param description_ilike: as description_like, but case insensitive
+
+    :param _prefix:
+        A prefix for voip_service column names.
+
+        A prefix is needed when querying multiple tables, and a column in
+        voip_service may conflict with column names from another table.
+
+    :rtype: tuple(list, dict)
+    :returns:
+        Returns a list of conditions, and a dict of query params.
+    """
+    p = '{}.'.format(_prefix.rstrip('.')) if _prefix else ''
+    clauses = []
+    binds = {}
+
+    if entity_id is not None:
+        clauses.append(
+            argument_to_sql(entity_id, p + 'entity_id', binds, int))
+    if service_type is not None:
+        clauses.append(
+            argument_to_sql(service_type, p + 'service_type', binds, int))
+    if ou_id is not None:
+        clauses.append(
+            argument_to_sql(ou_id, p + 'ou_id', binds, int))
+
+    #
+    # description
+    #
+    desc_cond, desc_binds = query_utils.pattern_helper(
+        colname=p + 'description',
+        value=description,
+        case_pattern=description_like,
+        icase_pattern=description_ilike,
+        nullable=False,
+    )
+    if desc_cond:
+        clauses.append(desc_cond)
+    if desc_binds:
+        binds.update(desc_binds)
+
+    return clauses, binds
+
+
+def search_voip_service(db, limit=None, fetchall=None, **kwargs):
+    if '_prefix' in kwargs:
+        raise TypeError("invalid argument: '_prefix'")
+    conds, binds = _select_voip_service(**kwargs)
+
+    if limit is None:
+        limit_clause = ""
+    else:
+        limit_clause = "LIMIT :limit"
+        binds['limit'] = int(limit)
+
+    stmt = """
+      SELECT entity_id, entity_type, service_type, ou_id, description
+      FROM [:table schema=cerebrum name=voip_service]
+      {where}
+      ORDER BY entity_id
+      {limit}
+    """.format(
+        where=("WHERE " + " AND ".join(conds)) if conds else "",
+        limit=limit_clause,
+    )
+    return db.query(stmt, binds, fetchall=fetchall)
 
 
 class VoipService(EntityTrait, EntityContactInfo):
