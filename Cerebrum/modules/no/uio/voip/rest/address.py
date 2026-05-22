@@ -161,7 +161,6 @@ class VoipAddressResource(Resource):
             'sip_primary_uri': attrs["voipSipPrimaryUri"],
             'e164_uri': attrs["voipE164Uri"],
             'extension_uri': attrs["voipExtensionUri"],
-            'traits': utils.typeset_traits(address.get_traits()),
             'clients': client_ids,
         }
 

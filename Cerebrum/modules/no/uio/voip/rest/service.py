@@ -175,7 +175,6 @@ def _build_service_response(service):
             'id': service.ou_id,
         },
         'location': utils.typeset_ou(service.ou_id),
-        'traits': utils.typeset_traits(service.get_traits()),
     }
 
 

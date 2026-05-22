@@ -183,19 +183,6 @@ def typeset_ou(ou_id):
     return location
 
 
-def typeset_traits(trait_sequence):
-    """
-    Return a human-friendly version of entity traits.
-
-    :param trait_sequence: Sequence of trait codes
-    :return: List of trait names
-    """
-    traits = []
-    for et in trait_sequence:
-        traits.append(six.text_type(db.const.EntityTrait(et)))
-    return sorted(traits)
-
-
 def find_owner_ids_from_contact(value):
     """
     Return voip_addresses by contact info value.

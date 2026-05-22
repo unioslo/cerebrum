@@ -75,10 +75,6 @@ VoipService = VoipServiceListItem.inherit('VoipService', {
     'location': base_fields.String(
         description='Location (OU representation)',
     ),
-    'traits': base_fields.List(
-        base_fields.String,
-        description='Entity traits',
-    ),
 })
 
 VoipServiceCreate = api.model('VoipServiceCreate', {
@@ -148,10 +144,6 @@ VoipAddress = VoipAddressListItem.inherit('VoipAddress', {
     ),
     'extension_uri': base_fields.String(
         description='Extension URI',
-    ),
-    'traits': base_fields.List(
-        base_fields.String,
-        description='Entity traits',
     ),
     'clients': base_fields.List(
         base_fields.String,
