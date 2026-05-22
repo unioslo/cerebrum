@@ -108,7 +108,9 @@ VoipServiceUpdate = api.model('VoipServiceUpdate', {
     ),
 })
 
-VoipAddress = api.model('VoipAddress', {
+
+# Basic VoipAddress reference item (basic info)
+VoipAddressListItem = api.model('VoipAddressListItem', {
     'href': fields.href(
         '.voip-address',
         description='URL to this address',
@@ -120,6 +122,18 @@ VoipAddress = api.model('VoipAddress', {
         models.EntityOwner,
         description='Entity owner',
     ),
+})
+
+
+VoipAddressList = api.model('VoipAddressList', {
+    'addresses': base_fields.List(
+        base_fields.Nested(VoipAddressListItem),
+        description='List of voip addresses',
+    ),
+})
+
+
+VoipAddress = VoipAddressListItem.inherit('VoipAddress', {
     'cn': base_fields.String(
         description='Common name',
     ),
@@ -142,13 +156,6 @@ VoipAddress = api.model('VoipAddress', {
     'clients': base_fields.List(
         base_fields.String,
         description='Associated client IDs',
-    ),
-})
-
-VoipAddressList = api.model('VoipAddressList', {
-    'addresses': base_fields.List(
-        base_fields.Nested(VoipAddress),
-        description='List of voip addresses',
     ),
 })
 

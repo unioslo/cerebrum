@@ -44,16 +44,53 @@ from . import models
 api = models.api
 
 
+def search_voip_addrs(owner_id=None, owner_type=None, contact_value=None):
+    if contact_value is not None:
+        owner_ids = utils.find_owner_ids_from_contact(contact_value)
+    else:
+        owner_ids = None
+
+    if owner_id is not None:
+        if owner_ids is None:
+            owner_ids = set((owner_id,))
+        else:
+            owner_ids = owner_ids & set((owner_id,))
+
+    va = VoipAddress(db.connection)
+    results = []
+    for row in va.search(owner_entity_id=owner_ids,
+                         owner_entity_type=owner_type):
+        # search is ordered by entity-id
+        results.append({
+            'address_id': row['entity_id'],
+            'owner_id': row['owner_entity_id'],
+            'owner_type': row['owner_entity_type'],
+        })
+    return results
+
+
 @api.route("/addresses/", endpoint="voip-address-list")
 class VoipAddressListResource(Resource):
     """Resource for voip address search."""
 
     address_search_parser = api.parser()
     address_search_parser.add_argument(
-        'search',
+        'owner-id',
+        type=int,
+        required=False,
+        help='Filter addresses by owner id',
+    )
+    address_search_parser.add_argument(
+        'owner-type',
         type=str,
-        required=True,
-        help='Search parameter (entity_id, owner_id, contact info)',
+        required=False,
+        help='Filter addresses by owner type',
+    )
+    address_search_parser.add_argument(
+        'contact-value',
+        type=str,
+        required=False,
+        help='Filter addresses by contact value',
     )
 
     @auth.require()
@@ -68,41 +105,24 @@ class VoipAddressListResource(Resource):
         Search by entity_id, owner_entity_id, or contact info.
         """
         args = self.address_search_parser.parse_args()
-        try:
-            designation = args.get('search', '').strip()
-        except AttributeError:
-            designation = None
 
-        if not designation:
-            abort(400, message="Search parameter is required")
+        if args['owner-type'] is None:
+            owner_type = None
+        else:
+            owner_type = utils.get_entity_type(args['owner-type'])
 
-        voip_addresses = utils.get_voip_addresses(designation,
-                                                  all_matches=True)
+        voip_addresses = search_voip_addrs(owner_id=args['owner-id'],
+                                           owner_type=owner_type,
+                                           contact_value=args['contact-value'])
 
         answer = []
-        for address in voip_addresses:
-            voip_attrs = address.get_voip_attributes()
-            owner = address.get_owner()
-            owner_name = api_utils.get_entity_name(owner)
+        for row in voip_addresses:
             answer.append({
-                "address_id": address.entity_id,
-                "owner": {
-                    "id": address.owner_entity_id,
-                    "type": owner.entity_type,
-                    "name": owner_name,
-                    "href": api_utils.href_from_entity_type(
-                        entity_type=owner.entity_type,
-                        entity_id=address.owner_entity_id,
-                        entity_name=owner_name,
-                    ),
-                },
-                "cn": voip_attrs["cn"],
-                "sip_uri": voip_attrs.get("voipSipUri", ""),
-                "sip_primary_uri": voip_attrs.get("voipSipPrimaryUri", ""),
-                "e164_uri": voip_attrs.get("voipE164Uri", ""),
-                "extension_uri": voip_attrs.get("voipExtensionUri", ""),
-                "traits": [],
-                "clients": [],
+                "address_id": row['address_id'],
+                "owner": utils.build_owner_data(
+                    owner_id=row['owner_id'],
+                    owner_type=row['owner_type'],
+                ),
             })
 
         return {'addresses': answer}
@@ -131,16 +151,11 @@ class VoipAddressResource(Resource):
         owner_name = api_utils.get_entity_name(owner)
         return {
             'address_id': address.entity_id,
-            'owner': {
-                'id': owner.entity_id,
-                'type': owner.entity_type,
-                'name': owner_name,
-                'href': api_utils.href_from_entity_type(
-                    entity_type=owner.entity_type,
-                    entity_id=owner.entity_id,
-                    entity_name=owner_name,
-                ),
-            },
+            'owner': utils.build_owner_data(
+                owner_id=owner.entity_id,
+                owner_type=owner.entity_type,
+                owner_name=owner_name,
+            ),
             'cn': attrs["cn"],
             'sip_uri': attrs["voipSipUri"],
             'sip_primary_uri': attrs["voipSipPrimaryUri"],
