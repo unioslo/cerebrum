@@ -126,12 +126,11 @@ class VoipServiceListResource(Resource):
         if not all([service_type_str, ou_id, description]):
             abort(400, message="Missing required fields")
 
-        utils.assert_unused_service_description(db.connection, description)
+        utils.assert_unused_service_description(description)
 
         service = VoipService(db.connection)
-        ou = utils.get_ou(db.connection, ou_id)
-        service_type = utils.get_constant(
-            db.connection, service_type_str, db.const.VoipServiceTypeCode)
+        ou = utils.get_ou_by_id(ou_id, _error=400)
+        service_type = utils.get_service_type(service_type_str)
 
         service.populate(description, service_type, ou.entity_id)
         service.write_db()
@@ -167,7 +166,7 @@ class VoipServiceListResource(Resource):
 
 def _build_service_response(service):
     """Build a VoipService model from a VoipService entity. """
-    service_type = db.const.VoipServiceTypeCode(service.service_type)
+    service_type = utils.get_service_type(service.service_type, _error=500)
     return {
         'service_id': service.entity_id,
         'service_type': six.text_type(service_type),
@@ -175,9 +174,8 @@ def _build_service_response(service):
         'ou': {
             'id': service.ou_id,
         },
-        'location': utils.typeset_ou(db.connection, service.ou_id),
-        'traits': utils.typeset_traits(db.connection,
-                                       service.get_traits()),
+        'location': utils.typeset_ou(service.ou_id),
+        'traits': utils.typeset_traits(service.get_traits()),
     }
 
 
@@ -192,19 +190,19 @@ class VoipServiceResource(Resource):
     @api.marshal_with(models.VoipService)
     def get(self, service_id):
         """Get voip service information."""
-        service = utils.get_voip_service(db.connection, service_id)
+        service = utils.get_voip_service_by_id(service_id)
         return _build_service_response(service)
 
     @auth.require()
     @api.expect(models.VoipServiceUpdate)
     @api.marshal_with(models.VoipService)
     @api.response(200, 'Service updated')
-    @api.response(400, 'Invalid service type, description, or OU')
-    @api.response(404, 'Service or OU not found')
+    @api.response(400, 'Invalid service_type, description, or ou_id')
+    @api.response(404, 'Service not found')
     @db.autocommit
     def put(self, service_id):
         """Update voip service information."""
-        service = utils.get_voip_service(db.connection, service_id)
+        service = utils.get_voip_service_by_id(service_id)
         data = api.payload
 
         description = data.get('description')
@@ -212,17 +210,16 @@ class VoipServiceResource(Resource):
         ou_id = data.get('ou_id')
 
         if description and service.description != description:
-            utils.assert_unused_service_description(db.connection, description)
+            utils.assert_unused_service_description(description)
             service.description = description
 
         if service_type_str:
-            service_type = utils.get_constant(
-                db.connection, service_type_str, db.const.VoipServiceTypeCode)
+            service_type = utils.get_service_type(service_type_str)
             if service.service_type != service_type:
                 service.service_type = service_type
 
         if ou_id:
-            ou = utils.get_ou(db.connection, ou_id)
+            ou = utils.get_ou_by_id(ou_id, _error=400)
             if service.ou_id != ou.entity_id:
                 service.ou_id = ou.entity_id
 
@@ -235,6 +232,6 @@ class VoipServiceResource(Resource):
     @db.autocommit
     def delete(self, service_id):
         """Delete a voip service."""
-        service = utils.get_voip_service(db.connection, service_id)
+        service = utils.get_voip_service_by_id(service_id)
         service.delete()
         return None, 204

@@ -36,13 +36,98 @@ from Cerebrum.Entity import EntityContactInfo
 from Cerebrum.modules.bofhd.errors import CerebrumError
 from Cerebrum.modules.no.uio.voip.voipService import VoipService
 from Cerebrum.modules.no.uio.voip.voipAddress import VoipAddress
+from Cerebrum.modules.no.uio.voip.voipService import search_voip_service
 from Cerebrum.modules.no.uio.voip.bofhd_voip_cmds import (
     find_available_voip_extension,
 )
-from Cerebrum.rest.api import db as _db
+from Cerebrum.rest.api import db
 
 
-def get_voip_service(db, designation):
+#
+# Simple entity lookups
+#
+
+def get_voip_service_by_id(service_id, _error=404):
+    """ Get VoipService entity by entity id. """
+    service = VoipService(db.connection)
+    try:
+        service.find(int(service_id))
+        return service
+    except (Errors.NotFoundError, ValueError, TypeError):
+        abort(
+            _error,
+            message="No voip service with id={}".format(repr(service_id)),
+        )
+
+
+def get_voip_address_by_id(address_id, _error=404):
+    """ Get VoipService entity by entity id. """
+    addr = VoipAddress(db.connection)
+    try:
+        addr.find(int(address_id))
+        return addr
+    except (Errors.NotFoundError, ValueError, TypeError):
+        abort(
+            _error,
+            message="No voip address with id={}".format(repr(address_id)),
+        )
+
+
+def get_ou_by_id(ou_id, _error=404):
+    ou = Factory.get("OU")(db.connection)
+    try:
+        ou.find(int(ou_id))
+        return ou
+    except (Errors.NotFoundError, ValueError, TypeError):
+        abort(
+            _error,
+            message="No ou with id={}".format(repr(ou_id)),
+        )
+
+
+def get_ou_by_location(ou_id, _error=404):
+    ou = Factory.get("OU")(db.connection)
+    try:
+        ou.find_sko(format(int(ou_id), '06d'))
+        return ou
+    except (Errors.NotFoundError, ValueError, TypeError):
+        abort(
+            _error,
+            message="No ou with location={}".format(repr(ou_id)),
+        )
+
+
+#
+# Simple constant lookups
+#
+
+def get_service_type(strval, _error=400):
+    const = db.const
+    try:
+        return const.get_constant(const.VoipServiceTypeCode, strval)
+    except LookupError:
+        abort(
+            _error,
+            message="Unknown service type={}".format(repr(strval)),
+        )
+
+
+def get_contact_type(strval, _error=400):
+    const = db.const
+    try:
+        return const.get_constant(const.ContactInfo, strval)
+    except LookupError:
+        abort(
+            _error,
+            message="Unknown contact type={}".format(repr(strval)),
+        )
+
+
+#
+# Other helpers
+#
+
+def _get_voip_service(designation):
     """
     Locate a specific voip_service by ID or description.
 
@@ -51,7 +136,7 @@ def get_voip_service(db, designation):
     :return: VoipService instance
     :raises: 404 if not found
     """
-    service = VoipService(db)
+    service = VoipService(db.connection)
 
     # Try entity_id first
     if isinstance(designation, six.integer_types) or (
@@ -74,75 +159,7 @@ def get_voip_service(db, designation):
     abort(404, message="Could not find voip_service: {}".format(designation))
 
 
-def get_ou_by_id(ou_id):
-    db = _db.connection
-    ou = Factory.get("OU")(db)
-    try:
-        ou.find(int(ou_id))
-        return ou
-    except (Errors.NotFoundError, ValueError):
-        abort(404, message="No ou with id=%s" + repr(ou_id))
-
-
-def get_ou_by_location(ou_id):
-    db = _db.connection
-    ou = Factory.get("OU")(db)
-    try:
-        ou.find_sko(format(int(ou_id), '06d'))
-        return ou
-    except (Errors.NotFoundError, ValueError):
-        abort(404, message="No ou with location=%s" + repr(ou_id))
-
-
-def get_ou(db, designation):
-    """
-    Locate an organizational unit by ID or stedkode.
-
-    :param db: Database connection
-    :param designation: OU entity ID or stedkode
-    :return: OU instance
-    :raises: 404 if not found
-    """
-    ou = Factory.get("OU")(db)
-
-    if six.text_type(designation).isdigit():
-        # Try both ou_id and stedkode
-        for key in ("ou_id", "stedkode"):
-            try:
-                if key == "ou_id":
-                    ou.find(int(designation))
-                else:
-                    ou.find_stedkode(int(designation))
-                return ou
-            except (Errors.NotFoundError, ValueError):
-                pass
-
-    abort(404, message="Could not find OU: {}".format(designation))
-
-
-def get_constant(db, designation, const_type):
-    """
-    Fetch a constant by designation.
-
-    :param db: Database connection
-    :param designation: Constant name or code
-    :param const_type: Constant type class
-    :return: Constant instance
-    :raises: 400 if not found
-    """
-    const = Factory.get('Constants')(db)
-    try:
-        return const.get_constant(const_type, designation)
-    except LookupError:
-        abort(
-            400,
-            message="Unknown {} constant: {}".format(
-                six.text_type(const_type), designation,
-            ),
-        )
-
-
-def assert_unused_service_description(db, description):
+def assert_unused_service_description(description, _error=400):
     """
     Check that a description is not in use by any voip_service.
 
@@ -150,53 +167,55 @@ def assert_unused_service_description(db, description):
     :param description: Description to check
     :raises: 400 if description is in use
     """
-    vs = VoipService(db)
-    services = vs.search_voip_service_by_description(description,
-                                                     exact_match=True)
+    services = search_voip_service(db.connection,
+                                   description=description,
+                                   fetchall=True, limit=1)
     if services:
-        abort(400,
-              message="Description must be unique. In use by id={}".format(
-                  services[0]['entity_id']))
+        in_use_by = services[0]['entity_id']
+        abort(
+            _error,
+            message=(
+                "Description already in use by id={} (must be unique)"
+            ).format(in_use_by),
+        )
 
 
-def typeset_ou(db, ou_id):
+def typeset_ou(ou_id):
     """
     Return a human-friendly description of an OU.
 
-    :param db: Database connection
     :param ou_id: OU entity ID
     :return: String like '33-15-20 (USIT)'
     """
-    const = Factory.get('Constants')(db)
-    ou = get_ou(db, int(ou_id))
+    const = db.const
+    ou = get_ou_by_id(ou_id, _error=500)
 
     acronym = ou.get_name_with_language(
         const.ou_name_acronym, const.language_nb, None)
     short_name = ou.get_name_with_language(
         const.ou_name_short, const.language_nb, None)
     ou_name = acronym or short_name
-
-    location = "%02d-%02d-%02d (%s)" % (
-        ou.fakultet, ou.institutt, ou.avdeling, ou_name)
+    location = (
+        "%02d-%02d-%02d (%s)"
+        % (ou.fakultet, ou.institutt, ou.avdeling, ou_name)
+    )
     return location
 
 
-def typeset_traits(db, trait_sequence):
+def typeset_traits(trait_sequence):
     """
     Return a human-friendly version of entity traits.
 
-    :param db: Database connection
     :param trait_sequence: Sequence of trait codes
     :return: List of trait names
     """
-    const = Factory.get('Constants')(db)
     traits = []
     for et in trait_sequence:
-        traits.append(six.text_type(const.EntityTrait(et)))
-    return traits
+        traits.append(six.text_type(db.const.EntityTrait(et)))
+    return sorted(traits)
 
 
-def get_voip_address_by_owner_entity_id(db, designation):
+def _get_voip_address_by_owner_entity_id(designation):
     """
     Return voip_address by owner entity_id.
 
@@ -211,14 +230,14 @@ def get_voip_address_by_owner_entity_id(db, designation):
 
     value = int(designation)
     try:
-        va = VoipAddress(db)
+        va = VoipAddress(db.connection)
         va.find_by_owner_id(value)
         return [va]
     except Errors.NotFoundError:
         return []
 
 
-def get_voip_address_by_entity_id(db, designation):
+def _get_voip_address_by_entity_id(designation):
     """
     Return voip_address by entity_id.
 
@@ -233,14 +252,14 @@ def get_voip_address_by_entity_id(db, designation):
 
     value = int(designation)
     try:
-        va = VoipAddress(db)
+        va = VoipAddress(db.connection)
         va.find(value)
         return [va]
     except Errors.NotFoundError:
         return []
 
 
-def get_voip_address_by_contact_info(db, designation):
+def _get_voip_address_by_contact_info(designation):
     """
     Return voip_addresses by contact info value.
 
@@ -248,9 +267,9 @@ def get_voip_address_by_contact_info(db, designation):
     :param designation: Contact value
     :return: List of VoipAddress instances
     """
-    const = Factory.get('Constants')(db)
+    const = db.const
     try:
-        eci = EntityContactInfo(db)
+        eci = EntityContactInfo(db.connection)
         ids = set()
         for row in eci.list_contact_info(
             source_system=const.system_voip,
@@ -265,13 +284,13 @@ def get_voip_address_by_contact_info(db, designation):
 
         result = []
         for entity_id in ids:
-            result.extend(get_voip_address_by_owner_entity_id(db, entity_id))
+            result.extend(_get_voip_address_by_owner_entity_id(entity_id))
         return result
     except Errors.NotFoundError:
         return []
 
 
-def get_voip_address(db, designation, all_matches=False):
+def get_voip_addresses(designation, all_matches=False):
     """
     Collect voipAddress instance(s) matching designation.
 
@@ -291,16 +310,16 @@ def get_voip_address(db, designation, all_matches=False):
     :raises: 404 if no matches found
     """
     search_funcs = [
-        get_voip_address_by_entity_id,
-        get_voip_address_by_owner_entity_id,
-        get_voip_address_by_contact_info,
+        _get_voip_address_by_entity_id,
+        _get_voip_address_by_owner_entity_id,
+        _get_voip_address_by_contact_info,
     ]
 
     result = []
     collected_ids = set()
 
     for func in search_funcs:
-        addrs = func(db, designation)
+        addrs = func(designation)
         result.extend(x for x in addrs if x.entity_id not in collected_ids)
         collected_ids.update(x.entity_id for x in addrs)
 
@@ -325,17 +344,16 @@ def get_voip_address(db, designation, all_matches=False):
     return result
 
 
-def get_contact_info(db, value):
+def get_contact_info(value):
     """
     Return entity_contact_info entries for the specified contact value.
 
-    :param db: Database connection
     :param value: Contact value to search for
     :return: List of contact info dicts
     """
-    const = Factory.get('Constants')(db)
+    const = db.const
     result = []
-    eci = EntityContactInfo(db)
+    eci = EntityContactInfo(db.connection)
 
     for row in eci.list_contact_info(
         source_system=const.system_voip,
@@ -352,17 +370,16 @@ def get_contact_info(db, value):
     return result
 
 
-def get_voip_owner(db, designation):
+def get_voip_owner(designation):
     """
     Locate the owner of a voip address (Person or VoipService).
 
-    :param db: Database connection
     :param designation: Owner identifier
     :return: Person or VoipService instance
     :raises: 404 if not found
     """
     # Try person first
-    person = Factory.get("Person")(db)
+    person = Factory.get("Person")(db.connection)
     if isinstance(designation, six.integer_types) or (
         isinstance(designation, six.string_types) and designation.isdigit()
     ):
@@ -374,7 +391,7 @@ def get_voip_owner(db, designation):
 
     # Try service
     try:
-        return get_voip_service(db, designation)
+        return get_voip_service_by_id(designation)
     except Exception:
         pass
     abort(
@@ -383,21 +400,21 @@ def get_voip_owner(db, designation):
     )
 
 
-def find_available_extension(db):
+def find_available_extension():
     """
     Find an available 5-digit extension and construct a valid full number.
 
     Wrapper around the XMLRPC/bofhd implementation.
 
-    :param db: Database connection
     :return: Tuple (contact_full, contact_alias) where contact_full is
              the complete phone number (+47XXXXXXXX) and contact_alias is the
              5-digit extension
     :raises: 400 if no available extension can be found
     """
-    const = Factory.get('Constants')(db)
-
     try:
-        return find_available_voip_extension(db, const)
+        return find_available_voip_extension(
+            db.connection,
+            db.const,
+        )
     except CerebrumError as e:
         abort(400, message=str(e))

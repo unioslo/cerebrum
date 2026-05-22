@@ -76,8 +76,8 @@ class VoipAddressListResource(Resource):
         if not designation:
             abort(400, message="Search parameter is required")
 
-        voip_addresses = utils.get_voip_address(db.connection, designation,
-                                                all_matches=True)
+        voip_addresses = utils.get_voip_addresses(designation,
+                                                  all_matches=True)
 
         answer = []
         for address in voip_addresses:
@@ -118,7 +118,7 @@ class VoipAddressResource(Resource):
     @api.marshal_with(models.VoipAddress)
     def get(self, address_id):
         """Get voip address information."""
-        address = utils.get_voip_address(db.connection, address_id)
+        address = utils.get_voip_address_by_id(address_id)
         owner = address.get_owner()
 
         client = VoipClient(db.connection)
@@ -146,8 +146,7 @@ class VoipAddressResource(Resource):
             'sip_primary_uri': attrs["voipSipPrimaryUri"],
             'e164_uri': attrs["voipE164Uri"],
             'extension_uri': attrs["voipExtensionUri"],
-            'traits': utils.typeset_traits(db.connection,
-                                           address.get_traits()),
+            'traits': utils.typeset_traits(address.get_traits()),
             'clients': client_ids,
         }
 
@@ -157,7 +156,7 @@ class VoipAddressResource(Resource):
     @db.autocommit
     def delete(self, address_id):
         """Delete a voip address."""
-        address = utils.get_voip_address(db.connection, address_id)
+        address = utils.get_voip_address_by_id(address_id)
 
         # Check if there are clients associated
         client = VoipClient(db.connection)
@@ -212,8 +211,7 @@ class VoipAddressNumberResource(Resource):
 
         # Determine contact type
         if contact_type_str:
-            contact_type = utils.get_constant(
-                db.connection, contact_type_str, db.const.ContactInfo)
+            contact_type = utils.get_contact_type(contact_type_str)
         else:
             contact_type = db.const.contact_voip_extension
 
@@ -221,7 +219,7 @@ class VoipAddressNumberResource(Resource):
         if (contact_type == db.const.contact_voip_extension
                 and (not contact_full or contact_full == "")):
             contact_full, contact_alias = (
-                utils.find_available_extension(db.connection)
+                utils.find_available_extension()
             )
             logger.info(
                 "Auto-assigned extension %s (full: %s) for owner id=%s",
@@ -231,7 +229,7 @@ class VoipAddressNumberResource(Resource):
                 abort(400, message="contact_value is required")
 
             # Check that the number is not in use
-            if utils.get_contact_info(db.connection, contact_full):
+            if utils.get_contact_info(contact_full):
                 abort(400,
                       message="Number {} already in use".format(contact_full))
 
@@ -249,8 +247,7 @@ class VoipAddressNumberResource(Resource):
         # Check if already registered to this owner
         def owner_has_contact(owner, contact_value):
             entity_ids = [
-                x["entity_id"] for x in utils.get_contact_info(
-                    db.connection, contact_value)]
+                x["entity_id"] for x in utils.get_contact_info(contact_value)]
             return owner.entity_id in entity_ids
 
         if (owner_has_contact(owner, contact_full) or
@@ -321,7 +318,7 @@ class VoipAddressNumberDeleteResource(Resource):
         args = self.number_delete_parser.parse_args()
         owner_id = args.get('owner_id')
 
-        contacts = utils.get_contact_info(db.connection, number)
+        contacts = utils.get_contact_info(number)
         if not contacts:
             return '', 404
         owner = None
