@@ -146,26 +146,28 @@ VoipAddress = VoipAddressListItem.inherit('VoipAddress', {
         description='Extension URI',
     ),
     'clients': base_fields.List(
-        base_fields.String,
+        base_fields.Integer,
         description='Associated client IDs',
     ),
 })
 
-VoipAddressNumber = api.model('VoipAddressNumber', {
-    'contact_type': base_fields.String(
-        required=True,
-        description='Contact type code',
+
+VoipNumber = api.model('VoipNumber', {
+    'number': base_fields.String(
+        description='VoIP phone number',
     ),
-    'contact_value': base_fields.String(
-        required=False,
-        description=textwrap.dedent(
-            """
-            Full phone number (optional for extensions - will auto-assign
-            if empty)
-            """
-        ).strip(),
+    'extension': base_fields.String(
+        description='VoIP phone extension',
     ),
     'priority': base_fields.Integer(
-        description='Priority (optional, auto-assigned if not provided)',
+        description='Contact priority',
+    ),
+})
+
+
+VoipNumberList = api.model('VoipNumberList', {
+    'numbers': base_fields.List(
+        base_fields.Nested(VoipNumber),
+        description='List of voip numbers',
     ),
 })
