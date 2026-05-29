@@ -63,6 +63,7 @@ from __future__ import print_function, unicode_literals
 import sys
 import getopt
 
+import cereconf
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.date import now
 
@@ -142,7 +143,7 @@ def process(emplaffs, studaffs, with_commit=False):
     logger.debug('%d members from manual consent', len(manual_consent_members))
     sapmembers = get_members('DFO-elektroniske-reservasjoner')
     logger.debug('%d members from DFO-SAP reservations', len(sapmembers))
-    fsmembers = get_members('FS-aktivt-samtykke')
+    fsmembers = get_members(cereconf.FS_GROUP_NAME)
     logger.debug('%d members from FS consent', len(fsmembers))
 
     global reservations
