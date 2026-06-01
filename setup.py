@@ -412,7 +412,6 @@ setup(
         'Cerebrum/modules/trait',
         'Cerebrum/modules/templates',
         'Cerebrum/modules/xmlutils',
-        'Cerebrum/modules/cis',
         'Cerebrum/org',
         'Cerebrum/testutils',
         'Cerebrum/utils',
