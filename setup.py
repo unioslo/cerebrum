@@ -213,7 +213,6 @@ sbin_files = [
     ('servers/bofhd/bofhd.py', 0o755),
     ('servers/event/exchange_daemon.py', 0o755),
     ('servers/event/event_publisher.py', 0o755),
-    ('servers/cis/SoapPostmasterServer.py', 0o755),
     ('consumers/consume-callback.py', 0o755),
     ('consumers/consume-tasks.py', 0o755),
 ]
