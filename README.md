@@ -12,12 +12,10 @@ Requirements
 Dependencies
 -------------
 
-* M2Crypto (yum install m2crypto / pip install M2Crypto)
 * psycopg2 (yum install python-psycopg2 / pip install psycopg2)
 * passlib (pip install passlib)
 * ldap (yum install python-ldap / pip install python-ldap)
 * lxml (yum install python-lxml / pip install lxml)
-* processing (? / pip install processing)
 * mx (egenix-mx-base) (yum install python-egenix-mx-base / pip install egenix-mx-base)
 * ssl (backport)
 
@@ -25,9 +23,6 @@ Dependencies
 
 Some dependencies are optional, depending on what features you want to use:
 
-* twisted - for the webservice daemon CIS
-* soaplib - for webservice communication
-* rpclib - for webservice communication
 * pika - for publishing events to an external broker with EventPublisher, via AMQP 0-9-1
 
 Mailing lists

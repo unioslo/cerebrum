@@ -32,7 +32,6 @@
     - postgresql-devel
     - python-psycopg2
     - libffi-devel
-    - openssl-devel
     - openldap-devel
   sudo: yes
 
