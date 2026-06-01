@@ -26,7 +26,6 @@ from __future__ import (
     print_function,
     unicode_literals,
 )
-import textwrap
 
 from flask_restx import Namespace
 from flask_restx import fields as base_fields
@@ -71,7 +70,7 @@ VoipServiceList = api.model('VoipServiceList', {
 })
 
 
-VoipService = VoipServiceListItem.inherit('VoipService', {
+VoipService = api.inherit('VoipService', VoipServiceListItem, {
     'location': base_fields.String(
         description='Location (OU representation)',
     ),
@@ -129,7 +128,7 @@ VoipAddressList = api.model('VoipAddressList', {
 })
 
 
-VoipAddress = VoipAddressListItem.inherit('VoipAddress', {
+VoipAddress = api.inherit('VoipAddress', VoipAddressListItem, {
     'cn': base_fields.String(
         description='Common name',
     ),
