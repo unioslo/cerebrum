@@ -40,7 +40,8 @@ api = Namespace(
 )
 
 
-VoipService = api.model('VoipService', {
+# Basic VoipService reference item (basic info)
+VoipServiceListItem = api.model('VoipServiceListItem', {
     'href': fields.href(
         '.voip-service',
         description='URL to this service',
@@ -58,19 +59,21 @@ VoipService = api.model('VoipService', {
         models.OU,
         description='Organizational unit',
     ),
-    'location': base_fields.String(
-        description='Location (OU representation)',
-    ),
-    'traits': base_fields.List(
-        base_fields.String,
-        description='Entity traits',
+})
+
+
+# A list of VoipServiceListItem values
+VoipServiceList = api.model('VoipServiceList', {
+    'services': base_fields.List(
+        base_fields.Nested(VoipServiceListItem),
+        description='List of voip services',
     ),
 })
 
-VoipServiceList = api.model('VoipServiceList', {
-    'services': base_fields.List(
-        base_fields.Nested(VoipService),
-        description='List of voip services',
+
+VoipService = VoipServiceListItem.inherit('VoipService', {
+    'location': base_fields.String(
+        description='Location (OU representation)',
     ),
 })
 
@@ -101,7 +104,9 @@ VoipServiceUpdate = api.model('VoipServiceUpdate', {
     ),
 })
 
-VoipAddress = api.model('VoipAddress', {
+
+# Basic VoipAddress reference item (basic info)
+VoipAddressListItem = api.model('VoipAddressListItem', {
     'href': fields.href(
         '.voip-address',
         description='URL to this address',
@@ -113,6 +118,18 @@ VoipAddress = api.model('VoipAddress', {
         models.EntityOwner,
         description='Entity owner',
     ),
+})
+
+
+VoipAddressList = api.model('VoipAddressList', {
+    'addresses': base_fields.List(
+        base_fields.Nested(VoipAddressListItem),
+        description='List of voip addresses',
+    ),
+})
+
+
+VoipAddress = VoipAddressListItem.inherit('VoipAddress', {
     'cn': base_fields.String(
         description='Common name',
     ),
@@ -128,38 +145,29 @@ VoipAddress = api.model('VoipAddress', {
     'extension_uri': base_fields.String(
         description='Extension URI',
     ),
-    'traits': base_fields.List(
-        base_fields.String,
-        description='Entity traits',
-    ),
     'clients': base_fields.List(
-        base_fields.String,
+        base_fields.Integer,
         description='Associated client IDs',
     ),
 })
 
-VoipAddressList = api.model('VoipAddressList', {
-    'addresses': base_fields.List(
-        base_fields.Nested(VoipAddress),
-        description='List of voip addresses',
+
+VoipNumber = api.model('VoipNumber', {
+    'number': base_fields.String(
+        description='VoIP phone number',
+    ),
+    'extension': base_fields.String(
+        description='VoIP phone extension',
+    ),
+    'priority': base_fields.Integer(
+        description='Contact priority',
     ),
 })
 
-VoipAddressNumber = api.model('VoipAddressNumber', {
-    'contact_type': base_fields.String(
-        required=True,
-        description='Contact type code',
-    ),
-    'contact_value': base_fields.String(
-        required=False,
-        description=textwrap.dedent(
-            """
-            Full phone number (optional for extensions - will auto-assign
-            if empty)
-            """
-        ).strip(),
-    ),
-    'priority': base_fields.Integer(
-        description='Priority (optional, auto-assigned if not provided)',
+
+VoipNumberList = api.model('VoipNumberList', {
+    'numbers': base_fields.List(
+        base_fields.Nested(VoipNumber),
+        description='List of voip numbers',
     ),
 })

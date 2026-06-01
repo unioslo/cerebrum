@@ -28,20 +28,70 @@ from __future__ import (
     print_function,
     unicode_literals,
 )
+import logging
 
-import six
 from flask_restx import Resource, abort
 
 from Cerebrum import Errors
-from Cerebrum.Entity import EntityContactInfo
 from Cerebrum.modules.no.uio.voip.voipAddress import VoipAddress
-from Cerebrum.modules.no.uio.voip.voipClient import VoipClient
 from Cerebrum.rest.api import db, auth
 from Cerebrum.rest.api import utils as api_utils
 from . import utils
 from . import models
 
 api = models.api
+logger = logging.getLogger(__name__)
+
+
+ARG_ADDRESS_ID = "VoIP address id"
+ARG_NUMBER = "VoIP phone number"
+
+
+def search_voip_addrs(owner_id=None, owner_type=None, contact_value=None):
+    if contact_value is not None:
+        owner_ids = utils.find_owner_ids_from_contact(contact_value)
+    else:
+        owner_ids = None
+
+    if owner_id is not None:
+        if owner_ids is None:
+            owner_ids = set((owner_id,))
+        else:
+            owner_ids = owner_ids & set((owner_id,))
+
+    va = VoipAddress(db.connection)
+    results = []
+    for row in va.search(owner_entity_id=owner_ids,
+                         owner_entity_type=owner_type):
+        # search is ordered by entity-id
+        results.append({
+            'address_id': row['entity_id'],
+            'owner_id': row['owner_entity_id'],
+            'owner_type': row['owner_entity_type'],
+        })
+    return results
+
+
+def _build_address_response(address):
+    """ Build a VoipAddress model from a VoipAddress entity. """
+    owner = address.get_owner()
+    client_ids = utils.get_client_ids_from_address(address)
+    attrs = address.get_voip_attributes()
+    owner_name = api_utils.get_entity_name(owner)
+    return {
+        'address_id': address.entity_id,
+        'owner': utils.build_owner_data(
+            owner_id=owner.entity_id,
+            owner_type=owner.entity_type,
+            owner_name=owner_name,
+        ),
+        'cn': attrs["cn"],
+        'sip_uri': attrs["voipSipUri"],
+        'sip_primary_uri': attrs["voipSipPrimaryUri"],
+        'e164_uri': attrs["voipE164Uri"],
+        'extension_uri': attrs["voipExtensionUri"],
+        'clients': client_ids,
+    }
 
 
 @api.route("/addresses/", endpoint="voip-address-list")
@@ -50,10 +100,23 @@ class VoipAddressListResource(Resource):
 
     address_search_parser = api.parser()
     address_search_parser.add_argument(
-        'search',
+        'owner_id',
+        type=int,
+        required=False,
+        help='Filter addresses by owner id',
+    )
+    address_search_parser.add_argument(
+        'owner_type',
         type=str,
-        required=True,
-        help='Search parameter (entity_id, owner_id, contact info)',
+        required=False,
+        help='Filter addresses by owner type',
+    )
+    # TODO: separate number and extension?
+    address_search_parser.add_argument(
+        'contact_value',
+        type=str,
+        required=False,
+        help='Filter addresses by contact value',
     )
 
     @auth.require()
@@ -68,48 +131,71 @@ class VoipAddressListResource(Resource):
         Search by entity_id, owner_entity_id, or contact info.
         """
         args = self.address_search_parser.parse_args()
-        try:
-            designation = args.get('search', '').strip()
-        except AttributeError:
-            designation = None
 
-        if not designation:
-            abort(400, message="Search parameter is required")
+        if args['owner_type'] is None:
+            owner_type = None
+        else:
+            owner_type = utils.get_entity_type(args['owner_type'])
 
-        voip_addresses = utils.get_voip_address(db.connection, designation,
-                                                all_matches=True)
+        voip_addresses = search_voip_addrs(owner_id=args['owner_id'],
+                                           owner_type=owner_type,
+                                           contact_value=args['contact_value'])
 
         answer = []
-        for address in voip_addresses:
-            voip_attrs = address.get_voip_attributes()
-            owner = address.get_owner()
-            owner_name = api_utils.get_entity_name(owner)
+        for row in voip_addresses:
             answer.append({
-                "address_id": address.entity_id,
-                "owner": {
-                    "id": address.owner_entity_id,
-                    "type": owner.entity_type,
-                    "name": owner_name,
-                    "href": api_utils.href_from_entity_type(
-                        entity_type=owner.entity_type,
-                        entity_id=address.owner_entity_id,
-                        entity_name=owner_name,
-                    ),
-                },
-                "cn": voip_attrs["cn"],
-                "sip_uri": voip_attrs.get("voipSipUri", ""),
-                "sip_primary_uri": voip_attrs.get("voipSipPrimaryUri", ""),
-                "e164_uri": voip_attrs.get("voipE164Uri", ""),
-                "extension_uri": voip_attrs.get("voipExtensionUri", ""),
-                "traits": [],
-                "clients": [],
+                "address_id": row['address_id'],
+                "owner": utils.build_owner_data(
+                    owner_id=row['owner_id'],
+                    owner_type=row['owner_type'],
+                ),
             })
 
         return {'addresses': answer}
 
+    address_new_parser = api.parser()
+    address_new_parser.add_argument(
+        'owner_id',
+        type=int,
+        required=True,
+        help='Address owner',
+    )
+
+    @auth.require()
+    @api.expect(address_new_parser)
+    @api.response(200, 'Address created')
+    @api.response(400, 'Invalid address data')
+    @api.marshal_with(models.VoipAddress)
+    @db.autocommit
+    def post(self):
+        """ Create a new VoipAddress for a given owner. """
+        args = self.address_new_parser.parse_args()
+
+        # Find owner
+        owner_id = args['owner_id']
+        owner = utils.get_voip_owner(owner_id)
+
+        # Check if address already exists
+        address = VoipAddress(db.connection)
+        try:
+            address.find_by_owner_id(owner.entity_id)
+            abort(
+                400,
+                message=(
+                    "Address exists for owner id={}"
+                ).format(repr(owner_id)),
+            )
+        except Errors.NotFoundError:
+            # Create new address
+            address.clear()
+            address.populate(owner.entity_id)
+            address.write_db()
+
+        return _build_address_response(address)
+
 
 @api.route("/addresses/<int:address_id>", endpoint="voip-address")
-@api.doc(params={'address_id': 'Address entity ID or owner ID'})
+@api.doc(params={'address_id': ARG_ADDRESS_ID})
 class VoipAddressResource(Resource):
     """Resource for a single voip address."""
 
@@ -118,38 +204,8 @@ class VoipAddressResource(Resource):
     @api.marshal_with(models.VoipAddress)
     def get(self, address_id):
         """Get voip address information."""
-        address = utils.get_voip_address(db.connection, address_id)
-        owner = address.get_owner()
-
-        client = VoipClient(db.connection)
-        client_ids = sorted([
-            six.text_type(x["entity_id"])
-            for x in client.search(voip_address_id=address.entity_id)
-        ])
-
-        attrs = address.get_voip_attributes()
-        owner_name = api_utils.get_entity_name(owner)
-        return {
-            'address_id': address.entity_id,
-            'owner': {
-                'id': owner.entity_id,
-                'type': owner.entity_type,
-                'name': owner_name,
-                'href': api_utils.href_from_entity_type(
-                    entity_type=owner.entity_type,
-                    entity_id=owner.entity_id,
-                    entity_name=owner_name,
-                ),
-            },
-            'cn': attrs["cn"],
-            'sip_uri': attrs["voipSipUri"],
-            'sip_primary_uri': attrs["voipSipPrimaryUri"],
-            'e164_uri': attrs["voipE164Uri"],
-            'extension_uri': attrs["voipExtensionUri"],
-            'traits': utils.typeset_traits(db.connection,
-                                           address.get_traits()),
-            'clients': client_ids,
-        }
+        address = utils.get_voip_address_by_id(address_id)
+        return _build_address_response(address)
 
     @auth.require()
     @api.response(204, 'Address deleted')
@@ -157,191 +213,222 @@ class VoipAddressResource(Resource):
     @db.autocommit
     def delete(self, address_id):
         """Delete a voip address."""
-        address = utils.get_voip_address(db.connection, address_id)
+        address = utils.get_voip_address_by_id(address_id)
 
         # Check if there are clients associated
-        client = VoipClient(db.connection)
-        clients = list(client.search(voip_address_id=address.entity_id))
+        clients = utils.get_client_ids_from_address(address)
         if clients:
-            abort(400, message="Cannot delete address id={}: "
-                  "it has {} voip_client(s)".format(
-                      address.entity_id, len(clients)))
+            abort(
+                400,
+                message=(
+                    "Cannot delete address id={}: "
+                    "it has {} voip_client(s)"
+                ).format(address.entity_id, len(clients)),
+            )
 
         address_id = address.entity_id
         address.get_owner()
         address.delete()
+        return None, 204
 
 
 @api.route("/addresses/<int:address_id>/numbers",
            endpoint="voip-address-number-list")
-@api.doc(params={'address_id': 'Address entity ID or owner ID'})
-class VoipAddressNumberResource(Resource):
+@api.doc(params={'address_id': ARG_ADDRESS_ID})
+class VoipNumberCollectionResource(Resource):
     """Resource for managing phone numbers on a voip address."""
 
     @auth.require()
-    @api.expect(models.VoipAddressNumber)
     @api.response(201, 'Number added')
     @api.response(400, 'Number not added')
+    @api.marshal_with(models.VoipNumber)
     @db.autocommit
     def post(self, address_id):
-        """Add a phone number to a voip address.
+        """Generate and add a phone number to a voip address. """
 
-        If contact_type is contact_voip_extension and contact_value is empty
-        or not provided, an available extension will be automatically assigned.
-        """
-        import logging
-        logger = logging.getLogger(__name__)
+        address = utils.get_voip_address_by_id(address_id)
+        owner = address.get_owner()
 
-        data = api.payload
+        # Auto-assign extension if not given
+        contact_value, contact_alias = utils.find_available_extension()
+        utils.validate_number_pair(contact_value, contact_alias)
+        utils.validate_number_is_free(contact_value, is_extension=False)
+        utils.validate_number_is_free(contact_alias, is_extension=True)
 
-        contact_type_str = data.get('contact_type')
-        contact_full = data.get('contact_value')
-        priority = data.get('priority')
+        logger.info(
+            "Auto-assigned extension %s (number: %s) for owner id=%s",
+            contact_alias, contact_value, owner.entity_id)
 
-        # Get or create the address
-        owner = utils.get_voip_owner(db.connection, address_id)
-
-        # Check if address already exists
-        address = VoipAddress(db.connection)
-        try:
-            address.find_by_owner_id(owner.entity_id)
-        except Errors.NotFoundError:
-            # Create new address
-            address.populate(owner.entity_id)
-            address.write_db()
-
-        # Determine contact type
-        if contact_type_str:
-            contact_type = utils.get_constant(
-                db.connection, contact_type_str, db.const.ContactInfo)
-        else:
-            contact_type = db.const.contact_voip_extension
-
-        # Auto-assign extension if contact_full is empty and type is extension
-        if (contact_type == db.const.contact_voip_extension
-                and (not contact_full or contact_full == "")):
-            contact_full, contact_alias = (
-                utils.find_available_extension(db.connection)
-            )
-            logger.info(
-                "Auto-assigned extension %s (full: %s) for owner id=%s",
-                contact_alias, contact_full, owner.entity_id)
-        else:
-            if not contact_full:
-                abort(400, message="contact_value is required")
-
-            # Check that the number is not in use
-            if utils.get_contact_info(db.connection, contact_full):
-                abort(400,
-                      message="Number {} already in use".format(contact_full))
-
-            # Deduce 5-digit alias if appropriate
-            contact_alias = None
-            if contact_type == db.const.contact_voip_extension:
-                contact_alias = contact_full[-5:]
-
-        # Validate the numbers
-        if not address.contact_is_valid(contact_type, contact_full,
-                                        contact_alias):
-            abort(400, message="({}, {}) is not a valid number pair".format(
-                contact_full, contact_alias))
-
-        # Check if already registered to this owner
-        def owner_has_contact(owner, contact_value):
-            entity_ids = [
-                x["entity_id"] for x in utils.get_contact_info(
-                    db.connection, contact_value)]
-            return owner.entity_id in entity_ids
-
-        if (owner_has_contact(owner, contact_full) or
-                (contact_alias and owner_has_contact(owner, contact_alias))):
-            abort(400,
-                  message="{} or {} has already been registered for {}".format(
-                      contact_full, contact_alias, owner.entity_id))
-
-        # Determine priority
-        if priority is None:
-            so_far = owner.list_contact_info(
-                entity_id=owner.entity_id,
-                source_system=db.const.system_voip)
-            priority = 1
-            if so_far:
-                priority = max(x["contact_pref"] for x in so_far) + 1
-        else:
-            priority = int(priority)
-            if priority <= 0:
-                abort(400, message="Priority must be larger than 0")
+        priority = utils.get_next_priority(owner)
 
         # Add the contact info
         owner.add_contact_info(
             db.const.system_voip,
-            contact_type,
-            contact_full,
+            db.const.contact_voip_extension,
+            contact_value,
             pref=priority,
             alias=contact_alias
         )
-
-        warn = ""
-        if contact_alias and not contact_full.endswith(contact_alias):
-            warn = " (Warning: Short number does not match full number)"
-
         return {
-            'message': 'Associated {}/{} with owner id={}{}'.format(
-                contact_full, contact_alias, owner.entity_id, warn),
-            'contact_full': contact_full,
-            'contact_alias': contact_alias,
+            'number': contact_value,
+            'extension': contact_alias,
+            'priority': priority,
         }, 201
+
+    @auth.require()
+    @api.response(200, 'Address found')
+    @api.response(400, 'Missing required search parameter')
+    @api.marshal_with(models.VoipNumberList)
+    def get(self, address_id):
+        """Get voip numbers for a given address."""
+        address = utils.get_voip_address_by_id(address_id)
+        owner = address.get_owner()
+        results = []
+        for row in owner.list_contact_info(
+                source_system=db.const.system_voip,
+                contact_type=db.const.contact_voip_extension,
+                entity_id=owner.entity_id):
+            results.append({
+                'number': row['contact_value'],
+                'extension': row['contact_alias'],
+                'priority': row['contact_pref'],
+            })
+        results.sort(key=lambda d: (d['priority'], d['number']))
+        return {'numbers': results}
 
 
 @api.route("/addresses/<int:address_id>/numbers/<string:number>",
            endpoint="voip-address-number")
-@api.doc(params={
-    'address_id': 'Address entity ID or owner ID',
-    'number': 'Phone number to delete'
-})
-class VoipAddressNumberDeleteResource(Resource):
-    """Resource for deleting a specific phone number."""
+@api.doc(params={'address_id': ARG_ADDRESS_ID, 'number': ARG_NUMBER})
+class VoipNumberResource(Resource):
+    """Resource for adding or deleting a specific phone number."""
 
-    number_delete_parser = api.parser()
-    number_delete_parser.add_argument(
-        'owner_id',
+    @auth.require()
+    @api.response(200, 'Number found')
+    @api.response(404, 'Address or number not found')
+    @api.marshal_with(models.VoipNumber)
+    def get(self, address_id, number):
+        """ Add number or update extension for the given address. """
+        address = utils.get_voip_address_by_id(address_id)
+        owner = address.get_owner()
+
+        row = utils.get_number_entry(owner, number)
+        if not row:
+            abort(
+                404,
+                message="Number not found",
+            )
+
+        return {
+            'number': row['contact_value'],
+            'extension': row['contact_alias'],
+            'priority': row['contact_pref'],
+        }
+
+    number_parser = api.parser()
+    number_parser.add_argument(
+        'extension',
+        type=str,
+        required=False,
+        help="Extension number to add (will auto-generate if empty)",
+    )
+    number_parser.add_argument(
+        'priority',
         type=int,
         required=False,
-        help='Optional owner entity ID if number is ambiguous',
+        help='Optional priority value - should normally be omitted',
     )
 
     @auth.require()
+    @api.expect(number_parser)
+    @api.response(200, 'Number updated')
+    @api.response(201, 'Number added')
+    @api.response(400, 'Invalid request')
+    @api.response(404, 'Address not found')
+    @api.marshal_with(models.VoipNumber)
+    @db.autocommit
+    def put(self, address_id, number):
+        """ Add number or update extension for the given address. """
+        address = utils.get_voip_address_by_id(address_id)
+        owner = address.get_owner()
+
+        args = self.number_parser.parse_args()
+        contact_value = number
+        contact_alias = args['extension']
+        priority = args['priority']
+        if priority is not None:
+            priority = int(priority)
+            if priority <= 0:
+                abort(400, message="Priority must be larger than 0")
+
+        row = utils.get_number_entry(owner, contact_value)
+        if row:
+            # update
+            old_pri = row['contact_pref']
+            old_alias = row['contact_alias']
+            if ((not priority or old_pri == priority)
+                    and (not contact_alias or old_alias == contact_alias)):
+                # no change
+                return {
+                    'number': contact_value,
+                    'extension': old_alias,
+                    'priority': old_pri,
+                }, 200
+            # update extension and/or priority
+            if contact_alias:
+                utils.validate_number_is_free(contact_alias, is_extension=True)
+                utils.validate_number_pair(contact_value, contact_alias)
+            else:
+                contact_alias = old_alias
+            if not priority:
+                priority = old_pri
+
+            owner.delete_contact_info(
+                db.const.system_voip,
+                db.const.contact_voip_extension,
+                old_pri,
+            )
+            http_code = 200
+        else:
+            # new number
+            utils.validate_number_pair(contact_value, contact_alias)
+            utils.validate_number_is_free(contact_value, is_extension=False)
+            utils.validate_number_is_free(contact_alias, is_extension=True)
+            if not priority:
+                priority = utils.get_next_priority(owner)
+            http_code = 201
+
+        # Add the contact info
+        owner.add_contact_info(
+            db.const.system_voip,
+            db.const.contact_voip_extension,
+            contact_value,
+            pref=priority,
+            alias=contact_alias
+        )
+        return {
+            'number': contact_value,
+            'extension': contact_alias,
+            'priority': priority,
+        }, http_code
+
+    @auth.require()
     @api.response(204, 'Number deleted')
-    @api.response(400, 'Ambiguous number not deleted')
     @api.response(404, 'Number not found')
-    @api.doc(expect=[number_delete_parser])
     @db.autocommit
     def delete(self, address_id, number):
         """Delete a phone number from a voip address."""
-        args = self.number_delete_parser.parse_args()
-        owner_id = args.get('owner_id')
-
-        contacts = utils.get_contact_info(db.connection, number)
-        if not contacts:
-            return '', 404
-        owner = None
-        if owner_id is not None:
-            owner = utils.get_voip_owner(db.connection, owner_id)
-
-        if len(contacts) > 1 and owner is None:
-            abort(400, message="Multiple entities have {} registered. "
-                  "You must specify owner_id".format(number))
-
-        eci = EntityContactInfo(db.connection)
-
-        for d in contacts:
-            if owner and owner.entity_id != d["entity_id"]:
-                continue
-
-            eci.clear()
-            eci.find(d["entity_id"])
-            eci.delete_contact_info(
-                d["source_system"],
-                d["contact_type"],
-                d["contact_pref"]
+        address = utils.get_voip_address_by_id(address_id)
+        owner = address.get_owner()
+        row = utils.get_number_entry(owner, number)
+        if not row:
+            abort(
+                404,
+                message="Number not found",
             )
+        owner.delete_contact_info(
+            row["source_system"],
+            row["contact_type"],
+            row["contact_pref"],
+        )
+        return None, 204
