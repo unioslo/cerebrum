@@ -120,10 +120,9 @@ class VoipAddressListResource(Resource):
     )
 
     @auth.require()
-    @api.response(200, 'Address found')
-    @api.response(400, 'Missing required search parameter')
-    @api.marshal_with(models.VoipAddressList)
-    @api.doc(expect=[address_search_parser])
+    @api.expect(address_search_parser)
+    @api.marshal_with(models.VoipAddressList, code=200)
+    @api.response(400, "Invalid search parameter(s)")
     def get(self):
         """
         Search for voip addresses.
@@ -163,9 +162,12 @@ class VoipAddressListResource(Resource):
 
     @auth.require()
     @api.expect(address_new_parser)
-    @api.response(200, 'Address created')
-    @api.response(400, 'Invalid address data')
-    @api.marshal_with(models.VoipAddress)
+    @api.marshal_with(
+        models.VoipAddress,
+        code=200,
+        description="Address created",
+    )
+    @api.response(400, "Invalid address data")
     @db.autocommit
     def post(self):
         """ Create a new VoipAddress for a given owner. """
@@ -200,16 +202,20 @@ class VoipAddressResource(Resource):
     """Resource for a single voip address."""
 
     @auth.require()
-    @api.response(200, 'Address found')
-    @api.marshal_with(models.VoipAddress)
+    @api.marshal_with(
+        models.VoipAddress,
+        code=200,
+        description="Address found",
+    )
+    @api.response(404, "Address missing")
     def get(self, address_id):
         """Get voip address information."""
         address = utils.get_voip_address_by_id(address_id)
         return _build_address_response(address)
 
     @auth.require()
-    @api.response(204, 'Address deleted')
-    @api.response(400, 'Address with VOIP clients not deleted')
+    @api.response(204, "Address deleted")
+    @api.response(400, "Address with VOIP clients not deleted")
     @db.autocommit
     def delete(self, address_id):
         """Delete a voip address."""
@@ -239,9 +245,12 @@ class VoipNumberCollectionResource(Resource):
     """Resource for managing phone numbers on a voip address."""
 
     @auth.require()
-    @api.response(201, 'Number added')
+    @api.marshal_with(
+        models.VoipNumber,
+        code=201,
+        description="Number added",
+    )
     @api.response(400, 'Number not added')
-    @api.marshal_with(models.VoipNumber)
     @db.autocommit
     def post(self, address_id):
         """Generate and add a phone number to a voip address. """
@@ -276,9 +285,12 @@ class VoipNumberCollectionResource(Resource):
         }, 201
 
     @auth.require()
-    @api.response(200, 'Address found')
-    @api.response(400, 'Missing required search parameter')
-    @api.marshal_with(models.VoipNumberList)
+    @api.marshal_with(
+        models.VoipNumberList,
+        code=200,
+        description="Address numbers found",
+    )
+    @api.response(404, "Address missing")
     def get(self, address_id):
         """Get voip numbers for a given address."""
         address = utils.get_voip_address_by_id(address_id)
@@ -304,9 +316,12 @@ class VoipNumberResource(Resource):
     """Resource for adding or deleting a specific phone number."""
 
     @auth.require()
-    @api.response(200, 'Number found')
-    @api.response(404, 'Address or number not found')
-    @api.marshal_with(models.VoipNumber)
+    @api.marshal_with(
+        models.VoipNumber,
+        code=200,
+        description="Address number found",
+    )
+    @api.response(404, "Address or number not found")
     def get(self, address_id, number):
         """ Add number or update extension for the given address. """
         address = utils.get_voip_address_by_id(address_id)
@@ -341,11 +356,11 @@ class VoipNumberResource(Resource):
 
     @auth.require()
     @api.expect(number_parser)
-    @api.response(200, 'Number updated')
-    @api.response(201, 'Number added')
-    @api.response(400, 'Invalid request')
-    @api.response(404, 'Address not found')
     @api.marshal_with(models.VoipNumber)
+    @api.response(200, "Number updated", models.VoipNumber)
+    @api.response(201, "Number added", models.VoipNumber)
+    @api.response(400, "Invalid request")
+    @api.response(404, "Address not found")
     @db.autocommit
     def put(self, address_id, number):
         """ Add number or update extension for the given address. """
@@ -413,8 +428,8 @@ class VoipNumberResource(Resource):
         }, http_code
 
     @auth.require()
-    @api.response(204, 'Number deleted')
-    @api.response(404, 'Number not found')
+    @api.response(204, "Number deleted")
+    @api.response(404, "Number not found")
     @db.autocommit
     def delete(self, address_id, number):
         """Delete a phone number from a voip address."""
