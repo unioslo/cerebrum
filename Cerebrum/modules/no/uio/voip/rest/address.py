@@ -327,7 +327,7 @@ class VoipNumberResource(Resource):
     )
     @api.response(404, "Address or number not found")
     def get(self, address_id, number):
-        """ Add number or update extension for the given address. """
+        """ Get details for a given number. """
         address = utils.get_voip_address_by_id(address_id)
         owner = address.get_owner()
 
