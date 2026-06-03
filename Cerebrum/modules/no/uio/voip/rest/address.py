@@ -50,6 +50,10 @@ ARG_NUMBER = "VoIP phone number"
 def search_voip_addrs(owner_id=None, owner_type=None, contact_value=None):
     if contact_value is not None:
         owner_ids = utils.find_owner_ids_from_contact(contact_value)
+        if not owner_ids:
+            # early abort - no results here means no results when we AND it
+            # together with potential matches later
+            return []
     else:
         owner_ids = None
 
