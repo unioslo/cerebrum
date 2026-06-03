@@ -66,7 +66,7 @@ class VoipServiceListResource(Resource):
         required=False,
         help=(
             "Only include services with the given description"
-            " (supports case-sensitive glob-like patterns)"
+            " (supports case-insensitive glob-like patterns)"
         ),
     )
 
@@ -100,7 +100,7 @@ class VoipServiceListResource(Resource):
         matches = []
         svc_type_cls = db.const.VoipServiceTypeCode
         for row in search_voip_service(db.connection, ou_id=ou_ids,
-                                       description_like=description):
+                                       description_ilike=description):
             service_type = svc_type_cls(row['service_type'])
             matches.append({
                 "service_id": row['entity_id'],
