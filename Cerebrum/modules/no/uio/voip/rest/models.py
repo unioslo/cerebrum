@@ -40,26 +40,27 @@ api = Namespace(
 
 
 # Basic VoipService reference item (basic info)
-VoipServiceListItem = api.model('VoipServiceListItem', {
+VoipService = api.model('VoipService', {
     'href': fields.href(
-        '.voip-service',
-        description='URL to this service',
+        ".voip-service",
+        description="URL to this service",
+        example="/path/to/voip-services/101",
     ),
     'service_id': base_fields.Integer(
-        description='Service entity ID',
+        description="Service entity ID",
         example=101,
     ),
     'service_type': base_fields.String(
-        description='Service type',
+        description="Service type",
         example="voip_service_teknisk",
     ),
     'description': base_fields.String(
-        description='Service description',
+        description="Service description",
         example="Vakttelefon, eksempel",
     ),
     'ou': fields.base.Nested(
         models.OU,
-        description='Organizational unit',
+        description="Organizational unit",
         example={
             "href": "/path/to/ous/110",
             "id": 110,
@@ -71,17 +72,11 @@ VoipServiceListItem = api.model('VoipServiceListItem', {
 # A list of VoipServiceListItem values
 VoipServiceList = api.model('VoipServiceList', {
     'services': base_fields.List(
-        base_fields.Nested(VoipServiceListItem),
+        base_fields.Nested(VoipService),
         description='List of voip services',
     ),
 })
 
-
-VoipService = api.inherit('VoipService', VoipServiceListItem, {
-    'location': base_fields.String(
-        description='Location (OU representation)',
-    ),
-})
 
 VoipServiceCreate = api.model('VoipServiceCreate', {
     'service_type': base_fields.String(
@@ -120,16 +115,17 @@ VoipServiceUpdate = api.model('VoipServiceUpdate', {
 # Basic VoipAddress reference item (basic info)
 VoipAddressListItem = api.model('VoipAddressListItem', {
     'href': fields.href(
-        '.voip-address',
-        description='URL to this address',
+        ".voip-address",
+        description="URL to this address",
+        example="/path/to/voip-addresses/102",
     ),
     'address_id': base_fields.Integer(
-        description='Address entity ID',
+        description="Address entity ID",
         example=102,
     ),
     'owner': fields.base.Nested(
         models.EntityOwner,
-        description='Entity owner',
+        description="Entity owner",
         example={
             'id': 112,
             'type': "person",
