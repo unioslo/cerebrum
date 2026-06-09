@@ -355,6 +355,7 @@ setup(
         'Cerebrum/auth',
         'Cerebrum/config',
         'Cerebrum/database',
+        'Cerebrum/entity',
         'Cerebrum/export',
         'Cerebrum/extlib',
         'Cerebrum/group',
