@@ -830,7 +830,7 @@ class BofhdExtidCommands(BofhdCommandBase):
     #
     # entity extid_dups <id-type>
     #
-    all_commands['entity_extid_duplicates'] = Command(
+    all_commands['entity_extid_dups'] = Command(
         ('entity', 'extid_duplicates'),
         SimpleString(help_ref='entity-extid-type'),
         fs=FormatSuggestion(
@@ -841,7 +841,7 @@ class BofhdExtidCommands(BofhdCommandBase):
         perm_filter='can_search_extid',
     )
 
-    def entity_extid_duplicates(self, operator, _id_type):
+    def entity_extid_dups(self, operator, _id_type):
         id_type = _get_id_type(self.const, _id_type, user_input=True)
         self.ba.can_search_extid(operator.get_entity_id(), id_type=id_type)
         collect = {}
