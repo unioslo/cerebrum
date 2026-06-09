@@ -49,7 +49,7 @@ class VoipServiceListResource(Resource):
 
     service_search_parser = api.parser()
     service_search_parser.add_argument(
-        "ou-id",
+        "ou_id",
         type=int,
         required=False,
         help="Only include services for the given org unit id (ou entity-id)",
@@ -66,14 +66,14 @@ class VoipServiceListResource(Resource):
         required=False,
         help=(
             "Only include services with the given description"
-            " (supports case-sensitive glob-like patterns)"
+            " (supports case-insensitive glob-like patterns)"
         ),
     )
 
     @auth.require()
-    @api.marshal_with(models.VoipServiceList)
-    @api.response(200, 'Service found')
-    @api.doc(expect=[service_search_parser])
+    @api.expect(service_search_parser)
+    @api.marshal_with(models.VoipServiceList, code=200)
+    @api.response(400, "Invalid search parameter(s)")
     def get(self):
         """ List or search for voip services. """
         args = self.service_search_parser.parse_args()
@@ -81,8 +81,8 @@ class VoipServiceListResource(Resource):
         # Sanity check our ou-id + location args
         # (i.e. translate to a single ou_id)
         ou_ids = set()
-        if args['ou-id'] is not None:
-            ou = utils.get_ou_by_id(args['ou-id'])
+        if args['ou_id'] is not None:
+            ou = utils.get_ou_by_id(args['ou_id'])
             ou_ids.add(ou.entity_id)
         if args['location'] is not None:
             ou = utils.get_ou_by_location(args['location'])
@@ -100,7 +100,7 @@ class VoipServiceListResource(Resource):
         matches = []
         svc_type_cls = db.const.VoipServiceTypeCode
         for row in search_voip_service(db.connection, ou_id=ou_ids,
-                                       description_like=description):
+                                       description_ilike=description):
             service_type = svc_type_cls(row['service_type'])
             matches.append({
                 "service_id": row['entity_id'],
@@ -174,7 +174,6 @@ def _build_service_response(service):
         'ou': {
             'id': service.ou_id,
         },
-        'location': utils.typeset_ou(service.ou_id),
     }
 
 
@@ -184,9 +183,12 @@ class VoipServiceResource(Resource):
     """Resource for a single voip service."""
 
     @auth.require()
-    @api.response(200, 'Service found')
-    @api.response(404, 'Service not found')
-    @api.marshal_with(models.VoipService)
+    @api.marshal_with(
+        models.VoipService,
+        code=200,
+        description="Service found",
+    )
+    @api.response(404, "Service not found")
     def get(self, service_id):
         """Get voip service information."""
         service = utils.get_voip_service_by_id(service_id)
@@ -194,10 +196,13 @@ class VoipServiceResource(Resource):
 
     @auth.require()
     @api.expect(models.VoipServiceUpdate)
-    @api.marshal_with(models.VoipService)
-    @api.response(200, 'Service updated')
-    @api.response(400, 'Invalid service_type, description, or ou_id')
-    @api.response(404, 'Service not found')
+    @api.marshal_with(
+        models.VoipService,
+        code=200,
+        description="Service updated",
+    )
+    @api.response(400, "Invalid service parameters")
+    @api.response(404, "Service not found")
     @db.autocommit
     def put(self, service_id):
         """Update voip service information."""
@@ -226,8 +231,8 @@ class VoipServiceResource(Resource):
         return _build_service_response(service)
 
     @auth.require()
-    @api.response(204, 'Service deleted')
-    @api.response(404, 'Service not found')
+    @api.response(204, "Service deleted")
+    @api.response(404, "Service not found")
     @db.autocommit
     def delete(self, service_id):
         """Delete a voip service."""

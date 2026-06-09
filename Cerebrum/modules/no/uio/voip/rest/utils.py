@@ -174,28 +174,6 @@ def assert_unused_service_description(description, _error=400):
         )
 
 
-def typeset_ou(ou_id):
-    """
-    Return a human-friendly description of an OU.
-
-    :param ou_id: OU entity ID
-    :return: String like '33-15-20 (USIT)'
-    """
-    const = db.const
-    ou = get_ou_by_id(ou_id, _error=500)
-
-    acronym = ou.get_name_with_language(
-        const.ou_name_acronym, const.language_nb, None)
-    short_name = ou.get_name_with_language(
-        const.ou_name_short, const.language_nb, None)
-    ou_name = acronym or short_name
-    location = (
-        "%02d-%02d-%02d (%s)"
-        % (ou.fakultet, ou.institutt, ou.avdeling, ou_name)
-    )
-    return location
-
-
 def find_owner_ids_from_contact(value):
     """
     Return voip_addresses by contact info value.

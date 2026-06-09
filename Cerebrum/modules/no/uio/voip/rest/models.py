@@ -40,23 +40,31 @@ api = Namespace(
 
 
 # Basic VoipService reference item (basic info)
-VoipServiceListItem = api.model('VoipServiceListItem', {
+VoipService = api.model('VoipService', {
     'href': fields.href(
-        '.voip-service',
-        description='URL to this service',
+        ".voip-service",
+        description="URL to this service",
+        example="/path/to/voip-services/101",
     ),
     'service_id': base_fields.Integer(
-        description='Service entity ID',
+        description="Service entity ID",
+        example=101,
     ),
     'service_type': base_fields.String(
-        description='Service type',
+        description="Service type",
+        example="voip_service_teknisk",
     ),
     'description': base_fields.String(
-        description='Service description',
+        description="Service description",
+        example="Vakttelefon, eksempel",
     ),
     'ou': fields.base.Nested(
         models.OU,
-        description='Organizational unit',
+        description="Organizational unit",
+        example={
+            "href": "/path/to/ous/110",
+            "id": 110,
+        },
     ),
 })
 
@@ -64,42 +72,42 @@ VoipServiceListItem = api.model('VoipServiceListItem', {
 # A list of VoipServiceListItem values
 VoipServiceList = api.model('VoipServiceList', {
     'services': base_fields.List(
-        base_fields.Nested(VoipServiceListItem),
+        base_fields.Nested(VoipService),
         description='List of voip services',
     ),
 })
 
 
-VoipService = api.inherit('VoipService', VoipServiceListItem, {
-    'location': base_fields.String(
-        description='Location (OU representation)',
-    ),
-})
-
 VoipServiceCreate = api.model('VoipServiceCreate', {
     'service_type': base_fields.String(
         required=True,
         description='Service type code',
-    ),
-    'ou_id': base_fields.Integer(
-        required=True,
-        description='Organizational unit ID',
+        example="voip_service_teknisk",
     ),
     'description': base_fields.String(
         required=True,
         description='Service description (must be unique)',
+        example="Vakttelefon, eksempel",
+    ),
+    'ou_id': base_fields.Integer(
+        required=True,
+        description='Organizational unit ID',
+        example=110,
     ),
 })
 
 VoipServiceUpdate = api.model('VoipServiceUpdate', {
-    'description': base_fields.String(
-        description='New service description',
-    ),
     'service_type': base_fields.String(
         description='New service type code',
+        example="voip_service_teknisk",
+    ),
+    'description': base_fields.String(
+        description='New service description',
+        example="Vakttelefon, eksempel",
     ),
     'ou_id': base_fields.Integer(
         description='New organizational unit ID',
+        example=110,
     ),
 })
 
@@ -107,15 +115,23 @@ VoipServiceUpdate = api.model('VoipServiceUpdate', {
 # Basic VoipAddress reference item (basic info)
 VoipAddressListItem = api.model('VoipAddressListItem', {
     'href': fields.href(
-        '.voip-address',
-        description='URL to this address',
+        ".voip-address",
+        description="URL to this address",
+        example="/path/to/voip-addresses/102",
     ),
     'address_id': base_fields.Integer(
-        description='Address entity ID',
+        description="Address entity ID",
+        example=102,
     ),
     'owner': fields.base.Nested(
         models.EntityOwner,
-        description='Entity owner',
+        description="Entity owner",
+        example={
+            'id': 112,
+            'type': "person",
+            'href': "/path/to/persons/112",
+            'name': None,
+        },
     ),
 })
 
@@ -132,21 +148,30 @@ VoipAddress = api.inherit('VoipAddress', VoipAddressListItem, {
     'cn': base_fields.String(
         description='Common name',
     ),
-    'sip_uri': base_fields.String(
+    'sip_uri': base_fields.List(
+        base_fields.String,
         description='SIP URI',
+        example=[
+            "sip:+68051234@example.org", "sip:51234@exmaple.org",
+            "sip:username@example.org", "sip:first.last@example.org",
+        ],
     ),
     'sip_primary_uri': base_fields.String(
         description='Primary SIP URI',
+        example="sip:first.last@example.org",
     ),
     'e164_uri': base_fields.String(
         description='E.164 URI',
+        example="sip:68051234@example.org",
     ),
     'extension_uri': base_fields.String(
         description='Extension URI',
+        example="sip:51234@example.org",
     ),
     'clients': base_fields.List(
         base_fields.Integer,
         description='Associated client IDs',
+        example=[103, 104],
     ),
 })
 
@@ -154,12 +179,15 @@ VoipAddress = api.inherit('VoipAddress', VoipAddressListItem, {
 VoipNumber = api.model('VoipNumber', {
     'number': base_fields.String(
         description='VoIP phone number',
+        example="+4768051234",
     ),
     'extension': base_fields.String(
         description='VoIP phone extension',
+        example="51234",
     ),
     'priority': base_fields.Integer(
         description='Contact priority',
+        example=1,
     ),
 })
 

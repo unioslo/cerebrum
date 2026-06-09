@@ -116,10 +116,11 @@ class DateTimeTz(base.DateTime):
         return super(DateTime, self).format(value)
 
 
-def href(endpoint, description="URL to this resource"):
+def href(endpoint, description="URL to this resource", example=None):
     """ Create a reference to another API resource. """
     return base.Url(
         endpoint=endpoint,
         absolute=False,
         description=description,
+        example=example,
     )
