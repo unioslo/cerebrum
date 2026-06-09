@@ -1,6 +1,6 @@
 FROM python:2-alpine
 RUN apk add --no-cache bash gcc g++ swig python-dev postgresql-client \
-                       postgresql-dev libffi-dev openssl-dev openldap-dev \
+                       postgresql-dev libffi-dev openldap-dev \
                        gettext libxml2 libxml2-dev libxslt libxslt-dev \
                        gpgme gpgme-dev libffi-dev py-psycopg2
 COPY requirements.txt /requirements.txt
