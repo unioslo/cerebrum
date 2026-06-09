@@ -830,7 +830,7 @@ class BofhdExtidCommands(BofhdCommandBase):
     #
     # entity extid_dups <id-type>
     #
-    all_commands['entity_extid_dups'] = Command(
+    all_commands['entity_extid_duplicates'] = Command(
         ('entity', 'extid_duplicates'),
         SimpleString(help_ref='entity-extid-type'),
         fs=FormatSuggestion(
