@@ -118,7 +118,7 @@ def main():
         for a in admin:
             validate_address(a)
 
-        args = [
+        sympa_cmd = [
             "/usr/bin/sudo",
             "PKG=%s" % (host,),
             "/site/bin/createlist",
@@ -127,27 +127,25 @@ def main():
             "--subject", description,
         ]
         for a in admin:
-            args.extend(("--owner", a))
+            sympa_cmd.extend(("--owner", a))
 
     elif command == "rmlist":
-        args = [
+        sympa_cmd = [
             "/usr/bin/sudo",
             "PKG=%s" % (host,),
-            "/site/bin/closelist", listname]
+            "/site/bin/closelist",
+            listname,
+        ]
 
     else:
         raise ValueError("Unknown command <%s> for sympa list" % (command,))
 
-    logger.debug("sympa_wrapper command: %s", subproc.format_command(args))
-
-    to_exec = subproc.format_command(args)
-    args = [
+    remote_cmd = [
         "/usr/bin/ssh",
         "%s@%s" % (remote_user, host),
-        to_exec,
+        subproc.format_command(sympa_cmd),
     ]
-    logger.info("running: %s", subproc.format_command(args))
-    ret = subproc.run(args, retval=(subproc.RETURN_RC,))
+    ret = subproc.run(remote_cmd, retval=(subproc.RETURN_RC,))
     rc = ret[0]
     raise SystemExit(rc)
 
