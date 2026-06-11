@@ -59,6 +59,7 @@ import sys
 import Cerebrum.logutils
 # import Cerebrum.logutils.options
 from Cerebrum.utils import subproc
+from Cerebrum.utils import text_compat
 
 logger = logging.getLogger(__name__)
 
@@ -104,14 +105,15 @@ def validate_address(addr, mode="any"):
 def main():
     # For now - legacy mode
     Cerebrum.logutils.autoconf("cronjob", None)
+    argv = [text_compat.to_text(a) for a in sys.argv]
 
-    host, command, listname = sys.argv[1:4]
+    host, command, listname = argv[1:4]
     admin = profile = description = None
     remote_user = "cerebrum"
     validate_address(listname, mode=command)
 
     if command == "newlist":
-        admin, profile, description = sys.argv[4:]
+        admin, profile, description = argv[4:]
         admin = admin.split(",")
         for a in admin:
             validate_address(a)
@@ -136,7 +138,7 @@ def main():
     else:
         raise ValueError("Unknown command <%s> for sympa list" % (command,))
 
-    logger.debug("sympa_wrapper command: %s", " ".join(args))
+    logger.debug("sympa_wrapper command: %s", subproc.format_command(args))
 
     to_exec = subproc.format_command(args)
     args = [
@@ -144,7 +146,7 @@ def main():
         "%s@%s" % (remote_user, host),
         to_exec,
     ]
-    logger.info("running: '%s'", " ".join(args))
+    logger.info("running: %s", subproc.format_command(args))
     ret = subproc.run(args, retval=(subproc.RETURN_RC,))
     rc = ret[0]
     raise SystemExit(rc)
