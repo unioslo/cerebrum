@@ -19,6 +19,46 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
 This module contains a number of core utilities used everywhere in the tree.
+
+TODO
+-----
+This module should be removed, and all helpers moved into more suitable
+modules:
+
+`NotSet`
+    This singleton should probably be moved into a separate module in
+    `Cerebrum`, along with other singletons (a few scripts and modules creates
+    unique types or objects to be used as a singleton).
+
+`Factory`
+    Should have its own module, e.g. `Cerebrum.factory`
+
+`argument_to_sql`
+    This should be moved to e.g. `Cerebrum.database.query_utils`.
+
+`prepare_string`
+    All use of this function should be replaced by `Pattern` or
+    `pattern_helper` from `Cerebrum.database.query_utils`.
+
+`make_timer`
+    Should probably relocated to somewhere in `Cerebrum.logutils`.
+
+    This helper has a lot of duplicates with similar functionality in other
+    scripts and modules.  All of these should probably be merged together, or
+    placed into the same module.
+
+Compatibility imports
+    We should find all current use of the compatibility imports, and update to
+    the new, canonical placements.
+
+
+History
+-------
+Some functionality has already been relocated, but with compatibility imports
+here, as they are widely used.
+
+If you're looking for ``log_and_spawn_output``, then this has been replaced by
+similar functionality in `Cerebrum.utils.subproc`.
 """
 from __future__ import (
     absolute_import,
@@ -26,13 +66,8 @@ from __future__ import (
     print_function,
     unicode_literals,
 )
-
-import os
-import select
 import sys
 import time
-import traceback
-from subprocess import Popen, PIPE
 
 import six
 
@@ -71,86 +106,6 @@ class _NotSet(Cerebrum.meta.SingletonMixin):
 
 
 NotSet = _NotSet()
-
-
-def spawn_and_log_output(
-        cmd,
-        log_exit_status=True,
-        connect_to=[],
-        shell=False):
-    """Run command and copy stdout to logger.debug and stderr to
-    logger.error.  cmd may be a sequence.  connect_to is a list of
-    servers which will be contacted.  If debug_hostlist is set and
-    does not contain these servers, the command will not be run and
-    success is always reported.
-
-    Return the exit code if the process exits normally, or the
-    negative signal value if the process was killed by a signal.
-
-    :type cmd: basestr or sequence of basestr
-    :param cmd: Command, see subprocess.Popen argument args
-
-    :type log_exit_status: bool
-    :param log_exit_status: emit log message with exit status?
-
-    :type connect_to: list of str
-    :param connect_to: Spawned command will connect to resource (hostlist),
-                       only runs command if cereconf.DEBUG_HOSTLIST is None,
-                       or contains the given resource
-
-    :type shell: bool
-    :param shell: run command in shell, or directly with os.exec*()
-
-    :rtype: int
-    :return: spawned programme's exit status
-    """
-    # select on pipes and Popen3 only works in Unix.
-    exit_success = 0
-    logger = Factory.get_logger()
-    if cereconf.DEBUG_HOSTLIST is not None:
-        for srv in connect_to:
-            if srv not in cereconf.DEBUG_HOSTLIST:
-                logger.debug("Won't connect to %s, won't spawn %r",
-                             srv, cmd)
-                return exit_success
-
-    proc = Popen(cmd, bufsize=10240, close_fds=True,
-                 stdin=PIPE, stdout=PIPE, stderr=PIPE)
-    pid = proc.pid
-    if log_exit_status:
-        logger.debug('Spawned %r, pid %d', cmd, pid)
-    proc.stdin.close()
-    descriptor = {proc.stdout: logger.debug,
-                  proc.stderr: logger.error}
-    while descriptor:
-        # select() is called for _every_ line, since we can't inspect
-        # the buffering in Python's file object.  This works OK since
-        # select() will return "readable" for an unread EOF, and
-        # Python won't read the EOF until the buffers are exhausted.
-        ready, _, _ = select.select(list(descriptor.keys()), [], [])
-        for fd in ready:
-            line = fd.readline()
-            if line == '':
-                fd.close()
-                del descriptor[fd]
-            else:
-                descriptor[fd]("[%d] %s", pid, line.rstrip())
-    status = proc.wait()
-    if status == exit_success and log_exit_status:
-        logger.debug("[%d] Completed successfully", pid)
-    elif os.WIFSIGNALED(status):
-        # The process was killed by a signal.
-        status = os.WTERMSIG(status)
-        if log_exit_status:
-            logger.error('[%d] Command "%r" was killed by signal %d',
-                         pid, cmd, status)
-    else:
-        # The process exited with an exit status
-        status = os.WSTOPSIG(status)
-        if log_exit_status:
-            logger.error("[%d] Return value was %d from command %r",
-                         pid, status, cmd)
-    return status
 
 
 class Factory(object):
@@ -275,107 +230,6 @@ class Factory(object):
         """
         import Cerebrum.logutils
         return Cerebrum.logutils.get_logger(name=name, _stacklevel=3)
-
-
-def exception_wrapper(functor, exc_list=None, return_on_exc=None, logger=None):
-    """Helper function for discarding exceptions easier.
-
-    Occasionally we do not care about about the specific exception being
-    raised in a function call, since we are interested in the return value
-    from that function. There are cases where a sensible dummy value can be
-    either substituted or used, instead of having to deal with exceptions and
-    what not. This is especially handy for small functions that may still
-    (under realistic situations) raise exceptions. An reasonable example is
-    Person.get_name, where '' can very often be used instead of exceptions.
-
-    We can wrap around a call, so that a certain exception (or a sequence
-    thereof) would result in in returning a specific (dummy) value. A typical
-    use case would be:
-
-        >>> def foo(...):
-        ...     # do something that may raise
-        ... # end foo
-        ... foo = Utils.exception_wrapper(foo, (AttributeError, ValueError),
-        ...                               (None, None), logger)
-
-    ... which would result in a warn message in the logs, if foo() raises
-    AttributeError or ValueError. No restrictions are placed on the arguments
-    of foo, obviously.
-
-    @param functor:
-      A callable object which we want to wrap around.
-    @type functor:
-      A function, a method (bound or unbound) or an object implementing
-      the __call__ special method.
-
-    @param exc_list
-      A sequence of exception classes to intercept. None means that all
-      exceptions are intercepted (this is the default).
-    @type exc_list: a tuple, a list, a set or another class implementing
-      the __iter__ special method.
-
-    @param return_on_exc:
-      Value that is returned in case we intercept an exception. This is what
-      play the role of a dummy value for the caller.
-    @type return_on_exc: any object.
-
-    @return:
-      A function invoking functor when called. rest and keyword arguments are
-      supported.
-    @rtype: function.
-    """
-
-    # if it's a single exception type, convert it to a tuple now
-    if exc_list is None:
-        exc_list = (Exception,)
-    elif not isinstance(exc_list, (list, tuple, set)):
-        exc_list = (exc_list,)
-    else:
-        exc_list = tuple(exc_list)
-
-    # IVR 2008-03-11 FIXME: We cannot use this assert until all of Cerebrum
-    # exceptions actually *are* derived from BaseException. But it is a good
-    # sanity check.
-    # assert all(issubclass(x, BaseException) for x in exc_list)
-
-    def wrapper(*rest, **kw_args):
-        "Small wrapper that calls L{functor} while ignoring exceptions."
-
-        # None means trap all exceptions. Use with care!
-        try:
-            return functor(*rest, **kw_args)
-        except exc_list:
-            if logger:
-                logger.warning(format_exception_context(*sys.exc_info()))
-        return return_on_exc
-
-    return wrapper
-
-
-def format_exception_context(etype, evalue, etraceback):
-    """Small helper function for printing exception context.
-
-    This exception method helps format an exception traceback.
-
-    The arguments are the same as the return value of sys.exc_info() call.
-
-    @rtype: basestring
-    @return:
-      A string holding the context description for the specified exception. If
-      no exception is specified (i.e. (None, None, None) is given), return an
-      empty string.
-    """
-
-    tmp = traceback.extract_tb(etraceback)
-    if not tmp:
-        return ""
-
-    filename, line, funcname, _ = tmp[-1]
-    filename = os.path.basename(filename)
-
-    return ("Exception %s occured (in context %s): %s" %
-            (etype, "%s/%s() @line %s" % (filename, funcname, line),
-             repr(evalue)))
 
 
 def argument_to_sql(argument,

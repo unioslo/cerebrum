@@ -59,7 +59,6 @@ import six
 
 import cereconf
 
-from Cerebrum import Utils
 from Cerebrum.utils import date_compat
 from Cerebrum.utils import sorting
 from Cerebrum.utils import text_compat
@@ -792,47 +791,9 @@ class XMLEntity2Object(object):
                 if self.logger:
                     self.logger.warning("Skipping element %s", element.tag,
                                         exc_info=True)
-                    # %s occurred while processing XML element %s. "
-                    #     "Skipping it.",
-                    #     Utils.format_exception_context(*sys.exc_info()),
-                    #     element.tag)
                 element.clear()
 
     next = __next__
-
-    @staticmethod
-    def exception_wrapper(functor, exc_list=None, return_on_exc=None):
-        """This is a convenience method for Utils.exception_wrapper.
-
-        IVR 2008-03-12 Sorry, some magic ahead to make code elsewhere simpler
-        to use.
-
-        The goal of this method is to make it easier to bind loggers to
-        wrapped methods. Although this method is static *and* it refers to
-        self.logger (which does not really make any sense), the code WILL work
-        on any instance of this class (or its subclasses), since all of these
-        instances do in fact have a 'logger' attribute and the wrapped method
-        (i.e. L{functor}) will be called on an instance (it is a bound
-        method). IOW, this class and its subclasses are the sole target
-        audience for this method.
-
-        Caveat: for static methods this wrapper WILL FAIL! I.e. functor *must*
-        be a non-static method of a subclass of this class.
-
-        The parameters have the same meaning as L{Utils.exception_wrapper}.
-
-        The return value is the same as with L{Utils.exception_wrapper}.
-        """
-
-        def wrapper(self, *rest, **kw_args):
-            # This gives us a wrapped method that ignores the suitable
-            # exceptions ...
-            func = Utils.exception_wrapper(functor, exc_list, return_on_exc,
-                                           self.logger)
-            # ... and here we call the wrapped method.
-            return func(self, *rest, **kw_args)
-
-        return wrapper
 
     def __iter__(self):
         return self
