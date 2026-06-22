@@ -245,7 +245,7 @@ class DiskCache(object):
             profile = self._get_profile(person_info, account)
             if profile is None:
                 logger.warning("No profile for account %s (%d)",
-                               account.acount_name, account.entity_id)
+                               account.account_name, account.entity_id)
                 continue
 
             try:
