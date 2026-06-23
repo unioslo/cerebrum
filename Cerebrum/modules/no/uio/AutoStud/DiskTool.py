@@ -159,7 +159,7 @@ class DiskPool(DiskSorters):
             tmp.sort(key=self._disk_sort_by_name_key)
         else:
             self._resort_disk_count()
-            tmp.sort(self._disk_sort_by_count_key)
+            tmp.sort(key=self._disk_sort_by_count_key)
         return self.post_filter_search_res(tmp, self.orderby)
 
     def __repr__(self):
