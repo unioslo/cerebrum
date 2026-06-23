@@ -453,8 +453,8 @@ class SelectTool(object):
         """Sort by nivaakode (highest first), then by profile"""
         profile, level = pn_tuple
         # primary key is *level*, but inverted so that higher numbers are first
-        # if same level, sort by profile
-        return -level, profile
+        # if same level, sort by profile name
+        return -level, profile.name
 
     def _unique_extend(self, tgt_list, values, profile_name, nivaakode=0):
         """Append all v in values to tgt_list iff they are not already
