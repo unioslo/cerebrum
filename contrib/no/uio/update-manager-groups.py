@@ -89,7 +89,8 @@ import logging
 
 import six
 
-from Cerebrum import logutils
+import Cerebrum.logutils
+import Cerebrum.logutils.options
 from Cerebrum.Utils import Factory
 from Cerebrum.group import group_sync
 from Cerebrum.modules.no.uio.hr_import import leader_groups as mgr_groups
@@ -238,10 +239,10 @@ def main(inargs=None):
         required=True
     )
     argutils.add_commit_args(parser)
-    logutils.options.install_subparser(parser)
+    Cerebrum.logutils.options.install_subparser(parser)
 
     args = parser.parse_args(inargs)
-    logutils.autoconf("cronjob", args)
+    Cerebrum.logutils.autoconf("cronjob", args)
 
     db = Factory.get('Database')()
     db.cl_init(change_program=parser.prog)
