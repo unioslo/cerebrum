@@ -99,3 +99,124 @@ Basic usage
 ``<authn-level>``
     The required authentication level - A literal ``3`` is username/password,
     and ``4`` is MFA (strong authentication).
+
+
+Authentication using Entra
+===========================
+This method simply enables an existing integration between Feide and Azure/Entra.
+
+The py:class:`Cerebrum.modules.no.OrgLDIF.NorEduAuthnLevelMixin` mixin adds this
+authentication method to *all* Feide users.
+
+Note that this method largely bypasses our quarantine rules, as we can no longer
+remove/manipulate the ``userPassowrd`` attribute to prevent login.  One way to
+remedy this, is to tag quarantined users with a given ``objectClass``, and
+preventing Feide from seeing these users in LDAP (requires development + LDAP
+configuration).
+
+
+MFA with one time codes over SMS
+================================
+The py:class:`Cerebrum.modules.no.OrgLDIF.NorEduSmsAuthnMixin` mixin adds support for
+using contact info as a valid MFA method in Feide.  Mobile phone numbers
+registered with given person can be configured as valid SMS authentication
+methods in Feide.
+
+.. important::
+   Cerebrum does not have any way of verifying mobile numbers for use as an MFA
+   method.  This mixin should only be configured with source systems that verify
+   *all* mobile numbers of the given type.
+
+Configuration example to allow anyone with an affiliation of type
+``AFFILIATION`` to receive one time codes over SMS to the phone number type
+``TYPE`` from source system ``SOURCE``:
+::
+
+    LDAP_PERSON['norEduPersonAuthnMethod_selector'] = {
+        'AFFILIATION': {
+            ("SOURCE", "TYPE"): "optional label",
+        },
+    }
+
+    # Use labels from the norEduPersonAuthnMethod_selector
+    LDAP_PERSON['norEduPersonAuthnMethod_labels'] = True
+
+
+The auth method shows up in Feide as:
+
+    *One time code via SMS*
+    Send a text message to <label>
+
+If custom labels are enabled, and a label is given in the configuration, it
+will be shown as-is.  If no label is set in the configuration, it will default
+to "<TYPE> from <SOURCE>", e.g. "PRIVATE_MOBILE from SAP".
+
+If custom labels are disabled, Feide will replace ``<label>`` with a partially
+cencored phone number, e.g. ``********123``.
+
+
+MFA with a TOTP autenticator
+============================
+Cerebrum supports storing OTP secrets using asymmetric encryption.  These OTP
+secrets can be formatted and exported to Feide as a valid authentication method
+using the py:class:`Cerebrum.modules.otp.otp_ldif_utils.NorEduOtpMixin` mixin.
+
+Pre-requisites
+---------------
+OTP database schema:
+::
+
+    python makedb.py design/mod_otp.sql
+
+OTP mixins
+    Constants + person mixin
+
+    - ``CLASS_CONSTANTS += ("Cerebrum.modules.otp.constants/OtpConstants",)``
+    - ``CLASS_CLCONSTANTS += ("Cerebrum.modules.otp.constants/OtpChangeTypeConstants",)``
+    - ``CLASS_PERSON += (Cerebrum.modules.otp.mixins/OtpPersonMixin",)``
+
+
+OTP policy setting
+    An OTP policy dictates encryption schemes and storage formats for the
+    default Cerebrum OTP secret.  For feide, this typically means:
+    ::
+
+        cereconf.OTP_POLICY = (
+            "Cerebrum.modules.otp.otp_types/OtpTypeFeideJwe",
+        )
+
+    See the ``OtpTypeFeideJwe`` class for details.  This specific implementation
+    will:
+
+    - Create and store a (de-facto) standard Google Authenticator secret
+    - Encrypt the secret for Feide, using a given public key in
+      ``cereconf.DB_AUTH_DIR``.
+    - Store the encrypted value as ``feide-ga``
+
+
+OrgLDIF mixin
+    The py:class:`Cerebrum.modules.otp.otp_ldif_utils.NorEduOtpMixin` will
+    include otp secrets stored as ``feide-ga`` (the ``OtpTypeFeideJwe``
+    default).
+
+
+Setting OTP secrets
+--------------------
+Cerebrum has two methods for adding and removing otp secrets:
+
+bofhd commands
+    A default implementation in py:mod:`Cerebrum.modules.otp.bofhd_otp_cmds`
+    lets superusers set, generate, or clear otp secrets.
+    ::
+
+        person otp_set person:<username>    # generate and set otp secret
+        person otp_clear person:<username>  # remove the otp secret
+
+        # generated otp secrets are stored temporarily in the operator session cache:
+        person otp_session_list             # list all secrets (otp uris) generatedin the current session cache
+        person otp_session_clear            # clear all secrets from the current otp session cache
+
+
+API
+    ``Cerebrum.rest.api`` includes endpoints that allows 3rd party applications
+    (e.g.  passordtjenester) to set specific OTP secrets.
