@@ -1,6 +1,6 @@
 /* encoding: utf-8
  *
- * Copyright 2016-2019 University of Oslo, Norway
+ * Copyright 2016-2026 University of Oslo, Norway
  *
  * This file is part of Cerebrum.
  *
@@ -43,8 +43,8 @@ CREATE TABLE feide_service_info
     CONSTRAINT feide_service_info_pk PRIMARY KEY,
 
   feide_id
-    VARCHAR(128,0)
-    NOT NULL
+    VARCHAR(128)
+    NOT NULL,
 
   name
     VARCHAR(128)
