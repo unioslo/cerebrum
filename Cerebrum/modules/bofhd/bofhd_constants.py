@@ -268,7 +268,10 @@ class Constants(Constants.Constants):
         "view_trait",
         "View trait",
     )
-
+    auth_email_show_reservation = _AuthRoleOpCode(
+        "email_show_reservation",
+        "View email reservation status",
+    )
     # These are values used as auth_op_target.target_type.  This table
     # doesn't use a code table to map into integers, so we can't use
     # the CerebrumCode framework.

@@ -5209,7 +5209,7 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
         ('email', 'show_reservation_status'),
         AccountName(),
         fs=FormatSuggestion([("%-9s %s", ("uname", "hide"))]),
-        perm_filter='is_postmaster')
+        perm_filter='can_show_reservation_status')
 
     def email_show_reservation_status(self, operator, uname):
         """Display reservation status for a person."""
