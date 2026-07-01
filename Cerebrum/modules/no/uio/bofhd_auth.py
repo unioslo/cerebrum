@@ -382,6 +382,19 @@ class EmailAuth(UioAuth, BofhdEmailAuth):
             return False
         raise PermissionDenied("Currently limited to superusers")
 
+    def can_show_reservation_status(self, operator, query_run_any=False):
+        if self.is_superuser(operator):
+            return True
+        if self.is_postmaster(operator):
+            return True
+        if self._has_operation_perm_somewhere(
+                operator,
+                self.const.auth_email_show_reservation):
+            return True
+        if query_run_any:
+            return False
+        raise PermissionDenied('Access to this command is restricted')
+
 
 class BofhdRequestsAuth(UioAuth, RequestsAuth):
     pass
