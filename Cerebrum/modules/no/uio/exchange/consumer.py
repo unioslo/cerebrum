@@ -797,12 +797,13 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
             raise UnrelatedEvent
 
         if self._is_cloud_mailbox(tid):
-            # EXO: Can't Set-Mailbox on cloud users
+            # EXO: Can't set quota on cloud users with Set-RemoteMailbox
             self.logger.info(
                 "ignoring email_quota:* change for %s (%d) - cloud user",
-                name, tid,
+                name, tid
             )
             raise UnrelatedEvent
+
         try:
             # Unordered events facilitates the need to use the values from
             # storage.
@@ -854,6 +855,14 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
                                    self.clconst.email_forward_add):
             address = params['forward']
 
+        if self._is_cloud_mailbox(tid):
+            # EXO: Can't set forward on cloud users with Set-RemoteMailbox
+            self.logger.info(
+                "ignoring email_forward:* change for %s (%d) %s - cloud user",
+                uname, tid, address
+            )
+            raise UnrelatedEvent
+
         try:
             self.ec.set_forward(uname, address)
             self.logger.info('Set forward for %s to %s' % (uname, address))
@@ -887,6 +896,14 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
             raise UnrelatedEvent
 
         params = self.ut.load_params(event)
+
+        if self._is_cloud_mailbox(tid):
+            # EXO: Can't set local delivery on cloud users with Set-RemoteMailbox
+            self.logger.info(
+                "ignoring email_forward_local_delivery:* change for %s (%d) - cloud user",
+                uname, tid
+            )
+            raise UnrelatedEvent
 
         try:
             self.ec.set_local_delivery(uname, params['enabled'])
@@ -941,14 +958,6 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
                 # Exchange :S
                 raise UnrelatedEvent
             uname = self.ut.get_account_name(eid)
-            if self._is_cloud_mailbox(eid):
-                # EXO: Can't Set-Mailbox on cloud users
-                self.logger.info(
-                    "ignoring email_address:add change for %s (%d)"
-                    " - cloud user",
-                    uname, eid,
-                )
-                raise UnrelatedEvent
             try:
                 self.ec.add_mailbox_addresses(uname, [address])
                 self.logger.info('eid:%d: Added %s to %s' %
