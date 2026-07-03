@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2017 University of Oslo, Norway
+# Copyright 2017-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,125 +18,135 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
 """
 This script removes unwanted spreads from entities.
 """
-
-import cereconf
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+import argparse
 import logging
 
-from Cerebrum.Utils import Factory
+import six
+
 import Cerebrum.logutils
 import Cerebrum.logutils.options
+from Cerebrum.Entity import EntitySpread
+from Cerebrum.Utils import Factory
+from Cerebrum.utils import aggregate
+from Cerebrum.utils import argutils
 
 logger = logging.getLogger(__name__)
 
 
-def remove_spread(args, db, const):
+def _get_entity(db, entity_type):
+    type_str = six.text_type(entity_type)
+    if type_str in Factory.type_component_map:
+        return Factory.get(Factory.type_component_map[type_str])(db)
+    else:
+        return Factory.get("Entity")(db)
+
+
+def select_entities(db, spreads):
+    spread_map = {int(s): s for s in spreads}
+    entity = EntitySpread(db)
+    for row in entity.list_all_with_spread(spreads=spreads):
+        yield row['entity_id'], spread_map[row['spread']]
+
+
+def remove_spread(db, spreads, limit=0):
     """Remove spread(s) from a entity_type"""
+    pretty_spreads = ", ".join(six.text_type(s) for s in spreads)
+    entity_spread_map = aggregate.dict_collect_sets(
+        select_entities(db, spreads))
+    logger.info("Found %d entities with spreads %s",
+                len(entity_spread_map), pretty_spreads)
 
-    if args.accounts:
-        entity_type = const.entity_account
-        entity = Factory.get('Account')(db)
-    if args.groups:
-        entity_type = const.entity_group
-        entity = Factory.get('Group')(db)
-    if args.persons:
-        entity_type = const.entity_person
-        entity = Factory.get('Person')(db)
+    processed_entities = 0
+    removed_spreads = 0
+    for entity_id in sorted(entity_spread_map):
+        entity_spreads = entity_spread_map[entity_id]
+        entity_type = set(s.entity_type for s in entity_spreads)
+        if len(entity_type) > 1:
+            raise RuntimeError("Got multiple entity types for id: "
+                               + repr(entity_id))
+        entity_type = entity_type.pop()
 
-    for spread in args.spreads:
-        res = entity.list_all_with_spread(spreads=spread,
-                                          entity_types=entity_type)
-        logger.info('Found {} {}s with the spread {}'.format(len(res),
-                                                             str(entity_type),
-                                                             str(spread)))
+        entity = _get_entity(db, entity_type)
+        entity.find(entity_id)
 
-        j = 0
-        for i in res:
-            j += 1
-            entity.clear()
-            entity.find(i['entity_id'])
-            entity.delete_spread(spread)
-            if j % 1000 == 0:
-                logger.info('...{}'.format(j))
-            if j == args.limit:
-                break
-        logger.info('Removed {} from {} {}s'.format(str(spread), j,
-                                                    str(entity_type)))
+        for spread in entity_spreads:
+            if entity.has_spread(spread):
+                entity.delete_spread(spread)
+                logger.info("Removed spread %s from %s %d",
+                            spread, entity_type, entity_id)
+                removed_spreads += 1
+
+        processed_entities += 1
+
+        if limit and len(processed_entities >= limit):
+            logger.info("Limit reached (%d)", processed_entities)
+            break
+
+    logger.info("Removed %d spreads from %d entities",
+                removed_spreads, processed_entities)
+    return removed_spreads
 
 
-def main(args=None):
+def main(argv=None):
     """Main script runtime.
 
     This parses arguments and handles the database transaction.
     """
+    parser = argparse.ArgumentParser(
+        description="Remove all spreads of the given type(s)",
+    )
 
-    import argparse
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "spread",
+        nargs="+",
+        help="Remove spread %(metavar)s",
+        metavar="SPREAD",
+    )
 
-    parser.add_argument('-s', '--spread',
-                        dest='spreads_human',
-                        metavar='spread',
-                        required=True,
-                        action='append',
-                        help='Spread to remove')
-
-    parser.add_argument('-a', '--accounts',
-                        action='store_true',
-                        help='Remove from accounts')
-    parser.add_argument('-g', '--groups',
-                        action='store_true',
-                        help='Remove from groups')
-    parser.add_argument('-p', '--persons',
-                        action='store_true',
-                        help='Remove from persons')
-    parser.add_argument('-l', '--limit',
-                        type=int,
-                        help='maximum entities to remove from')
-
-    parser.add_argument('--commit',
-                        default=False,
-                        action='store_true',
-                        help='Commit changes.')
-
+    spread_arg = parser.add_argument(
+        "-l", "--limit",
+        type=int,
+        help="Limit to %(metavar)s entities",
+        metavar="N",
+    )
+    argutils.add_commit_args(parser)
     Cerebrum.logutils.options.install_subparser(parser)
-    args = parser.parse_args(args)
-    Cerebrum.logutils.autoconf('cronjob', args)
 
-    db = Factory.get('Database')()
-    const = Factory.get('Constants')(db)
+    args = parser.parse_args(argv)
+    Cerebrum.logutils.autoconf_interactive(args)
 
-    if not (args.accounts or args.groups or args.persons):
-        print('Must specify -a, -g or -p')
-        raise SystemExit()
+    db = Factory.get("Database")()
+    const = Factory.get("Constants")(db)
 
-    args.spreads = []
-    for s in args.spreads_human:
-        spread = const.human2constant(s, const.Spread)
-        if spread is None:
-            raise SystemExit('{} is not a valid spread'.format(s))
-        args.spreads.append(spread)
+    spreads = []
+    with argutils.ParserContext(parser, spread_arg):
+        for raw_value in args.spread:
+            spreads.append(const.get_constant(const.Spread, raw_value))
 
-    logger.info("START %s", parser.prog)
+    logger.info("Start %s", parser.prog)
+    logger.debug("args: %s", repr(args))
     db.cl_init(change_program='remove_old_spreads')
 
-    try:
-        remove_spread(args, db, const)
-    except Exception:
-        logger.error("Unexpected exception", exc_info=1)
-        db.rollback()
-        raise
+    n = remove_spread(db, spreads)
 
+    logger.info("Finalizing %d changes (commit=%s)", n, args.commit)
     if args.commit:
-        logger.info("Commiting changes")
         db.commit()
+        logger.info("Commited changes")
     else:
-        logger.info("Rolled back changes")
         db.rollback()
+        logger.info("Rolled back changes")
 
-    logger.info("DONE %s", parser.prog)
+    logger.info("Done %s", parser.prog)
 
 
 if __name__ == '__main__':
