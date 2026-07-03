@@ -113,7 +113,7 @@ class DateTimeTz(base.DateTime):
             return None
         value = date_compat.get_datetime_tz(dt)
         value = value.replace(microsecond=0)
-        return super(DateTime, self).format(value)
+        return super(DateTimeTz, self).format(value)
 
 
 def href(endpoint, description="URL to this resource", example=None):
