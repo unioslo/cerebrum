@@ -118,6 +118,8 @@ class BofhdContactAuth(BofhdAuth):
             account.find(entity.entity_id)
             if account.owner_type == self.const.entity_person:
                 owner_id = account.owner_id
+            else:
+                return set()
         elif entity.entity_type == self.const.entity_person:
             owner_id = entity.entity_id
         else:

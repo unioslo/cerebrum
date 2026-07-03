@@ -2,7 +2,16 @@
 # -*- coding: utf-8 -*-
 u""" Tests for Cerebrum.modules.bofhd.bofhd_utils """
 
+import datetime
 import pytest
+
+
+@pytest.fixture
+def quarantine(constant_module, constant_creator):
+    return constant_creator(
+        constant_module._QuarantineCode,
+        'd50ecaee9ada9ec4'
+    )
 
 
 @pytest.fixture
@@ -157,3 +166,56 @@ def test_copy_command_exists(Src, copy_command):
 
     with pytest.raises(RuntimeError):
         copy_command(Src, 'allstars', 'n', commands=['bar', 'baz', ])(Dest)
+
+
+@pytest.mark.parametrize("input,output", [
+    (datetime.datetime(2020, 3, 4, 6, 30, 30), "2020-03-04"),
+    (datetime.date(2020, 3, 4), "2020-03-04"),
+    (None, "<not set>"),
+])
+def test_date_to_string(util_module, input, output):
+    assert util_module.date_to_string(input) == output
+
+
+@pytest.mark.parametrize("name,format", [
+    ("date", "yyyy-MM-dd"),
+    ("altdate", "dd-MM-yyyy"),
+])
+def test_get_dt_formatter(util_module, name, format):
+    formatter = util_module.get_dt_formatter(name, format)
+    assert formatter("test") == "test:{}:{}".format(name, format)
+
+
+def test_default_format_day(util_module):
+    assert util_module.default_format_day("test") == "test:date:yyyy-MM-dd"
+
+
+def test_get_quarantine_status(util_module, account, quarantine):
+    assert util_module.get_quarantine_status(account) is None
+    account.add_entity_quarantine(
+        quarantine,
+        account.entity_id,
+        start = datetime.date.today() - datetime.timedelta(days=1),
+    )
+    assert util_module.get_quarantine_status(account) == "active"
+    assert util_module.get_quarantine_status(
+        account, datetime.date.today() - datetime.timedelta(days=2)
+    ) == "pending"
+
+
+def test_get_quarantine_status_expired(util_module, account, quarantine):
+    assert util_module.get_quarantine_status(account) is None
+    account.add_entity_quarantine(
+        quarantine,
+        account.entity_id,
+        start = datetime.date.today() - datetime.timedelta(days=1),
+        end = datetime.date.today() + datetime.timedelta(days=1)
+    )
+    assert util_module.get_quarantine_status(
+        account, datetime.date.today() + datetime.timedelta(days=2)
+    ) == "expired"
+
+
+def test_get_quarantine_status_disabled(util_module, account, quarantine, cereconf):
+    # TODO: Make test for the disabled status
+    pass
