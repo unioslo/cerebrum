@@ -372,10 +372,8 @@ class FormatSuggestion(object):
         :return str:
             Returns a formatted string.
         """
-        # This is a copy of the pybofh formatting implementation, from:
-        #
-        #     ssh://git@bitbucket.usit.uio.no:7999/crb/pybofh.git
-        #     Commit f7f0c71295b490c925af635408a8ced8047820f7
+        # This is a simplified copy of the pybofh formatting implementation,
+        # from the pybofh module `bofhd.formatting`:
 
         def _fmt_date(fmt):
             """ Simple thing to convert dates """
