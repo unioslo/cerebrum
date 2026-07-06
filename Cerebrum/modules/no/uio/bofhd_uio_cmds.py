@@ -5213,8 +5213,7 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
 
     def email_show_reservation_status(self, operator, uname):
         """Display reservation status for a person."""
-        if not self.ba.is_postmaster(operator.get_entity_id()):
-            raise PermissionDenied('Access to this command is restricted')
+        self.ba.can_show_reservation_status(operator.get_entity_id())
         hidden = True
         account = self._get_account(uname)
         if account.owner_type == self.const.entity_person:
