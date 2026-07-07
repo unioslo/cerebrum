@@ -368,10 +368,6 @@ class StudconfigParser(object):
             super=elem_stack[-1][-1].get('super', None))
 
         for ename, txt, attrs, children in dta:
-            if ename == "disk_kvote":
-                # obsolete setting
-                continue
-
             if ename in self.profil_settings:
                 if (ename == 'gruppe'
                         and attrs['navn'] not in self._legal_groups):
