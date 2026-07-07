@@ -32,7 +32,33 @@ class _AuthRoleOpCode(Constants._CerebrumCode):
     _lookup_table = '[:table schema=cerebrum name=auth_op_code]'
 
 
-class Constants(Constants.Constants):
+class _LegacyOpCodes(Constants.Constants):
+    """
+    Deprecated and obsolete op codes.
+    """
+    _legacy_auth_disk_def_quota_set = _AuthRoleOpCode(
+        "disk_def_quota",
+        "Obsolete disk_quota permission - Set default disk quota",
+    )
+    _legacy_auth_disk_quota_forever = _AuthRoleOpCode(
+        "disk_quota_forev",
+        "Obsolete disk_quota permission - Set unlimited disk quota duration",
+    )
+    _legacy_auth_disk_quota_set = _AuthRoleOpCode(
+        "disk_quota_set",
+        "Obsolete disk_quota permission - Set disk quota",
+    )
+    _legacy_auth_disk_quota_show = _AuthRoleOpCode(
+        "disk_quota_show",
+        "Obsolete disk_quota permission - View disk quota information",
+    )
+    _legacy_auth_disk_quota_unlimited = _AuthRoleOpCode(
+        "disk_quota_unlim",
+        "Obsolete disk_quota permission - Set unlimited disk quota",
+    )
+
+
+class Constants(_LegacyOpCodes, Constants.Constants):
 
     AuthRoleOp = _AuthRoleOpCode
 
@@ -83,26 +109,6 @@ class Constants(Constants.Constants):
     auth_delete_group = _AuthRoleOpCode(
         "delete_group",
         "Delete groups",
-    )
-    auth_disk_def_quota_set = _AuthRoleOpCode(
-        "disk_def_quota",
-        "Set default disk quota",
-    )
-    auth_disk_quota_forever = _AuthRoleOpCode(
-        "disk_quota_forev",
-        "Set unlimited disk quota duration",
-    )
-    auth_disk_quota_set = _AuthRoleOpCode(
-        "disk_quota_set",
-        "Set disk quota",
-    )
-    auth_disk_quota_show = _AuthRoleOpCode(
-        "disk_quota_show",
-        "View disk quota information",
-    )
-    auth_disk_quota_unlimited = _AuthRoleOpCode(
-        "disk_quota_unlim",
-        "Set unlimited disk quota",
     )
     auth_email_create = _AuthRoleOpCode(
         "email_create",
