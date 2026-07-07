@@ -52,7 +52,7 @@ class DiskSorters(object):
 class DiskDef(DiskSorters):
 
     def __init__(self, disk_tool, prefix=None, path=None, spreads=None,
-                 max=None, disk_kvote=None, auto=None, orderby=None):
+                 max=None, auto=None, orderby=None):
         self._disk_tool = disk_tool
         self.prefix = prefix
         self.path = path
@@ -64,9 +64,6 @@ class DiskDef(DiskSorters):
             self.orderby = orderby
         if self.max == -1:  # inifinive
             self.max = 999999
-        if disk_kvote is not None:
-            disk_kvote = int(disk_kvote)
-        self.disk_kvote = disk_kvote
         self.auto = auto
         self._disks = self._find_cerebrum_disks()
         self._disk_name_order = list(self._disks)
@@ -75,10 +72,10 @@ class DiskDef(DiskSorters):
         self._resort_disk_count()
 
     def __str__(self):
-        return ("DiskDef(prefix={}, path={}, spreads={}, max={}, disk_kvote="
-                "{}, auto={}, orderby={})").format(
+        return ("DiskDef(prefix={}, path={}, spreads={}, max={}, "
+                "auto={}, orderby={})").format(
             self.prefix, self.path, self.spreads, self.max,
-            self.disk_kvote, self.auto, self.orderby)
+            self.auto, self.orderby)
 
     def _find_cerebrum_disks(self):
         ret = {}
@@ -188,7 +185,6 @@ class DiskTool(object):
         self._db = db
         self._const = const
         self._disk_spreads = {}
-        self.using_disk_kvote = False
         self._disk_def_by = {'path': {}, 'prefix': {}}
         self._disk_pools = {}
         self._disk_id2disk_def = {}
@@ -220,9 +216,8 @@ class DiskTool(object):
         dp.add_disk_def(tmp)
 
     def add_disk_def(self, prefix=None, path=None, spreads=None, max=None,
-                     disk_kvote=None, auto=None, orderby=None):
-        disk = DiskDef(self, prefix, path, spreads, max, disk_kvote, auto,
-                       orderby)
+                     auto=None, orderby=None):
+        disk = DiskDef(self, prefix, path, spreads, max, auto, orderby)
         if prefix:
             self._disk_def_by['prefix'][prefix] = disk
         else:
