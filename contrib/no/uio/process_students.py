@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003-2023 University of Oslo, Norway
+# Copyright 2003-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -59,10 +59,8 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules.AccountPolicy import AccountPolicy
 from Cerebrum.modules.bofhd import errors
 from Cerebrum.modules.bofhd_requests.request import BofhdRequests
-from Cerebrum.modules.disk_quota import DiskQuota
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.uio import AutoStud
-from Cerebrum.modules.no.uio.AutoStud.Util import AutostudError
 from Cerebrum.utils.argutils import ParserContext
 from Cerebrum.utils import date_compat
 
@@ -83,7 +81,6 @@ posix_user_obj = Factory.get('PosixUser')(db)
 account_obj = Factory.get('Account')(db)
 person_obj = Factory.get('Person')(db)
 group_obj = Factory.get('Group')(db)
-disk_quota_obj = DiskQuota(db)
 
 debug = 0
 max_errors = 50  # Max number of errors to accept in person-callback
@@ -102,7 +99,6 @@ studconfig_file = None
 studieprogs_file = None
 emne_info_file = None
 fast_test = False
-with_diskquota = False
 
 # Other globals (to make pychecker happy)
 autostud = accounts = persons = None
@@ -144,14 +140,6 @@ class AccountArgumentsGetter(object):
         except AutoStud.ProfileHandler.NoDefaultGroup:
             return None
 
-    def get_new_disk_quota(self, disk_id):
-        if autostud.disk_tool.get_diskdef_by_diskid(disk_id):
-            try:
-                return self.profile.get_disk_kvote(disk_id)
-            except AutostudError as e:
-                logger.warning(e)
-        return None
-
     def get_disks(self):
         for disk_spread in self.profile.get_disk_spreads():
             if disk_spread not in self.spreads:
@@ -161,9 +149,10 @@ class AccountArgumentsGetter(object):
                     disk_id = self.profile.get_disk(disk_spread)
                 except AutoStud.ProfileHandler.NoAvailableDisk:
                     raise
-                yield {'disk_id': disk_id,
-                       'home_spread': disk_spread,
-                       'disk_quota': self.get_new_disk_quota(disk_id)}
+                yield {
+                    'disk_id': disk_id,
+                    'home_spread': disk_spread,
+                }
 
     def get_account_spreads(self):
         return (s for s in self.profile.get_spreads() if
@@ -211,12 +200,6 @@ def _set_user_disk(account_id, user, current_disk_id, disk_spread, new_disk):
             logger.warn(e)
 
 
-def _set_disk_quota(account_id, homedir_id, quota, spread):
-    if homedir_id is None:  # homedir was added in this run
-        homedir_id = accounts[account_id].get_home(spread)[1]
-    disk_quota_obj.set_quota(homedir_id, quota=int(quota))
-
-
 def _add_quarantine(user, quarantine, start_at):
     start_at = strftime('%Y-%m-%d', localtime(start_at + time()))
     # Fix dette!
@@ -255,7 +238,6 @@ class AccountUtil(object):
         homes = account.get_homes()
 
         for h in homes:
-            disk_quota_obj.clear(h['homedir_id'])
             account.clear_home(h['spread'])
         account.expire_date = None
         logger.debug("refreshing password write_db=%s", account.account_name)
@@ -492,22 +474,6 @@ class AccountUtil(object):
                                    disk_spread,
                                    new_disk)
 
-        if autostud.disk_tool.using_disk_kvote:
-            for spread in accounts[account_id].get_home_spreads():
-                disk_id, homedir_id = accounts[account_id].get_home(spread)
-                if not autostud.disk_tool.get_diskdef_by_diskid(disk_id):
-                    # Setter kun kvote på student-disker
-                    continue
-                quota = profile.get_disk_kvote(disk_id)
-                if (existing_account.get_disk_kvote(homedir_id) > quota and
-                        _dont_downgrade_account()):
-                    continue
-                if existing_account.get_disk_kvote(homedir_id) != quota:
-                    changes.append(('disk_kvote',
-                                    (disk_id, homedir_id, quota, spread)))
-                    _set_disk_quota(account_id, homedir_id, quota, spread)
-                    existing_account.set_disk_kvote(homedir_id, quota)
-
         # TBD: Is it OK to ignore date on existing quarantines when
         # determining if it should be added?
         tmp = []
@@ -689,7 +655,6 @@ class BuildAccounts(object):
 class ExistingAccount(object):
     def __init__(self, fnr, expire_date):
         self._affs = []
-        self._disk_kvote = {}
         self._expire_date = expire_date
         self._fnr = fnr
         self._gid = None
@@ -708,12 +673,6 @@ class ExistingAccount(object):
 
     def has_affiliation(self, aff_cand):
         return aff_cand in [aff for aff, ou in self._affs]
-
-    def get_disk_kvote(self, homedir_id):
-        return self._disk_kvote.get(homedir_id, None)
-
-    def set_disk_kvote(self, homedir_id, quota):
-        self._disk_kvote[homedir_id] = quota
 
     def get_expire_date(self):
         return self._expire_date
@@ -937,12 +896,6 @@ def get_existing_accounts():
         tmp = tmp_ac.get(int(row['entity_id']), None)
         if tmp is not None:
             tmp.append_quarantine(int(row['quarantine_type']))
-    # Disk kvote
-    if with_diskquota:
-        for row in disk_quota_obj.list_quotas():
-            tmp = tmp_ac.get(int(row['account_id']), None)
-            if tmp is not None:
-                tmp.set_disk_kvote(int(row['homedir_id']), row['quota'])
     # Spreads
     for spread_id in autostud.pc.spread_defs:
         spread = const.Spread(spread_id)
@@ -1087,45 +1040,11 @@ def validate_config():
                           emne_info_file=emne_info_file)
 
 
-def process_noncallback_users(reset_diskquota=False):
-    """Process accounts on student-disk that did not get a callback
-    resulting in update_account."""
-
-    # TODO: --dryrun currently makes this useless, since it implies
-    # doing no updates, and therefore _every_ student is processed.
-
-    logger.info("Processing noncallback users")
-    on_student_disk = {}
-    for row in account_obj.list_account_home():
-        if (row['disk_id'] is not None and
-                autostud.disk_tool.get_diskdef_by_diskid(int(row['disk_id']))):
-            on_student_disk[int(row['account_id'])] = True
-
-    for ac_id in on_student_disk.keys():
-        if ac_id in processed_accounts:
-            continue
-        if ac_id not in accounts:
-            # This will happen if the accounts owner has no registered
-            # fødselsnummer.
-            logger.info("Not in list of existing accounts: %d", ac_id)
-            continue
-        if not reset_diskquota:
-            continue
-        for spread in accounts[ac_id].get_home_spreads():
-            disk_id, homedir_id = accounts[ac_id].get_home(spread)
-            if accounts[ac_id].get_disk_kvote(homedir_id):
-                logger.info("Clearing quota for %d", ac_id)
-                disk_quota_obj.clear(homedir_id)
-    if not dryrun:
-        logger.debug("Commiting changes")
-        db.commit()
-
-
 def main():
     global debug, fast_test, create_users, update_accounts, logger, skip_lpr
     global student_info_file, studconfig_file, studieprogs_file, dryrun, \
         emne_info_file, move_users, remove_groupmembers, workdir, \
-        ou_perspective, with_quarantines, with_diskquota, \
+        ou_perspective, with_quarantines, \
         posix_tables
 
     # Parse arguments
@@ -1155,12 +1074,6 @@ def main():
         action='store_true',
         help='update existing accounts',
         default=False)
-    act_group.add_argument(
-        '--reset-diskquota',
-        action='store_true',
-        help='remove disk quota from users on student disks that did not get '
-             'a callback',
-        default=False)
 
     parser.add_argument(
         '-d', '--debug',
@@ -1176,10 +1089,6 @@ def main():
         '--with-quarantines',
         action='store_true',
         help='Enables quarantine settings',
-        default=False)
-    parser.add_argument(
-        '--with-diskquota',
-        action='store_true',
         default=False)
     parser.add_argument(
         '--posix-tables',
@@ -1223,7 +1132,6 @@ def main():
     update_accounts = args.update_accounts
     remove_groupmembers = args.remove_groupmembers
     with_quarantines = args.with_quarantines
-    with_diskquota = args.with_diskquota
     posix_tables = args.posix_tables
     move_users = args.move_users
     fast_test = args.fast_test  # Internal debug use ONLY!
@@ -1263,10 +1171,7 @@ def main():
         if not (args.update_accounts or args.create_users):
             raise ValueError('No action selected')
 
-    start_process_students(update_create=(args.create_users or
-                                          args.reset_diskquota))
-    if args.reset_diskquota:
-        process_noncallback_users(reset_diskquota=args.reset_diskquota)
+    start_process_students(update_create=args.create_users)
     logger.debug("all done")
 
 
