@@ -342,13 +342,6 @@ togglers = [
         ),
     },
 
-    # Disk quota
-    {
-        'columns': ('subject_entity',),
-        'change_params': ('homedir_id',),
-        'triggers': ('disk_quota_set', 'disk_quota_clear'),
-    },
-
     # ePhorte
     {
         'columns': ('subject_entity',),
