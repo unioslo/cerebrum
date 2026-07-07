@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003-2019 University of Oslo, Norway
+# Copyright 2003-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,7 +17,6 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-import datetime
 import random
 
 import re
@@ -26,10 +25,8 @@ from Cerebrum import Account
 from Cerebrum import Errors
 from Cerebrum.modules import Email
 from Cerebrum.modules import EmailConstants
-from Cerebrum.modules.disk_quota import DiskQuota
 from Cerebrum.modules.bofhd_requests.request import BofhdRequests
 from Cerebrum.Utils import Factory
-from Cerebrum.utils import date_compat
 
 
 class AccountUiOMixin(Account.Account):
@@ -533,57 +530,6 @@ class AccountUiOMixin(Account.Account):
             if r['affiliation'] == self.const.affiliation_ansatt:
                 return True
         return False
-
-    def clear_home(self, spread):
-        """Remove disk quota before clearing home."""
-        try:
-            homeinfo = self.get_home(spread)
-        except Errors.NotFoundError:
-            pass
-        else:
-            dq = DiskQuota(self._db)
-            dq.clear(homeinfo['homedir_id'])
-        return self.__super.clear_home(spread)
-
-    def _clear_homedir(self, homedir_id):
-        # Since disk_quota has a FK to homedir, we need this override
-        dq = DiskQuota(self._db)
-        dq.clear(homedir_id)
-        return self.__super._clear_homedir(homedir_id)
-
-    def set_homedir(self, *args, **kw):
-        """Remove quota information when the user is moved to a disk
-        without quotas or where the default quota is larger than his
-        existing explicit quota."""
-
-        ret = self.__super.set_homedir(*args, **kw)
-        if kw.get('current_id') and kw.get('disk_id'):
-            disk = Factory.get("Disk")(self._db)
-            disk.find(kw['disk_id'])
-            has_quota = disk.has_quota()
-            def_quota = disk.get_default_quota()
-            dq = DiskQuota(self._db)
-            try:
-                info = dq.get_quota(kw['current_id'])
-            except Errors.NotFoundError:
-                pass
-            else:
-                if not has_quota:
-                    # No quota on new disk, so remove the quota information.
-                    dq.clear(kw['current_id'])
-                elif def_quota is None:
-                    # No default quota, so keep the quota information.
-                    pass
-                else:
-                    quota_exp = date_compat.get_date(
-                        info['override_expiration'])
-                    if quota_exp and datetime.date.today() < quota_exp:
-                        old_quota = info['override_quota']
-                    else:
-                        old_quota = info['quota']
-                    if old_quota <= def_quota:
-                        dq.clear(kw['current_id'])
-        return ret
 
     def list_sysadm_accounts(self):
         """
