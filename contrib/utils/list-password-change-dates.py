@@ -27,7 +27,7 @@ from __future__ import (
     print_function,
     unicode_literals,
 )
-
+import argparse
 import logging
 
 import Cerebrum.logutils
@@ -35,7 +35,6 @@ import Cerebrum.logutils.options
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.pwcheck.history import PasswordHistory
-
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +70,6 @@ def print_change_dates(accounts):
 
 def main(inargs=None):
     """ Script invocation. """
-    import argparse
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
