@@ -19,8 +19,16 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
-This script finds all manual groups without a moderator and sends a report
-to drift.
+Report manual groups without a moderator.
+
+This script finds all manual (1) groups without a moderator (2) and generates a
+report.  The report can be written to a file, and/or sent by email.
+
+1: Manual groups are defined by `cereconf.MANUAL_GROUP_TYPES`.  We may want to
+   omit certain group types despite what this setting says (e.g. *internal*
+   groups).
+
+2: Despite the script name, we actually look for groups without *admins*.
 """
 from __future__ import (
     absolute_import,
@@ -37,6 +45,7 @@ import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum.Utils import Factory
 from Cerebrum.utils import argutils
+from Cerebrum.utils import aggregate
 from Cerebrum.utils import date as date_utils
 from Cerebrum.utils import email as email_utils
 from Cerebrum.utils import file_stream
@@ -52,51 +61,54 @@ def format_subject(_when=None):
     )
 
 
-def get_abandoned_manual_groups(database):
-    """Extract all manual groups without an admin"""
+def get_groups_without_moderator(database):
+    """ Get all manual manual groups without a moderator. """
     group = Factory.get('Group')(database)
     const = Factory.get('Constants')(database)
 
     # We only consider MANUAL_GROUP_TYPES
-    by_group_type = {
-        const.get_constant(const.GroupType, g_type): []
+    group_types = [
+        const.get_constant(const.GroupType, g_type)
         for g_type in cereconf.MANUAL_GROUP_TYPES
-    }
+    ]
 
     group_cache = {
         row['group_id']: {
+            'group_id': row['group_id'],
             'group_type': const.GroupType(row['group_type']),
             'group_name': row['name'],
             'group_desc': row['description'],
         }
         for row in group.search(
             filter_expired=True,
-            group_type=list(by_group_type.keys()),
+            group_type=group_types,
         )
     }
     logger.debug("Cached %d groups", len(group_cache))
 
-    candidates = set(r['group_id'] for r in group.get_adminless_groups())
+    candidates = set()
+    # This only gets groups without *admins* - we may want to *only* look for
+    # groups without admin *or* moderator?
+    candidates.update(row['group_id'] for row in group.get_adminless_groups())
     logger.debug("Found %d groups without moderators", len(candidates))
 
     for group_id in sorted(candidates):
         if group_id not in group_cache:
             continue  # expired, wrong type
-        group_info = group_cache[group_id]
-        group_type = group_info['group_type']
+
+        # TODO: We may not want to include *internal groups*?  The original
+        # implementation of this script did try to omit internal groups, but
+        # did so incorrectly...
+        #
+        # group_type = group_cache[group_id]['group_type']
         # if group_type == const.group_type_internal:
         #     # never consider internal groups
         #     continue
 
-        by_group_type[group_type].append({
-            'id': group_id,
-            'name': group_info['group_name'],
-            'desc': group_info['group_desc'],
-        })
-    return {k: v for k, v in by_group_type.items() if v}
+        yield group_cache[group_id]
 
 
-def format_table(groups_by_type):
+def format_table(groups):
     """Create a human readable table of the orphant groups found
 
     :param dict groups_by_type:
@@ -105,13 +117,17 @@ def format_table(groups_by_type):
     :return str:
         A formatted report table
     """
+    group_by_type = aggregate.dict_collect_lists(
+        ((g['group_type'], g) for g in groups)
+    )
     txt = "These manual groups, sorted by type and id, lacks an admin:\n\n"
-    for group_type in sorted(groups_by_type):
-        groups = groups_by_type[group_type]
+    for group_type in sorted(group_by_type):
+        groups = group_by_type[group_type]
         txt += six.text_type(group_type) + ": {}".format(len(groups))
         txt += "\n" + 80*"-" + "\n"
         txt += "\n".join(
-            "{id}, {name}, {desc}".format(**a) for a in groups
+            "{group_id}, {group_name}, {group_desc}".format(**a)
+            for a in groups
         )
         txt += "\n\n"
     return txt
@@ -178,14 +194,13 @@ def main(argv=None):
 
     logger.debug("Finding groups without moderators...")
     database = Factory.get('Database')()
-    groups_by_type = get_abandoned_manual_groups(database)
-    n_groups = sum(len(v) for v in groups_by_type.values())
-    logger.info("Found %d target groups without moderators", n_groups)
+    groups = list(get_groups_without_moderator(database))
+    logger.info("Found %d target groups without moderators", len(groups))
 
-    if args.force or n_groups:
+    if args.force or groups:
         logger.debug("Preparing report...")
         subject = format_subject()
-        body = format_table(groups_by_type)
+        body = format_table(groups)
 
         if args.recipient:
             send_report(args.recipient, subject, body)
