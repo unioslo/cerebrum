@@ -85,7 +85,6 @@ import Cerebrum.logutils.options
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd_requests.request import BofhdRequests
-from Cerebrum.modules.disk_quota import DiskQuota
 from Cerebrum.modules.no.uio import AutoStud
 from Cerebrum.modules.no.uio.AutoStud.Util import AutostudError
 from Cerebrum.utils import argutils
@@ -155,9 +154,6 @@ class DiskCache(object):
 
         # account-ids that cant't be moved:
         self.ignore_accounts = set()
-
-        # New disk quotas for homedirs (homedir-id -> new-quota):
-        self.disk_quotas = {}
 
     def get_account(self, account_id):
         """ Look up and cache an account. """
@@ -268,11 +264,6 @@ class DiskCache(object):
                          disk_t[-1], account.account_name, account.entity_id)
             self.account_to_disk[account_id] = disk_t
 
-            # update quota according to profile
-            homedir_id, new_disk = disk_t
-            if self._autostud.disk_tool.using_disk_kvote and homedir_id:
-                self.disk_quotas[homedir_id] = profile.get_disk_kvote(new_disk)
-
     def _get_disk(self, account, profile):
         """ Find homedir disks for a given account and profile. """
         profile_spreads = set(int(s) for s in profile.get_spreads())
@@ -355,8 +346,6 @@ class MoveStudentProcessor(object):
         logger.info("Added move request id=%d for account id=%s at %s",
                     req_id, repr(account_id), self.br.batch_time)
 
-        # self._update_quota(profile, new_disk, homedir_id)
-
     def process_requests(self, person_file):
         """
         Process move student requests.
@@ -373,19 +362,6 @@ class MoveStudentProcessor(object):
 
         self.disk_cache.build_cache(requests, person_file)
         self.move_users(requests)
-
-    def _update_quota(self, homedir_id):
-        """ Update homedir quota according profile. """
-        if homedir_id not in self.disk_cache.disk_quotas:
-            return
-        quota_db = DiskQuota(self.db)
-        try:
-            cur_quota = quota_db.get_quota(homedir_id)
-        except Errors.NotFoundError:
-            cur_quota = None
-        quota = self.disk_cache.disk_quotas[homedir_id]
-        if (cur_quota is None or cur_quota['quota'] != int(quota)):
-            quota_db.set_quota(homedir_id, quota=int(quota))
 
     def move_users(self, requests):
         default_disk = Factory.get('Disk')(self.db)
@@ -414,7 +390,6 @@ class MoveStudentProcessor(object):
                 disk_t = self.disk_cache.account_to_disk.get(account_id)
                 homedir_id, new_disk_id = disk_t
                 disk = self.disk_cache.get_disk(new_disk_id)
-                self._update_quota(homedir_id)
                 self._delete_request(request_id)
                 self._add_request(
                     operator=operator,

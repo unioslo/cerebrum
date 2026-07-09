@@ -94,21 +94,4 @@ class DiskQuotaMixin(Disk.Disk):
     """
     Disk mixin that provides default disk quotas from traits.
     """
-
-    def has_quota(self):
-        return has_disk_quota(self._db, self.entity_id)
-
-    def get_default_quota(self):
-        """
-        Returns the quota, False if the disk has no quotas, or
-        None if the disk has quota, but no default quota.
-        """
-        disk_quota = get_default_disk_quota(self._db, self.entity_id)
-        if disk_quota is not None:
-            return int(disk_quota)
-
-        host_quota = get_default_host_quota(self._db, self.host_id)
-        if host_quota is not None:
-            return int(host_quota)
-
-        return None
+    pass

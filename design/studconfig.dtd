@@ -1,14 +1,10 @@
-<?xml version="1.0" encoding="ISO-8859-1"?>
-<!--
-DTD for studconfig.xml filen
-
-$Id$
--->
+<?xml version="1.0" encoding="utf-8"?>
+<!-- DTD for studconfig.xml -->
 
 <!ELEMENT studconfig (default_values, disk_oversikt*, disk_pools?, gruppe_oversikt?,
                       spread_oversikt?, profil+)>
 
-<!-- Først definerer vi et par oversikter over lovlige verdier for -->
+<!-- FÃ¸rst definerer vi et par oversikter over lovlige verdier for -->
 <!-- grupper, disker, spreads og default-verdier -->
 
 <!-- *************************************************************** -->
@@ -20,10 +16,10 @@ $Id$
 <!--  Attributter:                                                   -->
 <!--                                                                 -->
 <!--    - default_max - Default verdi for hvor mange brukere         -->
-<!--                    det skal være per disk.                      -->
+<!--                    det skal vÃ¦re per disk.                      -->
 <!--                                                                 -->
-<!--    - default_auto - Nivå på automatikk for denne disken,        -->
-<!--                     når det gjelder flyttinger.  Mulige         -->
+<!--    - default_auto - NivÃ¥ pÃ¥ automatikk for denne disken,        -->
+<!--                     nÃ¥r det gjelder flyttinger.  Mulige         -->
 <!--                     verdier er:                                 -->
 <!--                                                                 -->
 <!--                     from - bare flytte fra                      -->
@@ -35,7 +31,8 @@ $Id$
 <!-- *************************************************************** -->
 <!ELEMENT disk_oversikt (disk_spread+, diskdef+)>
 <!ATTLIST disk_oversikt default_max CDATA #REQUIRED
-                        default_auto (from | to | auto | none) #IMPLIED>
+                        default_auto (from | to | auto | none) #IMPLIED
+                        default_orderby (name | count) "name">
 
 <!-- *************************************************************** -->
 <!--  Diskdef                                                        -->
@@ -46,15 +43,15 @@ $Id$
 <!--  Attributter:                                                   -->
 <!--                                                                 -->
 <!--    - prefix - Prefiks til et path til brukerdisk.  Mangler      -->
-<!--               kun et løppenummer som skal oppdaters automatisk  -->
+<!--               kun et lÃ¸ppenummer som skal oppdaters automatisk  -->
 <!--                                                                 -->
 <!--    - path - Eksakt path for en brukerdisk, konseptet max_antall -->
-<!--             brukere på en disk gjelder ikke slike.              -->
+<!--             brukere pÃ¥ en disk gjelder ikke slike.              -->
 <!--                                                                 -->
 <!--    - max - Maksimalt antall brukere per partisjon av denne      -->
 <!--            typen.                                               -->
 <!--                                                                 -->
-<!--    - auto - Nivå på automatikk for denne disken, når det        -->
+<!--    - auto - NivÃ¥ pÃ¥ automatikk for denne disken, nÃ¥r det        -->
 <!--             gjelder flyttinger.  Mulige verdier er:             -->
 <!--                                                                 -->
 <!--               from - bare flytte fra                            -->
@@ -75,7 +72,7 @@ $Id$
 <!--  disk_spread                                                    -->
 <!--                                                                 -->
 <!--    Definerer hvilke(n) spread diskene i den omsluttende         -->
-<!--    disk_oversikt tagen skal tilhøre                             -->
+<!--    disk_oversikt tagen skal tilhÃ¸re                             -->
 <!--                                                                 -->
 <!--  Attributter:                                                   -->
 <!--                                                                 -->
@@ -91,12 +88,13 @@ $Id$
 <!--   disk_pools er en samling av en eller flere "pool".  Hvert     -->
 <!--   pool er unikt identifisert av sitt name-atributt.  Inne i     -->
 <!--   den enkelte pool kan man spesifisere en eller flere disk      -->
-<!--   entiteter.  Disse disk entitetene kan ikke peke på nye pools. -->
+<!--   entiteter.  Disse disk entitetene kan ikke peke pÃ¥ nye pools. -->
 <!--                                                                 -->
 <!-- *************************************************************** -->
 <!ELEMENT disk_pools (pool*)>
 <!ELEMENT pool (disk*)>
-<!ATTLIST pool name CDATA #REQUIRED>
+<!ATTLIST pool name CDATA #REQUIRED
+               orderby (name | count) #IMPLIED>
 
 <!-- *************************************************************** -->
 <!--  gruppe_oversikt                                                -->
@@ -106,7 +104,7 @@ $Id$
 <!--  Attributter:                                                   -->
 <!--                                                                 -->
 <!--    - default_auto - Hva som skal skje i forhold til gruppene.   -->
-<!--                     Kan ha en av følgende verdier:              -->
+<!--                     Kan ha en av fÃ¸lgende verdier:              -->
 <!--                                                                 -->
 <!--               add - legg til brukere som medlem kun.            -->
 <!--               rem - fjern brukere fra gruppen om de ikke        -->
@@ -124,10 +122,10 @@ $Id$
 <!--                                                                 -->
 <!--  Attributter:                                                   -->
 <!--                                                                 -->
-<!--    - navn - Navn på gruppen                                     -->
+<!--    - navn - Navn pÃ¥ gruppen                                     -->
 <!--                                                                 -->
 <!--    - auto - Hva som skal skje i forhold til gruppene.  Kan ha   -->
-<!--             en av følgende verdier:                             -->
+<!--             en av fÃ¸lgende verdier:                             -->
 <!--                                                                 -->
 <!--               add - legg til brukere som medlem kun.            -->
 <!--               rem - fjern brukere fra gruppen om de ikke        -->
@@ -144,37 +142,40 @@ $Id$
 <!ATTLIST spreaddef kode CDATA #REQUIRED
                     comment CDATA #IMPLIED>
 
-<!ELEMENT default_values (mailkvote?, diskkvote?)>
+<!ELEMENT default_values (print?, mailkvote?)>
+
+<!-- *************************************************************** -->
+<!--   Defaultverdi for utskriftskvote                               -->
+<!--                                                                 -->
+<!--                                                                 -->
+<!--   Atributter:                                                   -->
+<!--      -                                                          -->
+<!--                                                                 -->
+<!--                                                                 -->
+<!-- *************************************************************** -->
+<!ELEMENT print EMPTY>
+<!ATTLIST print start CDATA #REQUIRED
+                uke CDATA #REQUIRED
+                max_akk CDATA #REQUIRED
+                max_sem CDATA #REQUIRED>
 
 
 <!ELEMENT mailkvote EMPTY>
 <!ATTLIST mailkvote kvote CDATA #REQUIRED
-               warning CDATA #REQUIRED>
-
-<!-- *************************************************************** -->
-<!--   Defaultverdi for diskkvote                                    -->
-<!--                                                                 -->
-<!--   Kan også brukes i en profil, gjelder da for de som matcher    -->
-<!--   profilen.  Denne er ikke kumulativ, kun den største teller.   -->
-<!--                                                                 -->
-<!--   Atributter:                                                   -->
-<!--      - value - Størrelsen på default diskekvote som skal        -->
-<!--                setted, oppgitt i antall MiB.                    -->
-<!-- *************************************************************** -->
-<!ELEMENT disk_kvote EMPTY>
-<!ATTLIST disk_kvote value CDATA #REQUIRED>
+                    warning CDATA #REQUIRED>
 
 <!ELEMENT bygg_ny_konto_for (tilknytning*)>
 <!ELEMENT tilknytning EMPTY>
 <!ATTLIST tilknytning kategori CDATA #REQUIRED
                       status CDATA #IMPLIED>
 
-<!-- Hoveddelen av filen består av et sett med profildefinisjoner.  En
-     profildefinisjon består av et sett med atributter (disk, mail+++)
+<!-- Hoveddelen av filen bestÃ¥r av et sett med profildefinisjoner.  En
+     profildefinisjon bestÃ¥r av et sett med atributter (disk, mail+++)
      som velges dersom et av select kriteriene matcher -->
 
-<!ELEMENT profil ((priority? | disk? | disk_kvote? | mail? | build? |
-                   spread* | gruppe* |
+<!ELEMENT profil ((priority? | disk? | mail? | build? |
+                   spread* | gruppe* | printer_kvote? |
+                   print_betaling_fritak? | print_kvote_fritak? |
                    brev? | stedkode? | quarantine?)*,
                    select?)>
 
@@ -184,19 +185,19 @@ $Id$
 <!-- *************************************************************** -->
 <!--  Disk                                                           -->
 <!--                                                                 -->
-<!--    Angivelse av hva som skal være home for brukeren.            -->
-<!--    Alle diskene (i form av både path og prefix) må være         -->
+<!--    Angivelse av hva som skal vÃ¦re home for brukeren.            -->
+<!--    Alle diskene (i form av bÃ¥de path og prefix) mÃ¥ vÃ¦re         -->
 <!--    deklarert i en 'disk_oversikt' i begynnelsen av xml-filen    -->
 <!--                                                                 -->
 <!--  Attributter:                                                   -->
 <!--                                                                 -->
 <!--    - prefix - Prefiks til et path til brukerdisk.  Mangler      -->
-<!--               kun et løppenummer som skal oppdaters automatisk  -->
+<!--               kun et lÃ¸ppenummer som skal oppdaters automatisk  -->
 <!--                                                                 -->
 <!--    - path - Eksakt path for en brukerdisk, konseptet max_antall -->
-<!--             brukere på en disk gjelder ikke slike.              -->
+<!--             brukere pÃ¥ en disk gjelder ikke slike.              -->
 <!--                                                                 -->
-<!--    - pool - Navn på disk-pool som disken skal hentes fra        -->
+<!--    - pool - Navn pÃ¥ disk-pool som disken skal hentes fra        -->
 <!--                                                                 -->
 <!-- *************************************************************** -->
 <!ELEMENT disk EMPTY>
@@ -226,15 +227,21 @@ $Id$
 <!--      - name - code_str for karantenten                          -->
 <!--      - scope - nedslagsfelt for karanteneregler                 -->
 <!--              (student_disk) -  fanger bare                      -->
-<!--                                brukere med hjemmeområde på      -->
+<!--                                brukere med hjemmeomrÃ¥de pÃ¥      -->
 <!--                                definerte studentdisker          -->
-<!--      - start_at - antal dager til karantenten slår til.         -->
+<!--              (group_member) - fanger bare                       -->
+<!--                               brukere som er medlemmer i        -->
+<!--                               en utvalgt gruppe                 -->
+<!--                               Merk at gruppen mÃ¥ eksistere i    -->
+<!--                               Cerebrum og vÃ¦re definert i       -->
+<!--                               cereconf.AUTOADMIN_SCOPE_GROUP    -->
+<!--      - start_at - antal dager til karantenten slÃ¥r til.         -->
 <!--                   Default=0                                     -->
 <!-- *************************************************************** -->
 <!ELEMENT quarantine EMPTY>
 <!ATTLIST quarantine navn CDATA #REQUIRED
                      start_at CDATA #IMPLIED
-		     scope (student_disk) #IMPLIED>
+                     scope (student_disk | group_membership) #REQUIRED>
 
 <!-- *************************************************************** -->
 <!--   priority                                                      -->
@@ -242,15 +249,15 @@ $Id$
 <!--   Atributter:                                                   -->
 <!--      - level - tall for prioriteten                             -->
 <!--                                                                 -->
-<!--   Brukes for å styre rangeringen av prioriteter.  Dersom en     -->
+<!--   Brukes for Ã¥ styre rangeringen av prioriteter.  Dersom en     -->
 <!--   callback matcher settingene fra flere prioriterer, vil kun    -->
-<!--   settingene med lavest priority nivå bli tatt hensyn til.      -->
-<!--   Det anbefales å ha svært få forskjellige prioriteter, og      -->
+<!--   settingene med lavest priority nivÃ¥ bli tatt hensyn til.      -->
+<!--   Det anbefales Ã¥ ha svÃ¦rt fÃ¥ forskjellige prioriteter, og      -->
 <!--   disse settes i superklassen til profil-hierarkiene.  Dette    -->
-<!--   gjør det mulig å ha settinger som skal gjelde kun for         -->
+<!--   gjÃ¸r det mulig Ã¥ ha settinger som skal gjelde kun for         -->
 <!--   privatister, og ikke for aktive studenter.                    -->
 <!--                                                                 -->
-<!--   Multiple prioritetsnivå for samme profil (selv via arv)       -->
+<!--   Multiple prioritetsnivÃ¥ for samme profil (selv via arv)       -->
 <!--   er ikke tillatt.                                              -->
 <!-- *************************************************************** -->
 <!ELEMENT priority EMPTY>
@@ -264,12 +271,12 @@ $Id$
 <!ATTLIST stedkode verdi CDATA #REQUIRED
                    institusjon CDATA #REQUIRED>
 
-<!-- select-kriteriene baserer seg i hovedsak på egenskaper ved
+<!-- select-kriteriene baserer seg i hovedsak pÃ¥ egenskaper ved
      studentens studiestatus -->
 
 <!ELEMENT select ((tilbud* | aktiv* | studierett* | privatist_studieprogram* |
-                  emne* | privatist_emne* | aktivt_sted* |
-                  medlem_av_gruppe* | evu_sted* | person_affiliation* | 
+                  emne* | privatist_emne* | drgrad* | aktivt_sted* | emnestud_sted* |
+                  medlem_av_gruppe* | evu_sted* | person_affiliation* |
                   match_any?))+>
 
 <!ENTITY % studieprogram_attrs
@@ -287,7 +294,7 @@ $Id$
 <!--                                                                 -->
 <!--    - Studieprogram - Kode for studieprogrammet                  -->
 <!--                                                                 -->
-<!--    - Name - Navn på studieprogrammet                            -->
+<!--    - Name - Navn pÃ¥ studieprogrammet                            -->
 <!--             Optional                                            -->
 <!--                                                                 -->
 <!--    - Studieretning - Kode for studieretning under               -->
@@ -308,7 +315,7 @@ $Id$
 <!--                                                                 -->
 <!--    - Studieprogram - Kode for studieprogrammet                  -->
 <!--                                                                 -->
-<!--    - Name - Navn på studieprogrammet                            -->
+<!--    - Name - Navn pÃ¥ studieprogrammet                            -->
 <!--             Optional                                            -->
 <!--                                                                 -->
 <!--    - Studieretning - Kode for studieretning under               -->
@@ -317,14 +324,14 @@ $Id$
 <!--                                                                 -->
 <!--    - Status - Kode for hva slags opptak man har, feks           -->
 <!--               'ERASMUS' for alle de som er ved UiO som          -->
-<!--               følge av EU sitt ERASMUS-program. Optional        -->
+<!--               fÃ¸lge av EU sitt ERASMUS-program. Optional        -->
 <!--                                                                 -->
 <!-- *************************************************************** -->
 <!ELEMENT studierett EMPTY>
 <!ATTLIST studierett studieprogram CDATA #REQUIRED
                      name          CDATA #IMPLIED
                      studieretning CDATA #IMPLIED
-		     status        CDATA #IMPLIED>
+                     status        CDATA #IMPLIED>
 
 
 
@@ -332,16 +339,16 @@ $Id$
 <!--  Aktiv                                                          -->
 <!--                                                                 -->
 <!--    Alle som er aktive i et gitt studieprogram.  Aktiv           -->
-<!--    medfører opptak til studieprogrammet (ikke 'PRIVATIST')      -->
+<!--    medfÃ¸rer opptak til studieprogrammet (ikke 'PRIVATIST')      -->
 <!--    og en semesterregistrering hvor man enten har meldt seg      -->
-<!--    til eksamen i et emne som kan inngå i studieprogrammet       -->
+<!--    til eksamen i et emne som kan inngÃ¥ i studieprogrammet       -->
 <!--    eller en bekreftet utdanningsplan innen studieprogrammet.    -->
 <!--                                                                 -->
 <!--  Attributter:                                                   -->
 <!--                                                                 -->
 <!--    - Studieprogram - Kode for studieprogrammet                  -->
 <!--                                                                 -->
-<!--    - Name - Navn på studieprogrammet                            -->
+<!--    - Name - Navn pÃ¥ studieprogrammet                            -->
 <!--             Optional                                            -->
 <!--                                                                 -->
 <!--    - Studieretning - Kode for studieretning under               -->
@@ -357,15 +364,15 @@ $Id$
 <!--  Privatist studieprogram                                        -->
 <!--                                                                 -->
 <!--    Alle som har opptak lik 'PRIVATIST' til et studieprogram     -->
-<!--    som emnene de er meldt til kan inngå i, og som ikke har      -->
+<!--    som emnene de er meldt til kan inngÃ¥ i, og som ikke har      -->
 <!--    noen annen form for opptak til andre studieprogram som       -->
-<!--    de sammen emnene kan inngå i.                                -->
+<!--    de sammen emnene kan inngÃ¥ i.                                -->
 <!--                                                                 -->
 <!--  Attributter:                                                   -->
 <!--                                                                 -->
 <!--    - Studieprogram - Kode for studieprogrammet                  -->
 <!--                                                                 -->
-<!--    - Name - Navn på studieprogrammet                            -->
+<!--    - Name - Navn pÃ¥ studieprogrammet                            -->
 <!--             Optional                                            -->
 <!--                                                                 -->
 <!--    - Studieretning - Kode for studieretning under               -->
@@ -382,21 +389,27 @@ $Id$
 <!--                                                                 -->
 <!--    Alle som er meldt til eksamen i et gitt emne, og som         -->
 <!--    har opptak (ikke PRIVATIST) til et studieprogram som         -->
-<!--    emne kan inngå i.                                            -->
+<!--    emne kan inngÃ¥ i.                                            -->
 <!--                                                                 -->
 <!--  Attributter:                                                   -->
 <!--                                                                 -->
 <!--    - Emnekode - Kode for emne                                   -->
 <!--                                                                 -->
+<!--    - framtidige - Om framtidige eksamensmeldinger               -->
+<!--                   ogsÃ¥ skal telle med.  Default er 'no'         -->
+<!--                   dvs. kun vurderingsmelinger for innevÃ¦rende   -->
+<!--                   semester skal telle med.                      -->
+<!--                                                                 -->
 <!-- *************************************************************** -->
 <!ELEMENT emne EMPTY>
-<!ATTLIST emne emnekode CDATA #REQUIRED>
+<!ATTLIST emne emnekode CDATA #REQUIRED
+               future (no|yes) 'no'>
 
 
 <!-- *************************************************************** -->
 <!--  Privatist emne                                                 -->
 <!--                                                                 -->
-<!--    Alle som er meldt til et emne uten å ha opptak               -->
+<!--    Alle som er meldt til et emne uten Ã¥ ha opptak               -->
 <!--                                                                 -->
 <!--  Attributter:                                                   -->
 <!--                                                                 -->
@@ -407,16 +420,21 @@ $Id$
 <!ATTLIST privatist_emne emnekode CDATA #REQUIRED>
 
 
+<!ELEMENT drgrad EMPTY>
+<!ATTLIST drgrad studieprogram CDATA #REQUIRED
+                 name          CDATA #IMPLIED>
+
+
 <!-- *************************************************************** -->
 <!--                                                                 -->
 <!--  Aktivt sted                                                    -->
 <!--                                                                 -->
 <!--   Sted der studenten er aktiv, dvs der                          -->
 <!--                                                                 -->
-<!--      1. et av de aktive kursene til vedkommende hører hjemme    -->
+<!--      1. et av de aktive kursene til vedkommende hÃ¸rer hjemme    -->
 <!--                                                                 -->
 <!--      2. hvis ingen aktive kurs; hvor aktivt studieprogram       -->
-<!--         hører hjemme.                                           -->
+<!--         hÃ¸rer hjemme.                                           -->
 <!--                                                                 -->
 <!--   Se 'aktiv'-elementet over for definisjon av "aktivt           -->
 <!--   studieprogram".                                               -->
@@ -430,13 +448,13 @@ $Id$
 <!--                                                                 -->
 <!--     - scope - one - matche stedkode eksakt                      -->
 <!--             - sub - matcher eksakt, eller                       -->
-<!--                     inngår som sted under denne                 -->
+<!--                     inngÃ¥r som sted under denne                 -->
 <!--                                                                 -->
-<!--     - nivaa_min - Minste berørte nivåkode for aktivt            -->
-<!--                   studieprogram på sted                         -->
+<!--     - nivaa_min - Minste berÃ¸rte nivÃ¥kode for aktivt            -->
+<!--                   studieprogram pÃ¥ sted                         -->
 <!--                                                                 -->
-<!--     - nivaa_max - Største berørte nivåkode for aktivt           -->
-<!--                   studieprogram på sted                         -->
+<!--     - nivaa_max - StÃ¸rste berÃ¸rte nivÃ¥kode for aktivt           -->
+<!--                   studieprogram pÃ¥ sted                         -->
 <!--                                                                 -->
 <!--  Eks:                                                           -->
 <!--                                                                 -->
@@ -446,14 +464,14 @@ $Id$
 <!--                                                                 -->
 <!-- <aktivt_sted stedkode='150000' institusjon='185' scope='one'/>  -->
 <!--          skal matche alle som er aktive i emner/studieprogram   -->
-<!--          som hører hjemme ved  fakultetet, men ikke ved         -->
+<!--          som hÃ¸rer hjemme ved  fakultetet, men ikke ved         -->
 <!--          noen av instituttene                                   -->
 <!--                                                                 -->
 <!-- <aktivt_sted stedkode='150500' institusjon='185' scope='sub'/>  -->
 <!--          skal matche alle som er aktive i emner/studieprogram   -->
-<!--          som hører hjemme ved IfI.  Treffer studenten           -->
+<!--          som hÃ¸rer hjemme ved IfI.  Treffer studenten           -->
 <!--          uavhengig av om studieprogrammet ligger ved IfI,       -->
-<!--          MatNat eller noe annet sted, så lenge                  -->
+<!--          MatNat eller noe annet sted, sÃ¥ lenge                  -->
 <!--          informatikk-emne er lovlig i det studieprogrammet.     -->
 <!--                                                                 -->
 <!--                                                                 -->
@@ -468,15 +486,63 @@ $Id$
 
 <!-- *************************************************************** -->
 <!--                                                                 -->
-<!--  Medlem av gruppe                                               -->
+<!--  Emnestud sted                                                  -->
 <!--                                                                 -->
-<!--     Sjekker opp mot medlemskap i grupper.  Tidligere brukt      -->
-<!--     for å lage unntakslister for printerkvoter. Kan fortsatt    -->
-<!--     brukes, men til andre formål                                -->
+<!--   Sted der studenten er tar et emne, dvs emnet studenten        -->
+<!--   er undervisningsmeldt til.                                    -->
 <!--                                                                 -->
 <!--  Attributter:                                                   -->
 <!--                                                                 -->
-<!--     - navn - navn på gruppe i Cerebrum.                         -->
+<!--     - Stedcode - 6 siffer stedkode for aktuelt                  -->
+<!--       sted som skal matches.                                    -->
+<!--                                                                 -->
+<!--     - institusjon - 3 sifret institusjons-nr                    -->
+<!--                                                                 -->
+<!--     - scope - one - matche stedkode eksakt                      -->
+<!--             - sub - matcher eksakt, eller                       -->
+<!--                     inngÃ¥r som sted under denne                 -->
+<!--                                                                 -->
+<!--     - nivaa_min - Minste berÃ¸rte nivÃ¥kode for aktiv             -->
+<!--                   undervisningsmelding pÃ¥ emne                  -->
+<!--                                                                 -->
+<!--     - nivaa_max - StÃ¸rste berÃ¸rte nivÃ¥kode for aktiv            -->
+<!--                   undervisningsmelding pÃ¥ emne                  -->
+<!--                                                                 -->
+<!--  Eks:                                                           -->
+<!--                                                                 -->
+<!-- <emnestud_sted stedkode='150000' institusjon='185' scope='sub'/>-->
+<!--          skal matche alle emnestudenter ved matnat              -->
+<!--          (inkl alle  instituttene).                             -->
+<!--                                                                 -->
+<!-- <emnestud_sted stedkode='150000' institusjon='185' scope='one'/>-->
+<!--          skal matche alle emnestudenter pÃ¥ emner                -->
+<!--          som hÃ¸rer hjemme ved fakultetet, men ikke ved         -->
+<!--          noen av instituttene                                   -->
+<!--                                                                 -->
+<!-- <emnestud_sted stedkode='150500' institusjon='185' scope='sub'/>-->
+<!--          skal matche alle emnestudenter                         -->
+<!--          som hÃ¸rer hjemme ved IfI.                              -->
+<!--                                                                 -->
+<!--                                                                 -->
+<!-- *************************************************************** -->
+<!ELEMENT emnestud_sted EMPTY>
+<!ATTLIST emnestud_sted stedkode CDATA #REQUIRED
+                        institusjon CDATA #REQUIRED
+                        scope (one|sub) #REQUIRED
+                        nivaa_max CDATA #IMPLIED
+                        nivaa_min CDATA #IMPLIED>
+
+<!-- *************************************************************** -->
+<!--                                                                 -->
+<!--  Medlem av gruppe                                               -->
+<!--                                                                 -->
+<!--     Sjekker opp mot medlemskap i grupper.  Tidligere brukt      -->
+<!--     for Ã¥ lage unntakslister for printerkvoter. Kan ikke brukes -->
+<!--     til dette lenger, men kan vÃ¦re nyttig for andre formÃ¥l.     -->
+<!--                                                                 -->
+<!--  Attributter:                                                   -->
+<!--                                                                 -->
+<!--     - navn - navn pÃ¥ gruppe i Cerebrum.                         -->
 <!--                                                                 -->
 <!--  Eks:                                                           -->
 <!--                                                                 -->
@@ -502,7 +568,7 @@ $Id$
 <!--   Sted der EVU-studenten er aktiv, dvs der                      -->
 <!--                                                                 -->
 <!--      1. et av de aktive EVU - kursene til                       -->
-<!--         vedkommende hører hjemme                                -->
+<!--         vedkommende hÃ¸rer hjemme                                -->
 <!--                                                                 -->
 <!--  Attributter:                                                   -->
 <!--                                                                 -->
@@ -513,7 +579,7 @@ $Id$
 <!--                                                                 -->
 <!--     - scope - one - matche stedkode eksakt                      -->
 <!--             - sub - matcher eksakt, eller                       -->
-<!--                     inngår som sted under denne                 -->
+<!--                     inngÃ¥r som sted under denne                 -->
 <!--                                                                 -->
 <!--  Eks:                                                           -->
 <!--                                                                 -->
@@ -534,7 +600,7 @@ $Id$
 <!--  Utv stud sted                                                  -->
 <!--                                                                 -->
 <!--   Sted der Utvekslingsstudenten er aktiv, dvs det               -->
-<!--   stedet som er anført som internt sted (jmf                    -->
+<!--   stedet som er anfÃ¸rt som internt sted (jmf                    -->
 <!--   FS.UTVEKSLINGSPERSON for studenten)                           -->
 <!--                                                                 -->
 <!--  Attributter:                                                   -->
@@ -546,7 +612,7 @@ $Id$
 <!--                                                                 -->
 <!--     - scope - one - matche stedkode eksakt                      -->
 <!--             - sub - matcher eksakt, eller                       -->
-<!--                     inngår som sted under denne                 -->
+<!--                     inngÃ¥r som sted under denne                 -->
 <!--                                                                 -->
 <!--  Eks:                                                           -->
 <!--                                                                 -->
@@ -578,7 +644,7 @@ $Id$
 <!--  Eks:                                                           -->
 <!--                                                                 -->
 <!-- <Person_affiliation Affiliation='ANSATT' Status='bilag'/>       -->
-<!--          skal matche alle bilagslønnede.                        -->
+<!--          skal matche alle bilagslÃ¸nnede.                        -->
 <!--                                                                 -->
 <!-- *************************************************************** -->
 <!ELEMENT person_affiliation EMPTY>

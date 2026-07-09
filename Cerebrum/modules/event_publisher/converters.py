@@ -67,7 +67,6 @@ logger = logging.getLogger(__name__)
 # categories:
 #     ac_type -> ?
 #     disk -> ?
-#     disk_quota -> ?
 #     dlgroup -> distribution_group
 #     e_account -> account
 #     e_group -> group

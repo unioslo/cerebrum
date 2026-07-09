@@ -245,26 +245,6 @@ class Profile(object):
                                   % new_disk)
         return ret.disk_id
 
-    def get_disk_kvote(self, disk_id):
-        self._logger.debug2("Determine disk_quota (disk_id=%i)" % disk_id)
-        # Look for profile match
-        max_quota = 0
-        for m in self.matcher.get_match("disk_kvote"):
-            self._logger.debug2("get_disk_kvote <tag>: %s" % m)
-            if int(m['value']) > max_quota:
-                max_quota = int(m['value'])
-        if max_quota > 0:
-            return max_quota
-        # Look for match by diskdef
-        disk_def = self.pc.autostud.disk_tool.get_diskdef_by_diskid(disk_id)
-        if disk_def is None:
-            raise AutostudError("No defined disk_kvote")
-        if disk_def.disk_kvote:
-            return disk_def.disk_kvote
-        if 'disk_kvote_value' in self.pc.default_values:
-            return int(self.pc.default_values['disk_kvote_value'])
-        raise AutostudError("No defined disk_kvote")
-
     def get_brev(self):
         for b in self.matcher.get_match("brev"):
             return b
