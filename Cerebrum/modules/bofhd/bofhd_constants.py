@@ -36,26 +36,6 @@ class _LegacyOpCodes(Constants.Constants):
     """
     Deprecated and obsolete op codes.
     """
-    _legacy_auth_disk_def_quota_set = _AuthRoleOpCode(
-        "disk_def_quota",
-        "Obsolete disk_quota permission - Set default disk quota",
-    )
-    _legacy_auth_disk_quota_forever = _AuthRoleOpCode(
-        "disk_quota_forev",
-        "Obsolete disk_quota permission - Set unlimited disk quota duration",
-    )
-    _legacy_auth_disk_quota_set = _AuthRoleOpCode(
-        "disk_quota_set",
-        "Obsolete disk_quota permission - Set disk quota",
-    )
-    _legacy_auth_disk_quota_show = _AuthRoleOpCode(
-        "disk_quota_show",
-        "Obsolete disk_quota permission - View disk quota information",
-    )
-    _legacy_auth_disk_quota_unlimited = _AuthRoleOpCode(
-        "disk_quota_unlim",
-        "Obsolete disk_quota permission - Set unlimited disk quota",
-    )
 
 
 class Constants(_LegacyOpCodes, Constants.Constants):
