@@ -60,8 +60,9 @@ import textwrap
 
 import six
 
+import Cerebrum.logutils
+import Cerebrum.logutils.options
 from Cerebrum import Errors
-from Cerebrum import logutils
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.argutils import add_commit_args
 
@@ -721,10 +722,10 @@ def main(argv=None):
         action="store_true",
     )
     parser = add_commit_args(parser)
-    logutils.options.install_subparser(parser)
+    Cerebrum.logutils.options.install_subparser(parser)
 
     args = parser.parse_args(argv)
-    logutils.autoconf_interactive(args)  # console or tee
+    Cerebrum.logutils.autoconf_interactive(args)  # console or tee
     logger.info("start %s", parser.prog)
     logger.debug('args: %r', args)
 
