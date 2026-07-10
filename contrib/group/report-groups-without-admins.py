@@ -121,7 +121,7 @@ def format_table(groups):
         ((g['group_type'], g) for g in groups)
     )
     txt = "These manual groups, sorted by type and id, lacks an admin:\n\n"
-    for group_type in sorted(group_by_type):
+    for group_type in sorted(group_by_type, key=six.text_type):
         groups = group_by_type[group_type]
         txt += six.text_type(group_type) + ": {}".format(len(groups))
         txt += "\n" + 80*"-" + "\n"
