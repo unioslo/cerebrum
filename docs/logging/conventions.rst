@@ -48,7 +48,7 @@ Exceptions to this rule:
 - Separate debug loggers (e.g. for sensitive information).  These are separate
   logger objects that aren't included in the logger hierarchy by default:
   ::
-    
+
       debug_log = logger.getChild("debug")
       debug_log.addHandler(logging.NullHandler)
       debug_log.propagate = False
@@ -62,7 +62,9 @@ Writing code
 When creating log records:
 
 - (almost) always use the module level logger
-- avoid logging personal data or sensitive information
+
+- avoid logging personal data or sensitive information - follow GDPR_ guidelines.
+
 - include all relevant data in the log message - log records should not depend
   on *context* (i.e. other log records):
 
@@ -160,3 +162,5 @@ what it does - it is simply not all that important.
 
 In these cases, the appropriate solution is to *ignore* messages to the given
 logger in the log configuration.
+
+.. _gdpr: https://www.regjeringen.no/no/tema/lov-og-rett/innsikt/ny-personopplysningslov/
