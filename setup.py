@@ -370,7 +370,6 @@ setup(
         'Cerebrum/modules/statsd',
         'Cerebrum/modules/consent',
         'Cerebrum/modules/cim',
-        'Cerebrum/modules/disk_quota',
         'Cerebrum/modules/email_report',
         'Cerebrum/modules/event',
         'Cerebrum/modules/event_publisher',
