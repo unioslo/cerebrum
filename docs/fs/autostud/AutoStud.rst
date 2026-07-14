@@ -91,45 +91,5 @@ the profile.
 `Example <autoconfig-student-eksempel.xml>`_
 
 After editing ``studconfig.xml``, you should validate it against
-``studconfig.dtd``.
-
-
-Validating with lxml
----------------------
-Example script to validate a ``studconfig.xml`` against the ``studconfig.dtd``:
-::
-
-    import io
-    import os
-    import sys
-    import lxml.etree
-
-
-    def read_dtd(filename):
-        with io.open(filename, mode="rb") as byte_stream:
-            return lxml.etree.DTD(byte_stream)
-
-
-    def read_xml(filename):
-        with io.open(filename, mode="rb") as byte_stream:
-            xml_bytes = byte_stream.read()
-            return lxml.etree.XML(xml_bytes)
-
-
-    DTD_FILE = os.path.join(sys.prefix, "share/cerebrum/design/studconfig.dtd")
-    XML_FILE = os.path.join(sys.prefix, "etc/cerebrum/studconfig.xml")
-
-
-    def main():
-        dtd = read_dtd(DTD_FILE)
-        xml = read_xml(XML_FILE)
-
-        is_valid = dtd.validate(xml)
-        print("Valid: " + repr(is_valid))
-        if is_valid:
-            return
-        raise SystemExit(dtd.error_log)
-
-
-    if __name__ == '__main__':
-        main()
+``studconfig.dtd``.  This can be done with the
+``contrib/fs/validate-studconfig.py`` script.
