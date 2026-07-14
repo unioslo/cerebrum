@@ -108,14 +108,16 @@ class RequestLockHandler(object):
 
     def close(self):
         """ Release and clean up lock. """
-        if self.lockfd is not None:
-            fcntl.flock(self.lockfd, fcntl.LOCK_UN)
-            # There's a potential race here (someone else can grab and
-            # release this lock before the unlink), but users of this
-            # class should remove the request from the todo list
-            # before releasing the lock.
-            os.unlink(self.lockdir % self.reqid)
-            self.lockfd = None
+        if self.lockfd is None:
+            return
+        fcntl.flock(self.lockfd, fcntl.LOCK_UN)
+        self.lockfd.close()
+        # There's a potential race here (someone else can grab and
+        # release this lock before the unlink), but users of this
+        # class should remove the request from the todo list
+        # before releasing the lock.
+        os.unlink(self.lockdir % self.reqid)
+        self.lockfd = None
 
 
 class SimpleRequestProcessor(reprutils.ReprFieldMixin):
