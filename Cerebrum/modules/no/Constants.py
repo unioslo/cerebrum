@@ -89,7 +89,39 @@ class ConstantsActiveDirectory(Constants.Constants):
     )
 
 
-class ConstantsCommon(Constants.Constants):
+class _DeprecatedIndividuationCodes(Constants.Constants):
+    """
+    Individuation constants.
+
+    Indiviuation is the old sms password reset service.  These constants are
+    deprecated, but can't be deleted unless they are purged from the trait
+    tables and and audit logs.
+    """
+
+    # This used to store a one time password for Individuation
+    trait_password_token = _EntityTraitCode(
+        "password_token",
+        Constants.Constants.entity_account,
+        "Deprecated - store a one time password for an account",
+    )
+
+    # This used to store a session-like value for Individuation
+    trait_browser_token = _EntityTraitCode(
+        "browser_token",
+        Constants.Constants.entity_account,
+        "Deprecated - Store a browser token for an account",
+    )
+
+    # This used to store failed login attempts for Individuation
+    trait_password_failed_attempts = _EntityTraitCode(
+        "passw_attempts",
+        Constants.Constants.entity_account,
+        "Deprecated - Number of times an account has tried "
+        "to use sms password service",
+    )
+
+
+class ConstantsCommon(_DeprecatedIndividuationCodes, Constants.Constants):
     """
     Common constants for all Norwegian installations.
 
@@ -172,25 +204,6 @@ class ConstantsCommon(Constants.Constants):
         'expire_notify',
         Constants.Constants.entity_group,
         "If an admin has been notified that the group is expiring soon",
-    )
-
-    # Traits for the password service (Individuation)
-    trait_password_token = _EntityTraitCode(
-        "password_token",
-        Constants.Constants.entity_account,
-        "Store a one time password for an account",
-    )
-
-    trait_browser_token = _EntityTraitCode(
-        "browser_token",
-        Constants.Constants.entity_account,
-        "Store a browser token for an account",
-    )
-
-    trait_password_failed_attempts = _EntityTraitCode(
-        "passw_attempts",
-        Constants.Constants.entity_account,
-        "Number of times an account has tried to use sms password service",
     )
 
     # Trait for reservation from the new password service
