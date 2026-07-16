@@ -1,35 +1,55 @@
-=======================================================
-Automatic useradministration in Cerebrum
-=======================================================
+========================================
+Automatic student management in Cerebrum
+========================================
 
-.. admonition:: Needs review
-
-   This is an old document, some of the instructions may be out of date.
-
-.. contents:: Contents
+.. contents::
 .. section-numbering::
-
 
 Technical details
 ==================
-
-Most of the routines for automatic student administration in Cerebrum
+Most of the routines for automatic student management in Cerebrum
 are handled by ``Cerebrum.modules.no.uio.AutoStud``.  Typical usage is
-something like::
+something like:
+::
 
-    autostud = AutoStud.AutoStud(db, logger, debug=debug, cfg_file=studconfig_file,
-                                 studieprogs_file=studieprogs_file)
-    autostud.start_student_callbacks(student_info_file,
-                                     process_students_callback)
     def process_students_callback(person_info):
+        # Handle student data
         profile = autostud.get_profile(person_info)
-        print "Disk: %s" % profile.get_disk()
+        logger.debug("disk: %s" % profile.get_disk())
+        …
 
-The ``cfg_file`` is an XML file that contains rules defining
-properties of a students account.  ``studieprogs_file`` is an XML file
-describing the various "studieprogrammer", and ``student_info_file``
-is the ``merged_persons.xml`` file generated from FS data.  The
-classes in ``AutoStud`` are:
+    def main():
+        …
+        autostud = AutoStud.AutoStud(
+            db,
+            logger,
+            debug=debug,
+            cfg_file=studconfig_file,
+            studieprogs_file=studieprogs_file,
+            …
+        )
+        autostud.start_student_callbacks(
+            student_info_file,
+            process_students_callback,
+        )
+
+
+``cfg_file``
+    The AutoStud ``cfg_file`` is an XML file that contains rules for all the
+    various types of student accounts.  See ``design/studconfig.dtd`` for more
+    details on the config file format.
+
+``studieprogs_file``
+    The AUtoStud ``studieprogs_file`` is an XML file describing the various
+    study programs (studieprogrammer).
+
+
+``student_info_file``
+    The ``student_info_file`` used with ``AutoStud.start_student_callbacks`` is
+    an XML file that describes all students, student roles, and student
+    properties.  It is typically called ``merged_persons.xml``, and is merged
+    from multiple other XML files with student data from FS.
+
 
  * ``AutoStud.AutoStud`` is the main class, and is normally the only
    one you would initialize.
@@ -58,11 +78,11 @@ about where things are implemeted.
 
 Figure: Class overview
 
-.. image:: ../figures/AutoStud.png
+.. image:: figures/AutoStud.png
 
 
 Studconfig.xml file
-=====================
+====================
 The file ``studconfig.xml`` controls how the automated student
 maintenance is performed.  It defines a list of profiles containing
 attributes for accounts as well as select criterias reuired to match
@@ -71,8 +91,5 @@ the profile.
 `Example <autoconfig-student-eksempel.xml>`_
 
 After editing ``studconfig.xml``, you should validate it against
-``studconfig.dtd`` using an XML parser.  In emacs with psgml-mode,
-simply press ``Ctrl-c Ctrl-p`` to load the DTD, and ``Ctrl-c Ctrl-o``
-to jump to next error.
-
-`DTD <studconfig_dtd.xml>`_
+``studconfig.dtd``.  This can be done with the
+``contrib/fs/validate-studconfig.py`` script.

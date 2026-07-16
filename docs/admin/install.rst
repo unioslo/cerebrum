@@ -96,14 +96,13 @@ like:
 
 to ``cereconf.py``
 
-Cerebrum also expects to find an authentication file for the database
-user named"
+Cerebrum also expects to find an authentication file for the database:
 ::
 
     <DB_AUTH_DIR>/passwd-<username>@<DATABASE_NAME>
 
-which contains the users database password. the format of the
-authentication file should be"
+which should contain the database username and password.  The format of the
+authentication file should be:
 ::
 
   username<tab>password
@@ -151,12 +150,13 @@ more than one optional module:
 
 
 Upgrading a Cerebrum installation
-======================================
+===================================
 Due to the fact that each installation of Cerebrum may differ
 considerably from the original Cerebrum distribution upgrading Cerebrum
-is a complicated affair. Some general rules to upgrading will apply:
+is a complicated affair.  Some general rules to upgrading will apply:
 
 * Backup your data
+
 * If you are installing in the same place as the old version move the
   old installation out of the way
 
