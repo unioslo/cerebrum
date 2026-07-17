@@ -2,87 +2,212 @@
 How to log in Cerebrum
 =======================
 
+.. contents::
+.. section-numbering::
+
+
+Overview
+=========
+This document describes coding conventions, tips and tricks, and some useful
+code patterns to use in Cerebrum.
+
+
+Configuring logging in Cerebrum
+--------------------------------
+Cerebrum uses *two* distinct log configs.
+
+The first configures the *logging environment*, and specifies some default
+locations for log files, locations for *logger presets*, general behaviour, etc...
+
+The second config is the *logger preset* (specified as ``--logger-name`` in most
+scripts).  This preset configures the logger hierarchy, with loggers, handlers,
+formatters, etc...
+
+See `Cererbum.logutils <./logutils.html>`_ for details on how to configure.
+
+
+Loggers and logging hierarchy
+------------------------------
+We generally use *module loggers*, i.e. globally defined loggers, named from
+the modules they are defined in.  This generates a logger hierarchy that mirrors
+our code, and loggers are adressable by their module names when configuring them
+from our *logger presets*.
+
+Exceptions to this rule:
+
+- The common legacy logger returned by ``Factory.get_logger()`` — this logger
+  should only be used in legacy code.
+
+- Legacy code that requires a logger object — in these cases it's common to
+  create a new child-logger from the current module: e.g.:
+  ::
+
+      def read_edu_units(filename):
+          getter = EduDataGetter(filename, logger.getChild("read_edu_units"))
+          ...
+
+- Separate debug loggers (e.g. for sensitive information).  These are separate
+  logger objects that aren't included in the logger by default:
+  ::
+
+      debug_log = logger.getChild("debug")
+      debug_log.addHandler(logging.NullHandler)
+      debug_log.propagate = False
+
+In summary - if something other than a module logger is needed, create a
+child of a module logger that *doesn't* collide with another module name.
+
+
+Writing code
+=============
 Write short and clear log messages, and use string interpolation for variable
 content.
 
-Some logging guidelines and tips:
+When creating log records:
 
-* Use ``Cerebrum.logutils`` to configure all logging.  See the `example`_
-  further down.
+- (almost) always use the module level logger
 
-* Consider the different `log levels`_ before adding a new log record.
+- follow GDPR_ guidelines:
 
-* Use string interpolation: ``info("foo=%s", foo)``, **not**
-  ``info("foo=%s" % (foo,))```.
+  - avoid logging personal data or sensitive information
 
-* Only log serializable arguments, and use *repr* if an argument could be
-  unserializable.  Generally prefer ``info("foo=%s", repr(foo))`` over
-  ``info("foo=%r", foo)``.
+  - when logging details about a person, prefer to log internal ids like
+    ``entity_id``
 
-* Add context when logging values, e.g.: ``skipping account_name=%s,
-  person_id=%d``, and **not** just ``skipping %s, %d``
+  - this also applies to the *DEBUG* level.
 
-* Follow GDPR_ guidelines:
-
-  - Don't log personal information, unless really, really necessary.
-
-  - When logging details about persons, prefer to log internal ids like
-    ``entity_id`` over *personal identifiers*.
-
-  - This also applies to the *DEBUG* level.
-
-  - If personal information *really* needs to be logged for debugging, use a
+  - if personal information *really* needs to be logged for debugging, use a
     separate logger that is *disabled* by default.
 
-* Log exception tracebacks if caught.  Tracebacks can be omitted for really,
-  really known and expected exceptions, otherwise log a message with the
-  appropriate level (usually *ERROR*) and with ``exc_info=True``.
+- Use ``Cerebrum.logutils`` to configure all logging.  See the `example`_
+  further down.
+
+- Consider the different `log levels`_ before adding a new log record.
+
+- include all relevant data in the log message - log records should not depend
+  on *context* (i.e. other log records):
+
+  - **don't**: ``logger.debug("processing item=%s", item_id);
+    logger.warning("invalid foo: %s", repr(foo))`` (second log record depends on
+    first for context)
+
+  - **do**: ``logger.debug("processing item=%s", item_id);
+    logger.warning("invalid foo in item=%s: %s", item_id, repr(foo))`` (second
+    log record contains all neccessary context).
 
 
-Log levels
-===========
+- let the logger deal with formatting
+
+  - **don't**: ``logger.info("Foo: %s" % (value,))``
+  - **do**: ``logger.info("Foo: %s", value)``
+
+- only log serializable values:
+
+  - **don't**: ``logger.info("Foo: %r", some_complex_object)``
+  - **do**: ``logger.info("Foo: %s", repr(some_complex_object))``
+
+- use ``exc_info`` to log tracebacks:
+
+  - **don't**: ``logger.exception("Unhandled error in request id=%s",
+    request_id)``
+
+  - **do**: ``logger.error("Unhandled error in request id=%s", request_id,
+    exc_info=True)`` (explicit log level)
+
+  - only log tracebacks for errors that would otherwise be lost/hidden.  E.g.
+    for servers where the request ends up as a HTTP 500 response.  If an
+    exception is re-raised, a traceback should normally *not* be logged.
+
+
+Choosing a log level
+---------------------
 In normal operation, scripts should log at level *INFO*.  *DEBUG* is
 reserved for manual runs when more information is needed.
 
+.. _log levels:
+
 **CRITICAL**
-    Only for emergencies where sysadmins need to take action immediately.  This
-    is typically when a batch script or daemon process crashes.
+    Serious problems, should rarely be used.
+
+    Only for emergencies where sysadmins need to take action immediately.
+
+    E.g.: a daemon terminates unexpectedly, database unavailable.
 
 **ERROR**
+    Unhandled errors, anything that requires manual interaction.
+
     Whenever something that *should* succeed unexpectedly fails.  Everything
     logged at this level or higher should be followed up by a person.
 
     Examples:
 
     - Tried to communicate with an external system, but the system is unreachable.
-
     - Tried to communicate with a system, but the system returns an error
-
-    - Tried to process a request, but an exception was raised.
+    - Tried to process a request, but an exception was raised and not handled
+    - Tried to read a required file, but the file is missing
 
 **WARNING**
     Used for somewhat expected errors, and situations that should be *noticed*.
+
     A warning indicates that something is odd or wrong, but it may not require
     follow-up.
 
     Examples:
 
     - A user was omitted from batch import/export because of bad data.
+    - Most examples from *ERROR* that are expected, and handled well
 
 **INFO**
-    Details that document state changes.
+    Important messages, and details that document state changes.
 
     Examples:
 
-    - Actual changes to internal/external systems.
-    - Process startup and shutdown (e.g. batch script start/stop).
+    - Important events, e.g.: startup, shutdown, new request, new response
+    - Actual changes to internal/external systems, e.g.: database changes,
+      filesystem changes, external command invocations and results
     - Milestones in batch processing
 
 **DEBUG**
-    Useful details for debugging, but not for daily operations, a.k.a. *the
-    rest*.  Still, no sensitive data, please.
+    Debug information, should not normally be handled or included in logs.  Logs
+    should still make sense without this information.
 
-    Logs should be readable if this information is omitted.
+    Should provide operators with useful info, e.g. (non-personal) identifiers
+    for debugging.  When reading a debug log, the reader should be able to
+    follow the program execution, and various decisions taken to produce the
+    *changes* that are logged with level ``INFO``.
+
+    Examples:
+
+    - ``logger.debug("Found %d events to process", len(events))``
+    - ``logger.debug("Ignoring event.id=%d - some criteria not fulfulled",
+      event.id)``
+    - ``logger.debug("Acting on event.id=%d", event.id)``
+
+    Take care not to log *too much*.  Unneccessary log records makes a log
+    harder to read and follow.
+
+
+Legacy log levels
+------------------
+A custom Cerebrum logger exists in Cerebrum, with additional ``DEBUG`` log
+levels (``DEBUG1``, ``DEBUG2``, etc..).  This is a legacy feature, and should be
+avoided in *all new code*.
+
+
+Ignoring log messages
+----------------------
+Sometimes, appropriate log records from a given logger (e.g. some module
+logger), is inappropriate in the context where it is used (e.g. a script).
+
+Example: ``Cerebrum.modules.statsd`` communicates with an external system, where
+it also mutates data - this should be logged at level ``INFO``.  The script
+``create_foo.py``, creates a *foo* object in the database, and logs this at
+level ``INFO``, then counts a stat value using statsd.  In this case, it's not
+interesting to know in our logs for ``create_foo.py`` that the stats module does
+what it does - it is simply not all that important.
+
+In these cases, the appropriate solution is to *ignore* messages to the given
+logger in the log configuration.
 
 
 Example
@@ -162,6 +287,20 @@ tee
     Cerebrum or other systems - i.e. scripts that a human will run manually in
     order to change something in the database.
 
+daily
+    Similar to ``cronjob``, but rotates logs daily, and includes the date in the
+    log filename.
+
+    This is a good alternative to cronjob, but typically requires *cleanup* (and
+    optional archiving) using ``file_cleaner``.  When combined with file cleanup
+    and archiving, this provides proper log retention.  This is very useful for
+    scripts that either:
+
+    - Logs a lot - we can add compression to save space, and prevents us from
+      rotating away logs too quickly.
+
+    - Logs very little - when combined with cleanup, this prevents us from
+      keeping logs around too long.
 
 
 Convenient patterns
@@ -179,10 +318,12 @@ commit/dryrun flag control the default preset:
     Cerebrum.logutils.options.install_subparser(parser)
 
     args = parser.parse_args(inargs)
-    default_preset = 'tee' if args.commit else 'console'
-    Cerebrum.logutils.autoconf(default_preset, args)
+    Cerebrum.logutils.autoconf_interactive(args)
+    # This is the same as setting:
+    #   `logutils.autoconf('tee' if args.commit else 'console', args)`
 
     logger.info("start %s", parser.prog)
+    ...
 
 
 Logging sensitive debug data
@@ -200,8 +341,8 @@ by default.  Example:
 
     # additional disabled debug log
     debug_log = logger.getChild("debug")
-    debug_log.propagate = False
     debug_log.addHandler(logging.NullHandler())
+    debug_log.propagate = False
 
 
     def enable_debug_log():
@@ -231,4 +372,4 @@ configuration says otherwise.
   (e.g. log these messages to a separate log file).
 
 
-.. _GDPR: <https://www.regjeringen.no/no/tema/lov-og-rett/innsikt/ny-personopplysningslov/>
+.. _gdpr: https://www.regjeringen.no/no/tema/lov-og-rett/innsikt/ny-personopplysningslov/
