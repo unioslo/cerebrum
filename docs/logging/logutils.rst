@@ -14,7 +14,11 @@ in Cerebrum.
 Configuration
 =============
 There are two different types of configuration for the ``Cerebrum.logutils``
-module; the `logging environment`_ config, and the `logger preset`_ config.
+module:
+
+- `logging environment`_ config (logenv), with settings for ``Cerebrum.logutils``
+- `logger preset`_, with settings for the loggers and handlers used by a
+  given script
 
 
 Logging environment
@@ -38,7 +42,7 @@ Settings
 ~~~~~~~~~
 
 ``logging.confdir`` (string, directory)
-    Location of `logger preset`_ configuration, i.e. a folder with standard
+    Location of `logger preset`_ configurations, i.e. a folder with standard
     logging configuration files.
 
 ``logging.logdir`` (string, directory)
@@ -115,9 +119,9 @@ and configures the logger hierarchy (loggers, handlers, filters, formatters).
 The presets should reside in the directory given by the `logging environment`_
 config (``logging.confdir``, ``<preset>/var/log/cerebrum`` by default).
 
-Scripts usually define a *default* named preset (often ``"crontab"``) when
-configuring the logging hierarchy.  This default preset can usually overloaded
-with some default command line `arguments`_.
+Scripts usually select a *default* named  preset (usually ``"crontab"``) when
+setting up the logging hierarchy.  This default preset can be overloaded with
+command line `arguments`_.
 
 
 Arguments
