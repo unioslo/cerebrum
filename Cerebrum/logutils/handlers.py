@@ -1,6 +1,75 @@
-# encoding: utf-8
-""" Log handlers. """
-from __future__ import absolute_import
+# -*- coding: utf-8 -*-
+#
+# Copyright 2017-2023 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""
+Log handlers for Cerebrum.
+
+This module consists of custom handlers for Cerebrum.  The handlers are pretty
+similar to handlers in the standard library, but adds a few features.
+
+Features
+--------
+All common `handlers`_ in this module use the following feature mixins:
+
+:class:`.MakeDirectoriesMixin`
+    Creates missing parent directories for the log file.
+
+:class:`.PermissionMixin`
+    Set file permissions for new log files if given a 'persmissions' setting.
+
+:class:`.FilenameTemplateMixin`
+    Expand filename setting using template variables:
+
+    - '$root': Logging root directory
+    - '$script': Name of script
+    - '$date': The current date
+
+:class:`.CerelogStreamMixin`
+    Better support for unicode and bytestring log messages.
+
+
+Handlers
+--------
+:class:`.DelayedFileHandler`
+    The basic cerebrum file handler.  Adds support for the mixin `features`_,
+    and functions as a base class for other handlers.
+
+:class:`.OneRunHandler`
+    This is just the DelayedFileHandler, but with a *default log filename* that
+    includes the current date and time.  Use this handler to give each script
+    run its own log file.
+
+:class:`.CerebrumRotatingHandler`
+    A rotating file handler that rotates logs based on file size.  Similar to
+    the standard library rotating file handler, but with threading
+    locks and mixin `features`_.
+
+:class:`.CerebrumTimedRotatingHandler`
+    A timed rotating file handler that rotates logs based on the current date
+    and time.  Similar to the standard library timed rotating file handler, but
+    with threading locks and mixin `features`_.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+)
 
 import codecs
 import logging
@@ -91,13 +160,13 @@ class FilenameTemplateMixin(BaseFileHandler):
     $script
         the name of the currently executed script
 
-    $datetime
-        a default date and time date format `strftime`
+    $date
+        the current date and time
     """
 
     default_context = {
-        'root': DEFAULT_DIRECTORY,
         'date': '%Y-%m-%dT%H:%M:%S',
+        'root': DEFAULT_DIRECTORY,
         'script': get_script_name,
     }
 
@@ -107,9 +176,6 @@ class FilenameTemplateMixin(BaseFileHandler):
 
     def __init__(self, filename, **kwargs):
         """
-        :param str directory:
-            Directory to place log files in.
-
         :param str filename: A filename or filename template for log files.
         """
         filename = self._build_filename(filename)
@@ -215,9 +281,6 @@ class OneRunHandler(DelayedFileHandler):
         super(OneRunHandler, self).__init__(filename, **kwargs)
 
 
-# TODO: Cronjobs should use OneRunHandler
-
-
 class CerebrumRotatingHandler(DelayedFileHandler):
     """ Cerebrum's own rotating handler.
 
@@ -242,7 +305,11 @@ class CerebrumRotatingHandler(DelayedFileHandler):
     If L{maxBytes} is zero, rollover never occurs.
     """
 
-    def __init__(self, filename, maxBytes=0, backupCount=0, **kwargs):
+    def __init__(self,
+                 filename,
+                 maxBytes=0,  # noqa: N803
+                 backupCount=0,  # noqa: N803
+                 **kwargs):
         # 'w' would truncate, and it makes no sense for this handler.
         if maxBytes > 0:
             kwargs['mode'] = 'a+'
@@ -264,10 +331,10 @@ class CerebrumRotatingHandler(DelayedFileHandler):
             super(CerebrumRotatingHandler, self).emit(record)
         except (KeyboardInterrupt, SystemExit):
             raise
-        except:
+        except Exception:
             self.handleError(record)
 
-    def shouldRollover(self, record):
+    def shouldRollover(self, record):  # noqa: N802
         """Should we rotate the log files?"""
 
         # IVR 2007-02-13 TBD: There is a slight problem with delayed file
@@ -284,7 +351,7 @@ class CerebrumRotatingHandler(DelayedFileHandler):
             return True
         return False
 
-    def doRollover(self, record):
+    def doRollover(self, record):  # noqa: N802
         """This is a slightly modified copy of logging.RotatingFileHandler.
 
         Essentially, we need to prevent multiple threads from screwing things
@@ -333,7 +400,7 @@ class CerebrumRotatingHandler(DelayedFileHandler):
 
                 # delayed opening. The superclass will take care of everything
                 self.stream = None
-            except:
+            except Exception:
                 # Something went wrong before we managed to complete
                 # rotations. Let's re-open the stream and hope for the best. In
                 # case of failure, it is preferrable to write to the same file,
@@ -384,8 +451,13 @@ class CerebrumTimedRotatingHandler(DelayedFileHandler):
         },
     }
 
-    def __init__(self, filename, when='H', interval=1, backupCount=0,
-                 utc=False, **kwargs):
+    def __init__(self,
+                 filename,
+                 when='H',
+                 interval=1,
+                 backupCount=0,  # noqa: N803
+                 utc=False,
+                 **kwargs):
         """Initialize and parse arguments specific for this handler
 
         Current 'when' events supported:
@@ -452,7 +524,7 @@ class CerebrumTimedRotatingHandler(DelayedFileHandler):
             super(CerebrumTimedRotatingHandler, self).emit(record)
         except (KeyboardInterrupt, SystemExit):
             raise
-        except:
+        except Exception:
             self.handleError(record)
 
     def compute_rollover(self, current_time):
@@ -623,7 +695,7 @@ class CerebrumTimedRotatingHandler(DelayedFileHandler):
 
                 # delayed opening. The superclass will take care of everything
                 self.stream = None
-            except:
+            except Exception:
                 # Something went wrong before we managed to complete
                 # rotations. Let's re-open the stream and hope for the best. In
                 # case of failure, it is preferrable to write to the same file,

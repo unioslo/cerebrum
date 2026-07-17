@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2015-2018 University of Oslo, Norway
+# Copyright 2015-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,48 +17,51 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-"""Cerebrum module for loading configuration files.
+"""
+Cerebrum module for loading configuration files.
 
 This module contains functionality for finding and loading config files from
 well-defined locations on the file system.
 
 It is a bridge between the `parsers` module and the `configuration` module.
 
-
 TODO: Improvements:
 
 1. Improve error handling:
-  - If multiple errors exist in config files, we should gather them up and
-    present all the errors.
-  - Reading config should be 'transactional'. If any errors exists, no
-    configuration should be changed.
-"""
-from __future__ import unicode_literals
 
+- If multiple errors exist in config files, we should gather them up and
+  present all the errors.
+
+- Reading config should be 'transactional'. If any errors exists, no
+  configuration should be changed.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import logging
 import os
 import sys
 
-from Cerebrum.config.configuration import Configuration
 from . import parsers as _parsers
+from .configuration import Configuration
 
+logger = logging.getLogger(__name__)
 
 # Make it possible to override sys.prefix for configuration path purposes
-sys_prefix = os.getenv('CEREBRUM_SYSTEM_PREFIX', sys.prefix)
+SYS_PREFIX = os.getenv('CEREBRUM_SYSTEM_PREFIX', sys.prefix)
 
 # Default directory for global configuration files.
-default_dir = os.getenv('CEREBRUM_CONFIG_ROOT',
-                        os.path.join(sys_prefix, 'etc', 'cerebrum', 'config'))
+DEFAULT_DIR = os.getenv('CEREBRUM_CONFIG_ROOT',
+                        os.path.join(SYS_PREFIX, "etc/cerebrum/config"))
 
 # Default directory for user configuration files.
-user_dir = os.path.join('~', '.cerebrum', 'config')
+USER_DIR = "~/.cerebrum/config"
 
 # Default name of the root configuration file.
 default_root_ns = None
-
-# Module logger
-logger = logging.getLogger(__name__)
 
 
 def _f2key(f):
@@ -85,7 +87,7 @@ def is_readable_dir(path):
             os.access(path, os.R_OK | os.X_OK))
 
 
-def lookup_dirs(additional_dirs=[]):
+def lookup_dirs(additional_dirs=None):
     """ Gets an ordered list of config directories.
 
     :param list additional_dirs:
@@ -94,10 +96,14 @@ def lookup_dirs(additional_dirs=[]):
     :return list:
         A prioritized list of real, accessible directories.
     """
-    return filter(
-        is_readable_dir,
-        map(lambda d: os.path.abspath(os.path.expanduser(d)),
-            [default_dir, user_dir] + additional_dirs))
+    # Maybe it would be better to use a CEREBRUM_CONFIG_PATH value to allow for
+    # better dev setups?  Also, additional_dirs isn't really a feature that we
+    # use...
+    candidates = (
+        os.path.abspath(os.path.expanduser(d))
+        for d in ((DEFAULT_DIR, USER_DIR) + tuple(additional_dirs or ()))
+    )
+    return [d for d in candidates if is_readable_dir(d)]
 
 
 def read(config, root_ns=default_root_ns, additional_dirs=[]):

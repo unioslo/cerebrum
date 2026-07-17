@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2010-2018 University of Oslo, Norway
+# Copyright 2010-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,11 +17,10 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""
+This module implements the authentication framework for voip.
 
-
-"""This module implements authentication framework for voip.
-
-The voip module contains a number of password-like attributes. This module
+The voip module contains a number of password-like attributes.  This module
 offers an interface to password-like storage in the database for any entity in
 Cerebrum.
 
@@ -30,9 +29,14 @@ account password storage.
 
 FIXME: Merge with PasswordChecker.py
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
-import cereconf
-
+import six
 
 from Cerebrum import Errors
 from Cerebrum.Entity import Entity
@@ -50,37 +54,44 @@ class EntityAuthentication(Entity):
 
     def delete(self):
         """Nuke all the auth data pertinent to this entity."""
-        
-        self.execute("""
-        DELETE FROM [:table schema=cererbum name=entity_authentication_info]
-        WHERE entity_id = :entity_id
-        """, {"entity_id": self.entity_id})
-        self.__super.delete()
-    # end delete
+        self.execute(
+            """
+              DELETE FROM
+                [:table schema=cererbum name=entity_authentication_info]
+              WHERE entity_id = :entity_id
+            """,
+            {"entity_id": int(self.entity_id)},
+        )
+        super(EntityAuthentication, self).delete()
 
     def get_auth_methods(self):
         """Returns a list of the auth methods registered for this entity."""
-
-        return self.query("""
-        SELECT auth_method
-        FROM [:table schema=cererbum name=entity_authentication_info]
-        WHERE entity_id = :entity_id""", {"entity_id": self.entity_id})
-    # end get_auth_methods
+        return self.query(
+            """
+              SELECT auth_method
+              FROM [:table schema=cererbum name=entity_authentication_info]
+              WHERE entity_id = :entity_id
+            """,
+            {"entity_id": int(self.entity_id)},
+        )
 
     def get_auth_data(self, auth_method):
         """Return specific auth data for the method specified."""
-
         try:
-            return self.query_1("""
-            SELECT auth_data
-            FROM [:table schema=cererbum name=entity_authentication_info]
-            WHERE entity_id = :entity_id AND
-            auth_method = :auth_method
-            """, {"entity_id": self.entity_id,
-                  "auth_method": int(auth_method)})
+            return self.query_1(
+                """
+                  SELECT auth_data
+                  FROM [:table schema=cererbum name=entity_authentication_info]
+                  WHERE entity_id = :entity_id
+                  AND auth_method = :auth_method
+                """,
+                {
+                    "entity_id": int(self.entity_id),
+                    "auth_method": int(auth_method),
+                },
+            )
         except Errors.NotFoundError:
             return None
-    # end get_auth_data
 
     def set_auth_data(self, auth_method, auth_data):
         """Register new auth data of the specified type.
@@ -93,66 +104,79 @@ class EntityAuthentication(Entity):
         used to delete authentication data.
         """
 
-        binds = {"entity_id": self.entity_id,
-                 "auth_method": int(auth_method),
-                 "auth_data": auth_data}
+        binds = {
+            "entity_id": int(self.entity_id),
+            "auth_method": int(auth_method),
+            "auth_data": auth_data,
+        }
 
         if not self.validate_auth_data(auth_method, auth_data):
-            raise CerebrumError("Invalid auth_data '%s' for auth_method %s" %
-                                (auth_data,
-                                 str(self.const.EntityAuthentication(auth_method))))
+            raise CerebrumError(
+                "Invalid auth_data '%s' for auth_method %s"
+                % (auth_data,
+                   six.text_type(self.const.EntityAuthentication(auth_method)))
+            )
 
         if auth_data is None:
-            self.execute("""
-            DELETE FROM [:table schema=cererbum name=entity_authentication_info]
-            WHERE entity_id = :entity_id AND
-                  auth_method = :auth_method
-            """, binds)
+            self.execute(
+                """
+                  DELETE FROM
+                    [:table schema=cererbum name=entity_authentication_info]
+                  WHERE entity_id = :entity_id
+                  AND auth_method = :auth_method
+                """,
+                binds,
+            )
             return
 
         auth_in_db = self.get_auth_data(auth_method)
         if not auth_in_db:
-            self.execute("""
-            INSERT INTO [:table schema=cererbum name=entity_authentication_info]
-            VALUES (:entity_id, :auth_method, :auth_data)
-            """, binds)
+            self.execute(
+                """
+                  INSERT INTO
+                    [:table schema=cererbum name=entity_authentication_info]
+                  VALUES
+                    (:entity_id, :auth_method, :auth_data)
+                """,
+                binds,
+            )
         elif auth_in_db != auth_data:
-            self.execute("""
-            UPDATE [:table schema=cererbum name=entity_authentication_info]
-            SET auth_data = :auth_data
-            WHERE entity_id = :entity_id AND
-                  auth_method = :auth_method
-            """, binds)
-    # end set_auth_data
+            self.execute(
+                """
+                  UPDATE
+                    [:table schema=cererbum name=entity_authentication_info]
+                  SET auth_data = :auth_data
+                  WHERE entity_id = :entity_id
+                  AND auth_method = :auth_method
+                """,
+                binds,
+            )
 
     def validate_auth_data(self, auth_method, auth_data):
         """Check that auth_data follows the rules for auth_method.
 
         If it does not, raise CerebrumError.
         """
-
-        # By default we delegate this task to the subclasses.
         return True
-    # end validate_auth_data
 
     def list_auth_data(self, auth_methods=None):
         """Return all authentication data registered for the given methods.
 
-        @type auth_methods: an int, an EntityAuthenticationCode or a sequence
-        thereof.
-        @param auth_methods:
-          Specify which authentication methods the data should be returned
-          for. 
+        :type auth_methods: int, EntityAuthenticationCode, sequence
+        :param auth_methods:
+            Specify which authentication methods the data should be returned
+            for.
         """
-
-        binds = dict()
+        binds = {}
         where = ""
         if auth_methods is not None:
             where = argument_to_sql(auth_methods, "auth_method", binds, int)
 
-        return self.query("""
-        SELECT entity_id, auth_method, auth_data
-        FROM [:table schema=cerebrum name=entity_authentication_info]
-        WHERE """ + where, binds)
-    # end list_auth_data
-# end EntityAuthentication
+        return self.query(
+            """
+              SELECT entity_id, auth_method, auth_data
+              FROM [:table schema=cerebrum name=entity_authentication_info]
+              {}
+            """.format("WHERE " + where if where else ""),
+            binds,
+        )

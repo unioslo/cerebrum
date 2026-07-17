@@ -18,139 +18,216 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-u""" This module contains utilities to fetch and cache large sets of data.
-
-This is to avoid having to do similar, expensive lookups all over again in new
-scripts. More specifically, this is done to isolate the ugliness of shared
-pickles between LDAP exports.
-
 """
+This module contains an abstract file cache object.
+
+File caches are typically used to preserve data from one script/job to another,
+or to prevent some expensive process from running too often.  Example use
+cases:
+
+1. Two separate LDAP exports that *really* should work in the same transaction.
+   E.g. groups and members + users and memberships - to ensure the two agree on
+   memberhips, the membership data can be generated once in a common
+   transaction, and used by both jobs.
+
+2. Some job collates data from Cerebrum and a second, slower system.  If the
+   job needs to run often, we can reduce our dependency on the slow system by
+   caching relevant data, and only rebuild the cache when needed.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+import datetime
+import json
+import logging
+import os
+import pickle
+import sys
 
 import cereconf
+from Cerebrum.utils import file_stream
+from Cerebrum.utils import filelock
+from Cerebrum.utils import reprutils
+from Cerebrum.utils import date as date_utils
+from Cerebrum.utils.descriptors import lazy_property
 
-import sys
-import os.path
-import datetime
-import cPickle as pickle
-import json
-
-from Cerebrum.Utils import Factory
-from Cerebrum.utils.filelock import (ReadLock,
-                                     WriteLock)
+logger = logging.getLogger(__name__)
 
 
-class FileCache(object):
+def default_build_callback(db):
+    raise NotImplementedError("No cache build callback")
+
+
+class FileCache(reprutils.ReprFieldMixin):
     """ Base cache class. Subclass for different dump formats. """
-    dump_dir = getattr(cereconf, 'CACHE_DIR', os.path.join(sys.prefix, 'var', 'cache'))
-    build_callback = None
 
-    def __init__(self, max_age=None, db=None, logger=None):
-        assert hasattr(self, 'name')
-        self.db = db or Factory.get('Database')()
-        self.logger = logger or Factory.get_logger('cronjob')
+    # repr settings
+    repr_id = False
+    repr_module = False
+    repr_fields = ("name", "updated", "filename")
+
+    #
+    # file extension - should be implemented by serialization mixins
+    #
+    filetype = "tmp"
+
+    #
+    # build_callback - should be replaced in subclass
+    #
+    build_callback = staticmethod(default_build_callback)
+
+    #
+    # cache name - should be set in subclass
+    #
+    name = None
+
+    def __init__(self, db, max_age=None, dump_dir=None):
+        if not self.name:
+            raise NotImplementedError("No cache name")
+        self.db = db
         self.max_age = max_age
-        self.when = None
-        self.filetype = 'tmp'
-        self.clear_data()
-        self.logger.debug("Initialized cache {!r}, max age is {!r}".format(
-            self.name, self.max_age))
+        self._when = None
+        self.saved = False
+        if dump_dir:
+            self.dump_dir = dump_dir
+        del self.data
+        logger.debug("Initialized cache %s (max_age=%s)",
+                     repr(self.name), repr(self.max_age))
 
     def build(self):
         """ (Re)builds the cache.
 
         This decides what the cache actually should contain.
-
         """
-        # FIXME: If there are multiple processes attempting to use the same, outdated cache,
-        # they will race to rebuild the cache.
-        self.logger.info("Rebuilding cache {!r}".format(self.name))
-        if not callable(self.build_callback):
-            raise NotImplementedError("Cache {!r} has no rebuild method".format(self.name))
-        self.data = self.build_callback(db=self.db, logger=self.logger)
-        self.when = datetime.datetime.now()
+        # FIXME: If there are multiple processes attempting to use the same,
+        # outdated cache, they will race to rebuild the cache.
+        logger.debug("Rebuilding cache %s", repr(self.name))
+        self.data = self.build_callback(self.db)
+        self._when = date_utils.now()
         self.save()
-        self.logger.info("Done rebuilding cache {!r}".format(self.name))
+        logger.debug("Rebuilt cache %s", repr(self.name))
 
-    def get_data(self):
+    @lazy_property
+    def dump_dir(self):
+        return getattr(cereconf, "CACHE_DIR",
+                       os.path.join(sys.prefix, "var/cache"))
+
+    @property
+    def max_age(self):
+        return self.__max_age
+
+    @max_age.setter
+    def max_age(self, value):
+        if value and not isinstance(value, datetime.timedelta):
+            # backwards compatibility - allow init from dict
+            value = datetime.timedelta(**value)
+        if value and value != abs(value):
+            raise ValueError("max_age cannot be negative")
+        self.__max_age = value
+
+    @property
+    def data(self):
         if self.__data is None:
             self.load()
         if self.need_rebuild():
             self.build()
         return self.__data
 
-    def set_data(self, data):
+    @data.setter
+    def data(self, data):
         self.__data = data
         self.saved = False
 
-    def clear_data(self):
+    @data.deleter
+    def data(self):
         self.__data = None
         self.saved = False
 
-    data = property(get_data, set_data, clear_data)
-
-    def need_rebuild(self):
+    def need_rebuild(self, _now=None):
+        """ check if the current cache needs a rebuild. """
+        now = _now or date_utils.now()
         if self.__data is None:
+            # No data - needs rebuild
             return True
-        if self.when is None:
+        if not self._when:
+            # No age info - needs rebuild
             return True
-        if (self.max_age is not None
-                and (self.when + datetime.timedelta(**self.max_age)) < datetime.datetime.now()):
+        if not self.max_age:
+            # No time limit - always rebuild
+            return True
+
+        next_rebuild = self._when + self.max_age
+        if self.max_age and next_rebuild < now:
             return True
         return False
 
     @property
     def filename(self):
-        u""" Full path to the file where this cache should be stored. """
-        return os.path.join(self.dump_dir, 'cache-{}.{}'.format(self.name, self.filetype))
+        """ Full path to the file where this cache should be stored. """
+        return os.path.join(self.dump_dir,
+                            "cache-{}.{}".format(self.name, self.filetype))
 
     @property
     def updated(self):
-        u""" The timestamp in human readable form. """
-        return datetime.datetime.fromtimestamp(self.timestamp).strftime('%Y-%m-%d %H:%M:%S')
+        """ Last updated in as a human readable string, in the local tz. """
+        when = date_utils.from_timestamp(self.timestamp)
+        return when.isoformat()
 
     @property
     def timestamp(self):
-        u""" Timestamp for last changed. """
-        if self.when is None:
-            return 0
-        return int(self.when.strftime('%s'))
+        """ Timestamp for last changed. """
+        if self._when:
+            return int(date_utils.to_timestamp(self._when))
+        return 0
+
+    def __dump_dict(self):
+        """ dump current cache to a serialized dict. """
+        return {
+            'data': self.__data,
+            'timestamp': self.timestamp,
+        }
+
+    def __load_dict(self, content):
+        """ load cache from a serialized dict. """
+        # ensure that content is complete
+        data = content['data']
+        when = date_utils.from_timestamp(content['timestamp'] or 0)
+        # override current data
+        self.data = data
+        self._when = when
+        self.saved = True
 
     def save(self):
-        u""" Save this cache as a file. """
+        """ Save this cache as a file. """
         if self.saved:
             return
-        data = {'data': self.__data,
-                'timestamp': self.timestamp, }
-        with WriteLock(self.filename + '.lock'):
-            with open(self.filename, 'wb') as f:
-                self.dumper(data=data, fp=f)
-        self.logger.debug("Saved cache {!r}".format(self.filename))
+        self.dumper(self.__dump_dict())
+        logger.info("Saved cache %s to %s",
+                    repr(self.name), repr(self.filename))
         self.saved = True
 
     def load(self):
-        u""" Try to load this cache from a file. """
+        """ Try to load this cache from a file. """
         try:
-            with ReadLock(self.filename + '.lock'):
-                with open(self.filename, 'rb') as f:
-                    data = self.loader(fp=f)
-                if 'data' in data and 'timestamp' in data:
-                    self.data = data['data']
-                    self.when = datetime.datetime.fromtimestamp(data['timestamp'] or 0)
-                    self.logger.info("Loaded cache {!r} from {}".format(
-                        self.filename, self.updated))
-                    self.saved = True
-                    return True
-        except:
+            self.__load_dict(self.loader())
+            logger.info("Loaded cache %s from %s (updated at %s)",
+                        repr(self.name), repr(self.filename),
+                        self.updated)
+            return True
+        except Exception:
             pass
-        self.logger.error("Unable to load cache {!r}".format(self.filename))
+        logger.error("Unable to load cache %s", repr(self.filename))
         return False
 
-    def loader(self, f):
-        u""" Loads data from a file. Implement in a subclass. """
+    def loader(self):
+        """ Loads data from a file. Implement in a subclass. """
         raise NotImplementedError
 
-    def dumper(self, data, f):
-        u""" Dumps data to a file. Implement in a subclass. """
+    def dumper(self, data):
+        """ Dumps data to a file. Implement in a subclass. """
         raise NotImplementedError
 
     def __repr__(self):
@@ -158,38 +235,49 @@ class FileCache(object):
                                                          self.updated,
                                                          self.filename)
 
-    def __str__(self):
-        return repr(self)
-
-    def __unicode__(self):
-        return unicode(str(self), 'utf-8')
-
 
 class PickleCache(FileCache):
     """ Cache using the Python pickle format. """
-    def __init__(self, **kwargs):
-        super(PickleCache, self).__init__(**kwargs)
-        self.filetype = 'pickle'
 
-    def loader(self, fp):
+    filetype = "pickle"
+
+    def loader(self):
         """ Loads data from a pickle file. """
-        return pickle.load(fp)
+        with filelock.ReadLock(self.filename + '.lock'):
+            with file_stream.get_input_context(self.filename,
+                                               encoding=None,
+                                               stdin=None) as f:
+                return pickle.loads(f.read())
 
-    def dumper(self, data, fp):
+    def dumper(self, data):
         """ Dumps data from a pickle file. """
-        return pickle.dump(data, fp)
+        with filelock.WriteLock(self.filename + '.lock'):
+            with file_stream.get_output_context(self.filename,
+                                                encoding=None,
+                                                stdout=None) as f:
+                return f.write(pickle.dumps(data))
 
 
 class JsonCache(FileCache):
     """ Cache using the JSON format. """
-    def __init__(self, **kwargs):
-        super(JsonCache, self).__init__(**kwargs)
-        self.filetype = 'json'
 
-    def loader(self, fp):
+    filetype = "json"
+
+    def loader(self):
         """ Loads data from a JSON file. """
-        return json.load(fp=fp)
+        with filelock.ReadLock(self.filename + '.lock'):
+            with file_stream.get_input_context(self.filename,
+                                               encoding="utf-8",
+                                               stdin=None) as f:
+                return json.loads(f.read())
 
-    def dumper(self, data, fp):
+    def dumper(self, data):
         """ Dumps data to a JSON file. """
-        return json.dump(obj=data, fp=fp, ensure_ascii=False)
+        encoding = None if str is bytes else "utf-8"
+        with filelock.WriteLock(self.filename + '.lock'):
+            with file_stream.get_output_context(self.filename,
+                                                encoding=encoding,
+                                                stdout=None) as f:
+                json.dump(obj=data, fp=f, indent=2, sort_keys=True,)
+                f.write("\n")
+                f.flush()

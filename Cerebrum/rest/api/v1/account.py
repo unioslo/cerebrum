@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2016-2022 University of Oslo, Norway
+# Copyright 2016-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,15 +17,23 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" Account API. """
+"""
+Account API.
 
-from __future__ import unicode_literals
+Endpoints, models and utils for dealing with accounts in the API.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import datetime
 
+import six
 from flask import make_response
 from flask_restx import Namespace, Resource, abort
-from six import text_type
 
 from Cerebrum.rest.api import db, auth, fields, utils, validator
 from Cerebrum.rest.api.v1 import group
@@ -70,151 +78,42 @@ def find_account(identifier):
     return account
 
 
-AccountAffiliation = api.model('AccountAffiliation', {
-    'affiliation': fields.Constant(
-        ctype='PersonAffiliation',
-        description='Affiliation name'),
-    'priority': fields.base.Integer(
-        description='Affiliation priority'),
-    'ou': fields.base.Nested(
-        models.OU,
-        description='Organizational unit'),
-})
+#
+# Resource <accounts>/<name>
+#
 
-AccountAffiliationList = api.model('AccountAffiliationList', {
-    'affiliations': fields.base.List(
-        fields.base.Nested(
-            AccountAffiliation),
-        description='Account affiliations'),
-})
 
 Account = api.model('Account', {
     'href': fields.href('.account'),
     'name': fields.base.String(
-        description='Account name'),
+        description='Account name',
+    ),
     'id': fields.base.Integer(
         default=None,
-        description='Entity ID'),
+        description='Entity ID',
+    ),
     'owner': fields.base.Nested(
         models.EntityOwner,
-        description='Entity owner'),
+        description='Entity owner',
+    ),
     'created_at': fields.DateTime(
         dt_format='iso8601',
-        description='Account creation timestamp'),
+        description='Account creation timestamp',
+    ),
     'expire_date': fields.DateTime(
         dt_format='iso8601',
-        description='Expiration date'),
+        description='Expiration date',
+    ),
     'contexts': fields.base.List(
         fields.Constant(ctype='Spread'),
-        description='Visible in these contexts'),
+        description='Visible in these contexts',
+    ),
     'primary_email': fields.base.String(
-        description='Primary email address'),
+        description='Primary email address',
+    ),
     'active': fields.base.Boolean(
-        description='Is this account active, i.e. not deleted or expired?'),
-})
-
-PosixAccount = api.model('PosixAccount', {
-    'href': fields.href('.posixaccount'),
-    'name': fields.base.String(
-        description='Account name'),
-    'id': fields.base.Integer(
-        default=None,
-        description='Entity ID'),
-    'posix': fields.base.Boolean(
-        description='Is this a POSIX account?'),
-    'posix_uid': fields.base.Integer(
-        default=None,
-        description='POSIX UID'),
-    'posix_shell': fields.Constant(
-        ctype='PosixShell',
-        description='POSIX shell'),
-    'default_file_group': fields.base.Nested(
-        group.Group,
-        allow_null=True,
-        description='Default file group')
-})
-
-AccountQuarantineList = api.model('AccountQuarantineList', {
-    'locked': fields.base.Boolean(
-        description='Is this account locked?'),
-    'quarantines': fields.base.List(
-        fields.base.Nested(models.EntityQuarantine),
-        description='List of quarantines'),
-})
-
-AccountEmailAddress = api.model('AccountEmailAddress', {
-    'primary': fields.base.String(
-        description='Primary email address for this account'),
-    'addresses': fields.base.List(
-        fields.base.Nested(emailaddress.EmailAddress),
-        description='All addresses targeting this account'),
-})
-
-AccountListItem = api.model('AccountListItem', {
-    'href': fields.href('.account'),
-    'name': fields.base.String(
-        description='Account name'),
-    'id': fields.base.Integer(
-        default=None,
-        attribute='account_id',
-        description='Account entity ID'),
-    'owner': fields.base.Nested(
-        models.EntityOwner,
-        description='Account owner'),
-    'expire_date': fields.DateTime(
-        dt_format='iso8601',
-        description='Expiration date'),
-    'np_type': fields.Constant(
-        ctype='Account',
-        description='Non-personal account type (null if personal)'),
-})
-
-AccountList = api.model('AccountList', {
-    'accounts': fields.base.List(
-        fields.base.Nested(AccountListItem),
-        description='List of accounts'),
-})
-
-AccountHome = api.model('AccountHome', {
-    'homedir_id': fields.base.Integer(
-        description='Home directory entity ID'),
-    'home': fields.base.String(
-        description='Home directory path'),
-    'context': fields.Constant(
-        ctype='Spread',
-        attribute='spread',
-        description='Context'),
-    'status': fields.Constant(
-        ctype='AccountHomeStatus',
-        description='Home status'),
-    'disk_id': fields.base.Integer(
-        description='Disk entity ID'),
-})
-
-AccountHomeList = api.model('AccountHomeList', {
-
-    'homes': fields.base.List(
-        fields.base.Nested(AccountHome),
-        description='Home directories'),
-})
-
-password_parser = api.parser()
-password_parser.add_argument(
-    'password',
-    type=validator.String(),
-    required=True,
-    location=('form', 'json'),
-    help='Password',
-)
-
-PasswordChanged = api.model('PasswordChanged', {
-    'password': fields.base.String(
-        description='New password')
-})
-
-PasswordVerification = api.model('PasswordVerification', {
-    'verified': fields.base.Boolean(
-        description='Did the password match?')
+        description='Is this account active, i.e. not deleted or expired?',
+    ),
 })
 
 
@@ -234,8 +133,7 @@ class AccountResource(Resource):
             primary_email = ac.get_primary_mailaddress()
         except Errors.NotFoundError:
             primary_email = None
-        owner_name = utils.get_entity_name(
-            utils.get_entity(ac.owner_id, idtype='entity_id'))
+        owner_name = utils.get_entity_name(utils.get_entity(ac.owner_id))
         return {
             'name': ac.account_name,
             'id': ac.entity_id,
@@ -243,9 +141,11 @@ class AccountResource(Resource):
                 'id': ac.owner_id,
                 'type': ac.owner_type,
                 'name': owner_name,
-                'href': utils.href_from_entity_type(entity_type=ac.owner_type,
-                                                    entity_id=ac.owner_id,
-                                                    entity_name=owner_name),
+                'href': utils.href_from_entity_type(
+                    entity_type=ac.owner_type,
+                    entity_id=ac.owner_id,
+                    entity_name=owner_name,
+                ),
             },
             'created_at': ac.created_at,
             'expire_date': ac.expire_date,
@@ -255,16 +155,54 @@ class AccountResource(Resource):
         }
 
 
+#
+# Resource <accounts>/<name>/posix
+#
+
+
+PosixAccount = api.model('PosixAccount', {
+    'href': fields.href('.posixaccount'),
+    'name': fields.base.String(
+        description='Account name',
+    ),
+    'id': fields.base.Integer(
+        default=None,
+        description='Entity ID',
+    ),
+    'posix': fields.base.Boolean(
+        description='Is this a POSIX account?',
+    ),
+    'posix_uid': fields.base.Integer(
+        default=None,
+        description='POSIX UID',
+    ),
+    'posix_shell': fields.Constant(
+        ctype='PosixShell',
+        description='POSIX shell',
+    ),
+    'default_file_group': fields.base.Nested(
+        group.Group,
+        allow_null=True,
+        description='Default file group',
+    ),
+})
+
+
 @api.route('/<string:name>/posix', endpoint="posixaccount")
 @api.doc(params={'name': 'account name'})
 class PosixAccountResource(Resource):
     """Resource for a single POSIX account."""
+
     @api.marshal_with(PosixAccount)
     @auth.require()
     def get(self, name):
         """Get POSIX account information."""
         ac = find_account(name)
-
+        dfg = (
+            group.GroupResource._get(getattr(ac, 'gid_id'), idtype='entity_id')
+            if hasattr(ac, 'gid_id')
+            else None
+        )
         return {
             'name': ac.account_name,
             'id': ac.entity_id,
@@ -272,11 +210,24 @@ class PosixAccountResource(Resource):
             'posix_uid': getattr(ac, 'posix_uid', None),
             'posix_shell': getattr(ac, 'shell', None),
             'gecos': getattr(ac, 'gecos', None),
-            'default_file_group': (
-                group.GroupResource._get(getattr(ac, 'gid_id'),
-                                         idtype='entity_id')
-                if hasattr(ac, 'gid_id') else None)
+            'default_file_group': dfg,
         }
+
+
+#
+# Resource <accounts>/<name>/quarantines
+#
+
+
+AccountQuarantineList = api.model('AccountQuarantineList', {
+    'locked': fields.base.Boolean(
+        description='Is this account locked?',
+    ),
+    'quarantines': fields.base.List(
+        fields.base.Nested(models.EntityQuarantine),
+        description='List of quarantines',
+    ),
+})
 
 
 def _in_range(date, start=None, end=None):
@@ -295,9 +246,10 @@ def _format_quarantine(q):
     is_active = _in_range(
         datetime.date.today(),
         start=(disable_until or start_date),
-        end=end_date)
+        end=end_date,
+    )
 
-    # TODO/TBD: We *shoudn't* do this, but quarantine dates has always been
+    # TODO: We *shoudn't* do this, but quarantine dates has always been
     # presented as *datetime* objects.
     _tz_compat = date_compat.get_datetime_tz
 
@@ -321,7 +273,8 @@ class AccountQuarantineListResource(Resource):
         'context',
         type=validator.String(),
         location=('form', 'json'),
-        help='Consider locked status based on context.')
+        help='Consider locked status based on context.',
+    )
 
     @api.marshal_with(AccountQuarantineList)
     @api.doc(expect=[account_quarantines_filter])
@@ -335,8 +288,7 @@ class AccountQuarantineListResource(Resource):
             try:
                 spreads = [int(db.const.Spread(args.context))]
             except Errors.NotFoundError:
-                abort(404, message='Unknown context {!r}'.format(
-                    args.context))
+                abort(404, message='Unknown context {!r}'.format(args.context))
 
         ac = find_account(name)
 
@@ -353,21 +305,24 @@ class AccountQuarantineListResource(Resource):
 
         return {
             'locked': locked,
-            'quarantines': quarantines
+            'quarantines': quarantines,
         }
+
+
+# Sub-resource <accounts>/<name>/quarantines/<quarantine>
 
 
 @api.route('/<string:name>/quarantines/<string:quarantine>',
            endpoint='account-quarantines-items')
 @api.doc(params={'name': 'account name',
-                 'quarantine': 'quarantine type'},)
+                 'quarantine': 'quarantine type'})
 class AccountQuarantineItemResource(Resource):
     """Quarantine for a single account."""
 
     def get_qtype(self, value):
         # TODO: If not str/bytes, constants will try to look up the constant
         # using 'code = value'
-        c = db.const.Quarantine(bytes(value))
+        c = db.const.Quarantine(six.text_type(value))
         try:
             int(c)
         except Errors.NotFoundError:
@@ -413,24 +368,28 @@ class AccountQuarantineItemResource(Resource):
         required=True,
         nullable=False,
         location=('form', 'json'),
-        help='when the quarantine should take effect (ISO8601 datetime)')
+        help='when the quarantine should take effect (ISO8601 datetime)',
+    )
     quarantine_parser.add_argument(
         'end',
         type=_iso_datetime_type,
         nullable=True,
         location=('form', 'json'),
-        help='if/when the quarantine should end (ISO8601 datetime)')
+        help='if/when the quarantine should end (ISO8601 datetime)',
+    )
     quarantine_parser.add_argument(
         'disable_until',
         type=_iso_datetime_type,
         nullable=True,
         location=('form', 'json'),
-        help='if/when the quarantine should really start (ISO8601 datetime)')
+        help='if/when the quarantine should really start (ISO8601 datetime)',
+    )
     quarantine_parser.add_argument(
         'comment',
         nullable=True,
         location=('form', 'json'),
-        help='{error_msg}')
+        help='{error_msg}',
+    )
 
     @api.expect(quarantine_parser)
     @api.response(200, 'quarantine updated')
@@ -456,11 +415,14 @@ class AccountQuarantineItemResource(Resource):
         if args['end'] and args['end'] < args['start']:
             raise ValueError("end date before start date")
 
-        is_update = bool(ac.get_entity_quarantine(
-            qtype,
-            only_active=False,
-            ignore_disable_until=False,
-            filter_disable_until=False))
+        is_update = bool(
+            ac.get_entity_quarantine(
+                qtype,
+                only_active=False,
+                ignore_disable_until=False,
+                filter_disable_until=False,
+            )
+        )
 
         if is_update:
             # TODO: Implement an actual update?
@@ -471,7 +433,8 @@ class AccountQuarantineItemResource(Resource):
             auth.account.entity_id,
             description=args['comment'],
             start=args['start'],
-            end=args['end'])
+            end=args['end'],
+        )
 
         if args['disable_until']:
             if not _in_range(args['disable_until'],
@@ -486,8 +449,11 @@ class AccountQuarantineItemResource(Resource):
                     qtype,
                     only_active=False,
                     ignore_disable_until=False,
-                    filter_disable_until=False)[0]),
-            200 if is_update else 201)
+                    filter_disable_until=False,
+                )[0],
+            ),
+            200 if is_update else 201,
+        )
 
     # DELETE /<account>/quarantines/<quarantine>
     #
@@ -510,6 +476,22 @@ class AccountQuarantineItemResource(Resource):
 
         ac.delete_entity_quarantine(qtype)
         return None, 204
+
+
+#
+# Resource <accounts>/<name>/emailaddresses
+#
+
+
+AccountEmailAddress = api.model('AccountEmailAddress', {
+    'primary': fields.base.String(
+        description='Primary email address for this account',
+    ),
+    'addresses': fields.base.List(
+        fields.base.Nested(emailaddress.EmailAddress),
+        description='All addresses targeting this account',
+    ),
+})
 
 
 @api.route('/<string:name>/emailaddresses', endpoint='account-emailaddresses')
@@ -537,6 +519,43 @@ class AccountEmailAddressResource(Resource):
         }
 
 
+#
+# Resource collection <accounts>/
+#
+
+
+AccountListItem = api.model('AccountListItem', {
+    'href': fields.href('.account'),
+    'name': fields.base.String(
+        description='Account name',
+    ),
+    'id': fields.base.Integer(
+        default=None,
+        attribute='account_id',
+        description='Account entity ID',
+    ),
+    'owner': fields.base.Nested(
+        models.EntityOwner,
+        description='Account owner',
+    ),
+    'expire_date': fields.DateTime(
+        dt_format='iso8601',
+        description='Expiration date',
+    ),
+    'np_type': fields.Constant(
+        ctype='Account',
+        description='Non-personal account type (null if personal)',
+    ),
+})
+
+AccountList = api.model('AccountList', {
+    'accounts': fields.base.List(
+        fields.base.Nested(AccountListItem),
+        description='List of accounts',
+    ),
+})
+
+
 @api.route('/', endpoint='accounts')
 class AccountListResource(Resource):
     """Resource for list of accounts."""
@@ -545,28 +564,34 @@ class AccountListResource(Resource):
     account_search_filter.add_argument(
         'name',
         type=validator.String(),
-        help='Filter by account name. Accepts * and ? as wildcards.')
+        help='Filter by account name. Accepts * and ? as wildcards.',
+    )
     account_search_filter.add_argument(
         'context',
         type=validator.String(),
         dest='spread',
-        help='Filter by context. Accepts * and ? as wildcards.')
+        help='Filter by context. Accepts * and ? as wildcards.',
+    )
     account_search_filter.add_argument(
         'owner_id',
         type=int,
-        help='Filter by owner entity ID.')
+        help='Filter by owner entity ID.',
+    )
     account_search_filter.add_argument(
         'owner_type',
         type=validator.String(),
-        help='Filter by owner entity type.')
+        help='Filter by owner entity type.',
+    )
     account_search_filter.add_argument(
         'expire_start',
         type=validator.String(),
-        help='Filter by expiration start date.')
+        help='Filter by expiration start date.',
+    )
     account_search_filter.add_argument(
         'expire_stop',
         type=validator.String(),
-        help='Filter by expiration end date.')
+        help='Filter by expiration end date.',
+    )
 
     @api.marshal_with(AccountList)
     @api.doc(expect=[account_search_filter])
@@ -574,8 +599,11 @@ class AccountListResource(Resource):
     def get(self):
         """List accounts."""
         args = self.account_search_filter.parse_args()
-        filters = {key: value for (key, value) in args.items()
-                   if value is not None}
+        filters = {
+            key: value
+            for (key, value) in args.items()
+            if value is not None
+        }
 
         if 'owner_type' in filters:
             try:
@@ -596,10 +624,15 @@ class AccountListResource(Resource):
                 'owner': {
                     'id': account['owner_id'],
                     'type': account['owner_type'],
-                }
+                },
             })
             accounts.append(account)
         return {'accounts': accounts}
+
+
+#
+# Resource <accounts>/<name>/groups
+#
 
 
 @api.route('/<string:name>/groups')
@@ -612,15 +645,18 @@ class AccountGroupListResource(Resource):
         'indirect_memberships',
         type=utils.str_to_bool,
         dest='indirect_members',
-        help='If true, include indirect group memberships.')
+        help='If true, include indirect group memberships.',
+    )
     account_groups_filter.add_argument(
         'filter_expired',
         type=utils.str_to_bool,
-        help='If false, include expired groups.')
+        help='If false, include expired groups.',
+    )
     account_groups_filter.add_argument(
         'expired_only',
         type=utils.str_to_bool,
-        help='If true, only include expired groups.')
+        help='If true, only include expired groups.',
+    )
 
     @api.marshal_with(group.GroupListItem, as_list=True, envelope='groups')
     @api.doc(expect=[account_groups_filter])
@@ -629,8 +665,11 @@ class AccountGroupListResource(Resource):
         """List groups an account is a member of."""
         ac = find_account(name)
         args = self.account_groups_filter.parse_args()
-        filters = {key: value for (key, value) in args.items()
-                   if value is not None}
+        filters = {
+            key: value
+            for (key, value) in args.items()
+            if value is not None
+        }
         filters['member_id'] = ac.entity_id
 
         gr = Factory.get('Group')(db.connection)
@@ -641,10 +680,15 @@ class AccountGroupListResource(Resource):
             group.update({
                 'id': group['name'],
                 'name': group['name'],
-                'description': group['description']
+                'description': group['description'],
             })
             groups.append(group)
         return groups
+
+
+#
+# Resource <accounts>/<name>/contacts
+#
 
 
 @api.route('/<string:name>/contacts')
@@ -659,6 +703,33 @@ class AccountContactInfoListResource(Resource):
         ac = find_account(name)
         contacts = ac.get_contact_info()
         return {'contacts': contacts}
+
+
+#
+# Resource <accounts>/<name>/affiliations
+#
+
+
+AccountAffiliation = api.model('AccountAffiliation', {
+    'affiliation': fields.Constant(
+        ctype='PersonAffiliation',
+        description='Affiliation name',
+    ),
+    'priority': fields.base.Integer(
+        description='Affiliation priority',
+    ),
+    'ou': fields.base.Nested(
+        models.OU,
+        description='Organizational unit',
+    ),
+})
+
+AccountAffiliationList = api.model('AccountAffiliationList', {
+    'affiliations': fields.base.List(
+        fields.base.Nested(AccountAffiliation),
+        description='Account affiliations',
+    ),
+})
 
 
 @api.route('/<string:name>/affiliations')
@@ -676,10 +747,44 @@ class AccountAffiliationListResource(Resource):
 
         for aff in ac.get_account_types():
             aff = dict(aff)
-            aff['ou'] = {'id': aff.pop('ou_id', None), }
+            aff['ou'] = {'id': aff.pop('ou_id', None)}
             affiliations.append(aff)
 
         return {'affiliations': affiliations}
+
+
+#
+# <accounts>/<name>/homes
+#
+
+
+AccountHome = api.model('AccountHome', {
+    'homedir_id': fields.base.Integer(
+        description='Home directory entity ID',
+    ),
+    'home': fields.base.String(
+        description='Home directory path',
+    ),
+    'context': fields.Constant(
+        ctype='Spread',
+        attribute='spread',
+        description='Context',
+    ),
+    'status': fields.Constant(
+        ctype='AccountHomeStatus',
+        description='Home status',
+    ),
+    'disk_id': fields.base.Integer(
+        description='Disk entity ID',
+    ),
+})
+
+AccountHomeList = api.model('AccountHomeList', {
+    'homes': fields.base.List(
+        fields.base.Nested(AccountHome),
+        description='Home directories',
+    ),
+})
 
 
 @api.route('/<string:name>/homes')
@@ -693,17 +798,31 @@ class AccountHomeListResource(Resource):
         """List home directories for an account."""
         ac = find_account(name)
 
-        homes = list()
+        homes = []
 
         # Home directories
         for home in ac.get_homes():
+            home = dict(home)
             if home['home'] or home['disk_id']:
                 home['home'] = ac.resolve_homedir(
                     disk_id=home['disk_id'],
-                    home=home['home'])
+                    home=home['home'],
+                )
             homes.append(home)
 
         return {'homes': homes}
+
+
+#
+# Resource <accounts>/<name>/password
+#
+
+
+PasswordChanged = api.model('PasswordChanged', {
+    'password': fields.base.String(
+        description='New password',
+    ),
+})
 
 
 @api.route('/<string:name>/password', endpoint='account-password')
@@ -732,7 +851,7 @@ class AccountPasswordResource(Resource):
         password = data.get('password', None)
         if password is None:
             password = ac.make_passwd(ac.account_name)
-        assert isinstance(password, text_type)
+        assert isinstance(password, six.text_type)
         try:
             check_password(password, account=ac, structured=False)
         except PasswordNotGoodEnough as e:
@@ -744,6 +863,23 @@ class AccountPasswordResource(Resource):
             ac.delete_entity_quarantine(q)
         ac.write_db()
         return {'password': password}
+
+
+PasswordVerification = api.model('PasswordVerification', {
+    'verified': fields.base.Boolean(
+        description='Did the password match?',
+    ),
+})
+
+
+password_parser = api.parser()
+password_parser.add_argument(
+    'password',
+    type=validator.String(),
+    required=True,
+    location=('form', 'json'),
+    help='Password',
+)
 
 
 @api.route('/<string:name>/password/verify',
@@ -761,7 +897,7 @@ class AccountPasswordVerifierResource(Resource):
         ac = find_account(name)
         args = password_parser.parse_args()
         password = args['password']
-        assert isinstance(password, text_type)
+        assert isinstance(password, six.text_type)
         verified = bool(ac.verify_auth(password))
         return {'verified': verified}
 
@@ -781,8 +917,13 @@ class AccountPasswordCheckerResource(Resource):
         ac = find_account(name)
         args = password_parser.parse_args()
         password = args['password']
-        assert isinstance(password, text_type)
+        assert isinstance(password, six.text_type)
         return check_password(password, account=ac, structured=True)
+
+
+#
+# Resource <accounts>/<name>/gpg/
+#
 
 
 @api.route('/<string:name>/gpg/<string:tag>/<string:key_id>/latest', doc=False)
@@ -809,6 +950,11 @@ class AccountGPGResource(Resource):
         return response
 
 
+#
+# Resource <accounts>/<name>/traits
+#
+
+
 @api.route('/<string:name>/traits', doc=False)
 @api.doc(params={'name': 'account name'})
 class AccountTraitResource(Resource):
@@ -819,4 +965,4 @@ class AccountTraitResource(Resource):
     def get(self, name):
         ac = find_account(name)
         traits = ac.get_traits()
-        return traits.values()
+        return list(traits.values())

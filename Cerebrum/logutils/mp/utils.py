@@ -7,10 +7,18 @@ import logging
 
 def reset_logger(logger):
     """ Reset a logger.  """
+    old_handlers = getattr(logger, "handlers", None) or []
+
     logger.level = logging.NOTSET
     logger.handlers = []
     logger.propagate = True
     logger.disabled = False
+
+    for handler in old_handlers:
+        try:
+            handler.close()
+        except Exception:
+            pass
 
 
 def reset_logging():

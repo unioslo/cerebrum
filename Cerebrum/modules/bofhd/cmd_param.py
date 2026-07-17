@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright 2002-2023 University of Oslo, Norway
+#
+# Copyright 2002-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -30,7 +31,11 @@ from __future__ import (
     absolute_import,
     division,
     print_function,
+    unicode_literals,
 )
+import functools
+
+import six
 
 
 class Parameter(object):
@@ -41,52 +46,52 @@ class Parameter(object):
     def __init__(self, optional=False, default=None, repeat=False,
                  help_ref=None):
         """
-        optional   : boolean if argument is optional
-        default    : string or callable method to get the default value
-                     for this parameter.  If None, the value has no default
-                     value
-        repeat     : boolean if object is repeatable
-        help_ref   : to override the help_ref defined in the class
-        """
+        :param bool optional:
+            if argument is optional (default: False)
 
-        for k, v in locals().items():
-            attr = '_' + k
-            if v is None:
-                # If a constructor argument is None, it should only
-                # become an instance attribute iff this would not
-                # shadow any class attribute with the same name.
-                if not hasattr(self, attr):
-                    setattr(self, attr, None)
-                else:
-                    pass
-            else:
-                setattr(self, attr, v)
+        :param str default:
+            string with default value.
+
+            Note that any non-text default value will result in the integer `1`
+            being the default.
+
+            (default: class defined `_default`, or None)
+
+        :param bool repeat:
+            if argument can be repeated more than once
+            (default: False)
+
+        :param str help_ref:
+            reference to alternative argument help texts
+            (default: class defined `_help_ref`).
+        """
+        self._optional = optional
+        self._default = default or getattr(self, '_default', None)
+        self._repeat = repeat
+        self._help_ref = help_ref or getattr(self, '_help_ref', None)
 
     def get_struct(self, help_ref):
         ret = {}
-        for k in ('_optional', '_repeat', '_type', '_help_ref'
-                  # '_prompt',
-                  ):
+        for k in ('_optional', '_repeat', '_type', '_help_ref'):
             if getattr(self, k) is not None and getattr(self, k) != 0:
                 ret[k[1:]] = getattr(self, k)
         ret['prompt'] = self.getPrompt(help_ref)
         if self._default is not None:
-            if isinstance(self._default, basestring):
+            if isinstance(self._default, six.string_types):
                 ret['default'] = self._default
             else:
+                # TODO: this is very strange behaviour?
+                # We should identify any non-text defaults (warnings.warn?),
+                # eliminate them, and disallow anything but text here.
+                # OR, implement a callback, as originally planned.
                 ret['default'] = 1  # = call get_default_param
         return ret
 
-    def getPrompt(self, help_ref):
+    def getPrompt(self, help_ref):  # noqa: N802
         arg_help = help_ref.arg_help
         if self._help_ref not in arg_help:
-            # TODO: Fix
-            # bofhd_ref.logger.warn("Missing arg_help item <%s>",
-            #                       self._help_ref)
             return ""
-
         return arg_help[self._help_ref][1]
-    # end getPrompt
 
 
 class AccountName(Parameter):
@@ -125,8 +130,7 @@ class Date(Parameter):
     _help_ref = 'date'
 
 
-# named DateTimeString due to namespace conflicts with DateTime
-# import from mx module.
+# Named with a String-suffix to avoid namespace conflicts
 class DateTimeString(Parameter):
     _type = 'datetime'
     _help_ref = 'datetime'
@@ -206,11 +210,6 @@ class Mobile(Parameter):
 
     _type = 'mobilePhone'
     _help_ref = 'mobile_phone'
-
-
-class MoveType(Parameter):
-    _type = 'moveType'
-    _help_ref = 'move_type'
 
 
 class OpSet(Parameter):
@@ -373,10 +372,8 @@ class FormatSuggestion(object):
         :return str:
             Returns a formatted string.
         """
-        # This is a copy of the pybofh formatting implementation, from:
-        #
-        #     ssh://git@bitbucket.usit.uio.no:7999/crb/pybofh.git
-        #     Commit f7f0c71295b490c925af635408a8ced8047820f7
+        # This is a simplified copy of the pybofh formatting implementation,
+        # from the pybofh module `bofhd.formatting`:
 
         def _fmt_date(fmt):
             """ Simple thing to convert dates """
@@ -386,7 +383,11 @@ class FormatSuggestion(object):
                     ("dd", "%d"),
                     ("HH", "%H"),
                     ("mm", "%M"))
-            return reduce(lambda form, rep: form.replace(*rep), reps, fmt)
+            return functools.reduce(
+                (lambda form, rep: form.replace(*rep)),
+                reps,
+                fmt,
+            )
 
         def _fmt_field(entry, field):
             field = field.split(":", 2)
@@ -409,7 +410,7 @@ class FormatSuggestion(object):
             lines.append(suggestion["hdr"])
 
         st = suggestion['str_vars']
-        if isinstance(st, basestring):
+        if isinstance(st, six.string_types):
             lines.append(st)
         else:
             for row in st:
@@ -425,7 +426,7 @@ class FormatSuggestion(object):
                 if not isinstance(response, (list, tuple)):
                     response = [response]
                 for entry in response:
-                    if isinstance(entry, basestring):
+                    if isinstance(entry, six.string_types):
                         lines.append(entry)
                         continue
                     try:
@@ -503,15 +504,13 @@ def get_format_suggestion_table(*args, **kwargs):
     header = "\n".join((" | ".join(headers), " + ".join(separators)))
     row = " | ".join(placeholders)
 
-    formats = (row, tuple(field_names))
+    formats = [(row, tuple(field_names))]
     if limit_key:
         # Include a special sentinel "row" informing that there are more
         # entries, and that the results has been truncated
-        formats = [
-            formats,
+        formats.append(
             ("...\nLimited to %d results", (limit_key,))
-        ]
-
+        )
     return FormatSuggestion(formats, hdr=header)
 
 
@@ -541,4 +540,4 @@ if __name__ == '__main__':
         )
     }
 
-    print(all_commands['account_create'].get_struct())
+    print(repr(all_commands['account_create'].get_struct()))

@@ -18,6 +18,14 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """Script to enforce forwarding restrictions of emails"""
+
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+
 import argparse
 
 from collections import defaultdict
@@ -39,25 +47,25 @@ class FPECriteriaConfig(Configuration):
     """Configuration of the WebService connectivity."""
     affiliation = ConfigDescriptor(
         String,
-        default=u"affiliation_ansatt",
-        doc=u"Affiliation to aplly criteria by.")
+        default="affiliation_ansatt",
+        doc="Affiliation to apply criteria by.")
 
     source_system = ConfigDescriptor(
         String,
-        default='system_sap',
-        doc=u"The source system used for lookup of affiliations.")
+        default='system_dfo_sap',
+        doc="The source system used for lookup of affiliations.")
 
 
 class FPEEmailConfig(Configuration):
     sender = ConfigDescriptor(
         String,
-        doc=u"Sender address")
+        doc="Sender address")
     subject = ConfigDescriptor(
         String,
-        doc=u"Subject of email")
+        doc="Subject of email")
     body_template = ConfigDescriptor(
         String,
-        doc=u"Body template of email. '{}' will be filled with the addresses,"
+        doc="Body template of email. '{}' will be filled with the addresses,"
         " separated by newlines")
 
 
@@ -112,11 +120,14 @@ def remove_email_forward(db, pe, person, args, config):
 
     if args.send_notification:
         for k, v in removed_forwards.items():
-            sendmail(
-                toaddr=k,
-                fromaddr=config.email_config.sender,
-                subject=config.email_config.subject,
-                body=config.email_config.body_template.format('\n'.join(v)))
+            try:
+                sendmail(
+                    toaddr=k,
+                    fromaddr=config.email_config.sender,
+                    subject=config.email_config.subject,
+                    body=config.email_config.body_template.format('\n'.join(v)))
+            except Exception:
+                logger.error('Failed to send email to %s', k)
 
     db.commit()
     ac.clear()
@@ -128,9 +139,13 @@ def iterate_persons(db, args, config):
     affiliation = co.human2constant(config.fpe.affiliation)
     all_persons = pe.list_affiliated_persons(aff_list=affiliation)
     for person in all_persons:
-        pe.find(person.get("person_id"))
-        remove_email_forward(db, pe, person, args, config)
-        pe.clear()
+        try:
+            pe.find(person['person_id'])
+            remove_email_forward(db, pe, person, args, config)
+        except NotFoundError:
+            logger.error("Person %s not found", person['person_id'])
+        finally:
+            pe.clear()
 
 
 def main(args=None):
@@ -140,19 +155,21 @@ def main(args=None):
                         metavar='FILE',
                         default=None,
                         help='Use a custom configuration file')
-    parser.add_argument(u'--commit',
-                        dest=u'commit',
-                        action=u'store_true',
+    parser.add_argument('--commit',
+                        dest='commit',
+                        action='store_true',
                         default=False,
-                        help=u'Commit changes')
-    parser.add_argument(u'--send-notification',
-                        dest=u'send_notification',
-                        action=u'store_true',
+                        help='Commit changes')
+    parser.add_argument('--send-notification',
+                        dest='send_notification',
+                        action='store_true',
                         default=False,
-                        help=u'Send information about forward removal')
+                        help='Send information about forward removal')
     args = parser.parse_args(args)
-    prog_name = parser.prog.rsplit(u'.', 1)[0]
+    prog_name = parser.prog.rsplit('.', 1)[0]
     logger.info(args.send_notification)
+
+    logger.info('Starting {}'.format(prog_name))
 
     db = Factory.get('Database')()
     db.cl_init(change_program=prog_name)
@@ -164,7 +181,7 @@ def main(args=None):
 
     iterate_persons(db, args, config)
 
-    logger.info('Starting {}'.format(prog_name))
+    logger.info('Done {}'.format(prog_name))
 
 
 if __name__ == "__main__":

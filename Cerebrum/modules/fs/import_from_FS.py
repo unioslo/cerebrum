@@ -36,6 +36,8 @@ import six
 from Cerebrum.Utils import Factory
 from Cerebrum.extlib import xmlprinter
 from Cerebrum.modules.xmlutils.xml_helper import XMLHelper
+from Cerebrum.utils import date as date_utils
+from Cerebrum.utils import date_compat
 from Cerebrum.utils.atomicfile import AtomicFileWriter
 from Cerebrum.utils.atomicfile import SimilarSizeWriter
 
@@ -346,7 +348,6 @@ class ImportFromFs(object):
         f.close()
 
     def write_forkurs_info(self, pre_course_file):
-        from mx.DateTime import now
         logger.info("Writing pre-course file to '%s'", pre_course_file)
         f = SimilarSizeWriter(pre_course_file, mode='w',
                               encoding=XML_ENCODING)
@@ -354,12 +355,15 @@ class ImportFromFs(object):
         cols, course_attendants = self._ext_cols(self.fs.forkurs.list())
         f.write(xml.xml_hdr + "<data>\n")
         for a in course_attendants:
+            now_string = date_compat.to_mx_format(date_utils.now())
             f.write(
                 '<regkort fodselsdato="{}" personnr="{}" dato_endring="{}" '
-                'dato_opprettet="{}"/>\n'.format(a['fodselsdato'],
-                                                 a['personnr'],
-                                                 str(now()),
-                                                 str(now())))
+                'dato_opprettet="{}"/>\n'.format(
+                    a['fodselsdato'],
+                    a['personnr'],
+                    now_string,
+                    now_string,
+                ))
             f.write('<emnestud fodselsdato="{}" personnr="{}" etternavn="{}" '
                     'fornavn="{}" adrlin2_semadr="" postnr_semadr="" '
                     'adrlin3_semadr="" adrlin2_hjemsted="" postnr_hjemsted="" '

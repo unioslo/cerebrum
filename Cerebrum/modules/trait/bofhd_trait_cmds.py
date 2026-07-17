@@ -34,15 +34,20 @@ from Cerebrum.modules.bofhd import parsers
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.bofhd_core_help import get_help_strings
+from Cerebrum.modules.bofhd import cmd_param
 from Cerebrum.modules.bofhd.cmd_param import (
     Command,
     FormatSuggestion,
     Id,
     SimpleString,
 )
-from Cerebrum.modules.bofhd.errors import PermissionDenied
+from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.help import merge_help_strings
 from Cerebrum.modules.EntityTrait import EntityTrait
+from Cerebrum.utils import date_compat
+
+from . import trait_db
+from .constants import _EntityTraitCode
 
 logger = logging.getLogger(__name__)
 
@@ -173,6 +178,13 @@ class TraitAuth(BofhdAuth):
             return True
         raise PermissionDenied("Not allowed to remove trait")
 
+    def can_search_traits(self, operator, filters=None, query_run_any=False):
+        if self.is_superuser(operator):
+            return True
+        if query_run_any:
+            return False
+        raise PermissionDenied("No access to trait search")
+
 
 class TraitCommands(BofhdCommonMethods):
     """
@@ -188,6 +200,84 @@ class TraitCommands(BofhdCommonMethods):
     all_commands = {}
     parent_commands = False
     authz = TraitAuth
+
+    def _search_traits(self, filter_d, limit=50):
+        """
+        Search for tasks.
+
+        :param dict filter_d: task search params (see trait_search)
+        :param int limit: max number of tasks to get
+        :returns generator:
+            Generates matching task dicts.
+
+            If there are more than <limit> matching tasks, the list of
+            results will be truncated, and a final sentinel item
+            `{'limit': <limit>}` will be included.
+        """
+        # TODO: remap trait code to trait code strval
+        trait_map = {
+            int(c): six.text_type(c)
+            for c in self.const.fetch_constants(_EntityTraitCode)
+        }
+
+        filter_d = dict(filter_d)
+        filter_d['limit'] = limit + 1
+        for i, row in enumerate(trait_db.search_traits(self.db, **filter_d)):
+            if i < limit:
+                # Note: trait 'date' is actually a naive datetime ('TIMESTAMP')
+                _date = date_compat.get_datetime_naive(row['date'])
+                trait_repr = ", ".join(
+                    "{}={}".format(k, repr(v))
+                    for k, v in (
+                        ("date", _date.isoformat() if _date else None),
+                        ("numval", row['numval']),
+                        ("strval", row['strval']),
+                        ("target_id", row['target_id']),
+                    )
+                    if v is not None
+                )
+
+                yield {
+                    'code_int': row['code'],
+                    'code_str': trait_map[row['code']],
+                    'entity_id': row['entity_id'],
+                    'target_id': row['target_id'],
+                    'date': _date,
+                    'numval': row['numval'],
+                    'strval': row['strval'],
+                    'trait_repr': trait_repr,
+                }
+            else:
+                # if there are more than `limit` results, we add a
+                # sentinel value to indicate that not all matches were
+                # included.
+                yield {'limit': limit}
+                break
+
+    _search_traits_list_fs = cmd_param.get_format_suggestion_table(
+        ("entity_id", "Entity Id", 10, "d", False),
+        ("code_str", "Trait", 18, "s", True),
+        ("trait_repr", "Values", 50, "s", True),
+        limit_key='limit',
+    )
+
+    #
+    # trait search [filter...]
+    #
+    all_commands['trait_search'] = Command(
+        ("trait", "search"),
+        SimpleString(help_ref='trait-filter', optional=True, repeat=True),
+        fs=_search_traits_list_fs,
+        perm_filter="can_search_traits",
+    )
+
+    def trait_search(self, operator, *search_filters):
+        """ Get traits given to an entity. """
+        raw_filters = _trait_filter_parser.parse_items(search_filters)
+        filters = _trait_filter_parser.map_params(self.db,
+                                                  self.const, raw_filters)
+        self.ba.can_search_traits(operator.get_entity_id(), filters)
+        return list(self._search_traits(filters))
 
     #
     # trait info -- show trait values for an entity
@@ -415,6 +505,118 @@ class TraitCommands(BofhdCommonMethods):
 
 
 #
+# Trait params/input parsing
+#
+
+
+def _parse_required_text(value):
+    if value:
+        return value
+    raise CerebrumError("value cannot be empty")
+
+
+class TraitSearchParams(parsers.ParamsParser):
+    """
+    Parse trait search params from user input.
+
+    This class can convert a sequence of strings like
+    `("str:foo", "min:bar", "target:1234", "date:2022-01-21")`
+    into a dict of search params for the `trait` module
+
+    Typical use:
+    ::
+
+        # Example user input:
+
+        search_filters = ["min:3", "before:now", "entity:account:foo",
+                          "target:group:bar", "trait:trait-a", "trait:trait-b"]
+
+        # Parse keyword arguments
+        raw_filters = _trait_filter_parser.parse_items(search_filters)
+
+        # Map trait codes and entity ids to intvals
+        search_args = _trait_filter_parser.map_params(db, const, raw_filters)
+
+        # Search
+        results = trait_db.search_traits(db, **search_args)
+    """
+
+    fields = {
+        'min': "Limit to traits with `numval >= <n>`",
+        'max': "Limit to traits with `numval < <n>`",
+        'before': "Limit to traits with `date < <datetime>`",
+        'after': "Limit to traits with `date > <datetime>`",
+        'text': "Limit to traits with a strval matching <ipattern>",
+        'trait': "Limit to specific trait types",
+        # 'entity': "Limit to traits for a a given <entity>",
+        # 'target': "Limit to traits targetting a given <entity>",
+    }
+    params = {
+        # Regular params - can be used directly with trait search
+        'min': 'numval_min',
+        'max': 'numval_max',
+        'before': 'date_before',
+        'after': 'date_after',
+        'text': 'strval_ilike',
+
+        # Typically needs to be translated using `map_params` before use:
+        'trait': 'trait_lookup',
+        # 'entity': 'entity_lookup',
+        # 'target': 'target_lookup',
+
+    }
+    parsers = {
+        'min': int,
+        'max': int,
+        'before': parsers.parse_datetime,
+        'after': parsers.parse_datetime,
+        'text': parsers.parse_ipattern,
+        'trait': _parse_required_text,
+        # 'entity': _parse_required_text,
+        # 'target': _parse_required_text,
+    }
+    multivalued = set(('trait', 'entity', 'target'))
+
+    @classmethod
+    def translate_trait(cls, const, lookup):
+        try:
+            return const.get_constant(_EntityTraitCode, lookup)
+        except LookupError:
+            raise CerebrumError("invalid trait: " + repr(lookup))
+
+    @classmethod
+    def translate_entity(cls, db, lookup):
+        # key, _, value = lookup.partition(":")
+        raise NotImplementedError("entity lookup not supported yet")
+
+    @classmethod
+    def map_params(cls, db, const, params):
+        params = dict(params)
+
+        # Translate traits
+        trait_lookup = params.pop('trait_lookup', None)
+        if trait_lookup:
+            params['code'] = [cls.translate_trait(const, t)
+                              for t in trait_lookup]
+
+        # Translate entity - not yet implemented
+        entity_lookup = params.pop('entity_lookup', None)
+        if entity_lookup:
+            params['entity_id'] = [cls.translate_entity(db, v)
+                                   for v in entity_lookup]
+
+        target_lookup = params.pop('target_lookup', None)
+        if target_lookup:
+            params['target_id'] = [cls.translate_entity(db, v)
+                                   for v in target_lookup]
+
+        return params
+
+
+_trait_filter_parser = TraitSearchParams()
+
+
+#
 # Help texts
 #
 
@@ -449,6 +651,39 @@ entity commands, e.g.:
     datetime=parsers.parse_datetime_help_blurb,
 )
 
+_trait_filter_text_blurb = """
+Each trait-filter follows a format of <param>:<value>.
+
+Example:  Find all traits with both a numval = 10 *and* a strval = "foo
+bar".
+
+    `trait search min:10 max:10 "text:foo bar"`
+
+Valid filter <param> values
+----------------------------
+{filters}
+
+
+Valid <datetime> values
+-----------------------
+{datetime}
+
+
+Matching with <ipattern>
+------------------------
+{ipattern}
+
+
+""".format(
+    filters="\n".join(
+        " - {}: {}".format(f, h)
+        for f, h in _trait_filter_parser.get_help()
+    ),
+    # TODO: Add entity lookup blurb when implemented
+    datetime=parsers.parse_datetime_help_blurb.strip(),
+    ipattern=parsers.parse_ipattern_help_blurb.strip(),
+)
+
 
 HELP_GRP = {
     "trait": "Trait related commands",
@@ -458,6 +693,7 @@ HELP_CMD = {
         "trait_info": "Display all traits associated with an entity",
         "trait_list": "List all entities which have specified trait",
         "trait_remove": "Remove a trait from an entity",
+        "trait_search": "Search for given trait types or values",
         "trait_set": "Add or update an entity's trait.",
         "trait_types": "List all defined trait types (not all are editable)",
     },
@@ -472,5 +708,10 @@ HELP_ARG = {
         "trait-value",
         "Trait value",
         _trait_value_text_blurb,
+    ],
+    "trait-filter": [
+        "trait-filter",
+        "Trait filter",
+        _trait_filter_text_blurb,
     ],
 }

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2021 University of Oslo, Norway
+# Copyright 2021-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -20,11 +20,19 @@
 """
 Common http and url utils.
 """
-from __future__ import absolute_import, unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+
 from six.moves.urllib.parse import (
     quote_plus as _quote_plus,
     urljoin as _urljoin,
 )
+
+from . import text_compat
 
 
 def safe_path(arg):
@@ -33,7 +41,7 @@ def safe_path(arg):
     >>> safe_path('123/something-else')
     '123%2Fsomething-else'
     """
-    return _quote_plus(str(arg))
+    return text_compat.to_text(_quote_plus(text_compat.to_str(arg)))
 
 
 def merge_headers(*dicts):
@@ -61,8 +69,11 @@ def merge_headers(*dicts):
             header_names[nk] = k
             header_values[nk] = d[k]
 
-    return {header_names[nk]: header_values[nk]
-            for nk in header_names}
+    return {
+        header_names[nk]: header_values[nk]
+        for nk in header_names
+        if header_values[nk] is not None
+    }
 
 
 def urljoin(url, *path_components):

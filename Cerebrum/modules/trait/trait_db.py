@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2005-2022 University of Oslo, Norway
+# Copyright 2005-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -20,6 +20,12 @@
 """
 Functions to access/modify the entity_trait table.
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import logging
 import six
 
@@ -287,7 +293,7 @@ def get_trait(db, entity_id, code, target_id=NotSet, date=NotSet,
 
 def delete_traits(db, **selects):
     """
-    Delete personal otp secrets.
+    Delete traits.
 
     See py:func:`._select` for filter params.
 

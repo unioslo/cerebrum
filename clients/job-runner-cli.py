@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003-2019 University of Oslo, Norway
+# Copyright 2003-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -26,10 +26,15 @@ job_runner is a scheduler that runs specific commands at certain times.
 This script is a command line interface that is able to fetch the job_runner
 status and queue jobs using the job_runner socket server.
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import argparse
 import logging
 import os
-import sys
 
 try:
     import cereconf
@@ -40,7 +45,7 @@ import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum.modules.job_runner.job_config import get_job_config, dump_jobs
 from Cerebrum.modules.job_runner.socket_ipc import SocketServer, SocketTimeout
-from Cerebrum.modules.job_runner.health import write_health_report
+from Cerebrum.modules.job_runner.health import format_health_report
 
 default_dump_config = 'scheduled_jobs'
 default_dump_depth = 1
@@ -224,7 +229,7 @@ def main(inargs=None):
         logger.info("Running command=%r, args=%r, timeout=%r",
                     command, c_args, args.timeout)
         result = run_command(args.socket, command, c_args, args.timeout)
-        write_health_report(sys.stdout, result)
+        print(format_health_report(result))
     else:
         logger.info("Running command=%r, args=%r, timeout=%r",
                     command, c_args, args.timeout)

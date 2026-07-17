@@ -1,6 +1,6 @@
 # coding: utf-8
 #
-# Copyright 2017 University of Oslo, Norway
+# Copyright 2017-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,33 +18,30 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 # Copyright 2002-2015 University of Oslo, Norway
-""" Python module and import utilities.
-
-This module contains utilities for dynamically importing other modules, and
-some module introspection utilities.
-
-All dynamic loading of modules and classes should eventually be replaced with
-pkg_resources and entry points.
-
-TODO: Replace
-  - `Cerebrum.Utils:dyn_import` -> `load_source`
-  - the class lookup in `Cerebrum.Utils:Factory.make_class` with `load_source`
-  - `Cerebrum.Utils:this_module` -> `this_module`
-
 """
+Python module introspection and import utilities.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import functools
 import inspect
 import re
+import sys
 
-try:
-    # PY > 3.3
+if sys.version_info >= (3, 3):
+    # PY3: importlib.machinery.SourceFileLoader introduced in 3.3
     from importlib.machinery import SourceFileLoader
 
     def _load_source(name, path):
         return SourceFileLoader(name, path).load_module()
-
-except ImportError:
+else:
     from imp import load_source as _load_source
+
+from . import text_compat
 
 
 def import_item(module_name, item_name=None):
@@ -61,7 +58,7 @@ def import_item(module_name, item_name=None):
         module otherwise.
     """
     # This method is adopted from `pkg_resources.EntryPoint.resolve`.
-    module = __import__(module_name, fromlist=['__name__'], level=0)
+    module = __import__(module_name, fromlist=[str('__name__')], level=0)
 
     if item_name:
         attrs = item_name.split('.')
@@ -70,8 +67,14 @@ def import_item(module_name, item_name=None):
         return module
 
 
+# Regex for `parse`
+#
 # NOTE: We include the pattern flags in the expression here, so that we're
 #       able to do `re.compile(SOURCE_RE.pattern)` later, if needed.
+#
+# TODO: This is no longer *correct* in Python 3, but it's probably good enough
+#       for our use cases.  It can be debated if we *really* need to validate
+#       module/attribute names this thoroughly.
 SOURCE_RE = re.compile(
     r"""(?ix)  # re.IGNORECASE, re.VERBOSE
     ^\s*
@@ -111,7 +114,7 @@ def parse(source):
     """
     match = SOURCE_RE.match(source)
     if not match:
-        raise ValueError("invalid source ({0})".format(source))
+        raise ValueError("invalid source: " + repr(source))
     return tuple(match.group(x) for x in ('module', 'separator', 'item'))
 
 
@@ -119,19 +122,19 @@ def resolve(source):
     """ Load some source string.
 
     :param str source:
-        What to import/fetch (see ``parse_source``)
+        What to import/fetch (see :func:`.parse`)
 
     Examples
     --------
-    Import a module, 'foo.bar':
+    Import a module 'foo.bar':
 
-        my_module = load_source('foo.bar')
+        my_module = resolve("foo.bar")
 
     Fetch a class attribute 'attr' from the class 'Cls' in sub-module
     'mod.sub':
 
-        my_attr = load_source('mod.sub:Cls.attr')
-        my_attr = load_source('mod.sub/Cls.attr')
+        my_attr = resolve("mod.sub:Cls.attr")
+        my_attr = resolve("mod.sub/Cls.attr")
 
     """
     module_name, _, item_name = parse(source)
@@ -224,7 +227,9 @@ def make_class(import_spec, name=None, hint=None):
     # Requirement for constructing a class with 'type'
     bases.append(object)
 
-    # Construct class
-    cls_name = '_dynamic_' + (name or bases[0].__name__)
+    # Format a class name - doesn't have to be limited to ascii, but we
+    # probably *want* it to be
+    cls_name = text_compat.to_str('_dynamic_' + (name or bases[0].__name__),
+                                  encoding="ascii")
     bases = tuple(bases)
     return type(cls_name, bases, {})

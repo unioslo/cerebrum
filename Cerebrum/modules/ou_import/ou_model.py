@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2022 University of Oslo, Norway
+# Copyright 2022-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -23,9 +23,18 @@ Abstract org unit mapper and object for import.
 TODO
 ----
 The ou import currently requires location codes (stedkode) to work properly, as
-most models *require* this id type.  See the
-py:mod:`Cerebrum.modules.ou_import` module for more details.
+most models *require* this id type.  In the future, we should use the
+:meth:`.OrgUnitMapper.get_id` and :meth:`.OrgUnitMapper.get_parent_id` as
+temporary, in-memory ids when bulding and validating org trees.
+
+See the :mod:`Cerebrum.modules.ou_import` module for more details.
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import logging
 
 from Cerebrum.utils.reprutils import ReprFieldMixin
@@ -321,9 +330,9 @@ class OrgUnitMapper(object):
     def get_usage(self, ou_data):
         """ Usage codes for this org unit.
 
-        Known usage codes are defined in ``cereconf.OU_USAGE_SPREAD``, and are
-        used to map various tags and properties from the source system to
-        automatic spreads.
+        Usage codes are *tags* that can be used in the import.  E.g. in
+        ``cereconf.OU_USAGE_SPREAD``, where usage codes can map to given
+        spreads in the ou sync.
         """
         if not self.is_valid(ou_data):
             return ()

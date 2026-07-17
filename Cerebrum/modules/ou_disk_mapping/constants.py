@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright 2019 University of Oslo, Norway
+#
+# Copyright 2019-2025 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,21 +20,28 @@
 """
 Constants related to the ou_disk_mapping module.
 """
-
-from __future__ import unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 from Cerebrum import Constants
 
 
 class CLConstants(Constants.CLConstants):
-    ou_disk_add = Constants._ChangeTypeCode(
-        'ou_disk_mapping',
-        'add',
-        'Default disk for aff %(aff)s set to %(disk)s',
 
+    ou_disk_add = Constants._ChangeTypeCode(
+        "ou_disk_mapping",
+        "add",
+        "Added default disk for %(subject)s",
+        ("aff=%(string:aff)s", "path=%(string:path)s"),
     )
+
     ou_disk_remove = Constants._ChangeTypeCode(
-        'ou_disk_mapping',
-        'remove',
-        'Default disk for aff %(aff)s removed',
+        "ou_disk_mapping",
+        "remove",
+        "Removed default disk for %(subject)s",
+        ("aff=%(string:aff)s", "path=%(string:path)s"),
     )

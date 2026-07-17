@@ -68,7 +68,41 @@ logger = logging.getLogger(__name__)
 
 
 class TaskHandlerConfig(ConsumerConfig, TaskListMixin):
-    """ Joint consumer/task config. """
+    """
+    Joint consumer/task config.
+
+    Minimal YAML-example:
+    ::
+
+        connection:
+          username: "guest"
+          password: "plaintext:guest"
+          host: "localhost"
+          port: 5672
+          ssl_enable: false
+          virtual_host: "/"
+
+        consumer_tag: "crb-consume-tasks"
+
+        exchanges:
+          - name: "from-system-foo"
+            durable: true
+            exchange_type: "topic"
+
+        queues:
+          - name: "foo-tasks"
+            durable: true
+
+        bindings:
+          - exchange: "from-system-foo"
+            queue: "foo-tasks"
+            routing_keys:
+              - "#"
+
+        tasks:
+          - source: "foo-tasks"
+            get_tasks: "operator:truth"
+    """
 
     @classmethod
     def from_file(cls, filename):
@@ -126,12 +160,6 @@ class TaskHandler(AbstractConsumerHandler):
         dt = event.method.delivery_tag
         logger.debug('abort %s/%s', ct, dt)
         event.channel.basic_nack(delivery_tag=dt)
-
-    def reschedule(self, event, dates):
-        # TODO: We should probably re-consider the design of the
-        #       AbstractConsumerHandler.  The reschedule call might not be
-        #       appropriate in this "interface".
-        raise NotImplementedError()
 
 
 def set_pika_loglevel(level=logging.INFO, force=False):

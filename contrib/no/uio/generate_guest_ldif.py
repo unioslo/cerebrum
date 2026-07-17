@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright 2014 University of Oslo, Norway
+#
+# Copyright 2014-2025 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -22,14 +23,25 @@ Generates simple account objects in LDIF format, for guest accounts.
 
 The LDIF file created by this script will not contain any metadata or tree
 structure. It will only contain each account object in LDAP format.
+
+The result is typically combined with another LDAP tree outside of Cerebrum.
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import argparse
+import contextlib
 import logging
 
-import guestconfig  # Need guest config for this
+import six
 
+import guestconfig  # Need guest config for this
 import Cerebrum.logutils
 import Cerebrum.logutils.options
+from Cerebrum.Entity import EntityQuarantine
 from Cerebrum.QuarantineHandler import QuarantineHandler
 from Cerebrum.Utils import Factory
 from Cerebrum.export.auth import AuthExporter
@@ -40,10 +52,10 @@ from Cerebrum.modules.LDIFutils import ldapconf
 logger = logging.getLogger(__name__)
 
 
-def get_spread(co, value):
-    const = co.human2constant(value, co.Spread)
-    int(const)
-    return const
+def get_account(db, entity_id):
+    ac = Factory.get("Account")(db)
+    ac.find(int(entity_id))
+    return ac
 
 
 class GuestLDIF(object):
@@ -52,9 +64,8 @@ class GuestLDIF(object):
     def __init__(self, db, ldif, spread):
         """ Set up object with ldap config.
 
-        :param ldif: The LDIFWriter object that contains our settings
-        :param spread: The spread that identifies guests. Default: Fetch spread
-                       from guestconfig.LDAP['spread']
+        :param ldif: An LDIFWriter object for our ldif file
+        :param spread: A spread that identifies guests
 
         """
         self.db = db
@@ -83,45 +94,38 @@ class GuestLDIF(object):
 
         return entry
 
-    def dn_for_entry(self, entry, dn):
-        """ Return the dn for a given entry. """
-        return
-
     def generate_guests(self):
         """
         Guest account generator.
 
         Yields accounts with the configured spread.
         """
-
+        qdb = EntityQuarantine(self.db)
         ac = Factory.get('Account')(self.db)
         co = Factory.get('Constants')(self.db)
         for row in ac.search(spread=self.spread):
-            # NOTE: Will not consider expired accounts
-            ac.clear()
-            ac.find(row['account_id'])
+            account_id = row['account_id']
+            account_name = row['name']
+            account_repr = "%s (%d)" % (account_name, account_id)
 
-            qh = QuarantineHandler(
-                self.db,
-                [int(row['quarantine_type'])
-                 for row in ac.get_entity_quarantine(only_active=True)])
+            quarantines = [
+                int(row['quarantine_type'])
+                for row in
+                qdb.list_entity_quarantines(entity_ids=int(account_id),
+                                            only_active=True)
+            ]
 
-            # No need for quarantined guest accounts in ldap
-            # NOTE: We might want to export accounts that is_locked(), but
-            #       without passwords.
+            qh = QuarantineHandler(self.db, quarantines)
             if qh.should_skip() or qh.is_locked():
                 logger.debug("Skipping %s, quarantined: %r",
-                             ac.account_name,
-                             [str(co.Quarantine(q))
-                              for q in qh.quarantines])
+                             account_repr,
+                             [six.text_type(co.Quarantine(q))
+                              for q in quarantines])
                 continue
 
-            entry = self.ac2entry(ac)
+            account = get_account(self.db, account_id)
+            entry = self.ac2entry(account)
             yield entry
-
-    def write_to_file(self, dn, entry):
-        """ Write entry to a file descriptor. """
-        pass
 
 
 def main(inargs=None):
@@ -165,30 +169,23 @@ def main(inargs=None):
     co = Factory.get('Constants')(db)
 
     filename = args.filename
-    spread = get_spread(co, args.spread)
+    spread = co.get_constant(co.Spread, args.spread)
     base = args.base
 
-    def entry_to_dn(uid):
-        return "uid=%s,%s" % (entry['uid'], base)
+    def entry_to_dn(entry_dict):
+        return "uid=%s,%s" % (entry_dict['uid'], base)
 
-    logger.info("Configuring export")
-
-    ldif = LDIFWriter('GUESTS', filename, module=guestconfig)
-    try:
+    with contextlib.closing(
+            LDIFWriter('GUESTS', filename, module=guestconfig)) as ldif:
+        logger.debug("Writing guests to %s", repr(ldif.f))
         exporter = GuestLDIF(db, ldif, spread=spread)
-        logger.info("Starting guest account ldap export.")
         count = 0
 
-        for entry in exporter.generate_guests():
+        for entry in sorted(exporter.generate_guests(), key=entry_to_dn):
             ldif.write_entry(entry_to_dn(entry), entry)
             count += 1
-    except Exception as e:
-        logger.error("Unable to export: %s", e, exc_info=True)
-        raise
-    finally:
-        ldif.close()
 
-    logger.info("%d accounts dumped to ldif", count)
+    logger.info("%d accounts written to %s", count, repr(ldif.f))
     logger.info('Done %s', parser.prog)
 
 

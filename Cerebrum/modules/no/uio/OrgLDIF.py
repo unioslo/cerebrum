@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2004-2022 University of Oslo, Norway
+# Copyright 2004-2025 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,28 +17,34 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-from __future__ import unicode_literals
-
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import logging
 import re
 from collections import defaultdict
 from itertools import product
 
+import cereconf
+from Cerebrum.export import addresses as addr_export
 from Cerebrum.modules.OrgLDIF import OrgLdifGroupMixin
-from Cerebrum.modules.OrgLDIF import postal_escape_re
+from Cerebrum.modules.OrgLDIF import LdapNameGetter
 from Cerebrum.modules.feide.ldif_mixins import NorEduAuthnLevelMixin
 from Cerebrum.modules.no.OrgLDIF import NorEduOrgLdifMixin
 from Cerebrum.modules.no.OrgLDIF import NorEduSmsAuthnMixin
 from Cerebrum.modules.no.OrgLDIF import OrgLdifCourseMixin
 from Cerebrum.modules.no.OrgLDIF import OrgLdifEntitlementsMixin
 from Cerebrum.modules.LDIFutils import (
-    hex_escape_match,
+    attr_unique,
     normalize_IA5String,
     verify_IA5String,
 )
 from Cerebrum.QuarantineHandler import QuarantineHandler
 from Cerebrum.Utils import make_timer
+from Cerebrum.utils.descriptors import lazy_property
 
 logger = logging.getLogger(__name__)
 
@@ -59,9 +65,104 @@ class _UioGroupMixin(OrgLdifGroupMixin, NorEduOrgLdifMixin):
     person_memberof_class = 'uioMembership'
 
 
+class _UioAddressMixin(NorEduOrgLdifMixin):
+    """
+    Change address selection and formatting at UiO.
+
+    Changes the personal address selection to use the org unit address from the
+    primary affiliation.
+
+    Also changes the default post and street address formatting rules (for both
+    personal addresses and org unit addresses):
+
+     - Only use p/o box values at postal code x3xx
+     - Append "Blindern" to p/o box values
+     - Only p/o box or address, never both
+     - Prefer p/o box, even for street addresses (this one is odd, probably
+       not intended?)
+    """
+    class _UioAddressFormatterMixin(addr_export._AddressFormatter):
+        """ Override some default address formatting rules. """
+        def _is_blindern(self, fields):
+            try:
+                postal_code = int(fields['postal_number'] or 0)
+            except ValueError:
+                return False
+            return postal_code // 100 == 3
+
+        def _get_values(self, fields):
+            postbox = (fields['p_o_box'] or "").strip() or None
+            if postbox and self._is_blindern(fields):
+                yield "Pb. {} - Blindern".format(postbox)
+            else:
+                for addr_line in (fields['address_text'] or "").split("\n"):
+                    yield (addr_line or "").strip() or None
+            yield self._get_city_line(fields)
+            yield self._get_country(fields)
+
+    class _UioStreetAddr(_UioAddressFormatterMixin,
+                         addr_export._LdapStreetAddress):
+        """ Street address formatter. """
+        pass
+
+    class _UioPostalAddr(_UioAddressFormatterMixin,
+                         addr_export._LdapPostalAddress):
+        """ Post address formatter. """
+        pass
+
+    format_street_addr = _UioStreetAddr()
+    format_postal_addr = _UioPostalAddr()
+
+    def _get_primary_ou_id(self, person_id):
+        """ map person_id to primary ou_id. """
+        _, ou_id, _ = self.make_edu_person_primary_aff(person_id)
+        return ou_id
+
+    def get_person_street_addr(self, person_id):
+        """ get street address for person. """
+        # UiO uses the org unit addresses for persons
+        ou_id = self._get_primary_ou_id(person_id)
+        if ou_id:
+            return self.get_ou_street_addr(ou_id)
+        return None
+
+    def get_person_postal_addr(self, person_id):
+        """ get postal address for person. """
+        # UiO uses the org unit addresses for persons
+        ou_id = self._get_primary_ou_id(person_id)
+        if ou_id:
+            return self.get_ou_postal_addr(ou_id)
+        return None
+
+
+class _UioOrgUnitNameMixin(NorEduOrgLdifMixin):
+    """
+    Change org unit name selection for UiO.
+
+    UiO prefers *shortname* over *acronym*, for historical reasons.
+    """
+    @lazy_property
+    def get_ou_names(self):
+        """ get localized org unit names, ordered by priority.  """
+        names = LdapNameGetter(
+            self.ou_name_cache,
+            (
+                self.const.ou_name_short,
+                self.const.ou_name_acronym,
+                self.const.ou_name,
+                self.const.ou_name_display,
+            ),
+            self.lang_opts.languages,
+        )
+        # Use all names, in the prioritized order
+        return names.get_all
+
+
 class UioOrgLdif(NorEduSmsAuthnMixin,
                  NorEduAuthnLevelMixin,
                  OrgLdifCourseMixin,
+                 _UioAddressMixin,
+                 _UioOrgUnitNameMixin,
                  _UioGroupMixin,
                  OrgLdifEntitlementsMixin):
     """Mixin class for norEduLDIFMixin(OrgLDIF) with UiO modifications."""
@@ -108,9 +209,7 @@ class UioOrgLdif(NorEduSmsAuthnMixin,
         # - Include 'mobile' as well
         # - OUs get their contact info from the address_source_system
         contact_sources = (
-            (self.const.entity_ou,
-             getattr(self.const,
-                     self.config.org.parent.get('address_source_system'))),
+            (self.const.entity_ou, self.const.system_orgreg),
             (self.const.entity_person,
              getattr(self.const,
                      self.config.org.parent.get('contact_source_system'))),
@@ -141,26 +240,6 @@ class UioOrgLdif(NorEduSmsAuthnMixin,
 
         self.id2labeledURI = contacts[-1][1]
         self.attr2id2contacts = [v for v in contacts if v[1]]
-
-    def make_address(self, sep,
-                     p_o_box, address_text, postal_number, city, country):
-        # Changes from superclass:
-        # Weird algorithm for when to use p_o_box.
-        # Append "Blindern" to postbox.
-        if country:
-            country = self.const.Country(country).country
-        if (p_o_box and int(postal_number or 0) / 100 == 3):
-            address_text = "Pb. %s - Blindern" % p_o_box
-        else:
-            address_text = (address_text or "").strip()
-        post_nr_city = None
-        if city or (postal_number and country):
-            post_nr_city = " ".join(filter(None, (postal_number,
-                                                  (city or "").strip())))
-        val = "\n".join(filter(None, (address_text, post_nr_city, country)))
-        if sep == '$':
-            val = postal_escape_re.sub(hex_escape_match, val)
-        return val.replace("\n", sep)
 
     def init_person_titles(self):
         # Change from original: Search titles first by system_lookup_order,
@@ -206,7 +285,7 @@ class UioOrgLdif(NorEduSmsAuthnMixin,
             self.account_mail.update(mail)
             timer("...UiO specfic account e-mail addresses done.")
 
-    def make_uioPersonScopedAffiliation(self, p_id, pri_aff, pri_ou):
+    def make_uio_scoped_aff(self, p_id, pri_aff, pri_ou):
         # [primary|secondary]:<affiliation>@<status>/<stedkode>
         ret = []
         pri_aff_str, pri_status_str = pri_aff
@@ -230,16 +309,17 @@ class UioOrgLdif(NorEduSmsAuthnMixin,
             if ou:
                 ret.append(''.join((p, ':', aff_str, '/', status_str, '@',
                                     ou)))
-        return ret
+        return sorted(attr_unique(ret))
 
     def make_person_entry(self, row, person_id):
         """ Extend with UiO functionality. """
         dn, entry, alias_info = super(UioOrgLdif,
                                       self).make_person_entry(row, person_id)
-        account_id = int(row['account_id'])
-
         if not dn:
             return dn, entry, alias_info
+
+        account_id = int(row['account_id'])
+        account_name = self.acc_name[account_id]
 
         # Add person ID
         entry['uioPersonId'] = str(person_id)
@@ -247,8 +327,8 @@ class UioOrgLdif(NorEduSmsAuthnMixin,
         # Add scoped affiliations
         pri_edu_aff, pri_ou, pri_aff = self.make_edu_person_primary_aff(
             person_id)
-        entry['uioPersonScopedAffiliation'] = \
-            self.make_uioPersonScopedAffiliation(person_id, pri_aff, pri_ou)
+        entry['uioPersonScopedAffiliation'] = self.make_uio_scoped_aff(
+            person_id, pri_aff, pri_ou)
 
         # uio attributes require uioPersonObject
         entry['objectClass'].append('uioPersonObject')
@@ -277,8 +357,9 @@ class UioOrgLdif(NorEduSmsAuthnMixin,
             if q not in feide_lock_exempt]
         if QuarantineHandler(self.db, relevant_quarantines).is_locked():
             entry['objectClass'].append('uioFeideHiddenPerson')
-            logger.debug('uioFeideHiddenPerson for account_id=%r',
-                         account_id)
+            self.logger.debug(
+                "hiding account %s (%d), quarantined (uioFeideHiddenPerson)",
+                account_name, account_id)
 
         return dn, entry, alias_info
 
@@ -326,7 +407,9 @@ class UioOrgLdif(NorEduSmsAuthnMixin,
             (student, int(self.const.affiliation_status_student_drgrad)),
             (student, int(self.const.affiliation_status_student_emnestud)))
         self.sap_res = self.init_person_group("DFO-elektroniske-reservasjoner")
-        self.fs_samtykke = self.init_person_group("FS-aktivt-samtykke")
+        self.manuelt_samtykke = self.init_person_group(
+            "manuelt-aktivt-samtykke")
+        self.fs_samtykke = self.init_person_group(cereconf.FS_GROUP_NAME)
 
     def is_person_visible(self, person_id):
         """ Override with UiO specific visibility.
@@ -354,6 +437,9 @@ class UioOrgLdif(NorEduSmsAuthnMixin,
         #  * The trait's numval is set to 0
         # This means that a missing trait should be considered as a
         # reservation.
+
+        if person_id in self.manuelt_samtykke:
+            return True
 
         p_affs = self.affiliations[person_id]
         # If there is an affiliation from SAP then consider

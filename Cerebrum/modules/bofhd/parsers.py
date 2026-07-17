@@ -20,6 +20,12 @@
 """
 This module contains generic utils for parsing user input in bofhd.
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import datetime
 import six
 
@@ -193,18 +199,32 @@ def parse_datetime(raw_value, optional=False):
 
 # A text blurb that can be used in help_refs for arguments that allow this
 parse_datetime_help_blurb = """
- - "today":  current date @ midnight *
- - "now":    current date @ current time
- - datetime: iso-8601 datetime (T-separator optional),
-             e.g. "2020-02-26 13:37" *, "2020-02-26T10:37:01.000Z",
-             "2022-W04-2T12+0200"
- - date:     iso-8601 date @ midnight *,
-             e.g. "2020-02-26", "2020-057", "2020-W09-3"
- - time:     current date @ time *,  in iso-8601 extended legacy format,
-             e.g.  "14:37", "23:15:00.000" (not "1437", "T1437", "T14:37")
+"today"
+    The literal text "today", selects current date @ midnight *
 
-*  All times are in local server time ({tz}), if not specified.
-""".lstrip('\n').format(tz=date_utils.TIMEZONE)
+"now"
+    The literal text "now", selects current date @ current time *
+
+datetime
+    An ISO-8601 datetime (T-separator optional).
+
+    E.g. "2020-02-26 13:37" *, "2020-02-26T10:37:01.000Z",
+         "2022-W04-2T12+0200"
+
+date
+    An ISO-8601 date @ midnight *,
+
+    E.g. "2020-02-26", "2020-057", "2020-W09-3"
+
+time
+    An ISO-8601 time, selects current date @ time *
+
+    Time must be provided in extended legacy format, e.g.:
+    "14:37" or "23:15:00.000" (not "1437", "T1437", "T14:37")
+
+*  All times are in local server time ({tz}), unless specified using ISO-8601
+   format.
+""".lstrip().format(tz=date_utils.TIMEZONE)
 
 
 def parse_date(raw_value, optional=False):
@@ -225,11 +245,15 @@ def parse_date(raw_value, optional=False):
 # A text blurb that can be used in help_refs for arguments that uses
 # parse_date()
 parse_date_help_blurb = """
- - "today":  current date, according to server time
-             ({tz})
- - date:     iso-8601 date, e.g. "2020-02-26", "2020-057",
-             "2020-W09-3"
-""".lstrip('\n').format(tz=date_utils.TIMEZONE)
+"today"
+    The literal text "today", selects current date,
+    according to server time
+
+date
+    An ISO-8601 date
+
+    E.g. "2020-02-26", "2020-057", "2020-W09-3"
+""".lstrip().format(tz=date_utils.TIMEZONE)
 
 
 def parse_legacy_date_range(raw_value):
@@ -278,3 +302,51 @@ Date format:
 
 {}
 """.lstrip().format(parse_date_help_blurb)
+
+
+_cerebrum_glob_blurb = r"""
+The Cerebrum pattern is a simple glob-like pattern, with the
+following special characters:
+
+- '*' matches zero or more characters
+- '?' matches a single character
+- '\*' matches a literal '*'
+- '\?' matches a literal '?'
+- '\\' matches a literal '\'
+""".strip()
+
+
+def parse_pattern(raw_value):
+    """
+    Parse a case sensitive cerebrum pattern.
+
+    Note: This is a stub, as actual parsing is done in the sql mapper - we may
+    want to add some checks here later.  See
+    :mod:`Cerebrum.database.query_helpers` for details on pattern matching.
+    """
+    return raw_value
+
+
+parse_pattern_help_blurb = """
+A case sensitive glob-like pattern.
+
+{}
+""".lstrip().format(_cerebrum_glob_blurb)
+
+
+def parse_ipattern(raw_value):
+    """
+    Parse a case insensitive Cerebrum pattern.
+
+    Note: This is a stub, as actual parsing is done in the sql mapper - we may
+    want to add some checks here later.  See
+    :mod:`Cerebrum.database.query_helpers` for details on pattern matching.
+    """
+    return raw_value
+
+
+parse_ipattern_help_blurb = """
+A case insensitive glob-like pattern.
+
+{}
+""".lstrip().format(_cerebrum_glob_blurb)

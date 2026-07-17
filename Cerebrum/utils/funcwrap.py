@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # encoding: utf-8
 #
-# Copyright 2015 University of Oslo, Norway
+# Copyright 2015-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,19 +18,24 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ This module contains simple reuseable function wrappers. """
-
-from __future__ import print_function
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import threading
 import traceback
 import sys
-
 from warnings import warn as _warn
 from functools import wraps
 
+
+# If set to False, all debug-related wrappers are disabled.
+#
 # TODO: Set this from somewhere?
 DEBUG = True
-u""" If set to False, all debug-related wrappers are disabled. """
 
 
 def memoize(callobj):
@@ -63,8 +67,8 @@ def memoize(callobj):
     return wrapper
 
 
-class debug_wrapper(object):
-    u""" An abstract wrapper that can print messages to stderr.
+class debug_wrapper(object):  # noqa: N801
+    """ An abstract wrapper that can print messages to stderr.
 
     This wrapper keeps track on 'call depth', and indents messages printed to
     stderr to indicate this depth. Note that all wrappers that inherit from
@@ -73,11 +77,11 @@ class debug_wrapper(object):
 
     __depth = dict()
 
-    def __init__(self, prefix=u''):
+    def __init__(self, prefix=""):
         self.__prefix = prefix
 
     def get_func_name(self, func):
-        u""" Get the function name of the wrapped function.
+        """ Get the function name of the wrapped function.
 
         :param callable func:
             The function that is getting wrapped.
@@ -85,7 +89,7 @@ class debug_wrapper(object):
             Returns the function name.
         """
         if self.__prefix:
-            return u'{!s}.{!s}'.format(self.__prefix, func.__name__)
+            return "{}.{}".format(self.__prefix, func.__name__)
         return func.__name__
 
     @staticmethod
@@ -109,18 +113,18 @@ class debug_wrapper(object):
         cls._set_call_depth(max(0, cls._get_call_depth() - 1))
 
     @staticmethod
-    def indent(s, num, indent=u'  '):
-        lines = s.split(u'\n')
-        return indent * num + (u"\n" + indent * num).join(lines)
+    def indent(s, num, indent="  "):
+        lines = s.split("\n")
+        return indent * num + ("\n" + indent * num).join(lines)
 
     @classmethod
     def _log(cls, msg):
-        u""" Prints a message to stderr. """
+        """ Prints a message to stderr. """
         depth = cls._get_call_depth()
         print(cls.indent(msg, depth), file=sys.stderr)
 
     def __call__(self, func):
-        u""" Creates a wrapper function. """
+        """ Creates a wrapper function. """
 
         if not DEBUG:
             return func
@@ -137,8 +141,8 @@ class debug_wrapper(object):
         return wrapper
 
 
-class debug_call(debug_wrapper):
-    u""" Wrap functions to log their calls.
+class debug_call(debug_wrapper):  # noqa: N801
+    """ Wrap functions to log their calls.
 
     Each time a decorated function gets called, lines will be printed on enter
     and exit.
@@ -152,7 +156,7 @@ class debug_call(debug_wrapper):
         # enter function foo
         # exit function foo
 
-        @debug_call(prefix=u'example', args=True, ret=True)
+        @debug_call(prefix='example', args=True, ret=True)
         def bar(a, b):
             return a + b
 
@@ -176,20 +180,20 @@ class debug_call(debug_wrapper):
 
         @wraps(func)
         def wrapper(*args, **kwargs):
-            enter_msg = u'enter function {!s}'.format(func_name)
-            exit_msg = u'exit function {!s}'.format(func_name)
+            enter_msg = "enter function {}".format(func_name)
+            exit_msg = "exit function {}".format(func_name)
             result = None
             if self.__log_args:
-                enter_msg += u' with args={!r} kwargs={!r}'.format(args,
-                                                                   kwargs)
+                enter_msg += " with args={} kwargs={}".format(repr(args),
+                                                              repr(kwargs))
             self._log(enter_msg)
             try:
                 result = func(*args, **kwargs)
                 if self.__log_ret:
-                    exit_msg += u' with return={!r}'.format(result)
+                    exit_msg += " with return={}".format(repr(result))
             except Exception as e:
                 if self.__log_ret:
-                    exit_msg += u' with exception={!r}'.format(e)
+                    exit_msg += " with exception={}".format(repr(e))
                 raise
             finally:
                 self._log(exit_msg)
@@ -197,8 +201,8 @@ class debug_call(debug_wrapper):
         return wrapper
 
 
-class trace_call(debug_wrapper):
-    u""" Wrap functions to log a traceback.
+class trace_call(debug_wrapper):  # noqa: N801
+    """ Wrap functions to log a traceback.
 
     Each time a decorated function gets called, a traceback will be printed to
     stderr.
@@ -206,7 +210,7 @@ class trace_call(debug_wrapper):
     NOTE: Should only be used for testing.
 
     Usage:
-        @trace_call(prefix=u'foo_module')
+        @trace_call(prefix="foo_module")
         def bar(*args):
             pass
 
@@ -226,8 +230,8 @@ class trace_call(debug_wrapper):
         @wraps(func)
         def wrapper(*args, **kwargs):
             lines = traceback.format_stack()[:-1]
-            self._log(u'called {!s}:'.format(func_name))
-            self._log(u''.join(lines))
+            self._log("called {}:".format(func_name))
+            self._log("".join(lines))
             return func(*args, **kwargs)
         return wrapper
 
@@ -246,7 +250,7 @@ def deprecate(extra=''):
     def wrapper(func):
         @wraps(func)
         def newfunc(*args, **kwargs):
-            msg = "{!r} is deprecated".format(func.func_name)
+            msg = "{!r} is deprecated".format(func.__name__)
             if extra:
                 msg += ' ({!s})'.format(extra)
             _warn(msg, DeprecationWarning, stacklevel=2)

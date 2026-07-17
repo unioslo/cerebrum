@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2005-2023 University of Oslo, Norway
+# Copyright 2005-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -369,10 +369,14 @@ class GuestUtils(object):
         return ac.entity_id, passwd
 
     def update_group_memberships(self, account_id):
-        """Make sure that the account is a member of exactly the
-        groups specified in cereconf.GUESTS_DEFAULT_FILEGROUP and
-        cereconf.GUESTS_MEMBER_GROUPS.
+        """
+        Set default memberships for the account.
 
+        This makes sure that the account is a member of exactly the
+        groups specified in:
+
+        - cereconf.GUESTS_DEFAULT_FILEGROUP
+        - cereconf.GUESTS_MEMBER_GROUPS
         """
         user = Factory.get('PosixUser')(self.db)
         user.find(account_id)
@@ -390,7 +394,8 @@ class GuestUtils(object):
             if not member:
                 gr.add_member(account_id)
         # Expel guest from any extra groups
-        for row in gr.search(member_id=account_id, indirect_members=False):
+        for row in gr.search(member_id=account_id, indirect_members=False,
+                             filter_expired=False):
             if row['group_id'] not in req_groups:
                 gr.clear()
                 gr.find(row['group_id'])
@@ -423,7 +428,7 @@ class GuestUtils(object):
         tmp = {}       # found subsets placed here for later ordering
         ret = []       # list of subsets returned.
 
-        available_guests.sort()
+        available_guests = sorted(available_guests)
         first = available_guests[0]
         last = available_guests[0]
         for i in available_guests[1:]:

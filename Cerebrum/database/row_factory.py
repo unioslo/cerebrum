@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright 2021 University of Oslo, Norway
+#
+# Copyright 2021-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -52,7 +53,14 @@ The behaviour of this module changes with the environment variable
 - If set to ``CEREBRUM_RECORDS=1``, this module will use
   the new py:mod:`Cerebrum.extlib.records` objects.
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import os
+
 from Cerebrum.extlib import records
 
 
@@ -95,13 +103,16 @@ class _DbRowIterator(object):
     def __iter__(self):
         return self
 
-    def next(self):
+    def __next__(self):
         if not self._queue:
             self._queue.extend(self._csr.fetchmany())
         if not self._queue:
             raise StopIteration
         row = self._queue.pop(0)
         return self._row_class(row)
+
+    # Py2 backwards compatible iterator
+    next = __next__
 
 
 def _resultiter(cursor, size=None):

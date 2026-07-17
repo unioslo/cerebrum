@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2020 University of Oslo, Norway
+# Copyright 2020-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -23,8 +23,12 @@ Create and update ORG-ERA groups from job assignment data.
 This script is a proof-of-concept for creating groups based on job assignment
 data from our HR system.
 """
-from __future__ import unicode_literals
-
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import argparse
 import datetime
 import logging
@@ -35,6 +39,7 @@ import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum import Errors
 from Cerebrum.utils.argutils import add_commit_args
+from Cerebrum.utils import date_compat
 from Cerebrum.Utils import Factory
 
 from Cerebrum.modules.no.orgera import job_groups
@@ -73,7 +78,7 @@ def _assert_group(db, creator, group_type, visibility, group_name,
                 description != group.description,
                 group_type != group.group_type,
                 visibility != group.visibility,
-                expire_date != group.expire_date,
+                expire_date != date_compat.get_date(group.expire_date),
         )):
             group.description = description
             group.group_type = group_type
@@ -94,7 +99,8 @@ def deactivate_group(db, group_id, expire_date):
     group = Factory.get('Group')(db)
     group.find(group_id)
     sync_group(db, group, set())
-    if group.expire_date and group.expire_date < expire_date:
+    curr_expire_date = date_compat.get_date(expire_date)
+    if curr_expire_date and curr_expire_date < expire_date:
         # already expired
         return
 

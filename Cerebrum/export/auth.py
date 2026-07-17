@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2019 University of Oslo, Norway
+# Copyright 2019-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -30,12 +30,19 @@ The general flow for exports should look something like:
 3. Fetch and format authentication data as needed.
 
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import logging
 import string
 
 from Cerebrum.Constants import _AuthenticationCode
 from Cerebrum.Errors import NotFoundError
 from Cerebrum.Utils import Factory
+from Cerebrum.auth.dbal import list_authentication
 
 from . import base
 
@@ -84,12 +91,14 @@ class _AuthFetcher(base.EntityFetcher):
     def __init__(self, db, auth_types, filter_expired=True):
         self.auth_types = _check_auth_types(auth_types)
         self.filter_expired = filter_expired
-        self._ac = Factory.get('Account')(db)
+        self._db = db
 
     def _get_results(self, **extra):
         auth_type_map = dict((int(m), m) for m in self.auth_types)
-        for row in self._ac.list_account_authentication(
-                auth_type=self.auth_types,
+        # for row in self._ac.list_account_authentication(
+        for row in list_authentication(
+                db=self._db,
+                method=self.auth_types,
                 filter_expired=self.filter_expired,
                 **extra):
             if not row['auth_data']:

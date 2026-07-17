@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003-2023 University of Oslo, Norway
+# Copyright 2003-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -65,7 +65,12 @@ EMAIL_DEFAULT_DOMAINS <array>:
     array  will be treated as the primary default domain.
 
 """
-from __future__ import unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import datetime
 import re
@@ -648,23 +653,35 @@ class EmailTarget(Entity_class):
         self.find(target_id)
 
     def get_addresses(self, special=True):
-        # conv
         """
-        Return all email_addresses associated with this email_target as row
-        objects.
-        If special is False, rewrite the magic domain names into
-        working domain names."""
-        ret = self.query("""
-        SELECT ea.local_part, ed.domain, ea.address_id
-        FROM [:table schema=cerebrum name=email_address] ea
-        JOIN [:table schema=cerebrum name=email_domain] ed
-          ON ed.domain_id = ea.domain_id
-        WHERE ea.target_id = :t_id""", {'t_id': int(self.entity_id)})
+        Return email address data associated with this target.
+
+        :param bool special:
+            - True (default): return "special" domain names (i.e.  return the
+              data as-is)
+            - `False`: rewrite "special" domain names into working domain names
+
+        :rtype: list[dict]
+        :returns:
+            Returns a list of row-like database results.
+        """
+        rows = self.query(
+            """
+              SELECT ea.local_part, ed.domain, ea.address_id
+              FROM [:table schema=cerebrum name=email_address] ea
+              JOIN [:table schema=cerebrum name=email_domain] ed
+                ON ed.domain_id = ea.domain_id
+              WHERE ea.target_id = :t_id
+            """,
+            {'t_id': int(self.entity_id)},
+        )
+        # Turn into list of dicts, as we may want to mutate the results:
+        results = [dict(r) for r in rows]
         if not special:
             ed = EmailDomain(self._db)
-            for r in ret:
+            for r in results:
                 r['domain'] = ed.rewrite_special_domains(r['domain'])
-        return ret
+        return results
 
     def list_email_targets(self):
         """ list all email targets (target_id). """
@@ -2352,7 +2369,8 @@ class AccountEmailMixin(Account.Account):
         if changed and cereconf.EMAIL_EXPIRE_ADDRESSES is not False:
             if target_type == self.const.email_target_deleted:
                 seconds = cereconf.EMAIL_EXPIRE_ADDRESSES * 86400
-                expire_date = datetime.date.fromtimestamp(time.time() + seconds)
+                expire_date = datetime.date.fromtimestamp(time.time()
+                                                          + seconds)
             else:
                 expire_date = None
             for row in et.get_addresses():
@@ -2898,7 +2916,7 @@ class PersonEmailMixin(Person.Person):
     def list_primary_email_address(self, entity_type):
         """Returns a list of (entity_id, address) pairs for entities
         of type 'entity_type'"""
-        return self._id2mailaddr(entity_type=entity_type).iteritems()
+        return six.iteritems(self._id2mailaddr(entity_type=entity_type))
 
     def _update_cached_names(self):
         self.__super._update_cached_names()

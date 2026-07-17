@@ -28,6 +28,7 @@ import logging
 import multiprocessing
 from multiprocessing.sharedctypes import Synchronized
 
+import six
 from six.moves.queue import Empty
 
 from Cerebrum.Utils import Factory
@@ -110,6 +111,20 @@ class ProcessLoggingMixin(ProcessBase):
 
         # Get our custom logger as self.logger, for compability reasons
         self.logger = logging.getLogger(__name__)
+
+    def run(self):
+        """ Process runtime method. """
+        # Same as the superclass *run*, but logs errors from a failing main()
+        try:
+            self.setup()
+            try:
+                self.main()
+            except Exception as e:
+                self.logger.critical("Error in pid=%r: %s",
+                                     os.getpid(), six.text_type(e))
+                raise
+        finally:
+            self.cleanup()
 
     def setup(self):
         super(ProcessLoggingMixin, self).setup()

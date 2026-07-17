@@ -1,6 +1,6 @@
 # coding: utf-8
 #
-# Copyright 2017-2023 University of Oslo, Norway
+# Copyright 2017-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -29,7 +29,7 @@ from __future__ import (
     absolute_import,
     division,
     print_function,
-    # TODO: unicode_literals,
+    unicode_literals,
 )
 import datetime
 
@@ -177,35 +177,6 @@ def get_datetime_tz(dtobj, allow_none=True, tz=date.TIMEZONE):
     raise ValueError('Non-datetime value: %r' % (dtobj,))
 
 
-def get_timedelta(value, allow_none=True):
-    """
-    Get a datetime.timedelta object from a timedelta-like value.
-
-    This is typically needed where DateTimeDelta values are used in config
-    modules.  This only seems to be done in WebID (virthome).
-
-    :type value: datetime.timedelta, mx.DateTime.DateTimeDelta, int, NoneType
-    :param value:
-        A timedelta-like value.
-        If an integer value is given, it is assumed to be days.
-
-    :type allow_none: bool
-    :param allow_none:
-        Returns None if the input value is empty (this is the default).
-
-    :rtype: datetime.timedelta, NoneType
-    """
-    if not value and allow_none:
-        return None
-    if isinstance(value, datetime.timedelta):
-        return value
-    if is_mx_delta(value):
-        return value.pytimedelta()
-    if isinstance(value, int):
-        return datetime.timedelta(days=value)
-    raise ValueError('Non-timedelta value: %r' % (value,))
-
-
 def to_mx_format(dtobj, tz=date.TIMEZONE):
     """
     Get the equivalent of str(mx.DateTime).
@@ -223,7 +194,13 @@ def to_mx_format(dtobj, tz=date.TIMEZONE):
         digit precision for the %f component.
     """
     dt = get_datetime_naive(dtobj, allow_none=False, tz=tz)
-    return dt.strftime('%Y-%m-%d %H:%M:%S') + '.' + dt.strftime('%f')[:2]
+    # datetime.datetime.strftime doesn't like dates < 1900.  The following is
+    # basically:
+    #   dt.strftime('%Y-%m-%d %H:%M:%S') + '.' + dt.strftime('%f')[:2]
+    # but with dt.isoformat(), which accepts a wider year range
+    iso = dt.isoformat(sep=str(" "))
+    base, _, micros = iso.partition(".")
+    return ".".join((base, (micros + "00")[:2]))
 
 
 def parse_fs_xml_date(dtstr, allow_empty=True):
@@ -247,6 +224,8 @@ def parse_fs_xml_date(dtstr, allow_empty=True):
     """
     if allow_empty and not dtstr:
         return None
+    elif not dtstr:
+        raise ValueError("Empty datetime string")
     try:
         return date.parse_date(dtstr)
     except ValueError:

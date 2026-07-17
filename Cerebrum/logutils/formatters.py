@@ -1,4 +1,25 @@
-# encoding: utf-8
+# -*- coding: utf-8 -*-
+#
+# Copyright 2017-2023 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+#
+# The JsonFormatter parts of this module is the JsonLogger from
+# <https://github.com/madzak/python-json-logger/>.  JsonLogger is:
 #
 # Copyright (c) 2011, Zakaria Zajac
 # All rights reserved.
@@ -23,18 +44,40 @@
 # CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
-""" Formatters for Cerebrum logging.
-
-JsonLogger from `github.com/madzak/python-json-logger/`.
-
-TODO: This should be replaced by a dependency.
-TODO: Should we have a JSON-logger that simply dumps *all* LogRecord
-      attributes?
 """
-import logging
-import json
-import re
+Formatters for Cerebrum logging.
+
+Formatters
+----------
+
+:class:`.JsonFormatter`
+    Format log records as JSON objects.
+
+:class:`.IndentFormatter`
+    A formatter that can indent log records.  Typically used to indicate
+    nesting level in logs.
+
+
+Future improvements
+-------------------
+We may want to replace the JsonFormatter this module with a simple dependency
+to the python-json-logger package.
+
+Another option would be to replace this, or add another JSON logger that
+serializes and dumps *all* (or a preset selection of) LogRecord attribtues
+rather than selecting attributes from config.  This could be useful to e.g.
+provide a standard set of structured log data to a logging system like Logstash
+and/or document store like ElasticSearch.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+)
 import datetime
+import json
+import logging
+import re
 import traceback
 
 from inspect import istraceback
@@ -45,13 +88,14 @@ try:
 except ImportError:
     pass
 
-# skip natural LogRecord attributes
-# http://docs.python.org/library/logging.html#logrecord-attributes
+# Skip natural LogRecord attributes
+# <http://docs.python.org/library/logging.html#logrecord-attributes>
 RESERVED_ATTRS = (
     'args', 'asctime', 'created', 'exc_info', 'exc_text', 'filename',
     'funcName', 'levelname', 'levelno', 'lineno', 'module',
     'msecs', 'message', 'msg', 'name', 'pathname', 'process',
-    'processName', 'relativeCreated', 'stack_info', 'thread', 'threadName')
+    'processName', 'relativeCreated', 'stack_info', 'thread', 'threadName',
+)
 
 RESERVED_ATTR_HASH = dict(zip(RESERVED_ATTRS, RESERVED_ATTRS))
 
@@ -82,9 +126,10 @@ def merge_record_extra(record, target, reserved=RESERVED_ATTR_HASH):
 
 class JsonFormatter(logging.Formatter):
     """
-    A custom formatter to format logging records as json strings.
-    extra values will be formatted as str() if not supported by
-    json default encoder
+    A custom formatter to format logging records as JSON strings.
+
+    Extra values will be formatted as str() if not supported by
+    the default JSON encoder.
     """
 
     def __init__(self, *args, **kwargs):

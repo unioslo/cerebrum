@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2016-2023 University of Oslo, Norway
+# Copyright 2016-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,7 +17,11 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" OrgUnit API. """
+"""
+Org unit API.
+
+Endpoints, models and utils for dealing with org units in the API.
+"""
 from __future__ import (
     absolute_import,
     division,
@@ -65,7 +69,8 @@ def format_ou(ou):
             'avdeling': ou.avdeling,
             'institusjon': ou.institusjon,
             'stedkode': "{:02d}{:02d}{:02d}".format(
-                ou.fakultet, ou.institutt, ou.avdeling),
+                ou.fakultet, ou.institutt, ou.avdeling,
+            ),
         })
     except AttributeError:
         pass
@@ -76,16 +81,20 @@ def format_ou(ou):
 OrganizationalUnit = api.model('OrganizationalUnit', {
     'href': fields.href('.ou'),
     'id': fields.base.Integer(
-        description='OU entity ID'),
+        description='OU entity ID',
+    ),
     'contact': fields.base.List(
         fields.base.Nested(models.EntityContactInfo),
-        description='Contact information'),
+        description='Contact information',
+    ),
     'names': fields.base.List(
         fields.base.Nested(models.EntityNameWithLanguage),
-        description='Names'),
+        description='Names',
+    ),
     'contexts': fields.base.List(
         fields.Constant(ctype='Spread'),
-        description='Visible in these contexts'),
+        description='Visible in these contexts',
+    ),
     'stedkode': fields.base.String(),
     'fakultet': fields.base.Integer(),
     'institutt': fields.base.Integer(),
@@ -93,10 +102,16 @@ OrganizationalUnit = api.model('OrganizationalUnit', {
 })
 
 
+#
+# Resource <ous>/<id>
+#
+
+
 @api.route('/<string:id>', endpoint='ou')
 @api.doc(params={'id': 'OU ID'})
 class OrganizationalUnitResource(Resource):
     """Resource for organizational units."""
+
     @auth.require()
     @api.marshal_with(OrganizationalUnit)
     def get(self, id):

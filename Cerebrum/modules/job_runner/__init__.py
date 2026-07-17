@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright 2004-2018 University of Oslo, Norway
+# Copyright 2004-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -39,6 +39,12 @@ JOB_RUNNER_LOG_DIR
     - Job output (stdout, stderr)
     - Job lock files
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import logging
 import os
 import signal

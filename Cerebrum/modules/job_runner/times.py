@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2018 University of Oslo, Norway
+# Copyright 2018-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,33 +17,53 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" Job Runner time utils. """
+"""
+Job Runner time utils.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+import functools
 import time
 
 import six
 
-from Cerebrum.utils.date import to_seconds
+from Cerebrum.utils import date as date_utils
+from Cerebrum.utils import text_compat
 
 
+def return_text(fn):
+    @functools.wraps(fn)
+    def wrapper(*args, **kwargs):
+        return text_compat.to_text(fn(*args, **kwargs))
+    return wrapper
+
+
+@return_text
 def fmt_time(timestamp, local=True):
     to_time = time.localtime if local else time.gmtime
-    return six.text_type(time.strftime('%H:%M:%S', to_time(timestamp)))
+    return time.strftime('%H:%M:%S', to_time(timestamp))
 
 
+@return_text
 def fmt_asc(timestamp, local=True):
     to_time = time.localtime if local else time.gmtime
-    return six.text_type(time.asctime(to_time(timestamp)))
+    return time.asctime(to_time(timestamp))
 
 
+@return_text
 def fmt_date(timestamp, local=True):
     to_time = time.localtime if local else time.gmtime
-    return six.text_type(time.strftime('%Y-%m-%d', to_time(timestamp)))
+    return time.strftime('%Y-%m-%d', to_time(timestamp))
 
 
+@return_text
 def format_datetime(timestamp, local=True):
     to_time = time.localtime if local else time.gmtime
-    return six.text_type(time.strftime('%Y-%m-%d %H:%M:%S',
-                                       to_time(timestamp)))
+    return time.strftime('%Y-%m-%d %H:%M:%S', to_time(timestamp))
 
 
 @six.python_2_unicode_compatible
@@ -59,7 +79,6 @@ class When(object):
         assert not (freq is not None and time is not None)
         self.freq = freq
         self.time = time
-
         # TODO: support not-run interval to prevent running jobs when
         # FS is down etc.
 
@@ -77,16 +96,18 @@ class When(object):
 
     def __str__(self):
         if self.time:
-            return six.text_type("time=(%s)" % ",".join([six.text_type(t) for t
-                                                         in self.time]))
-        return six.text_type("freq=%s" % fmt_time(self.freq, local=False))
+            return "time=({})".format(
+                ",".join(text_compat.to_text(t) for t in self.time)
+            )
+        return "freq={}".format(fmt_time(self.freq, local=False))
 
 
 @six.python_2_unicode_compatible
 class Time(object):
 
     def __init__(self, min=None, hour=None, wday=None, max_freq=None):
-        """Emulate time part of crontab(5), None=*
+        """
+        Emulate time part of crontab(5), None=*
 
         When using Action.max_freq of X hours and a Time object for a
         specific time each day, the Action.max_freq setting may delay
@@ -105,15 +126,9 @@ class Time(object):
         # TBD: what mechanisms should be provided to prevent new jobs
         # from being ran immeadeately when the time is not currently
         # within the correct range?
-        self.min = min
-        if min is not None:
-            self.min.sort()
-        self.hour = hour
-        if hour is not None:
-            self.hour.sort()
-        self.wday = wday
-        if wday is not None:
-            self.wday.sort()
+        self.min = None if min is None else sorted(min)
+        self.hour = None if hour is None else sorted(hour)
+        self.wday = None if wday is None else sorted(wday)
         self.max_freq = max_freq or 0
 
     def _next_list_value(self, val, list, size):
@@ -123,18 +138,19 @@ class Time(object):
         return min(list), 1
 
     def delta_to_leave(self, t):
-        """Return a very rough estimate of the number of seconds until
-        we leave the time-period covered by this Time object"""
-
+        """
+        Return a very rough estimate of the number of seconds until
+        we leave the time-period covered by this Time object.
+        """
         hour, min, sec, wday = (time.localtime(t))[3:7]
         if self.wday is not None and wday in self.wday:
-            return to_seconds(days=1) - to_seconds(hours=hour,
-                                                   minutes=min,
-                                                   seconds=sec)
+            return (date_utils.to_seconds(days=1)
+                    - date_utils.to_seconds(hours=hour, minutes=min,
+                                            seconds=sec))
         if self.hour is not None and hour in self.hour:
-            return to_seconds(minutes=60 - min)
+            return date_utils.to_seconds(minutes=60 - min)
         if self.min is not None and min in self.min:
-            return to_seconds(seconds=60 - sec)
+            return date_utils.to_seconds(seconds=60 - sec)
 
     def next_time(self, prev_time):
         """Return the number of seconds until next time after num"""
@@ -170,15 +186,19 @@ class Time(object):
             # Now calculate the diff
             old_hour, old_min, old_sec, old_wday = (
                 time.localtime(prev_time))[3:7]
-            week_start_delta = to_seconds(days=old_wday,
-                                          hours=old_hour,
-                                          minutes=old_min,
-                                          seconds=old_sec)
+            week_start_delta = date_utils.to_seconds(
+                days=old_wday,
+                hours=old_hour,
+                minutes=old_min,
+                seconds=old_sec,
+            )
 
-            ret = to_seconds(weeks=add_week,
-                             days=wday,
-                             hours=hour,
-                             minutes=min) - week_start_delta
+            ret = date_utils.to_seconds(
+                weeks=add_week,
+                days=wday,
+                hours=hour,
+                minutes=min,
+            ) - week_start_delta
 
             # Assert that the time we find is after the previous time
             if ret <= 0:
@@ -190,7 +210,7 @@ class Time(object):
                     wday += 1
                 continue
             return ret
-        raise ValueError("Programming error for %i" % prev_time)
+        raise ValueError("Programming error for " + repr(prev_time))
 
     def __str__(self):
         ret = []
@@ -200,5 +220,4 @@ class Time(object):
             ret.append("h=" + ":".join(["%i" % w for w in self.hour]))
         if self.min:
             ret.append("m=" + ":".join(["%i" % w for w in self.min]))
-        # ret should only contain ascii strings
-        return six.text_type(",".join(ret))
+        return text_compat.to_text(",".join(ret))

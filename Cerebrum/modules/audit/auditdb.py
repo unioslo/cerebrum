@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2018-2023 University of Oslo, Norway
+# Copyright 2018-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -29,7 +29,7 @@ from __future__ import (
     absolute_import,
     division,
     print_function,
-    # TODO: unicode_literals,
+    unicode_literals,
 )
 import datetime
 import json
@@ -163,21 +163,52 @@ def sql_search(db, **kwargs):
     """
     Search for audit records.
 
-    :see: `._select` for arguments.
+    :param bool fetchall:
+        See :meth:`Cerebrum.database.Database.query`
+
+    :param bool descending:
+        Get rows in descending order.  The default is ascending.
+
+    :param int limit:
+        Limit number of rows.  The default is no limit.  Combine with
+        `descending` to pick the first/last rows.
+
+    :see: `._select` for filter arguments.
     """
     query = """
       SELECT *
       FROM [:table schema=cerebrum name=audit_log]
+      {where}
+      ORDER BY record_id {order}
+      {limit}
     """
     fetchall = kwargs.pop("fetchall", False)
+    limit = kwargs.pop("limit", None)
+    descending = kwargs.pop("descending", False)
     clauses, binds = _select(**kwargs)
+
+    if limit is None:
+        limit_clause = ""
+    else:
+        limit_clause = "LIMIT :limit"
+        binds['limit'] = int(limit)
+
+    if descending:
+        order_arg = "DESC"
+    else:
+        order_arg = "ASC"
 
     if clauses:
         where = " WHERE " + " AND ".join(clauses)
     else:
         where = ""
 
-    return db.query(query + where, binds, fetchall=fetchall)
+    query = query.format(
+        where=where,
+        limit=limit_clause,
+        order=order_arg,
+    )
+    return db.query(query, binds, fetchall=fetchall)
 
 
 def sql_insert(
@@ -258,14 +289,16 @@ class AuditLogAccessor(DatabaseAccessor):
     # TODO: Read and write AuditRecord objects
 
     def get_by_id(self, record_id):
-        return db_row_to_record(sql_get_record(self._db, record_id))
+        """ Get a DbAuditRecord by ID. """
+        return db_row_to_record(self._db, sql_get_record(self._db, record_id))
 
     def search(self, **fields):
+        """ Search for DbAuditRecords in the audit log. """
         for row in sql_search(self._db, **fields):
             yield db_row_to_record(self._db, row)
 
     def append(self, record):
-        # TODO: assert AuditRecord instance?
+        """ Add a new AuditRecord to the audit log. """
         return sql_insert(
             self._db,
             record.change_type,
@@ -275,9 +308,5 @@ class AuditLogAccessor(DatabaseAccessor):
             metadata=record.metadata,
             params=record.params,
             timestamp=record.timestamp,
-            record_id=record.record_id)
-
-    # def update(self, record):
-    #     # TODO: assert DbAuditRecord instance?
-    #     data = record.to_dict()
-    #     return sql_update(self._db, **data)
+            record_id=record.record_id,
+        )

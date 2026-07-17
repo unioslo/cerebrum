@@ -1,6 +1,6 @@
 # encoding: utf-8
 #
-# Copyright 2006-2023 University of Oslo, Norway
+# Copyright 2006-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -40,7 +40,9 @@ from Cerebrum.modules.apikeys import bofhd_apikey_cmds
 from Cerebrum.modules.audit import bofhd_history_cmds
 from Cerebrum.modules.bofhd import bofhd_email
 from Cerebrum.modules.bofhd import bofhd_group_roles
+from Cerebrum.modules.bofhd import bofhd_misc_sms
 from Cerebrum.modules.bofhd import bofhd_ou_cmds
+from Cerebrum.modules.bofhd import bofhd_quarantines
 from Cerebrum.modules.bofhd import cmd_param
 from Cerebrum.modules.bofhd.bofhd_access import BofhdAccessCommands
 from Cerebrum.modules.bofhd.bofhd_contact_info import BofhdContactCommands
@@ -58,6 +60,7 @@ from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.help import merge_help_strings
 from Cerebrum.modules.bofhd_requests.request import BofhdRequests
 from Cerebrum.modules.bofhd_requests import bofhd_requests_cmds
+from Cerebrum.modules.guest import bofhd_guest_cmds
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.hia.access_FS import FS
 from Cerebrum.modules.bofhd import bofhd_user_create_unpersonal
@@ -91,8 +94,6 @@ uio_helpers = [
     '_lookup_old_uid',
     '_person_affiliation_add_helper',
     '_person_create_externalid_helper',
-    '_remove_auth_role',
-    '_remove_auth_target',
     '_viewable_external_ids',
     'user_set_owner_prompt_func',
 ]
@@ -114,6 +115,7 @@ copy_uio = [
     'group_memberships_expanded',
     'group_padd',
     'group_personal',
+    'group_premove',
     'group_promote_posix',
     'group_remove',
     'group_remove_entity',
@@ -138,11 +140,6 @@ copy_uio = [
     'person_set_id',
     'person_set_name',
     'person_set_user_priority',
-    'quarantine_disable',
-    'quarantine_list',
-    'quarantine_remove',
-    'quarantine_set',
-    'quarantine_show',
     'spread_add',
     'spread_list',
     'spread_remove',
@@ -1456,12 +1453,24 @@ class GroupRoleCommands(bofhd_group_roles.BofhdGroupRoleCommands):
     authz = bofhd_uia_auth.GroupRoleAuth
 
 
+class GuestCommands(bofhd_guest_cmds.BofhdGuestCommands):
+    authz = bofhd_uia_auth.GuestAuth
+
+
 class HistoryCommands(bofhd_history_cmds.BofhdHistoryCmds):
     authz = bofhd_uia_auth.HistoryAuth
 
 
 class OuCommands(bofhd_ou_cmds.OuCommands):
     authz = bofhd_uia_auth.OuAuth
+
+
+class QuarantineCommands(bofhd_quarantines.BofhdQuarantineCommands):
+    authz = bofhd_uia_auth.QuarantineAuth
+
+
+class SmsCommands(bofhd_misc_sms.BofhdSmsCommands):
+    authz = bofhd_uia_auth.SmsAuth
 
 
 class TraitCommands(bofhd_trait_cmds.TraitCommands):
@@ -1493,16 +1502,6 @@ HELP_CMDS = {
         'misc_clear_passwords':
             'Clear password(s) from the altered-passwords list in the '
             'current sessions',
-        'misc_dadd':
-            'Register a disk in Cerebrum database',
-        'misc_dls':
-            'List all registered disks for a given host',
-        'misc_drem':
-            'Remove a disk entry from Cerebrum',
-        'misc_hadd':
-            'Register a new host in the Cerebrum database',
-        'misc_hrem':
-            'Remove a host entry from Cerebrum',
         'misc_list_passwords':
             'View/print all the passwords altered during a session',
         'misc_user_passwd':

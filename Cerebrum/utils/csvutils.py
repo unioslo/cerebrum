@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2018 University of Oslo, Norway
+# Copyright 2018-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,10 +18,13 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ csv utilities. """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
-from __future__ import absolute_import
-
-import abc
 import csv
 import logging
 import io
@@ -31,69 +34,91 @@ import six
 logger = logging.getLogger(__name__)
 
 
-@six.add_metaclass(abc.ABCMeta)
-class _UnicodeSupport(object):
-    """ Unicode-compatible CSV writer base class.
-
-    Adapted from https://docs.python.org/2/library/csv.html
-    """
+class _CsvWriter(object):
+    """ CSV writer wrapper class. """
 
     # Base class for formatting the csv bytestring
     writer_class = None
 
-    # Encoding to use in the writer_class
-    transcode = 'utf-8'
-
     def __init__(self, stream, *args, **kwargs):
-        self.queue = io.BytesIO()
-        self.stream = stream
         if self.writer_class is None:
             raise NotImplementedError("writer_class not set")
-        self.writer = self.writer_class(self.queue, *args, **kwargs)
-
-    @abc.abstractmethod
-    def convert_row(self, row):
-        pass
+        self.writer = self.writer_class(stream, *args, **kwargs)
 
     def writerow(self, row):
-        # Write encoded output to queue
-        self.writer.writerow(self.convert_row(row))
-        data = self.queue.getvalue()
-
-        # Read formatted CSV data from queue, and write to stream
-        data = data.decode(self.transcode)
-        self.stream.write(data)
-        self.queue.truncate(0)
-        self.queue.seek(0)
+        self.writer.writerow(row)
 
     def writerows(self, rows):
         for row in rows:
             self.writerow(row)
 
 
-class UnicodeWriter(_UnicodeSupport):
-    """ Unicode-compatible CSV writer based on ``csv.writer``.  """
+class _Py2UnicodeSupport(_CsvWriter):
+    """ Unicode-compatible CSV writer base class.
 
-    writer_class = csv.writer
+    Adapted from https://docs.python.org/2/library/csv.html
+    """
+    # Encoding to use in the writer_class
+    transcode = 'utf-8'
 
-    def convert_row(self, row):
-        return [six.text_type(s).encode(self.transcode)
-                for s in row]
-
-
-class UnicodeDictWriter(_UnicodeSupport):
-    """ Unicode-compatible CSV writer based on ``csv.DictWriter``.  """
-
-    writer_class = csv.DictWriter
+    def __init__(self, stream, *args, **kwargs):
+        self.queue = io.BytesIO()
+        self.stream = stream
+        super(_Py2UnicodeSupport, self).__init__(self.queue, *args, **kwargs)
 
     def convert_row(self, row):
-        return dict(
-            (k, six.text_type(v).encode(self.transcode))
-            for k, v in row.items())
+        raise NotImplementedError("needs writer-class specific conversion")
 
-    def writeheader(self):
-        row = dict(zip(self.writer.fieldnames, self.writer.fieldnames))
-        self.writerow(row)
+    def writerow(self, row):
+        # Write encoded output to queue
+        raw_csv_row = self.convert_row(row)
+        self.writer.writerow(raw_csv_row)
+        data = self.queue.getvalue()
+
+        # decode the encoded queue data
+        data = data.decode(self.transcode)
+        self.stream.write(data)
+
+        # reset the queue
+        self.queue.truncate(0)
+        self.queue.seek(0)
+
+
+if six.PY2:
+    class UnicodeWriter(_Py2UnicodeSupport):
+        """ Unicode-compatible CSV writer based on ``csv.writer``.  """
+
+        writer_class = csv.writer
+
+        def convert_row(self, row):
+            return [six.text_type(s).encode(self.transcode)
+                    for s in row]
+
+    class UnicodeDictWriter(_Py2UnicodeSupport):
+        """ Unicode-compatible CSV writer based on ``csv.DictWriter``.  """
+
+        writer_class = csv.DictWriter
+
+        def convert_row(self, row):
+            return dict(
+                (k, six.text_type(v).encode(self.transcode))
+                for k, v in row.items())
+
+        def writeheader(self):
+            row = dict(zip(self.writer.fieldnames, self.writer.fieldnames))
+            self.writerow(row)
+
+else:
+    class UnicodeWriter(_CsvWriter):
+        """ Unicode-compatible CSV writer based on ``csv.writer``.  """
+        writer_class = csv.writer
+
+    class UnicodeDictWriter(_CsvWriter):
+        """ Unicode-compatible CSV writer based on ``csv.DictWriter``.  """
+        writer_class = csv.DictWriter
+
+        def writeheader(self):
+            self.writer.writeheader()
 
 
 class CerebrumDialect(csv.Dialect):
@@ -103,92 +128,10 @@ class CerebrumDialect(csv.Dialect):
     The dialect does *not* use quoting, and only applies a backslash escape
     char to the default delimiter, ';'.
     """
-    delimiter = ';'
-    escapechar = '\\'
-    lineterminator = '\n'
+    delimiter = str(";")
+    escapechar = str("\\")
+    lineterminator = str("\n")
     quoting = csv.QUOTE_NONE
 
 
 csv.register_dialect('cerebrum', CerebrumDialect)
-
-
-def _read_and_map_csv(filename, csv_reader, csv_transform, **kwargs):
-    """
-    Create a csv file iterator.
-
-    This function wraps csv.reader classes with some error handling and
-    logging.
-
-    """
-    logger.info("Reading csv file=%r", filename)
-    count = 0
-    with open(filename, mode='r') as f:
-        reader = csv_reader(f, **kwargs)
-        for count, record in enumerate(reader, 1):
-            try:
-                yield csv_transform(record)
-            except Exception:
-                logger.error("Unable to process record #%d (file=%r, line=%r)",
-                             count, filename, reader.line_num)
-                raise
-    logger.info("Read %d records from file=%r", count, filename)
-
-
-def read_csv_dicts(filename, encoding, delimiter):
-    """
-    Wrapper for reading csv files with csv.DictReader.
-
-    This function wraps csv.DictReader to add unicode support and debugging.
-
-    :param filename: csv file
-    :param encoding: csv file encoding
-    :param delimiter: csv field separator
-
-    :rtype: generator
-    :returns:
-        A generator that yields a dict for each entry in the CSV file.
-    """
-    def transform(record):
-        # restkey=None and restval=None by default, which stores extra fields
-        # as a list with key `None`.
-        # Too many fields are usually caused by incorrect escaping, in which
-        # case we can't trust the record fields at all.
-        overflow = len(record.pop(None, []))
-        if overflow:
-            raise ValueError('Too many fields: %d (expected %d)'
-                             % (len(record) + overflow, len(record)))
-
-        return dict(
-            (k.decode(encoding),
-             v.decode(encoding) if v is not None else None)
-            for k, v in record.items())
-
-    return _read_and_map_csv(
-        filename=filename,
-        csv_reader=csv.DictReader,
-        csv_transform=transform,
-        delimiter=delimiter.encode(encoding))
-
-
-def read_csv_tuples(filename, encoding, delimiter):
-    """
-    Wrapper for reading csv files with csv.reader.
-
-    This function wraps csv.reader to add unicode support and debugging.
-
-    :param filename: csv file
-    :param encoding: csv file encoding
-    :param delimiter: csv field separator
-
-    :rtype: generator
-    :returns:
-        A generator that yields a tuple for each entry in the CSV file.
-    """
-    def transform(record):
-        return tuple((value.decode(encoding) for value in record))
-
-    return _read_and_map_csv(
-        filename=filename,
-        csv_reader=csv.reader,
-        csv_transform=transform,
-        delimiter=delimiter.encode(encoding))

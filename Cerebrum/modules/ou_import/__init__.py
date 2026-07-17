@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2022 University of Oslo, Norway
+# Copyright 2022-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,32 +18,33 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
-Utils for updating the ou tree structure in Cerebrum.
+Utils for updating org units and org tree structures in Cerebrum.
 
 Modules
 -------
-py:mod:`.ou_model`
-    Implements an abstract Org unit, py:class:`.ou_model.PreparedOrgUnit`, as
-    well as an abstract py:class:`.ou_model.OrgUnitMapper` for creating new
+:mod:`.ou_model`
+    Implements an abstract Org unit, :class:`.ou_model.PreparedOrgUnit`, as
+    well as an abstract :class:`.ou_model.OrgUnitMapper` for creating new
     ``PreparedOrgUnit`` objects from some source.
 
     These objects can be passed to functions in the ``ou_sync`` module for
     import.
 
-py:mod:`.ou_sync`
+:mod:`.ou_sync`
     Routines for updating OU objects in Cerebrum.  The sync takes a
-    `py:class:`.ou_model.PreparedOrgUnit`, and ensures that an equivalent org
+    :class:`.ou_model.PreparedOrgUnit`, and ensures that an equivalent org
     unit exists in Cerebrum.
 
-py:mod:`.legacy_xml2ou`
+:mod:`.legacy_xml2ou`
     Legacy mapper for OU objects from
-    py:mod:`Cerebrum.modules.xmlutils.xml2object`.  This can be used to
-    backport the py:mod:`.ou_sync` module into the ``contrib/no/import_OU.py``
+    :mod:`Cerebrum.modules.xmlutils.xml2object`.  This can be used to
+    backport the :mod:`.ou_sync` module into the ``contrib/no/import_OU.py``
     script.
 
-py:mod:`.tree_model`
+:mod:`.tree_model`
     Objects that can represent an org tree structure (or any tree structure).
-    This can be used to model and validate the OU perspective given in sources.
+    This can be used to model the ou perspective given in sources, and validate
+    the tree/graph for cycles.
 
 
 Issues
@@ -68,3 +69,9 @@ we should:
 
 4. Remove all stedkode info when everything uses external_id
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)

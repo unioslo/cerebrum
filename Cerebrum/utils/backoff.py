@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2021 University of Oslo, Norway
+# Copyright 2021-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -46,7 +46,7 @@ truncates at *12 hours*:
 
 >>> get_backoff = Backoff(
 ...     Exponential(2),
-...     Factor(timedelta(hours=1) / 16),
+...     Factor(timedelta(hours=1) // 16),
 ...     Truncate(timedelta(hours=12)))
 >>> [str(get_backoff(n + 1)) for n in range(6)]
 ['0:03:45', '0:07:30', '0:15:00', '0:30:00', '1:00:00', '2:00:00']
@@ -59,11 +59,17 @@ truncates after 5 *steps*:
 >>> get_backoff = Backoff(
 ...     Truncate(5),
 ...     Exponential(3),
-...     Factor(timedelta(minutes=2) / 3))
+...     Factor(timedelta(minutes=2) // 3))
 >>> [str(get_backoff(n + 1)) for n in range(6)]
 ['0:00:40', '0:02:00', '0:06:00', '0:18:00', '0:54:00', '0:54:00']
 
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import functools
 
 from Cerebrum.utils import reprutils

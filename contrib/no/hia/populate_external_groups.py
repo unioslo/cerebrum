@@ -86,7 +86,7 @@ def get_account(name):
 
 def get_group(id):
     gr = Factory.get('Group')(db)
-    if isinstance(id, basestring):
+    if isinstance(id, six.string_types):
         gr.find_by_name(id)
     else:
         gr.find(id)

@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # coding: utf-8
 #
-# Copyright 2016-2019 University of Oslo, Norway
+# Copyright 2016-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -70,7 +69,7 @@ class AuthContext(object):
     True
     """
 
-    OP_CLS = Factory.get(b'Account')
+    OP_CLS = Factory.get('Account')
 
     def __init__(self, name):
         self.name = name
@@ -571,7 +570,7 @@ class HeaderAuth(AuthModule):
     def do_authenticate(self):
         """Verify key and map to user."""
         v = request.headers.get(self.header)
-        if not v or v not in self.keys.keys():
+        if not v or v not in self.keys:
             self.user = None
         else:
             self.user = self.keys.get(v)

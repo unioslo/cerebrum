@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2021-2023 University of Oslo, Norway
+# Copyright 2021-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -24,8 +24,8 @@ This module contains various utils to convert and validate relevant objects
 from Greg.  Its main parts are:
 
 py:func:`.parse_message`
-    Convert an event payload to a simple dict with only relevant items (event
-    id, source, type, references)
+    Convert an event payload to a simple dict with only relevant items
+    (event id, source, type, references)
 
 py:func:`.parse_person`
     Convert and normalize person info (/persons/{id} json response from the
@@ -64,15 +64,21 @@ def normalize_id(greg_id):
 
 def parse_greg_date(value, allow_empty=False):
     """ Get a date object from a Greg date string. """
-    if not value and allow_empty:
-        return None
+    if not value or not value.strip():
+        if allow_empty:
+            return None
+        else:
+            raise ValueError('empty date')
     return date_utils.parse_date(value)
 
 
 def parse_greg_dt(value, allow_empty=False):
     """ Get a tz-aware datetime from a Greg datetime string. """
-    if not value and allow_empty:
-        return None
+    if not value or not value.strip():
+        if allow_empty:
+            return None
+        else:
+            raise ValueError('empty date')
     dt = date_utils.parse_datetime_tz(value)
     return date_utils.to_timezone(dt)
 
@@ -90,11 +96,6 @@ def normalize_text(value, allow_empty=False):
 
 
 # Event message utils
-
-
-def _get_msg_id(d):
-    """ parse 'id' field from message dict. """
-    return normalize_id(d['id'])
 
 
 def _get_msg_data(d):
@@ -156,7 +157,7 @@ def parse_orgunit(d):
     """
     return {
         'id': normalize_text(d['id']),
-        'parent': normalize_text(d['id'], allow_empty=True),
+        'parent': normalize_text(d.get('parent'), allow_empty=True),
         'active': bool(d['active']),
         # 'deleted': bool(d['deleted']),
         # 'created': parse_greg_dt(d['created']),

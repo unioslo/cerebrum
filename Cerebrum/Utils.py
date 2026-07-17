@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2002-2023 University of Oslo, Norway
+# Copyright 2002-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,21 +17,57 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
 """
 This module contains a number of core utilities used everywhere in the tree.
-"""
-from __future__ import unicode_literals
 
-import collections
-import os
-import random
+TODO
+-----
+This module should be removed, and all helpers moved into more suitable
+modules:
+
+`NotSet`
+    This singleton should probably be moved into a separate module in
+    `Cerebrum`, along with other singletons (a few scripts and modules creates
+    unique types or objects to be used as a singleton).
+
+`Factory`
+    Should have its own module, e.g. `Cerebrum.factory`
+
+`argument_to_sql`
+    This should be moved to e.g. `Cerebrum.database.query_utils`.
+
+`prepare_string`
+    All use of this function should be replaced by `Pattern` or
+    `pattern_helper` from `Cerebrum.database.query_utils`.
+
+`make_timer`
+    Should probably relocated to somewhere in `Cerebrum.logutils`.
+
+    This helper has a lot of duplicates with similar functionality in other
+    scripts and modules.  All of these should probably be merged together, or
+    placed into the same module.
+
+Compatibility imports
+    We should find all current use of the compatibility imports, and update to
+    the new, canonical placements.
+
+
+History
+-------
+Some functionality has already been relocated, but with compatibility imports
+here, as they are widely used.
+
+If you're looking for ``log_and_spawn_output``, then this has been replaced by
+similar functionality in `Cerebrum.utils.subproc`.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import sys
 import time
-import traceback
-import unicodedata
-from string import ascii_lowercase, digits
-from subprocess import Popen, PIPE
 
 import six
 
@@ -40,164 +76,36 @@ import cereconf
 
 # Compatibility imports / relocated classes and functions
 import Cerebrum.meta
-import Cerebrum.utils.imap
+import Cerebrum.utils.module
 import Cerebrum.utils.secrets
-from Cerebrum.utils.funcwrap import deprecate
+import Cerebrum.utils.text_compat
+
+if sys.version_info >= (3, 3):
+    from collections.abc import Iterable, Sequence, Sized
+else:
+    from collections import Iterable, Sequence, Sized
 
 
-class _NotSet(object):
-    """This class shouldn't be referred to directly, import the
-    singleton, 'NotSet', instead.  It should be used as the default
-    value of keyword arguments which need to distinguish between the
-    caller specifying None and not specifying it at all."""
+class _NotSet(Cerebrum.meta.SingletonMixin):
+    """
+    An alternative `None`-like singleton.
 
-    def __new__(cls):
-        if '_the_instance' not in cls.__dict__:
-            cls._the_instance = object.__new__(cls)
-        return cls._the_instance
+    This class implements a falsy singleton value.  It's intended as a default
+    keyword argument for parameters that assigns a special meaning to `None`.
 
-    def __nonzero__(self):
+    Do not use this class directly, you should only need the *NotSet* object
+    that is assigned below this class.
+    """
+    __slots__ = ()
+
+    def __bool__(self):
         return False
 
-    __slots__ = ()
+    # PY2 backwards compatibility
+    __nonzero__ = __bool__
 
 
 NotSet = _NotSet()
-
-
-def dyn_import(name):
-    """Dynamically import python module ``name``."""
-    try:
-        mod = __import__(name)
-    except ImportError as e:
-        raise ImportError("{0} (module={1})".format(e, name))
-    components = name.split(".")
-    try:
-        for comp in components[1:]:
-            mod = getattr(mod, comp)
-        return mod
-    except AttributeError as e:
-        raise ImportError("{0} (module={1})".format(e, name))
-
-
-# TODO: Deprecate when switching over to Python 3.x
-def is_str(x):
-    """Checks if a given variable is a string, but not a unicode string."""
-    return isinstance(x, bytes)
-
-
-# TODO: Deprecate when switching over to Python 3.x
-def is_str_or_unicode(x):
-    """Checks if a given variable is a string (str or unicode)."""
-    return isinstance(x, six.string_types)
-
-
-# TODO: Deprecate when switching over to Python 3.x
-def is_unicode(x):
-    """Checks if a given variable is a unicode string."""
-    return isinstance(x, six.text_type)
-
-
-def remove_control_characters(s):
-    """Remove unicode control characters."""
-    return "".join(ch for ch in s if unicodedata.category(ch)[0] != "C")
-
-
-def spawn_and_log_output(
-        cmd,
-        log_exit_status=True,
-        connect_to=[],
-        shell=False):
-    """Run command and copy stdout to logger.debug and stderr to
-    logger.error.  cmd may be a sequence.  connect_to is a list of
-    servers which will be contacted.  If debug_hostlist is set and
-    does not contain these servers, the command will not be run and
-    success is always reported.
-
-    Return the exit code if the process exits normally, or the
-    negative signal value if the process was killed by a signal.
-
-    :type cmd: basestr or sequence of basestr
-    :param cmd: Command, see subprocess.Popen argument args
-
-    :type log_exit_status: bool
-    :param log_exit_status: emit log message with exit status?
-
-    :type connect_to: list of str
-    :param connect_to: Spawned command will connect to resource (hostlist),
-                       only runs command if cereconf.DEBUG_HOSTLIST is None,
-                       or contains the given resource
-
-    :type shell: bool
-    :param shell: run command in shell, or directly with os.exec*()
-
-    :rtype: int
-    :return: spawned programme's exit status
-    """
-    # select on pipes and Popen3 only works in Unix.
-    from select import select
-    exit_success = 0
-    logger = Factory.get_logger()
-    if cereconf.DEBUG_HOSTLIST is not None:
-        for srv in connect_to:
-            if srv not in cereconf.DEBUG_HOSTLIST:
-                logger.debug("Won't connect to %s, won't spawn %r",
-                             srv, cmd)
-                return exit_success
-
-    proc = Popen(cmd, bufsize=10240, close_fds=True,
-                 stdin=PIPE, stdout=PIPE, stderr=PIPE)
-    pid = proc.pid
-    if log_exit_status:
-        logger.debug('Spawned %r, pid %d', cmd, pid)
-    proc.stdin.close()
-    descriptor = {proc.stdout: logger.debug,
-                  proc.stderr: logger.error}
-    while descriptor:
-        # select() is called for _every_ line, since we can't inspect
-        # the buffering in Python's file object.  This works OK since
-        # select() will return "readable" for an unread EOF, and
-        # Python won't read the EOF until the buffers are exhausted.
-        ready, _, _ = select(descriptor.keys(), [], [])
-        for fd in ready:
-            line = fd.readline()
-            if line == '':
-                fd.close()
-                del descriptor[fd]
-            else:
-                descriptor[fd]("[%d] %s", pid, line.rstrip())
-    status = proc.wait()
-    if status == exit_success and log_exit_status:
-        logger.debug("[%d] Completed successfully", pid)
-    elif os.WIFSIGNALED(status):
-        # The process was killed by a signal.
-        status = os.WTERMSIG(status)
-        if log_exit_status:
-            logger.error('[%d] Command "%r" was killed by signal %d',
-                         pid, cmd, status)
-    else:
-        # The process exited with an exit status
-        status = os.WSTOPSIG(status)
-        if log_exit_status:
-            logger.error("[%d] Return value was %d from command %r",
-                         pid, status, cmd)
-    return status
-
-
-# TODO: Deprecate when switching over to Python 3.x
-def to_unicode(obj, encoding='utf-8'):
-    """ Decode obj to unicode if it is a str."""
-    if is_str(obj):
-        return obj.decode(encoding)
-    return obj
-
-
-# TODO: Deprecate when switching over to Python 3.x
-def unicode2str(obj, encoding='utf-8'):
-    """Encode unicode object to a str with the given encoding."""
-    if is_unicode(obj):
-        return obj.encode(encoding)
-    return obj
 
 
 class Factory(object):
@@ -271,13 +179,7 @@ class Factory(object):
         if isinstance(import_spec, (tuple, list)):
             bases = []
             for c in import_spec:
-                (mod_name, class_name) = c.split("/", 1)
-                mod = dyn_import(mod_name)
-                try:
-                    cls = getattr(mod, class_name)
-                except AttributeError:
-                    raise ImportError("Module '{}' has no class '{}'"
-                                      .format(mod_name, class_name))
+                cls = Cerebrum.utils.module.resolve(c)
                 # The cereconf.CLASS_* tuples control which classes
                 # are used to construct a Factory product class.
                 # Order inside such a tuple is significant for the
@@ -328,126 +230,6 @@ class Factory(object):
         """
         import Cerebrum.logutils
         return Cerebrum.logutils.get_logger(name=name, _stacklevel=3)
-
-
-@deprecate("Cerebrum.Utils.random_string is deprecated")
-def random_string(length, characters=ascii_lowercase + digits):
-    """
-    Generate a random string of a given length using the given characters.
-
-    :param int length: the desired string length
-    :param str characters: a set of characters to use
-
-    :return str: returns a string of random characters
-    """
-    # Create a local random object for increased randomness
-    # "Use os.urandom() or SystemRandom if you require a
-    # cryptographically secure pseudo-random number generator."
-    # docs.python.org/2.7/library/random.html#random.SystemRandom
-    lrandom = random.SystemRandom()
-    # pick "length" number of letters, then combine them to a string
-    return ''.join([lrandom.choice(characters) for _ in range(length)])
-
-
-def exception_wrapper(functor, exc_list=None, return_on_exc=None, logger=None):
-    """Helper function for discarding exceptions easier.
-
-    Occasionally we do not care about about the specific exception being
-    raised in a function call, since we are interested in the return value
-    from that function. There are cases where a sensible dummy value can be
-    either substituted or used, instead of having to deal with exceptions and
-    what not. This is especially handy for small functions that may still
-    (under realistic situations) raise exceptions. An reasonable example is
-    Person.get_name, where '' can very often be used instead of exceptions.
-
-    We can wrap around a call, so that a certain exception (or a sequence
-    thereof) would result in in returning a specific (dummy) value. A typical
-    use case would be:
-
-        >>> def foo(...):
-        ...     # do something that may raise
-        ... # end foo
-        ... foo = Utils.exception_wrapper(foo, (AttributeError, ValueError),
-        ...                               (None, None), logger)
-
-    ... which would result in a warn message in the logs, if foo() raises
-    AttributeError or ValueError. No restrictions are placed on the arguments
-    of foo, obviously.
-
-    @param functor:
-      A callable object which we want to wrap around.
-    @type functor:
-      A function, a method (bound or unbound) or an object implementing
-      the __call__ special method.
-
-    @param exc_list
-      A sequence of exception classes to intercept. None means that all
-      exceptions are intercepted (this is the default).
-    @type exc_list: a tuple, a list, a set or another class implementing
-      the __iter__ special method.
-
-    @param return_on_exc:
-      Value that is returned in case we intercept an exception. This is what
-      play the role of a dummy value for the caller.
-    @type return_on_exc: any object.
-
-    @return:
-      A function invoking functor when called. rest and keyword arguments are
-      supported.
-    @rtype: function.
-    """
-
-    # if it's a single exception type, convert it to a tuple now
-    if exc_list is None:
-        exc_list = (Exception,)
-    elif not isinstance(exc_list, (list, tuple, set)):
-        exc_list = (exc_list,)
-    else:
-        exc_list = tuple(exc_list)
-
-    # IVR 2008-03-11 FIXME: We cannot use this assert until all of Cerebrum
-    # exceptions actually *are* derived from BaseException. But it is a good
-    # sanity check.
-    # assert all(issubclass(x, BaseException) for x in exc_list)
-
-    def wrapper(*rest, **kw_args):
-        "Small wrapper that calls L{functor} while ignoring exceptions."
-
-        # None means trap all exceptions. Use with care!
-        try:
-            return functor(*rest, **kw_args)
-        except exc_list:
-            if logger:
-                logger.warn(format_exception_context(*sys.exc_info()))
-        return return_on_exc
-
-    return wrapper
-
-
-def format_exception_context(etype, evalue, etraceback):
-    """Small helper function for printing exception context.
-
-    This exception method helps format an exception traceback.
-
-    The arguments are the same as the return value of sys.exc_info() call.
-
-    @rtype: basestring
-    @return:
-      A string holding the context description for the specified exception. If
-      no exception is specified (i.e. (None, None, None) is given), return an
-      empty string.
-    """
-
-    tmp = traceback.extract_tb(etraceback)
-    if not tmp:
-        return ""
-
-    filename, line, funcname, _ = tmp[-1]
-    filename = os.path.basename(filename)
-
-    return ("Exception %s occured (in context %s): %s" %
-            (etype, "%s/%s() @line %s" % (filename, funcname, line),
-             repr(evalue)))
 
 
 def argument_to_sql(argument,
@@ -518,10 +300,10 @@ def argument_to_sql(argument,
     binds_name = sql_attr_name.replace('.', '_')
     compare_set = 'NOT IN' if negate else 'IN'
     compare_scalar = '!=' if negate else '='
-    if (isinstance(argument, (collections.Sized, collections.Iterable)) and
+    if (isinstance(argument, (Sized, Iterable)) and
             not isinstance(argument, six.string_types)):
         assert len(argument) > 0, "List can not be empty."
-        if len(argument) == 1 and isinstance(argument, collections.Sequence):
+        if len(argument) == 1 and isinstance(argument, Sequence):
             # Sequence with only one scalar, let's unpack and treat as scalar.
             # Has no real effect, but the SQL looks prettier.
             argument = argument[0]
@@ -590,72 +372,13 @@ def make_timer(logger, msg=None):
     return timer
 
 
-class Messages(dict):
-    """
-    Class for handling text in different languages.
-
-    Should be filled with messages in different languages, and the message in
-    either the set language or the fallback language is returned.
-
-        msgs = Messages(lang='no', fallback='en')
-
-    The preferred way of adding text to Messages is through template files,
-    e.g.  a python file with a large python dict on the format:
-
-        {'key1':    {'en': 'This is a test',
-                     'no': 'Dette er en test',
-                     'nn': 'Dette er ein test'},
-         'key2':    {...},}
-
-    Messages could be given on the form:
-
-        msgs['key1'] = {'en': 'This is a test', 'no': 'Dette er en test'}
-
-    and the correct string is returned by:
-
-        >>> msgs['key1']
-        'This is a test'
-
-    """
-
-    def __init__(self, text=None, lang='en', fallback='en', logger=None):
-        self.logger = logger or Factory.get_logger()
-        self.lang = lang
-        self.fallback = fallback
-        dict.__init__(self)
-        if text:
-            self.update(text)
-
-    def __setitem__(self, key, value):
-        if isinstance(value, dict):
-            dict.__setitem__(self, key, value)
-        else:
-            raise NotImplementedError("Supports only dicts for now")
-
-    def __getitem__(self, key):
-        """
-        Returns a text string by given key in either the set language, or the
-        fallback language if it didn't exist.
-
-        Throws out a KeyError if the text doesn't exist for the fallback
-        language either. TODO: or should it return something else instead, e.g.
-        the key, and log it?
-        """
-        try:
-            return dict.__getitem__(self, key)[self.lang]
-        except KeyError:
-            self.logger.warn(
-                "Message for key '%s' doesn't exist for lang '%s'",
-                key, self.lang)
-        return dict.__getitem__(self, key)[self.fallback]
-
-
 # Compatibility names
 #
 # These names were historically defined in Cerebrum.Utils, but have been moved
 # to different modules and given PEP-8 compatible names.
 #
-CerebrumIMAP4_SSL = Cerebrum.utils.imap.Imap4SslVersionMixin
 auto_super = Cerebrum.meta.AutoSuper
 mark_update = Cerebrum.meta.MarkUpdate
 read_password = Cerebrum.utils.secrets.legacy_read_password
+dyn_import = Cerebrum.utils.module.import_item
+unicode2str = Cerebrum.utils.text_compat.to_str

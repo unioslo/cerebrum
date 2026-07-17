@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 #
-# Copyright 2015 University of Oslo, Norway
+# Copyright 2015-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,20 +17,32 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" Constants specific for CIM. """
+"""
+Legacy constants for CIM.
+
+This module contains legacy constants that aren't trivial to remove.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 from Cerebrum import Constants
 from Cerebrum.modules.event import TargetSystemConstants
 
 
 class ConstantsMixin(Constants.Constants):
-
-    u""" Additional CIM constants. """
+    """ Additional constants for CIM. """
 
     target_system_cim = TargetSystemConstants._TargetSystemCode(
-        'CIM',
-        'CIM as a destination system')
+        "CIM",
+        "CIM as a destination system",
+    )
 
     spread_cim_person = Constants._SpreadCode(
-        'CIM_person', Constants.Constants.entity_person,
-        'Person exported to CIM')
+        "CIM_person",
+        Constants.Constants.entity_person,
+        "Person exported to CIM",
+    )

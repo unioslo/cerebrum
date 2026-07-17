@@ -146,9 +146,6 @@ class CallbackHandler(AbstractConsumerHandler):
         logger.info('abort %s/%s', ct, dt)
         event.channel.basic_nack(delivery_tag=dt)
 
-    def reschedule(self, event, dates):
-        raise NotImplementedError()
-
 
 def set_pika_loglevel(level=logging.INFO, force=False):
     pika_logger = logging.getLogger('pika')

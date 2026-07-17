@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003-2023 University of Oslo, Norway
+# Copyright 2003-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -58,6 +58,7 @@ import os
 
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.utils import date_compat
+from Cerebrum.utils import text_compat
 
 __version__ = "1.1"
 
@@ -72,7 +73,7 @@ pbkdf2_params = {
 def old_encode_for_history(name, password):
     """Hashes old password stored by md5hash."""
     m = hashlib.md5(name.encode('utf-8') + password.encode('utf-8'))
-    return base64.b64encode(m.digest())[:22]
+    return text_compat.to_text(base64.b64encode(m.digest())[:22])
 
 
 def encode_for_history(algo, rounds, salt, password, keylen):
@@ -88,8 +89,8 @@ def encode_for_history(algo, rounds, salt, password, keylen):
     hash_alg = "pbkdf2_" + algo
     password = password.encode('utf-8')
     hash_out = hashlib.pbkdf2_hmac(algo, password, salt, rounds, keylen)
-    stored_salt = base64.b64encode(salt)
-    key = base64.b64encode(hash_out)
+    stored_salt = text_compat.to_text(base64.b64encode(salt))
+    key = text_compat.to_text(base64.b64encode(hash_out))
     return "{}${}${}${}".format(hash_alg, rounds, stored_salt, key)
 
 
@@ -204,7 +205,6 @@ class PasswordHistoryMixin(ClearPasswordHistoryMixin):
                     tmp = password[:m]+chr(r)
                 else:
                     tmp = chr(r)+password[m+1:]
-                tmp = old_encode_for_history(name, tmp)
                 variants.append(tmp)
         old_passwords = [r['hash'] for r in ph.get_history(entity_id)]
         return check_passwords_history(variants, old_passwords, name)

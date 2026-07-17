@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2022 University of Oslo, Norway
+# Copyright 2022-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -49,6 +49,12 @@ A typical implementation for building a tree would look something like:
 
 >>> roots = build_trees(nodes)
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import logging
 
 from Cerebrum.utils import reprutils

@@ -56,7 +56,7 @@ module, as well as specific utils for processing events from
     Callback mappers for deciding which callback to use with various events.
 
     These mappers are typically used in actual target system consumers, like
-    ``Cerebrum.modules.cim``, ``Cerebrum.modules.exchange``.
+    ``Cerebrum.modules.exchange``.
 
 :mod:`.utils`
     Various utils for building and starting a *service* that runs processes

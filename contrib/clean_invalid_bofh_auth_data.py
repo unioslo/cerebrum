@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2018 University of Oslo, Norway
+# Copyright 2018-2025 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,78 +18,72 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""Remove invalid bofh auth data.
-
-The auth_op_target and auth_op_roles tables can contain entries that refers
-to deleted entities. This script find and removed these entries.
-
-Some parts of Cerebrum (see dns/Subnet.py) removes the BofhAuth data on delete.
-We do not want Cerebrum to touch BofhdAuth butt removing it might brake stuff..
-See CRB-2616.
 """
+Remove obsolete bofh auth data.
 
+The `auth_op_target` and `auth_op_roles` tables can contain entries that refers
+to deleted entities.  This script finds and removes these entries.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import argparse
 import logging
 
 import Cerebrum.logutils
+import Cerebrum.logutils.options
 from Cerebrum.Utils import Factory
-from Cerebrum.database import DatabaseError
+from Cerebrum.utils.argutils import add_commit_args
+from Cerebrum.database.ctx import db_context
 from Cerebrum.modules.bofhd.auth import BofhdAuthRole, BofhdAuthOpTarget
 
 logger = logging.getLogger(__name__)
 
 
-def main():
-    """Remove invalid auth data."""
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        '-c', '--commit',
-        action='store_true',
-        dest='commit',
-        default=False,
-        help='Actually remove the invalid auth data.'
-    )
+def clean_obsolete_targets(db):
+    """Remove obsolete auth data."""
+    op_targets = BofhdAuthOpTarget(db)
+    auth_roles = BofhdAuthRole(db)
 
+    before_count = {
+        'roles': auth_roles.count_invalid(),
+        'targets': op_targets.count_invalid(),
+    }
+
+    auth_roles.remove_invalid()
+    op_targets.remove_invalid()
+
+    after_count = {
+        'roles': auth_roles.count_invalid(),
+        'targets': op_targets.count_invalid(),
+    }
+
+    logger.info("Removed %d obsolete roles and %d obsolete targets",
+                before_count['roles'] - after_count['roles'],
+                before_count['targets'] - after_count['targets'])
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(
+        description="Remove obsolete bofhd auth targets",
+    )
+    add_commit_args(parser)
     Cerebrum.logutils.options.install_subparser(parser)
+
     args = parser.parse_args()
     Cerebrum.logutils.autoconf('cronjob', args)
+    logger.info("Start %s", parser.prog)
+    logger.debug("args: %s", repr(args))
 
-    logger.info('START {0}'.format(parser.prog))
-    db = Factory.get('Database')()
-    db.cl_init(change_program='clean_invalid_bofh_auth_data.py')
+    dryrun = not args.commit
+    with db_context(Factory.get('Database')(), dryrun) as db:
+        db.cl_init(change_program=parser.prog)
+        clean_obsolete_targets(db)
 
-    baot = BofhdAuthOpTarget(db)
-    bar = BofhdAuthRole(db)
-    bar_count = bar.count_invalid()
-    baot_count = baot.count_invalid()
-
-    try:
-        bar.remove_invalid()
-        baot.remove_invalid()
-
-    except DatabaseError as e:
-        db.rollback()
-        logger.error(
-            'Error removing invalid auth data {0}. Rolling back any changes'
-            .format(e))
-        raise
-
-    bar_count_after = bar.count_invalid()
-    baot_count_after = baot.count_invalid()
-
-    logger.info('Removing {0} invalid entries in auth_roles'.format(
-        bar_count - bar_count_after))
-    logger.info('Removing {0} invalid entries in auth_op_targets'.format(
-        baot_count - baot_count_after))
-
-    if args.commit:
-        logger.info('Committing changes.')
-        db.commit()
-    else:
-        logger.info('Rolling back changes.')
-        db.rollback()
-
-    logger.info('DONE {0}'.format(parser.prog))
+    logger.info("Done %s", parser.prog)
 
 
 if __name__ == '__main__':

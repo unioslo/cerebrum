@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2016-2023 University of Oslo, Norway
+# Copyright 2016-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,8 +17,9 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" Generic field type serialization rules. """
-
+"""
+Common field type serialization rules.
+"""
 from __future__ import (
     absolute_import,
     division,
@@ -112,12 +113,14 @@ class DateTimeTz(base.DateTime):
             return None
         value = date_compat.get_datetime_tz(dt)
         value = value.replace(microsecond=0)
-        return super(DateTime, self).format(value)
+        return super(DateTimeTz, self).format(value)
 
 
-def href(endpoint, description="URL to this resource"):
+def href(endpoint, description="URL to this resource", example=None):
     """ Create a reference to another API resource. """
     return base.Url(
         endpoint=endpoint,
         absolute=False,
-        description=description)
+        description=description,
+        example=example,
+    )

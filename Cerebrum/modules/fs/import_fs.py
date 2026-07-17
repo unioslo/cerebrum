@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2002-2023 University of Oslo, Norway
+# Copyright 2002-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,35 +18,111 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+""" Common FS import logic. """
 from __future__ import (
     absolute_import,
     division,
     print_function,
     unicode_literals,
 )
-
-import json
 import logging
 from datetime import date, datetime, timedelta
 from collections import defaultdict
 
-from Cerebrum import Errors
-from Cerebrum.modules.no import fodselsnr
-from Cerebrum.modules.no.uio.AutoStud import StudentInfo
-from Cerebrum.Utils import Factory
-from Cerebrum.utils.date_compat import get_date
-
+import six
 
 import cereconf
+from Cerebrum import Errors
+from Cerebrum.Utils import Factory
+from Cerebrum.modules.no import fodselsnr
+from Cerebrum.modules.no.uio.AutoStud import StudentInfo
+from Cerebrum.utils.date_compat import get_date
+
+from . import fs_group
+
 
 # Globals
 logger = logging.getLogger(__name__)
 
 
+class ConsentGroupManager(object):
+    """ Helper for updating the FS consent group. """
+
+    def __init__(self, db, consent_query=None):
+        self.group = fs_group.get_fs_consent_group(db)
+        self.consent_query = consent_query
+
+    @property
+    def group_repr(self):
+        return "%s (%d)" % (self.group.group_name, self.group.entity_id)
+
+    def set_consent(self, entity_id):
+        """ Add entity to consent group. """
+        if not self.group.has_member(entity_id):
+            self.group.add_member(entity_id)
+            logger.info("Added member id=%d to group %s",
+                        entity_id, self.group_repr)
+            return True
+        return False
+
+    def revoke_consent(self, entity_id):
+        """ Remove entity from consent group. """
+        if self.group.has_member(entity_id):
+            self.group.remove_member(entity_id)
+            logger.info("Removed member id=%d from group %s",
+                        entity_id, self.group_repr)
+            return True
+        return False
+
+    def __call__(self, person_obj, person_info):
+        """
+        Set consent group membership from fs import data.
+
+        :param person_obj: the cerebrum person entity to update
+        :param person_info: the fs person info data structure
+        """
+        # Check if there's an actual consent in person_info
+        did_consent = False
+        if 'nettpubl' in person_info:
+            for row in person_info['nettpubl']:
+                if (row.get('akseptansetypekode', "") == "NETTPUBL"
+                        and row.get('status_svar', "") == "J"):
+                    did_consent = True
+
+        # Check if the consent is valid for this person_info:
+        add_consent = False
+        if did_consent and self.consent_query:
+            # Only accept consent for students of certain types
+            # (currently in use by UiA + NIH)
+            for dta_type in person_info.keys():
+                p = person_info[dta_type][0]
+                if isinstance(p, six.string_types):
+                    # Not sure why we check for this?  Some sort of sanity
+                    # check?
+                    continue
+                # We only accept nettpubl from persons with one of the
+                # consent_query "roles".
+                if dta_type in self.consent_query:
+                    add_consent = did_consent
+                    break
+        elif did_consent:
+            add_consent = did_consent
+
+        if add_consent:
+            self.set_consent(person_obj.entity_id)
+        else:
+            # The student either hasn't registered an answer to
+            # the "Can we publish info about you in the directory"
+            # question at all, or has given an explicit "I don't
+            # want to appear in the directory" answer.
+            self.revoke_consent(person_obj.entity_id)
+
+
 class FsImporter(object):
+
     def __init__(self, gen_groups, include_delete, commit,
                  studieprogramfile, source, rules, adr_map,
-                 rule_map=None, reg_fagomr=False,
+                 rule_map=None,
                  reservation_query=None):
         # Variables passed to/from main
         self.db = Factory.get('Database')()
@@ -56,10 +132,8 @@ class FsImporter(object):
         self.group = Factory.get('Group')(self.db)
         self.no_name = 0
 
-        self.gen_groups = gen_groups
         self.include_delete = include_delete
 
-        self.reg_fagomr = reg_fagomr
         self._init_aff_status_pri_order()
         self.rules = rules
         if rule_map:
@@ -71,9 +145,8 @@ class FsImporter(object):
         if "system_fs" not in cereconf.SYSTEM_LOOKUP_ORDER:
             raise SystemExit("Check cereconf, SYSTEM_LOOKUP_ORDER is wrong!")
 
-        if self.gen_groups:
-            self.init_reservation_group()
-            self.reservation_query = reservation_query
+        self.process_consents = gen_groups
+        self.update_consent = ConsentGroupManager(self.db, reservation_query)
 
         if getattr(cereconf, "ENABLE_MKTIME_WORKAROUND", 0) == 1:
             logger.warn("Warning: ENABLE_MKTIME_WORKAROUND is set")
@@ -92,28 +165,6 @@ class FsImporter(object):
         self.disregard_grace_for_affs = [
             int(self.co.human2constant(x))
             for x in cereconf.FS_EXCLUDE_AFFILIATIONS_FROM_GRACE]
-
-    def init_reservation_group(self):
-        """ get callbacks to add/remove members in reservation group """
-        group_name = cereconf.FS_GROUP_NAME
-        group_desc = cereconf.FS_GROUP_DESC
-
-        try:
-            self.group.find_by_name(group_name)
-        except Errors.NotFoundError:
-            # TODO: This should *really* be an opt_out consent (reservation)
-            self.group.clear()
-            ac = Factory.get('Account')(self.db)
-            ac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
-            self.group.populate(
-                creator_id=ac.entity_id,
-                visibility=self.co.group_visibility_internal,
-                name=group_name,
-                description=group_desc,
-                # TODO: is this group_type_internal?
-                group_type=self.co.group_type_unknown,
-            )
-            self.group.write_db()
 
     def _load_cere_aff(self):
         fs_aff = {}
@@ -169,6 +220,8 @@ class FsImporter(object):
         """Called when we have fetched all data on a person from the xml
         file.  Updates/inserts name, address and affiliation
         information."""
+        # TODO: We should probably normalize the data in `person_info` before
+        # doing any imports
         try:
             fnr = self._get_fnr(person_info)
         except fodselsnr.InvalidFnrError:
@@ -190,15 +243,28 @@ class FsImporter(object):
 
         if self._db_add_person(person, person_info, pd):
             # Perform following operations only if _db_add_person didn't fail
-            if self.reg_fagomr:
-                self._register_fagomrade(person, person_info)
-            if self.gen_groups:
-                self._add_reservations(person_info, person)
+            self._update_person(person, person_info)
 
             if self.commit:
                 self.db.commit()
             else:
                 self.db.rollback()
+
+    def _update_person(self, person, person_info):
+        """
+        Run optional person updates.
+
+        :type person: Cerebrum.Person.Person
+        :param person: A populated person object for the given *person_info*
+
+        :type person_info: dict
+        :param person_info: StudentInfoParser result
+        """
+        # This is where we add *optional* or local import business logic.
+        # This contains some *optional* imports, and subclasses can override
+        # this and add extra import logic.
+        if self.process_consents:
+            self.update_consent(person, person_info)
 
     def _get_person(self, fnr, studentnr):
         fsids = [(self.co.externalid_fodselsnr, fnr)]
@@ -538,72 +604,7 @@ class FsImporter(object):
             return None
         return ret
 
-    def _add_reservations(self, person_info, new_person):
-        should_add = False
-        if self.reservation_query:
-            # For use when the institution only wants to check publishing
-            # rights for specific groups of users
-            # Method currently used by uia, nih and hiof
-            for dta_type in person_info.keys():
-                p = person_info[dta_type][0]
-                if isinstance(p, str):
-                    continue
-                # We only fetch the column in these queries
-                if dta_type not in self.reservation_query:
-                    continue
-                # This method used to check if 'status_reserv_nettpubl' == "N"
-                # to add to group. That field in the fs database is outdated
-                # and the right one to use is the table fs.personakseptanse
-                # with the fields 'akseptansetypekode'=="NETTPUBL" and
-                # 'status_svar' ==  "J".
-                if 'nettpubl' in person_info:
-                    for row in person_info['nettpubl']:
-                        if (
-                                row.get('akseptansetypekode',
-                                        "") == "NETTPUBL" and
-                                row.get('status_svar', "") == "J"
-                        ):
-                            should_add = True
-        else:
-            # For use where we want to check every user and then publish anyone
-            # who has said yes to being published
-            # Method currently used by uio and nmh. Looks at 'nettpubl'
-            # instead of 'status_reserv_nettpubl'.
-            if 'nettpubl' in person_info:
-                for row in person_info['nettpubl']:
-                    if (
-                            row.get('akseptansetypekode', "") == "NETTPUBL" and
-                            row.get('status_svar', "") == "J"
-                    ):
-                        should_add = True
-
-        if should_add:
-            # The student has explicitly given us permission to be
-            # published in the directory.
-            self._add_res(new_person.entity_id)
-        else:
-            # The student either hasn't registered an answer to
-            # the "Can we publish info about you in the directory"
-            # question at all, or has given an explicit "I don't
-            # want to appear in the directory" answer.
-            self._rem_res(new_person.entity_id)
-
-    def _add_res(self, entity_id):
-        if not self.group.has_member(entity_id):
-            self.group.add_member(entity_id)
-            logging.debug('Added member %r to group %r', entity_id, self.group)
-            return True
-        return False
-
-    def _rem_res(self, entity_id):
-        if self.group.has_member(entity_id):
-            self.group.remove_member(entity_id)
-            logging.debug('Removed member %r from group %r', entity_id,
-                          self.group)
-            return True
-        return False
-
-    def rem_old_aff(self, spare_active_account_affs=False):
+    def rem_old_aff(self):
         """ Remove old affiliations.
 
         This method loops through the global `old_affs` mapping. The
@@ -634,18 +635,19 @@ class FsImporter(object):
                                            affiliation=aff_id,
                                            ou_id=ou_id)
             if not aff:
-                logger.warn(
-                    'Possible race condition when attempting to remove aff '
-                    '{} for {}'.format(aff_id, person_id))
+                logger.warning(
+                    "Possible race condition when trying to remove "
+                    "aff=%s for id=%s", aff_id, person_id,
+                )
                 continue
             if len(aff) > 1:
-                logger.warn("More than one aff for person %s, what to do?",
-                            person_id)
+                logger.warning(
+                    "More than one aff for person id=%s, what to do?",
+                    person_id,
+                )
                 # if more than one aff we should probably just remove both/all
                 continue
             aff = aff[0]
-
-            self._remove_consent(person, person_id)
 
             # Check date, do not remove affiliation for active students until
             # end of grace period. Some affiliations should be removed at once
@@ -664,31 +666,9 @@ class FsImporter(object):
             try:
                 person.find(person_id)
             except Errors.NotFoundError:
-                logger.warn("Couldn't find person_id:%s, not removing aff",
-                            person_id)
+                logger.warning("Couldn't find person id=%s, not removing aff",
+                               person_id)
                 continue
-
-            # If the spare_active_account_affs flag is set to true, the
-            # affiliation is spared if the person has any active accounts
-            # (expire_date > today) with the same affiliation
-            if spare_active_account_affs:
-                acs = person.get_accounts()
-                spare_aff = False
-                for ac in acs:
-                    account = Factory.get("Account")(self.db)
-                    account.find(ac[0])
-                    if (account.expire_date
-                            and date.today() < get_date(account.expire_date)
-                            and any(aff['affiliation'] in affi
-                                    for affi in account.get_account_types(
-                                        filter_expired=False))):
-                        logger.debug("Sparing aff (%s) for person_id=%r at"
-                                     " ou_id=%r, person has active account"
-                                     " affiliation", aff_id, person_id, ou_id)
-                        spare_aff = True
-                if spare_aff:
-                    stats['grace'] += 1
-                    continue
 
             logger.info("Removing aff %s for person=%s, at ou_id=%s",
                         self.co.PersonAffiliation(aff_id), person_id, ou_id)
@@ -696,6 +676,8 @@ class FsImporter(object):
                                       source=self.co.system_fs)
             stats['delete'] += 1
             person_ids.add(person_id)
+            if self.process_consents:
+                self._remove_consent(person, person_id)
 
         logger.info("Old affs: %d affs on %d persons",
                     stats['old'], len(person_ids))
@@ -707,73 +689,9 @@ class FsImporter(object):
         # We want to check all existing FS affiliations
         # We remove existing reservation consent if all FS-affiliations
         # are about to be removed (if there is not a single active FS aff.)
-        logger.debug('Checking for consent removal for person: '
-                     '{person_id}'.format(person_id=person_id))
+        logger.debug("Check consent removal for person id=%s", person_id)
         fs_affiliations = person.list_affiliations(
             person_id=person_id,
             source_system=self.co.system_fs)
-        for fs_aff in fs_affiliations:
-            aff_str = '{person_id}:{ou_id}:{affiliation_id}'.format(
-                person_id=fs_aff['person_id'],
-                ou_id=fs_aff['ou_id'],
-                affiliation_id=fs_aff['affiliation'])
-            logger.debug('Processing affiliation: {aff}={avalue}'.format(
-                aff=aff_str,
-                avalue=str(self.old_aff[aff_str])))
-            if aff_str not in self.old_aff:
-                # should not happen
-                logger.warn('Affiliation {affiliation_id} for person-id '
-                            '{person_id} not found in affiliation list'.format(
-                                affiliation_id=fs_aff['affiliation'],
-                                person_id=fs_aff['person_id']))
-                break  # we keep existing consent
-            if not self.old_aff[aff_str]:
-                # we found at least one active FS affiliation for this person
-                # we will not make any consent changes
-                break
-        else:
-            # we didn't find any active FS affiliations
-            logger.debug(
-                'No active FS affiliations for person {person_id}'.format(
-                    person_id=person_id))
-            if self._rem_res(person_id):
-                logger.info(
-                    'Removing publish consent for person {person_id} with '
-                    'expired FS affiliations'.format(person_id=person_id))
-
-    def _register_fagomrade(self, person, person_info):
-        """Register 'fagomrade'/'fagfelt' for a person.
-        This is stored in trait_fagomrade_fagfelt as a pickled list of strings.
-        The trait is not set if no 'fagfelt' is registered.
-
-        @param person:
-          Person db proxy associated with a newly created/fetched person.
-
-        @param person_info:
-          Dict returned by StudentInfoParser.
-
-        """
-        fnr = "%06d%05d" % (int(person_info["fodselsdato"]),
-                            int(person_info["personnr"]))
-
-        fagfelt_trait = person.get_trait(trait=self.co.trait_fagomrade_fagfelt)
-        fagfelt = []
-
-        # Extract fagfelt from any fagperson rows
-        if 'fagperson' in person_info:
-            fagfelt = [data.get('fagfelt') for data in person_info['fagperson']
-                       if data.get('fagfelt') is not None]
-            # Sort alphabetically as the rows are returned in random order
-            fagfelt.sort()
-
-        if fagfelt_trait and not fagfelt:
-            logger.debug('Removing fagfelt for %s', fnr)
-            person.delete_trait(code=self.co.trait_fagomrade_fagfelt)
-        elif fagfelt:
-            logger.debug('Populating fagfelt for %s', fnr)
-            person.populate_trait(
-                code=self.co.trait_fagomrade_fagfelt,
-                date=datetime.now(),
-                strval=json.dumps(fagfelt))
-
-        person.write_db()
+        if not list(fs_affiliations):
+            self.update_consent.revoke_consent(person_id)

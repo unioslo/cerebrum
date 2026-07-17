@@ -101,6 +101,7 @@ from Cerebrum.Constants import (
     _EntityTypeCode,
 )
 from Cerebrum.Entity import EntityExternalId
+from Cerebrum.entity import external_id
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
@@ -413,6 +414,12 @@ CMD_HELP = {
         'entity_extid_list': "show external id types for an entity",
         'entity_extid_search': "search for entities with a given external id",
         'entity_extid_set': "set an external id for an entity",
+        'entity_extid_dups': (
+            "search for entities that share external id values"
+        ),
+        'entity_extid_diffs': (
+            "search for entities with multiple external id values"
+        ),
     },
 }
 
@@ -819,3 +826,85 @@ class BofhdExtidCommands(BofhdCommandBase):
             'entity_type': six.text_type(entity_type),
             'entity_id': entity_id,
         }
+
+    #
+    # entity extid_dups <id-type>
+    #
+    all_commands['entity_extid_dups'] = Command(
+        ('entity', 'extid_duplicates'),
+        SimpleString(help_ref='entity-extid-type'),
+        fs=FormatSuggestion(
+            "%s",
+            ("info_args",),
+            hdr="Duplicate ids",
+        ),
+        perm_filter='can_search_extid',
+    )
+
+    def entity_extid_dups(self, operator, _id_type):
+        id_type = _get_id_type(self.const, _id_type, user_input=True)
+        self.ba.can_search_extid(operator.get_entity_id(), id_type=id_type)
+        collect = {}
+        for row in external_id.list_duplicate_ids(self.db, id_type=id_type):
+            id_value = row['id_value']
+            entity_id = row['entity_id']
+            if id_value not in collect:
+                collect[id_value] = set()
+            collect[id_value].add(entity_id)
+
+        result = []
+        for id_value in sorted(collect):
+            entity_ids = sorted(collect[id_value])
+            result.append({
+                'entity_ids': entity_ids,
+                'id_value': id_value,
+                'id_type': six.text_type(id_type),
+                'info_args': "entity extid_get ({}) {}".format(
+                    " ".join("id:{}".format(n) for n in entity_ids),
+                    six.text_type(id_type),
+                ),
+            })
+        if not result:
+            raise CerebrumError("No duplicate %s values found" %
+                                (six.text_type(id_type),))
+        return result
+
+    #
+    # entity extid_diffs <id-type>
+    #
+    all_commands['entity_extid_diffs'] = Command(
+        ('entity', 'extid_diffs'),
+        SimpleString(help_ref='entity-extid-type'),
+        fs=FormatSuggestion(
+            "%s", ("info_args",),
+            hdr="Differing ids",
+        ),
+        perm_filter='can_search_extid',
+    )
+
+    def entity_extid_diffs(self, operator, _id_type):
+        id_type = _get_id_type(self.const, _id_type, user_input=True)
+        self.ba.can_search_extid(operator.get_entity_id(), id_type=id_type)
+        collect = {}
+        for row in external_id.list_differing_ids(self.db, id_type=id_type):
+            id_value = row['id_value']
+            entity_id = row['entity_id']
+            if entity_id not in collect:
+                collect[entity_id] = set()
+            collect[entity_id].add(id_value)
+
+        result = []
+        for entity_id in sorted(collect):
+            id_values = sorted(collect[entity_id])
+            result.append({
+                'entity_id': entity_id,
+                'id_type': six.text_type(id_type),
+                'id_values': id_values,
+                'info_args': "entity extid_get id:{} {}".format(
+                    entity_id, six.text_type(id_type),
+                ),
+            })
+        if not result:
+            raise CerebrumError("No differing %s values found" %
+                                (six.text_type(id_type),))
+        return result

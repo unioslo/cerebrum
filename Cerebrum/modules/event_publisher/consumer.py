@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2017-2023 University of Oslo, Norway
+# Copyright 2017-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,12 +18,8 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
-MQ-publishing event_log consumer.
-
-This consumer implementation takes any message published to the event_log, and
-re-publishes it using the specified AMQP client implementation/configuration.
+Processes for fetching event queue and publising events.
 """
-
 from __future__ import (
     absolute_import,
     division,
@@ -51,6 +47,12 @@ EVENT_CHANNEL = 'event_publisher'
 
 
 class EventConsumer(evhandlers.DBConsumer):
+    """
+    This is our event publisher.
+
+    It listens for (consumes) events on a multiprocessing/ipc queue,
+    and sends those events out using an AMQP publisher client.
+    """
 
     def __init__(self, publisher_config, formatter_config, **kwargs):
         self.publisher_config = publisher_config
@@ -114,7 +116,8 @@ class EventConsumer(evhandlers.DBConsumer):
                     exchange_name=self.publisher_config.exchange.name,
                     routing_key=routing_key,
                     message=json_body,
-                    content_type="application/json")
+                    content_type="application/json",
+                )
         except Exception:
             self.logger.warning("Unable to publish event (msg jti=%s)",
                                 message.get('jti'), exc_info=True)
@@ -125,7 +128,13 @@ class EventConsumer(evhandlers.DBConsumer):
 
 
 class EventListener(evhandlers.DBListener):
+    """
+    This is our event listener.
 
+    It connects to the database and waits for NOITFY events from the given
+    event channel.  Whenever a new event is written to the database, this
+    process adds it to the queue for processing by :cls:`.EventConsumer`.
+    """
     def __init__(self, **kwargs):
         kwargs['channels'] = [EVENT_CHANNEL, ]
         super(EventListener, self).__init__(**kwargs)
@@ -146,8 +155,17 @@ class EventListener(evhandlers.DBListener):
 
 
 class EventCollector(evhandlers.DBProducer):
-    """ Periodically fetch DB-events and push them onto the event queue. """
+    """
+    This is our event collector.
 
+    It periodically looks for unprocessed events in the database, and
+    conditionally adds those to the queue for processing by
+    :cls:`.EventConsumer`.
+
+    Normally events are added to the queue by :cls:`.EventListener` as soon as
+    they are written to the database, but this class deals with events/rows
+    that gets left behind (e.g. failed events).
+    """
     def __init__(self, config={}, **kwargs):
         self.config = config
         super(EventCollector, self).__init__(**kwargs)
@@ -155,8 +173,11 @@ class EventCollector(evhandlers.DBProducer):
     def process(self):
         _now = datetime.datetime.utcnow
         start = _now()
-        tmp_db = Factory.get('Database')(client_encoding='UTF-8')
+        tmp_db = Factory.get('Database')()
         event_db = eventdb.EventsAccessor(tmp_db)
+
+        # TODO: We should probably limit the number of events we can fetch here
+        # in one interval.
         for db_row in event_db.get_unprocessed(
                 self.config['failed_limit'],
                 self.config['failed_delay'],
@@ -167,8 +188,9 @@ class EventCollector(evhandlers.DBProducer):
             self.push(event)
         tmp_db.close()
 
-        # Ensure process() takes run_interval seconds, by sleeping in
-        # self.timeout intervals
+        # Ensure process() takes *run_interval* seconds, by sleeping in
+        # *self.timeout* intervals.  We can't just sleep for *run_interval*
+        # seconds, as the process also needs to check for shutdown.
         while self.running:
             if (_now() - start).total_seconds() > self.config['run_interval']:
                 # We've used at least run_interval seconds

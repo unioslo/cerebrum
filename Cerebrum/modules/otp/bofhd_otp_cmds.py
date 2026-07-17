@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2021-2022 University of Oslo, Norway
+# Copyright 2021-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -20,6 +20,12 @@
 """
 Bofhd ``person otp_*`` commands for managing shared otp secrets.
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 from operator import itemgetter
 
 from Cerebrum import Errors
@@ -182,7 +188,7 @@ class OtpAuth(BofhdAuth):
                 target_id=None,
                 get_all_op_attrs=True):
             # op has access to at least *one* opset with person_otp_set ...
-            op_attr = row.get('operation_attr')
+            op_attr = row['operation_attr']
             if not op_attr:
                 # ... and that opset has no op-attr limitations - this means
                 # that op has access to *all* relevant op-attrs through that

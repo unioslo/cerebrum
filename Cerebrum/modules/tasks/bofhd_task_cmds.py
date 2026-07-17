@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2022-2023 University of Oslo, Norway
+# Copyright 2022-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -20,8 +20,12 @@
 """
 This module contains generic commands for interacting with the task queues.
 """
-from __future__ import absolute_import, print_function, unicode_literals
-
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import logging
 
 from Cerebrum import Errors
@@ -37,7 +41,7 @@ from Cerebrum.modules.bofhd.cmd_param import (
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.help import merge_help_strings
 from Cerebrum.modules.bofhd import parsers
-from Cerebrum.modules.tasks.task_models import Task
+from Cerebrum.modules.tasks import task_models
 from Cerebrum.modules.tasks.task_queue import (
     TaskQueue,
     sql_search,
@@ -48,64 +52,23 @@ from Cerebrum.utils import date as date_utils
 logger = logging.getLogger(__name__)
 
 
-# task-id is a special value used to communicate task queue, sub-queue, and key
-# in one single argument between a bofh client and bofh server
-
-
-def parse_task_id(task_id, default_sub):
+def parse_task_id(*args, **kwargs):
     """ Parse task_id user input """
-    parts = task_id.split('/')
-    if len(parts) == 2:
-        queue, key = parts
-        sub = default_sub
-    elif len(parts) == 3:
-        queue, sub, key = parts
-    else:
-        raise CerebrumError('invalid task-id: %s'
-                            ' (valid formats: q/k, q/s/k, q//k)'
-                            % repr(task_id))
-
-    queue = queue.strip()
-    if not queue:
-        raise CerebrumError('invalid task-id: %s (missing queue)'
-                            % repr(task_id))
-    key = key.strip()
-    if not key:
-        raise CerebrumError('invalid task-id: %s (missing key)'
-                            % repr(task_id))
-
-    logger.debug('task_id=%r -> queue=%r, sub=%r, key=%r',
-                 task_id, queue, sub, key)
-    return (queue, sub, key)
-
-
-def format_task_id(task):
-    """ Format a valid task_id user input from task info. """
-    if isinstance(task, Task):
-        parts = task.queue, task.sub or '', task.key
-    else:
-        parts = task['queue'], task['sub'] or '', task['key']
-    return '/'.join(parts)
-
-
-def format_queue_id(task_like):
-    """ Format a queue_id (task_id without key). """
-    if isinstance(task_like, Task):
-        parts = task_like.queue, task_like.sub or ''
-    else:
-        parts = task_like['queue'], task_like['sub'] or ''
-    return '/'.join(parts)
+    try:
+        return task_models.parse_task_id(*args, **kwargs)
+    except ValueError as e:
+        raise CerebrumError(e)
 
 
 def format_task(task):
     """ Get Task dict, supplemented by task_id and queue_id. """
-    if isinstance(task, Task):
+    if isinstance(task, task_models.Task):
         task = task.to_dict()
     else:
         task = dict(task)
     task.update({
-        'task_id': format_task_id(task),
-        'queue_id': format_queue_id(task),
+        'task_id': task_models.format_task_id(task),
+        'queue_id': task_models.format_queue_id(task),
     })
     return task
 
@@ -113,7 +76,7 @@ def format_task(task):
 def format_queue_count(row):
     d = dict(row)
     d.update({
-        'queue_id': format_queue_id(d),
+        'queue_id': task_models.format_queue_id(d),
     })
     return d
 
@@ -151,7 +114,8 @@ class TaskSearchParams(parsers.ParamsParser):
         'issued-before': 'Limit to tasks issued before <datetime>',
         'issued-after': 'Limit to tasks issued after <datetime>',
         'before': 'Limit to tasks that are ready (at <datetime>)',
-        'after': 'Limit to tasks that are waiting (until <datetime>)'
+        'after': 'Limit to tasks that are waiting (until <datetime>)',
+        'reason': 'Limit to tasks matching a given reason <ipattern>',
     }
     params = {
         'queue': 'queues',
@@ -163,6 +127,7 @@ class TaskSearchParams(parsers.ParamsParser):
         'issued-after': 'iat_after',
         'before': 'nbf_before',
         'after': 'nbf_after',
+        'reason': 'reason_ilike',
     }
     parsers = {
         'min': int,
@@ -171,6 +136,7 @@ class TaskSearchParams(parsers.ParamsParser):
         'issued-after': parsers.parse_datetime,
         'before': parsers.parse_datetime,
         'after': parsers.parse_datetime,
+        'reason': parsers.parse_ipattern,
     }
     multivalued = set(('queue', 'sub', 'key'))
 
@@ -208,19 +174,32 @@ Example:  Find all tasks that are ready for processing in foo/ and foo/manual
 
     `task search queue:foo sub: sub:manual max:20 before:now`
 
-Valid filter params:
-
+Valid filter params
+-------------------
 {filters}
 
 
-Valid <datetime> values:
-
+Valid <datetime> values
+-----------------------
 {datetime}
+
+
+Matching with <ipattern>
+------------------------
+{ipattern}
+
+Example:  Find all tasks in queue foo that has failed at least 20 times, with a
+          given error message given as reason:
+
+  `task search queue:foo min:20 reason:"* error=504 Gateway Timeout *"
+
 """.format(
-    filters='\n'.join(
-        ' - {}: {}'.format(f, h)
-        for f, h in _task_filter_parser.get_help()),
-    datetime=parsers.parse_datetime_help_blurb,
+    filters="\n".join(
+        " - {}: {}".format(f, h)
+        for f, h in _task_filter_parser.get_help()
+    ).strip(),
+    datetime=parsers.parse_datetime_help_blurb.strip(),
+    ipattern=parsers.parse_ipattern_help_blurb.strip(),
 )
 
 
@@ -251,7 +230,7 @@ class BofhdTaskAuth(BofhdAuth):
                         query_run_any=False):
         return self._can_modify_tasks(operator, query_run_any=query_run_any)
 
-    def can_inspect_tasks(self, operator, query_run_any=False):
+    def can_inspect_tasks(self, operator, queue=None, query_run_any=False):
         return self._can_modify_tasks(operator, query_run_any=query_run_any)
 
 
@@ -300,7 +279,11 @@ class BofhdTaskCommands(BofhdCommonMethods):
         try:
             task = TaskQueue(self.db).pop_task(queue, sub, key)
         except Errors.NotFoundError:
-            mock_id = format_task_id({'queue': queue, 'sub': sub, 'key': key})
+            mock_id = task_models.format_task_id({
+                'queue': queue,
+                'sub': sub,
+                'key': key,
+            })
             raise CerebrumError('No matching task: ' + mock_id)
         return format_task(task)
 
@@ -456,8 +439,10 @@ class BofhdTaskCommands(BofhdCommonMethods):
                 _task_filter_help_blurb,
             ],
         }
-        return merge_help_strings(get_help_strings(),
-                                  (grp_help, cmd_help, arg_help))
+        return merge_help_strings(
+            get_help_strings(),
+            (grp_help, cmd_help, arg_help),
+        )
 
     #
     # task info <task-id>
@@ -470,7 +455,7 @@ class BofhdTaskCommands(BofhdCommonMethods):
     )
 
     def task_info(self, operator, task_id):
-        queue, sub, key = parse_task_id(task_id, None)
+        queue, sub, key = parse_task_id(task_id, require_sub=False)
         self.ba.can_inspect_tasks(operator.get_entity_id())
         tasks = list(self._search_tasks({'queues': queue, 'subs': sub,
                                          'keys': key}))
@@ -489,13 +474,9 @@ class BofhdTaskCommands(BofhdCommonMethods):
     )
 
     def task_add(self, operator, task_id):
-        queue, sub, key = parse_task_id(task_id, None)
-        if sub is None:
-            raise CerebrumError('Invalid task-id: %s'
-                                ' (must include sub-queue to add task)'
-                                % repr(task_id))
+        queue, sub, key = parse_task_id(task_id)
         self.ba.can_add_task(operator.get_entity_id(), queue=queue, sub=sub)
-        task = Task(queue=queue, key=key, sub=sub)
+        task = task_models.Task(queue=queue, key=key, sub=sub)
         return self._add_task(task)
 
     #
@@ -510,11 +491,7 @@ class BofhdTaskCommands(BofhdCommonMethods):
 
     def task_remove(self, operator, task_id):
         """ Cancel a previously added import task from the hr import queue. """
-        queue, sub, key = parse_task_id(task_id, None)
-        if sub is None:
-            raise CerebrumError('Invalid task-id: %s'
-                                ' (must include sub-queue to remove task)'
-                                % repr(task_id))
+        queue, sub, key = parse_task_id(task_id)
         self.ba.can_remove_task(operator.get_entity_id(), queue=queue, sub=sub)
         return self._remove_task(queue, sub, key)
 

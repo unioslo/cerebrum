@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2004-2018 University of Oslo, Norway
+# Copyright 2004-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,12 +17,13 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" compatibility module.
-
-Job configurations (scheduled_jobs) used to import the names in __all__ from
-this module.
-
 """
+Legacy compatibility module.
+
+Job configurations (scheduled_jobs) has traditionally imported the names in
+`__all__` from this module.
+"""
+from __future__ import absolute_import
 
 # Compat
 from .times import When, Time

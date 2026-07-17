@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-# Copyright 2005-2023 University of Oslo, Norway
+#
+# Copyright 2005-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,26 +17,34 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
 """
 This module provides an interface to store objects representing XML
 information in Cerebrum. It is intended to go together with xml2object
 module (and its various incarnations (SAP, LT, etc.).
 """
-from __future__ import unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import collections
 import cereconf
 import datetime
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
+from Cerebrum.modules.ou_import import legacy_xml2ou
+from Cerebrum.modules.ou_import import ou_sync
 from Cerebrum.modules.xmlutils.xml2object import DataAddress, DataContact
 from Cerebrum.modules.xmlutils.xml2object import HRDataPerson
-from Cerebrum.modules.xmlutils.sapxml2object import SAPPerson
 from Cerebrum.utils import date_compat
 
 
-class XML2Cerebrum:
+class XML2Cerebrum(object):
+
+    # Map a legacy xml DataOU object to a PreparedOrgUnit for the ou writer.
+    ou_mapper = legacy_xml2ou.LegacyObjectMapper()
 
     def __init__(self, db, source_system, logger, ou_ldap_visible=True):
         self.db = db
@@ -46,6 +53,8 @@ class XML2Cerebrum:
         self.db.cl_init(change_program="XML->Cerebrum")
         self.source_system = source_system
         self.ou_ldap_visible = ou_ldap_visible
+        self.ou_writer = ou_sync.OuWriter(db, source_system,
+                                          publish_all=ou_ldap_visible)
 
         self.stedkode = Factory.get("OU")(db)
         self.person = Factory.get("Person")(db)
@@ -79,10 +88,10 @@ class XML2Cerebrum:
             self.xmladdr2db[
                 DataAddress.ADDRESS_OTHER_BESOK] = const.address_other_street
 
-        self.idxml2db = {HRDataPerson.NO_SSN: const.externalid_fodselsnr,
-                         HRDataPerson.PASSNR: const.externalid_pass_number,
-                         SAPPerson.SAP_NR: const.externalid_sap_ansattnr, }
-    # end __init__
+        self.idxml2db = {
+            HRDataPerson.NO_SSN: const.externalid_fodselsnr,
+            HRDataPerson.PASSNR: const.externalid_pass_number,
+        }
 
     def locate_or_create_person(self, xmlperson, dbperson):
         """Locate (or indeed create) the proper person entity in the db.
@@ -189,7 +198,6 @@ class XML2Cerebrum:
                 list(xmlperson.iterids()))
 
         return True
-    # end locate_or_create_person
 
     def match_sap_ids(self, xmlperson, dbperson):
         "Check if SAP IDs (ansatt#) on file matches the value in Cerebrum."
@@ -203,7 +211,6 @@ class XML2Cerebrum:
 
         # Either the DB is empty (a new ID is allowed) or they *MUST* match
         return (sap_id_in_db == "") or (sap_id_on_file == sap_id_in_db)
-    # end match_sap_ids
 
     def store_person(self, xmlperson, work_titles, affiliations, traits):
         """Store all information we can from xmlperson.
@@ -364,7 +371,6 @@ class XML2Cerebrum:
             status = "UPDATE"
 
         return status, person.entity_id
-    # end store_person
 
     @staticmethod
     def _calculate_precedence(source_system, main):
@@ -409,7 +415,6 @@ class XML2Cerebrum:
                              self.constants.PersonAffiliation(aff),
                              self.constants.PersonAffStatus(aff_stat),
                              ou_id)
-    # end _assign_person_affiliations
 
     def _assign_person_traits(self, person, traits):
         """Assign HR-data originated traits to a person.
@@ -440,285 +445,20 @@ class XML2Cerebrum:
                              person.entity_id,
                              self.constants.EntityTrait(trait),
                              ou_id, roleid)
-    # end _assign_person_traits
 
     def __ou_is_expired(self, xmlou):
         """Check if OU is expired compared to today's date."""
         end_date = date_compat.get_date(xmlou.end_date)
         return end_date and end_date < datetime.date.today()
 
-    def store_ou(self, xmlou, old_ou_cache=None):
-        """Store all information we can from xmlou.
-        xmlou is a class inheriting from xml2object.DataOU.
-
-        old_ou_cache is a cache of ou_ids that already exist in cerebrum (and
-        that we might want to clear).
-
-        NB! No parent information is stored in this method.
-
-        The method returns a pair (status, ou_id), where status is the update
-        status of the operation, and ou_id is the entity_id in Cerebrum of an
-        OU corresponding to xmlou.
+    def store_ou(self, xmlou):
         """
+        Store DataOU data in Cerebrum.
 
-        ou = self.stedkode
-        ou.clear()
-        const = self.constants
+        :param DataOU xmlou:
+            Object parsed from xml file using system2parser
 
-        # We need sko, acronym, short_name, display_name, sort_name and parent.
-        raw_sko = xmlou.get_id(xmlou.NO_SKO)
-        sko_t = tuple(raw_sko[0:3])
-        sko_s = "{:02d}{:02d}{:02d}".format(*sko_t)
-
-        try:
-            ou.find_stedkode(sko_t[0], sko_t[1], sko_t[2],
-                             cereconf.DEFAULT_INSTITUSJONSNR)
-        except Errors.NotFoundError:
-            pass
-        else:
-            #
-            # Although it is impossible for an OU *not* to be in cache when we
-            # find its sko in find_stedkode() above, *IF* the data source
-            # duplicates an OU (clear error in the data source), then this
-            # situation still may happen.
-            if old_ou_cache and int(ou.entity_id) in old_ou_cache:
-                del old_ou_cache[int(ou.entity_id)]
-                for r in ou.get_entity_quarantine():
-                    q_type = r['quarantine_type']
-                    if (q_type == const.quarantine_ou_notvalid or
-                            q_type == const.quarantine_ou_remove):
-                        ou.delete_entity_quarantine(q_type)
-
-        # Do not touch name information for an OU that has been expired. It
-        # may not conform to all of our requirements.
-        if not self.__ou_is_expired(xmlou):
-            ou.populate(sko_t[0], sko_t[1], sko_t[2],
-                        institusjon=cereconf.DEFAULT_INSTITUSJONSNR)
-        else:
-            self.logger.debug("OU ids=%s is expired. Its names will not be "
-                              "updated", list(xmlou.iterids()))
-
-        # custom orgreg import fields
-        external_ids = []
-        external_ids.append((self.constants.externalid_location_code, sko_s))
-        if hasattr(self.constants, 'externalid_dfo_ou_id'):
-            external_ids.append((self.constants.externalid_dfo_ou_id,
-                                 xmlou.get_id(xmlou.NO_DFO)))
-        if hasattr(self.constants, 'externalid_orgreg_id'):
-            external_ids.append((self.constants.externalid_orgreg_id,
-                                 xmlou.get_id(xmlou.NO_ORGREG)))
-
-        if external_ids:
-            affect = tuple(t for t, v in external_ids)
-            ou.affect_external_id(self.source_system, *affect)
-
-            for id_type, id_value in external_ids:
-                if not id_value:
-                    continue
-                ou.populate_external_id(self.source_system, id_type, id_value)
-
-        self._sync_all_ou_contacts(ou, xmlou)
-        self._sync_all_ou_addresses(ou, xmlou)
-        op = ou.write_db()
-
-        self._sync_all_ou_names(ou, xmlou)
-        op2 = self._sync_all_ou_spreads(ou, xmlou)
-        if op is None and not op2:
-            status = "EQUAL"
-        elif op:
-            status = "NEW"
-        else:
-            status = "UPDATE"
-
-        return status, ou.entity_id
-    # end store_ou
-
-    def _sync_all_ou_contacts(self, ou, xmlou):
-        """Register all contact information for ou from xmlou."""
-
-        for contact in xmlou.itercontacts():
-            ou.populate_contact_info(self.source_system,
-                                     self.xmlcontact2db[contact.kind],
-                                     contact.value,
-                                     contact_pref=contact.priority)
-    # end _sync_all_ou_contacts
-
-    def _sync_all_ou_addresses(self, ou, xmlou):
-        """Register all addresses for ou from xmlou."""
-
-        for addr_kind, addr in xmlou.iteraddress():
-            ou.populate_address(self.source_system,
-                                self.xmladdr2db[addr_kind],
-                                address_text=addr.street,
-                                postal_number=addr.zip,
-                                city=addr.city,
-                                # TBD: country code table i Cerebrum is empty
-                                country=None)
-    # end _sync_all_ou_addresses
-
-    def _sync_all_ou_names(self, ou, xmlou):
-        """Synchronise name data in all languages for the specified OU.
-
-        Caveat: ou *must* have an entity_id associated with it (i.e. if it's
-        populated for the first time, there must be a prior write_db() call).
+        :rtype: Cerebrum.OU.OU
         """
-
-        co = self.constants
-        name_map = {xmlou.NAME_ACRONYM: (co.ou_name_acronym,),
-                    xmlou.NAME_SHORT: (co.ou_name_short,),
-                    xmlou.NAME_LONG: (co.ou_name, co.ou_name_display,), }
-        for (name_kind, names) in xmlou.iternames():
-            db_keys = name_map.get(name_kind, ())
-            if not db_keys:
-                continue
-
-            if not names:
-                # If there are no names of the specified type (i.e. db_keys)
-                # from the authoritative system, we drop whatever may exist in
-                # the db. This corresponds to name data disappearing from the
-                # authoritative source
-                ou.delete_name_with_language(name_variant=db_keys)
-                continue
-
-            for xml_name in names:
-                name_language = co.LanguageCode(xml_name.language)
-                for db_key in db_keys:
-                    ou.add_name_with_language(name_variant=db_key,
-                                              name_language=name_language,
-                                              name=xml_name.value)
-        return ou
-    # end _sync_all_ou_names
-
-    def _sync_all_ou_spreads(self, ou, xmlou):
-        """Synchronise all spreads for a specified OU.
-
-        ou and xmlou are different representations of the logically same OU.
-        """
-        const = self.constants
-
-        # 'publishable' -> spread_ou_publishable
-        if ((getattr(xmlou, "publishable", False) or self.ou_ldap_visible) and
-            not self.__ou_is_expired(xmlou) and
-                not ou.has_spread(const.spread_ou_publishable)):
-            ou.add_spread(const.spread_ou_publishable)
-
-        # Before we can give a spread, we need an entity_id. Thus, this
-        # operation happens after the first write_db().
-        if not self.__ou_is_expired(xmlou):
-            op = self._sync_auto_ou_spreads(ou, xmlou.iter_usage_codes())
-        # For the expired OUs there is no sync -- they loose all spreads.
-        else:
-            ou_spreads = [int(row["spread"]) for row in ou.get_spread()]
-            if ou_spreads:
-                self.logger.debug("OU ids=%s loses all spreads %s, since it "
-                                  "has expired",
-                                  list(xmlou.iterids()),
-                                  [str(const.Spread(x)) for x in ou_spreads])
-            for spread in ou_spreads:
-                ou.delete_spread(spread)
-            op = ou.write_db()
-
-        return op
-    # end _sync_all_ou_spreads
-
-    def _sync_auto_ou_spreads(self, ou, usage_codes):
-        """Synchronise auto-assigned OU spreads for ou.
-
-        @type ou: instance of Factory.get('OU')
-        @param ou:
-          OU we are processing in this call. The object must be associated
-          with an ou in cerebrum.
-
-        @type usage_codes: iterable (over basestrings)
-        @param usage_codes:
-          A iterable over usage codes that determine L{ou}'s spreads in this
-          run. After the method completes, L{ou} has exactly the spreads
-          corresponding to L{usage_codes}.
-
-          Caveat 1: Naturally, it is possible to assign spreads only to those
-          usage codes that are actually defined in cereconf. If a usage code
-          is unknown in cereconf.OU_USAGE_SPREAD, it is simply ignored.
-
-          Caveat 2: If someone removes a mapping from cereconf.OU_USAGE_SPREAD,
-          that spread will no longer be automatically administered.
-
-          Caveat 3: We do a sync, not a simple add.
-        """
-
-        status = None
-        if not hasattr(cereconf, "OU_USAGE_SPREAD"):
-            return status
-
-        tmp = cereconf.OU_USAGE_SPREAD
-        # IVR 2008-01-31 TBD: obvious optimization -- do not calculate this
-        # set every time.
-        all_usage_spreads = self._load_usage_spreads(tmp.itervalues(),
-                                                     self.constants.entity_ou)
-        ou_usage_spreads = self._load_usage_spreads(
-            # select those usage codes, that are actually 'mappable'
-            [tmp[x] for x in usage_codes if x in tmp],
-            self.constants.entity_ou)
-
-        to_remove = all_usage_spreads.difference(ou_usage_spreads)
-        for spread in ou_usage_spreads:
-            if not ou.has_spread(spread):
-                self.logger.debug("adding spread %s to ou id=%s",
-                                  self.constants.Spread(spread), ou.entity_id)
-                ou.add_spread(spread)
-                status = True
-        ou.write_db()
-
-        # and now remove the ones that the OU is NOT supposed to have
-        # (anymore)
-        for spread in to_remove:
-            if ou.has_spread(spread):
-                self.logger.debug("removing spread %s from ou id=%s",
-                                  self.constants.Spread(spread), ou.entity_id)
-                ou.delete_spread(spread)
-                status = True
-        ou.write_db()
-
-        return status
-    # end _sync_ou_spreads
-
-    def _load_usage_spreads(self, iterable, desired_entity_type):
-        """Convert a sequence of string codes to spread constants.
-
-        This method is meant for internal usage only. It converts an iterable
-        into a set of spread constants (ints) that exist in cerebrum.
-
-        @type iterable: an iterator or an iterable sequence
-        @param iterable:
-          A sequence of spread code_str that we want to have remapped to the
-          actual spread codes.
-
-        @type desired_entity_type: instance of EntityTypeCode
-        @param desired_entity_type:
-          A constant describing the entity type (OU, Person, Group, etc.) to
-          which the spreads must be 'tied' (all spreads have an associated
-          entity type).
-
-        @rtype: set of ints
-        @return:
-          A set of spread codes (ints) that correspond to the items in
-          L{iterable}. NB! Some elements in iterable may be skipped, if they
-          cannot be remapped to a suitable spread.
-        """
-
-        const = self.constants
-        result = set()
-        for item in iterable:
-            try:
-                spread = int(const.Spread(item))
-                if const.Spread(spread).entity_type != desired_entity_type:
-                    self.logger.warn("Spread %s is associate with %s, not %s",
-                                     spread, const.Spread(spread).entity_type,
-                                     desired_entity_type)
-                    continue
-                result.add(spread)
-            except Errors.NotFoundError:
-                self.logger.warn("Cowardly refusing to use unknown spread %s",
-                                 item)
-        return result
-    # end _load_usage_spreads
-# end XML2Cerebrum
+        prepared_ou = self.ou_mapper.prepare(xmlou)
+        return self.ou_writer.sync_ou(prepared_ou)

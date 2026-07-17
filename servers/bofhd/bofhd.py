@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2002-2023 University of Oslo, Norway
+# Copyright 2002-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -42,38 +42,41 @@ from __future__ import (
     absolute_import,
     division,
     print_function,
-    # TODO: unicode_literals,
+    unicode_literals,
 )
 
+import argparse
+import logging
 import os
-import thread
+try:
+    import thread as _thread
+except ImportError:
+    import _thread
 import threading
 
 import cereconf
 
-from Cerebrum import Errors
-from Cerebrum import Utils
-from Cerebrum import https
+import Cerebrum.Errors
+import Cerebrum.https
+import Cerebrum.logutils
+import Cerebrum.logutils.options
+from Cerebrum.Utils import Factory
 
 from Cerebrum.modules.bofhd import config as bofhd_config
 from Cerebrum.modules.bofhd import server as bofhd_server
 from Cerebrum.modules.bofhd import session as bofhd_session
 
-# An installation *may* have many instances of bofhd running in parallel. If
-# this is the case, make sure that all of the instances get their own
-# logger. Otherwise, depending on the logger used, the physical entity
-# representing the log (typically a file) may not cope with multiple processes
-# writing to it simultaneously.
-logger = Utils.Factory.get_logger("bofhd")
+logger = logging.getLogger(__name__)
 
 
 def thread_name():
     """ Get current thread name. """
-    # FIXME: Used in log messages, fix log format to get this automatically
+    # FIXME: Used to track per-tread db connectinos.  This could probably be
+    # done differently.
     return threading.currentThread().getName()
 
 
-_db_pool_lock = thread.allocate_lock()
+_db_pool_lock = _thread.allocate_lock()
 
 
 class ProxyDBConnection(object):
@@ -105,10 +108,10 @@ class ProxyDBConnection(object):
             running_threads = []
             for t in threading.enumerate():
                 running_threads.append(t.getName())
-            logger.debug("  Threads: " + str(running_threads))
-            for p in self.active_connections.keys():
+            logger.debug("  Threads: %s", str(running_threads))
+            for p in list(self.active_connections.keys()):
                 if p not in running_threads:
-                    logger.debug("  Close " + p)
+                    logger.debug("  Close %s", p)
                     # self.active_connections[p].close()
                     self.free_pool.append(self.active_connections[p])
                     del self.active_connections[p]
@@ -117,7 +120,8 @@ class ProxyDBConnection(object):
             else:
                 obj = self.free_pool.pop(0)
             self.active_connections[thread_name()] = obj
-            logger.debug("  Open: " + str(self.active_connections.keys()))
+            logger.debug("  Open: %s",
+                         str(list(self.active_connections.keys())))
             _db_pool_lock.release()
         return getattr(obj, attrib)
 
@@ -132,7 +136,7 @@ def test_help(config, target):
     :param string target: The help texts test
 
     """
-    db = Utils.Factory.get('Database')()
+    db = Factory.get('Database')()
     server = bofhd_server.BofhdServerImplementation(logger=logger,
                                                     bofhd_config=config)
 
@@ -141,8 +145,8 @@ def test_help(config, target):
 
     # Fetch superuser
     try:
-        const = Utils.Factory.get("Constants")()
-        group = Utils.Factory.get('Group')(db)
+        const = Factory.get("Constants")()
+        group = Factory.get('Group')(db)
         group.find_by_name(cereconf.BOFHD_SUPERUSER_GROUP)
         superusers = [int(x["member_id"]) for x in group.search_members(
             group_id=group.entity_id, indirect_members=True,
@@ -150,7 +154,7 @@ def test_help(config, target):
         some_superuser = superusers[0]
     except AttributeError:
         raise error("No superuser group defined in cereconf")
-    except Errors.NotFoundError:
+    except Cerebrum.Errors.NotFoundError:
         raise error("Superuser group %s not found" %
                     cereconf.BOFHD_SUPERUSER_GROUP)
     except IndexError:
@@ -160,7 +164,7 @@ def test_help(config, target):
     commands = {}
     for inst in server.cmd_instances:
         newcmd = inst.get_commands(some_superuser)
-        for k in newcmd.keys():
+        for k in list(newcmd.keys()):
             if inst is not server.cmd2instance[k]:
                 print("Skipping:", k)
                 continue
@@ -181,59 +185,81 @@ def auth_dir(filename):
     return os.path.join(getattr(cereconf, 'DB_AUTH_DIR', '.'), filename)
 
 
-if __name__ == '__main__':
-    import argparse
+def main(argv=None):
+    parser = argparse.ArgumentParser(
+        description="Start the Cerebrum XMLRPC server",
+    )
+    parser.add_argument(
+        '-c', '--config-file',
+        required=True,
+        default=None,
+        dest='conffile',
+        metavar='<config>',
+        help="The bofh configuration file",
+    )
+    parser.add_argument(
+        '-H', '--host',
+        default='0.0.0.0',
+        metavar='<hostname>',
+        help='Host binding IP-address or domain name',
+    )
+    parser.add_argument(
+        '-p', '--port',
+        default=8000,
+        type=int,
+        metavar='<port>',
+        help='Listen port',
+    )
+    parser.add_argument(
+        '--unencrypted',
+        default=True,
+        action='store_false',
+        dest='use_encryption',
+        help='Run the server without encryption',
+    )
+    parser.add_argument(
+        '-m', '--multi-threaded',
+        default=False,
+        action='store_true',
+        dest='multi_threaded',
+        help='Run multi-threaded',
+    )
+    parser.add_argument(
+        '-t', '--test-help',
+        default=None,
+        dest='test_help',
+        metavar='<test type>',
+        help='Check the consistency of help texts',
+    )
+    parser.add_argument(
+        '--ca',
+        default=auth_dir('ca.pem'),
+        dest='ca_file',
+        metavar='<PEM-file>',
+        help='CA certificate chain',
+    )
+    parser.add_argument(
+        '--cert',
+        default=auth_dir('server.cert'),
+        dest='cert_file',
+        metavar='<PEM-file>',
+        help='Server certificate and private key',
+    )
+    parser.add_argument(
+        '--ssl-version',
+        default=list(Cerebrum.https.SSL_VERSION.values())[-1],
+        dest='ssl_version',
+        metavar='<version>',
+        choices=list(Cerebrum.https.SSL_VERSION.keys()),
+        help=(
+            'SSL protocol version (default: %(default)s, '
+            'available: %(choices)s)'
+        ),
+    )
+    Cerebrum.logutils.options.install_subparser(parser)
 
-    argp = argparse.ArgumentParser(description=u"The Cerebrum bofh server")
-    argp.add_argument('-c', '--config-file',
-                      required=True,
-                      default=None,
-                      dest='conffile',
-                      metavar='<config>',
-                      help=u"The bofh configuration file")
-    argp.add_argument('-H', '--host',
-                      default='0.0.0.0',
-                      metavar='<hostname>',
-                      help='Host binding IP-address or domain name')
-    argp.add_argument('-p', '--port',
-                      default=8000,
-                      type=int,
-                      metavar='<port>',
-                      help='Listen port')
-    argp.add_argument('--unencrypted',
-                      default=True,
-                      action='store_false',
-                      dest='use_encryption',
-                      help='Run the server without encryption')
-    argp.add_argument('-m', '--multi-threaded',
-                      default=False,
-                      action='store_true',
-                      dest='multi_threaded',
-                      help='Run multi-threaded')
-    argp.add_argument('-t', '--test-help',
-                      default=None,
-                      dest='test_help',
-                      metavar='<test type>',
-                      help='Check the consistency of help texts')
-    argp.add_argument('--ca',
-                      default=auth_dir('ca.pem'),
-                      dest='ca_file',
-                      metavar='<PEM-file>',
-                      help='CA certificate chain')
-    argp.add_argument('--cert',
-                      default=auth_dir('server.cert'),
-                      dest='cert_file',
-                      metavar='<PEM-file>',
-                      help='Server certificate and private key')
-    argp.add_argument('--ssl-version',
-                      default=list(https.SSL_VERSION.values())[-1],
-                      dest='ssl_version',
-                      metavar='<version>',
-                      choices=list(https.SSL_VERSION.keys()),
-                      help='SSL protocol version (default: %(default)s, '
-                           'available: %(choices)s)')
-
-    args = argp.parse_args()
+    args = parser.parse_args(argv)
+    Cerebrum.logutils.autoconf("bofhd", args)
 
     # Read early to fail early
     config = bofhd_config.BofhdConfig(args.conffile)
@@ -254,8 +280,10 @@ if __name__ == '__main__':
     }
 
     if args.use_encryption:
-        ssl_config = https.SSLConfig(ca_certs=args.ca_file,
-                                     certfile=args.cert_file)
+        ssl_config = Cerebrum.https.SSLConfig(
+            ca_certs=args.ca_file,
+            certfile=args.cert_file,
+        )
         ssl_config.set_ca_validate(ssl_config.OPTIONAL)
         ssl_config.set_ssl_version(args.ssl_version)
         server_args['ssl_config'] = ssl_config
@@ -281,7 +309,7 @@ if __name__ == '__main__':
     #       This *should* be OK, but we need to re-consider the design of this
     #       cache
     logger.debug("Caching constants...")
-    constants = Utils.Factory.get('Constants')()
+    constants = Factory.get("Constants")()
     constants.cache_constants()
     del constants
     logger.debug("Done caching constants")
@@ -299,3 +327,7 @@ if __name__ == '__main__':
 
     server = cls(**server_args)
     server.serve_forever()
+
+
+if __name__ == '__main__':
+    main()

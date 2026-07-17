@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2021 University of Oslo, Norway
+# Copyright 2021-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,7 +17,15 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" Configuration for generating tasks.  """
+"""
+Configuration for generating tasks.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 from Cerebrum.config.configuration import (
     ConfigDescriptor,
@@ -39,8 +46,7 @@ class Callable(Setting):
 
     See :py:func:`Cerebrum.utils.module.resolve` for format.
     """
-
-    # TODO: Do we want this in Cerebrum.config.settings?
+    # Move this to Cerebrum.config.settings if needed elsewhere
 
     def serialize(self, value):
         if value is None:

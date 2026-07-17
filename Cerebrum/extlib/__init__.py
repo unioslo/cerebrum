@@ -31,8 +31,7 @@ Bundled and/or modified third party modules.
 
 ``xmlprinter``
     Simplified xml formatting util, based on *xmlprinter v0.1.0*.  Widely used
-    in contrib scripts for formatting XML output.  Also used in:
+    in contrib scripts for formatting XML output.
 
-    - ``Cerebrum.modules.fs.import_from_FS.ImportFromFs``
-    - ``Cerebrum.modules.xmlutils.GeneralXMLWriter.XMLWriter``
+    Also used in ``Cerebrum.modules.fs.import_from_FS.ImportFromFs``
 """

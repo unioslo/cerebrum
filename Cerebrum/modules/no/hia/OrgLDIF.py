@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2004-2022 University of Oslo, Norway
+# Copyright 2004-2025 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,12 +17,19 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import logging
 from collections import defaultdict
 
-from six import text_type
+import six
 
 from Cerebrum import Entity
+from Cerebrum.export import addresses as addr_export
 from Cerebrum.modules.feide.ldif_mixins import NorEduAuthnLevelMixin
 from Cerebrum.modules.no.OrgLDIF import NorEduSmsAuthnMixin
 from Cerebrum.modules.no.OrgLDIF import OrgLdifEntitlementsMixin
@@ -31,6 +38,7 @@ from Cerebrum.modules.LDIFutils import (
     normalize_string,
 )
 from Cerebrum.Utils import make_timer
+from Cerebrum.utils.descriptors import lazy_property
 
 logger = logging.getLogger(__name__)
 
@@ -87,17 +95,17 @@ class UiaOrgLdif(OrgLdifEntitlementsMixin,
         entity = Entity.EntityContactInfo(self.db)
         cont_tab = defaultdict(list)
         if not convert:
-            convert = text_type
+            convert = six.text_type
         if not verify:
             verify = bool
         for row in entity.list_contact_info(source_system=source_system,
                                             contact_type=contact_type):
-            alias = convert(text_type(row['contact_alias']))
+            alias = convert(six.text_type(row['contact_alias']))
             if alias and verify(alias):
                 cont_tab[int(row['entity_id'])].append(alias)
 
         return dict((key, attr_unique(values, normalize=normalize))
-                    for key, values in cont_tab.iteritems())
+                    for key, values in six.iteritems(cont_tab))
 
     def init_person_titles(self):
         """Extends the person_titles dict with employment titles available via
@@ -112,3 +120,18 @@ class UiaOrgLdif(OrgLdifEntitlementsMixin,
                 title = [(self.const.language_nb, emp['description'])]
                 self.person_titles[emp['person_id']] = title
         timer("...personal employment titles done.")
+
+    #
+    # Address stuff
+    #
+
+    @lazy_property
+    def person_address_cache(self):
+        # UiA only uses personal street address - this replaces the default
+        # cache with one that doesn't have any postalAddress data
+        return addr_export.AddressCache(
+            self.db,
+            address_types=(self.const.address_street,),
+            source_systems=(self.person_address_source_system,),
+            entity_types=(self.const.entity_person,),
+        )

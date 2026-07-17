@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2016-2018 University of Oslo, Norway
+# Copyright 2016-2025 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,27 +17,40 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" Feide attribute bofhd commands.
+"""
+Feide attribute bofhd commands.
 
 This module contains commands for managing Feide services and
 multifactor authentication for those services.
 """
-import six
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+import textwrap
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
-from Cerebrum.modules.bofhd.cmd_param import (Command,
-                                              FormatSuggestion,
-                                              SimpleString,
-                                              Integer,
-                                              YesNo)
+from Cerebrum.modules.bofhd.cmd_param import (
+    Command,
+    FormatSuggestion,
+    SimpleString,
+    Integer,
+    YesNo,
+)
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
-from Cerebrum.modules.feide.service import (FeideService,
-                                            FeideServiceAuthnLevelMixin)
-from Cerebrum.modules.feide.feide_utils import (is_valid_feide_id_type,
-                                                is_keyword_all)
+from Cerebrum.modules.feide.service import (
+    FeideService,
+    FeideServiceAuthnLevelMixin,
+)
+from Cerebrum.modules.feide.feide_utils import (
+    is_keyword_all,
+    is_valid_feide_id_type,
+)
 
 
 class BofhdFeideAuth(BofhdAuth):
@@ -51,6 +64,7 @@ class BofhdFeideAuth(BofhdAuth):
         if query_run_any:
             return False
         raise PermissionDenied('No access to feide commands')
+
 
 class BofhdExtension(BofhdCommonMethods):
     """Commands for managing Feide services and multifactor authentication."""
@@ -68,7 +82,6 @@ class BofhdExtension(BofhdCommonMethods):
             raise CerebrumError('No such Feide service')
         return fse
 
-
     @classmethod
     def get_help_strings(cls):
         """ Help strings for Feide commands. """
@@ -81,7 +94,8 @@ class BofhdExtension(BofhdCommonMethods):
         ('feide', 'service_add'),
         Integer(help_ref='feide_service_id'),
         SimpleString(help_ref='feide_service_name'),
-        perm_filter='can_access_feide')
+        perm_filter='can_access_feide',
+    )
 
     def feide_service_add(self, operator, feide_id, service_name):
         """ Add a Feide service
@@ -119,7 +133,8 @@ class BofhdExtension(BofhdCommonMethods):
         ('feide', 'service_remove'),
         SimpleString(help_ref='feide_service_name'),
         YesNo(help_ref='feide_service_confirm_remove'),
-        perm_filter='can_access_feide')
+        perm_filter='can_access_feide',
+    )
 
     def feide_service_remove(self, operator, service_name, confirm):
         """ Remove a Feide service. """
@@ -140,8 +155,10 @@ class BofhdExtension(BofhdCommonMethods):
         ('feide', 'service_list'),
         fs=FormatSuggestion(
             '%-10i %-37s %s', ('service_id', 'feide_id', 'name'),
-            hdr='%-10s %-37s %s' % ('Entity ID', 'Feide ID', 'Name')),
-        perm_filter='can_access_feide')
+            hdr='%-10s %-37s %s' % ('Entity ID', 'Feide ID', 'Name')
+        ),
+        perm_filter='can_access_feide',
+    )
 
     def feide_service_list(self, operator):
         """
@@ -156,7 +173,7 @@ class BofhdExtension(BofhdCommonMethods):
         self.ba.can_access_feide(operator.get_entity_id())
 
         fse = FeideService(self.db)
-        return map(dict, fse.search())
+        return [dict(row) for row in fse.search()]
 
     #
     # feide authn_level_add
@@ -166,7 +183,8 @@ class BofhdExtension(BofhdCommonMethods):
         SimpleString(help_ref='feide_service_name'),
         SimpleString(help_ref='feide_authn_entity_target'),
         Integer(help_ref='feide_authn_level'),
-        perm_filter='can_access_feide')
+        perm_filter='can_access_feide',
+    )
 
     def feide_authn_level_add(self, operator, service_name, target, level):
         """ Add an authentication level for a given service and entity. """
@@ -199,7 +217,8 @@ class BofhdExtension(BofhdCommonMethods):
         SimpleString(help_ref='feide_service_name'),
         SimpleString(help_ref='feide_authn_entity_target'),
         Integer(help_ref='feide_authn_level'),
-        perm_filter='can_access_feide')
+        perm_filter='can_access_feide',
+    )
 
     def feide_authn_level_remove(self, operator, service_name, target, level):
         """ Remove an authentication level for a given service and entity. """
@@ -285,23 +304,38 @@ HELP_FEIDE_CMDS = {
 }
 
 HELP_FEIDE_ARGS = {
-    'feide_service_name':
-        ['service_name', 'Enter Feide service name'],
-    'feide_service_id':
-        ['feide_id', 'Enter Feide service ID'],
-    'feide_service_confirm_remove':
-        ['confirm',
-         'This will remove any authentication levels associated with '
-         'this service. Continue? [y/n]'],
-    'feide_authn_level':
-        ['level', 'Enter authentication level'],
-    'feide_authn_entity_target':
-        ['entity', 'Enter an existing entity',
-         "Enter the entity as type:name, for example: 'group:admin-users'\n\n"
-         "If only a name is entered, it will be assumed to be an"
-         " account name.\n\n"
-         "Supported types are:\n"
-         " - 'person' (name of user => Person)\n"
-         " - 'group' (name of group => Group)\n"
-         " - 'id' (entity ID => any Person or Group)"],
+    'feide_service_name': [
+        'service_name',
+        'Enter Feide service name',
+    ],
+    'feide_service_id': [
+        'feide_id',
+        'Enter Feide service ID',
+    ],
+    'feide_service_confirm_remove': [
+        'confirm',
+        'This will remove any authentication levels associated with '
+        'this service. Continue? [y/n]',
+    ],
+    'feide_authn_level': [
+        'level',
+        'Enter authentication level',
+    ],
+    'feide_authn_entity_target': [
+        'entity',
+        'Enter an existing entity',
+        textwrap.dedent(
+            """
+            Enter the entity as type:name, for example: 'group:admin-users'
+
+            If only a name is entered, it will be assumed to be an
+            account name.
+
+            Supported types are:
+             - 'person' (name of user => Person)
+             - 'group' (name of group => Group)
+             - 'id' (entity ID => any Person or Group)
+            """
+        ).strip(),
+    ],
 }

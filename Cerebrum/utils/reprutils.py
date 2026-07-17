@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2021 University of Oslo, Norway
+# Copyright 2021-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -27,7 +27,14 @@ object representations.
 .. warning::
     These ``__repr__()`` implementations have no recursion protection - make
     sure to only use them for classes that cannot contain circular references.
+
+    This can be solved using `reprlib.recursive_repr` on Python 3
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+)
 
 
 class _Example(object):

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright 2019 University of Oslo, Norway
+# Copyright 2019-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,8 +19,8 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """This module contains functionality for categorizing fs groups
 
-Here is a bit of documentation compiled from the
-populate_fronter_groups-scripts of uio, uia and uit:
+Here is a bit of documentation compiled from the `populate_fronter_groups`
+scripts of uio and uia:
 
 Disse gruppene blir bl.a. brukt ved eksport av data til ClassFronter, og ved
 populering av visse NIS (Ifi).
@@ -75,19 +75,19 @@ kategorier:
   - Grupper (med primærbrukermedlemmer) som brukes ved eksport til
     ClassFronter, har navn på følgende format::
 
-      Rolle ved undenh:     <domene>:fs:<enhetid>:<rolletype>
-      Rolle ved undakt:     <domene>:fs:<enhetid>:<rolletype>:<aktkode>
-      Ansvar und.enh:       <domene>:fs:<enhetid>:enhetsansvar
-      Ansvar und.akt:       <domene>:fs:<enhetid>:aktivitetsansvar:<aktkode>
-      Alle stud. v/enh:     <domene>:fs:<enhetid>:student
-      Alle stud. v/akt:     <domene>:fs:<enhetid>:student:<aktkode>
+    Rolle ved undenh:   <domene>:fs:<enhetid>:<rolletype>
+    Rolle ved undakt:   <domene>:fs:<enhetid>:<rolletype>:<aktkode>
+    Ansvar und.enh:     <domene>:fs:<enhetid>:enhetsansvar
+    Ansvar und.akt:     <domene>:fs:<enhetid>:aktivitetsansvar:<aktkode>
+    Alle stud. v/enh:   <domene>:fs:<enhetid>:student
+    Alle stud. v/akt:   <domene>:fs:<enhetid>:student:<aktkode>
 
   - Ytterligere grupper hvis medlemmer kun er ikke-primære ('sekundære')
     konti. Genereres kun for informatikk-emner, og har navn på formen::
 
-      Ansvar und.enh:       <domene>:fs:<enhetid>:enhetsansvar-sek
-      Ansvar und.akt:       <domene>:fs:<enhetid>:aktivitetsansvar-sek:<aktkode>
-      Alle stud. v/enh:     <domene>:fs:<enhetid>:student-sek
+    Ansvar und.enh:     <domene>:fs:<enhetid>:enhetsansvar-sek
+    Ansvar und.akt:     <domene>:fs:<enhetid>:aktivitetsansvar-sek:<aktkode>
+    Alle stud. v/enh:   <domene>:fs:<enhetid>:student-sek
 
 <rolletype> er en av 12 predefinerte roller (jfr. valid_roles). enhetsansvar
 og aktivitetsansvar-gruppene finnes kun for Ifi, som ønsker sine grupper (for
@@ -188,13 +188,33 @@ annen navne-syntaks:
                    forelesere"
 """
 
-from __future__ import unicode_literals
-import re
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import datetime
 import logging
+import re
 
+import cereconf
+from Cerebrum.group.template import GroupTemplate
 
 logger = logging.getLogger(__name__)
+
+
+# This group is unrelated to the other groups in this module
+
+get_fs_consent_group = GroupTemplate(
+    group_name=cereconf.FS_GROUP_NAME,
+    group_description=cereconf.FS_GROUP_DESC,
+    group_type="internal-group",
+    group_visibility="I",
+    group_expire=None,
+    conflict=GroupTemplate.CONFLICT_IGNORE,
+)
+
 
 # Default grace for fs groups. When a group's expire_date is in less than
 # low_limit days, the expire_date is extended to high_limit days, if the group
@@ -407,9 +427,9 @@ class FsGroupCategorizer(object):
             ('evu-role', make_regex(evu_unit, role), 2, DEFAULT_GRACE),
             ('evu-role-sub', make_regex(evu_unit, subrole), 2, DEFAULT_GRACE),
             # fs:kull
-            ('kull-ue', make_regex(kull), 6, None),
-            ('kull-ua', make_regex(kull_unit), 6, None),
-            ('kull-role', make_regex(kull_unit, role), 6, None),
+            ('kull-ue', make_regex(kull), 6, DEFAULT_GRACE),
+            ('kull-ua', make_regex(kull_unit), 6, DEFAULT_GRACE),
+            ('kull-role', make_regex(kull_unit, role), 6, DEFAULT_GRACE),
 
             # Non uio types:
             # fs:<institusjonsnr>:evu
@@ -429,9 +449,10 @@ class FsGroupCategorizer(object):
             ('sp-super', make_regex(sp_supergroup), None, None),
             ('sp', make_regex(sp), 3, DEFAULT_GRACE),
 
-            ('sp-kull-type', make_regex(sp_kull_type), 6, None),
-            ('sp-kull-role', make_regex(sp_kull, role), 6, None),
-            ('sp-kull-role-sub', make_regex(sp_kull, subrole), 6, None),
+            ('sp-kull-type', make_regex(sp_kull_type), 6, DEFAULT_GRACE),
+            ('sp-kull-role', make_regex(sp_kull, role), 6, DEFAULT_GRACE),
+            ('sp-kull-role-sub', make_regex(sp_kull, subrole), 6,
+             DEFAULT_GRACE),
 
             ('sp-rolle-type', make_regex(sp_rolle_type), 3, DEFAULT_GRACE),
             ('sp-rolle', make_regex(sp_rolle_type, role), 3, DEFAULT_GRACE),

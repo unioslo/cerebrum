@@ -89,7 +89,39 @@ class ConstantsActiveDirectory(Constants.Constants):
     )
 
 
-class ConstantsCommon(Constants.Constants):
+class _DeprecatedIndividuationCodes(Constants.Constants):
+    """
+    Individuation constants.
+
+    Indiviuation is the old sms password reset service.  These constants are
+    deprecated, but can't be deleted unless they are purged from the trait
+    tables and and audit logs.
+    """
+
+    # This used to store a one time password for Individuation
+    trait_password_token = _EntityTraitCode(
+        "password_token",
+        Constants.Constants.entity_account,
+        "Deprecated - store a one time password for an account",
+    )
+
+    # This used to store a session-like value for Individuation
+    trait_browser_token = _EntityTraitCode(
+        "browser_token",
+        Constants.Constants.entity_account,
+        "Deprecated - Store a browser token for an account",
+    )
+
+    # This used to store failed login attempts for Individuation
+    trait_password_failed_attempts = _EntityTraitCode(
+        "passw_attempts",
+        Constants.Constants.entity_account,
+        "Deprecated - Number of times an account has tried "
+        "to use sms password service",
+    )
+
+
+class ConstantsCommon(_DeprecatedIndividuationCodes, Constants.Constants):
     """
     Common constants for all Norwegian installations.
 
@@ -156,6 +188,12 @@ class ConstantsCommon(Constants.Constants):
         "Group is a personal file group.",
     )
 
+    trait_critical_group = _EntityTraitCode(
+        'critical_group',
+        Constants.Constants.entity_group,
+        "Group is critical for operations.",
+    )
+
     trait_group_entitlement = _EntityTraitCode(
         'entitlement',
         Constants.Constants.entity_group,
@@ -166,25 +204,6 @@ class ConstantsCommon(Constants.Constants):
         'expire_notify',
         Constants.Constants.entity_group,
         "If an admin has been notified that the group is expiring soon",
-    )
-
-    # Traits for the password service (Individuation)
-    trait_password_token = _EntityTraitCode(
-        "password_token",
-        Constants.Constants.entity_account,
-        "Store a one time password for an account",
-    )
-
-    trait_browser_token = _EntityTraitCode(
-        "browser_token",
-        Constants.Constants.entity_account,
-        "Store a browser token for an account",
-    )
-
-    trait_password_failed_attempts = _EntityTraitCode(
-        "passw_attempts",
-        Constants.Constants.entity_account,
-        "Number of times an account has tried to use sms password service",
     )
 
     # Trait for reservation from the new password service
@@ -342,7 +361,7 @@ class ConstantsHigherEdu(Constants.Constants):
     affiliation_status_student_evu = _PersonAffStatusCode(
         affiliation_student,
         'evu',
-        'Student, etter og videre utdanning',
+        'Student, etter- og videreutdanning',
     )
     affiliation_status_student_aktiv = _PersonAffStatusCode(
         affiliation_student,
@@ -381,6 +400,37 @@ class ConstantsHigherEdu(Constants.Constants):
         affiliation_ansatt,
         'tekadm',
         'Ansatt, teknisk-administrativ',
+    )
+
+    #
+    # Affiliation for associated people
+    #
+    affiliation_tilknyttet = _PersonAffiliationCode(
+        'TILKNYTTET',
+        'Assosiert person, registrert i kildesystem',
+    )
+
+    affiliation_status_tilknyttet_bilag = _PersonAffStatusCode(
+        affiliation_tilknyttet,
+        'bilag',
+        'Registrert i kildesystem som bilagslønnet',
+    )
+
+    affiliation_status_tilknyttet_fagperson = _PersonAffStatusCode(
+        affiliation_tilknyttet,
+        'fagperson',
+        'Registrert i kildesystem som fagperson',
+    )
+
+    affiliation_status_tilknyttet_gjesteforsker = _PersonAffStatusCode(
+        affiliation_tilknyttet,
+        'gjesteforsker',
+        'Registrert i kildesystem som gjesteforsker',
+    )
+
+    affiliation_manuell = Constants._PersonAffiliationCode(
+        'MANUELL',
+        'Tilknyttet uten å være registrert i kildesystem',
     )
 
     #
@@ -438,7 +488,7 @@ class ConstantsHigherEdu(Constants.Constants):
     )
 
 
-class ConstantsUniversityColleges(Constants.Constants):
+class ConstantsUniversityColleges(ConstantsHigherEdu):
 
     #
     # Source systems
@@ -455,48 +505,35 @@ class ConstantsUniversityColleges(Constants.Constants):
     #
     # Affiliation for associated people
     #
-    affiliation_tilknyttet = _PersonAffiliationCode(
-        'TILKNYTTET',
-        'Assosiert, reg. i kildesystem',
-    )
-    affiliation_status_tilknyttet_fagperson = _PersonAffStatusCode(
-        affiliation_tilknyttet,
-        'fagperson',
-        'Registrert i FS, fagperson',
-    )
     affiliation_status_tilknyttet_pensjonist = _PersonAffStatusCode(
-        affiliation_tilknyttet,
+        ConstantsHigherEdu.affiliation_tilknyttet,
         'pensjonist',
         'Registrert i HR, pensjonist',
     )
-    affiliation_status_tilknyttet_bilag = _PersonAffStatusCode(
-        affiliation_tilknyttet,
-        'bilag',
-        'Registrert i HR, bilagslønnet',
-    )
     affiliation_status_tilknyttet_time = _PersonAffStatusCode(
-        affiliation_tilknyttet,
+        ConstantsHigherEdu.affiliation_tilknyttet,
         'timelønnet',
         'Registrert i HR, timelønnet',
     )
     affiliation_status_tilknyttet_gjest = _PersonAffStatusCode(
-        affiliation_tilknyttet,
+        ConstantsHigherEdu.affiliation_tilknyttet,
         'gjest',
         'Registrert i HR, gjest',
     )
-    affiliation_status_tilknyttet_gjestefors = _PersonAffStatusCode(
-        affiliation_tilknyttet,
-        'gjesteforsker',
-        'Registrert i HR, gjesteforsker',
+    affiliation_status_tilknyttet_gjestefors = (
+        # legacy attribute name for backwards compatibility
+        ConstantsHigherEdu.affiliation_status_tilknyttet_gjesteforsker
     )
-
     affiliation_status_tilknyttet_nosrc = _PersonAffStatusCode(
-        affiliation_tilknyttet,
+        ConstantsHigherEdu.affiliation_tilknyttet,
         'nosource',
         'Ekstern person, ltilknyttet uten rgistrering',
     )
+    # TODO: This aff status is probably a hack, as the uio aff status has this
+    # attribute name.  I.e. a placeholder to make some script referring to it
+    # *not* crash.
     affiliation_tilknyttet_fagperson = _PersonAffStatusCode(
-        affiliation_tilknyttet,
+        ConstantsHigherEdu.affiliation_tilknyttet,
         'fperson',
         'Dummy, do not use',
     )

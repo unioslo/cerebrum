@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2020 University of Oslo, Norway
+# Copyright 2020-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -41,6 +41,12 @@ A minimal example to connect to a RabbitMQ server running default config:
     mgr.run()
 
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import functools
 import logging
 import time
@@ -85,12 +91,17 @@ def declare_queue(channel, queue):
         logger.info('queue: %r, durable=%r, exclusive=%r, delete=%r',
                     queue.name, queue.durable, queue.exclusive,
                     queue.auto_delete)
-
+    arguments = {}
+    if queue.queue_type:
+        arguments.update({
+            'x-queue-type': queue.queue_type,
+        })
     channel.queue_declare(
         queue=queue.name,
         durable=queue.durable,
         exclusive=queue.exclusive,
         auto_delete=queue.auto_delete,
+        arguments=arguments,
         callback=on_ok)
 
 
@@ -520,20 +531,15 @@ class Manager(object):
 
 
 def demo_callback(channel, method, properties, body):
-    """
-    A basic example consumer callback.
-    """
-    content_type = properties.content_type or 'text/plain'
-    content_encoding = properties.content_encoding or 'ascii'
-    body = body.decode(content_encoding)
+    """ A basic example consumer callback. """
+    content_type = properties.content_type or "application/octet-stream"
 
     # fail on some messages (depends on delivery_tag)
     if method.delivery_tag % 3 == 0:
         logger.info('Failing message (type=%r, encoding=%r, len=%d, key=%r)',
-                    content_type, content_encoding, len(body),
-                    method.routing_key)
+                    content_type, len(body), method.routing_key)
         raise RuntimeError('intentional, delivery_tag % 3 == 0')
 
     logger.info('Acking message (type=%r, encoding=%r, len=%d, key=%r)',
-                content_type, content_encoding, len(body), method.routing_key)
+                content_type, len(body), method.routing_key)
     channel.basic_ack(delivery_tag=method.delivery_tag)

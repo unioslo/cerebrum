@@ -57,8 +57,7 @@ class DfoEmployeeImport(EmployeeImportBase):
         client_config = get_configurable_module(config.client)
         client = get_client(client_config)
         datasource = self.datasource_cls(client)
-        mapper_config = get_configurable_module(config.mapper)
-        mapper = self.mapper_cls(mapper_config)
+        mapper = self.mapper_cls()
         co = Factory.get('Constants')(db)
         super(DfoEmployeeImport, self).__init__(db, datasource, mapper,
                                                 co.system_dfo_sap)

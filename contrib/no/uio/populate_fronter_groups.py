@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003-2021 University of Oslo, Norway
+# Copyright 2003-2025 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -24,9 +24,12 @@
 Disse gruppene blir bl.a. brukt ved eksport av data til ClassFronter, og ved
 populering av visse NIS (Ifi).
 """
-
-from __future__ import unicode_literals
-
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import argparse
 import datetime
 import itertools
@@ -34,6 +37,7 @@ import locale
 import logging
 import os
 import re
+import six
 import sys
 import time
 
@@ -106,7 +110,7 @@ def extract_all_roles(enhet_id, roles_mapping, sted, stprog=""):
     for coll in (roles_mapping.get(key, dict()),
                  roles_mapping.get("sted:" + sted, dict()),
                  roles_mapping.get("stprog:" + stprog, dict())):
-        for role, people in coll.iteritems():
+        for role, people in six.iteritems(coll):
             for p in people:
                 if p not in result:
                     result.append(p)
@@ -854,7 +858,7 @@ def populate_enhet_groups(enhet_id, role_mapping):
         # TODO: generaliser ifi-hack seinare
         # IVR 2008-05-14: itslp added at ifi-drift's request
         year, semester = get_year_and_semester()
-        if (re.match(r"(dig|inf|in|med-inf|tool|humit|itslp|mat-in)",
+        if (re.match(r"(dig|inf|in|med-inf|tool|humit|itslp|mat-in|sifi)",
                      emnekode.lower()) and
                 termk == semester and
                 aar == str(year)):
@@ -1383,7 +1387,7 @@ def sync_group(affil, gname, descr, mtype, memb, visible=False, recurse=True,
     try:
         group = get_group(gname)
     except Errors.NotFoundError:
-        logger.debug('Creating group with name %s', gname)
+        logger.info('Creating group with name %s', gname)
         group = Factory.get('Group')(db)
         group.clear()
         group.populate(
@@ -1413,7 +1417,7 @@ def sync_group(affil, gname, descr, mtype, memb, visible=False, recurse=True,
                     today +
                     datetime.timedelta(days=grace['high_limit'])
             )
-            logger.debug('Postponing expire_date of group %s to %s',
+            logger.info('Postponing expire_date of group %s to %s',
                          gname,
                          group.expire_date)
             group.write_db()
@@ -1426,7 +1430,7 @@ def sync_group(affil, gname, descr, mtype, memb, visible=False, recurse=True,
             if member in members and member not in exclude['users']:
                 del members[member]
             else:
-                logger.debug("sync_group(): Deleting member %d" % member)
+                logger.info("sync_group(): Deleting member %d" % member)
                 group.remove_member(member)
                 #
                 # Supergroups will only contain groups that have been
@@ -1451,7 +1455,7 @@ def sync_group(affil, gname, descr, mtype, memb, visible=False, recurse=True,
 
     # Finally fixup fronter spreads, if we have to.
     if auto_spread is not NotSet:
-        logger.debug("Group %s changes fronter spreads", gname)
+        logger.info("Group %s changes fronter spreads", gname)
         if auto_spread:
             add_spread_to_group(gname, co.spread_fronter_dotcom)
         else:
@@ -1504,7 +1508,7 @@ def destroy_group(gname, max_recurse=2, recurse=True):
         for r in et.get_addresses():
             ea.clear()
             ea.find(r['address_id'])
-            logger.debug("deleting address %s@%s" %
+            logger.info("deleting address %s@%s" %
                          (r['local_part'], r['domain']))
             ea.delete()
         et.delete()
@@ -1554,14 +1558,14 @@ def add_spread_to_group(group, spread):
     gr = get_group(group)
     if not gr.has_spread(spread):
         gr.add_spread(spread)
-        logger.debug("Adding spread %s to %s" % (spread, group))
+        logger.info("Adding spread %s to %s" % (spread, group))
 
 
 def remove_spread_from_group(group, spread):
     gr = get_group(group)
     if gr.has_spread(spread):
         gr.delete_spread(spread)
-        logger.debug("Removing spread %s from %s" % (spread, group))
+        logger.info("Removing spread %s from %s" % (spread, group))
 
 
 def get_group(value):

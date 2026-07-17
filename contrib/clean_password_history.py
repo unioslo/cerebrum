@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2015-2023 University of Oslo, Norway
+# Copyright 2015-2025 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -21,10 +21,8 @@
 """
 Removes old entries in the password history tables.
 
-This script removes password history entries that are older than the timedelta
-specified by using the script's command-line arguments, counting back from the
-current time and date.  Multiple arguments may be used at the same time, to get
-the wanted timedelta.
+This script removes password history entries that are older than a given
+threshold.
 """
 from __future__ import (
     absolute_import,
@@ -36,10 +34,12 @@ from __future__ import (
 import argparse
 import datetime
 import logging
+import textwrap
 
 import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum.Utils import Factory
+from Cerebrum.database.ctx import db_context
 from Cerebrum.modules.pwcheck.history import PasswordHistory
 from Cerebrum.utils.argutils import add_commit_args
 
@@ -65,55 +65,66 @@ def get_relative_date(years=0, months=0, days=0):
     return today - delta
 
 
-def main(inargs=None):
+def delete_password_history(db, threshold):
+    ph = PasswordHistory(db)
+    logger.info("Deleting password_history entries older than %s", threshold)
+    deleted = [r['entity_id'] for r in ph.delete_set_before(threshold)]
+    logger.info("Deleted %d password history records for %d accounts",
+                len(deleted), len(set(deleted)))
+
+
+def main(argv=None):
     """ Script invocation. """
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
+
+    delta_group = parser.add_argument_group(
+        "Threshold",
+        textwrap.dedent(
+            """
+            Set the password history date threshold by substracting a
+            combination of years, months, and days from the current date.
+            """
+        ).strip(),
+    )
+    delta_group.add_argument(
         '-y', '--years',
         dest='years',
         default=0,
         type=int,
-        help='Number of years to add to the timedelta',
+        help="Number of years to add to the timedelta",
     )
-    parser.add_argument(
+    delta_group.add_argument(
         '-m', '--months',
         dest='months',
         default=0,
         type=int,
-        help='Number of months to add to the timedelta',
+        help="Number of months to add to the timedelta",
     )
-    parser.add_argument(
+    delta_group.add_argument(
         '-d', '--days',
         dest='days',
         default=0,
         type=int,
-        help='Number of days to add to the timedelta',
+        help="Number of days to add to the timedelta",
     )
     add_commit_args(parser)
     Cerebrum.logutils.options.install_subparser(parser)
 
-    args = parser.parse_args(inargs)
+    args = parser.parse_args(argv)
     Cerebrum.logutils.autoconf("cronjob", args)
+    logger.info("Start %s", parser.prog)
+    logger.debug("args: %s", repr(args))
 
-    logger.info('Start %s', parser.prog)
-    db = Factory.get('Database')()
-    ph = PasswordHistory(db)
-    exp_date = get_relative_date(years=args.years,
-                                 months=args.months,
-                                 days=args.days)
+    dryrun = not args.commit
+    threshold = get_relative_date(
+        years=args.years,
+        months=args.months,
+        days=args.days,
+    )
 
-    logger.info('Deleting all entries in password_history before: %s',
-                exp_date)
-    deleted = [r['entity_id'] for r in ph.delete_set_before(exp_date)]
-    logger.info("Deleted %d password history records for %d accounts",
-                len(deleted), len(set(deleted)))
+    with db_context(Factory.get('Database')(), dryrun) as db:
+        delete_password_history(db, threshold)
 
-    if args.commit:
-        logger.info('Committing changes')
-        db.commit()
-    else:
-        logger.info('Rolling back changes')
-        db.rollback()
     logger.info('Done %s', parser.prog)
 
 

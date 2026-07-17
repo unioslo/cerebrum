@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2015-2023 University of Oslo, Norway
+# Copyright 2015-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -25,33 +25,29 @@ for a given person.
 
 Typical settings are:
 
-    * For legal matters, an opt-in may be required before exporting personal
-      data to some external system.
-    * For security reasons, my account should not be used for some feature
+- For legal matters, an opt-in may be required before exporting personal data
+  to some external system.
+
+- For security reasons, my account should not be used for some feature
 
 Usage
 ======
-1. Add ``"Cerebrum.modules.consent.ConsentConstants/Constants"`` to
-   ``cereconf.CLASS_CONSTANTS``
+1. Add constants (:mod:`.ConsentConstants`) to ``cereconf``
 
-2. For each consent in question, add a constant with type
-   EntityConsentCode::
+2. For each consent in question, define a new constant:
+   ::
 
         class MyConstants(Constants):
-            myconsentcode = Constants.EntityConsentCode(
-                'myconsent',
+            my_consent = Constants.EntityConsentCode(
+                'my-consent',
                 description="My consent",
                 consent_type=Constants.consent_opt_in,
                 entity_type=Constants.entity_person,
             )
 
-3. Add ``"Cerebrum.modules.consent.Consent/EntityConsentMixin"`` to
-   ``cereconf.CLASS_ENTITY`` (or subclasses thereof)
+3. Add the consent mixin to supported entity types in ``cereconf``.
 
 4. Use the `API`_.
-
-Here, consent type is either consent_opt_in or consent_opt_out. When a consent
-is set, a check against entity_type is done.
 
 
 API
@@ -59,17 +55,18 @@ API
 The API is contained in EntityConsentMixin:
 
 Whenever the user agrees to some proposition, the corresponding consent code
-is used to set a consent::
+is used to set a consent:
+::
 
-    person.find(xxx)
     person.set_consent(co.myconsentcode, "Given consent in Brukerinfo", None)
 
 ``set_consent`` can also be used to update consents, or only one of the two
-fields. A consent can also be removed with::
+fields. A consent can also be removed with:
+::
 
     person.remove_consent(co.myconsentcode)
 
-Neither set_consent() nor remove_consent() has any effect until write_db()
+Neither *set_consent* nor *remove_consent* has any effect until *write_db*
 is called.
 
 Changelog
@@ -82,8 +79,9 @@ from __future__ import (
     absolute_import,
     division,
     print_function,
-    # TODO: unicode_literals,
+    unicode_literals,
 )
+
 import six
 
 from Cerebrum.Entity import Entity

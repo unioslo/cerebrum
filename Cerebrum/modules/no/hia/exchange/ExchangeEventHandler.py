@@ -66,7 +66,7 @@ class ExchangeEventHandler(UIOExchangeEventHandler):
             self.logger.info('Running in mock-mode')
             excclass = UioClient.ClientMock
         else:
-            excclass = UiaClient.ExchangeClient
+            excclass = UiaClient.UiAExchangeClient
 
         def j(*parts):
             return '\\'.join(parts)

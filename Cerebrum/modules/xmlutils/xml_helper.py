@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2002-2019 University of Oslo, Norway
+# Copyright 2002-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -22,12 +22,36 @@ A simple xml helper util.
 
 Moved from Factory.Utils for compatibility reasons
 """
-from __future__ import unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
+import datetime
 import re
-
-import mx.DateTime
 import six
+
+from Cerebrum.utils.date_compat import to_mx_format, is_mx_datetime
+
+
+def _escape_attr(a):
+    if isinstance(a, int):
+        a = six.text_type(a)
+    elif is_mx_datetime(a):
+        a = six.text_type(to_mx_format(a))
+    elif isinstance(a, datetime.datetime):
+        a = six.text_type(to_mx_format(a))
+    a = a.replace('&', "&amp;")
+    a = a.replace('"', "&quot;")
+    a = a.replace('<', "&lt;")
+    a = a.replace('>', "&gt;")
+    return '"{}"'.format(a)
+
+
+def _to_kv(pairs):
+    return " ".join("%s=%s" % (k, _escape_attr(v)) for k, v in pairs)
 
 
 class XMLHelper(object):
@@ -43,30 +67,19 @@ class XMLHelper(object):
         return cols
 
     def xmlify_dbrow(self, row, cols, tag, close_tag=1, extra_attr=None):
-        if close_tag:
-            close_tag = "/"
-        else:
-            close_tag = ""
         assert(len(row) == len(cols))
-        if extra_attr is not None:
-            extra_attr = " " + " ".join(
-                ["%s=%s" % (k, self.escape_xml_attr(extra_attr[k]))
-                 for k in extra_attr.keys()])
-        else:
-            extra_attr = ''
-        return "<%s " % tag + (
-            " ".join(["%s=%s" % (x, self.escape_xml_attr(row[x]))
-                      for x in cols if row[x] is not None]) +
-            "%s%s>" % (extra_attr, close_tag))
+
+        close = "/" if close_tag else ""
+        attrs = _to_kv((k, row[k])
+                       for k in cols if row[k] is not None)
+        if attrs:
+            attrs = " " + attrs
+        if extra_attr:
+            attrs += " " + _to_kv(sorted(extra_attr.items(),
+                                         key=lambda t: t[0]))
+
+        return "<{}{}{}>".format(tag, attrs, close)
 
     def escape_xml_attr(self, a):
         """Escapes XML attributes."""
-        if isinstance(a, int):
-            a = six.text_type(a)
-        elif isinstance(a, mx.DateTime.DateTimeType):
-            a = six.text_type(str(a))
-        a = a.replace('&', "&amp;")
-        a = a.replace('"', "&quot;")
-        a = a.replace('<', "&lt;")
-        a = a.replace('>', "&gt;")
-        return '"{}"'.format(a)
+        return _escape_attr(a)

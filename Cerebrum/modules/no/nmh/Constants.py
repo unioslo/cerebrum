@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2006-2018 University of Oslo, Norway
+# Copyright 2006-2025 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -22,67 +22,87 @@
 The Constants class defines a set of methods that should be used to
 get the actual database code/code_str representing a given Entity,
 Address, Gender etc. type."""
-from __future__ import unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 from Cerebrum import Constants
 from Cerebrum.Constants import (
     _SpreadCode,
-    _PersonAffiliationCode,
     _PersonAffStatusCode,
 )
 from Cerebrum.modules.EntityTrait import _EntityTraitCode
+from Cerebrum.modules.no.Constants import (
+    ConstantsUniversityColleges,
+    ConstantsHigherEdu,
+)
 
 
-class Constants(Constants.Constants):
+class Constants(ConstantsUniversityColleges, ConstantsHigherEdu):
 
-    # employees - affiliation definition
-    affiliation_ansatt = _PersonAffiliationCode('ANSATT', 'Ansatt ved NMH')
     # affiliations for employees
     affiliation_status_ansatt_ovlaerer = _PersonAffStatusCode(
-        affiliation_ansatt, 'ans_ovlaerer', 'Ansatt ved NMH, øvingslærer.')
+        ConstantsHigherEdu.affiliation_ansatt,
+        "ans_ovlaerer",
+        "Ansatt ved NMH, øvingslærer.",
+    )
 
     # affiliations for others
-    affiliation_manuell = _PersonAffiliationCode(
-        'MANUELL',
-        ('Tilknyttet NMH uten å være registrert i et av de'
-         ' autoritative kildesystemene'))
     affiliation_status_manuell_inaktiv = _PersonAffStatusCode(
-        affiliation_manuell, 'inaktiv',
-        'Person uten ekte tilknytning til NMH. Bruk med forsiktighet!')
+        ConstantsHigherEdu.affiliation_manuell,
+        "inaktiv",
+        "Person uten ekte tilknytning til NMH. Bruk med forsiktighet!",
+    )
 
     # Spread definitions - user related
     spread_ad_account = _SpreadCode(
-        'account@ad', Constants.Constants.entity_account,
-        'Brukeren kjent i AD ved NMH')
+        "account@ad",
+        Constants.Constants.entity_account,
+        "Brukeren kjent i AD ved NMH",
+    )
     spread_exchange_account = _SpreadCode(
-        'account@exchange', Constants.Constants.entity_account,
-        'Brukeren kjent i AD ved NMH')
+        "account@exchange",
+        Constants.Constants.entity_account,
+        "Brukeren kjent i AD ved NMH",
+    )
 
     # Spread definitions - group related
     spread_ad_group = _SpreadCode(
-        'group@ad', Constants.Constants.entity_group,
-        'Gruppe kjent i AD ved NMH')
+        "group@ad",
+        Constants.Constants.entity_group,
+        "Gruppe kjent i AD ved NMH",
+    )
     spread_lms_group = _SpreadCode(
-        'group@lms', Constants.Constants.entity_group,
-        'Gruppe kjent i LMSen til NMH')
+        "group@lms",
+        Constants.Constants.entity_group,
+        "Gruppe kjent i LMSen til NMH",
+    )
 
     # Spread definitions - person relates
     spread_adgang_person = _SpreadCode(
-        'person@adgang', Constants.Constants.entity_person,
-        'Person kjent i adgangssystemet til NMH')
+        'person@adgang',
+        Constants.Constants.entity_person,
+        'Person kjent i adgangssystemet til NMH',
+    )
 
     # Traits for fagområde
     trait_fagomrade_fagfelt = _EntityTraitCode(
-            'fagfelt',
-            Constants.Constants.entity_person,
-            'Trait registering part of fagområde: fagfelt')
+        "fagfelt",
+        Constants.Constants.entity_person,
+        "Trait registering part of fagområde: fagfelt",
+    )
     trait_fagomrade_instrument = _EntityTraitCode(
-            'instrument',
-            Constants.Constants.entity_person,
-            'Trait registering part of fagområde: instrument')
+        "instrument",
+        Constants.Constants.entity_person,
+        "Trait registering part of fagområde: instrument",
+    )
 
     # Trait for fagmiljø
     trait_fagmiljo = _EntityTraitCode(
-            'fagmiljo',
-            Constants.Constants.entity_person,
-            'Trait registering fagmiljø')
+        "fagmiljo",
+        Constants.Constants.entity_person,
+        "Trait registering fagmiljø",
+    )

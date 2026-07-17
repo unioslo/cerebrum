@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2015 University of Oslo, Norway
+# Copyright 2015-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,7 +19,8 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-""" AD2 "FroupSync", or "Fake GroupSync".
+"""
+AD2 "FroupSync", or "Fake GroupSync".
 
 This modules utilizes ad2.ADSync.GroupSync to create and maintain groups in AD
 based on non-group data in Cerebrum.
@@ -144,6 +145,7 @@ import datetime
 
 from collections import defaultdict
 from Cerebrum.utils.funcwrap import memoize
+from Cerebrum.utils.date_compat import get_date
 from .ADSync import GroupSync
 from .CerebrumData import CerebrumGroup
 from Cerebrum.modules.ad2.ADUtils import OUUnknownException
@@ -244,7 +246,7 @@ class _FroupSync(GroupSync):
         """ Prevents superclass' fetch method to be called. """
         entities = getattr(self, 'entities', dict())
         self.logger.debug("Found %d groups in Cerebrum", len(entities))
-        for group in entities.itervalues():
+        for group in six.itervalues(entities):
             self.logger.debug2("Cerebrum group %r with %d members",
                                group.entity_name,
                                len(getattr(group, 'members', set())))
@@ -357,7 +359,7 @@ class AffGroupSync(_FroupSync):
         super(AffGroupSync, self).configure(config_args)
 
         template = config_args.get('affiliation_groups', dict())
-        for group, criterias in template.iteritems():
+        for group, criterias in six.iteritems(template):
             for criteria in criterias:
                 criteria['affiliation'] = (
                     self.co.AuthoritativeSystem(criteria['affiliation'][0]),
@@ -396,9 +398,9 @@ class AffGroupSync(_FroupSync):
                 days=criteria['grace_period'])
             aff = criteria['affiliation']
             if aff in self.pe2affs(person_id):
-                deleted_date = self.pe2affs(person_id)[aff]
+                deleted_date = get_date(self.pe2affs(person_id)[aff])
                 if (not deleted_date or
-                        deleted_date.pydate() > grace_limit):
+                        deleted_date > grace_limit):
                     return True
         return False
 
@@ -445,7 +447,7 @@ class AffGroupSync(_FroupSync):
         'affiliation_groups' config setting.
 
         """
-        for group, criterias in self.config['affiliation_groups'].iteritems():
+        for group, criterias in six.iteritems(self.config['affiliation_groups']):
             for criteria in criterias:
                 grace_limit = datetime.date.today() - datetime.timedelta(
                     days=criteria['grace_period'])
@@ -455,8 +457,9 @@ class AffGroupSync(_FroupSync):
                         include_deleted=True,
                         fetchall=False):
                     # Only add persons whose affs are within the grace period
-                    if (not row['deleted_date'] or
-                            row['deleted_date'].pydate() > grace_limit):
+                    deleted_date = get_date(row['deleted_date'])
+                    if (not deleted_date or
+                            deleted_date > grace_limit):
                         for name, enabled in self.pe2accs(row['person_id']):
                             if enabled:
                                 self.add_group_member(group, name)
@@ -472,7 +475,7 @@ class ConsentGroupSync(_FroupSync):
 
         self.config['consent_groups'] = dict()
         template = config_args.get('consent_groups', dict())
-        for group, consents in template.iteritems():
+        for group, consents in six.iteritems(template):
             self.config['consent_groups'][group] = [
                 self.co.EntityConsent(c) for c in consents]
         self.logger.debug("config[consent_groups]: %r",
@@ -506,7 +509,7 @@ class ConsentGroupSync(_FroupSync):
 
         # Decide which consents this person has
         memberships = defaultdict(lambda: False)
-        for group, consents in self.config['consent_groups'].iteritems():
+        for group, consents in six.iteritems(self.config['consent_groups']):
             for consent in consents:
                 if self.pe.get_consent_status(consent):
                     memberships[group] = True
@@ -537,7 +540,7 @@ class ConsentGroupSync(_FroupSync):
         'consent_groups' config setting.
 
         """
-        for group, consents in self.config['consent_groups'].iteritems():
+        for group, consents in six.iteritems(self.config['consent_groups']):
             for row in self.pe.list_consents(
                     consent_code=consents,
                     entity_type=self.co.entity_person):

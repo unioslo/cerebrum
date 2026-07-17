@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2004-2020 University of Oslo, Norway
+# Copyright 2004-2025 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,10 +17,16 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-from __future__ import unicode_literals
-from __future__ import print_function
-
+"""
+Interface and base class for generating Feide-compatible organization tree.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+import io
 import logging
 import os
 import pickle
@@ -30,25 +36,30 @@ from collections import defaultdict
 import six
 
 import cereconf
-from Cerebrum import Entity, Errors
+from Cerebrum import Entity
+from Cerebrum import Errors
 from Cerebrum.Constants import _AuthoritativeSystemCode, _LanguageCode
-from Cerebrum.export.auth import AuthExporter
-from Cerebrum.Utils import Factory, make_timer
 from Cerebrum.QuarantineHandler import QuarantineHandler
-from Cerebrum.modules.LDIFutils import (attr_unique,
-                                        entry_string,
-                                        get_ldap_config,
-                                        map_spreads,
-                                        map_constants,
-                                        normalize_string,
-                                        normalize_phone,
-                                        normalize_caseExactString,
-                                        normalize_IA5String,
-                                        verify_printableString,
-                                        verify_IA5String,
-                                        postal_escape_re,
-                                        dn_escape_re,
-                                        hex_escape_match)
+from Cerebrum.Utils import Factory, make_timer
+from Cerebrum.export.auth import AuthExporter
+from Cerebrum.export import addresses as addr_export
+from Cerebrum.export import localized_name as name_export
+from Cerebrum.modules.LDIFutils import (
+    attr_unique,
+    entry_string,
+    get_ldap_config,
+    map_spreads,
+    normalize_string,
+    normalize_phone,
+    normalize_caseExactString,
+    normalize_IA5String,
+    verify_printableString,
+    verify_IA5String,
+    dn_escape_re,
+    hex_escape_match,
+)
+from Cerebrum.utils.descriptors import lazy_property
+
 
 logger = logging.getLogger(__name__)
 
@@ -138,6 +149,37 @@ class LanguageSettings(object):
                 entry.setdefault(attr + opt, []).append(val)
 
 
+class LdapNameGetter(name_export.NameGetter):
+    """ Helper class to pick out one or more localized names for an entity. """
+
+    def __init__(self, cache, name_types, languages):
+        """
+        :type cache: name_export.NameCache
+        :param name_types: a sequence of _EntityNameCode values
+        :param languages: a sequence of _LanguageCode values
+        """
+        # expand to (name-0, lang-0), (name-0, lang-1), ..., (name-N, lang-N)
+        name_priority = [
+            (name, lang)
+            for name in name_types
+            for lang in languages
+        ]
+        selector = name_export.NameSelector(name_priority)
+        super(LdapNameGetter, self).__init__(cache, selector)
+
+    def get_all(self, entity_id):
+        """ Get all available localized name types. """
+        results = self.get_names(entity_id)
+        return list(name_export.group_names_by_type(results))
+
+    def get_first(self, entity_id):
+        """ Get the first available localized name type. """
+        results = self.get_names(entity_id)
+        grouped = name_export.group_names_by_type(results)
+        for name_type, names in grouped:
+            return names
+
+
 class OrgLdifConfig(object):
     """ Container for OrgLDIF LdapConfig objects. """
 
@@ -188,8 +230,7 @@ class OrgLDIF(object):
         # Preparing to look up eduPersonAffiliation for another program:
         org_ldif.init_edu_person_aff_lookup()
     """
-
-    def __init__(self, db, config=None):
+    def __init__(self, db, config=None, debug=False):
         """
         :param db: A Cerebrum.database object.
         :param config: OrgLdifConfig object.
@@ -199,6 +240,9 @@ class OrgLDIF(object):
 
         # keep a self.logger as long as we use self.logger.debugN
         self.logger = logger.getChild('debug')
+        if not debug:
+            self.logger.addHandler(logging.NullHandler())
+            self.logger.propagate = 0
 
         # DB-stuff
         self.db = db
@@ -225,8 +269,7 @@ class OrgLDIF(object):
         self.ou2DN = {None: None}  # {ou_id:      DN or None(root)}
         self.used_DNs = {}            # {used DN:    True}
         self.person_groups = {}            # {group name: {member ID: True}}
-        self.system_lookup_order = [int(getattr(self.const, s))
-                                    for s in cereconf.SYSTEM_LOOKUP_ORDER]
+        self.system_lookup_order = self.const.get_system_lookup_order()
 
         # Attribute mappings: attr -> (convert, verify, normalize)
         self.attr2syntax = {
@@ -242,18 +285,6 @@ class OrgLDIF(object):
         auth_attr = self.config.person.get('auth_attr', default=None)
         self.user_password = AuthExporter.make_exporter(
             self.db, auth_attr['userPassword'])
-
-    # @property
-    # def org_dn(self):
-    #     return self.config.org.get_dn(None)
-
-    # @property
-    # def ou_dn(self):
-    #     return self.config.ou.get_dn(None)
-
-    # @property
-    # def person_dn(self):
-    #     return self.config.person.get_dn(None)
 
     @property
     def languages(self):
@@ -385,7 +416,7 @@ class OrgLDIF(object):
         self.traverse_ou_children(outfile, self.root_ou_id, None)
         if self.root_ou_id is not None:
             self.traverse_ou_children(outfile, None, None)
-        loops = [i for i in self.ou_tree.iteritems() if i[0] not in self.ou2DN]
+        loops = [i for i in self.ou_tree.items() if i[0] not in self.ou2DN]
         if loops:
             logger.warn(
                 "Loops in org.unit tree; ignored {parent:[children]} = %s",
@@ -442,6 +473,31 @@ class OrgLDIF(object):
                 outfile.write(entry_string(dn, entry, False))
         return dn
 
+    def _update_ou_names(self, ou_id, entry):
+        """
+        Update entry with org unit names.
+
+        This helper adds entry['cn'], entry['ou'], and
+        entry['norEduOrgAcronym'].
+        """
+        cn = self.get_ou_cn(ou_id)
+        acronyms = self.get_ou_acronyms(ou_id)
+        ou = self.get_ou_names(ou_id)
+
+        if not all((cn, ou)):
+            # We're missing required name attributes, abort
+            return False
+
+        if cn:
+            self.add_lang_names(entry, 'cn', cn)
+
+        if acronyms:
+            self.add_lang_names(entry, 'norEduOrgAcronym', acronyms)
+
+        for _, names in ou:
+            self.add_lang_names(entry, 'ou', names)
+        return True
+
     def make_ou_entry(self, ou_id, parent_dn):
         # Return (the OU's DN,        entry) for this OU,
         #     or (the OU's parent DN, None)  to omit the OU entry.
@@ -452,37 +508,18 @@ class OrgLDIF(object):
         if self.test_omit_ou():
             return parent_dn, None
 
-        name_variants = (self.const.ou_name_acronym,
-                         self.const.ou_name_short,
-                         self.const.ou_name,
-                         self.const.ou_name_display)
-        var2pref = dict([(v, i) for i, v in enumerate(name_variants)])
-        ou_names = {}
-        for row in self.ou.search_name_with_language(
-                entity_id=self.ou.entity_id,
-                name_language=self.languages,
-                name_variant=name_variants):
-            name = row["name"].strip()
-            if name:
-                pref = var2pref[int(row['name_variant'])]
-                lnames = ou_names.setdefault(pref, [])
-                lnames.append((int(row['name_language']), name))
-        if not ou_names:
-            logger.warn("No names could be located for ou_id=%s", ou_id)
-            return parent_dn, None
         entry = {'objectClass': ['top', 'organizationalUnit']}
         entry.update(self.ou_attrs)
-        if 0 in ou_names:
-            self.add_lang_names(entry, 'norEduOrgAcronym', ou_names[0])
-        ou_names = [names for _, names in sorted(ou_names.items())]
-        for names in ou_names:
-            self.add_lang_names(entry, 'ou', names)
-        self.add_lang_names(entry, 'cn', ou_names[-1])
+
+        if not self._update_ou_names(ou_id, entry):
+            logger.warning("No names could be located for ou_id=%s", ou_id)
+            return parent_dn, None
+
         dn = self.make_ou_dn(entry, parent_dn or self.ou_dn)
         if not dn:
             return parent_dn, None
 
-        for attr in entry.keys():
+        for attr in list(entry.keys()):
             if attr == 'ou' or attr.startswith('ou;'):
                 entry[attr] = attr_unique(entry[attr], normalize_string)
         self.fill_ou_entry_contacts(entry)
@@ -520,10 +557,10 @@ class OrgLDIF(object):
             oc = entry['objectClass']
             oc.append('labeledURIObject')
             entry['objectClass'] = attr_unique(oc, six.text_type.lower)
-        post_string, street_string = self.make_entity_addresses(
-            self.ou, self.system_lookup_order)
+        post_string = self.get_ou_postal_addr(int(ou_id))
         if post_string:
             entry['postalAddress'] = (post_string,)
+        street_string = self.get_ou_street_addr(int(ou_id))
         if street_string:
             entry['street'] = (street_string,)
 
@@ -536,7 +573,6 @@ class OrgLDIF(object):
         self.init_person_names()
         self.init_export_ids()
         self.init_person_titles()
-        self.init_person_addresses()
         self.init_person_aliases()
         self.init_account_info()
         self.init_account_mail(use_mail_module)
@@ -555,16 +591,17 @@ class OrgLDIF(object):
         self.account = Factory.get('Account')(self.db)
         self.accounts = accounts = []
         self.person_cache = person_cache = {}
-        self.persons = []
         timer = make_timer(logger, "Caching persons and accounts...")
         for row in self.list_persons():
             accounts.append(row['account_id'])
-            person_cache[row['person_id']] = {'account_id': row['account_id'],
-                                              'ou_id': row['ou_id']}
-
-        self.persons = self.person_cache.keys()
-        timer("...caching done, got %d persons and %d accounts." %
-              (len(self.persons), len(self.accounts)))
+            person_cache[row['person_id']] = {
+                'account_id': row['account_id'],
+                'ou_id': row['ou_id'],
+            }
+        self.persons = list(self.person_cache.keys())
+        timer("...caching done")
+        logger.info("Found %d persons and %d accounts",
+                    len(self.persons), len(self.accounts))
 
     def init_person_basic(self):
         # Set variables to dump or extract some person info
@@ -753,101 +790,6 @@ class OrgLDIF(object):
         else:
             self.account_mail = None
 
-    def init_person_addresses_from_ou(self, addr_info, addr_types,
-                                      addr_source, aff_source):
-        """Maps person_id to the address of the OU it is affiliated to
-
-        If a person has multiple affiliations, the most prioritized one is
-        selected
-        """
-        if not addr_types:
-            return
-
-        ou_id2address = defaultdict(dict)
-        for row in self.person.list_entity_addresses(
-                entity_type=self.const.entity_ou,
-                address_type=addr_types,
-                source_system=addr_source):
-            ou_id2address[row['entity_id']].update({
-                int(row['address_type']): (row['address_text'],
-                                           row['p_o_box'],
-                                           row['postal_number'],
-                                           row['city'],
-                                           row['country'])
-            })
-        ou_id2address = dict(ou_id2address)
-
-        # TODO:
-        #  Also list affiliations from source systems other than
-        #  'contact_source_system' (where addresses are fetched from)?
-        # Note:
-        #  We could technically use self.affiliations instead of creating a
-        #  new cache here. Then runtime would be decreased, but it would
-        #  not work for every possible combination of the configuration
-        #  variables 'contact_source_system' and 'affiliation_source_system'.
-        primary_affiliations = {}
-        for row in self.person.list_affiliations(source_system=aff_source,
-                                                 fetchall=False):
-            aff = primary_affiliations.get(row['person_id'], None)
-            if aff is None or row['precedence'] < aff[1]:
-                primary_affiliations[row['person_id']] = (row['ou_id'],
-                                                          row['precedence'])
-
-        for person_id, (ou_id, _) in six.iteritems(primary_affiliations):
-            address = ou_id2address.get(ou_id)
-            if address:
-                addr_info[person_id].update(address)
-
-    def init_person_addresses(self):
-        # Set self.addr_info = dict {person_id: {address_type: (addr. data)}}.
-        timer = make_timer(logger, "Fetching personal addresses...")
-
-        if self.config.person.get('affiliation_source_system') is not None:
-            aff_source = [getattr(self.const, aff) for aff in
-                          self.config.person.get('affiliation_source_system')]
-        else:
-            aff_source = [self.config.org.parent.get('contact_source_system')]
-
-        try:
-            addr_src = getattr(self.const,
-                               self.config.org.parent.get(
-                                   'address_source_system'))
-        except:
-            addr_src = getattr(self.const,
-                               self.config.org.parent.get(
-                                   'contact_source_system'))
-
-        addr_types = set(
-            map_constants('_AddressCode',
-                          self.config.person.get('address_types'),
-                          return_type=list)
-        )
-        ou_addr_types = set(
-            map_constants('_AddressCode',
-                          self.config.person.get('address_from_affiliated_ou'),
-                          return_type=list)
-        )
-        addr_types = addr_types - ou_addr_types
-
-        addr_info = defaultdict(dict)
-        self.init_person_addresses_from_ou(addr_info, ou_addr_types, addr_src,
-                                           aff_source)
-        if addr_types:
-            for row in self.person.list_entity_addresses(
-                    entity_type=self.const.entity_person,
-                    source_system=addr_src,
-                    address_type=addr_types):
-                entity_id = int(row['entity_id'])
-                addr_info[entity_id][int(row['address_type'])] = (
-                    row['address_text'],
-                    row['p_o_box'],
-                    row['postal_number'],
-                    row['city'],
-                    row['country']
-                )
-        self.addr_info = dict(addr_info)
-        timer("...personal addresses done.")
-
     def init_person_aliases(self):
         # Set variables for aliases: self.alias_default_parent_dn.
         if self.aliases:
@@ -878,7 +820,8 @@ class OrgLDIF(object):
         round_timer = make_timer(logger)
         rounds = 0
         exported = 0
-        for person_id, row in self.person_cache.iteritems():
+        for person_id in sorted(self.person_cache):
+            row = self.person_cache[person_id]
             if rounds % 10000 == 0 and rounds != 0:
                 round_timer("...processed %d rows..." % rounds)
             rounds += 1
@@ -901,7 +844,8 @@ class OrgLDIF(object):
         # Return a list or iterator of persons to consider for output.
         return self.account.list_accounts_by_type(
             primary_only=True,
-            person_spread=self.person_spread)
+            person_spread=self.person_spread,
+        )
 
     def _calculate_edu_ous(self, p_ou, s_ous):
         # FIXME
@@ -995,8 +939,9 @@ class OrgLDIF(object):
             try:
                 entry['userPassword'] = self.user_password.get(account_id)
             except LookupError:
-                logger.debug('no authentication data for account %s (%d)',
-                             account_name, account_id)
+                self.logger.debug(
+                    "no authentication data for account %s (%d)",
+                    account_name, account_id)
 
         if self.org_dn:
             entry['eduPersonOrgDN'] = (self.org_dn,)
@@ -1004,23 +949,31 @@ class OrgLDIF(object):
             entry['eduPersonPrimaryOrgUnitDN'] = (primary_ou_dn,)
 
         export_id = self.export_ids.get(person_id)
-        if export_id:                
-            entry['eduPersonUniqueId'] = "@".join(                                
+        if export_id:
+            entry['eduPersonUniqueId'] = "@".join(
                 (export_id, self.config.domain_name)
             )
 
         edu_ous = self._calculate_edu_ous(
             primary_ou_dn,
             [self.ou2DN.get(aff[2]) for aff in p_affiliations])
-        entry['eduPersonOrgUnitDN'] = attr_unique(filter(None, edu_ous))
-        entry['eduPersonAffiliation'] = attr_unique(self.select_list(
-            self.eduPersonAff_selector, person_id, p_affiliations))
-
+        entry['eduPersonOrgUnitDN'] = sorted(
+            attr_unique(filter(None, edu_ous))
+        )
+        entry['eduPersonAffiliation'] = sorted(
+            attr_unique(
+                self.select_list(self.eduPersonAff_selector, person_id,
+                                 p_affiliations)
+            )
+        )
         # For now, the scoped affiliations are just a mirror of the above
         # with realm tacked on
-        entry['eduPersonScopedAffiliation'] = list(
-            x + '@' + self.config.domain_name
-            for x in entry.get('eduPersonAffiliation'))
+        entry['eduPersonScopedAffiliation'] = sorted(
+            attr_unique(
+                x + '@' + self.config.domain_name
+                for x in entry.get('eduPersonAffiliation')
+            )
+        )
 
         if self.select_bool(self.contact_selector, person_id, p_affiliations):
             # title:
@@ -1032,31 +985,14 @@ class OrgLDIF(object):
                 if contact:
                     entry[attr] = contact
             # addresses:
-            addrs = self.addr_info.get(person_id)
-            post = addrs and addrs.get(int(self.const.address_post))
-            if post:
-                a_txt, p_o_box, p_num, city, country = post
-                post = self.make_address(
-                    "$",
-                    p_o_box,
-                    a_txt,
-                    p_num,
-                    city,
-                    country)
-                if post:
-                    entry['postalAddress'] = (post,)
-            street = addrs and addrs.get(int(self.const.address_street))
-            if street:
-                a_txt, p_o_box, p_num, city, country = street
-                street = self.make_address(
-                    ", ",
-                    None,
-                    a_txt,
-                    p_num,
-                    city,
-                    country)
-                if street:
-                    entry['street'] = (street,)
+            postal_address = self.get_person_postal_addr(person_id)
+            if postal_address:
+                entry['postalAddress'] = (postal_address,)
+
+            street_address = self.get_person_street_addr(person_id)
+            if street_address:
+                entry['street'] = (street_address,)
+
         else:
             uris = self.id2labeledURI.get(person_id)
             if uris:
@@ -1137,53 +1073,20 @@ class OrgLDIF(object):
 
     def write_person_alias(self, outfile, dn, entry, alias_info):
         # Output an alias returned from make_person_entry().
-        outfile.write(entry_string(
-            ",".join((dn.split(',', 1)[0],
-                      (alias_info[0] or self.alias_default_parent_dn))),
-            {'objectClass': ('top', 'alias', 'extensibleObject'),
-             'aliasedObjectName': (dn,),
-             'cn': entry['cn'],
-             'sn': entry['sn']}))
-
-    def make_address(self, sep,
-                     p_o_box, address_text, postal_number, city, country):
-        # Return a postal addres or street attribute value made from the input.
-        # 'sep' should be '$' for postal addresses; usually ', ' for streets.
-        if country:
-            country = self.const.Country(country).country
-        if p_o_box:
-            p_o_box = "Pb. %s" % p_o_box
-        address_text = (address_text or "").strip()
-        post_nr_city = None
-        if city or (postal_number and country):
-            post_nr_city = " ".join(filter(None, (postal_number,
-                                                  (city or "").strip())))
-        val = "\n".join(filter(None, (p_o_box, address_text,
-                                      post_nr_city, country)))
-        if sep == '$':
-            val = postal_escape_re.sub(hex_escape_match, val)
-        return val.replace("\n", sep)
-
-    def make_entity_addresses(self, entity, lookup_order=(None,)):
-        # Return [postal address, street address] for the given entity.
-        result = []
-        for addr_type, box, separator in (
-            (self.const.address_post, True, "$"),
-                (self.const.address_street, None, ", ")):
-            value = None
-            for source in lookup_order:
-                addr = entity.get_entity_address(source, addr_type)
-                if addr:
-                    value = self.make_address(separator,
-                                              box and addr[0]['p_o_box'],
-                                              addr[0]['address_text'],
-                                              addr[0]['postal_number'],
-                                              addr[0]['city'],
-                                              addr[0]['country'])
-                    if value:
-                        break
-            result.append(value)
-        return result
+        outfile.write(
+            entry_string(
+                ",".join((
+                    dn.split(',', 1)[0],
+                    (alias_info[0] or self.alias_default_parent_dn),
+                )),
+                {
+                    'objectClass': ('top', 'alias', 'extensibleObject'),
+                    'aliasedObjectName': (dn,),
+                    'cn': entry['cn'],
+                    'sn': entry['sn'],
+                },
+            )
+        )
 
     def get_contacts(self, entity_id=None, contact_type=None,
                      source_system=None, entity_type=None,
@@ -1208,14 +1111,17 @@ class OrgLDIF(object):
                 cont_tab[key].extend(c_list)
             else:
                 cont_tab[key] = c_list
-        for key, c_list in cont_tab.iteritems():
+        for key, c_list in cont_tab.items():
             cont_tab[key] = attr_unique(
                 filter(verify, [c for c in c_list if c not in ('', '0')]),
                 normalize=normalize)
         if entity_id is None:
             return cont_tab
-        else:
-            return (cont_tab.values() or ((),))[0]
+        # return one match ...
+        for value in cont_tab.values():
+            return value
+        # ... or no match
+        return tuple()
 
     def internal_selector(self, selector_type, selector):
         # Translate a selector (as described in default_config.py) to
@@ -1228,13 +1134,13 @@ class OrgLDIF(object):
         if type(selector) is not dict:
             return self.internal_simple_selector(selector_type, selector)
         mapping = {}
-        for affiliations, aff_info in selector.iteritems():
+        for affiliations, aff_info in selector.items():
             if type(affiliations) is not tuple:
                 affiliations = (affiliations,)
             if type(aff_info) is not dict:
                 aff_info = {(True,): aff_info}
             status_ssels = []
-            for statuses, ssel in aff_info.iteritems():
+            for statuses, ssel in aff_info.items():
                 if type(statuses) is not tuple:
                     statuses = (statuses,)
                 ssel = self.internal_simple_selector(selector_type, ssel)
@@ -1314,8 +1220,11 @@ class OrgLDIF(object):
                 negate, ssel = not negate, ssel[1]
             if (isinstance(ssel, tuple) and
                     ssel[0] == 'group' and len(ssel) == 2):
-                return (negate, not negate,
-                        self.init_person_group(ssel[1]).has_key)
+                return (
+                    negate,
+                    not negate,
+                    (lambda x: x in self.init_person_group(ssel[1])),
+                )
             if isinstance(ssel, bool):
                 if negate:
                     ssel = not ssel
@@ -1394,6 +1303,175 @@ class OrgLDIF(object):
             return False
         return selector[selector[2](person_id)]
 
+    #
+    # Object addresses and address formatting
+    #
+    format_street_addr = addr_export.format_ldap_street_address
+    format_postal_addr = addr_export.format_ldap_postal_address
+
+    @lazy_property
+    def ou_address_cache(self):
+        """ address cache. """
+        cache = addr_export.AddressCache(
+            self.db,
+            address_types=(
+                self.const.address_post,
+                self.const.address_street,
+            ),
+            source_systems=self.system_lookup_order,
+            entity_types=(self.const.entity_ou,),
+        )
+        timer = make_timer(logger, "Caching org unit addresses ...")
+        cache.update_all()
+        timer("... done caching org unit addresses")
+        logger.info("Found addresses for %d org units", len(cache.found))
+        return cache
+
+    @lazy_property
+    def get_ou_street_addr(self):
+        """ get street address for entity. """
+        return addr_export.AddressGetter(
+            self.ou_address_cache,
+            addr_export.AddressSelector(
+                self.const.address_street,
+                self.system_lookup_order,
+            ),
+            self.format_street_addr,
+        )
+
+    @lazy_property
+    def get_ou_postal_addr(self):
+        """ get postal address for entity. """
+        return addr_export.AddressGetter(
+            self.ou_address_cache,
+            addr_export.AddressSelector(
+                self.const.address_post,
+                self.system_lookup_order,
+            ),
+            self.format_postal_addr,
+        )
+
+    #
+    # Personal addresses
+    #
+    # To disable - replace with a cache that doesn't have the required
+    # addresses, or replace the `get_person_*_addr` method
+    #
+
+    @lazy_property
+    def person_address_source_system(self):
+        """ source system for personal addresses. """
+        return getattr(
+            self.const,
+            self.config.org.parent.get('contact_source_system'),
+        )
+
+    @lazy_property
+    def person_address_cache(self):
+        """ address cache. """
+        cache = addr_export.AddressCache(
+            self.db,
+            address_types=(
+                self.const.address_post,
+                self.const.address_street,
+            ),
+            source_systems=(self.person_address_source_system,),
+            entity_types=(self.const.entity_person,),
+        )
+        timer = make_timer(logger, "Caching personal addresses ...")
+        cache.update_all()
+        timer("... done caching personal addresses")
+        logger.info("Found addresses for %d persons", len(cache.found))
+        return cache
+
+    @lazy_property
+    def get_person_street_addr(self):
+        """ get street address for entity. """
+        return addr_export.AddressGetter(
+            self.person_address_cache,
+            addr_export.AddressSelector(
+                self.const.address_street,
+                (self.person_address_source_system,),
+            ),
+            self.format_street_addr,
+        )
+
+    @lazy_property
+    def get_person_postal_addr(self):
+        """ get postal address for entity. """
+        return addr_export.AddressGetter(
+            self.person_address_cache,
+            addr_export.AddressSelector(
+                self.const.address_post,
+                (self.person_address_source_system,),
+            ),
+            self.format_postal_addr,
+        )
+
+    #
+    # Org unit names and acronyms
+    #
+    @lazy_property
+    def ou_name_cache(self):
+        """ ou name cache. """
+        # This cache needs to contain all values used by the `get_ou_acronyms`,
+        # `get_ou_cn`, and `get_ou_names` getters.
+        cache = name_export.NameCache(
+            self.db,
+            languages=self.lang_opts.languages,
+            entity_types=(self.const.entity_ou,),
+        )
+        timer = make_timer(logger, "Caching org unit names ...")
+        cache.update_all()
+        timer("... done caching org unit names")
+        logger.info("Found names for %d org units", len(cache.found))
+        return cache
+
+    @lazy_property
+    def get_ou_acronyms(self):
+        """ get a localized org unit acronym. """
+        # This can be used to select 'norEduOrgAcronym' for org units
+        # subclasses
+        names = LdapNameGetter(
+            self.ou_name_cache,
+            [self.const.ou_name_acronym],
+            self.lang_opts.languages,
+        )
+        # Use the first available type
+        return names.get_first
+
+    @lazy_property
+    def get_ou_names(self):
+        """ get localized org unit names, ordered by priority.  """
+        names = LdapNameGetter(
+            self.ou_name_cache,
+            (
+                self.const.ou_name_acronym,
+                self.const.ou_name_short,
+                self.const.ou_name,
+                self.const.ou_name_display,
+            ),
+            self.lang_opts.languages,
+        )
+        # Use all names, in the prioritized order
+        return names.get_all
+
+    @lazy_property
+    def get_ou_cn(self):
+        """ get a localized common name for the given org unit. """
+        names = LdapNameGetter(
+            self.ou_name_cache,
+            (
+                self.const.ou_name_display,
+                self.const.ou_name,
+                self.const.ou_name_short,
+                self.const.ou_name_acronym,
+            ),
+            self.lang_opts.languages,
+        )
+        # Use the first available name of the given type
+        return names.get_first
+
 
 def _split_name(fullname=None, givenname=None, lastname=None):
     """Return (UTF-8 given name, UTF-8 last name)."""
@@ -1436,7 +1514,7 @@ def _split_name(fullname=None, givenname=None, lastname=None):
                     last.insert(0, full.pop())
             if not got_given:
                 given.extend(full)
-    return [' '.join(n) for n in given, last]
+    return [' '.join(n) for n in (given, last)]
 
 
 class OrgLdifGroupMixin(OrgLDIF):
@@ -1466,7 +1544,8 @@ class OrgLdifGroupMixin(OrgLDIF):
     def _init_person_groups(self):
         """Populate dict with a persons group information."""
         timer = make_timer(logger, 'Processing person groups...')
-        self._person2group = pickle.load(file(self.person_group_filename))
+        with io.open(self.person_group_filename, "rb") as f:
+            self._person2group = pickle.loads(f.read())
         timer("...person groups done.")
 
     def init_person_dump(self, *args, **kwargs):

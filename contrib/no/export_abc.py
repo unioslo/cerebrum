@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2006-2018 University of Oslo, Norway
+# Copyright 2006-2025 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,46 +18,41 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""Export person information in ABC Enterprise format.
-
-This file is an extension of Cerebrum. It generates an XML file containing
-person and OU information which may be used for e.g. access control systems at
-various institutions (adgangskontrollsystem). Such a file can be generated for
-any of the Norwegian institutions using FS and Cerebrum.
-
-The XML description and schema are available here:
-
-<URL: http://uninettabc.no/?p=publikasjoner&sub=abc-enterprise>
-
-There are roughly these categories of data being output:
-
-* preliminary header with various id and relationship types being used.
-* organizational information (OUs)
-* information about people (ids, names, account and e-mail information)
-* various relations involving people and OUs:
-** kull
-** undervisningsenhet
-** affiliations
-** payment information (semester fee (semesteravgift)).
-
-When adding extra contact-fields, be sure to quote the input string so that
-the argument is parsed correctly. When adding several contact fields, separate
-them by commas.
-
-Example: "cellular private:contact_private_mobile:system_sap,
-          cellular work:contact_mobile_phone:system_sap"
-
-These two fields will be added as extra contactinfo-tags, like this:
-
-<contactinfo contacttype="cellular private">value</contactinfo>
-<contactinfo contacttype="cellular work">value</contactinfo>
 """
+Export person information in the ABC Enterprise format.
+
+ABC Enterprise is (or was?) a standard by Uninett (now Sikt) to exchange data
+between user management systems (BAS) and student management systems (SAS).
+
+The standard consists of a data model and XML schema definition (XSD).  The
+schema includes objects to represent persons, groups, and org units.
+
+The XML description and schema used to be available at
+`<http://uninettabc.no/?p=publikasjoner&sub=abc-enterprise>`_.
+
+A typical ABC XML file from Cerebrum would include:
+
+1. A preliminary header with ID and relationship types
+2. Organization object and org units
+3. Person objects and personal data (ids, names, username, email addresses)
+4. Relationships between objects, e.g.:
+
+   - Educational courses/units, and course participation
+   - Affiliation - person roles at org units
+   - Semester fee payment
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import argparse
 import logging
 import time
 
-from six import text_type
+import six
 
 import cereconf
 
@@ -71,6 +66,9 @@ from Cerebrum.utils.transliterate import for_encoding
 from Cerebrum.extlib import xmlprinter
 from Cerebrum.modules.no import Stedkode
 from Cerebrum.modules.no.access_FS import make_fs
+from Cerebrum.utils import aggregate
+from Cerebrum.utils import sorting
+from Cerebrum.utils import date_compat
 
 
 logger = logging.getLogger(__name__)
@@ -82,7 +80,7 @@ def text_decoder(encoding, allow_none=True):
             return None
         if isinstance(value, bytes):
             return value.decode(encoding)
-        return text_type(value)
+        return six.text_type(value)
     return to_text
 
 
@@ -100,20 +98,22 @@ def output_ou(sko):
 
     xmlwriter.startElement("org")
     out("orgid",
-        text_type(cereconf.DEFAULT_INSTITUSJONSNR),
+        six.text_type(cereconf.DEFAULT_INSTITUSJONSNR),
         {"orgidtype": "institusjonsnummer"})
     out("ouid", sko, {"ouidtype": "sko"})
     xmlwriter.endElement("org")
 
 
 def make_sko(fakultet, institutt, avdeling):
-    return "".join(["%02d" % int(x)
-                    for x in (fakultet, institutt, avdeling)])
+    return "".join(
+        format(int(x), '02d')
+        for x in (fakultet, institutt, avdeling)
+    )
 
 
 def make_id(*rest):
     """Make an ID out of a sequence."""
-    return u":".join([text_type(x) for x in rest])
+    return ":".join(six.text_type(x) for x in rest)
 
 
 def fnr_to_external_id(fnr, person, person_info):
@@ -184,7 +184,8 @@ def _cache_id_types():
     _id_type_cache["affiliation"] = dict()
     for tmp in c.fetch_constants(c.PersonAffStatus):
         aff, status = int(tmp.affiliation), int(tmp)
-        _id_type_cache["affiliation"][aff, status] = text_type(tmp.description)
+        _id_type_cache["affiliation"][aff, status] = six.text_type(
+            tmp.description)
 
 
 def get_name_type(name_type):
@@ -197,7 +198,7 @@ def get_contact_type(name):
 
 def get_person_id_type(external_id):
     # FIXME: Perhaps we ought to validate whatever is fed in here.
-    return text_type(external_id)
+    return six.text_type(external_id)
 
 
 def get_affiliation_type(affiliation, status):
@@ -264,7 +265,7 @@ def prepare_kull():
             continue
 
         xml_id = make_id(*internal_id)
-        name_for_humans = u"Studiekull %s" % u(row["studiekullnavn"])
+        name_for_humans = "Studiekull %s" % u(row["studiekullnavn"])
         sko = make_sko(*[row[x] for x in ("faknr_studieansv",
                                           "instituttnr_studieansv",
                                           "gruppenr_studieansv")])
@@ -272,7 +273,7 @@ def prepare_kull():
 
         xmlwriter.startElement("group")
         out("groupid", xml_id, {"groupidtype": get_group_id_type("kull")})
-        out("description", name_for_humans)
+        out("description", transliterate(name_for_humans))
         xmlwriter.endElement("group")
 
     return kull_cache
@@ -296,7 +297,7 @@ def prepare_ue():
             continue
 
         xml_id = make_id(*id)
-        name_for_humans = u"Undervisningsenhet %s" % xml_id
+        name_for_humans = "Undervisningsenhet %s" % xml_id
         sko = make_sko(*[row[x] for x in ("faknr_kontroll",
                                           "instituttnr_kontroll",
                                           "gruppenr_kontroll")])
@@ -304,213 +305,420 @@ def prepare_ue():
 
         xmlwriter.startElement("group")
         out("groupid", xml_id, {"groupidtype": get_group_id_type("ue")})
-        out("description", name_for_humans)
+        out("description", transliterate(name_for_humans))
         xmlwriter.endElement("group")
 
     return ue_cache
 
 
-def fetch_external_ids(db_person):
-    """Fetch all external-ids for everyone, respecting SYSTEM_LOOKUP_ORDER.
+class _GenericCache(object):
 
-    If a person has several external-ids of the same type but coming from
-    different source systems, the one with the 'more important' source system
-    will be used. 'more important' refers to the placement in
-    SYSTEM_LOOKUP_ORDER: more important systems come earlier in that sequence.
+    description = "entries"
+    default = None
 
-    @type db_person: an instance of Factory.get('Person')(db)
-    @type constants: an instance of Factory.get('Constants')(db)
-    @rtype: dict
-    @return:
-      Returns a dictionary D1 mapping entity_id (for people) to D2. Each D2 is
-      a dictionary mapping external id type to its value.
+    def __init__(self, db):
+        self._db = db
+        self._cache = {}
+
+    @classmethod
+    def build_cache(cls, db):
+        return {}
+
+    def update_cache(self):
+        logger.debug("caching %s...", self.description)
+        self._cache = self.build_cache(self._db)
+        logger.info("found %d %s", len(self._cache), self.description)
+
+    def __call__(self, key):
+        return self._cache.get(key, self.default)
+
+
+class SystemLookupOrder(object):
     """
+    The ABC system lookup order has always been a bit weird.
 
-    # First, we assign weights to all source systems. The greater the number,
-    # the less important the system. 'None' is also included, to help deal
-    # with non-existing entries. Any source_system is more important than
-    # None.
-    system_weights = dict()
-    u = text_decoder(cerebrum_db.encoding)
-    for counter, system in enumerate([int(getattr(constants, s))
-                                      for s in cereconf.SYSTEM_LOOKUP_ORDER]):
-        system_weights[system] = counter
-    # If an id is registered to some now-unknown system (like migrate), it is
-    # less important than the "official" systems.
-    unknown_weight = counter + 1
-    system_weights[None] = unknown_weight + 1
-
-    tmp = dict()
-    seq = db_person.search_external_ids(entity_type=constants.entity_person,
-                                        fetchall=False)
-    for entity_id, entity_type, id_type, source, external_id in seq:
-        external_id = u(external_id)
-        entity_id, id_type, source = map(int, (entity_id, id_type, source))
-
-        e_dict = tmp.get(entity_id, dict())
-        old_source, old_ext_id = e_dict.get(id_type, (None, None))
-        # if the source system for this id is more important, take it
-        if (system_weights.get(source, unknown_weight) <
-                system_weights.get(old_source, unknown_weight)):
-            e_dict[id_type] = (source, external_id)
-        tmp[entity_id] = e_dict
-
-    # stage 2 -- remove the source system from all the values. We do not need
-    # the source system anymore.
-    for e_dict in tmp.itervalues():
-        for key, value in e_dict.iteritems():
-            e_dict[key] = value[1]  # strip away the source system
-
-    return tmp
-
-
-def cache_person_info(db_person, db_account):
-    """Fetch all person info for all people for this export.
-
-    This is a potential memory hog.
-
-    Returns a 5-tuple:
-
-    * person_id -> names, where names is a dictionary indexed by name type
-    * person_id -> eids, where eids is a dictionary external_id -> value
-    * fnr -> primary uname
-    * uname -> email
-    * person_id -> cell, where cell is the persons cellphone number
+    SYSTEM_LOOKUP_ORDER is respected, but data from remaining
+    AuthoritativeSystem codes are used as a fallback.
     """
+    def __init__(self, const):
+        fallback_lookup_order = sorted(
+            const.fetch_constants(const.AuthoritativeSystem),
+            key=six.text_type)
+        lookup_order = tuple(aggregate.unique(const.get_system_lookup_order()
+                                              + tuple(fallback_lookup_order)))
+        self.get_pri = sorting.make_priority_lookup(lookup_order)
+        self.max_pri = len(lookup_order)
 
-    logger.debug("Populating all person caches")
-    logger.debug("person-id -> names")
-    u = text_decoder(cerebrum_db.encoding)
+    def __call__(self, system):
+        return self.get_pri(system)
 
-    person_id2names = db_person.getdict_persons_names(
-        source_system=constants.system_cached,
-        name_types=(constants.name_full, constants.name_last,
-                    constants.name_first))
-    for k in person_id2names:
-        for v in person_id2names[k]:
-            person_id2names[k][v] = u(person_id2names[k][v])
 
-    variant = int(constants.work_title)
-    for row in db_person.search_name_with_language(
-                            entity_type=constants.entity_person,
-                            name_variant=variant,
-                            name_language=constants.language_nb):
-        person_id = row["entity_id"]
-        person_id2names.setdefault(person_id, dict())[variant] = u(row["name"])
+class PersonNameCache(_GenericCache):
+    """ Person name cache and xml type remapper.  """
 
-    logger.debug("person-id -> external ids")
-    # IVR 2007-11-06: We cannot blindly grab external ids, since there may be
-    # several of them. The only sensible thing to do is to respect
-    # SYSTEM_LOOKUP_ORDER.
-    person_id2external_ids = fetch_external_ids(db_person)
+    description = "person names"
 
-    logger.debug("fnr -> primary uname")
-    fnr2uname = dict(
-        (u(fnr), u(uname))
-        for fnr, uname in db_person.getdict_external_id2primary_account(
-                constants.externalid_fodselsnr).items())
+    name_map = {
+        'FULL': "fn",
+        'FIRST': "given",
+        'LAST': "family",
+    }
 
-    if with_email:
-        logger.debug("uname -> e-mail")
-        uname2mail = db_account.getdict_uname2mailaddr()
-    else:
-        uname2mail = dict()
+    @classmethod
+    def build_cache(cls, db):
+        person = Factory.get("Person")(db)
+        const_map = {
+            int(person.const.get_constant(person.const.PersonName, name)): attr
+            for name, attr in cls.name_map.items()
+        }
+        names = {}
+        for row in person.search_person_names(
+                source_system=person.const.system_cached,
+                name_variant=list(const_map)):
+            p_id = row['person_id']
+            attr = const_map[row['name_variant']]
+            if p_id in names:
+                names[p_id][attr] = row['name']
+            else:
+                names[p_id] = {attr: row['name']}
+        return names
 
-    eid2cell = dict()
-    if with_cell:
-        # Helper function for ordering items.
-        def lookup_order_index(system):
-            i = 0
-            system = text_type(constants.AuthoritativeSystem(system))
-            for x in cereconf.SYSTEM_LOOKUP_ORDER:
-                if text_type(getattr(constants, x)) == system:
-                    return i
+
+class WorkTitleCache(_GenericCache):
+    """
+    Person work title cache.
+
+    Note that this uses the EntityNameWithLanguage implementation of
+    localized work titles, and not the PersonName implementation.
+    """
+    description = "person work titles"
+
+    @classmethod
+    def build_cache(cls, db):
+        person = Factory.get("Person")(db)
+        names = {}
+        for row in person.search_name_with_language(
+                entity_type=int(person.const.entity_person),
+                name_variant=int(person.const.work_title),
+                name_language=int(person.const.language_nb)):
+            p_id = row['entity_id']
+            names[p_id] = row['name']
+        return names
+
+
+class PersonIdCache(_GenericCache):
+    """
+    Person external id cache.
+
+    A cache of all available external ids from the highest prioritized source
+    system (:see:`SystemLookupOrder`), grouped by (person_id, id_type):
+    ::
+
+        get_ids = PersonIdCache(db)
+        get_ids.update_cache()
+        ids = get_ids(int(person_id)) or {}
+        fnr = ids.get(int(co.externalid_fodselsnr))
+    """
+    description = "external ids"
+
+    # This is all a bit dumb - we should really define which external ids to
+    # define (not just cache and export *all id types* and *from any system*
+
+    @classmethod
+    def build_cache(cls, db):
+        person = Factory.get("Person")(db)
+        const = person.const
+
+        # This is dumb, but this export has always included external ids from
+        # systems outside of the system lookup order, if no other id of the
+        # type is set
+        lookup_order = SystemLookupOrder(const)
+
+        id_cache = {}
+        priority = {}
+        for row in person.search_external_ids(entity_type=const.entity_person):
+            (entity_id, id_type) = pri_key = (row['entity_id'], row['id_type'])
+            pri = lookup_order(row['source_system'])
+            if pri < priority.get(pri_key, lookup_order.max_pri):
+                # we found a better value
+                if entity_id in id_cache:
+                    id_cache[entity_id][id_type] = row['external_id']
                 else:
-                    i = i + 1
-            return i
-
-        logger.debug("eid -> cell")
-        for x in db_person.list_contact_info(
-                contact_type=constants.contact_mobile_phone):
-            eid2cell.setdefault(x['entity_id'], []).append(
-                    (x['source_system'], u(x['contact_value']),))
-
-        # Sort according to SYSTEM_LOOKUP_ORDER and pick the first.
-        for x in eid2cell:
-            eid2cell[x] = sorted(
-                eid2cell[x],
-                cmp=lambda p, n: (lookup_order_index(p[1]) -
-                                  lookup_order_index(n[1])))[0][1]
-
-    extra_fields = dict()
-    if extra_contact_fields is not None:
-        for contact_field in extra_contact_fields:
-            cont_type = constants.human2constant(contact_field['contact_type'])
-            src_sys = constants.human2constant(contact_field['source_system'])
-            eid2contact_field = dict()
-            contact_info_entries = db_person.list_contact_info(
-                    contact_type=cont_type,
-                    source_system=src_sys)
-            for x in contact_info_entries:
-                eid2contact_field[x['entity_id']] = u(x['contact_value'])
-            extra_fields[contact_field['xml_name']] = eid2contact_field
-
-    logger.debug("person caching complete")
-    return (person_id2names, person_id2external_ids, fnr2uname, uname2mail,
-            eid2cell, extra_fields)
+                    id_cache[entity_id] = {
+                        id_type: row['external_id'],
+                    }
+                priority[pri_key] = pri
+        return id_cache
 
 
-def output_people():
+class PersonMobilePhoneCache(_GenericCache):
+    """
+    Person external id cache.
+
+    A cache of all the highest prioritized mobile phone numbers (MOBILE).
+    Prioritized by source system (:see:`SystemLookupOrder`) and
+    ``contact_pref``.
+    ::
+
+        get_mobile = PersonMobilePhoneCache(db)
+        get_mobile.update_cache()
+        mobile = get_mobile(int(person_id))
+    """
+    description = "mobile phone numbers"
+
+    @classmethod
+    def build_cache(cls, db):
+        person = Factory.get("Person")(db)
+        const = person.const
+
+        # See PersonIdCache...
+        lookup_order = SystemLookupOrder(const)
+
+        phone_cache = {}
+        priority = {}
+        for row in person.list_contact_info(
+                contact_type=const.contact_mobile_phone):
+            entity_id = row['entity_id']
+            pri = (lookup_order(row['source_system']), row['contact_pref'])
+            if pri < priority.get(entity_id, (lookup_order.max_pri, 0)):
+                # we found a better value
+                phone_cache[entity_id] = row['contact_value']
+                priority[entity_id] = pri
+        return phone_cache
+
+
+class _ContactInfoCache(_GenericCache):
+    """
+    A cache of an arbitrary contact info source + type in Cerebrum
+    ::
+
+        get_fs_mobile = _ContactInfoCache(db, "fs-mobile", "MOBILE", "FS")
+        get_fs_mobile.update_cache()
+        fs_mobile = get_fs_mobile(person_id)
+    """
+    description = "contact info"
+
+    def __init__(self, db, attr, c_type, c_source):
+        """
+        :type db: Cerebrum.database.Database
+        :param str attr: an attr-hint for debugging
+        :param str c_type: a ContactInfo code
+        :param str c_source: an AuthoritativeSystem code
+        """
+        super(_ContactInfoCache, self).__init__(db)
+        const = Factory.get("Constants")(db)
+        self.attr = attr
+        # human2constant for legacy reasons
+        self.c_type = int(const.human2constant(c_type))
+        self.c_source = int(const.human2constant(c_source))
+
+    def update_cache(self):
+        logger.debug("caching %s of type %s ...", self.description, self.attr)
+        self._cache = self.build_cache(self._db, self.c_type, self.c_source)
+        logger.info("found %d %s of type %s", len(self._cache),
+                    self.description, self.attr)
+
+    @classmethod
+    def build_cache(cls, db, c_type, c_source):
+        person = Factory.get("Person")(db)
+        c_cache = {}
+        # *sigh* - we should really get rid of the contact info priority system
+        priority = {}
+        for row in person.list_contact_info(
+                contact_type=int(c_type),
+                source_system=int(c_source)):
+            entity_id = row['entity_id']
+            pri = row['contact_pref']
+            if entity_id not in priority or pri < priority[entity_id]:
+                # we found a better value
+                c_cache[entity_id] = row['contact_value']
+                priority[entity_id] = pri
+        return c_cache
+
+
+class ExtraContactFields(object):
+    """
+    A cache of arbitrary contact info fields to include.
+    """
+    def __init__(self, db, spec_list):
+        """
+        :type db: Cerebrum.database.Database
+        :param list spec_list:
+            A list of contact info fields to cache.
+
+            Example:
+            ::
+
+                [{
+                    'xml_name': "fs-mobile",
+                    'contact_type': "MOBILE",
+                    'source_system': "FS",
+                }]
+        """
+        self.fields = {}
+
+        for fields in (spec_list or []):
+            field_name = fields['xml_name']
+            c_type = fields['contact_type']
+            c_source = fields['source_system']
+            self.fields[field_name] = _ContactInfoCache(db, field_name, c_type,
+                                                        c_source)
+
+    def update_cache(self):
+        for cache in self.fields.values():
+            cache.update_cache()
+
+    def __call__(self, key):
+        results = {}
+        for field_name, cache in self.fields.items():
+            value = cache(key)
+            if value:
+                results[field_name] = value
+
+        return results
+
+
+class PrimaryAccountCache(_GenericCache):
+    """ A legacy cache of primary accounts in Cerebrum. """
+    # This is extremely silly - why use fnr here?!  Maybe the legacy
+    # getdict_external_id2primary_account was the only way to get a list of
+    # primary accounts?
+    description = "primary account"
+
+    @classmethod
+    def build_cache(cls, db):
+        person = Factory.get("Person")(db)
+        const = person.const
+
+        return person.getdict_external_id2primary_account(
+            const.externalid_fodselsnr)
+
+
+class EmailCache(_GenericCache):
+    """ A cache of primary email addresses for accounts in Cerebrum. """
+    description = "email address"
+
+    @classmethod
+    def build_cache(cls, db):
+        account = Factory.get("Account")(db)
+        return account.getdict_uname2mailaddr()
+
+
+class PersonCache(object):
+    """
+    A cache of all relevant person info.
+
+    The cache decides which elements to include for ``<person>` elements.
+    """
+
+    def __init__(self, db, use_email=False, use_mobile=False,
+                 contact_fields=None):
+        """
+        :type db: Cerebrum.database.Database
+        :param bool use_email: if email addresses should be cached
+        :param bool use_mobile: if mobile numbers should be cached
+        :param list contact_fields:
+            a list of extra contact fields to cache and include.
+
+            :see:`ExtraContactFields` and ``spec_list`` for details.
+        """
+        self._db = db
+        self._const = Factory.get("Constants")(db)
+        self.get_names = PersonNameCache(db)
+        self.get_work_title = WorkTitleCache(db)
+        self.get_ids = PersonIdCache(db)
+
+        self.get_mobile = PersonMobilePhoneCache(db)
+        self.use_mobile = use_mobile
+
+        self.get_contacts = ExtraContactFields(db, contact_fields)
+
+        self._get_primary_uname = PrimaryAccountCache(db)
+
+        self.use_email = use_email
+        self._get_email_addr = EmailCache(db)
+
+    def get_primary_uname(self, person_id):
+        """ person-id -> primary user account name """
+        id_type = int(self._const.externalid_fodselsnr)
+        ext_ids = self.get_ids(person_id)
+        fnr = ext_ids.get(id_type)
+        if fnr:
+            return self._get_primary_uname(fnr)
+        return None
+
+    def get_email_addr(self, person_id):
+        """ person-id -> user account -> account email address """
+        if self.use_email:
+            uname = self.get_primary_uname(person_id)
+            if uname:
+                return self._get_email_addr(uname)
+        return None
+
+    @classmethod
+    def make_cache(cls, *args, **kwargs):
+        cache = cls(*args, **kwargs)
+        cache.update_cache()
+        return cache
+
+    def update_cache(self):
+        self.get_names.update_cache()
+        self.get_work_title.update_cache()
+        self.get_ids.update_cache()
+        self.get_contacts.update_cache()
+        self._get_primary_uname.update_cache()
+        if self.use_mobile:
+            self.get_mobile.update_cache()
+        if self.use_email:
+            self._get_email_addr.update_cache()
+
+
+def output_people(db, use_email=False, use_mobile=False,
+                  add_contact_fields=None):
     """Output all information about people."""
-
-    person = Factory.get("Person")(cerebrum_db)
-    account = Factory.get("Account")(cerebrum_db)
+    person = Factory.get("Person")(db)
+    const = person.const
 
     # IVR 2006-12-10 Although no caching is necessary strictly speaking, this
     # function takes over 3 hours to complete at UiO. This is unacceptable,
     # and we trade some of the clarity and memory for running time.
-    (person_id2name,
-     person_id2external_ids,
-     fnr2uname, uname2mail,
-     eid2cell, extra_fields) = cache_person_info(person, account)
+    person_cache = PersonCache.make_cache(
+        db,
+        use_mobile=use_mobile,
+        use_email=use_email,
+        contact_fields=add_contact_fields,
+    )
 
     # cache for person_id -> external-IDs
     person_info = dict()
-    fnr_const = int(constants.externalid_fodselsnr)
+    fnr_const = int(const.externalid_fodselsnr)
 
     for row in person.list_persons():
-        id = int(row["person_id"])
-        birth_date = row["birth_date"]
+        person_id = int(row["person_id"])
+        birth_date = date_compat.get_date(row["birth_date"])
 
-        name_collection = dict()
-        # We have to delay person output, until we are sure that a few key
-        # attributes are present.
-        names = person_id2name.get(id, {})
-        for tmp, xml_name in ((constants.name_full, "fn"),
-                              (constants.name_last, "family"),
-                              (constants.name_first, "given")):
-            name = names.get(int(tmp))
-            if name:
-                name_collection[xml_name] = transliterate(name)
-
+        name_collection = {
+            attr: transliterate(name)
+            for attr, name in (person_cache.get_names(person_id) or {}).items()
+        }
         id_collection = dict()
-        ids = person_id2external_ids.get(id, {})
-        for tmp in constants.fetch_constants(constants.EntityExternalId):
+        ids = person_cache.get_ids(person_id) or {}
+        for tmp in const.fetch_constants(const.EntityExternalId):
             value = ids.get(int(tmp))
             if value:
                 id_collection[int(tmp)] = (tmp, value)
 
         if ("fn" not in name_collection) or (fnr_const not in id_collection):
             logger.debug("Person (%s) lacks some name/ID attributes. Skipped",
-                         id)
+                         person_id)
             logger.debug("name_collection %s; id_collection: %s",
                          name_collection, id_collection)
             continue
 
         # people need at least one valid affiliation to be output.
-        if not person.list_affiliations(person_id=id):
+        if not person.list_affiliations(person_id=person_id):
             logger.debug("Person (e_id:%s; %s) has no affiliations. Skipped",
-                         id, id_collection)
+                         person_id, id_collection)
             continue
 
         # Cache the mapping. It does not really matter which external ID we
@@ -524,7 +732,7 @@ def output_people():
         # people in the ABC-file), but is nevertheless present in
         # kull/und.enhet/whatever, since (s)he is registered in FS.
         current_fnr = id_collection[fnr_const][1]
-        person_info[int(id)] = (constants.externalid_fodselsnr, current_fnr)
+        person_info[person_id] = (const.externalid_fodselsnr, current_fnr)
 
         #
         # we start with the IDs
@@ -543,32 +751,29 @@ def output_people():
         for xml_name, value in name_collection.items():
             out(xml_name, value)
 
-        work_title = names.get(int(constants.work_title))
+        work_title = person_cache.get_work_title(person_id)
         if work_title:
-            out("partname",
-                work_title,
+            out("partname", transliterate(work_title),
                 {"partnametype": get_name_type("work")})
 
         xmlwriter.endElement("n")
         xmlwriter.endElement("name")
 
-        #
         # ... then the "rest"
         # (date == YYYY-MM-DD).
-        # FIXME: Should we skip people without birth dates?
         if birth_date:
-            out("birthdate", birth_date.date)
+            out("birthdate", birth_date.isoformat())
 
-        primary_uname = fnr2uname.get(current_fnr)
-        for value, contact_type in ((primary_uname, "uname"),
-                                    (uname2mail.get(primary_uname), "email"),
-                                    (eid2cell.get(id), "cell")):
+        for value, contact_type in (
+                (person_cache.get_primary_uname(person_id), "uname"),
+                (person_cache.get_email_addr(person_id), "email"),
+                (person_cache.get_mobile(person_id), "cell"),
+        ):
             if value:
                 out("contactinfo", value, {"contacttype":
                                            get_contact_type(contact_type)})
 
-        for field in extra_fields:
-            value = extra_fields[field].get(id)
+        for field, value in person_cache.get_contacts(person_id).items():
             if value:
                 out('contactinfo', value, {'contacttype': field})
 
@@ -732,8 +937,8 @@ def sort_affiliations(sequence):
         if not sko:
             logger.warn("Aiee! There is an affiliation %s:%s with ou_id %s "
                         "but there is no sko for that ou_id",
-                        text_type(row["affiliation"]),
-                        text_type(row["status"]),
+                        six.text_type(row["affiliation"]),
+                        six.text_type(row["status"]),
                         row["ou_id"])
             continue
 
@@ -790,7 +995,7 @@ def output_affiliations(person_info):
       </object>
     </relation>
 
-    Although the schema permits more that [0, \inf) ouid, we will use exactly
+    Although the schema permits more that [0, inf) ouid, we will use exactly
     one.
     '''
 
@@ -933,7 +1138,12 @@ def generate_report(orgname, encoding):
     # Write out OU information
     output_all_ous(orgname)
 
-    person_info = output_people()
+    person_info = output_people(
+        cerebrum_db,
+        use_email=with_email,
+        use_mobile=with_cell,
+        add_contact_fields=extra_contact_fields,
+    )
 
     kull_info = prepare_kull()
 

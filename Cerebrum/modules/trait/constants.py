@@ -1,6 +1,6 @@
 # coding: utf-8
 #
-# Copyright 2018-2022 University of Oslo, Norway
+# Copyright 2018-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -20,6 +20,13 @@
 """
 Base constant types and constants related to traits
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+
 import Cerebrum.Constants
 
 
@@ -27,11 +34,13 @@ class _EntityTraitCode(Cerebrum.Constants._CerebrumCodeWithEntityType):
     """
     Code values for entity traits, used in table entity_trait
     """
-
     _lookup_table = '[:table schema=cerebrum name=entity_trait_code]'
 
 
 class CLConstants(Cerebrum.Constants.CLConstants):
+    """
+    Mixin to provide entity change types.
+    """
 
     trait_add = Cerebrum.Constants._ChangeTypeCode(
         "entity_trait", "add",
@@ -71,5 +80,7 @@ class CLConstants(Cerebrum.Constants.CLConstants):
 
 
 class Constants(Cerebrum.Constants.Constants):
-
+    """
+    Mixin to provide entity trait type as ``Constants.EntityTrait``.
+    """
     EntityTrait = _EntityTraitCode

@@ -32,96 +32,164 @@ from Cerebrum.Constants import (
     _PersonAffiliationCode,
     _PersonAffStatusCode,
 )
+from Cerebrum.modules.Email import _EmailSpamActionCode
+from Cerebrum.modules.Email import _EmailSpamLevelCode
+from Cerebrum.modules.EntityTrait import _EntityTraitCode
+from Cerebrum.modules.PosixConstants import _PosixShellCode
 from Cerebrum.modules.no.Constants import ConstantsHigherEdu
 from Cerebrum.modules.no.Constants import ConstantsUniversityColleges
-from Cerebrum.modules.PosixConstants import _PosixShellCode
-from Cerebrum.modules.EntityTrait import _EntityTraitCode
-from Cerebrum.modules.Email import _EmailSpamLevelCode
-from Cerebrum.modules.Email import _EmailSpamActionCode
 
 
-class Constants(Constants.Constants):
-    system_fs_derived = _AuthoritativeSystemCode('FS-auto',
-                                                 'Utledet av FS data')
-    system_pbx = _AuthoritativeSystemCode('PBX', 'PBX')
+class _LegacyConstants(Constants.Constants):
+    """
+    Deprecated UiA-specific constants.
+
+    These are constants that are no longer in use, but may need to be
+    resolvable e.g. from changelog or audit records.
+
+    The attribute name is no longer in use.
+    """
+
+    # UiA used to import office phone numbers from their telephone exchange
+    # system (private branch exchange - PBX).
+    _legacy_system_pbx = _AuthoritativeSystemCode(
+        "PBX",
+        "Deprecated source_system - PBX",
+    )
+
+    # Doesn't look like this was ever in use...
+    _legacy_system_fs_derived = _AuthoritativeSystemCode(
+        "FS-auto",
+        "Deprecated source_system - Affiliations derived from FS",
+    )
+
+
+class Constants(ConstantsUniversityColleges, ConstantsHigherEdu,
+                _LegacyConstants):
 
     # AFFILIATIONS FOR ANSATTE
-    affiliation_ansatt = ConstantsHigherEdu.affiliation_ansatt
     affiliation_status_ansatt_manuell = _PersonAffStatusCode(
-        affiliation_ansatt, 'ans_manuell', 'Ansatt, manuell import')
+        ConstantsHigherEdu.affiliation_ansatt,
+        'ans_manuell',
+        'Ansatt, manuell import',
+    )
     affiliation_status_ansatt_primaer = _PersonAffStatusCode(
-        affiliation_ansatt, 'primaer', 'Primærtilknytning for SAP ansatte')
+        ConstantsHigherEdu.affiliation_ansatt,
+        'primaer',
+        'Primærtilknytning for SAP ansatte',
+    )
 
     # AFFILIATIONS FOR STUDENTER
-    affiliation_student = ConstantsHigherEdu.affiliation_student
     affiliation_status_student_manuell = _PersonAffStatusCode(
-        affiliation_student, 'stud_manuell', 'Student, manuell import')
+        ConstantsHigherEdu.affiliation_student,
+        'stud_manuell',
+        'Student, manuell import',
+    )
     affiliation_status_student_tilbud = _PersonAffStatusCode(
-        affiliation_student, 'tilbud', 'Student, tilbud')
+        ConstantsHigherEdu.affiliation_student,
+        'tilbud',
+        'Student, tilbud',
+    )
 
     # AFFILIATIONS FOR ASSOSIERTE PERSONER
-    affiliation_tilknyttet = ConstantsUniversityColleges.affiliation_tilknyttet
     affiliation_status_tilknyttet_feide = _PersonAffStatusCode(
-        affiliation_tilknyttet, 'feide',
+        ConstantsHigherEdu.affiliation_tilknyttet,
+        'feide',
         'Personer uten reg. i kildesystem som må ha tilgang til '
-        'FEIDE-baserte tjenester')
-
+        'FEIDE-baserte tjenester',
+    )
     affiliation_status_tilknyttet_ekstern = _PersonAffStatusCode(
-        affiliation_tilknyttet, 'ekstern',
-        'Registrert i HR, ekstern tilsatt')
+        ConstantsHigherEdu.affiliation_tilknyttet,
+        'ekstern',
+        'Registrert i HR, ekstern tilsatt',
+    )
 
     # AFFILIATIONS FOR ANDRE
-    affiliation_manuell = _PersonAffiliationCode(
-        'MANUELL',
-        ('Tilknyttet UiA uten å være registrert i et av de'
-         ' autoritative kildesystemene'))
     affiliation_status_manuell_ekstern = _PersonAffStatusCode(
-        affiliation_manuell, 'ekstern',
-        'Eksternt tilknyttet person, når spesifikke kategorier ikke passer')
+        ConstantsHigherEdu.affiliation_manuell,
+        'ekstern',
+        'Eksternt tilknyttet person, når spesifikke kategorier ikke passer',
+    )
     affiliation_status_manuell_sia = _PersonAffStatusCode(
-        affiliation_manuell, 'sia',
-        'Person tilknyttet Studentsamskipnaden i Agder')
+        ConstantsHigherEdu.affiliation_manuell,
+        'sia',
+        'Person tilknyttet Studentsamskipnaden i Agder',
+    )
     affiliation_status_manuell_sta = _PersonAffStatusCode(
-        affiliation_manuell, 'sta',
-        'Person tilknyttet Studentorganisasjonen Agder')
+        ConstantsHigherEdu.affiliation_manuell,
+        'sta',
+        'Person tilknyttet Studentorganisasjonen Agder',
+    )
     affiliation_status_manuell_filonova = _PersonAffStatusCode(
-        affiliation_manuell, 'filonova',
-        'Person tilknyttet Filonova kursstiftelse')
+        ConstantsHigherEdu.affiliation_manuell,
+        'filonova',
+        'Person tilknyttet Filonova kursstiftelse',
+    )
     affiliation_status_manuell_agderforskning = _PersonAffStatusCode(
-        affiliation_manuell, 'agderforskning',
-        'Person tilknyttet Agderforskning')
+        ConstantsHigherEdu.affiliation_manuell,
+        'agderforskning',
+        'Person tilknyttet Agderforskning',
+    )
     affiliation_status_manuell_statsbygg = _PersonAffStatusCode(
-        affiliation_manuell, 'statsbygg',
-        'Person tilknyttet Statsbygg ved UiA')
+        ConstantsHigherEdu.affiliation_manuell,
+        'statsbygg',
+        'Person tilknyttet Statsbygg ved UiA',
+    )
     affiliation_status_manuell_pensjonist = _PersonAffStatusCode(
-        affiliation_manuell, 'pensjonist',
-        'Pensjonist ved UiA, ikke registrert i SAP')
+        ConstantsHigherEdu.affiliation_manuell,
+        'pensjonist',
+        'Pensjonist ved UiA, ikke registrert i SAP',
+    )
     affiliation_status_manuell_gjest = _PersonAffStatusCode(
-        affiliation_manuell, 'gjest', 'Gjesteopphold ved UiA')
+        ConstantsHigherEdu.affiliation_manuell,
+        'gjest',
+        'Gjesteopphold ved UiA',
+    )
     affiliation_status_manuell_ans_uten_sap = _PersonAffStatusCode(
-        affiliation_manuell, 'ans_uten_sap',
-        'Ansatt som ikke er lagt inn i SAP. En midlertidig status for folk')
+        ConstantsHigherEdu.affiliation_manuell,
+        'ans_uten_sap',
+        'Ansatt som ikke er lagt inn i SAP. En midlertidig status for folk',
+    )
     affiliation_status_manuell_gjest_ikke_epost = _PersonAffStatusCode(
-        affiliation_manuell, 'gjest_no_epost',
-        'Gjesteopphold som ansatt ved UiA. Skal ikke ha epost')
+        ConstantsHigherEdu.affiliation_manuell,
+        'gjest_no_epost',
+        'Gjesteopphold som ansatt ved UiA. Skal ikke ha epost',
+    )
     affiliation_status_manuell_gjest_student = _PersonAffStatusCode(
-        affiliation_manuell, 'gjest_student',
-        'Gjesteopphold for student ved UiA. Epost skal tildeles')
+        ConstantsHigherEdu.affiliation_manuell,
+        'gjest_student',
+        'Gjesteopphold for student ved UiA. Epost skal tildeles',
+    )
     affiliation_status_manuell_gjest_student_ikke_epost = _PersonAffStatusCode(
-        affiliation_manuell, 'gj_st_no_epost',
-        'Gjesteopphold for student ved UiA. Epost skal ikke tildeles')
+        ConstantsHigherEdu.affiliation_manuell,
+        'gj_st_no_epost',
+        'Gjesteopphold for student ved UiA. Epost skal ikke tildeles',
+    )
 
     affiliation_upersonlig = _PersonAffiliationCode(
-        'UPERSONLIG', 'Fellesbrukere, samt andre brukere uten eier')
+        'UPERSONLIG',
+        'Fellesbrukere, samt andre brukere uten eier',
+    )
     affiliation_upersonlig_felles = _PersonAffStatusCode(
-        affiliation_upersonlig, 'felles', 'Felleskonti')
+        affiliation_upersonlig,
+        'felles',
+        'Felleskonti',
+    )
     affiliation_upersonlig_kurs = _PersonAffStatusCode(
-        affiliation_upersonlig, 'kurs', 'Kurskonti')
+        affiliation_upersonlig,
+        'kurs',
+        'Kurskonti',
+    )
     affiliation_upersonlig_pvare = _PersonAffStatusCode(
-        affiliation_upersonlig, 'pvare', 'Programvarekonti')
+        affiliation_upersonlig,
+        'pvare',
+        'Programvarekonti',
+    )
     affiliation_upersonlig_studentforening = _PersonAffStatusCode(
-        affiliation_upersonlig, 'studorg',
-        'Studentforening eller -aktivitet ved UiA')
+        affiliation_upersonlig,
+        'studorg',
+        'Studentforening eller -aktivitet ved UiA',
+    )
 
     # DEFINISJON AV SHELL
     # We override the default Cerebrum paths for shells, thus this

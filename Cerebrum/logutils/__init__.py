@@ -129,6 +129,7 @@ def autoconf(name, namespace=None):
     # Get options
     override_exc = getattr(namespace, options.OPTION_CAPTURE_EXC, None)
     override_warn = getattr(namespace, options.OPTION_CAPTURE_WARN, None)
+    override_sentry = getattr(namespace, options.OPTION_SENTRY, None)
     logger_name = getattr(namespace, options.OPTION_LOGGER_NAME, None)
     logger_level = getattr(namespace, options.OPTION_LOGGER_LEVEL, None)
     # TODO: Implement --logger-config, to specify file rather than do a lookup?
@@ -151,6 +152,8 @@ def autoconf(name, namespace=None):
         c.exceptions.enable = override_exc
     if override_warn is not None:
         c.warnings.enable = override_warn
+    if override_sentry is not None:
+        c.sentry.enable = override_sentry
 
     # Configure default values in handler classes
     # TODO: Changing a class, threading locks?
@@ -159,3 +162,19 @@ def autoconf(name, namespace=None):
     config.configure(c, logger_name or name, logger_level)
     # TODO: Changing a global, should use locks?
     _configured = True
+
+
+def autoconf_interactive(namespace):
+    """
+    Run config.configure for interactive scripts with a commit flag
+
+    In practice this function just runs autoconf(), but:
+
+    1. Requires argparse to actually be in use, and to have a commit flag
+    2. Sets default logger preset: "tee" in commit-mode, or "console" in dryrun
+    """
+    if namespace.commit:
+        preset = "tee"
+    else:
+        preset = "console"
+    autoconf(preset, namespace)

@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright 2019 University of Oslo, Norway
+#
+# Copyright 2019-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,7 +20,15 @@
 """
 Mixins related to mod_apikeys.
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+
 from Cerebrum.Account import Account
+
 from .dbal import ApiMapping
 
 

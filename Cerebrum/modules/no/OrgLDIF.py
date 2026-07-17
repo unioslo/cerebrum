@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2004-2022 University of Oslo, Norway
+# Copyright 2004-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -41,8 +41,12 @@ py:class:`.NorEduSmsAuthnMixin`
 py:class:`.NorEduAzureAuthnMixin`
     Mixin to enable Azure-AD authentication in Feide.
 """
-from __future__ import unicode_literals
-
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import io
 import json
 import logging
@@ -201,12 +205,12 @@ class NorEduOrgLdifMixin(OrgLDIF):
             contact_type=int(self.const.contact_email),
             verify=verify_email,
             normalize=normalize_IA5String)
-        post_string, street_string = self.make_entity_addresses(
-            self.ou, self.system_lookup_order)
-        if post_string:
-            entry['postalAddress'] = (post_string,)
-        if street_string:
-            entry['street'] = (street_string,)
+        postal_address = self.get_ou_postal_addr(int(ou_id))
+        if postal_address:
+            entry['postalAddress'] = (postal_address,)
+        street_address = self.get_ou_street_addr(int(ou_id))
+        if street_address:
+            entry['street'] = (street_address,)
 
     def make_ou_entry(self, ou_id, parent_dn):
         # Changes from superclass:
@@ -218,37 +222,18 @@ class NorEduOrgLdifMixin(OrgLDIF):
         if self.test_omit_ou():
             return parent_dn, None
 
-        name_variants = (self.const.ou_name_acronym,
-                         self.const.ou_name_short,
-                         self.const.ou_name,
-                         self.const.ou_name_display)
-        var2pref = dict([(v, i) for i, v in enumerate(name_variants)])
-        ou_names = {}
-        for row in self.ou.search_name_with_language(
-                entity_id=self.ou.entity_id,
-                name_language=self.languages,
-                name_variant=name_variants):
-            name = row["name"].strip()
-            if name:
-                pref = var2pref[int(row['name_variant'])]
-                lnames = ou_names.setdefault(pref, [])
-                lnames.append((int(row['name_language']), name))
-        if not ou_names:
-            logger.warn("No names could be located for ou_id=%s", ou_id)
-            return parent_dn, None
-
         ldap_ou_id = self.get_unique_ou_id()
         self.ou_uniq_id2ou_id[ldap_ou_id] = ou_id
         self.ou_id2ou_uniq_id[ou_id] = ldap_ou_id
         entry = {
             'objectClass': ['top', 'organizationalUnit', 'norEduOrgUnit'],
-            'norEduOrgUnitUniqueIdentifier': (ldap_ou_id,)}
-        if 0 in ou_names:
-            self.add_lang_names(entry, 'norEduOrgAcronym', ou_names[0])
-        ou_names = [names for ou_pref, names in sorted(ou_names.items())]
-        for names in ou_names:
-            self.add_lang_names(entry, 'ou', names)
-        self.add_lang_names(entry, 'cn', ou_names[-1])
+            'norEduOrgUnitUniqueIdentifier': (ldap_ou_id,),
+        }
+
+        if not self._update_ou_names(ou_id, entry):
+            logger.warning("No names could be located for ou_id=%s", ou_id)
+            return parent_dn, None
+
         entry.update(self.FEIDE_ou_common_attrs)
         if self.FEIDE_class_obsolete:
             entry['objectClass'].append(self.FEIDE_class_obsolete)
@@ -259,7 +244,7 @@ class NorEduOrgLdifMixin(OrgLDIF):
         if not dn:
             return parent_dn, None
 
-        for attr in entry.keys():
+        for attr in list(entry.keys()):
             if attr == 'ou' or attr.startswith('ou;'):
                 entry[attr] = attr_unique(entry[attr], normalize_string)
         self.fill_ou_entry_contacts(entry)
@@ -337,7 +322,7 @@ class NorEduOrgLdifMixin(OrgLDIF):
         pri = None
         pri_ou = None
         pri_edu_aff = None
-        for aff, status, ou in self.affiliations[p_id]:
+        for aff, status, ou in sorted(self.affiliations[p_id]):
             # populate the caches
             if aff in self.aff_cache:
                 aff_str = self.aff_cache[aff]
@@ -656,7 +641,7 @@ class NorEduSmsAuthnMixin(NorEduOrgLdifMixin):
                     'source_system': system,
                 })
                 count += 1
-            logger.info('cached %d authn methods from contact info', count)
+            logger.info('cached %d mfa authn methods from contact info', count)
             timer("...authentication methods done.")
         return self._person_authn_methods
 
@@ -707,16 +692,18 @@ class NorEduSmsAuthnMixin(NorEduOrgLdifMixin):
         if 'norEduPerson' not in entry['objectClass']:
             return
 
-        sms_methods = self._get_sms_authn_methods(person_id)
+        sms_methods = list(self._get_sms_authn_methods(person_id) or ())
 
         # there *shouldn't* be any value collisions here, as SMS methods use a
         # distinct urn - if we ever make a new mixin that *also* produce
         # norEduPersonAuthnMethod values with the same urn this should be
         # re-done
-        if sms_methods and entry.get('norEduPersonAuthnMethod'):
-            entry['norEduPersonAuthnMethod'].extend(sms_methods)
-        elif sms_methods:
-            entry['norEduPersonAuthnMethod'] = sms_methods
+        if sms_methods:
+            orig = list(entry.get('norEduPersonAuthnMethod') or ())
+            entry['norEduPersonAuthnMethod'] = sorted(
+                attr_unique(orig + sms_methods,
+                            normalize=normalize_string)
+            )
 
 
 class OrgLdifCourseMixin(NorEduOrgLdifMixin):
@@ -743,7 +730,8 @@ class OrgLdifCourseMixin(NorEduOrgLdifMixin):
     def _init_person_course(self):
         """Populate dicts with a person's course information."""
         timer = make_timer(logger, 'Processing person courses...')
-        self._person2urnlist = pickle.load(file(self.person_course_filename))
+        with io.open(self.person_course_filename, "rb") as f:
+            self._person2urnlist = pickle.loads(f.read())
         timer("...person courses done.")
 
     def init_person_dump(self, *args, **kwargs):
@@ -756,13 +744,17 @@ class OrgLdifCourseMixin(NorEduOrgLdifMixin):
         dn, entry, alias_info = super(OrgLdifCourseMixin,
                                       self).make_person_entry(row, person_id)
 
-        # Add or extend entitlements
-        if dn and person_id in self._person2urnlist:
-            urnlist = self._person2urnlist[person_id]
-            if 'eduPersonEntitlement' in entry:
-                entry['eduPersonEntitlement'].update(urnlist)
-            else:
-                entry['eduPersonEntitlement'] = set(urnlist)
+        if not dn:
+            # early abort - object should not be included in export
+            return dn, entry, alias_info
+
+        entitlements = list(entry.get("eduPersonEntitlement", ()))
+        if person_id in self._person2urnlist:
+            entitlements.extend(self._person2urnlist[person_id])
+
+        entitlements = sorted(attr_unique(entitlements))
+        if entitlements:
+            entry['eduPersonEntitlement'] = entitlements
 
         return dn, entry, alias_info
 
@@ -789,16 +781,17 @@ class OrgLdifEntitlementsMixin(NorEduOrgLdifMixin):
 
     def _init_person_entitlements(self):
         """ Load person entitlements file. """
-        if hasattr(self, '_person_entitlements'):
+        if hasattr(self, '_entity_to_entitlements'):
             logger.warning('Person entitlements already loaded!')
             return
 
-        timer = make_timer(logger, 'Loading person entitlements...')
+        timer = make_timer(logger, 'Loading entitlements cache...')
         with io.open(self.entitlements_file, encoding='utf-8') as stream:
             e_dict = json.loads(stream.read())
-        self._person_entitlements = {int(p_id): e_list
-                                     for p_id, e_list in e_dict.items()}
-        timer("...person entitlements done.")
+        self._entity_to_entitlements = {
+            int(entity_id): urn_list
+            for entity_id, urn_list in e_dict.items()}
+        timer("... entitlements cache done.")
 
     def init_person_dump(self, *args, **kwargs):
         # API-method: Init person data
@@ -807,18 +800,28 @@ class OrgLdifEntitlementsMixin(NorEduOrgLdifMixin):
             self._init_person_entitlements()
 
     def make_person_entry(self, row, person_id):
-        # API-method: Generate person object
         dn, entry, alias_info = super(OrgLdifEntitlementsMixin,
                                       self).make_person_entry(row, person_id)
 
-        # Add or extend entitlements
-        if (self.entitlements_file and dn and
-                person_id in self._person_entitlements):
-            entitlements = self._person_entitlements[person_id]
-            if 'eduPersonEntitlement' in entry:
-                entry['eduPersonEntitlement'].update(entitlements)
-            else:
-                entry['eduPersonEntitlement'] = set(entitlements)
+        if not dn:
+            # early abort - object should not be included in export
+            return dn, entry, alias_info
+
+        if not self.entitlements_file:
+            # early abort  - we have no entitlement cache
+            return dn, entry, alias_info
+
+        entitlement_ids = [person_id, int(row['account_id'])]
+        entitlements = list(entry.get("eduPersonEntitlement", ()))
+
+        # Collect entitlements from file cache
+        for entity_id in entitlement_ids:
+            if entity_id in self._entity_to_entitlements:
+                entitlements.extend(self._entity_to_entitlements[entity_id])
+
+        entitlements = sorted(attr_unique(entitlements))
+        if entitlements:
+            entry['eduPersonEntitlement'] = entitlements
 
         return dn, entry, alias_info
 
@@ -851,9 +854,7 @@ class NorEduAzureAuthnMixin(NorEduOrgLdifMixin):
         # azure-ad" value use a distinct urn - if we ever make a new mixin that
         # *also* produce norEduPersonAuthnMethod values with the same urn this
         # should be re-done
-        values = attr_unique([self.feide_authn_method_azuread],
+        orig = list(entry.get('norEduPersonAuthnMethod') or ())
+        values = attr_unique(orig + [self.feide_authn_method_azuread],
                              normalize=normalize_string)
-        if values and entry.get('norEduPersonAuthnMethod'):
-            entry['norEduPersonAuthnMethod'].extend(values)
-        elif values:
-            entry['norEduPersonAuthnMethod'] = values
+        entry['norEduPersonAuthnMethod'] = sorted(values)

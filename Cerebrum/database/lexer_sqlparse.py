@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright 2020-2022 University of Oslo, Norway
+#
+# Copyright 2020-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -39,17 +40,21 @@ The refactor was done to accommodate other lexers than Cursor._translate,
 
 TODO
 ----
-
 1. We may want to just join together the :class:`.IdentifyMacroFilter` and the
-:class:`.ProcessMacroFilter` preprocessors.  The latter cannot work without the
-first.  The first has no use by itself, and is only extracted out into its own
-class as a separation-of-concerns thing.
+   :class:`.ProcessMacroFilter` preprocessors.  The latter cannot work without
+   the first.  The first has no use by itself, and is only extracted out into
+   its own class as a separation-of-concerns thing.
 
 2. We should get rid of the :class:`._FindWhitespaceErrors` preprocessor.  This
-class fixes some formatting errors in Cerebrum queries, but they should all
-have been identified and fixed by now.
+   class fixes some formatting errors in Cerebrum queries, but they should all
+   have been identified and fixed by now.
 """
-from __future__ import print_function, unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import logging
 import os

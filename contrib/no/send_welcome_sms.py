@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2012-2023 University of Oslo, Norway
+# Copyright 2012-2025 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -36,8 +36,9 @@ from __future__ import (
     absolute_import,
     division,
     print_function,
-    # TODO: unicode_literals,
+    unicode_literals,
 )
+
 import argparse
 import datetime
 import functools
@@ -63,14 +64,17 @@ sms = SMSSender()
 
 
 class SMSManager(object):
+    """ Base Manager. """
     def __init__(self, db, trait):
         self.db = db
         self.trait = trait
         self.ac = Factory.get('Account')(self.db)
         self.co = Factory.get('Constants')(self.db)
+        self.row = None
 
 
 class ReminderManager(SMSManager):
+    """ Manager for Reminder mode. Handles sms_welcome trait."""
     def __iter__(self):
         """
         The iterator for the Reminder class only picks those who have the trait
@@ -90,16 +94,21 @@ class ReminderManager(SMSManager):
         trait since this will make it not get picked out the next time"""
         logger.debug("In reminder mode, updating trait %s on account %s",
                      self.trait, ac.account_name)
-        inc_attempt(self.db, ac, self.row, commit)
+        ac.populate_trait(code=self.row['code'], numval=1, date=self.row['date'])
+        ac.write_db()
+        if commit:
+            self.db.commit()
+        else:
+            self.db.rollback()
 
     def populate_trait(self, ac):
         """In reminder mode we don't populate traits, we only increment the
         numval of the existing one, which the process function takes care of
         for us."""
-        pass
 
 
 class WelcomeManager(SMSManager):
+    """ Manager for Welcome mode. Handles new_account and new_student traits."""
     def __iter__(self):
         """
         The iterator for the WelcomeManager only checks if the account has the
@@ -121,14 +130,15 @@ class WelcomeManager(SMSManager):
             self.db.rollback()
 
     def populate_trait(self, ac):
-        """In welcome mode we populate the new trait"""
+        """In welcome mode we populate the new trait."""
         ac.populate_trait(code=self.co.trait_sms_welcome,
                           date=date_utils.now())
 
 
-def process(manager, message, phone_types, affiliations, too_old,
-            min_attempts, commit=False, reminder=False, filters=[]):
-    """Go through the given trait type and send out welcome SMSs to the users.
+def process(manager,message, phone_types, affiliations, too_old,
+            commit=False, reminder=False, filters=None):
+    """
+    Go through the given trait type and send out welcome SMSs to the users.
 
     Remove the traits, and set a new message-is-sent-trait, to avoid spamming
     the users.
@@ -142,6 +152,7 @@ def process(manager, message, phone_types, affiliations, too_old,
     pe = Factory.get('Person')(manager.db)
 
     for row in manager:
+        issues = []
 
         # Only send reminders if in the last week of july or december
         if reminder and not (
@@ -160,13 +171,9 @@ def process(manager, message, phone_types, affiliations, too_old,
         account_ident = "%s (%d)" % (ac.account_name, ac.entity_id)
         logger.debug('Found user %s', account_ident)
 
-        # increase attempt counter for this account
-        if min_attempts:
-            attempt = inc_attempt(manager.db, ac, row, commit)
-
         date = date_compat.get_datetime_tz(row['date'])
         if not date:
-            logger.warn(
+            logger.warning(
                 "Giving up on trait %s for account %s: missing date",
                 text_type(manager.trait), account_ident)
             manager.remove_trait(ac, commit)
@@ -175,44 +182,37 @@ def process(manager, message, phone_types, affiliations, too_old,
         cutoff = date_utils.now() - datetime.timedelta(days=too_old)
         is_too_old = date < cutoff
 
-        # remove trait if older than too_old days and min_attempts is not set
-        if is_too_old and not min_attempts:
-            logger.warn(
+        # remove trait if older than too_old days
+        if is_too_old:
+            logger.warning(
                 "Giving up on trait %s for account %s: trait too old",
                 text_type(manager.trait), account_ident)
-            manager.remove_trait(ac, commit)
-            continue
-
-        # remove trait if more than min_attempts attempts have been made and
-        # trait is too old
-        if is_too_old and min_attempts and min_attempts < attempt:
-            logger.warn("Giving up on trait %s for account %s: "
-                        "trait too old + too many attempts (%d)",
-                        text_type(manager.trait), account_ident, attempt)
             manager.remove_trait(ac, commit)
             continue
 
         if ac.owner_type != manager.co.entity_person:
             logger.info("Skipping account %s: not personal account",
                         account_ident)
-            # TODO: remove trait?
+            manager.remove_trait(ac, commit)
             continue
+
         if ac.is_expired():
             logger.info("Skipping account %s: account is expired",
                         account_ident)
-            # TODO: remove trait?
+            manager.remove_trait(ac, commit)
             continue
 
-        if list(ac.get_entity_quarantine(only_active=True,
-                                         filter_disable_until=False)):
-            # Skipping sms until all quarantines are removed.
-            logger.warn("Skipping account %s: account is quarantined",
-                        account_ident)
-            continue
+        quarantines = ac.list_entity_quarantines(only_active=True, entity_ids=ac.entity_id,
+                                    ignore_quarantine_types=manager.co.quarantine_autopassord)
+        if quarantines:
+            issues.append('Quarantines=%d' % len(quarantines))
 
         # Apply custom filters that deem if this user should be processed
         # further.
-        def apply_filters(filter_name, filter_func):
+        if filters is None:
+            filters = []
+
+        def apply_filters(filter_name, filter_func, acc_ident):
             if isinstance(filter_func, list):
                 result = all(map(lambda fun: fun(ac),
                                  filter_func))
@@ -222,13 +222,13 @@ def process(manager, message, phone_types, affiliations, too_old,
             if result:
                 logger.info("Giving up on trait %s for account %s: "
                             "filtered out by function %s",
-                            text_type(manager.trait), account_ident,
+                            text_type(manager.trait), acc_ident,
                             filter_name)
                 manager.remove_trait(ac, commit)
                 return True
             return False
 
-        if any(map(lambda (k, v): apply_filters(k, v), filters)):
+        if any(map(lambda (k, v): apply_filters(k, v, account_ident), filters)):
             continue
 
         # check person affiliations
@@ -238,12 +238,9 @@ def process(manager, message, phone_types, affiliations, too_old,
                 affs.append(a['affiliation'])
                 affs.append(a['status'])
             if not any(a in affs for a in affiliations):
-                logger.info("Skipping account %s: no valid affiliations",
-                            account_ident)
-                # TODO: Doesn't remove trait, in case the person gets it later
-                # on.
-                #       Should the trait be removed?
+                logger.info("Skipping account %s: no affiliation matching %s found", account_ident, affiliations[0])
                 continue
+
         pe.clear()
         pe.find(ac.owner_id)
 
@@ -265,9 +262,7 @@ def process(manager, message, phone_types, affiliations, too_old,
         # get phone number
         phone = get_phone_number(pe=pe, phone_types=phone_types)
         if not phone:
-            logger.info("Skipping account %s: no valid phone numbers",
-                        account_ident)
-            continue
+            issues.append('No phone number')
 
         # get email
         email = ''
@@ -291,13 +286,20 @@ def process(manager, message, phone_types, affiliations, too_old,
                 return db_value.decode(manager.db.encoding)
             return text_type(db_value)
 
+        if issues:
+            str_issues = ", ".join(issues)
+            logger.warning("Skipping account %s, found following issues: %s",
+                            account_ident, str_issues)
+            update_issues(manager.db, ac, row, str_issues, commit)
+            continue
+
         msg = message % {
             'username': u(ac.account_name),
             'studentnumber': u(studentnumber),
             'email': u(email),
         }
         if not send_sms(phone, msg, commit):
-            logger.warn("Could not send SMS to %s (%r)", account_ident, phone)
+            logger.warning("Could not send SMS to %s (%r)", account_ident, phone)
             continue
 
         # sms sent, now update the traits
@@ -314,23 +316,23 @@ def process(manager, message, phone_types, affiliations, too_old,
         logger.debug('Changes rolled back')
     logger.info('send_welcome_sms done')
 
-
-def inc_attempt(db, ac, row, commit=False):
-    """Increase the attempt counter (stored in trait) for a given account."""
-    attempt = row['numval']
-    if not attempt:
-        attempt = 1
-    else:
-        attempt = int(attempt) + 1
-    logger.debug("Attempt number %r for account %r", attempt, ac.account_name)
-    ac.populate_trait(code=row['code'], numval=attempt, date=row['date'])
+def update_issues(db, ac, row, issues, commit=False):
+    """
+    Store issues that prevent sending an SMS to a given account
+    in the strval of the new_account or new_student trait.
+    """
+    existing_issues = row['strval']
+    if existing_issues:
+        if existing_issues == issues:
+            logger.debug("No changes to issues for account %s", ac.account_name)
+            return
+    logger.info("Issues for account %s updated", ac.account_name)
+    ac.populate_trait(code=row['code'], strval=issues, date=row['date'])
     ac.write_db()
     if commit:
         db.commit()
     else:
         db.rollback()
-    return attempt
-
 
 def get_phone_number(pe, phone_types):
     """Search through a person's contact info and return the first found info
@@ -494,22 +496,6 @@ def main(inargs=None):
     )
 
     parser.add_argument(
-        '--min-attempts',
-        type=argutils.IntegerType(minval=0),
-        default=None,
-        metavar='ATTEMPTS',
-        help=textwrap.dedent(
-            """
-            The minimum number of attempts per account. If this option
-            is set, the trait will be removed if these two conditions
-            apply:
-                1) the trait is too old
-            and 2) number of attempts > minimum number of attempts
-            """
-        ).strip(),
-    )
-
-    parser.add_argument(
         '--commit',
         action='store_true',
         default=False,
@@ -560,7 +546,6 @@ def main(inargs=None):
     logger.debug("affiliations: %r", affiliations)
     logger.debug("message:      %r", args.message)
     logger.debug("too-old:      %r", args.too_old)
-    logger.debug("min-attempts: %r", args.min_attempts)
     logger.debug("commit:       %r", args.commit)
     logger.debug("filters:      %r", args.filters)
     logger.info("reminder:     %r", args.reminder)
@@ -579,7 +564,6 @@ def main(inargs=None):
         phone_types=phone_types,
         affiliations=affiliations,
         too_old=args.too_old,
-        min_attempts=args.min_attempts,
         commit=args.commit,
         reminder=args.reminder,
         filters=args.filters,

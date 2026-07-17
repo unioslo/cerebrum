@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright 2020 University of Oslo, Norway
+
+# Copyright 2020-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -31,6 +32,13 @@ The original exceptions was present in ``Cerebrum.database`` in commit:
     Merge:  3e4c07061 be7c05022
     Date:   Tue Feb 11 11:42:09 2020 +0100
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+
 import six
 
 
@@ -53,6 +61,7 @@ API_EXCEPTION_NAMES = (
 )
 
 
+@six.python_2_unicode_compatible
 class _CommonExceptionBase(Exception):
     """
     DB-API 2.0 base exception.
@@ -263,7 +272,7 @@ class DatabaseErrorWrapper(object):
                 crb_exc_value.__cause__ = exc_value
 
                 # Piggy-back extra attributes
-                for attr, value in self.extra_attrs.iteritems():
+                for attr, value in six.iteritems(self.extra_attrs):
                     setattr(crb_exc_value, attr, value)
 
                 six.reraise(crb_exc_type, crb_exc_value, traceback)

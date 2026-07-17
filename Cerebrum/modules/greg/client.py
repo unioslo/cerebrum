@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2021 University of Oslo, Norway
+# Copyright 2021-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -25,8 +25,10 @@ To get a client:
 ::
 
     # from dict
-    config_d = {'url': 'http://localhost/api',
-               'auth': 'plaintext:my-api-key'}
+    config_d = {
+        'url': 'http://localhost/api',
+        'auth': 'plaintext:my-api-key',
+    }
     client = get_client(config_d)
 
     # from config object
@@ -54,22 +56,22 @@ from Cerebrum.config.configuration import Configuration, ConfigDescriptor
 from Cerebrum.config.secrets import Secret, get_secret_from_string
 from Cerebrum.config.settings import String
 from Cerebrum.utils import http as http_utils
+from Cerebrum.utils import reprutils
 
 logger = logging.getLogger(__name__)
 
 
-class GregEndpoints(object):
+class GregEndpoints(reprutils.ReprEvalMixin):
     """ Greg API endpoints.  """
+
+    repr_module = False
+    repr_args = ("baseurl",)
 
     def __init__(self, url):
         """
         :param url: baseurl to the Greg API
         """
         self.baseurl = url
-
-    def __repr__(self):
-        return ('{cls.__name__}({obj.baseurl!r})').format(cls=type(self),
-                                                          obj=self)
 
     @property
     def health(self):
@@ -116,6 +118,10 @@ class GregClient(object):
             self._session = requests.Session()
         else:
             self._session = requests
+
+    def __repr__(self):
+        return ('<{cls.__name__} {obj.urls.baseurl}>').format(cls=type(self),
+                                                              obj=self)
 
     @property
     def use_sessions(self):
@@ -273,7 +279,8 @@ def get_client(config):
         config = GregClientConfig(config)
     elif isinstance(config, six.string_types):
         config = GregClientConfig(loader.read_config(config))
-    # else - assume already a GregClientConfig
+    elif not isinstance(config, GregClientConfig):
+        raise ValueError('invalid config: ' + repr(config))
 
     config.validate()
 

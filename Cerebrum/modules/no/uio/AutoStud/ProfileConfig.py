@@ -285,7 +285,7 @@ class StudconfigParser(object):
     # let some utility check the XML file against the DTD
 
     profil_settings = ("stedkode", "gruppe", "spread", "disk",
-                       "mail", "disk_kvote", "brev", "build",
+                       "mail", "brev", "build",
                        "priority", "quarantine")
 
     def __init__(self, config, cfg_file):
@@ -326,12 +326,6 @@ class StudconfigParser(object):
                 if not attrs['auto']:
                     self._config.add_error(
                         "Missing auto attribute for %s" % repr(attrs))
-                attrs['disk_kvote'] = attrs.get(
-                    'disk_kvote', elem_stack[-1][-1].get(
-                        'default_disk_kvote', self._config.default_values.get(
-                            'disk_kvote_value', None)))
-                if attrs['disk_kvote'] is not None:
-                    self._config.using_disk_kvote = True
                 attrs['spreads'] = tmp_disk_spreads
                 self._config.autostud.disk_tool.add_disk_def(**attrs)
             else:
@@ -383,8 +377,6 @@ class StudconfigParser(object):
                         and attrs['system'] not in self.legal_spreads):
                     self._config.add_error("Not in spreaddef: {}".format(
                                            attrs['system']))
-                elif ename == 'disk_kvote':
-                    self._config.autostud.disk_tool.using_disk_kvote = True
                 in_profil.add_setting(ename, attrs)
             elif ename == 'select':
                 for ename2, txt2, attrs2, children2 in children:

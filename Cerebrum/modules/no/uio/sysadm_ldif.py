@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2020-2022 University of Oslo, Norway
+# Copyright 2020-2025 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,29 +18,35 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
-OrgLDIF module for generating a sysadm ldif.
+OrgLDIF module for generating a sysadm ldif org tree.
 """
-from __future__ import print_function, unicode_literals
-
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import logging
 
 from Cerebrum.Utils import make_timer
 from Cerebrum.modules.feide.ldif_mixins import NorEduAuthnLevelMixin
 from Cerebrum.modules.no.OrgLDIF import NorEduSmsAuthnMixin
+from Cerebrum.modules.no.OrgLDIF import OrgLdifEntitlementsMixin
 
 from . import sysadm_utils
 
 logger = logging.getLogger(__name__)
 
 
-class SysAdmOrgLdif(NorEduAuthnLevelMixin, NorEduSmsAuthnMixin):
+class SysAdmOrgLdif(NorEduAuthnLevelMixin,
+                    NorEduSmsAuthnMixin,
+                    OrgLdifEntitlementsMixin):
     """
     Mixin for exporting system administrator accounts (*-drift).
 
     This OrgLdif mixin changes primary accounts/filtering to only include
     persons with a sysadm account.
     """
-
     def list_persons(self):
         """
         List persons decides on which accounts to include.

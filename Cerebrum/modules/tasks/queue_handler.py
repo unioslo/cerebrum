@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2021-2023 University of Oslo, Norway
+# Copyright 2021-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,7 +17,46 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" Queue processing utils.  """
+"""
+Queue handler.
+
+Tasks are intended for automatic processing, and all tasks in a given task
+queue should always be processed by the same set of operations.
+
+The QueueHandler is an object to connect queues, tasks and processing
+operations.  The abstract handler defined in this module is more of a
+*suggestion* than default implementation.
+
+A couple of things should *always* be present in a QueueHandler:
+
+``QueueHandler.queue``
+    A queue to process.  This class attribute should be available to scripts
+    and modules to identify tasks that belongs to this QueueHandler.
+
+``QueueHandler.handle_task``
+    The default task handler.  The handler shuuld perform all neccessary
+    actions to handle a given task.  It expects a task object that has been
+    popped (fetched and removed) from the database.
+    Note that ``handle_task`` should *not* handle failures - this is up to the
+    caller to deal with.
+
+``QueueHandler.get_retry_task``
+    Create a new retry task for a failed task.  The queue handler defines how
+    these retry tasks should look (e.g. which sub-queue they should be placed
+    in, how long the retry delay should be, etc...)
+
+``QueueHandler.max_attempts``
+    Max number of attempts before we abandon a task and stop processing it.
+
+Note that the task queue and task processors are maybe the least thought out
+parts of the task module.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import datetime
 import logging
 
@@ -31,10 +70,14 @@ logger = logging.getLogger(__name__)
 
 # Default backoff for errors/retries in QueueHandler.  This backoff yields
 # time deltas 03:45, 07:30, 15:00, 30:00, 1:00:00, ... - before truncating at
-# 12:00:00 after 10 attempts.  This should be a good backoff for most tasks.
+# 12:00:00 after 9 attempts.  This should be a good backoff for most tasks:
+#  - 1st retry in less than 5 minutes, 2nd ~10 minutes after the initial
+#  - about an hour to reach 4 failed attempts
+#  - just under two days to reach 10 failed attempts
+#  - just under one week to reach 20 failed attempts
 default_retry_delay = backoff.Backoff(
     backoff.Exponential(2),
-    backoff.Factor(datetime.timedelta(hours=1) / 16),
+    backoff.Factor(datetime.timedelta(hours=1) // 16),
     backoff.Truncate(datetime.timedelta(hours=12)),
 )
 

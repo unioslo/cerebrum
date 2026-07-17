@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2020-2021 University of Oslo, Norway
+# Copyright 2020-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -20,6 +20,12 @@
 """
 Utilities for grouping items in iterables.
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import operator
 
 
@@ -27,22 +33,22 @@ def unique(seq, key=None):
     """ Strip duplicates from a sequence.
 
     :type seq: iterable
-    :param seq: a sequence of hashable items
+    :param seq: A sequence of items
 
     :type key: callable
     :param key:
-        Function to extract a comparison key for each item in the sequence.
-        The default (``None``) compares items directly.
+        Function to extract a hashable comparison key for each item in the
+        sequence.  The default (``None``) compares items directly.
 
 
     :rtype: generator
     :return:
-        a sequence of unique items
+        A sequence of unique items
 
         The generator yields items in the same order as the input sequence, but
         only yields the first encounter of each item.
 
-    >>> a = ['foo', 1, 'bar', 'foo', 2, 1]
+    >>> a = ['foo', 1, 'bar', 1, 'foo', 2, 1]
     >>> list(unique(a))
     ['foo', 1, 'bar', 2]
     """
@@ -54,6 +60,42 @@ def unique(seq, key=None):
             continue
         seen.add(k)
         yield item
+
+
+def duplicates(seq, key=None):
+    """
+    Get repeated items from a sequence.
+
+    This is the opposite of :func:`.unique`, and is typically used to extract
+    erroneous entries from an iterable where unique entries are expeceted.
+
+    :type seq: iterable
+    :param seq: A sequence of items
+
+    :type key: callable
+    :param key:
+        Function to extract a hashable comparison key for each item in the
+        sequence.  The default (``None``) compares items directly.
+
+    :rtype: generator
+    :return:
+        A sequence of repeated items
+
+        The generator yields items in the same order as they are encountered in
+        the input sequence
+
+    >>> a = ['foo', 1, 'bar', 1, 'foo', 2, 1]
+    >>> list(duplicates(a))
+    [1, 'foo', 1]
+    """
+    get_key = key or (lambda x: x)
+    seen = set()
+    for item in seq:
+        k = get_key(item)
+        if k in seen:
+            yield item
+        else:
+            seen.add(k)
 
 
 def _dict_with_collection(iterable, ctype, add):

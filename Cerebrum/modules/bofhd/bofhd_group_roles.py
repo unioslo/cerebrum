@@ -315,6 +315,11 @@ class BofhdGroupRoleCommands(BofhdCommandBase):
                 "%s (%d) is not admin for %s (%d)"
                 % (self._get_name(admin), admin.entity_id,
                    group.group_name, group.entity_id))
+        if (group.group_type == self.const.group_type_policy
+                    and len(group.get_group_admins(group.entity_id)) == 1):
+            raise CerebrumError(
+                "Policy-groups needs atleast one admin")
+
         roles.remove_admin_from_group(int(admin.entity_id),
                                       int(group.entity_id))
         return self._format_response(group, admin, key="admin")
@@ -438,7 +443,8 @@ class BofhdGroupRoleCommands(BofhdCommandBase):
                 % (owner_name,
                    six.text_type(self.const.EntityType(mod.entity_type)),
                    mod.entity_id))
-        results.sort(key=lambda r: (r['role'], r['group_name']))
+        results.sort(key=lambda r: (r.get('limit', 0), r.get('role', ''),
+                                    r.get('group_name', '')))
         return results
 
     #
@@ -482,7 +488,8 @@ class BofhdGroupRoleCommands(BofhdCommandBase):
             raise CerebrumError("Group %s (%s) has no admins/moderators"
                                 % (group.group_name, group.entity_id))
 
-        results.sort(key=lambda r: (r['role'], r['owner_id']))
+        results.sort(key=lambda r: (r.get('limit', 0), r.get('role', ''),
+                                    r.get('owner_id', '')))
         return results
 
     def _search_ownership(self, group_id=None, owner_id=None,

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright 2020 University of Oslo, Norway
+# Copyright 2020-2025 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,6 +17,12 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import uuid
 import six
@@ -35,15 +41,16 @@ def is_uuid(x):
 
 
 def is_keyword_all(x):
-    if six.text_type(x).lower() == six.text_type('all'):
-        return True
-    return False
+    return six.text_type(x).lower() == "all"
+
 
 def is_valid_feide_id_type(x):
-    """Checks what kind of format a proposed feide-ID has.
+    """
+    Checks what kind of format a proposed feide-ID has.
 
     Valid values are: int, uuid (or a string representation of either)
-    or the string 'all' (arbitrary capitalization)."""
+    or the string 'all' (arbitrary capitalization).
+    """
     if not x:
         return False
     if isinstance(x, (uuid.UUID, int)) or is_uuid(x):

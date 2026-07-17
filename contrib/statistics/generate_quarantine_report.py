@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2011-2018 University of Oslo, Norway
+# Copyright 2011-2023 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,16 +19,20 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ Generate an HTML report with quarantined accounts on employee disks. """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import argparse
+import datetime
 import logging
-import sys
+import textwrap
 from collections import defaultdict
 
 from jinja2 import Environment
-from datetime import datetime, date, timedelta
-from Cerebrum.utils.date import parse_date
-from Cerebrum.utils.date_compat import get_date
 from six import text_type
 
 import Cerebrum.logutils
@@ -36,15 +40,18 @@ import Cerebrum.logutils.options
 from Cerebrum.Entity import EntitySpread
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.EntityTrait import EntityTrait
-from Cerebrum.utils.funcwrap import memoize
+from Cerebrum.utils import date as date_utils
+from Cerebrum.utils import file_stream
 from Cerebrum.utils.argutils import codec_type
+from Cerebrum.utils.date_compat import get_date
+from Cerebrum.utils.funcwrap import memoize
 
 
 logger = logging.getLogger(__name__)
 
 
 # TODO: Move to actual template, or at least use a base template
-template = u"""
+template = """
 <!DOCTYPE html>
 <html>
   <head>
@@ -162,7 +169,7 @@ def make_name_cache(db):
 
 
 def make_affiliation_cache(db):
-    pe = Factory.get(b'Person')(db)
+    pe = Factory.get('Person')(db)
     co = Factory.get('Constants')(db)
 
     @memoize
@@ -291,7 +298,7 @@ def get_quarantine_data(db, start_date):
 
             data.update({
                 'status': text_type(row['status']),
-                'ou': u' - '.join((text_type(sko), _u(sko2name.get(sko, '')))),
+                'ou': ' - '.join((text_type(sko), _u(sko2name.get(sko, '')))),
                 'faculty': _u(sko2name.get(fak, '')) or text_type(fak),
             })
             yield dict(data)
@@ -313,80 +320,88 @@ def get_quarantine_data(db, start_date):
                  stats['skip_student_disk'])
 
 
-def write_html_report(stream, codec, quarantines, start_date):
-    output = codec.streamwriter(stream)
+def format_html_report(quarantines, start_date, encoding):
     template_env = Environment(trim_blocks=True, lstrip_blocks=True)
     report = template_env.from_string(template)
-
     num_quarantines = len(set((q['q_type'], q['account_id'])
                               for q in quarantines))
-
-    output.write(
-        report.render({
-            'encoding': codec.name,
-            'start_date': start_date.strftime('%Y-%m-%d'),
-            'num_quarantines': num_quarantines,
-            'quarantines': quarantines,
-            'when': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-        })
-    )
-    output.write('\n')
+    return report.render({
+        'encoding': encoding,
+        'start_date': start_date.strftime('%Y-%m-%d'),
+        'num_quarantines': num_quarantines,
+        'quarantines': quarantines,
+        'when': date_utils.now().isoformat(),
+    })
 
 
 DEFAULT_ENCODING = 'utf-8'
 
 
+def age_type(value):
+    """ Convert number of days ago into a date. """
+    num_days = abs(int(value))
+    return datetime.date.today() + datetime.timedelta(days=-num_days)
+
+
 def main(inargs=None):
     parser = argparse.ArgumentParser(
-        description="Generate an html formatted report of accounts with"
-                    " active quarantines")
+        description=textwrap.dedent(
+            """
+            Generate an html formatted report of accounts with active
+            quarantines.
+            """
+        ).strip(),
+    )
 
     parser.add_argument(
-        '-o', '--output',
-        metavar='FILE',
-        type=argparse.FileType('w'),
-        default='-',
-        help='Output file for report, defaults to stdout')
+        "-o", "--output",
+        metavar="FILE",
+        default="-",
+        help="Output file for report, defaults to stdout",
+    )
     parser.add_argument(
-        '-e', '--encoding',
-        dest='codec',
+        "-e", "--encoding",
+        dest="codec",
         default=DEFAULT_ENCODING,
         type=codec_type,
-        help="Output file encoding, defaults to %(default)s")
+        help="Output file encoding, defaults to %(default)s",
+    )
 
     age_arg = parser.add_mutually_exclusive_group(required=True)
     age_arg.add_argument(
-        '-s', '--start_date',
-        metavar='DATE',
-        dest='start_date',
-        type=parse_date,
-        help='Report quarantines set by date (YYYY-MM-DD)')
+        "-s", "--start_date",
+        metavar="DATE",
+        dest="start_date",
+        type=date_utils.parse_date,
+        help="Report quarantines set by date (YYYY-MM-DD)",
+    )
     age_arg.add_argument(
-        '-a', '--age',
-        metavar='DAYS',
-        dest='start_date',
-        type=lambda x: date.today() + timedelta(days=-abs(int(x))),
-        help='Report quarantines set by age (in days)')
-
+        "-a", "--age",
+        metavar="DAYS",
+        dest="start_date",
+        type=age_type,
+        help="Report quarantines set by age (in days)",
+    )
     Cerebrum.logutils.options.install_subparser(parser)
+
     args = parser.parse_args(inargs)
-    Cerebrum.logutils.autoconf('cronjob', args)
+    Cerebrum.logutils.autoconf("cronjob", args)
 
-    db = Factory.get('Database')()
+    db = Factory.get("Database")()
 
-    logger.info('Start of script %s', parser.prog)
+    logger.info("Start: %s", parser.prog)
     logger.debug("args: %r", args)
+    encoding = args.codec.name
 
     quarantines = list(get_quarantine_data(db, args.start_date))
+    report = format_html_report(quarantines, args.start_date, encoding)
 
-    write_html_report(args.output, args.codec, quarantines, args.start_date)
+    with file_stream.get_output_context(args.output, encoding) as f:
+        f.write(report)
+        f.write("\n")
 
-    args.output.flush()
-    if args.output is not sys.stdout:
-        args.output.close()
-
-    logger.info('Report written to %s', args.output.name)
-    logger.info('Done with script %s', parser.prog)
+    logger.info("Report written to %s", args.output)
+    logger.info("Done: %s", parser.prog)
 
 
 if __name__ == '__main__':

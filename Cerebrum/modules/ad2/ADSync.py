@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2011-2017 University of Oslo, Norway
+# Copyright 2011-2025 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,7 +19,8 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-"""Generic module for basic synchronisation with Active Directory.
+"""
+Generic module for basic synchronisation with Active Directory.
 
 A synchronisation script must create an instance of such a sync class from this
 file, or an instance' subclass. It should then feed it with configuration
@@ -50,28 +51,46 @@ Some terms:
   called disabled.
 
 """
-
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    # TODO: unicode_litrals,
+)
+import logging
 import time
 import uuid
 
 import adconf
 
+import six
+
 from Cerebrum import Entity, Errors
+from Cerebrum.QuarantineHandler import QuarantineHandler
+from Cerebrum.Utils import Factory, NotSet
 from Cerebrum.modules import CLHandler, Email
 from Cerebrum.modules.EntityTrait import EntityTrait
-from Cerebrum.Utils import unicode2str, Factory, dyn_import, NotSet
-from Cerebrum.utils import json
-from Cerebrum.utils.email import sendmail
-
-from Cerebrum.modules.ad2 import ADUtils, ConfigUtils
-from Cerebrum.modules.ad2.CerebrumData import CerebrumEntity
-from Cerebrum.modules.ad2.ConfigUtils import ConfigError
-from Cerebrum.modules.ad2.winrm import CommandTooLongException
-from Cerebrum.modules.ad2.winrm import PowershellException
 from Cerebrum.modules.gpg.data import GpgData
-from Cerebrum.QuarantineHandler import QuarantineHandler
 from Cerebrum.utils import date as date_utils
 from Cerebrum.utils import date_compat
+from Cerebrum.utils import json
+from Cerebrum.utils.funcwrap import deprecate
+from Cerebrum.utils.module import make_class
+from . import ADMock
+from . import ADUtils
+from . import ConfigUtils
+from .admin_messages import AdminMessages
+from .CerebrumData import CerebrumEntity
+from .ConfigUtils import ConfigError
+from .winrm import CommandTooLongException
+from .winrm import PowershellException
+
+logger = logging.getLogger(__name__)
+
+
+def _noop(*args, **kwargs):
+    """ A noop function. """
+    pass
 
 
 class BaseSync(object):
@@ -117,50 +136,57 @@ class BaseSync(object):
     # What class to make an instance of for talking with the AD server:
     server_class = ADUtils.ADclient
 
-    # List of messages that should be given to the administrators of the AD
-    # domain. Such messages are errors that could not be fixed by Cerebrum's
-    # sysadmins, unless they have admin privileges in the AD domain.
-    _ad_admin_messages = []
+    # Required settings.
+    #
+    # If any of these settings does not exist in the config for the given
+    # AD-sync, an error will be triggered. Note that subclasses must define
+    # their own list for their own settings.
+    settings_required = (
+        'domain',
+        'object_classes',
+        'search_ou',
+        'server',
+        'sync_type',
+        'target_ou',
+    )
 
-    # The required settings. If any of these settings does not exist in the
-    # config for the given AD-sync, an error will be triggered. Note that
-    # subclasses must define their own list for their own settings.
-    settings_required = ('sync_type', 'domain', 'server', 'target_ou',
-                         'search_ou', 'object_classes')
-
-    # Settings with default values. If any of these settings are not defined in
-    # the config for the given AD-sync, they will instead get their default
-    # value. Note that subclasses must define their own list for their own
-    # values.
-    settings_with_default = (('dryrun', False),
-                             ('mock', False),
-                             ('encrypted', True),
-                             ('auth_user', 'cereauth'),
-                             ('domain_admin', 'cerebrum_sync'),
-                             ('move_objects', False),
-                             ('subset', None),
-                             ('ad_admin_message', ()),
-                             ('name_format', '%s'),
-                             ('ignore_ou', ()),
-                             ('create_ous', False),
-                             ('attributes', {}),
-                             ('useraccountcontrol', {}),
-                             ('store_sid', False),
-                             ('handle_unknown_objects', ('ignore', None)),
-                             ('handle_deactivated_objects', ('ignore', None)),
-                             ('gpg_recipient_id', None),
-                             ('language', ('nb', 'nn', 'en')),
-                             ('changes_too_old_seconds', 60*60*24*365),
-                             ('group_type', 'security'),
-                             ('group_scope', 'global'),
-                             ('ou_mappings', []),
-                             ('script', {}),
-                             )
+    # Settings with default values.
+    #
+    # If any of these settings are not defined in the config for the given
+    # AD-sync, they will instead get their default value. Note that subclasses
+    # must define their own list for their own values.
+    settings_with_default = (
+        ('ad_admin_message', ()),
+        ('attributes', {}),
+        ('auth_user', 'cereauth'),
+        ('changes_too_old_seconds', 60*60*24*365),
+        ('create_ous', False),
+        ('domain_admin', 'cerebrum_sync'),
+        ('dryrun', False),
+        ('encrypted', True),
+        ('gpg_recipient_id', None),
+        ('group_scope', 'global'),
+        ('group_type', 'security'),
+        ('handle_deactivated_objects', ('ignore', None)),
+        ('handle_unknown_objects', ('ignore', None)),
+        ('ignore_ou', ()),
+        ('language', ('nb', 'nn', 'en')),
+        ('mock', False),
+        ('move_objects', False),
+        ('name_format', '%s'),
+        ('ou_mappings', []),
+        ('script', {}),
+        ('store_sid', False),
+        ('subset', None),
+        ('useraccountcontrol', {}),
+    )
 
     # A mapping from the entity_type to the correct externalid_type. Note that
     # the mapping gets converted to CerebrumConstants at startup.
-    sidtype_map = {'account': 'AD_ACCSID',
-                   'group':   'AD_GRPSID'}
+    sidtype_map = {
+        'account': 'AD_ACCSID',
+        'group':   'AD_GRPSID',
+    }
 
     def __init__(self, db, logger):
         """Initialize the sync.
@@ -183,63 +209,62 @@ class BaseSync(object):
         self._entity_trait = EntityTrait(self.db)
 
         # Where the sync configuration should go:
-        self.config = dict()
-        # Where the entities to work on should go. Keys should be entity_names:
-        self.entities = dict()
-        # Where entity_ids of entities currently exempt from a sync should go.
-        self.exempt_entities = list()
-        # A mapping from entity_id to the entities.
-        self.id2entity = dict()
-        # A mapping from AD-id to the entities. AD-id is per default
-        # SamAccountName, but could be set otherwise in the config.
-        self.adid2entity = dict()
+        self.config = {}
+        # Cache of entities: maps name to `.CerebrumData.CerebrumEntity`
+        # objects.
+        self.entities = {}
+        self.excluded_entity_ids = set()
+        # Maps entity-id to `.CerebrumData.CerebrumEntity`
+        self.id2entity = {}
+        # Maps ad-id to `.CerebrumData.CerebrumEntity`.  ad-id format is
+        # decided by `config['name_format']`.
+        self.adid2entity = {}
+
+        # A logger for admin log messages
+        admin_log = logging.getLogger("ad_admin_messages")
+        self.admin_messages = AdminMessages(admin_log)
 
     @classmethod
     def get_class(cls, sync_type='', classes=None):
-        """Build a synchronisation class out of given class names.
-
-        This works like Factory.get() but you could specify the list of class
-        names yourself. The point of this is to be able to dynamically create a
-        synchronisation class with the features that is needed without having
-        to hardcode it.
-
-        All the given class names gets imported before a new class is created
-        out of them. Note that this class is automatically inherited in the
-        list.
-
-        Note that the order of the classes are important if they are related to
-        each others by subclassing. You can not list class A before subclasses
-        of the class A, as that would mean the subclass won't override any of
-        A's methods. The method would then raise an exception.
-
-        @type sync_type: string
-        @param sync_type:
-            The name of a AD-sync type which should be defined in the AD
-            configuration. If given, the classes defined for the given type
-            will be used for setting up the sync class. This parameter gets
-            ignored if L{classes} is set.
-
-        @type classes: list or tuple
-        @param classes:
-            The names of all the classes that should be used in the sync class.
-            If this is specified, the L{sync_type} parameter gets ignored.
-            Example on classes:
-
-            - Cerebrum.modules.ad2.ADSync/UserSync
-            - Cerebrum.modules.no.uio.ADSync/UiOUserSync
-
         """
-        assert classes or sync_type, "Either sync_type or classes needed"
+        Build an ADSync class from a list of class names.
+
+        See :func:`Cerebrum.utils.module.make_class` for details.
+
+        :param str sync_type:
+            The name of a ad sync preset from *adconf*.
+
+            If given, the list of classes is fetched from
+            `config['sync_classes']`.  This is the most common method of
+            getting a sync class.
+
+        :param classes:
+            A sequence of class names (str) to import and use.
+
+            If given, the *sync_type* parameter is ignored.  Example value:
+            ::
+
+                [
+                    "Cerebrum.modules.ad2.ADSync/UserSync",
+                    "Cerebrum.modules.no.uio.ADSync/UiOUserSync",
+                ]
+        """
+        if not any((classes, sync_type)):
+            raise ValueError("Either sync_type or classes needed")
         if not classes:
             if sync_type not in adconf.SYNCS:
-                raise Exception('Undefined AD-sync type: %s' % sync_type)
+                raise ValueError("Unknown AD-sync preset: " + repr(sync_type))
             conf = adconf.SYNCS[sync_type]
             classes = conf.get('sync_classes')
             if not classes:
-                raise Exception('No sync class defined for sync type %s' %
-                                sync_type)
-        return cls._generate_dynamic_class(classes,
-                                           '_dynamic_adsync_%s' % sync_type)
+                raise ValueError(
+                    "No config['sync_classes'] in AD-sync preset: "
+                    + repr(sync_type))
+        return make_class(
+            classes,
+            name=("adsync_" + sync_type) if sync_type else "adsync",
+            hint="config['sync_classes']",
+        )
 
     def _format_name(self, name_to_format):
         """Adjust the name of the object according to the sync's configuration.
@@ -319,31 +344,37 @@ class BaseSync(object):
         # set a default object class.
         self.ad_object_class = config_args.get('ad_object_class',
                                                self.default_ad_object_class)
+        logger.debug("Using ad object class: %s",
+                     repr(self.ad_object_class))
 
         # The object class is generated dynamically, depending on the given
         # list of classes:
-        self.logger.debug2("Using object classes: %s",
-                           ', '.join(config_args['object_classes']))
-        self._object_class = self._generate_dynamic_class(
+        self._object_class = make_class(
             config_args['object_classes'],
-            '_dynamic_adobject_%s' % self.config['sync_type'])
+            name="adobject_" + self.config['sync_type'],
+            hint="config['object_classes']",
+        )
+        logger.debug("Using object class: %s (%s)",
+                     repr(self._object_class),
+                     repr([c.__name__ for c in self._object_class.__bases__]))
         if not issubclass(self._object_class, CerebrumEntity):
             raise ConfigError(
-                'Given object_classes not subclass of %s' % CerebrumEntity)
+                "config['object_classes'] not subclass of "
+                + repr(CerebrumEntity))
 
-        # Calculate target spread and target entity_type, depending on what
-        # settings that exists:
+        # Get target type (and spread) from config
         if config_args.get('target_spread'):
             # Explicitly set target spreads will override the other settings
-            spread = self.co.Spread(config_args['target_spread'])
+            spread = self.co.get_constant(self.co.Spread,
+                                          config_args['target_spread'])
             self.config['target_spread'] = spread
             self.config['target_type'] = spread.entity_type
         else:
-            # Otherwise we use the set 'sync_type' for finding the spread:
-            spread = self.co.Spread(self.config['sync_type'])
             try:
-                int(spread)
-            except Errors.NotFoundError:
+                # Otherwise we use the set 'sync_type' for finding the spread:
+                spread = self.co.get_constant(self.co.Spread,
+                                              self.config['sync_type'])
+            except LookupError:
                 if 'target_type' in config_args:
                     self.config['target_type'] = config_args['target_type']
                     self.config['target_spread'] = None
@@ -356,37 +387,31 @@ class BaseSync(object):
                 self.config['target_type'] = spread.entity_type
 
         # Convert the entity_type into the type constant
-        self.config['target_type'] = self.co.EntityType(
-            self.config['target_type'])
+        self.config['target_type'] = self.co.get_constant(
+            self.co.EntityType,
+            self.config['target_type'],
+        )
 
         # Languages are changed into the integer of their constants
-        self.config['language'] = tuple(int(self.co.LanguageCode(l)) for l in
-                                        self.config['language'])
+        self.config['language'] = tuple(int(self.co.LanguageCode(lang))
+                                        for lang in self.config['language'])
         # Change-types are changed into their constants
-        self.config['change_types'] = tuple(self.clconst.ChangeType(*t) for t in
-                                            config_args.get('change_types',
-                                                            ()))
+        self.config['change_types'] = tuple(
+            self.clconst.ChangeType(cat, typ)
+            for cat, typ in config_args.get('change_types', ())
+        )
         # Set the correct port
         if 'port' in config_args:
             self.config['port'] = config_args['port']
-        else:
+        elif self.config['encrypted']:
             self.config['port'] = 5986
-            if not self.config['encrypted']:
-                self.config['port'] = 5985
+        else:
+            self.config['port'] = 5985
 
         if config_args.get('dc_server'):
             self.config['dc_server'] = config_args['dc_server']
 
-        if self.config['subset']:
-            self.logger.info("Sync will only be run for subset: %s",
-                             self.config['subset'])
-        # Log if in dryrun
-        if self.config['dryrun']:
-            self.logger.info('In dryrun mode, AD will not be updated')
-
         if self.config['mock']:
-            self.logger.info('In mock mode, AD will not be connected to')
-            from Cerebrum.modules.ad2 import ADMock
             self.server_class = ADMock.ADclientMock
             # We'll need to set mock mode for all sync configurations, since
             # the sync will instantiate clients with other configurations, in
@@ -394,19 +419,17 @@ class BaseSync(object):
             for key in adconf.SYNCS:
                 adconf.SYNCS[key]['mock'] = True
 
-        # Messages for AD-administrators should be logged if the config says
-        # so, or if there are no other options set:
-        self.config['log_ad_admin_messages'] = False
-        if (not self.config['ad_admin_message'] or
-                any(o in (None, 'log') for o in
-                    self.config['ad_admin_message'])):
-            self.config['log_ad_admin_messages'] = True
+        try:
+            self.admin_messages.apply_config(config_args)
+        except Exception as e:
+            raise ConfigUtils.ConfigError(
+                "Issue with config['ad_admin_messages']: %s" % e)
 
         if self.config['store_sid']:
             converted = dict((self.co.EntityType(e_type),
                               self.co.EntityExternalId(sid_type))
                              for e_type, sid_type
-                             in self.sidtype_map.iteritems())
+                             in six.iteritems(self.sidtype_map))
             self.sidtype_map = converted
 
         # We define the group scope and type for new groups.
@@ -424,31 +447,21 @@ class BaseSync(object):
         if not isinstance(self.config['ignore_ou'], (tuple, list)):
             raise Exception("ignore_ou must be list/tuple")
         if not self.config['target_ou'].endswith(self.config['search_ou']):
-            self.logger.warn('target_ou should be under the search_ou')
+            self.logger.warning('target_ou should be under the search_ou')
 
         # Check the attributes:
 
         # Attributes that shouldn't be defined:
         for n in ('dn', 'Dn', 'sn', 'Sn'):
             if n in self.config['attributes']:
-                self.logger.warn('Bad attribute defined in config: %s' % n)
-        # The admin message config:
-        for opt in self.config['ad_admin_message']:
-            if opt[0] not in ('mail', 'file', 'log', None):
-                self.logger.warn("Unknown option in ad_admin_message: %s", opt)
-            if opt[1] not in ('error', 'warning', 'info', 'debug'):
-                self.logger.warn("Unknown level in ad_admin_message: %s", opt)
-            # some ways
-            if opt[0] in ('mail', 'file'):
-                if len(opt) <= 2:
-                    self.logger.warn("Missing setting in ad_admin_message: %s",
-                                     opt)
+                self.logger.warning('Bad attribute defined in config: %s', n)
 
         # If name_format is string, it should include the '%s' for
         # the entity_name to be put in.
         nformat = self.config.get('name_format', '%s')
         if not callable(nformat) and '%s' not in nformat:
-            self.logger.warn("Missing '%s' in name_format, name not included")
+            self.logger.warning("Missing '%%s' in name_format, "
+                                "name not included")
 
         for handl in ('handle_unknown_objects', 'handle_deactivated_objects'):
             var = self.config[handl]
@@ -460,59 +473,12 @@ class BaseSync(object):
         for change_type in self.config.get('change_types', ()):
             int(change_type)
 
+        # The ad_admin_messages config - the validator iterates over the
+        # configured value:
+        list(AdminMessages.validate_config(self.config))
+
         # TODO: move the instantiation of the server to somewhere else!
         self.setup_server()
-
-    @staticmethod
-    def _generate_dynamic_class(classes, class_name='_dynamic'):
-        """Generate a dynamic class out of the given classes.
-
-        This is doing parts of what L{Utils.Factory.get} does, but without the
-        dependency of cereconf.
-
-        @type classes: list of str
-        @param classes:
-            The list of classes that should get combined and turned into a
-            dynamic class. The classes are represented by strings, starting
-            with the module path, ending with the class name in the module.
-            Example:
-
-                Cerebrum.modules.ad2.ADSync/UserSync
-                Cerebrum.modules.ad2.ADSync/PosixUserSync
-
-            Note that the order in the list is important. The last element is
-            the superclass, and everyone before is subclasses. This also means
-            that you if add related classes, subclasses must be added before
-            the superclasses.
-
-        @type class_name: str
-        @param class_name:
-            The name of the new class, e.g. represented by
-            L{__main__._dynamic}. Not used if only one class is given, as that
-            is then used directly - no need to create a new class that is
-            exactly the same as input.
-
-        @rtype: dynamic class
-        @return:
-            A dynamically generated class.
-
-        """
-        bases = []
-        for c in classes:
-            mod_name, cname = c.split("/", 1)
-            mod = dyn_import(mod_name)
-            claz = getattr(mod, cname)
-            for override in bases:
-                if issubclass(claz, override):
-                    raise Exception(
-                            "Class %r should appear earlier in the list, as "
-                            "it's a subclass of class %r." % (claz, override))
-            bases.append(claz)
-        if len(bases) == 1:
-            return bases[0]
-        # Dynamically construct the new class that inherits from all the given
-        # classes:
-        return type(class_name, tuple(bases), {})
 
     def setup_server(self):
         """Instantiate the server class to use for WinRM."""
@@ -528,71 +494,19 @@ class BaseSync(object):
             client_cert=self.config.get('client_cert'),
             client_key=self.config.get('client_key'),
             dryrun=self.config['dryrun'])
-        if 'dc_server' in self.config:
-            self.server.set_domain_controller(self.config['dc_server'])
+        if self.config.get('dc_server'):
+            self.server.domain_controller = self.config['dc_server']
 
+    @deprecate("use admin_messages.logger")
     def add_admin_message(self, level, msg):
-        """Add a message to be given to the administrators of the AD domain.
+        """
+        Add a message to be given to the administrators of the AD domain.
 
-        The messages should at the end be given to the administrators according
-        to what the confiuration says.
-
-        @type level: string
-        # TODO: make use of log constants instead?
-        @param level: The level of the given message to log. Used to separate
-            out what messages that should be given to the AD-administrators and
-            not.
-
-        @type msg: string
-        @param msg: The message that should be logged. Must not contain
-            sensitive data, like passwords, as it could be sent by mail.
-
+        See :mod:`.admin_messages' for details
         """
         self.logger.info("AD-message: %s: %s", level, msg)
-        self._ad_admin_messages.append((level, msg))
-        if self.config['log_ad_admin_messages']:
-            func = getattr(self.logger, level)
-            func(msg)
-
-    def send_ad_admin_messages(self):
-        """Send the messages for the AD-administrators, if any.
-
-        The way the messages should be sent is decided by the configuration.
-
-        """
-        if not self._ad_admin_messages:
-            self.logger.debug("No AD-admin messages to send")
-            return
-        self.logger.debug('Found %d AD-admin messages to send',
-                          len(self._ad_admin_messages))
-        txt = '\n'.join('%s: %s' % (x[0].upper(), unicode2str(x[1])) for x in
-                        self._ad_admin_messages)
-        for opt in self.config['ad_admin_message']:
-            if opt[0] in (None, 'log'):
-                # Messages already logged when added.
-                pass
-            elif opt[0] == 'mail':
-                for address in opt[2:]:
-                    self.logger.info("Sending %d messages to %s",
-                                     len(self._ad_admin_messages), address)
-                    try:
-                        sendmail(address, 'cerebrum@usit.uio.no',
-                                 'AD-sync messages for %s at %s' % (
-                                     self.config['sync_type'],
-                                     self.config['domain']),
-                                 txt, charset='utf-8',
-                                 debug=self.config['dryrun'])
-                    except Exception as e:
-                        self.logger.warn("Error sending AD-messages to %s: %s",
-                                         address, e)
-            elif opt[0] == 'file':
-                self.logger.warn(
-                    "Sending AD-admin messages to file not implemented")
-                # TODO
-            else:
-                self.logger.warn("Unknown way to send AD-messages: %s" % opt)
-        self._ad_admin_messages = []
-        self.logger.debug('Sending AD-admin messages done...')
+        levelno = self.admin_messages.get_level(level)
+        self.admin_messages.logger.log(levelno, msg)
 
     def fullsync(self):
         """Do the fullsync by comparing AD with Cerebrum and then update AD.
@@ -617,7 +531,7 @@ class BaseSync(object):
         self.logger.debug("Post-sync processing...")
         self.post_process()
         self.logger.info('Fullsync done')
-        self.send_ad_admin_messages()
+        self.admin_messages.finalize()
         # TODO: not sure if this is the place to put this, but we must close
         # down connections on the server side:
         self.server.close()
@@ -650,8 +564,12 @@ class BaseSync(object):
 
         """
         self.logger.info("Quicksync started")
-        cl = CLHandler.CLHandler(self.db)
         changetypes = self.config['change_types']
+        if not changetypes:
+            raise ValueError("No change_types defined in config")
+
+        cl = CLHandler.CLHandler(self.db)
+
         already_handled = set()  # Changes that has been processed
 
         # Avoid changes that are too old:
@@ -669,11 +587,14 @@ class BaseSync(object):
                 try:
                     yield rows.next()
                 except StopIteration:
-                    self.logger.warn("No change_id %s", i)
+                    self.logger.warning("No change_id %s", i)
 
         # Re-writeable functions for cl.confirm and cl.commit
-        confirm = lambda e: cl.confirm_event(e)
-        commit = lambda dryrun: None if dryrun else cl.commit_confirmations()
+        cl_confirm = cl.confirm_event
+        if self.config['dryrun']:
+            cl_commit = _noop
+        else:
+            cl_commit = cl.commit_confirmations
 
         if changekey:
             self.logger.debug("Processing changekey: %s", changekey)
@@ -683,8 +604,8 @@ class BaseSync(object):
             events = _events_for_change_ids(change_ids)
             # Do not commit to CLHandler -- that won't work if cl is not set up
             # with a changekey
-            commit = lambda r: None
-            confirm = lambda d: None
+            cl_commit = _noop
+            cl_confirm = _noop
         else:
             raise Exception("Missing changekey or change_ids")
 
@@ -693,9 +614,11 @@ class BaseSync(object):
             timestamp = int(
                 date_utils.to_timestamp(
                     date_compat.get_datetime_tz(row['tstamp'])))
-            handle_key = tuple((int(row['change_type_id']),
-                                row['subject_entity'],
-                                row['dest_entity']))
+            handle_key = (
+                int(row['change_type_id']),
+                row['subject_entity'],
+                row['dest_entity'],
+            )
             change_type = self.clconst.ChangeType(int(row['change_type_id']))
             stats['seen'] += 1
 
@@ -704,7 +627,7 @@ class BaseSync(object):
                 stats['skipped'] += 1
                 self.logger.info("Skipping too old change_id: %s",
                                  row['change_id'])
-                confirm(row)
+                cl_confirm(row)
                 continue
             # Ignore seen (change_type, subject, dest) tuples
             if handle_key in already_handled:
@@ -714,7 +637,7 @@ class BaseSync(object):
                     " for subject=%s, dest=%s", row['change_id'],
                     str(change_type), row['subject_entity'],
                     row['dest_entity'])
-                confirm(row)
+                cl_confirm(row)
                 continue
 
             self.logger.debug(
@@ -725,7 +648,7 @@ class BaseSync(object):
             try:
                 if self.process_cl_event(row):
                     stats['processed'] += 1
-                    confirm(row)
+                    cl_confirm(row)
                 else:
                     stats['skipped'] += 1
                     self.logger.debug(
@@ -738,12 +661,12 @@ class BaseSync(object):
                     row['change_id'], change_type, row['subject_entity'],
                     exc_info=1)
             else:
-                commit(self.config['dryrun'])
-        commit(self.config['dryrun'])
+                cl_commit()
+        cl_commit()
         self.logger.info("Handled %(seen)d events, processed: %(processed)d,"
                          " skipped: %(skipped)d, failed: %(failed)d", stats)
         self.logger.info("Quicksync done")
-        self.send_ad_admin_messages()
+        self.admin_messages.finalize()
 
     def process_cl_event(self, row):
         """Process a given ChangeLog event.
@@ -778,8 +701,8 @@ class BaseSync(object):
 
         """
         # TODO: Add functionality for generic changes here!
-        self.logger.warn("Change type not handled: %s",
-                         self.clconst.ChangeType(row['change_type_id']))
+        self.logger.warning("Change type not handled: %s",
+                            self.clconst.ChangeType(row['change_type_id']))
         # TODO: Or rather raise an UnhandledChangeTypeError?
         return False
 
@@ -795,21 +718,26 @@ class BaseSync(object):
 
         """
         self.fetch_cerebrum_entities()
-        self.logger.debug("Fetched %d cerebrum entities" % len(self.entities))
+        self.logger.debug("Fetched %d cerebrum entities", len(self.entities))
         # Make a mapping from entity_id to the entity:
-        self.id2entity = dict((self.entities[e].entity_id, self.entities[e])
-                              for e in self.entities)
+        self.id2entity = {
+            self.entities[e].entity_id: self.entities[e]
+            for e in self.entities
+        }
         # Make a mapping from entity_name to the entity:
-        self.name2entity = dict((self.entities[e].entity_name,
-                                 self.entities[e]) for e in self.entities)
+        self.name2entity = {
+            self.entities[e].entity_name: self.entities[e]
+            for e in self.entities
+        }
         # Make a mapping from ad_id to the entity:
-        self.adid2entity = dict((self.entities[e].ad_id.lower(),
-                                 self.entities[e]) for e in self.entities)
+        self.adid2entity = {
+            self.entities[e].ad_id.lower(): self.entities[e]
+            for e in self.entities
+        }
         if len(self.entities) != len(self.adid2entity):
-            self.logger.warn("Mismatch in mapping of ad_id -> entity_id")
+            self.logger.warning("Mismatch in mapping of ad_id -> entity_id")
         self.fetch_quarantines()
         self.fetch_spreads()
-        self.fetch_attributes()
         if self.config['store_sid']:
             self.fetch_sids()
 
@@ -820,7 +748,7 @@ class BaseSync(object):
         entities to synchronize with AD.
 
         """
-        raise Exception('Must be defined in the proper subclass')
+        raise NotImplementedError('Must be defined in the proper subclass')
 
     def fetch_quarantines(self):
         """Get all quarantines from Cerebrum and update L{self.entities} with
@@ -873,42 +801,6 @@ class BaseSync(object):
                 i += 1
         self.logger.debug("Fetched %d entity spreads", i)
 
-    def fetch_attributes(self):
-        """Get all AD attributes stored in Cerebrum and add them to the cached
-        entities.
-
-        """
-        # Check if data from the attribute table is needed:
-        attrtypes = set()
-        for c in ConfigUtils.get_config_by_type(self.config['attributes'],
-                                                ConfigUtils.ADAttributeAttr):
-            attrtypes.update(c.attributes)
-        if not attrtypes:
-            return
-        self.logger.debug("Fetch from attribute table: %s",
-                          ', '.join(str(a) for a in attrtypes))
-        ids = None
-        if self.config['subset']:
-            ids = self.id2entity.keys()
-            # Handle empty lists:
-            if not ids:
-                return
-        i = 0
-        for row in self.ent.list_ad_attributes(
-                entity_id=ids,
-                spread=self.config['target_spread'],
-                attribute=attrtypes):
-            e = self.id2entity.get(row['entity_id'], None)
-            if e:
-                attr = int(row['attr_code'])
-                attrcode = self.co.ADAttribute(attr)
-                if attrcode.multivalued:
-                    e.cere_attributes.setdefault(attr, []).append(row['value'])
-                else:
-                    e.cere_attributes[attr] = row['value']
-                i += 1
-        self.logger.debug("Fetched %d AD attributes from Cerebrum" % i)
-
     def fetch_sids(self):
         """Get all SIDs stored in Cerebrum and add them to the cached entities.
 
@@ -940,7 +832,7 @@ class BaseSync(object):
             if e:
                 e.sid = row['external_id']
                 i += 1
-        self.logger.debug("Fetched %d SIDs from Cerebrum" % i)
+        self.logger.debug("Fetched %d SIDs from Cerebrum", i)
 
     def fetch_names(self):
         """Get all the entity names for the entities from Cerebrum.
@@ -985,13 +877,13 @@ class BaseSync(object):
                 ent.entity_name_with_language.setdefault(
                     vari, {})[lang] = row['name']
                 i += 1
-        self.logger.debug("Found %d names" % i)
+        self.logger.debug("Found %d names", i)
 
     def calculate_ad_values(self):
         """Use Cerebrum data to calculate the needed attributes.
 
         """
-        for ent in self.entities.itervalues():
+        for ent in six.itervalues(self.entities):
             ent.calculate_ad_values()
 
     def cache_entity(self, entity_id, entity_name, *args, **kwargs):
@@ -1086,17 +978,18 @@ class BaseSync(object):
             except ADUtils.NoAccessException as e:
                 # Access errors could be given to the AD administrators, as
                 # Cerebrum are not allowed to fix such issues.
-                self.add_admin_message(
-                    'warning', 'Missing access rights for %s: %s' % (
-                        ad_object['DistinguishedName'], e))
+                self.admin_messages.logger.warning(
+                    "Missing access rights for %s: %s",
+                    ad_object['DistinguishedName'], e,
+                )
                 # TODO: do we need to strip out data from the exceptions? Could
                 # it for instance contain passwords?
             except PowershellException as e:
-                self.logger.warn("PowershellException for %s: %s" %
-                                 (ad_object['DistinguishedName'], e))
+                self.logger.warning("PowershellException for %s: %s",
+                                    ad_object['DistinguishedName'], e)
             else:
                 i += 1
-        self.logger.debug("Received and processed %d objects from AD" % i)
+        self.logger.debug("Received and processed %d objects from AD", i)
         return i
 
     def process_ad_object(self, ad_object):
@@ -1125,13 +1018,13 @@ class BaseSync(object):
         dn = ad_object['DistinguishedName']
 
         if 'UserAccountControl' in ad_object:
-            self.logger.debug3("For %s UAC: %s" % (name,
-                               ad_object['UserAccountControl']))
+            self.logger.debug3("For %s UAC: %s",
+                               name, ad_object['UserAccountControl'])
 
         ent = self.adid2entity.get(name.lower())
         if ent:
             ent.in_ad = True
-            if ent.entity_id in self.exempt_entities:
+            if ent.entity_id in self.excluded_entity_ids:
                 self.logger.debug3(
                     'Entity {0} marked as exempt, ignoring'.format(
                         ent.entity_id))
@@ -1149,12 +1042,12 @@ class BaseSync(object):
 
         # Don't touch those in OUs we should ignore:
         if any(dn.endswith(ou) for ou in self.config.get('ignore_ou', ())):
-            self.logger.debug('Object in ignore_ou: %s' % dn)
+            self.logger.debug("Object in ignore_ou: %s", dn)
             return False
 
         # If not found in Cerebrum, remove the object (according to config):
         if not ent:
-            self.logger.debug2("Unknown object %s - %s" % (name, ad_object))
+            self.logger.debug2("Unknown object %s - %s", name, ad_object)
             self.downgrade_object(ad_object,
                                   self.config.get('handle_unknown_objects',
                                                   ('disable', None)))
@@ -1228,7 +1121,7 @@ class BaseSync(object):
 
         """
         ret = {}
-        for atr, atrconfig in self.config['attributes'].iteritems():
+        for atr, atrconfig in six.iteritems(self.config['attributes']):
             value = ent.attributes.get(atr, None)
             ad_value = ad_object.get(atr, None)
             # Filter/convert the value from AD before getting compared:
@@ -1315,6 +1208,14 @@ class BaseSync(object):
         if atr.lower() == 'samaccountname':
             if a is None or c.lower() != a.lower():
                 return (True, None, None)
+
+        # Certain attributes can be set to empty, which in some versions of AD
+        # return the string literal "FALSE".  This is a workaroudn for some
+        # attributes that are known to cause issues:
+        if (atr.lower() in ("description", "homedirectory", "mail")
+                and a == "FALSE" and not c):
+            return (False, None, None)
+
         # Order does not matter in multivalued attributes
         seq = (list, tuple, set)
         if isinstance(c, seq) and (isinstance(a, seq) or a is None):
@@ -1355,34 +1256,37 @@ class BaseSync(object):
 
         """
         # Do a count of how many it is, for debuggin
-        self.logger.debug("Found %d entities not found in AD",
-                          len(filter(lambda x: not x.in_ad,
-                                     self.entities.itervalues())))
-        i = 0
-        for ent in self.entities.itervalues():
+        self.logger.debug(
+            "Found %d entities not found in AD",
+            sum(not x.in_ad for x in six.itervalues(self.entities))
+        )
+        num_processed = 0
+        for ent in six.itervalues(self.entities):
             if ent.in_ad:
                 continue
 
-            if ent.entity_id in self.exempt_entities:
-                self.logger.debug3(
-                    'Entity {0} marked as exempt, ignoring'.format(
-                        ent.entity_id))
-                i += 1
+            if ent.entity_id in self.excluded_entity_ids:
+                self.logger.debug3("Entity %d marked as exempt, ignoring",
+                                   ent.entity_id)
+                num_processed += 1
                 continue
             try:
                 self.process_entity_not_in_ad(ent)
             except ADUtils.NoAccessException as e:
                 # Access errors should be sent to the AD administrators, as
                 # Cerebrum can not fix this.
-                self.add_admin_message('warning',
-                                       'Missing access rights for %s: %s' % (
-                                           ent.ad_id, e))
+                self.admin_messages.logger.warning(
+                    "Missing access rights for %s: %s",
+                    ent.ad_id, e,
+                )
             except PowershellException as e:
-                self.logger.warn("PowershellException for %s: %s" %
-                                 (ent.entity_name, e))
+                self.logger.warning(
+                    "PowershellException for %s: %s",
+                    ent.entity_name, e)
             else:
-                i += 1
-        self.logger.debug('Successfully processed %d entities not in AD' % i)
+                num_processed += 1
+        self.logger.info("Successfully processed %d entities not in AD",
+                         num_processed)
 
     def process_entity_not_in_ad(self, ent):
         """Process an entity that doesn't exist in AD, yet.
@@ -1404,7 +1308,7 @@ class BaseSync(object):
                                   ent.entity_name)
         try:
             obj = self.create_object(ent)
-        except ADUtils.ObjectAlreadyExistsException as e:
+        except ADUtils.ObjectAlreadyExistsException:
             # It exists in AD, but is probably somewhere out of our
             # search_base. Will try to get it, so we could still update it, and
             # maybe even move it to the correct OU.
@@ -1444,8 +1348,7 @@ class BaseSync(object):
                                   "the same name. Cannot determine which "
                                   "one is the right one.", ent.ad_id)
                 return False
-        except (ADUtils.SetAttributeException,
-                CommandTooLongException) as e:
+        except (ADUtils.SetAttributeException, CommandTooLongException):
             # The creation of the object may have failed because of entity's
             # attributes. It may have been too many of them and the command
             # became too long, or they contained (yet) invalid paths in AD.
@@ -1453,9 +1356,9 @@ class BaseSync(object):
             # can fix attributes problem. So it's good to try to create an
             # object without attributes now and wait until the next round for
             # its attributes to be updated.
-            self.logger.warning("""Failed creating %s. """
-                              """Trying to create it without attributes"""
-                              % ent.ad_id)
+            self.logger.warning(
+                "Failed creating %s - re-trying without attributes",
+                ent.ad_id)
             # SamAccountName is needed to be present upon object's creation.
             # It will default to name if it is not present. But if it is --
             # it has to be preserved.
@@ -1468,13 +1371,13 @@ class BaseSync(object):
                 obj = self.create_object(ent)
             except Exception:
                 # Really failed
-                self.logger.exception("Failed creating %s." % ent.ad_id)
+                self.logger.exception("Failed creating %s", ent.ad_id)
                 return False
             else:
                 ent.ad_new = True
         except Exception:
             # Unforeseen exception; traceback will be logged
-            self.logger.exception("Failed creating %s." % ent.ad_id)
+            self.logger.exception("Failed creating %s", ent.ad_id)
             return False
         else:
             ent.ad_new = True
@@ -1504,7 +1407,7 @@ class BaseSync(object):
         """
         if not self.config['create_ous']:
             return
-        self.logger.info("Creating OU: %s" % dn)
+        self.logger.info("Creating OU: %s", dn)
         name, path = dn.split(',', 1)
         if name.lower().startswith('ou='):
             name = name[3:]
@@ -1729,7 +1632,7 @@ class BaseSync(object):
             return self.server.execute_script(self.config['script'][action],
                                               **params)
         except PowershellException as e:
-            self.logger.warn(
+            self.logger.warning(
                 "Script failed for event %s (%s): %s",
                 action, params.get('UUID'), e)
             return False
@@ -1879,7 +1782,7 @@ class UserSync(BaseSync):
         # Create a mapping of owner id to user objects
         self.logger.debug("Fetch owner information...")
         self.owner2ent = dict()
-        for ent in self.entities.itervalues():
+        for ent in six.itervalues(self.entities):
             self.owner2ent.setdefault(ent.owner_id, []).append(ent)
         self.logger.debug("Mapped %d entity owners", len(self.owner2ent))
 
@@ -1927,7 +1830,7 @@ class UserSync(BaseSync):
         if hasattr(self.co, 'trait_account_exempt'):
             for row in self._entity_trait.list_traits(
                     self.co.trait_account_exempt):
-                self.exempt_entities.append(int(row['entity_id']))
+                self.excluded_entity_ids.add(int(row['entity_id']))
         for row in self.ac.search(spread=self.config['target_spread']):
             uname = row["name"]
             # For testing or special cases where we only want to sync a subset
@@ -2006,7 +1909,7 @@ class UserSync(BaseSync):
         self.logger.debug2("Fetching name variants: %s",
                            ', '.join(str(v) for v in variants))
         self.logger.debug2("Fetching names by languages: %s",
-                           ', '.join(str(l) for l in languages))
+                           ', '.join(str(lang) for lang in languages))
         self.logger.debug2("Fetching names from sources: %s",
                            ', '.join(str(s) for s in systems))
         if not variants:
@@ -2027,16 +1930,18 @@ class UserSync(BaseSync):
         # TODO: This is not always for persons! Need to also fetch for e.g.
         # OUs. Do we need to fetch in two rounds? One for the entities and one
         # for the owners?
-        for row in self.pe.search_name_with_language(name_variant=variants,
-                                                     entity_type=self.co.entity_person,
-                                                     entity_id=ids,
-                                                     name_language=languages):
+        for row in self.pe.search_name_with_language(
+                name_variant=variants,
+                entity_type=self.co.entity_person,
+                entity_id=ids,
+                name_language=languages):
             for ent in self.owner2ent.get(row['entity_id'], ()):
                 vari = str(self.co.EntityNameCode(row['name_variant']))
                 lang = str(self.co.LanguageCode(row['name_language']))
-                ent.entity_name_with_language.setdefault(vari, {})[lang] = row['name']
+                ent.entity_name_with_language.setdefault(
+                    vari, {})[lang] = row['name']
                 i += 1
-        self.logger.debug("Found %d names" % i)
+        self.logger.debug("Found %d names", i)
 
     def fetch_person_names(self):
         """Fetch all the persons' names and store them for the accounts.
@@ -2091,7 +1996,7 @@ class UserSync(BaseSync):
                 ssys = str(self.co.AuthoritativeSystem(row['source_system']))
                 ent.person_names.setdefault(vari, {})[ssys] = row['name']
                 i += 1
-        self.logger.debug("Found %d person names" % i)
+        self.logger.debug("Found %d person names", i)
 
     def fetch_contact_info(self):
         """Fetch all contact information for users, e.g. mobile and telephone.
@@ -2151,17 +2056,18 @@ class UserSync(BaseSync):
                 ent.contact_info.setdefault(ctype, {})[ssys] = row
                 i += 1
         # Contact info stored on the account:
-        for row in self.ac.list_contact_info(source_system=systems,
-                                             entity_type=self.co.entity_account,
-                                             entity_id=ids,
-                                             contact_type=types):
+        for row in self.ac.list_contact_info(
+                source_system=systems,
+                entity_type=self.co.entity_account,
+                entity_id=ids,
+                contact_type=types):
             ent = self.id2entity.get(row['entity_id'], None)
             if ent:
                 ctype = str(self.co.ContactInfo(row['contact_type']))
                 ssys = str(self.co.AuthoritativeSystem(row['source_system']))
                 ent.contact_info.setdefault(ctype, {})[ssys] = row
                 i += 1
-        self.logger.debug("Found %d contact data" % i)
+        self.logger.debug("Found %d contact data", i)
 
     def fetch_external_ids(self):
         """Fetch all external IDs for entities according to config.
@@ -2199,7 +2105,8 @@ class UserSync(BaseSync):
             for ent in self.owner2ent.get(row['entity_id'], ()):
                 itype = str(self.co.EntityExternalId(row['id_type']))
                 ssys = str(self.co.AuthoritativeSystem(row['source_system']))
-                ent.external_ids.setdefault(itype, {})[ssys] = row['external_id']
+                ent.external_ids.setdefault(
+                    itype, {})[ssys] = row['external_id']
                 i += 1
         # Search account:
         ids = None
@@ -2212,9 +2119,10 @@ class UserSync(BaseSync):
             if ent:
                 itype = str(self.co.EntityExternalId(row['id_type']))
                 ssys = str(self.co.AuthoritativeSystem(row['source_system']))
-                ent.external_ids.setdefault(itype, {})[ssys] = row['external_id']
+                ent.external_ids.setdefault(
+                    itype, {})[ssys] = row['external_id']
                 i += 1
-        self.logger.debug("Found %d external IDs" % i)
+        self.logger.debug("Found %d external IDs", i)
 
     def fetch_traits(self):
         """Fetch all traits for entities according to config.
@@ -2241,7 +2149,7 @@ class UserSync(BaseSync):
                 code = str(self.co.EntityTrait(row['code']))
                 ent.traits[code] = row
                 i += 1
-        self.logger.debug("Found %d traits" % i)
+        self.logger.debug("Found %d traits", i)
         # TODO: Fetch from person too? Is that needed?
 
     def fetch_address_info(self):
@@ -2275,7 +2183,8 @@ class UserSync(BaseSync):
                     address_type=adrtypes):
                 for ent in self.owner2ent.get(row['entity_id'], ()):
                     atype = str(self.co.Address(row['address_type']))
-                    ssys = str(self.co.AuthoritativeSystem(row['source_system']))
+                    ssys = str(
+                        self.co.AuthoritativeSystem(row['source_system']))
                     ent.addresses.setdefault(atype, {})[ssys] = row
                     i += 1
         # Contact info stored on the account:
@@ -2287,10 +2196,11 @@ class UserSync(BaseSync):
                 ent = self.id2entity.get(row['entity_id'], None)
                 if ent:
                     atype = str(self.co.Address(row['address_type']))
-                    ssys = str(self.co.AuthoritativeSystem(row['source_system']))
+                    ssys = str(
+                        self.co.AuthoritativeSystem(row['source_system']))
                     ent.addresses.setdefault(atype, {})[ssys] = row
                     i += 1
-        self.logger.debug("Found %d addresses" % i)
+        self.logger.debug("Found %d addresses", i)
 
     def fetch_mail(self):
         """Fetch all e-mail address for the users.
@@ -2319,10 +2229,12 @@ class UserSync(BaseSync):
             ids = self.id2entity.keys()
 
         # Need a map from EmailTarget's target_id to entity_id:
-        targetid2entityid = dict((r['target_id'], r['target_entity_id']) for r
-                                 in self.mailtarget.list_email_targets_ext(
-                                     target_entity_id=ids))
-        for target_id, entity_id in targetid2entityid.iteritems():
+        mailtarget = Email.EmailTarget(self.db)
+        targetid2entityid = {
+            r['target_id']: r['target_entity_id']
+            for r in mailtarget.list_email_targets_ext(target_entity_id=ids)
+        }
+        for target_id, entity_id in six.iteritems(targetid2entityid):
             ent = self.entities.get(entity_id)
             if ent:
                 ent.maildata['target_id'] = target_id
@@ -2339,7 +2251,7 @@ class UserSync(BaseSync):
                 if ent:
                     ent.maildata['quota'] = row
                     i += 1
-            self.logger.debug("Found %d email quotas" % i)
+            self.logger.debug("Found %d email quotas", i)
 
         # Email addresses
         if ConfigUtils.has_config(self.config['attributes'],
@@ -2350,7 +2262,8 @@ class UserSync(BaseSync):
             i = 0
             # TODO: filter_expired could might be a config setting?
             for row in ea.search(filter_expired=False):
-                ent = self.id2entity.get(targetid2entityid.get(row['target_id']))
+                ent = self.id2entity.get(
+                    targetid2entityid.get(row['target_id']))
                 if ent:
                     adr = '@'.join((row['local_part'], row['domain']))
                     adrid2email[row['address_id']] = adr
@@ -2369,7 +2282,7 @@ class UserSync(BaseSync):
                 if ent:
                     ent.maildata['primary'] = adrid2email[row['address_id']]
                     i += 1
-            self.logger.debug("Found %d primary email addresses" % i)
+            self.logger.debug("Found %d primary email addresses", i)
 
         # Email forwards
         if ConfigUtils.has_config(self.config['attributes'],
@@ -2388,7 +2301,7 @@ class UserSync(BaseSync):
                     ent.maildata.setdefault('forward', []).append(
                         row['forward_to'])
                     i += 1
-            self.logger.debug("Found %d forward addresses" % i)
+            self.logger.debug("Found %d forward addresses", i)
 
     def fetch_homes(self):
         """Fetch all home directories for the the users.
@@ -2405,7 +2318,7 @@ class UserSync(BaseSync):
             homespreads.add(atr.home_spread)
         if not homespreads:
             return
-        self.logger.debug("Fetch home directories...")
+        self.logger.debug("Fetching home directories...")
         i = 0
         for sp in homespreads:
             for row in self.ac.list_account_home(
@@ -2426,24 +2339,26 @@ class UserSync(BaseSync):
                     tmp['entity_name'] = row['entity_name']
                     ent.home[row['home_spread']] = tmp
                     i += 1
-        self.logger.debug("Found %d account home directories" % i)
+        self.logger.debug("Found %d account home directories", i)
 
     def fetch_posix(self):
-        """Fetch the POSIX data for users, if needed.
-
-        """
+        """ Fetch the POSIX data for users, if needed. """
         if not ConfigUtils.has_config(self.config['attributes'],
                                       ConfigUtils.PosixAttr):
             # No need for any posix data
+            self.logger.debug("Ignoring posix data")
             return
-        self.logger.debug("Fetch posix data...")
+
+        self.logger.debug("Fetching posix data...")
         pg = Factory.get('PosixGroup')(self.db)
         pu = Factory.get('PosixUser')(self.db)
 
         # Map from group_id to GID:
-        posix_group_id2gid = dict((eid, gid) for eid, gid in
-                                  pg.list_posix_groups())
-        self.logger.debug("Found %d posix groups", len(posix_group_id2gid))
+        posix_group_id2gid = {
+            row['group_id']: row['posix_gid']
+            for row in pg.list_posix_groups()
+        }
+        self.logger.info("Found %d posix groups", len(posix_group_id2gid))
 
         i = 0
         for row in pu.list_posix_users():
@@ -2451,12 +2366,14 @@ class UserSync(BaseSync):
             if ent:
                 if not hasattr(ent, 'posix'):
                     ent.posix = {}
-                ent.posix['uid'] = int(row['posix_uid']) or ''
-                ent.posix['gid'] = posix_group_id2gid.get(row['gid'], '')
-                ent.posix['shell'] = str(self.co.PosixShell(row['shell']))
-                ent.posix['gecos'] = row['gecos']
+                ent.posix.update({
+                    'uid': int(row['posix_uid']),
+                    'gid': posix_group_id2gid.get(row['gid'], ''),
+                    'shell': six.text_type(self.co.PosixShell(row['shell'])),
+                    'gecos': row['gecos'],
+                })
                 i += 1
-        self.logger.debug("Found %d posix users", i)
+        self.logger.info("Found %d posix users", i)
 
     def fetch_passwords(self):
         """Fetch passwords for accounts that are new in AD.
@@ -2552,8 +2469,8 @@ class UserSync(BaseSync):
         """
         ad_object = super(UserSync, self).process_entity_not_in_ad(ent)
         if not ad_object:
-            self.logger.warn("What to do? Got None from super for: %s" %
-                             ent.entity_name)
+            self.logger.warning("What to do? Got None from super for: %s",
+                                ent.entity_name)
             return
         # TODO: Move this to create_object() instead! Could then add the
         #       password in the creating call - would be faster.
@@ -2565,7 +2482,7 @@ class UserSync(BaseSync):
             try:
                 password, tag = self.uname2pasw[ent.entity_name]
             except KeyError:
-                self.logger.warn('No password set for %s' % ent.entity_name)
+                self.logger.warning('No password set for %s', ent.entity_name)
                 return ad_object
 
             self.logger.debug('Trying to set pw for %s', ent.entity_name)
@@ -2647,7 +2564,7 @@ class UserSync(BaseSync):
                     if gpg_data:
                         break
                 else:
-                    self.logger.warn(
+                    self.logger.warning(
                         'Account %s missing GPG encrypted password',
                         row['subject_entity'])
                     return False
@@ -2656,15 +2573,16 @@ class UserSync(BaseSync):
                 try:
                     pw = json.loads(row['change_params'])['password']
                 except (KeyError, TypeError, IndexError):
-                    self.logger.warn("Account %s missing plaintext password",
-                                     row['subject_entity'])
-                    return False
+                    self.logger.warning(
+                        "Account %s missing plaintext password",
+                        row['subject_entity'])
+                    return True
 
-            if not isinstance(pw, unicode):
+            if isinstance(pw, bytes):
                 try:
-                    pw = unicode(pw, 'UTF-8')
+                    pw = pw.decode("UTF-8")
                 except UnicodeDecodeError:
-                    pw = unicode(pw, 'ISO-8859-1')
+                    pw = pw.decode("ISO-8859-1")
             return self.server.set_password(name, pw, password_type=tag)
 
         elif row['change_type_id'] in (self.clconst.quarantine_add,
@@ -2694,7 +2612,7 @@ class UserSync(BaseSync):
             # have no AD-object to pass to the self.script function...
             #     simple_object = dict(DistinguishedName=ent.dn)
             #     self.*able_object(simple_object)
-
+            #
             if QuarantineHandler.check_entity_quarantines(
                     self.db, self.ac.entity_id).is_locked():
                 return self.server.disable_object(ent.dn)
@@ -2796,7 +2714,7 @@ class GroupSync(BaseSync):
         if hasattr(self.co, 'trait_group_exempt'):
             for row in self._entity_trait.list_traits(
                     self.co.trait_group_exempt):
-                self.exempt_entities.append(int(row['entity_id']))
+                self.excluded_entity_ids.add(int(row['entity_id']))
         for row in self.gr.search(spread=self.config['target_spread']):
             name = row["name"]
             # For testing or special cases where we only want to sync a subset
@@ -2850,7 +2768,7 @@ class GroupSync(BaseSync):
         """
         self.id2extraentity = dict()
         # Need to process spreads one by one, since each has its config
-        for spread_var in self.config['group_member_spreads'].itervalues():
+        for spread_var in six.itervalues(self.config['group_member_spreads']):
             spread = spread_var['spread']
             self.logger.debug("Fetch members for spread: %s", spread)
             mem_sync = spread_var['sync']
@@ -2990,7 +2908,7 @@ class GroupSync(BaseSync):
         # Go through all group memberships and add those relevant for AD in the
         # proper groups, either directly or indirectly:
         i = 0
-        for group_id, members in groups.iteritems():
+        for group_id, members in six.iteritems(groups):
             # Target the parent groups if the group is not supposed to be in
             # AD:
             if group_id in self.id2entity:
@@ -3015,20 +2933,19 @@ class GroupSync(BaseSync):
                         # TODO: might want a set or something similar:
                         ent.members_by_spread = []
                     ent.members_by_spread.append(member)
-                    self.logger.debug3("Added %s to group %s (originally in %s)",
-                                       member, ent, group_id)
+                    self.logger.debug3(
+                        "Added %s to group %s (originally in %s)",
+                        member, ent, group_id)
                     i += 1
         self.logger.debug2("Fetched %d memberships", i)
 
     def fetch_posix(self):
-        """Fetch the POSIX data for groups, if needed.
-
-        """
+        """ Fetch the POSIX data for groups, if needed. """
         if not ConfigUtils.has_config(self.config['attributes'],
                                       ConfigUtils.PosixAttr):
-            # No need for any posix data
+            self.logger.debug("Ignoring posix data")
             return
-        self.logger.debug("Fetch posix data...")
+        self.logger.debug("Fetching posix group data...")
         pg = Factory.get('PosixGroup')(self.db)
         i = 0
         for row in pg.list_posix_groups():
@@ -3036,7 +2953,9 @@ class GroupSync(BaseSync):
             if ent:
                 if not hasattr(ent, 'posix'):
                     ent.posix = {}
-                ent.posix['gid'] = int(row['posix_gid']) or ''
+                ent.posix.update({
+                    'gid': int(row['posix_gid']),
+                })
                 i += 1
         self.logger.debug("Found %d posix groups", i)
 
@@ -3109,45 +3028,6 @@ class HostSync(BaseSync):
                 continue
             self.entities[name] = self.cache_entity(int(row["host_id"]), name,
                                                     row['description'])
-
-
-class MailTargetSync(BaseSync):
-
-    """Extra sync functionality for getting MailTarget data.
-
-    Entities could be connected to mailtargets in Cerebrum, e.g. with e-mail
-    addresses, e-mail quota and spam settings. The retrievement of this data
-    should be done in this class.
-
-    """
-    def __init__(self, *args, **kwargs):
-        """Instantiate the MailTarget objects."""
-        super(MailTargetSync, self).__init__(*args, **kwargs)
-        self.mailtarget = Email.EmailTarget(self.db)
-        self.mailquota = Email.EmailQuota(self.db)
-
-    def fetch_cerebrum_data(self):
-        """Fetch the needed mail data for the entities."""
-        super(MailTargetSync, self).fetch_cerebrum_data()
-
-        # Map from target_id to entity_id:
-        targetid2entityid = dict((r['target_id'], r['target_entity_id']) for r
-                                 in self.mailtarget.list_email_targets_ext())
-        for target_id, entity_id in targetid2entityid.iteritems():
-            ent = self.entities.get(entity_id)
-            if ent:
-                ent.maildata['target_id'] = target_id
-
-        # E-mail quotas:
-        for row in self.mailquota.list_email_quota_ext():
-            if row['target_id'] not in targetid2entityid:
-                self.logger.debug2("Ignoring quotas for non-cached target: %s",
-                                   row['target_id'])
-                continue
-            ent = self.id2entity.get(targetid2entityid[row['target_id']])
-            if ent:
-                ent.maildata['quota_soft'] = row['quota_soft']
-                ent.maildata['quota_hard'] = row['quota_hard']
 
 
 class ProxyAddressesCompare(BaseSync):

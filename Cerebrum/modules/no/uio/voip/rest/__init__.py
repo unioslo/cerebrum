@@ -1,0 +1,59 @@
+# -*- coding: utf-8 -*-
+#
+# Copyright 2016-2026 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""
+VOIP REST API module.
+
+This module provides REST API endpoints for VOIP service and address
+management.
+
+To include it in a given API, add the *api* namespace defined in this module to
+*restconfig*:
+::
+
+    NAMESPACES_EXTRA = [
+      "Cerebrum.modules.no.uio.voip.rest:api",
+    ]
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+
+from . import service
+from . import address
+from . import models
+from . import utils
+
+api = models.api
+
+
+# Would it be better to design the voip namespace as an Api Blueprint,
+# and have service and address as separate namespaces?
+
+
+__all__ = [
+    "address",
+    "api",
+    "models",
+    "service",
+    "utils",
+]

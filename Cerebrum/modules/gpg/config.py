@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2016-2020 University of Oslo, Norway
+# Copyright 2016-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,32 +17,71 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""This module defines all necessary config for the GPG data module"""
-from __future__ import absolute_import, unicode_literals
+"""
+This module defines all necessary config for the GPG data module.
 
-from Cerebrum.config.configuration import (ConfigDescriptor,
-                                           Configuration)
-from Cerebrum.config.loader import read, read_config
-from Cerebrum.config.settings import Iterable
+Configuration
+--------------
+The :class:`.GpgEncrypter` tries to encrypt data for one or more *tag*.
+
+Each *tag* can be mapped to a preset list of recipients in a
+:class:`.GPGDataConfig`.  This config is usually read from a `gpg_data.yml` (or
+`gpg_data.json`) using :func:`.load_config`.
+
+Example `gpg_data.yml`:
+::
+
+    tag_to_recipient_map:
+      - tag: foo
+        recipients:
+          - 0123456789ABCDEF0123456789ABCDEF01234567
+          - 76543210FEDCBA9876543210FEDCBA9876543210
+      - tag: bar
+        recipients:
+          - 0123456789ABCDEF0123456789ABCDEF01234567
+      - tag: baz
+        recipients:
+          - 76543210FEDCBA9876543210FEDCBA9876543210
+
+
+Each *tag* are usually tied to a specific set of functionality elsewhere in
+Cerebrum.  Look for places where the GpgEncrypter is used.  One notable example
+is the :meth:`.data.EntityGPGData.add_gpg_data` mixin method.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+
+from Cerebrum.config import configuration
+from Cerebrum.config import loader
+from Cerebrum.config import settings
 from Cerebrum.utils.gpg import gpgme_encrypt
 
 
-class GPGDataConfig(Configuration):
-    """ Configuration for the GPG data handler """
+class GPGDataConfig(configuration.Configuration):
+    """
+    Configuration for the GPG data handler.
 
-    tag_to_recipient_map = ConfigDescriptor(
-        Iterable,
+    This config maps *tags* to list of recipient key fingerprints.
+    """
+
+    tag_to_recipient_map = configuration.ConfigDescriptor(
+        settings.Iterable,
         default=[],
-        doc='A mapping from tag to one or more recipient fingerprints')
+        doc='A mapping from tag to one or more recipient fingerprints',
+    )
 
 
 def load_config(filepath=None):
     """ Loads and validates the GPG data configuration. """
     config_cls = GPGDataConfig()
     if filepath:
-        config_cls.load_dict(read_config(filepath))
+        config_cls.load_dict(loader.read_config(filepath))
     else:
-        read(config_cls, 'gpg_data')
+        loader.read(config_cls, 'gpg_data')
     config_cls.validate()
     return config_cls
 
@@ -87,7 +126,7 @@ class GpgEncrypter(object):
         """
         Encrypt a plaintext for each recipient for a given tag.
 
-        :param tag: message tag
+        :param str tag: message tag
         :param plaintext: the raw data to encrypt
 
         :return:

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2013 University of Oslo, Norway
+# Copyright 2013-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,108 +18,178 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
 """
+List empty groups.
+
 This script lists groups that either do not have assigned members or contain
-only expired members, and thus may probably be eligible to removal. 
-The information returned is ID, name, description (if available), group's
-admin (if available).
+only expired members, and thus may probably be eligible to removal.  The
+information returned is ID, name, description (if available), group's admin (if
+available).
 """
-from __future__ import print_function
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+import argparse
+import logging
 
-import getopt
-import sys
+import six
+
 import cereconf
+import Cerebrum.logutils
+import Cerebrum.logutils.options
 from Cerebrum.group.GroupRoles import GroupRoles
-from Cerebrum.Utils import Factory
-from Cerebrum import Utils
-from Cerebrum.modules.bofhd.auth import BofhdAuthOpSet, \
-     AuthConstants, BofhdAuthOpTarget, BofhdAuthRole
+from Cerebrum.Utils import Factory, make_timer
+from Cerebrum.Entity import EntityName
+from Cerebrum.utils import file_stream
 
-db = Factory.get('Database')()
-gr = Factory.get('Group')(db)
-
-def select_empty_groups(groups):
-    empty_groups = []
-    for group in groups:
-        gr.clear()
-        members = gr.search_members(group_id = group['group_id'], 
-                                    member_filter_expired = True)
-        try:
-            has_members = members.next()
-        except StopIteration:
-            empty_groups.append([group['group_id'], group['name'], 
-                                 group['description']])
-
-    return empty_groups
+logger = logging.getLogger(__name__)
 
 
-def get_groups_admins(groups):
+def list_all_groups(db):
+    """ List all groups to check. """
+    group = Factory.get('Group')(db)
+    count = 0
+    for count, row in enumerate(group.search(), 1):
+        yield {
+            'group_id': row['group_id'],
+            'group_name': row['name'],
+            'group_desc': row['description'],
+        }
+    logger.info("found %d groups", count)
+
+
+def select_empty_groups(db, items):
+    group = Factory.get('Group')(db)
+    logger.debug("caching non-empty groups...")
+    non_empty = set(r['group_id']
+                    for r in group.search_members(member_filter_expired=True))
+
+    empty = 0
+    logger.debug("filtering empty groups...")
+    for item in items:
+        if item['group_id'] in non_empty:
+            continue
+        empty += 1
+        yield item
+
+    logger.info("found %d empty groups", empty)
+
+
+def update_group_roles(db, items):
     co = Factory.get('Constants')(db)
-    en = Factory.get('Entity')(db)
+
+    logger.debug('caching names...')
+    type_to_domain = {
+        int(co.get_constant(co.EntityType, k)):
+        int(co.get_constant(co.ValueDomain, v))
+        for k, v in cereconf.ENTITY_TYPE_NAMESPACE.items()}
+
+    names = {
+        (int(r['entity_id']), int(r['value_domain'])): r['entity_name']
+        for r in EntityName(db).list_names(
+            value_domain=list(type_to_domain.values()),
+        )}
+
+    type_to_text = {
+        int(c): six.text_type(c)
+        for c in co.fetch_constants(co.EntityType)}
+
+    logger.debug('caching roles...')
     roles = GroupRoles(db)
+    roles_by_group = {}
 
-    for group in groups:
-        for row in roles.search_admins(group[0]):
-            id = int(row['admin_id'])
-            en.clear()
-            en.find(id)
-            entity_id = int(en.entity_id)
-            en.clear()
-            ent = en.get_subclassed_object(entity_id)
-            if ent.entity_type == co.entity_account:
-                admin = ent.account_name
-            elif ent.entity_type == co.entity_group:
-                admin = ent.group_name
-            else:
-                admin = '#%d' % id
-            group.append(" ".join([str(co.EntityType(ent.entity_type)),
-                                   admin, "Group-admin"]))
+    for row in roles.search_admins():
+        if row['group_id'] not in roles_by_group:
+            roles_by_group[row['group_id']] = []
+        roles_by_group[row['group_id']].append((
+            int(row['admin_id']),
+            int(row['admin_type']),
+        ))
 
-def print_empty_groups_info(groups, output_stream):
-    for group in groups:
-        output_stream.write("ID: %s\n" % group[0])
-        output_stream.write("Name: %s\n" % group[1])
-        if(group[2]):
-            output_stream.write("Description: %s\n" % group[2])
-        if len(group) > 3:
-            for admin in group[3:]:
-                output_stream.write("Admin: %s\n" % admin)
-        output_stream.write("\n")
+    logger.debug('updating roles...')
+    for item in items:
+        item_roles = item['group_roles'] = []
+        raw_roles = roles_by_group.get(item['group_id']) or ()
+        for (admin_id, admin_type) in raw_roles:
+            admin_name = None
+            domain = type_to_domain.get(admin_type)
+            if domain:
+                admin_name = names.get((admin_id, domain))
+            item_roles.append(
+                " ".join([
+                    type_to_text.get(admin_type),
+                    admin_name or ("#%d" % (admin_id,)),
+                    "Group-admin"
+                ])
+            )
 
-def usage():
-    print("***********************************")
-    print("Usage: python list_empty_groups.py [-f path_to_output_file] [-h, --help]")
-    exit(0)
 
-def main():
-    try:
-        options, remainder = getopt.getopt(sys.argv[1:], 'f:h', ['help'])
-    except getopt.GetoptError:
-        usage()
-   
-    output_filename = "stdout" 
-    for opt, arg in options:
-        if opt == '-h' or opt == '--help':
-            print(__doc__)
-            usage()
-        elif opt == '-f':
-            output_filename = arg
-    if(output_filename != "stdout"):
-        output_stream = open(output_filename, 'w')
-    else:
-        output_stream = sys.stdout
-        output_stream.write("WARNING! The output will be written to stdout! "
-                            "Use -f switch to redirect it to a file\n")
-    # Get all groups
-    allgroups = gr.search()
-    output_stream.write("%d groups total in the database\n" % len(allgroups))
-    empty_groups = select_empty_groups(allgroups)
-    output_stream.write("%d groups are empty\n" % len(empty_groups))
-    get_groups_admins(empty_groups)
-    print_empty_groups_info(empty_groups, output_stream)
-    if(output_filename != "stdout"):
-        output_stream.close()
+def print_report(items, output_stream):
+    # TODO: Would probably be more useful as a formatted yaml export.
+    def write(*args):
+        print(*args, file=output_stream)
+
+    for item in items:
+        write("ID:", six.text_type(item['group_id']))
+        write("Name:", six.text_type(item['group_name']))
+        if item.get('group_desc'):
+            write("Description:", six.text_type(item['group_desc']))
+        if item.get('group_roles'):
+            for role in item['group_roles']:
+                write("Admin:", six.text_type(role))
+        write("")
+
+
+STDOUT_NAME = "-"
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description="List empty groups")
+    parser.add_argument(
+        "-f",
+        dest="output_filename",
+        default=STDOUT_NAME,
+        help="write output to %(metavar)s (default: stdout)",
+        metavar="FILE",
+    )
+    Cerebrum.logutils.options.install_subparser(parser)
+    args = parser.parse_args(argv)
+
+    Cerebrum.logutils.autoconf("console", args)
+    logger.info("Start %s", parser.prog)
+    logger.debug("args: %s", repr(args))
+
+    db = Factory.get("Database")()
+
+    timer = make_timer(logger)
+
+    logger.debug("searching groups...")
+    all_groups = list(list_all_groups(db))
+    timer("listed groups")
+
+    logger.debug("filtering empty groups...")
+    empty_groups = list(select_empty_groups(db, all_groups))
+    timer("filtered groups")
+
+    logger.debug("finding group owners...")
+    update_group_roles(db, empty_groups)
+    timer("found group owners")
+
+    with file_stream.get_output_context(
+            filename=args.output_filename,
+            encoding="utf-8",
+            stdout=STDOUT_NAME,
+            stderr=None,
+    ) as fd:
+        logger.debug("writing results to %s", repr(fd))
+        print_report(empty_groups, fd)
+
+    logger.info("wrote results to %s", args.output_filename)
+    logger.info("Done %s", parser.prog)
+
 
 if __name__ == '__main__':
     main()

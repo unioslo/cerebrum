@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2021-2022 University of Oslo, Norway
+# Copyright 2021-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -31,7 +31,12 @@ It implements two LDAP export mixins:
 These mixins must be present in CLASS_ORGLDIF/CLASS_POSIXLDIF to include OTP
 data in their respective LDAP exports.
 """
-from __future__ import unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import logging
 
@@ -113,8 +118,7 @@ class OtpCache(EntityCache):
 
     def __init__(self, db, otp_type):
         """
-        :param auth_types:
-            An ordered sequence of preferred authentication codes
+        :param otp_type: A named otp secret to get
         """
         self.otp_type = otp_type
         super(OtpCache, self).__init__(_OtpFetcher(db, (otp_type,)))

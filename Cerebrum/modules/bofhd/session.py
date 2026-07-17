@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-
-# Copyright 2015-2023 University of Oslo, Norway
+#
+# Copyright 2015-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -46,7 +46,7 @@ from __future__ import (
     absolute_import,
     division,
     print_function,
-    # TODO: unicode_literals,
+    unicode_literals,
 )
 
 import hashlib
@@ -67,6 +67,7 @@ from Cerebrum import Utils
 from Cerebrum.Errors import NotFoundError
 from Cerebrum.modules.bofhd import errors
 from Cerebrum.utils import date as date_utils
+from Cerebrum.utils import text_compat
 
 # This regex is too permissive for IP-addresses, but that does not matter,
 # since we use a library function that traps non-sensical values.
@@ -76,14 +77,19 @@ logger = logging.getLogger(__name__)
 
 
 def ip_to_long(ip_address):
-    """Convert IP address in string notation to a 4 byte long.
-
-    @type ip_address: basestring
-    @param ip_address:
-      IP address to convert in A.B.C.D notation
-
     """
-    return struct.unpack("!L", socket.inet_aton(ip_address))[0]
+    Convert IPv4 address in string notation to integer.
+
+    :param str ip_address:
+        IPv4 address to convert (in A.B.C.D notation)
+
+    :returns int:
+        The IP address as an integer.
+    """
+    addr_str = text_compat.to_str(ip_address)
+    addr_bytes = socket.inet_aton(addr_str)
+    fmt = text_compat.to_str("!L")
+    return struct.unpack(fmt, addr_bytes)[0]
 
 
 def ip_subnet_slash_to_range(subnet):
@@ -176,9 +182,25 @@ def _get_short_timeout_hosts():
     return hosts
 
 
-class BofhdSession(object):
+def _generate_session_id(entity_id):
+    """ Generate a new session id for an entity. """
+    pre_bytes = six.text_type(int(entity_id)).encode("ascii")
+    try:
+        # /dev/random doesn't provide enough bytes
+        rand_bytes = os.urandom(48)
+        # If a randomness source is not found,
+        # NotImplementedError will be raised.
+        # This should be handled by the caller.
+    except IOError:
+        r = random.Random()
+        rand_bytes = bytes(bytearray(r.getrandbits(8) for _ in range(48)))
+    payload = pre_bytes + b"-ok" + rand_bytes
+    return hashlib.md5(payload).hexdigest()
 
-    """ Handle database sessions for the BofhdServer.
+
+class BofhdSession(object):
+    """
+    Handle database sessions for the BofhdServer.
 
     This object is used to store and retrieve sessions from the database, which
     in turn is used to validate session_ids from clients.
@@ -340,16 +362,7 @@ class BofhdSession(object):
           notation
 
         """
-        try:
-            # /dev/random doesn't provide enough bytes
-            r = os.urandom(48)
-            # If a randomness source is not found,
-            # NotImplementedError will be raised.
-            # This should be handled by the caller.
-        except IOError:
-            r = random.Random().random()
-        m = hashlib.md5("%s-ok%s" % (entity_id, r))
-        session_id = m.hexdigest()
+        session_id = _generate_session_id(entity_id)
         self._db.execute(
             """
               INSERT INTO [:table schema=cerebrum name=bofhd_session]

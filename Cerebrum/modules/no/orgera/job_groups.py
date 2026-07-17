@@ -23,11 +23,11 @@ This module provides access to ORG-ERA employee assignment roles.
 import logging
 
 from Cerebrum import Errors
+from Cerebrum.org import perspective_db
 from Cerebrum.Constants import _OUPerspectiveCode
 from Cerebrum.Utils import Factory
 
 from . import job_assignments
-from . import ou_utils
 
 
 logger = logging.getLogger(__name__)
@@ -37,8 +37,8 @@ class OuRecursion(object):
     """ OU recursion rules for ORG-ERA groups. """
 
     searches = {
-        'children': ou_utils.find_children,
-        'parents': ou_utils.find_parents,
+        'children': (perspective_db.find_children, 'ou_id'),
+        'parents': (perspective_db.find_parents, 'parent_id'),
     }
 
     def __init__(self, perspective, include):
@@ -113,11 +113,18 @@ class GroupTemplate(object):
         )
 
 
+def _get_ou_by_sko(db, sko):
+    """ Fetch an OU object by stedkode. """
+    ou = Factory.get('OU')(db)
+    ou.find_sko(sko)
+    return ou
+
+
 def _get_ou(db, value):
     """ Get OU-object from a ``GroupTemplate.ou`` input value. """
     id_type, _, id_value = value.partition(':')
     if id_type == 'sko':
-        return ou_utils.get_ou_by_sko(db, id_value)
+        return _get_ou_by_sko(db, id_value)
     else:
         raise ValueError('invalid id-type %s' % repr(id_type))
 
@@ -168,8 +175,8 @@ def find_relevant_ous(db, template):
     if template.recursion:
         r = template.recursion
         perspective = _get_perspective(co, r.perspective)
-        search = r.searches[r.include]
-        ous.update(int(row['ou_id']) for row in search(db, perspective, ou_id))
+        search, column = r.searches[r.include]
+        ous.update(int(row[column]) for row in search(db, perspective, ou_id))
     return ous
 
 

@@ -67,13 +67,13 @@ def update_virtualgroups(db):
 def _get_internal_groups(db):
     gr = Factory.get("Group")(db)
     names = set(
-        getattr(cereconf, attr) for attr in
-        ('INITIAL_GROUPNAME',
-         'BOFHD_SUPERUSER_GROUP',
-         # WebID only:
-         'BOFHD_SUDOERS_GROUP',)
-        if hasattr(cereconf, attr))
-
+        getattr(cereconf, attr)
+        for attr in (
+            'INITIAL_GROUPNAME',
+            'BOFHD_SUPERUSER_GROUP',
+        )
+        if hasattr(cereconf, attr)
+    )
     # uio and uia has a guestconfig.GUEST_OWNER_GROUP:
     names.update(
         getattr(guestconfig, attr)

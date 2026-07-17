@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2004-2023 University of Oslo, Norway
+# Copyright 2004-2025 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,13 +18,18 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ Common POSIX LDIF generator. """
-from __future__ import unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import logging
 import operator
 from collections import defaultdict
 
-from six import text_type
+import six
 
 import cereconf
 from Cerebrum import Errors
@@ -49,22 +54,22 @@ class PosixLDIF(AutoSuperMixin):
     Does not support hosts in netgroups.
     """
 
-    def __init__(self, db, logger, u_sprd=None, g_sprd=None, n_sprd=None,
-                 fd=None):
+    def __init__(self, db, fd, u_sprd=None, g_sprd=None, n_sprd=None):
         """ Initiate database and import modules.
 
         Spreads are given in initiation and general constants which is
         used in more than one method.
 
         """
+        if not fd:
+            raise ValueError("Missing required fd")
         timer = make_timer(logger, 'Initing PosixLDIF...')
-        from Cerebrum.modules import PosixGroup
         self.db = db
-        self.logger = logger
+        self.logger = logger.getChild("PosixLDIF")
         self.const = Factory.get('Constants')(self.db)
         self.grp = Factory.get('Group')(self.db)
         self.posuser = Factory.get('PosixUser')(self.db)
-        self.posgrp = PosixGroup.PosixGroup(self.db)
+        self.posgrp = Factory.get('PosixGroup')(self.db)
         self.user_dn = LDIFutils.ldapconf('USER', 'dn', None)
         # This is an odd one -- if set to False, then id2uname should be
         # populated with users exported in the users export -- which makes the
@@ -111,10 +116,11 @@ class PosixLDIF(AutoSuperMixin):
         pass
 
     @clock_time
-    def user_ldif(self, filename=None):
+    def user_ldif(self):
         """Generate posix-user."""
         self.init_user()
-        f = LDIFutils.ldif_outfile('USER', filename, self.fd)
+
+        f = self.fd
         self.write_user_objects_head(f)
 
         # Write the USER container object
@@ -138,7 +144,6 @@ class PosixLDIF(AutoSuperMixin):
             except Exception:
                 logger.error('Got error on dn=%r', dn)
                 raise
-        LDIFutils.end_ldif_outfile('USER', f, self.fd)
 
     @clock_time
     def init_user(self):
@@ -167,7 +172,7 @@ class PosixLDIF(AutoSuperMixin):
            """
         if len(self.account2name) > 0:
             return
-        # TODO> OMG! For some reason, Account.search() takes a *wildcard*
+        # OMG! For some reason, Account.search() takes a *wildcard*
         # spread argument for filtering, but does not support filtering by
         # multiple spread values!
         if len(self.spread_d['user']) == 1:
@@ -190,9 +195,9 @@ class PosixLDIF(AutoSuperMixin):
 
         def get_children_not_in_group2groups():
             children = set()
-            # TODO:PY3:RefactoringTool: You should use a for loop here
-            map(children.update, self.group2groups.itervalues())
-            return children.difference(self.group2groups.keys())
+            for group_set in six.itervalues(self.group2groups):
+                children.update(group_set)
+            return children - set(self.group2groups)
 
         spread = []
         for s in ('filegroup', 'netgroup'):
@@ -240,6 +245,12 @@ class PosixLDIF(AutoSuperMixin):
     def load_auth_tab(self):
         self.user_password.cache.update_all()
 
+    def format_user_dn(self, username):
+        return "uid={username},{user_dn}".format(
+            username=username,
+            user_dn=self.user_dn,
+        )
+
     def user_object(self, row):
         account_id = int(row['account_id'])
         uname = self.account2name[account_id]
@@ -249,7 +260,7 @@ class PosixLDIF(AutoSuperMixin):
             passwd = '{crypt}*Invalid'
 
         if not row['shell']:
-            self.logger.warn("User %s has no POSIX shell", uname)
+            logger.warning("User %s has no POSIX shell", uname)
             return None, None
         else:
             shell = self.shell_tab[int(row['shell'])]
@@ -265,7 +276,7 @@ class PosixLDIF(AutoSuperMixin):
 
         home = self.homedirs.get_homedir(row['account_id'], allow_no_disk=True)
         if not home:
-            self.logger.warn("User %s has no home directory", uname)
+            logger.warning("User %s has no home directory", uname)
             return None, None
 
         owner_id = self.owners.get_owner_id(row['account_id'])
@@ -277,8 +288,8 @@ class PosixLDIF(AutoSuperMixin):
             'objectClass': ['top', 'account', 'posixAccount'],
             'cn': (cn,),
             'uid': (uname,),
-            'uidNumber': (text_type(row['posix_uid']),),
-            'gidNumber': (text_type(posix_gid),),
+            'uidNumber': (six.text_type(row['posix_uid']),),
+            'gidNumber': (six.text_type(posix_gid),),
             'homeDirectory': (home,),
             'userPassword': (passwd,),
             'loginShell': (shell,),
@@ -288,10 +299,10 @@ class PosixLDIF(AutoSuperMixin):
         if account_id not in self.id2uname:
             self.id2uname[account_id] = uname
         else:
-            self.logger.warn('Duplicate user entry: (%s, %s)',
-                             account_id, uname)
+            logger.warning('Duplicate user entry: (%s, %s)',
+                           account_id, uname)
             return None, None
-        dn = ','.join((('uid=' + uname), self.user_dn))
+        dn = self.format_user_dn(uname)
         return dn, entry
 
     def update_user_entry(self, account_id, entry, owner_id):
@@ -299,7 +310,7 @@ class PosixLDIF(AutoSuperMixin):
         pass
 
     @clock_time
-    def filegroup_ldif(self, filename=None):
+    def filegroup_ldif(self):
         """ Generate filegroup.
 
         Groups without group and expanded members from both external and
@@ -307,19 +318,19 @@ class PosixLDIF(AutoSuperMixin):
 
         """
         if 'filegroup' not in self.spread_d:
-            self.logger.warn("No spread is given for filegroup!")
+            logger.warning("No spread is given for filegroup!")
             return
 
         self.init_filegroup()
-        timer2 = make_timer(self.logger, 'Caching filegroups...')
+        timer2 = make_timer(logger, 'Caching filegroups...')
         for row in self.grp.search(spread=self.spread_d['filegroup'],
                                    filter_expired=True):
             group_id = row['group_id']
             if group_id not in self.group2gid:
-                self.logger.warn(
+                logger.warning(
                     "Group id:%s has one of %s but no GID, skipping",
                     group_id,
-                    getattr(cereconf, 'LDAP_FILEGROUP').get('spread'), [])
+                    getattr(cereconf, 'LDAP_FILEGROUP').get('spread', []))
                 continue
             self.create_group_object(group_id, row['name'],
                                      row['description'])
@@ -327,26 +338,27 @@ class PosixLDIF(AutoSuperMixin):
             self.update_filegroup_entry(group_id)
         timer2('... done caching filegroups')
         self.cache_uncached_children()
-        timer2 = make_timer(self.logger, 'Adding users and groups...')
-        for group_id, entry in self.filegroupcache.iteritems():
+        timer2 = make_timer(logger, 'Adding users and groups...')
+        for group_id, entry in six.iteritems(self.filegroupcache):
             users = self.get_users(group_id, set())
             unames = self.userid2unames(users, group_id)
-            entry['memberUid'] = unames
+            entry['memberUid'] = sorted(LDIFutils.attr_unique(unames))
         timer2('... done adding users')
-        timer2 = make_timer(self.logger, 'Writing group objects...')
-        f = LDIFutils.ldif_outfile('FILEGROUP', filename, self.fd)
+        timer2 = make_timer(logger, 'Writing group objects...')
+
+        f = self.fd
         f.write(LDIFutils.container_entry_string('FILEGROUP'))
-        for group_id, entry in self.filegroupcache.iteritems():
+        for group_id in sorted(self.filegroupcache,
+                               key=lambda i: self.filegroupcache[i]['cn']):
+            entry = self.filegroupcache[group_id]
             dn = ','.join(('cn=' + entry['cn'], self.fgrp_dn))
             f.write(LDIFutils.entry_string(dn, entry, False))
         timer2('... done writing group objects')
         self.filegroupcache = None
-        LDIFutils.end_ldif_outfile('FILEGROUP', f, self.fd)
 
     def init_filegroup(self):
         """Initiate modules and constants for posixgroup"""
-        from Cerebrum.modules import PosixGroup
-        self.posgrp = PosixGroup.PosixGroup(self.db)
+        self.posgrp = Factory.get("PosixGroup")(self.db)
         self.fgrp_dn = LDIFutils.ldapconf('FILEGROUP', 'dn')
         self.filegroupcache = defaultdict(dict)
         self.cache_account2name()
@@ -359,8 +371,9 @@ class PosixLDIF(AutoSuperMixin):
         entry = {
             'objectClass': ('top', 'posixGroup'),
             'cn': cache['name'],
-            'gidNumber': text_type(self.group2gid[group_id]),
+            'gidNumber': six.text_type(self.group2gid[group_id]),
         }
+
         if 'description' in cache:
             entry['description'] = (cache['description'],)
         self.filegroupcache[group_id] = entry
@@ -370,15 +383,19 @@ class PosixLDIF(AutoSuperMixin):
         pass
 
     @clock_time
-    def netgroup_ldif(self, filename=None):
+    def netgroup_ldif(self):
         """Generate netgroup with only users."""
 
         if 'netgroup' not in self.spread_d:
-            self.logger.warn("No valid netgroup-spread in cereconf or arg!")
+            logger.warning("No valid netgroup-spread in cereconf or arg!")
             return
 
+        # Add a custom, multi-valued member attribute, member_attr,
+        # with the DN of each member.
+        member_attr = LDIFutils.ldapconf("NETGROUP", "member_attr", None)
+
         self.init_netgroup()
-        timer2 = make_timer(self.logger, 'Caching netgroups...')
+        timer2 = make_timer(logger, 'Caching netgroups...')
         for row in self.grp.search(spread=self.spread_d['netgroup'],
                                    filter_expired=True):
             group_id = row['group_id']
@@ -387,40 +404,50 @@ class PosixLDIF(AutoSuperMixin):
             self.create_netgroup_object(group_id)
         timer2('... done caching filegroups')
         self.cache_uncached_children()
-        timer2 = make_timer(self.logger, 'Adding users and groups...')
-        for group_id, entry in self.netgroupcache.iteritems():
+        timer2 = make_timer(logger, 'Adding users and groups...')
+
+        for group_id, entry in self.netgroupcache.items():
             users, groups = self.get_users_and_groups(group_id, set(), set(),
                                                       add_persons=True)
-            unames = self.userid2unames(users, group_id)
-            triple = []
-            for uname in unames:
-                if '_' in uname:
-                    continue
-                triple.append('(,%s,)' % uname)
 
-            netgroup = []
-            for g in groups:
-                netgroup.append(self.netgroupcache[g]['cn'])
-
+            unames = LDIFutils.attr_unique([
+                uname
+                for uname in sorted(self.userid2unames(users, group_id))
+                if '_' not in uname
+            ])
+            triple = ['(,%s,)' % uname for uname in unames]
             entry['nisNetgroupTriple'] = triple
-            entry['memberNisNetgroup'] = netgroup
+
+            entry['memberNisNetgroup'] = sorted(
+                LDIFutils.attr_unique([
+                    self.netgroupcache[g]['cn']
+                    for g in groups
+                ])
+            )
+
+            if member_attr and self.user_dn:
+                members = [self.format_user_dn(uname) for uname in unames]
+                entry[member_attr] = members
+
         timer2('... done adding users and groups')
-        timer2 = make_timer(self.logger, 'Writing group objects...')
-        f = LDIFutils.ldif_outfile('NETGROUP', filename, self.fd)
+        timer2 = make_timer(logger, 'Writing group objects...')
+
+        f = self.fd
         f.write(LDIFutils.container_entry_string('NETGROUP'))
-        for group_id, entry in self.netgroupcache.iteritems():
+        for group_id in sorted(self.netgroupcache,
+                               key=lambda i: self.netgroupcache[i]['cn']):
+            entry = self.netgroupcache[group_id]
             dn = ','.join(('cn=' + entry['cn'], self.ngrp_dn))
             f.write(LDIFutils.entry_string(dn, entry, False))
-        LDIFutils.end_ldif_outfile('NETGROUP', f, self.fd)
         timer2('... done writing group objects')
         self.netgroupcache = None
 
     @clock_time
     def cache_uncached_children(self):
         children = set()
-        # TODO:PY3:RefactoringTool: You should use a for loop here
-        map(children.update, self.group2groups.itervalues())
-        extra = children.difference(self.groupcache.keys())
+        for group_set in six.itervalues(self.group2groups):
+            children.update(group_set)
+        extra = children - set(self.groupcache)
         if extra:
             for row in self.grp.search(group_id=extra):
                 self.create_group_object(row['group_id'], row['name'],
@@ -434,8 +461,8 @@ class PosixLDIF(AutoSuperMixin):
                 users.update(self.group2persons[group_id])
 
         for g_id in self.group2groups[group_id]:
-            assert g_id in self.groupcache, "g_id %s in group_id %s missing" % \
-                (g_id, group_id)
+            assert g_id in self.groupcache, ("g_id %s in group_id %s missing"
+                                             % (g_id, group_id))
             if g_id in self.netgroupcache:
                 groups.add(g_id)
             else:
@@ -452,8 +479,8 @@ class PosixLDIF(AutoSuperMixin):
                 users.update(self.group2persons[group_id])
 
         for g_id in self.group2groups[group_id]:
-            assert g_id in self.groupcache, "g_id %s in group_id %s missing" % \
-                (g_id, group_id)
+            assert g_id in self.groupcache, ("g_id %s in group_id %s missing"
+                                             % (g_id, group_id))
             users = self.get_users(g_id, users)
 
         return users
@@ -465,6 +492,7 @@ class PosixLDIF(AutoSuperMixin):
             'objectClass': ('top', 'nisNetGroup'),
             'cn': cache['name'],
         }
+        entry.update(self.ngrp_attrs)
         if 'description' in cache:
             entry['description'] = \
                 transliterate.to_iso646_60(cache['description']).rstrip(),
@@ -473,6 +501,7 @@ class PosixLDIF(AutoSuperMixin):
     def init_netgroup(self):
         """Initiate modules, constants and cache"""
         self.ngrp_dn = LDIFutils.ldapconf('NETGROUP', 'dn')
+        self.ngrp_attrs = LDIFutils.ldapconf('NETGROUP', 'group_attrs', {})
         self.cache_account2name()
         self.cache_groups_and_users()
         self.cache_group2persons()
@@ -494,17 +523,19 @@ class PosixLDIF(AutoSuperMixin):
                 try:
                     uname = self.account2name[user_id]
                 except Exception:
-                    self.logger.info("account2name user id=%s in "
-                                     "group id=%s not found",
-                                     user_id, group_id)
+                    logger.info(
+                        "account2name user id=%s (group id=%s) not found",
+                        user_id, group_id,
+                    )
                     continue
             else:
                 try:
                     uname = self.id2uname[user_id]
                 except Exception:
-                    self.logger.info("Cache enabled but user id=%s in "
-                                     "group id=%s not found",
-                                     user_id, group_id)
+                    logger.info(
+                        "Cache enabled but user id=%s (group id=%s) not found",
+                        user_id, group_id,
+                    )
                     continue
             unames.append(uname)
         return unames
@@ -554,8 +585,8 @@ class PosixLDIFMail(PosixLDIF):
     """ PosixLDIF mixin for mail attributes. """
 
     def init_user(self, *args, **kwargs):
-        self.__super.init_user(*args, **kwargs)
-        timer = make_timer(self.logger, 'Starting PosixLDIFMail.init_user...')
+        super(PosixLDIFMail, self).init_user(*args, **kwargs)
+        timer = make_timer(logger, 'Starting PosixLDIFMail.init_user...')
 
         self.mail_attrs = cereconf.LDAP_USER.get('mail_attrs', ['mail'])
 
@@ -588,5 +619,6 @@ class PosixLDIFMail(PosixLDIF):
             for attr in self.mail_attrs:
                 entry[attr] = (mail, )
         else:
-            self.logger.warn('Account %s is missing mail', entry['uid'][0])
-        return self.__super.update_user_entry(account_id, entry, owner_id)
+            logger.warning('Account %s is missing mail', entry['uid'][0])
+        return super(PosixLDIFMail, self).update_user_entry(account_id, entry,
+                                                            owner_id)

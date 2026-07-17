@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 # encoding: utf-8
 #
-# Copyright 2020 University of Oslo, Norway
+# Copyright 2020-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,18 +18,27 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" Utils for various event publisher related things"""
+"""
+Utils for various event publisher related things.
+
+Configuration
+-------------
+:func:`.get_entity_ref` Uses ``cereconf.ENTITY_TYPE_NAMESPACE`` to find a
+suitable ``EntityRef.ident`` value for a given entity type.
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import six
 
+import cereconf
+from Cerebrum.Entity import EntityName
 from Cerebrum.Errors import NotFoundError
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.event_publisher.event import EntityRef
-from Cerebrum.Entity import EntityName
-
-try:
-    from cereconf import ENTITY_TYPE_NAMESPACE
-except ImportError:
-    ENTITY_TYPE_NAMESPACE = dict()
 
 
 def get_entity_ref(db, entity_id):
@@ -51,11 +60,11 @@ def get_entity_ref(db, entity_id):
         pass
 
     # lookup name
-    if entity_type in ENTITY_TYPE_NAMESPACE:
+    if entity_type in cereconf.ENTITY_TYPE_NAMESPACE:
         try:
             entity_ident = entity.get_name(
                 constants.ValueDomain(
-                    ENTITY_TYPE_NAMESPACE[entity_type]))
+                    cereconf.ENTITY_TYPE_NAMESPACE[entity_type]))
         except (AttributeError, TypeError, NotFoundError):
             pass
 
@@ -64,4 +73,5 @@ def get_entity_ref(db, entity_id):
     return EntityRef(
         entity_id,
         entity_type,
-        entity_ident or six.text_type(entity_id))
+        entity_ident or six.text_type(entity_id),
+    )

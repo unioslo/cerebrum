@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright 2018-2020 University of Oslo, Norway
+#
+# Copyright 2018-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -68,6 +69,14 @@ placeholders from a full sql statement:
 
 See https://www.python.org/dev/peps/pep-0249/#paramstyle
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+
+from Cerebrum.utils import reprutils
 
 
 _PARAMSTYLES = {}
@@ -87,10 +96,14 @@ def get_converter(style):
     return _PARAMSTYLES[style]
 
 
-class Base(object):
+class Base(reprutils.ReprFieldMixin):
     """Convert bind parameters to appropriate paramstyle."""
 
     __slots__ = ('names',)
+
+    repr_id = True
+    repr_module = False
+    repr_fields = ('names',)
 
     def __init__(self):
         self.names = []

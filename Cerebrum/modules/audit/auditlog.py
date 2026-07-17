@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2018 University of Oslo, Norway
+# Copyright 2018-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,6 +18,12 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ CLDatabase integration for audit log records. """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import collections
 import logging
 import re
@@ -42,8 +47,11 @@ ENTITY_TYPE_NAMESPACE = getattr(cereconf, 'ENTITY_TYPE_NAMESPACE', dict())
 
 
 class AuditLog(ChangeLog):
+    """
+    ChangeLog implementation for audit logs.
+    """
     # TODO: The ChangeLog design is kind of broken -- there is no actual
-    # `execute` or `query` finction until we get a database object mixed in
+    # `execute` or `query` function until we get a database object mixed in
     # somehow.  I.e.  This object actually depends on Cerebrum.CLDatabase
     #
     # How should that be solved?  Should we inherit from CLDatabase and use
@@ -58,9 +66,17 @@ class AuditLog(ChangeLog):
         self.records = []
 
     @property
+    def _audit_log_db(self):
+        """ database connection to use for audit log related queries. """
+        # This is just a shim that allows us to use the AuditLog without a
+        # Database mixin.  Simply make a subclass, and oveload this property
+        # with something that retuns a Database object.
+        return self
+
+    @property
     def initial_account_id(self):
         if not hasattr(self, '_default_op'):
-            account = Factory.get('Account')(self)
+            account = Factory.get('Account')(self._audit_log_db)
             account.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
             self._default_op = account
         return self._default_op.entity_id
@@ -94,7 +110,7 @@ class AuditLog(ChangeLog):
         elif not change_by:
             raise ValueError("No operator given, and no change_program set")
 
-        builder = AuditRecordBuilder(self)
+        builder = AuditRecordBuilder(self._audit_log_db)
         record = builder(
             subject_entity,
             change_type_id,
@@ -106,7 +122,7 @@ class AuditLog(ChangeLog):
 
     def write_log(self):
         super(AuditLog, self).write_log()
-        accessor = AuditLogAccessor(self)
+        accessor = AuditLogAccessor(self._audit_log_db)
         for record in self.records:
             accessor.append(record)
         self.records = []
@@ -117,7 +133,9 @@ class AuditLog(ChangeLog):
 
 
 class _ChangeTypeCallbacks(object):
-    """ Register with Callback functions for _ChangeTypeCode attributes. """
+    """
+    Register of callback functions for _ChangeTypeCode constants.
+    """
 
     def __init__(self):
         self.callbacks = collections.OrderedDict()
@@ -139,7 +157,17 @@ class _ChangeTypeCallbacks(object):
 
 
 class AuditRecordBuilder(DatabaseAccessor):
-    """ Helper function to build AuditRecord objects. """
+    """
+    Helper function to build AuditRecord objects.
+
+    This callable class can:
+
+    1. Automatically build AuditRecord metadata from `Changelog.log_change`
+       input arguments.
+
+    2. Modify `change_params` to be better suited for the audit log.
+
+    """
 
     @property
     def const(self):

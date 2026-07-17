@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2002-2023 University of Oslo, Norway
+# Copyright 2002-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -62,20 +62,16 @@ targets = {
     'email': ('email_1_0', 'email_1_1', 'email_1_2', 'email_1_3', 'email_1_4',
               'email_1_5', 'email_1_6'),
     'feide_service': ('feide_service_1_1',),
-    'entity_expire': ('entity_expire_1_0',),
     'ephorte': ('ephorte_1_1', 'ephorte_1_2'),
     'eventlog': ('eventlog_1_1', 'eventlog_1_2'),
     'events': ('events_1_1', ),
     'gpg': ('gpg_1_1',),
     'stedkode': ('stedkode_1_1', ),
     'posixuser': ('posixuser_1_0', 'posixuser_1_1', ),
-    'dns': ('dns_1_0', 'dns_1_1', 'dns_1_2', 'dns_1_3', 'dns_1_4', 'dns_1_5'),
     'password_history': ('password_history_1_1',),
     'sap': ('sap_1_0', 'sap_1_1',),
-    'spread_expire': ('spread_expire_1_1',),
     'task_queue': ('task_queue_1_1',),
     'entity_trait': ('entity_trait_1_1',),
-    'hostpolicy': ('hostpolicy_1_1',),
     'note': ('note_1_1', 'note_1_2'),
     'job_runner': ('job_runner_1_1', 'job_runner_1_2'),
 }
@@ -736,16 +732,6 @@ def migrate_to_rel_0_9_19():
             'identifier': 'ou_id',
             'change_type': 'ou_create'
         },
-        'DNS owners': {  # mod_dns
-            'schema': 'dns_owner',
-            'identifier': 'dns_owner_id',
-            'change_type': 'dns_owner_add'
-        },
-        'DNS subnets': {  # mod_dns
-            'schema': 'dns_subnet',
-            'identifier': 'entity_id',
-            'change_type': 'subnet_create'
-        },
     }
 
     basic_template = """
@@ -852,15 +838,11 @@ def migrate_to_rel_0_9_22():
     aos = BofhdAuthOpSet(db)
     try:
         try:
-            # uit and uio
+            # uio
             aos.find_by_name('Group-owner')
         except Errors.NotFoundError:
-            try:
-                # uia and hiof
-                aos.find_by_name('groupmod-priv')
-            except Errors.NotFoundError:
-                # webid
-                aos.find_by_name('group-admin')
+            # uia
+            aos.find_by_name('groupmod-priv')
     except Errors.NotFoundError:
         print("No admin or owner opset found, nothing to do")
     else:
@@ -902,12 +884,8 @@ def migrate_to_rel_0_9_22():
     print("Migrating moderator info to new table")
     aos.clear()
     try:
-        try:
-            # uit and uio
-            aos.find_by_name("Group-admin")
-        except Errors.NotFoundError:
-            # webid
-            aos.find_by_name("group-moderator")
+        # uio
+        aos.find_by_name("Group-admin")
     except Errors.NotFoundError:
         print("No moderator opset found, nothing to do")
     else:
@@ -1812,56 +1790,6 @@ def migrate_to_posixuser_1_1():
     print("Migration to posixuser 1.1 completed successfully")
 
 
-def migrate_to_dns_1_1():
-    print("\ndone.")
-    assert_db_version("1.0", component='dns')
-    makedb('dns_1_1', 'pre')
-    meta = Metainfo.Metainfo(db)
-    meta.set_metainfo("sqlmodule_dns", "1.1")
-    print("Migration to DNS 1.1 completed successfully")
-    db.commit()
-
-
-def migrate_to_dns_1_2():
-    print("\ndone.")
-    assert_db_version("1.1", component='dns')
-    makedb('dns_1_2', 'pre')
-    meta = Metainfo.Metainfo(db)
-    meta.set_metainfo("sqlmodule_dns", "1.2")
-    print("Migration to DNS 1.2 completed successfully")
-    db.commit()
-
-
-def migrate_to_dns_1_3():
-    print("\ndone.")
-    assert_db_version("1.2", component='dns')
-    makedb('dns_1_3', 'pre')
-    meta = Metainfo.Metainfo(db)
-    meta.set_metainfo("sqlmodule_dns", "1.3")
-    print("Migration to DNS 1.3 completed successfully")
-    db.commit()
-
-
-def migrate_to_dns_1_4():
-    print("\ndone.")
-    assert_db_version("1.3", component='dns')
-    makedb('dns_1_4', 'pre')
-    meta = Metainfo.Metainfo(db)
-    meta.set_metainfo("sqlmodule_dns", "1.4")
-    print("Migration to DNS 1.4 completed successfully")
-    db.commit()
-
-
-def migrate_to_dns_1_5():
-    print("\ndone.")
-    assert_db_version("1.4", component='dns')
-    makedb('dns_1_5', 'pre')
-    meta = Metainfo.Metainfo(db)
-    meta.set_metainfo("sqlmodule_dns", "1.5")
-    print("Migration to DNS 1.5 completed successfully")
-    db.commit()
-
-
 def migrate_to_password_history_1_1():
     print("\ndone.")
     assert_db_version("0.9.20")
@@ -1900,69 +1828,6 @@ def migrate_to_entity_trait_1_1():
     db.commit()
 
 
-def migrate_to_hostpolicy_1_1():
-    assert_db_version("0.9.19")
-    assert_db_version("1.0", component="hostpolicy")
-    makedb("hostpolicy_1_1", "pre")
-
-    change_map = {
-        'hostpolicy atoms': {
-            'schema': 'hostpolicy_component',
-            'identifier': 'component_id',
-            'change_type': 'hostpolicy_atom_create'
-        },
-        'hostpolicy roles': {
-            'schema': 'hostpolicy_component',
-            'identifier': 'component_id',
-            'change_type': 'hostpolicy_role_create'
-        },
-    }
-
-    sql = """
-    UPDATE entity_info ei
-    SET created_at = hpc.create_date
-    FROM hostpolicy_component hpc
-    WHERE ei.entity_id = hpc.component_id"""
-
-    print("Migrating change_date from hostpolicy_component...")
-    curr = now()
-    db.execute(sql)
-    print("Migrated {} change_dates from hostpolicy_component in {}".format(
-        db.rowcount, time_spent(curr)))
-
-    cl_template = """
-    UPDATE entity_info ei
-    SET created_at = cl.tstamp
-    FROM change_log cl, {schema} x
-    WHERE ei.entity_id = x.{identifier}
-    AND cl.subject_entity = x.{identifier}
-    AND cl.change_type_id = {change_type_id}"""
-
-    for name, config in change_map.items():
-        try:
-            change_type = getattr(co, config['change_type'])
-            change_type_id = int(change_type)
-        except AttributeError:
-            print("No change type {}".format(config['change_type']))
-            raise
-        sql = cl_template.format(schema=config['schema'],
-                                 identifier=config['identifier'],
-                                 change_type_id=change_type_id)
-        print("Setting creation timestamps for {} from change_log...".format(
-            name))
-        curr = now()
-        db.execute(sql)
-        print("Processed {} change log rows for {} in {}".format(
-            db.rowcount, name, time_spent(curr)))
-
-    db.commit()
-    makedb("hostpolicy_1_1", "post")
-    meta = Metainfo.Metainfo(db)
-    meta.set_metainfo("sqlmodule_hostpolicy", "1.1")
-    db.commit()
-    print("Migration to hostpolicy 1.1 completed successfully")
-
-
 def migrate_to_job_runner_1_1():
     print("\ndone.")
     meta = Metainfo.Metainfo(db)
@@ -1986,16 +1851,6 @@ def migrate_to_job_runner_1_2():
     meta.set_metainfo("sqlmodule_job_runner", "1.2")
     db.commit()
     print("Migration to job_runner 1.2 completed successfully")
-
-
-def migrate_to_spread_expire_1_1():
-    assert_db_version("1.0", component="spread_expire")
-    makedb("spread_expire_1_1", "pre")
-    meta = Metainfo.Metainfo(db)
-    meta.del_metainfo('sqlmodule_mailq')
-    meta.set_metainfo("sqlmodule_spread_expire", "1.1")
-    db.commit()
-    print("Migration to spread_expire 1.1 completed successfully")
 
 
 def migrate_to_task_queue_1_1():

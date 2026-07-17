@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2021 University of Oslo, Norway
+# Copyright 2021-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,12 +18,19 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ Database access to task queue.  """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import logging
 
 import six
 
 import Cerebrum.Errors
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
+from Cerebrum.database import query_utils
 from Cerebrum.Utils import argument_to_sql, NotSet
 from Cerebrum.utils import json
 
@@ -41,8 +48,9 @@ logger = logging.getLogger(__name__)
 
 
 def _select(queues=None, subs=None, keys=None, iat_before=None, iat_after=None,
-            nbf_before=None, nbf_after=None, min_attempts=None,
-            max_attempts=None):
+            nbf_before=None, nbf_after=None,
+            min_attempts=None, max_attempts=None,
+            reason=NotSet, reason_like=None, reason_ilike=None):
     """
     Generate clauses and binds for task_queue queries.
 
@@ -62,6 +70,9 @@ def _select(queues=None, subs=None, keys=None, iat_before=None, iat_after=None,
     :param nbf_after: only include results with a nbf after this value
     :param min_attempts: only include results with at least min_attempts
     :param max_attempts: only include results with less than max_attempts
+    :param reason: only include results with the given reason
+    :param reason_like: only include results matching the pattern
+    :param reason_ilike: only include results matching the pattern
 
     :rtype: tuple(list, dict)
     :returns:
@@ -87,44 +98,56 @@ def _select(queues=None, subs=None, keys=None, iat_before=None, iat_after=None,
     #
     # range selects
     #
+    # TODO: We should maybe re-factor the range helpers to provide errors that
+    # includes the range attributes (e.g. iat_before/iat_after), column names
+    # (iat), and criterias (e.g. "before" for dates, "less than" for numbers)
+    #
     if iat_before and iat_after and iat_before < iat_after:
-        # a date can never be *both* before <t> *and* after that same
-        # <t>+<delta>
         raise ValueError("iat_after: cannot be after iat_before"
                          " (%s < iat < %s)" % (iat_after, iat_before))
-
-    if iat_after is not None:
-        clauses.append("iat > :iat_a")
-        binds['iat_a'] = iat_after
-    if iat_before is not None:
-        clauses.append("iat < :iat_b")
-        binds['iat_b'] = iat_before
+    iat_cond, iat_binds = query_utils.date_helper(colname="iat",
+                                                  gt=iat_after,
+                                                  lt=iat_before)
+    if iat_cond:
+        clauses.append(iat_cond)
+    if iat_binds:
+        binds.update(iat_binds)
 
     if nbf_before and nbf_after and nbf_before < nbf_after:
-        # a date can never be *both* before <t> *and* after that same
-        # <t>+<delta>
         raise ValueError("nbf_after: cannot be after nbf_before"
                          " (%s < nbf < %s)" % (nbf_after, nbf_before))
-
-    if nbf_after is not None:
-        clauses.append("nbf > :nbf_a")
-        binds['nbf_a'] = nbf_after
-    if nbf_before is not None:
-        clauses.append("nbf < :nbf_b")
-        binds['nbf_b'] = nbf_before
+    nbf_cond, nbf_binds = query_utils.date_helper(colname="nbf",
+                                                  gt=nbf_after,
+                                                  lt=nbf_before)
+    if nbf_cond:
+        clauses.append(nbf_cond)
+    if nbf_binds:
+        binds.update(nbf_binds)
 
     if min_attempts is not None and max_attempts is not None:
         if min_attempts > max_attempts:
             raise ValueError("max_attempts: cannot be less than min_attempts"
                              " (%s <= attempts < %s)" % (min_attempts,
                                                          max_attempts))
+    n_cond, n_binds = query_utils.int_helper(colname="attempts",
+                                             ge=min_attempts,
+                                             lt=max_attempts)
+    if n_cond:
+        clauses.append(n_cond)
+    if n_binds:
+        binds.update(n_binds)
 
-    if min_attempts is not None:
-        clauses.append("attempts >= :min")
-        binds['min'] = int(min_attempts)
-    if max_attempts is not None:
-        clauses.append("attempts < :max")
-        binds['max'] = int(max_attempts)
+    r_cond, r_binds = query_utils.pattern_helper(
+        colname="reason",
+        value=reason,
+        case_pattern=reason_like,
+        icase_pattern=reason_ilike,
+        nullable=True,
+    )
+    if r_cond:
+        clauses.append(r_cond)
+    if r_binds:
+        binds.update(r_binds)
 
     return clauses, binds
 
@@ -339,7 +362,6 @@ def _sql_update(db, queue, sub, key, iat=NotSet, nbf=NotSet,
     if attempts is not NotSet:
         update['attempts'] = int(attempts)
     if reason is not NotSet:
-        # reason is nullable, i.e. we *should* update with a None-value
         update['reason'] = reason
     if payload is not NotSet:
         if payload is None:
@@ -409,21 +431,23 @@ def sql_push(db, queue, sub, key, iat=NotSet, nbf=NotSet, attempts=NotSet,
         'reason': reason,
         'payload': payload,
     }
+    if values['reason'] == "":
+        values['reason'] = None
 
     if prev:
         to_update = dict(_needs_update(prev, values))
         if to_update:
             # update the given key/value pairs
             logger.debug('updating task %s/%s/%s with %r',
-                         queue, sub, key, to_update.keys())
+                         queue, sub, key, to_update)
             return _sql_update(db, queue, sub, key, **to_update)
         else:
             # no change
-            logger.debug('ignoring task %s/%s/%s: nothing to update',
-                         queue, sub, key)
+            logger.debug('ignoring task %s/%s/%s with current values %r: nothing to update',
+                         queue, sub, key, values)
             return None
     else:
-        logger.debug('inserting task %s/%s/%s', queue, sub, key)
+        logger.debug('inserting task %s/%s/%s with values: %r', queue, sub, key, values)
         return _sql_insert(db, queue, sub, key, **values)
 
 

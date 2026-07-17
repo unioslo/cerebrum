@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2002-2023 University of Oslo, Norway
+# Copyright 2002-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -39,22 +39,26 @@ from Cerebrum.modules import Email
 from Cerebrum.modules.AccountPolicy import AccountPolicy
 from Cerebrum.modules.apikeys import bofhd_apikey_cmds
 from Cerebrum.modules.audit import bofhd_history_cmds
+from Cerebrum.modules.bofhd import bofhd_addresses
 from Cerebrum.modules.bofhd import bofhd_core_help
 from Cerebrum.modules.bofhd import bofhd_external_id
 from Cerebrum.modules.bofhd import bofhd_group_roles
+from Cerebrum.modules.bofhd import bofhd_misc_sms
 from Cerebrum.modules.bofhd import bofhd_ou_cmds
+from Cerebrum.modules.bofhd import bofhd_perm_cmds
+from Cerebrum.modules.bofhd import bofhd_quarantines
 from Cerebrum.modules.bofhd import parsers
-from Cerebrum.modules.bofhd.auth import (AuthConstants,
-                                         BofhdAuthOpSet,
-                                         BofhdAuthOpTarget,
-                                         BofhdAuthRole)
+from Cerebrum.modules.bofhd.auth import (
+    BofhdAuthOpTarget,
+    delete_entity_auth_roles,
+    delete_entity_auth_target,
+)
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.bofhd_user_create import BofhdUserCreateMethod
 from Cerebrum.modules.bofhd.bofhd_utils import (
     copy_func,
     date_to_string,
     default_format_day,
-    format_time,
     exc_to_text,
     get_quarantine_status,
 )
@@ -76,14 +80,12 @@ from Cerebrum.modules.bofhd.cmd_param import (
     Integer,
     MemberName,
     MemberType,
-    MoveType,
     OU,
     PersonId,
     PersonName,
     PersonSearchType,
     PosixGecos,
     PosixShell,
-    QuarantineType,
     SimpleString,
     SourceSystem,
     Spread,
@@ -95,10 +97,11 @@ from Cerebrum.modules.bofhd.bofhd_contact_info import BofhdContactCommands
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd_requests import bofhd_requests_cmds
 from Cerebrum.modules.bofhd_requests.request import BofhdRequests
-from Cerebrum.modules.bofhd.help import Help, merge_help_strings
+from Cerebrum.modules.bofhd.help import merge_help_strings
 from Cerebrum.modules.bofhd import bofhd_access
+from Cerebrum.modules.consent import bofhd_consent_cmds
+from Cerebrum.modules.guest import bofhd_guest_cmds
 from Cerebrum.modules.no import fodselsnr
-from Cerebrum.modules.disk_quota import DiskQuota
 from Cerebrum.modules.no.uio.access_FS import FS
 from Cerebrum.modules.no.uio import bofhd_pw_issues
 from Cerebrum.modules.bofhd import bofhd_user_create_unpersonal
@@ -118,7 +121,7 @@ from Cerebrum.modules.pwcheck.history import (
 )
 from Cerebrum.modules.trait import bofhd_trait_cmds
 from Cerebrum.utils import date_compat
-from Cerebrum.utils.email import mail_template, sendmail
+from Cerebrum.utils.email import sendmail
 from Cerebrum.utils import json
 
 
@@ -190,18 +193,6 @@ class BofhdExtension(BofhdCommonMethods):
                     r['category'], r['type'], r['msg_string']]
             return self.__ct2details
 
-    @property
-    def num2op_set_name(self):
-        # TODO: Do we really need this cache?
-        try:
-            return self.__num2opset
-        except AttributeError:
-            self.__num2opset = dict()
-            aos = BofhdAuthOpSet(self.db)
-            for r in aos.list():
-                self.__num2opset[int(r['op_set_id'])] = r['name']
-            return self.__num2opset
-
     def fixup_imaplib(self):
         def nonblocking_open(self, host=None, port=None):
             import socket
@@ -240,30 +231,6 @@ class BofhdExtension(BofhdCommonMethods):
     @classmethod
     def get_help_strings(cls):
         return bofhd_core_help.get_help_strings()
-
-    @classmethod
-    def list_commands(cls, attr):
-        """ Fetch all commands in all superclasses. """
-        commands = super(BofhdExtension, cls).list_commands(attr)
-        if attr == 'all_commands':
-            from Cerebrum.modules.dns.bofhd_dns_cmds import (
-                BofhdExtension as Dns)
-            # FIXME: This hack is needed until we have a proper architecture
-            # for bofhd which allows mixins.
-            # We know that the format suggestion in dns has no hdr, so we only
-            # copy str_vars.
-            commands['host_info'] = Command(
-                ("host", "info"),
-                SimpleString(help_ref='string_host'),
-                YesNo(optional=True, help_ref='show_policy'),
-                fs=FormatSuggestion(Dns.all_commands['host_info']
-                                    .get_fs()['str_vars'] +
-                                    [("Hostname:              %s\n"
-                                      "Description:           %s",
-                                      ("hostname", "desc")),
-                                     ("Default disk quota:    %d MiB",
-                                      ("def_disk_quota",))]))
-        return commands
 
     def _email_create_forward_target(self, localaddr, remoteaddr):
         """Helper method for creating a forward target.
@@ -551,6 +518,13 @@ class BofhdExtension(BofhdCommonMethods):
         :param member_type: str type of member
         :return:
         """
+
+        grp = self._get_group(dest_group)
+        if (grp.group_type == self.const.group_type_policy
+                and member_type != "group"):
+            raise CerebrumError(
+                "Cannot add non-group members to policy groups")
+
         if member_type == "group":
             src_entity = self._get_group(src_name)
         elif member_type == "account":
@@ -1130,8 +1104,8 @@ class BofhdExtension(BofhdCommonMethods):
                     'Cannot delete group %s, is type %r' % (
                         groupname, grp.get_extensions()))
 
-            self._remove_auth_target("group", grp.entity_id)
-            self._remove_auth_role(grp.entity_id)
+            delete_entity_auth_target(self.db, "group", grp.entity_id)
+            delete_entity_auth_roles(self.db, grp.entity_id)
             try:
                 grp.delete()
             except self.db.DatabaseError as msg:
@@ -1431,7 +1405,7 @@ class BofhdExtension(BofhdCommonMethods):
         if (len(members) > cereconf.BOFHD_MAX_MATCHES and
                 not self.ba.is_superuser(operator.get_entity_id())):
             raise CerebrumError("More than %d (%d) matches. Contact superuser "
-                                "to get a listing for %r." %
+                                "to get a listing for %r" %
                                 (cereconf.BOFHD_MAX_MATCHES, len(members),
                                  groupname))
         ac = self.Account_class(self.db)
@@ -1526,7 +1500,7 @@ class BofhdExtension(BofhdCommonMethods):
                                                 indirect_members=True))
         if (len(all_members) > cereconf.BOFHD_MAX_MATCHES and
                 not self.ba.is_superuser(operator.get_entity_id())):
-            raise CerebrumError("More than %d (%d) matches, contact superuser"
+            raise CerebrumError("More than %d (%d) matches, contact superuser "
                                 "to get a listing for %r" %
                                 (cereconf.BOFHD_MAX_MATCHES, len(all_members),
                                  groupname))
@@ -1685,7 +1659,6 @@ class BofhdExtension(BofhdCommonMethods):
         perm_filter='can_search_group')
 
     def group_search(self, operator, filter):
-        self.ba.can_search_group(operator.get_entity_id(), filter=filter)
         group = self.Group_class(self.db)
         if filter == "":
             raise CerebrumError("No filter specified")
@@ -1700,12 +1673,15 @@ class BofhdExtension(BofhdCommonMethods):
             else:
                 filter_type = 'name'
                 pattern = rule
+                filter = filter_type + ':' + pattern
             if filter_type not in filters:
                 raise CerebrumError("Unknown filter type: %r" % filter_type)
             filters[filter_type] = pattern
         if filters['name'] == '*' and len(rules) == 1:
             raise CerebrumError("Please provide a more specific filter")
         # remap code_str to the actual constant object (the API requires it)
+
+        self.ba.can_search_group(operator.get_entity_id(), filter=filter)
         if filters['spread']:
             filters['spread'] = self._get_constant(self.const.Spread,
                                                    filters["spread"])
@@ -1743,6 +1719,24 @@ class BofhdExtension(BofhdCommonMethods):
         self.ba.can_set_group_type(operator.get_entity_id(), grp, group_type)
         if self._is_perishable_manual_group(grp):
             grp.set_default_expire_date()
+
+        if group_type == self.const.group_type_policy:
+            nongroup_members = set(
+                member for member in grp.search_members(
+                    group_id=grp.entity_id,
+                    indirect_members=False,
+                    member_filter_expired=False,
+                )
+                if member.member_type != self.const.entity_group
+            )
+
+            if len(nongroup_members) > 0:
+                raise CerebrumError("Group '%s' has non-group members"
+                                    % (grp.group_name,))
+            if len(grp.get_group_admins(grp.entity_id)) == 0:
+                raise CerebrumError("Group '%s' has no admins"
+                                    % (grp.group_name,))
+
         grp.group_type = group_type
         grp.write_db()
         return {
@@ -1846,7 +1840,7 @@ class BofhdExtension(BofhdCommonMethods):
         if not expire and not is_superuser:
             raise CerebrumError('Invalid date: ' + repr(_expire))
 
-        max_delta = datetime.timedelta(days=366)
+        max_delta = datetime.timedelta(days=455)  # 15 months
         delta = (expire - datetime.date.today()) if expire else None
 
         if (delta and delta > max_delta and not is_superuser):
@@ -1905,6 +1899,24 @@ class BofhdExtension(BofhdCommonMethods):
             'group_name': grp.group_name,
             'expire_date': date_compat.get_date(grp.expire_date),
         }
+
+    #
+    # group refresh_expire
+    #
+    all_commands["group_refresh_expire"] = Command(
+        ("group", "refresh_expire"),
+        GroupName(),
+        perm_filter="can_delete_group",
+    )
+
+    def group_refresh_expire(self, operator, group):
+        grp = self._get_group(group)
+
+        if not grp.expire_date:
+            raise CerebrumError("Group '%s' has no expire date" %
+                                (grp.group_name,))
+
+        return self.group_set_expire(operator, group)
 
     #
     # group set_visibility
@@ -2004,8 +2016,8 @@ class BofhdExtension(BofhdCommonMethods):
 
         for membership in ret:
             group.find(membership['entity_id'])
-            membership['spreads'] = [
-                co.Spread(x['spread']) for x in group.get_spread()]
+            membership['spreads'] = [co.Spread(x['spread'])
+                                     for x in group.get_spread()]
 
             # Find the source group (if any)
             for source_group in ret:
@@ -2019,13 +2031,14 @@ class BofhdExtension(BofhdCommonMethods):
 
         if spread:
             # Only select groups with spread x
-            ret = [x for x in ret if spread in [co.Spread(y) for y in x[
-                'spreads']]]
+            ret = [x for x in ret
+                   if spread in [co.Spread(y) for y in x['spreads']]]
 
         for membership in ret:
             membership['sources_names_str'] = u', '.join(
                 membership['sources_names'])
-            membership['spreads'] = map(text_type, membership['spreads'])
+            membership['spreads'] = [text_type(s)
+                                     for s in membership['spreads']]
 
         ret.sort(key=lambda d: d['group'])
         return ret
@@ -2077,7 +2090,7 @@ class BofhdExtension(BofhdCommonMethods):
     def group_list_admins(self, operator, groupname):
         """List admins of a group by type (account or group)"""
         raise CerebrumError(
-            "Depreacted; Use `group list_owners <group> admin`")
+            "Deprecated; Use `group list_owners <group> admin`")
 
     #
     # group list_mods <groupname>
@@ -2090,7 +2103,47 @@ class BofhdExtension(BofhdCommonMethods):
     def group_list_mods(self, operator, groupname):
         """List moderators of a group by type (account or group)"""
         raise CerebrumError(
-            "Depreacted; Use `group list_owners <group> moderator`")
+            "Deprecated; Use `group list_owners <group> moderator`")
+
+    #
+    # group accounts <groupname>
+    #
+    all_commands["group_accounts"] = Command(
+        ("group", "accounts"),
+        GroupName(),
+        fs=FormatSuggestion(
+            "%-8i %-30s %-25s",
+            ("account_id", "account_name", "group_name"),
+            hdr="%-8s %-30s %-25s" % ("id", "name", "group name"),
+        ),
+    )
+
+    def group_accounts(self, operator, groupname):
+        """Lists all accounts the given group owns."""
+        gr = self._get_group(groupname)
+        acc_type = self.const.entity_account
+        accs = [a["account_id"] for a in gr.get_owned_accounts()]
+
+        if (len(accs) > cereconf.BOFHD_MAX_MATCHES
+                and not self.ba.is_superuser(operator.get_entity_id())):
+            raise CerebrumError(
+                "More than %d (%d) matches, contact superuser "
+                "to get a listing for %r"
+                % (cereconf.BOFHD_MAX_MATCHES, len(accs), gr.group_name)
+            )
+
+        result = []
+        for acc in accs:
+            acc_name = self._get_entity_name(acc, acc_type)
+            result.append(
+                {
+                    "account_id": acc,
+                    "account_name": acc_name,
+                    "group_id": gr.entity_id,
+                    "group_name": gr.group_name,
+                }
+            )
+        return result
 
     #
     # misc affiliations
@@ -2125,8 +2178,7 @@ class BofhdExtension(BofhdCommonMethods):
         # affiliation status usually are kept related, the list for
         # each affiliation will tend to be sorted as well.  Not so for
         # the affiliations themselves.
-        keys = tmp.keys()
-        keys.sort()
+        keys = sorted(tmp)
         ret = []
         for k in keys:
             for r in tmp[k]:
@@ -2166,388 +2218,6 @@ class BofhdExtension(BofhdCommonMethods):
     def misc_clear_passwords(self, operator, account_name=None):
         operator.clear_state(state_types=('new_account_passwd', 'user_passwd'))
         return "OK, passwords cleared"
-
-    #
-    # misc dadd
-    #
-    all_commands['misc_dadd'] = Command(
-        ("misc", "dadd"),
-        SimpleString(help_ref='string_host'),
-        DiskId(),
-        perm_filter='can_create_disk')
-
-    def misc_dadd(self, operator, hostname, diskname):
-        host = self._get_host(hostname)
-        self.ba.can_create_disk(operator.get_entity_id(), host)
-
-        if not diskname.startswith("/"):
-            raise CerebrumError("'%s' does not start with '/'" % diskname)
-
-        if cereconf.VALID_DISK_TOPLEVELS is not None:
-            toplevel_mountpoint = diskname.split("/")[1]
-            if toplevel_mountpoint not in cereconf.VALID_DISK_TOPLEVELS:
-                raise CerebrumError("'%s' is not a valid toplevel mountpoint"
-                                    " for disks" % toplevel_mountpoint)
-
-        disk = Utils.Factory.get('Disk')(self.db)
-        disk.populate(host.entity_id, diskname, 'uio disk')
-        try:
-            disk.write_db()
-        except self.db.DatabaseError as m:
-            raise CerebrumError("Database error: %s" % exc_to_text(m))
-        if len(diskname.split("/")) != 4:
-            return "OK.  Warning: disk did not follow expected pattern."
-        return "OK, added disk '%s' at %s" % (diskname, hostname)
-
-    #
-    # misc samba_mount
-    #
-    all_commands['misc_samba_mount'] = Command(
-        ("misc", "samba_mount"),
-        DiskId(),
-        DiskId())
-
-    def misc_samba_mount(self, operator, hostname, mountname):
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise PermissionDenied("Currently limited to superusers")
-        from Cerebrum.modules import MountHost
-        mount_host = MountHost.MountHost(self.db)
-
-        if hostname == 'delete':
-            try:
-                host = self._get_host(mountname)
-                mount_host.find(host.entity_id)
-                mount_host.delete_mount()
-                return "Deleted %s from mount_host" % host.name
-
-            except Errors.NotFoundError:
-                raise CerebrumError("Unknown mount_host: %s" % host.name)
-
-        elif hostname == 'list':
-            if mountname == 'all':
-                list_all = "%-16s%-16s\n" % ("host_name", "mount_name")
-                for line in mount_host.list_all():
-                    m_host_name = self._get_host(int(line['mount_host_id']))
-                    list_all = "%s%-16s%-16s\n" % (list_all, m_host_name.name,
-                                                   line['mount_name'])
-                return list_all
-            else:
-                host = self._get_host(mountname)
-                try:
-                    mount_host.find(host.entity_id)
-                    return "%s -> %s" % (mountname, mount_host.mount_name)
-                except Errors.NotFoundError:
-                    raise CerebrumError("Unknown mount_host: %s" % host.name)
-
-        else:
-            host = self._get_host(hostname)
-            m_host = self._get_host(mountname)
-            try:
-                mount_host.find(host.entity_id)
-                mount_host.mount_name = m_host.name
-                mount_host.host_id = m_host.entity_id
-
-            except Errors.NotFoundError:
-                mount_host.populate(host.entity_id, m_host.entity_id,
-                                    m_host.name)
-
-            mount_host.write_db()
-            return "Updated samba mountpoint: %s on %s" % (m_host.name,
-                                                           host.name)
-
-    #
-    # misc dls
-    #
-    # misc dls is deprecated, and can probably be removed without
-    # anyone complaining much.
-    #
-    all_commands['misc_dls'] = Command(
-        ("misc", "dls"),
-        SimpleString(help_ref='string_host'),
-        fs=FormatSuggestion(
-            "%-8i %-8i %s", ("disk_id", "host_id", "path",),
-            hdr="DiskId   HostId   Path"
-        ))
-
-    def misc_dls(self, operator, hostname):
-        return self.disk_list(operator, hostname)
-
-    #
-    # disk list
-    #
-    all_commands['disk_list'] = Command(
-        ("disk", "list"),
-        SimpleString(help_ref='string_host'),
-        fs=FormatSuggestion(
-            "%-13s %11s  %s", ("hostname", "pretty_quota", "path",),
-            hdr="Hostname    Default quota  Path"
-        ))
-
-    def disk_list(self, operator, hostname):
-        host = self._get_host(hostname)
-        disks = {}
-        disk = Utils.Factory.get('Disk')(self.db)
-        hquota = host.get_trait(self.const.trait_host_disk_quota)
-        if hquota:
-            hquota = hquota['numval']
-        for row in disk.list(host.host_id):
-            disk.clear()
-            disk.find(row['disk_id'])
-            dquota = disk.get_trait(self.const.trait_disk_quota)
-            if dquota is None:
-                def_quota = None
-                pretty_quota = '<none>'
-            else:
-                if dquota['numval'] is None:
-                    def_quota = hquota
-                    if hquota is None:
-                        pretty_quota = '(no default)'
-                    else:
-                        pretty_quota = '(%d MiB)' % def_quota
-                else:
-                    def_quota = dquota['numval']
-                    pretty_quota = '%d MiB' % def_quota
-            disks[row['disk_id']] = {'disk_id': row['disk_id'],
-                                     'host_id': row['host_id'],
-                                     'hostname': hostname,
-                                     'def_quota': def_quota,
-                                     'pretty_quota': pretty_quota,
-                                     'path': row['path']}
-        ret = []
-        for d in sorted(disks, key=lambda k: disks[k]['path']):
-            ret.append(disks[d])
-        return ret
-
-    #
-    # disk quota <disk> <quota>
-    #
-    all_commands['disk_quota'] = Command(
-        ("disk", "quota"),
-        SimpleString(help_ref='string_host'),
-        DiskId(),
-        SimpleString(help_ref='disk_quota_set'),
-        perm_filter='can_set_disk_default_quota',
-    )
-
-    def disk_quota(self, operator, hostname, diskname, quota):
-        host = self._get_host(hostname)
-        disk = self._get_disk(diskname, host_id=host.entity_id)[0]
-        self.ba.can_set_disk_default_quota(operator.get_entity_id(),
-                                           host=host, disk=disk)
-        old = disk.get_trait(self.const.trait_disk_quota)
-        if quota.lower() == 'none':
-            if old:
-                disk.delete_trait(self.const.trait_disk_quota)
-            return "OK, no quotas on %s" % diskname
-        elif quota.lower() == 'default':
-            disk.populate_trait(self.const.trait_disk_quota,
-                                numval=None)
-            disk.write_db()
-            return "OK, using host default on %s" % diskname
-        elif quota.isdigit():
-            disk.populate_trait(self.const.trait_disk_quota,
-                                numval=int(quota))
-            disk.write_db()
-            return "OK, default quota on %s is %d" % (diskname, int(quota))
-        else:
-            raise CerebrumError("Invalid quota value '%s'" % quota)
-
-    #
-    # misc drem
-    #
-    all_commands['misc_drem'] = Command(
-        ("misc", "drem"),
-        SimpleString(help_ref='string_host'),
-        DiskId(),
-        perm_filter='can_remove_disk')
-
-    def misc_drem(self, operator, hostname, diskname):
-        host = self._get_host(hostname)
-        self.ba.can_remove_disk(operator.get_entity_id(), host)
-        disk = self._get_disk(diskname, host_id=host.entity_id)[0]
-        # FIXME: We assume that all destination_ids are entities,
-        # which would ensure that the disk_id number can't represent a
-        # different kind of entity.  The database does not constrain
-        # this, however.
-        br = BofhdRequests(self.db, self.const)
-        if br.get_requests(destination_id=disk.entity_id):
-            raise CerebrumError("There are pending requests. Use "
-                                "'misc list_requests disk %s' to view "
-                                "them." % diskname)
-        account = self.Account_class(self.db)
-        for row in account.list_account_home(disk_id=disk.entity_id,
-                                             filter_expired=False):
-            if row['disk_id'] is None:
-                continue
-            if row['status'] == int(self.const.home_status_on_disk):
-                raise CerebrumError("One or more users still on disk "
-                                    "(e.g. %s)" % row['entity_name'])
-            account.clear()
-            account.find(row['account_id'])
-            ah = account.get_home(row['home_spread'])
-            account.set_homedir(
-                current_id=ah['homedir_id'], disk_id=None,
-                home=account.resolve_homedir(disk_path=row['path'],
-                                             home=row['home']))
-        self._remove_auth_target("disk", disk.entity_id)
-        try:
-            disk.delete()
-        except self.db.DatabaseError as m:
-            raise CerebrumError("Database error: %s" % exc_to_text(m))
-        return "OK, %s deleted" % diskname
-
-    #
-    # misc hadd
-    #
-    all_commands['misc_hadd'] = Command(
-        ("misc", "hadd"),
-        SimpleString(help_ref='string_host'),
-        perm_filter='can_create_host')
-
-    def misc_hadd(self, operator, hostname):
-        self.ba.can_create_host(operator.get_entity_id())
-        host = Utils.Factory.get('Host')(self.db)
-        host.populate(hostname, 'uio host')
-        try:
-            host.write_db()
-        except self.db.DatabaseError as m:
-            raise CerebrumError("Database error: %s" % exc_to_text(m))
-        return "OK, added host '%s'" % hostname
-
-    #
-    # misc hrem
-    #
-    all_commands['misc_hrem'] = Command(
-        ("misc", "hrem"),
-        SimpleString(help_ref='string_host'),
-        perm_filter='can_remove_host')
-
-    def misc_hrem(self, operator, hostname):
-        self.ba.can_remove_host(operator.get_entity_id())
-        host = self._get_host(hostname)
-        self._remove_auth_target("host", host.host_id)
-        try:
-            host.delete()
-        except self.db.DatabaseError as m:
-            raise CerebrumError("Database error: %s" % exc_to_text(m))
-        return "OK, %s deleted" % hostname
-
-    #
-    # See hack in list_command
-    #
-    def host_info(self, operator, hostname, policy=False):
-        ret = []
-        # More hacks follow.
-        # Call the DNS module's host_info command for data:
-        dns_err = None
-        try:
-            from Cerebrum.modules.dns.bofhd_dns_cmds import (
-                BofhdExtension as DnsCmds)
-            from Cerebrum.modules.dns import Utils as DnsUtils
-            from Cerebrum.modules.dns.bofhd_dns_utils import DnsBofhdUtils
-            zone = self.const.DnsZone("uio")
-            # Avoid Python's type checking.  The BofhdExtension this
-            # "self" is an instance of is different from the
-            # BofhdExtension host_info expects.  By using a function
-            # reference, it suffices that "self" we pass in supports
-            # the same API.
-            host_info = DnsCmds.__dict__.get('host_info')
-            # To support the API, we add some stuff to this object.
-            # Ugh.  Better hope this doesn't stomp on anything.
-            self._find = DnsUtils.Find(self.db, zone)
-            self.mb_utils = DnsBofhdUtils(self.db, self.logger, zone)
-            self.dns_parser = DnsUtils.DnsParser(self.db, zone)
-            ret = host_info(self, operator, hostname, policy=policy)
-        except CerebrumError as e:
-            # Even though the DNS module doesn't recognise the host, the
-            # standard host_info could still have some info. We should
-            # therefore continue and see if we could get more info.
-            dns_err = e
-        # Other exceptions are faults and should cause trouble
-        # TODO: make it possible to check if the DNS module are in use by the
-        # active instance.
-
-        try:
-            host = self._get_host(hostname)
-        except CerebrumError:
-            # Only return data from the DNS module
-            if dns_err is not None:
-                raise dns_err
-            return ret
-        ret = [{'hostname': hostname,
-                'desc': host.description}] + ret
-        hquota = host.get_trait(self.const.trait_host_disk_quota)
-        if hquota and hquota['numval']:
-            ret.append({'def_disk_quota': hquota['numval']})
-        return ret
-
-    #
-    # host disk_quota <host> <quota>
-    #
-    all_commands['host_disk_quota'] = Command(
-        ("host", "disk_quota"),
-        SimpleString(help_ref='string_host'),
-        SimpleString(help_ref='disk_quota_set'),
-        perm_filter='can_set_disk_default_quota',
-    )
-
-    def host_disk_quota(self, operator, hostname, quota):
-        host = self._get_host(hostname)
-        self.ba.can_set_disk_default_quota(operator.get_entity_id(),
-                                           host=host)
-        old = host.get_trait(self.const.trait_host_disk_quota)
-        if (quota.lower() == 'none' or
-                quota.lower() == 'default' or
-                (quota.isdigit() and int(quota) == 0)):
-            # "default" doesn't make much sense, but the help text
-            # says it's a valid value.
-            if old:
-                # TBD: disk is not defined here, what is this supposed to do?
-                # disk.delete_trait(self.const.trait_disk_quota)
-                raise Exception("does this ever happen?")
-            return "OK, no default quota on %s" % hostname
-        elif quota.isdigit() and int(quota) > 0:
-            host.populate_trait(self.const.trait_host_disk_quota,
-                                numval=int(quota))
-            host.write_db()
-            return "OK, default quota on %s is %d" % (hostname, int(quota))
-        else:
-            raise CerebrumError("Invalid quota value '%s'" % quota)
-        pass
-
-    def _remove_auth_target(self, target_type, target_id):
-        """This function should be used whenever a potential target
-        for authorisation is deleted.
-        """
-        ar = BofhdAuthRole(self.db)
-        aot = BofhdAuthOpTarget(self.db)
-        for r in aot.list(entity_id=target_id, target_type=target_type):
-            aot.clear()
-            aot.find(r['op_target_id'])
-            # We remove all auth_role entries first so that there
-            # are no references to this op_target_id, just in case
-            # someone adds a foreign key constraint later.
-            for role in ar.list(op_target_id=r["op_target_id"]):
-                ar.revoke_auth(role['entity_id'],
-                               role['op_set_id'],
-                               r['op_target_id'])
-            aot.delete()
-
-    def _remove_auth_role(self, entity_id):
-        """This function should be used whenever a potentially
-        authorised entity is deleted.
-        """
-        ar = BofhdAuthRole(self.db)
-        aot = BofhdAuthOpTarget(self.db)
-        for r in ar.list(entity_id):
-            ar.revoke_auth(entity_id, r['op_set_id'], r['op_target_id'])
-            # Also remove targets if this was the last reference from
-            # auth_role.
-            remaining = ar.list(op_target_id=r['op_target_id'])
-            if len(remaining) == 0:
-                aot.clear()
-                aot.find(r['op_target_id'])
-                aot.delete()
 
     #
     # misc list_passwords
@@ -2601,293 +2271,6 @@ class BofhdExtension(BofhdCommonMethods):
                 return ("The password is obsolete, it was set on %s" %
                         old_password['set_at'])
         return "Incorrect password"
-
-    #
-    # perm opset_list
-    #
-    all_commands['perm_opset_list'] = Command(
-        ("perm", "opset_list"),
-        fs=FormatSuggestion(
-            "%-6i %s", ("id", "name"),
-            hdr="Id     Name"),
-        perm_filter='is_superuser')
-
-    def perm_opset_list(self, operator):
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise PermissionDenied("Currently limited to superusers")
-        aos = BofhdAuthOpSet(self.db)
-        ret = []
-        for r in aos.list():
-            ret.append({'id': r['op_set_id'],
-                        'name': r['name']})
-        return ret
-
-    #
-    # perm opset_show
-    #
-    all_commands['perm_opset_show'] = Command(
-        ("perm", "opset_show"),
-        SimpleString(help_ref="string_op_set"),
-        fs=FormatSuggestion(
-            "%-6i %-16s %s", ("op_id", "op", "attrs"),
-            hdr="%-6s %-16s %s" % ("Id", "op", "Attributes")
-        ),
-        perm_filter='is_superuser')
-
-    def perm_opset_show(self, operator, name):
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise PermissionDenied("Currently limited to superusers")
-        aos = BofhdAuthOpSet(self.db)
-        aos.find_by_name(name)
-        ret = []
-        for r in aos.list_operations():
-            c = AuthConstants(int(r['op_code']))
-            ret.append({
-                'op': text_type(c),
-                'op_id': r['op_id'],
-                'attrs': ", ".join(["%s" % r2['attr'] for r2 in
-                                    aos.list_operation_attrs(r['op_id'])]),
-            })
-        return ret
-
-    #
-    # perm target_list
-    #
-    all_commands['perm_target_list'] = Command(
-        ("perm", "target_list"),
-        SimpleString(help_ref="string_perm_target"),
-        Id(optional=True),
-        fs=FormatSuggestion(
-            "%-8i %-15i %-10s %-18s %s",
-            ("tgt_id", "entity_id", "target_type", "name", "attrs"),
-            hdr="%-8s %-15s %-10s %-18s %s" %
-            ("TargetId", "TargetEntityId", "TargetType", "TargetName", "Attrs")
-        ),
-        perm_filter='is_superuser')
-
-    def perm_target_list(self, operator, target_type, entity_id=None):
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise PermissionDenied("Currently limited to superusers")
-        aot = BofhdAuthOpTarget(self.db)
-        ret = []
-        if target_type.isdigit():
-            rows = aot.list(target_id=target_type)
-        else:
-            rows = aot.list(target_type=target_type, entity_id=entity_id)
-        for r in rows:
-            if r['target_type'] == 'group':
-                name = self._get_entity_name(r['entity_id'],
-                                             self.const.entity_group)
-            elif r['target_type'] == 'disk':
-                name = self._get_entity_name(r['entity_id'],
-                                             self.const.entity_disk)
-            elif r['target_type'] == 'host':
-                name = self._get_entity_name(r['entity_id'],
-                                             self.const.entity_host)
-            else:
-                name = "unknown"
-            ret.append({
-                'tgt_id': r['op_target_id'],
-                'entity_id': r['entity_id'],
-                'name': name,
-                'target_type': r['target_type'],
-                'attrs': r['attr'] or '<none>',
-            })
-        return ret
-
-    #
-    # perm add_target
-    #
-    all_commands['perm_add_target'] = Command(
-        ("perm", "add_target"),
-        SimpleString(help_ref="string_perm_target_type"),
-        Id(),
-        SimpleString(help_ref="string_attribute", optional=True),
-        perm_filter='is_superuser')
-
-    def perm_add_target(self, operator, target_type, entity_id, attr=None):
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise PermissionDenied("Currently limited to superusers")
-        if entity_id.isdigit():
-            entity_id = int(entity_id)
-        else:
-            raise CerebrumError("Integer entity_id expected; got %r" %
-                                (entity_id,))
-        aot = BofhdAuthOpTarget(self.db)
-        aot.populate(entity_id, target_type, attr)
-        aot.write_db()
-        return "OK, target id=%d" % aot.op_target_id
-
-    #
-    # perm del_target
-    #
-    all_commands['perm_del_target'] = Command(
-        ("perm", "del_target"),
-        Id(help_ref="id:op_target"),
-        perm_filter='is_superuser')
-
-    def perm_del_target(self, operator, op_target_id, attr):
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise PermissionDenied("Currently limited to superusers")
-        aot = BofhdAuthOpTarget(self.db)
-        aot.find(op_target_id)
-        aot.delete()
-        return "OK, target %s, attr=%s deleted" % (op_target_id, attr)
-
-    #
-    # perm list
-    #
-    all_commands['perm_list'] = Command(
-        ("perm", "list"),
-        Id(help_ref='id:entity_ext'),
-        fs=FormatSuggestion(
-            "%-8s %-8s %-8i", ("entity_id", "op_set_id", "op_target_id"),
-            hdr="%-8s %-8s %-8s" % ("entity_id", "op_set_id", "op_target_id")
-        ),
-        perm_filter='is_superuser')
-
-    def perm_list(self, operator, entity_id):
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise PermissionDenied("Currently limited to superusers")
-        if entity_id.startswith("group:"):
-            entities = [self._get_group(entity_id.split(":")[-1]).entity_id, ]
-        elif entity_id.startswith("account:"):
-            account = self._get_account(entity_id.split(":")[-1])
-            group = self.Group_class(self.db)
-            entities = [account.entity_id]
-            entities.extend([x["group_id"] for x in
-                            group.search(member_id=account.entity_id,
-                                         indirect_members=False)])
-        else:
-            if not entity_id.isdigit():
-                raise CerebrumError("Expected entity-id")
-            entities = [int(entity_id)]
-        bar = BofhdAuthRole(self.db)
-        ret = []
-        for r in bar.list(entities):
-            ret.append({'entity_id': self._get_entity_name(r['entity_id']),
-                        'op_set_id': self.num2op_set_name[int(r['op_set_id'])],
-                        'op_target_id': r['op_target_id']})
-        return ret
-
-    #
-    # perm grant
-    #
-    all_commands['perm_grant'] = Command(
-        ("perm", "grant"),
-        Id(),
-        SimpleString(help_ref="string_op_set"),
-        Id(help_ref="id:op_target"),
-        perm_filter='is_superuser')
-
-    def perm_grant(self, operator, entity_id, op_set_name, op_target_id):
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise PermissionDenied("Currently limited to superusers")
-        bar = BofhdAuthRole(self.db)
-        aos = BofhdAuthOpSet(self.db)
-        aos.find_by_name(op_set_name)
-
-        bar.grant_auth(entity_id, aos.op_set_id, op_target_id)
-        return "OK, granted %s@%s to %s" % (op_set_name, op_target_id,
-                                            entity_id)
-
-    #
-    # perm revoke
-    #
-    all_commands['perm_revoke'] = Command(
-        ("perm", "revoke"),
-        Id(),
-        SimpleString(help_ref="string_op_set"),
-        Id(help_ref="id:op_target"),
-        perm_filter='is_superuser')
-
-    def perm_revoke(self, operator, entity_id, op_set_name, op_target_id):
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise PermissionDenied("Currently limited to superusers")
-        bar = BofhdAuthRole(self.db)
-        aos = BofhdAuthOpSet(self.db)
-        aos.find_by_name(op_set_name)
-        bar.revoke_auth(entity_id, aos.op_set_id, op_target_id)
-        return "OK, revoked  %s@%s from %s" % (op_set_name, op_target_id,
-                                               entity_id)
-
-    #
-    # perm who_has_perm
-    #
-    all_commands['perm_who_has_perm'] = Command(
-        ("perm", "who_has_perm"),
-        SimpleString(help_ref="string_op_set"),
-        fs=FormatSuggestion(
-            "%-8s %-8s %-8i", ("entity_id", "op_set_id", "op_target_id"),
-            hdr="%-8s %-8s %-8s" % ("entity_id", "op_set_id", "op_target_id")
-        ),
-        perm_filter='is_superuser')
-
-    def perm_who_has_perm(self, operator, op_set_name):
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise PermissionDenied("Currently limited to superusers")
-        aos = BofhdAuthOpSet(self.db)
-        aos.find_by_name(op_set_name)
-        bar = BofhdAuthRole(self.db)
-        ret = []
-        for r in bar.list(op_set_id=aos.op_set_id):
-            ret.append({'entity_id': self._get_entity_name(r['entity_id']),
-                        'op_set_id': self.num2op_set_name[int(r['op_set_id'])],
-                        'op_target_id': r['op_target_id']})
-        return ret
-
-    #
-    # perm who_owns
-    #
-    all_commands['perm_who_owns'] = Command(
-        ("perm", "who_owns"),
-        Id(help_ref="id:entity_ext"),
-        fs=FormatSuggestion(
-            "%-8s %-8s %-8i", ("entity_id", "op_set_id", "op_target_id"),
-            hdr="%-8s %-8s %-8s" % ("entity_id", "op_set_id", "op_target_id")
-        ),
-        perm_filter='is_superuser')
-
-    def perm_who_owns(self, operator, id):
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise PermissionDenied("Currently limited to superusers")
-        bar = BofhdAuthRole(self.db)
-        if id.startswith("group:"):
-            group = self._get_group(id.split(":")[-1])
-            aot = BofhdAuthOpTarget(self.db)
-            target_ids = []
-            for r in aot.list(target_type='group', entity_id=group.entity_id):
-                target_ids.append(r['op_target_id'])
-        elif id.startswith("account:"):
-            account = self._get_account(id.split(":")[-1])
-            disk = Utils.Factory.get('Disk')(self.db)
-            try:
-                tmp = account.get_home(self.const.spread_uio_nis_user)
-                disk.find(tmp[0])
-            except Errors.NotFoundError:
-                raise CerebrumError("Unknown disk for user")
-            aot = BofhdAuthOpTarget(self.db)
-            target_ids = []
-            for r in aot.list(target_type='global_host'):
-                target_ids.append(r['op_target_id'])
-            for r in aot.list(target_type='disk', entity_id=disk.entity_id):
-                target_ids.append(r['op_target_id'])
-            for r in aot.list(target_type='host', entity_id=disk.host_id):
-                if (not r['attr'] or re.match(r['attr'],
-                                              disk.path.split("/")[-1])):
-                    target_ids.append(r['op_target_id'])
-        else:
-            if not id.isdigit():
-                raise CerebrumError("Expected target-id")
-            target_ids = [int(id)]
-        if not target_ids:
-            raise CerebrumError("No target_ids for %s" % id)
-        ret = []
-        for r in bar.list_owners(target_ids):
-            ret.append({'entity_id': self._get_entity_name(r['entity_id']),
-                        'op_set_id': self.num2op_set_name[int(r['op_set_id'])],
-                        'op_target_id': r['op_target_id']})
-        return ret
 
     #
     # person accounts
@@ -3047,7 +2430,7 @@ class BofhdExtension(BofhdCommonMethods):
         ou = self._get_ou(stedkode=ou)
         try:
             affiliation, status = self.const.get_affiliation(affstr)
-        except Errors.NotFoundError:
+        except (LookupError, Errors.NotFoundError):
             raise CerebrumError("invalid affiliation: " + repr(affstr))
         if sourcestr is None:
             source_system = None
@@ -3055,7 +2438,7 @@ class BofhdExtension(BofhdCommonMethods):
             try:
                 source_system = self.const.get_constant(
                     self.const.AuthoritativeSystem, sourcestr)
-            except Errors.NotFoundError:
+            except (LookupError, Errors.NotFoundError):
                 raise CerebrumError("invalid source system: "
                                     + repr(sourcestr))
 
@@ -3999,169 +3382,6 @@ class BofhdExtension(BofhdCommonMethods):
             })
         return ret
 
-    #
-    # quarantine disable
-    #
-    all_commands['quarantine_disable'] = Command(
-        ("quarantine", "disable"),
-        EntityType(default="account"),
-        Id(),
-        QuarantineType(),
-        # TODO: We should update the help text to include info from
-        # parsers.parse_date_help_blurb
-        # TODO: Wouldn't it be better to ask for number of days to postpone
-        # quarantine?
-        Date(),
-        perm_filter='can_disable_quarantine',
-    )
-
-    def quarantine_disable(self, operator, entity_type, id, qtype, date):
-        entity = self._get_entity(entity_type, id)
-        # Note: Giving an *empty* date resets disable_until, i.e. re-enables a
-        # previously disabled quarantine.
-        date = parsers.parse_date(date, optional=True)
-        qconst = self._get_constant(self.const.Quarantine, qtype, "quarantine")
-        self.ba.can_disable_quarantine(operator.get_entity_id(), entity, qtype)
-
-        if not entity.get_entity_quarantine(qtype=qconst):
-            raise CerebrumError("%s does not have a quarantine of type %s" % (
-                self._get_name_from_object(entity), text_type(qtype)))
-
-        limit_days = getattr(cereconf, 'BOFHD_QUARANTINE_DISABLE_LIMIT', None)
-        if date and limit_days:
-            limit = datetime.timedelta(days=int(limit_days))
-            if date > datetime.date.today() + limit:
-                # TODO: This should be a bofhd.errors.CerebrumError
-                return ("Quarantines can only be disabled for %d days"
-                        % limit.days)
-        if date and date < datetime.date.today():
-            raise CerebrumError("Date can't be in the past")
-        entity.disable_entity_quarantine(qconst, date)
-        if not date:
-            return "OK, reactivated quarantine %s for %s" % (
-                text_type(qconst), self._get_name_from_object(entity))
-        return "OK, disabled quarantine %s for %s" % (
-            text_type(qconst), self._get_name_from_object(entity))
-
-    #
-    # quarantine list
-    #
-    all_commands['quarantine_list'] = Command(
-        ("quarantine", "list"),
-        fs=FormatSuggestion(
-            "%-16s  %1s  %-17s %s", ('name', 'lock', 'shell', 'desc'),
-            hdr="%-15s %-4s %-17s %s" % ('Name', 'Lock', 'Shell',
-                                         'Description')
-        ))
-
-    def quarantine_list(self, operator):
-        ret = []
-        for c in self.const.fetch_constants(self.const.Quarantine):
-            lock = 'N'
-            shell = '-'
-            rule = cereconf.QUARANTINE_RULES.get(text_type(c), {})
-            if 'lock' in rule:
-                lock = 'Y'
-            if 'shell' in rule:
-                shell = rule['shell'].split("/")[-1]
-            ret.append({
-                'name': text_type(c),
-                'lock': lock,
-                'shell': shell,
-                'desc': c.description,
-            })
-        return ret
-
-    #
-    # quarantine remove
-    #
-    all_commands['quarantine_remove'] = Command(
-        ("quarantine", "remove"),
-        EntityType(default="account"),
-        Id(),
-        QuarantineType(),
-        perm_filter='can_remove_quarantine')
-
-    def quarantine_remove(self, operator, entity_type, id, qtype):
-        entity = self._get_entity(entity_type, id)
-        qconst = self._get_constant(self.const.Quarantine, qtype, "quarantine")
-        self.ba.can_remove_quarantine(operator.get_entity_id(), entity, qconst)
-
-        if not entity.get_entity_quarantine(qtype=qconst):
-            raise CerebrumError("%s does not have a quarantine of type %s" % (
-                self._get_name_from_object(entity), text_type(qconst)))
-
-        entity.delete_entity_quarantine(qconst)
-
-        return "OK, removed quarantine %s for %s" % (
-            text_type(qconst), self._get_name_from_object(entity))
-
-    #
-    # quarantine set
-    #
-    all_commands['quarantine_set'] = Command(
-        ("quarantine", "set"),
-        EntityType(default="account"),
-        Id(repeat=True),
-        QuarantineType(),
-        SimpleString(help_ref="string_why"),
-        # TODO: We should update the help text to include info from
-        # parsers.parse_date_help_blurb
-        SimpleString(help_ref="quarantine_start_date", default="today",
-                     optional=True),
-        perm_filter='can_set_quarantine',
-    )
-
-    def quarantine_set(self, operator, entity_type, id, qtype, why,
-                       start_date=None):
-        entity = self._get_entity(entity_type, id)
-        qconst = self._get_constant(self.const.Quarantine, qtype, "quarantine")
-        start_date = (parsers.parse_date(start_date, optional=True)
-                      or datetime.date.today())
-        self.ba.can_set_quarantine(operator.get_entity_id(), entity, qconst)
-        rows = entity.get_entity_quarantine(qtype=qconst)
-        if rows:
-            raise CerebrumError("%s already has a quarantine of type %s" % (
-                self._get_name_from_object(entity), text_type(qconst)))
-        try:
-            entity.add_entity_quarantine(qconst, operator.get_entity_id(), why,
-                                         start_date)
-        except AttributeError:
-            raise CerebrumError("Quarantines cannot be set on %r" %
-                                entity_type)
-        return "OK, set quarantine %s for %s" % (
-            text_type(qconst), self._get_name_from_object(entity))
-
-    # quarantine show
-    all_commands['quarantine_show'] = Command(
-        ("quarantine", "show"),
-        EntityType(default="account"),
-        Id(),
-        fs=FormatSuggestion(
-            "%-14s %-16s %-16s %-14s %-8s %s",
-            ('type', format_time('start'), format_time('end'),
-             format_day('disable_until'), 'who', 'why'),
-            hdr="%-14s %-16s %-16s %-14s %-8s %s" %
-            ('Type', 'Start', 'End', 'Disable until', 'Who', 'Why')
-        ),
-        perm_filter='can_show_quarantines')
-
-    def quarantine_show(self, operator, entity_type, id):
-        ret = []
-        entity = self._get_entity(entity_type, id)
-        self.ba.can_show_quarantines(operator.get_entity_id(), entity)
-        for r in entity.get_entity_quarantine():
-            acc = self._get_account(r['creator_id'], idtype='id')
-            ret.append({
-                'type': text_type(self.const.Quarantine(r['quarantine_type'])),
-                'start': r['start_date'],
-                'end': r['end_date'],
-                'disable_until': r['disable_until'],
-                'who': acc.account_name,
-                'why': r['description'],
-            })
-        return ret
-
     def _get_posix_account(self, account_id):
         """Helper function to try getting a PosixUser-object from an
         Account-id. Ideally this should be doable from self._get_entity,
@@ -4609,8 +3829,8 @@ class BofhdExtension(BofhdCommonMethods):
             if stedkode:
                 msg += ' @ ' + stedkode
             raise CerebrumError(msg)
-        elif len(valid_affs) > 1:
-            raise CerebrumError('More than than one %s affiliation, '
+        elif len(set([aff[1] for aff in valid_affs])) > 1:
+            raise CerebrumError('More than one %s affiliation, '
                                 'add stedkode as argument'
                                 % (require_aff_str,))
         ac_type_aff, ac_type_ou = valid_affs.pop()
@@ -4668,47 +3888,6 @@ class BofhdExtension(BofhdCommonMethods):
                        account.entity_id, None,
                        state_data=int(self.const.spread_uio_nis_user))
         return "User %s queued for deletion immediately" % account.account_name
-
-    #
-    # user set_disk_quota
-    # TODO: Why don't we use the disk_quota module here?
-    # TODO: We should probably just remove the disk quota module and all
-    #       related functionality
-    #
-    all_commands['user_set_disk_quota'] = Command(
-        ("user", "set_disk_quota"),
-        AccountName(help_ref='account_name_id_uid'),
-        Integer(help_ref="disk_quota_size"),
-        Date(help_ref="disk_quota_expire_date"),
-        SimpleString(help_ref="string_why"),
-        perm_filter='can_set_disk_quota',
-    )
-
-    def user_set_disk_quota(self, operator, accountname, size, date, why):
-        account = self._get_account(accountname)
-        exp_date = parsers.parse_date(date)
-        why = why.strip()
-        if len(why) < 3:
-            raise CerebrumError("Why cannot be blank")
-        unlimited = forever = False
-        if (exp_date - datetime.date.today()).days > 185:
-            forever = True
-        try:
-            size = int(size)
-        except ValueError:
-            raise CerebrumError("Expected int as size")
-        if size > 1024 or size < 0:    # "unlimited" for perm-check = +1024M
-            unlimited = True
-        self.ba.can_set_disk_quota(operator.get_entity_id(), account,
-                                   unlimited=unlimited, forever=forever)
-        home = account.get_home(self.const.spread_uio_nis_user)
-        if size < 0:
-            # unlimited disk quota
-            size = None
-        dq = DiskQuota(self.db)
-        dq.set_quota(home['homedir_id'], override_quota=size,
-                     override_expiration=exp_date, description=why)
-        return "OK, quota overridden for %s" % accountname
 
     #
     # user gecos
@@ -4771,9 +3950,6 @@ class BofhdExtension(BofhdCommonMethods):
              ("username", "spread", "affiliations", format_day("expire"),
               "home", "home_status", "entity_id", "owner_id", "owner_type",
               "owner_desc")),
-            ("Disk quota:    %s MiB", ("disk_quota",)),
-            ("DQ override:   %s MiB (until %s: %s)",
-             ("dq_override", format_day("dq_expire"), "dq_why")),
             ("UID:           %i\n"
              "Default fg:    %i=%s\n"
              "Gecos:         %s\n"
@@ -4794,8 +3970,8 @@ class BofhdExtension(BofhdCommonMethods):
         self.ba.can_view_user(operator.get_entity_id(), account)
         if (account.is_deleted() and
                 not self.ba.is_superuser(operator.get_entity_id())):
-            raise CerebrumError("User '{}' is deleted".format(
-                account.account_name))
+            raise CerebrumError("User '{}' is deleted; expired {}".format(
+                account.account_name, account.expire_date))
         affiliations = []
         for row in account.get_account_types(filter_expired=False):
             ou = self._get_ou(ou_id=row['ou_id'])
@@ -4829,36 +4005,6 @@ class BofhdExtension(BofhdCommonMethods):
             'owner_id': account.owner_id,
             'owner_type': text_type(self.const.EntityType(account.owner_type)),
         }
-        try:
-            self.ba.can_show_disk_quota(operator.get_entity_id(), account)
-            can_see_quota = True
-        except PermissionDenied:
-            can_see_quota = False
-        if tmp['disk_id'] and can_see_quota:
-            disk = Utils.Factory.get("Disk")(self.db)
-            disk.find(tmp['disk_id'])
-            has_quota = disk.has_quota()
-            def_quota = disk.get_default_quota()
-            try:
-                dq = DiskQuota(self.db)
-                dq_row = dq.get_quota(tmp['homedir_id'])
-                if has_quota and dq_row['quota'] is not None:
-                    ret['disk_quota'] = str(int(dq_row['quota']))
-                # Only display recent quotas
-                dq_expire = date_compat.get_date(dq_row['override_expiration'])
-                days_left = ((dq_expire or datetime.date.min)
-                             - datetime.date.today()).days
-                if days_left > -30:
-                    ret['dq_override'] = dq_row['override_quota']
-                    if dq_row['override_quota'] is not None:
-                        ret['dq_override'] = str(int(dq_row['override_quota']))
-                    ret['dq_expire'] = dq_expire
-                    ret['dq_why'] = dq_row['description']
-                    if days_left < 0:
-                        ret['dq_why'] += " [INACTIVE]"
-            except Errors.NotFoundError:
-                if def_quota:
-                    ret['disk_quota'] = "(%s)" % def_quota
 
         if account.owner_type == self.const.entity_person:
             person = self._get_person('entity_id', account.owner_id)
@@ -4969,265 +4115,6 @@ class BofhdExtension(BofhdCommonMethods):
             })
         ret.sort(key=lambda d: d['username'])
         return ret
-
-    #
-    # user move prompt
-    #
-    def user_move_prompt_func(self, session, *args):
-        """ user move prompt helper
-
-        Base command:
-          user move <move-type> <account-name>
-        Variants
-          user move immediate           <account-name> <disk-id>
-          user move batch               <account-name> <disk-id>
-          user move nofile              <account-name> <disk-id>
-          user move hard_nofile         <account-name> <disk-id>
-          user move student             <account-name>
-          user move student_immediate   <account-name>
-          user move give                <account-name> <group-name> <reason>
-          user move request             <account-name> <disk-id> <reason>
-          user move confirm             <account-name>
-          user move cancel              <account-name>
-        """
-        help_struct = Help([self, ], logger=self.logger)
-        all_args = list(args)
-        if not all_args:
-            return MoveType().get_struct(help_struct)
-        move_type = all_args.pop(0)
-        if not all_args:
-            return AccountName(
-                help_ref='account_name_id_uid').get_struct(help_struct)
-        # pop account name
-        all_args.pop(0)
-        if move_type in ("immediate", "batch", "nofile", "hard_nofile"):
-            # move_type needs disk-id
-            if not all_args:
-                r = DiskId().get_struct(help_struct)
-                r['last_arg'] = True
-                return r
-            return {'last_arg': True}
-        elif move_type in ("student", "student_immediate", "confirm",
-                           "cancel"):
-            # move_type doesnt need more args
-            return {'last_arg': True}
-        elif move_type in ("request",):
-            # move_type needs disk-id and reason
-            if not all_args:
-                return DiskId().get_struct(help_struct)
-            # pop disk id
-            all_args.pop(0)
-            if not all_args:
-                r = SimpleString(help_ref="string_why").get_struct(help_struct)
-                r['last_arg'] = True
-                return r
-            return {'last_arg': True}
-        elif move_type in ("give",):
-            # move_type needs group-name and reason
-            if not all_args:
-                return GroupName().get_struct(help_struct)
-            # pop group-name
-            all_args.pop(0)
-            if not all_args:
-                r = SimpleString(help_ref="string_why").get_struct(help_struct)
-                r['last_arg'] = True
-                return r
-            return {'last_arg': True}
-        raise CerebrumError("Bad user_move command (%r)" % move_type)
-
-    #
-    # user move <move-type> <account-name> [opts]
-    #
-    all_commands['user_move'] = Command(
-        ("user", "move"),
-        prompt_func=user_move_prompt_func,
-        perm_filter='can_move_user')
-
-    def user_move(self, operator, move_type, accountname, *args):
-        # now strip all str / unicode arguments in order to please CRB-2172
-        def strip_arg(arg):
-            if isinstance(arg, string_types):
-                return arg.strip()
-            return arg
-        args = tuple(map(strip_arg, args))
-        self.logger.debug('user_move: after stripping args ({args})'.format(
-            args=args))
-        account = self._get_account(accountname)
-
-        def account_error(reason):
-            return "Cannot move {!r}, {!s}".format(account.account_name,
-                                                   reason)
-
-        request_reason_max_len = 80
-
-        def _check_reason(reason):
-            if len(reason) > request_reason_max_len:
-                raise CerebrumError(
-                    "Too long explanation, "
-                    "maximum length is {:d}".format(request_reason_max_len))
-
-        if account.is_expired():
-            raise CerebrumError(account_error("account is expired"))
-        br = BofhdRequests(self.db, self.const)
-        batch_time_str = br.batch_time.strftime("%Y-%m-%dT%H:%M:%S")
-        spread = int(self.const.spread_uio_nis_user)
-        if move_type in ("immediate", "batch", "student", "student_immediate",
-                         "request", "give"):
-            try:
-                ah = account.get_home(spread)
-            except Errors.NotFoundError:
-                raise CerebrumError(account_error("account has no home"))
-        if move_type in ("immediate", "batch", "nofile"):
-            message = ""
-            disk, disk_id = self._get_disk(args[0])[:2]
-            if disk_id is None:
-                raise CerebrumError(account_error("bad destination disk"))
-            self.ba.can_move_user(operator.get_entity_id(), account, disk_id)
-
-            for r in account.get_spread():
-                if (r['spread'] == self.const.spread_ifi_nis_user and
-                        not re.match(r'^/ifi/', args[0])):
-                    message += ("WARNING: moving user with %s-spread to "
-                                "a non-Ifi disk.\n" %
-                                text_type(self.const.spread_ifi_nis_user))
-                    break
-
-            # Let's check the disk quota settings.  We only give a an
-            # information message, the actual change happens when
-            # set_homedir is done.
-            has_dest_quota = disk.has_quota()
-            default_dest_quota = disk.get_default_quota()
-            current_quota = None
-            dq = DiskQuota(self.db)
-            try:
-                ah = account.get_home(spread)
-            except Errors.NotFoundError:
-                raise CerebrumError(account_error("account has no home"))
-            try:
-                dq_row = dq.get_quota(ah['homedir_id'])
-            except Errors.NotFoundError:
-                pass
-            else:
-                current_quota = dq_row['quota']
-                if dq_row['quota'] is not None:
-                    current_quota = dq_row['quota']
-
-                dq_expire = date_compat.get_date(dq_row['override_expiration'])
-                days_left = ((dq_expire or datetime.date.min)
-                             - datetime.date.today()).days
-                if days_left > 0 and dq_row['override_quota'] is not None:
-                    current_quota = dq_row['override_quota']
-
-            if current_quota is None:
-                # this is OK
-                pass
-            elif not has_dest_quota:
-                message += ("Destination disk has no quota, so the current "
-                            "quota (%d) will be cleared.\n" % current_quota)
-            elif current_quota <= default_dest_quota:
-                message += ("Current quota (%d) is smaller or equal to the "
-                            "default at destination (%d), so it will be "
-                            "removed.\n") % (current_quota, default_dest_quota)
-
-            if move_type == "immediate":
-                br.add_request(operator.get_entity_id(), br.now,
-                               self.const.bofh_move_user_now,
-                               account.entity_id, disk_id, state_data=spread)
-                message += "Command queued for immediate execution."
-            elif move_type == "batch":
-                br.add_request(operator.get_entity_id(), br.batch_time,
-                               self.const.bofh_move_user,
-                               account.entity_id, disk_id, state_data=spread)
-                message += ("Move queued for execution at %s."
-                            % (batch_time_str,))
-                # mail user about the awaiting move operation
-                new_homedir = disk.path + '/' + account.account_name
-                try:
-                    mail_template(
-                        account.get_primary_mailaddress(),
-                        cereconf.USER_BATCH_MOVE_WARNING,
-                        substitute={'USER': account.account_name,
-                                    'TO_DISK': new_homedir})
-                except Exception as e:
-                    self.logger.info("Sending mail failed: %r", e)
-            elif move_type == "nofile":
-                ah = account.get_home(spread)
-                account.set_homedir(current_id=ah['homedir_id'],
-                                    disk_id=disk_id)
-                account.write_db()
-                message += "User moved."
-            return message
-        elif move_type in ("hard_nofile",):
-            if not self.ba.is_superuser(operator.get_entity_id()):
-                raise PermissionDenied("only superusers may use hard_nofile")
-            ah = account.get_home(spread)
-            try:
-                account.set_homedir(current_id=ah['homedir_id'], home=args[0])
-            except ValueError as e:
-                raise CerebrumError(e)
-            return "OK, user moved to hardcoded homedir"
-        elif move_type in (
-                "student", "student_immediate", "confirm", "cancel"):
-            self.ba.can_give_user(operator.get_entity_id(), account)
-            if move_type == "student":
-                br.add_request(operator.get_entity_id(), br.batch_time,
-                               self.const.bofh_move_student,
-                               account.entity_id, None, state_data=spread)
-                return ("student-move queued for execution at %s"
-                        % (batch_time_str,))
-            elif move_type == "student_immediate":
-                br.add_request(operator.get_entity_id(), br.now,
-                               self.const.bofh_move_student,
-                               account.entity_id, None, state_data=spread)
-                return "student-move queued for immediate execution"
-            elif move_type == "confirm":
-                r = br.get_requests(entity_id=account.entity_id,
-                                    operation=self.const.bofh_move_request)
-                if not r:
-                    raise CerebrumError("No matching request found")
-                br.delete_request(account.entity_id,
-                                  operation=self.const.bofh_move_request)
-                # Flag as authenticated
-                br.add_request(operator.get_entity_id(), br.batch_time,
-                               self.const.bofh_move_user,
-                               account.entity_id, r[0]['destination_id'],
-                               state_data=spread)
-                return ("move queued for execution at %s"
-                        % (batch_time_str,))
-            elif move_type == "cancel":
-                # TBD: Should superuser delete other request types as well?
-                count = 0
-                for tmp in br.get_requests(entity_id=account.entity_id):
-                    if tmp['operation'] in (
-                            self.const.bofh_move_student,
-                            self.const.bofh_move_user,
-                            self.const.bofh_move_give,
-                            self.const.bofh_move_request,
-                            self.const.bofh_move_user_now):
-                        count += 1
-                        br.delete_request(request_id=tmp['request_id'])
-                return "OK, %i bofhd requests deleted" % count
-        elif move_type in ("request",):
-            disk = args[0]
-            why = args[1]
-            disk_id = self._get_disk(disk)[1]
-            _check_reason(why)
-            self.ba.can_receive_user(
-                operator.get_entity_id(), account, disk_id)
-            br.add_request(operator.get_entity_id(), br.now,
-                           self.const.bofh_move_request,
-                           account.entity_id, disk_id, why)
-            return "OK, request registered"
-        elif move_type in ("give",):
-            self.ba.can_give_user(operator.get_entity_id(), account)
-            group = args[0]
-            why = args[1]
-            group = self._get_group(group)
-            _check_reason(why)
-            br.add_request(operator.get_entity_id(), br.now,
-                           self.const.bofh_move_give,
-                           account.entity_id, group.entity_id, why)
-            return "OK, 'give' registered"
 
     #
     # user password
@@ -5666,7 +4553,8 @@ class BofhdExtension(BofhdCommonMethods):
         ('user', 'set_disk_status'),
         AccountName(help_ref='account_name_id_uid'),
         SimpleString(help_ref='string_disk_status'),
-        perm_filter='can_create_disk')
+        perm_filter='can_set_disk_status',
+    )
 
     def user_set_disk_status(self, operator, accountname, status):
         try:
@@ -5675,11 +4563,7 @@ class BofhdExtension(BofhdCommonMethods):
         except Errors.NotFoundError:
             raise CerebrumError("Unknown status")
         account = self._get_account(accountname)
-        # this is not exactly right, we should probably
-        # implement a can_set_disk_status-function, but no
-        # appropriate criteria is readily available for this
-        # right now
-        self.ba.can_create_disk(operator.get_entity_id(), query_run_any=True)
+        self.ba.can_set_disk_status(operator.get_entity_id())
         ah = account.get_home(self.const.spread_uio_nis_user)
         account.set_homedir(current_id=ah['homedir_id'], status=status)
         return "OK, set home-status for %s to %s" % (accountname,
@@ -6238,29 +5122,6 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
                                   grtype="DistributionGroup")
         return et, grp
 
-    def _is_email_delivery_stopped(self, ldap_target):
-        """ Test if email delivery is turned off in LDAP for a user. """
-        import ldap
-        import ldap.filter
-        import ldap.ldapobject
-        ldapconns = [ldap.ldapobject.ReconnectLDAPObject("ldap://%s/" % server)
-                     for server in cereconf.LDAP_SERVERS]
-        target_filter = ("(&(target=%s)(mailPause=TRUE))" %
-                         ldap.filter.escape_filter_chars(ldap_target))
-        for conn in ldapconns:
-            try:
-                # FIXME: cereconf.LDAP_MAIL['dn'] has a bogus value, so we
-                # must hardcode the DN.
-                res = conn.search_s("cn=targets,cn=mail,dc=uio,dc=no",
-                                    ldap.SCOPE_ONELEVEL, target_filter,
-                                    ["1.1"])
-                if len(res) != 1:
-                    return False
-            except ldap.LDAPError:
-                self.logger.error("LDAP search failed", exc_info=True)
-                return False
-        return True
-
     def _email_info_detail(self, acc):
         info = []
         eq = Email.EmailQuota(self.db)
@@ -6348,12 +5209,11 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
         ('email', 'show_reservation_status'),
         AccountName(),
         fs=FormatSuggestion([("%-9s %s", ("uname", "hide"))]),
-        perm_filter='is_postmaster')
+        perm_filter='can_show_reservation_status')
 
     def email_show_reservation_status(self, operator, uname):
         """Display reservation status for a person."""
-        if not self.ba.is_postmaster(operator.get_entity_id()):
-            raise PermissionDenied('Access to this command is restricted')
+        self.ba.can_show_reservation_status(operator.get_entity_id())
         hidden = True
         account = self._get_account(uname)
         if account.owner_type == self.const.entity_person:
@@ -6411,12 +5271,20 @@ class AccessCommands(bofhd_access.BofhdAccessCommands):
     authz = bofhd_auth.AccessAuth
 
 
+class AddressCommands(bofhd_addresses.BofhdAddressCommands):
+    authz = bofhd_auth.AddressAuth
+
+
 class ApiKeyCommands(bofhd_apikey_cmds.BofhdApiKeyCommands):
     authz = bofhd_auth.ApiKeyAuth
 
 
 class BofhdRequestCommands(bofhd_requests_cmds.BofhdExtension):
     authz = bofhd_auth.BofhdRequestsAuth
+
+
+class ConsentCommands(bofhd_consent_cmds.BofhdExtension):
+    authz = bofhd_auth.ConsentAuth
 
 
 class CreateUnpersonalCommands(bofhd_user_create_unpersonal.BofhdExtension):
@@ -6429,6 +5297,10 @@ class ExtidCommands(bofhd_external_id.BofhdExtidCommands):
 
 class GroupRoleCommands(bofhd_group_roles.BofhdGroupRoleCommands):
     authz = bofhd_auth.GroupRoleAuth
+
+
+class GuestCommands(bofhd_guest_cmds.BofhdGuestCommands):
+    authz = bofhd_auth.GuestAuth
 
 
 class HistoryCommands(bofhd_history_cmds.BofhdHistoryCmds):
@@ -6449,6 +5321,50 @@ class OuCommands(bofhd_ou_cmds.OuCommands):
 
 class PasswordIssuesCommands(bofhd_pw_issues.BofhdExtension):
     authz = bofhd_auth.PasswordIssuesAuth
+
+
+class PermCommands(bofhd_perm_cmds.BofhdPermCommands):
+    authz = bofhd_auth.PermAuth
+
+    def _find_target_ids(self, entity):
+        """ Find all targets that cause "ownership" of entity. """
+        target_ids = super(PermCommands, self)._find_target_ids(entity)
+
+        aot = BofhdAuthOpTarget(self.db)
+
+        # uio-specific disk ownership:
+        # Anyone who has privileged access to a disk also has privileged
+        # acccess to accounts with homedirs there
+        if entity.entity_type == self.const.entity_account:
+            disk = Utils.Factory.get('Disk')(self.db)
+            try:
+                tmp = entity.get_home(self.const.spread_uio_nis_user)
+                disk.find(tmp['disk_id'])
+            except Errors.NotFoundError:
+                self.logger.warn("Unknown disk for account_id=%r",
+                                 entity.entity_id)
+                return target_ids
+
+            for r in aot.list(target_type='global_host'):
+                target_ids.add(r['op_target_id'])
+
+            for r in aot.list(target_type='disk',
+                              entity_id=int(disk.entity_id)):
+                target_ids.add(r['op_target_id'])
+
+            for r in aot.list(target_type='host', entity_id=int(disk.host_id)):
+                if (not r['attr'] or re.match(r['attr'],
+                                              disk.path.split("/")[-1])):
+                    target_ids.add(r['op_target_id'])
+        return target_ids
+
+
+class QuarantineCommands(bofhd_quarantines.BofhdQuarantineCommands):
+    authz = bofhd_auth.QuarantineAuth
+
+
+class SmsCommands(bofhd_misc_sms.BofhdSmsCommands):
+    authz = bofhd_auth.SmsAuth
 
 
 class TraitCommands(bofhd_trait_cmds.TraitCommands):

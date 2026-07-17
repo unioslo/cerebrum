@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003-2021 University of Oslo, Norway
+# Copyright 2003-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -28,15 +28,21 @@ from Cerebrum.modules.EntityTrait import EntityTrait
 from Cerebrum.modules.apikeys import bofhd_apikey_cmds
 from Cerebrum.modules.audit import bofhd_history_cmds
 from Cerebrum.modules.bofhd import bofhd_access
+from Cerebrum.modules.bofhd import bofhd_addresses
 from Cerebrum.modules.bofhd import bofhd_external_id
 from Cerebrum.modules.bofhd import bofhd_group_roles
+from Cerebrum.modules.bofhd import bofhd_misc_sms
 from Cerebrum.modules.bofhd import bofhd_ou_cmds
+from Cerebrum.modules.bofhd import bofhd_perm_cmds
+from Cerebrum.modules.bofhd import bofhd_quarantines
 from Cerebrum.modules.bofhd import bofhd_user_create_unpersonal
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.bofhd_contact_info import BofhdContactAuth
 from Cerebrum.modules.bofhd.bofhd_email import BofhdEmailAuth
 from Cerebrum.modules.bofhd.errors import PermissionDenied
 from Cerebrum.modules.bofhd_requests.bofhd_requests_auth import RequestsAuth
+from Cerebrum.modules.consent import bofhd_consent_auth
+from Cerebrum.modules.guest import bofhd_guest_auth
 from Cerebrum.modules.otp import bofhd_otp_cmds
 from Cerebrum.modules.ou_disk_mapping import bofhd_cmds
 from Cerebrum.modules.trait import bofhd_trait_cmds
@@ -376,6 +382,19 @@ class EmailAuth(UioAuth, BofhdEmailAuth):
             return False
         raise PermissionDenied("Currently limited to superusers")
 
+    def can_show_reservation_status(self, operator, query_run_any=False):
+        if self.is_superuser(operator):
+            return True
+        if self.is_postmaster(operator):
+            return True
+        if self._has_operation_perm_somewhere(
+                operator,
+                self.const.auth_email_show_reservation):
+            return True
+        if query_run_any:
+            return False
+        raise PermissionDenied('Access to this command is restricted')
+
 
 class BofhdRequestsAuth(UioAuth, RequestsAuth):
     pass
@@ -385,15 +404,15 @@ class AccessAuth(UioAuth, bofhd_access.BofhdAccessAuth):
     pass
 
 
+class AddressAuth(UioAuth, bofhd_addresses.BofhdAddressAuth):
+    pass
+
+
 class ApiKeyAuth(UioAuth, bofhd_apikey_cmds.BofhdApiKeyAuth):
     pass
 
 
-class ExtidAuth(UioAuth, bofhd_external_id.BofhdExtidAuth):
-    pass
-
-
-class PasswordIssuesAuth(UioAuth):
+class ConsentAuth(UioAuth, bofhd_consent_auth.BofhdConsentAuth):
     pass
 
 
@@ -402,11 +421,15 @@ class CreateUnpersonalAuth(UioAuth,
     pass
 
 
-class OUDiskMappingAuth(UioAuth, bofhd_cmds.BofhdOUDiskMappingAuth):
+class ExtidAuth(UioAuth, bofhd_external_id.BofhdExtidAuth):
     pass
 
 
 class GroupRoleAuth(UioAuth, bofhd_group_roles.BofhdGroupRoleAuth):
+    pass
+
+
+class GuestAuth(UioAuth, bofhd_guest_auth.BofhdGuestAuth):
     pass
 
 
@@ -415,6 +438,10 @@ class HistoryAuth(UioAuth, bofhd_history_cmds.BofhdHistoryAuth):
 
 
 class OuAuth(UioAuth, bofhd_ou_cmds.OuAuth):
+    pass
+
+
+class OUDiskMappingAuth(UioAuth, bofhd_cmds.BofhdOUDiskMappingAuth):
     pass
 
 
@@ -435,6 +462,34 @@ class OtpAuth(UioAuth, bofhd_otp_cmds.OtpAuth):
             return True
         else:
             return super(OtpAuth, self)._is_otp_protected(person)
+
+
+class PasswordIssuesAuth(UioAuth):
+    pass
+
+
+class PermAuth(UioAuth, bofhd_perm_cmds.BofhdPermAuth):
+    pass
+
+
+class QuarantineAuth(UioAuth, bofhd_quarantines.BofhdQuarantineAuth):
+
+    GUEST_OWNER_TRAITS = (
+        "guest_owner",
+        "guest_owner_uio",
+    )
+
+    RESTRICTED_QUARANTINES = (
+        "auto_no_aff"
+        "cert",
+        "radius",
+        "svakt_passord",
+        "system",
+    )
+
+
+class SmsAuth(UioAuth, bofhd_misc_sms.BofhdSmsAuth):
+    pass
 
 
 class TraitAuth(UioAuth, bofhd_trait_cmds.TraitAuth):

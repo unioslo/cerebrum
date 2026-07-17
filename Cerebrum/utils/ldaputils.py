@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2018 University of Oslo, Norway
+# Copyright 2018-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,15 +17,19 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" Ldap utilities.
+"""
+LDAP and LDIF utilities.
 
-Utilities for wrapping communication with LDAP servers.
-
-TODO: Consolidate Cerebrum.modules.Ldap and
+TODO
+----
+Consolidate Cerebrum.modules.Ldap and
 Cerebrum.modules.bofhd.bofhd_email:LdapUpdater into this module.
 
-Also, the scripts in contrib/exchange/ use Ldap extensively -- there should
-probably be a generic implementation of those objects here.
+The scripts in contrib/exchange/ implement a lot of duplicated utils, some of
+them should probably be re-written to generic utils here.
+
+Some of the LDIF formatting utils in Cerebrum.modules.LDIFutils should be
+cleaned up and moved here as well.
 """
 
 

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2021 University of Oslo, Norway
+# Copyright 2021-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -317,8 +317,11 @@ class AffiliationSync(_SourceSystemSync):
 
         new_affiliations = set()
         for aff_value, ou_id in aff_tuples:
-            aff, status = self.const.get_affiliation(aff_value)
-            if status is None:
+            try:
+                aff, status = self.const.get_affiliation(aff_value)
+            except (ValueError, Errors.NotFoundError):
+                aff, status = None, None
+            if aff is None or status is None:
                 raise ValueError('invalid affiliation/status: '
                                  + repr(aff_value))
 
@@ -385,7 +388,7 @@ class AddressSync(_KeyValueSync):
         """
         country = addr_dict.get('country') or None
         if country:
-            country = self.const.get_constant(self.const._CountryCode,
+            country = self.const.get_constant(self.const.Country,
                                               country)
         return (
             ('address_text', addr_dict.get('address_text')),
@@ -397,9 +400,15 @@ class AddressSync(_KeyValueSync):
 
     def __call__(self, entity, pairs):
         # normalize values
-        pairs = tuple(
+        normalized = (
             (addr_type, self.__normalize_addr(addr_value))
             for addr_type, addr_value in pairs
+        )
+        # remove empty addresses
+        pairs = tuple(
+            (addr_type, addr_value)
+            for addr_type, addr_value in normalized
+            if any(t[1] for t in addr_value)
         )
         return super(AddressSync, self).__call__(entity, pairs)
 

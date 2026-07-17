@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2021 University of Oslo, Norway
+# Copyright 2021-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -20,18 +20,49 @@
 """
 Models for tasks in the task queue.
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import six
 
 from Cerebrum.utils.date import now
 from Cerebrum.utils.reprutils import ReprFieldMixin
 
 
-class Task(ReprFieldMixin):
-    """ A single item on the queue.  """
+class _CompareAttrs(object):
+    """ Attribute-based equality checks. """
 
-    repr_fields = ('queue', 'sub', 'key')
+    compare_attrs = ()
+
+    def __eq__(self, other):
+        attrs = self.compare_attrs
+        if not attrs:
+            # it is an error to use _CompareAttrs without setting the
+            # compare_attrs class attribute
+            raise NotImplementedError("no compare_attrs in "
+                                      + repr(type(self)))
+        if all(hasattr(other, attr) for attr in attrs):
+            return all(getattr(self, attr) == getattr(other, attr)
+                       for attr in attrs)
+        return NotImplemented
+
+    def __ne__(self, other):
+        eq = self.__eq__(other)
+        if eq is NotImplemented:
+            return NotImplemented
+        return not eq
+
+
+class Task(_CompareAttrs, ReprFieldMixin):
+    """ A single item on the queue.  """
     repr_id = False
     repr_module = False
+    repr_fields = ("queue", "sub", "key")
+    compare_attrs = ("queue", "sub", "key", "nbf", "iat",
+                     "attempts", "reason", "payload")
 
     def __init__(self, queue, key, sub=None, nbf=None, iat=None, attempts=None,
                  reason=None, payload=None):
@@ -81,7 +112,7 @@ class Task(ReprFieldMixin):
         return record
 
 
-class Payload(ReprFieldMixin):
+class Payload(_CompareAttrs, ReprFieldMixin):
     """
     Payload for a Task.
 
@@ -93,7 +124,8 @@ class Payload(ReprFieldMixin):
     format and a version.
     """
     default_version = 1
-    repr_fields = ('format', 'version')
+    repr_fields = ("format", "version")
+    compare_attrs = ("format", "version", "data")
 
     def __init__(self, fmt, data, version=default_version):
         self.format = fmt
@@ -178,3 +210,67 @@ def merge_tasks(new_task, old_task=None, _now=None):
         # task, i.e. we should replace the old task entirely.
         pass
     return new_task
+
+
+def parse_task_id(task_id, require_sub=True, default_sub=None):
+    """
+    Parse a *task-id*.
+
+    :param str task_id:
+        A string with format "<queue>/<sub>/<key>"
+
+    :param bool require_sub:
+        Only accept the default format (<queue>/<sub>/<key>).
+
+        If set to ``False``, the special format, "<queue>/<key>" is accepted,
+        and will return *default_sub* as the sub-queue value.
+
+    :param str default_sub:
+        Default <sub> for the special "<queue>/<key>" format.
+
+    :rtype tuple:
+        A tuple with the <queue>, <sub>, and <key> values.
+    """
+    if require_sub:
+        valid_formats = "q/s/k, q//k"
+    else:
+        valid_formats = "q/k, q/s/k, q//k"
+
+    parts = task_id.split('/')
+    if len(parts) == 2 and not require_sub:
+        queue, key = parts
+        sub = default_sub
+    elif len(parts) == 3:
+        queue, sub, key = parts
+    else:
+        raise ValueError(
+            "invalid task-id: %s (valid formats: %s)"
+            % (repr(task_id), valid_formats))
+
+    queue = queue.strip()
+    if not queue:
+        raise ValueError("invalid task-id: %s (missing queue)"
+                         % repr(task_id))
+    key = key.strip()
+    if not key:
+        raise ValueError("invalid task-id: %s (missing key)"
+                         % repr(task_id))
+    return (queue, sub, key)
+
+
+def format_task_id(task_like):
+    """ Format a valid task-id from task info. """
+    if isinstance(task_like, Task):
+        parts = task_like.queue, task_like.sub or "", task_like.key
+    else:
+        parts = task_like['queue'], task_like['sub'] or "", task_like['key']
+    return '/'.join(parts)
+
+
+def format_queue_id(task_like):
+    """ Format a queue-id (task-id without key). """
+    if isinstance(task_like, Task):
+        parts = task_like.queue, task_like.sub or ""
+    else:
+        parts = task_like['queue'], task_like['sub'] or ""
+    return '/'.join(parts)

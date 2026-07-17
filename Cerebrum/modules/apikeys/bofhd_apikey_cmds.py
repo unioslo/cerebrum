@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2019 University of Oslo, Norway
+# Copyright 2019-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -20,36 +20,28 @@
 """
 This module contains apikey module commands for bofhd.
 
-..warning::
-    The classes in this module should *not* be used directly. Make subclasses
-    of the classes here, and mix in the proper auth classes.
-
-    E.g. given a ``FooAuth`` class that implements or overrides the core
-    ``BofhdAuth`` authorization checks, you should create:
-    ::
-
-        class FooApiKeyAuth(FooAuth, BofhdApiKeyAuth):
-            pass
-
-
-        class FooApiKeyCmds(BofhdApiKeyCommands):
-            authz = FooApiKeyAuth
-
-    Then list the FooApiKeyCmds in your bofhd configuration file. This way, any
-    override done in FooAuth (e.g. is_superuser) will also take effect in these
-    classes.
+.. important::
+   These classes should not be used directly.  Always make subclasses of
+   BofhdCommandBase classes, and add a proper auth class/mixin to the class
+   authz.
 """
-from __future__ import unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+import textwrap
 
 from Cerebrum import Errors
 from Cerebrum.modules.bofhd.auth import BofhdAuth
-from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
-from Cerebrum.modules.bofhd.bofhd_core_help import get_help_strings
+from Cerebrum.modules.bofhd import bofhd_core
+from Cerebrum.modules.bofhd import bofhd_core_help
 from Cerebrum.modules.bofhd.bofhd_utils import format_time
-from Cerebrum.modules.bofhd.cmd_param import (AccountName, Command,
-                                              FormatSuggestion, SimpleString,)
+from Cerebrum.modules.bofhd import cmd_param
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.help import merge_help_strings
+
 from .dbal import ApiMapping
 
 
@@ -98,20 +90,20 @@ HELP_CMD = {
 }
 
 HELP_ARGS = {
-    'api_client_identifier': [
-        'identifier',
-        'Enter client identifier',
-        'A client subscription identifier',
+    'api-client-id': [
+        "api-client-id",
+        "Enter client identifier",
+        "A client subscription identifier",
     ],
-    'api_client_description': [
-        'description',
-        'Enter description',
-        'A description of this client subscription',
+    'api-client-desc': [
+        "api-client-desc",
+        "Enter description",
+        "A description of this client subscription",
     ],
 }
 
 
-class BofhdApiKeyCommands(BofhdCommandBase):
+class BofhdApiKeyCommands(bofhd_core.BofhdCommandBase):
     """API subscription commands."""
 
     all_commands = {}
@@ -122,17 +114,18 @@ class BofhdApiKeyCommands(BofhdCommandBase):
         """Get help strings."""
         return merge_help_strings(
             (HELP_GROUP, HELP_CMD, HELP_ARGS),
-            get_help_strings())
+            bofhd_core_help.get_help_strings(),
+        )
 
     #
     # api subscription_set <identifier> <account> [description]
     #
-    all_commands['api_subscription_set'] = Command(
+    all_commands['api_subscription_set'] = cmd_param.Command(
         ('api', 'subscription_set'),
-        SimpleString(help_ref='api_client_identifier'),
-        AccountName(),
-        SimpleString(help_ref='api_client_description', optional=True),
-        fs=FormatSuggestion(
+        cmd_param.SimpleString(help_ref='api-client-id'),
+        cmd_param.AccountName(),
+        cmd_param.SimpleString(help_ref='api-client-desc', optional=True),
+        fs=cmd_param.FormatSuggestion(
             "Set subscription='%s' for account %s (%d)",
             ('identifier', 'account_name', 'account_id')
         ),
@@ -170,10 +163,10 @@ class BofhdApiKeyCommands(BofhdCommandBase):
     #
     # api subscription_clear <identifier>
     #
-    all_commands['api_subscription_clear'] = Command(
+    all_commands['api_subscription_clear'] = cmd_param.Command(
         ('api', 'subscription_clear'),
-        SimpleString(help_ref='api_client_identifier'),
-        fs=FormatSuggestion(
+        cmd_param.SimpleString(help_ref='api-client-id'),
+        fs=cmd_param.FormatSuggestion(
             "Cleared subscription='%s' from account %s (%d)",
             ('identifier', 'account_name', 'account_id')
         ),
@@ -213,13 +206,13 @@ class BofhdApiKeyCommands(BofhdCommandBase):
     #
     # api subscription_list <account>
     #
-    all_commands['api_subscription_list'] = Command(
+    all_commands['api_subscription_list'] = cmd_param.Command(
         ('api', 'subscription_list'),
-        AccountName(),
-        fs=FormatSuggestion(
-            "%-36s %-16s %s",
-            ('identifier', format_time('updated_at'), 'description'),
-            hdr="%-36s %-16s %s" % ('Identifier', 'Last update', 'Description')
+        cmd_param.AccountName(),
+        fs=cmd_param.get_format_suggestion_table(
+            ("identifier", "Identifier", 36, "s", True),
+            (format_time("updated_at"), "Last update", 16, "s", True),
+            ("description", "Description", 28, "s", True),
         ),
         perm_filter='can_list_api_mapping',
     )
@@ -234,8 +227,6 @@ class BofhdApiKeyCommands(BofhdCommandBase):
             {
                 'account_id': row['account_id'],
                 'identifier': row['identifier'],
-                # TODO: Add support for naive and localized datetime objects in
-                # native_to_xmlrpc
                 'updated_at': row['updated_at'],
                 'description': row['description'],
             }
@@ -245,18 +236,24 @@ class BofhdApiKeyCommands(BofhdCommandBase):
     #
     # api subscription_info <identifier>
     #
-    all_commands['api_subscription_info'] = Command(
+    all_commands['api_subscription_info'] = cmd_param.Command(
         ('api', 'subscription_info'),
-        SimpleString(help_ref='api_client_identifier'),
-        fs=FormatSuggestion(
-            "\n".join((
-                "Identifier:  %s",
-                "Account:     %s (%d)",
-                "Last update: %s",
-                "Description: %s",
-            )),
-            ('identifier', 'account_name', 'account_id',
-             format_time('updated_at'), 'description'),
+        cmd_param.SimpleString(help_ref='api-client-id'),
+        fs=cmd_param.FormatSuggestion(
+            textwrap.dedent(
+                """
+                Identifier:  %s
+                Account:     %s (%d)
+                Last update: %s
+                Description: %s
+                """
+            ).strip(),
+            (
+                'identifier',
+                'account_name', 'account_id',
+                format_time('updated_at'),
+                'description',
+            ),
         ),
         perm_filter='can_list_api_mapping',
     )
@@ -283,8 +280,6 @@ class BofhdApiKeyCommands(BofhdCommandBase):
             'account_id': account.entity_id,
             'account_name': account.account_name,
             'identifier': mapping['identifier'],
-            # TODO: Add support for naive and localized datetime objects in
-            # native_to_xmlrpc
             'updated_at': mapping['updated_at'],
             'description': mapping['description'],
         }

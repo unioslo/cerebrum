@@ -41,6 +41,13 @@ from sys import prefix
 # localized datetime values.
 TIMEZONE = 'Europe/Oslo'
 
+# Environment
+#
+# This value *should* be set to a string to identify the current environment.
+# For production, this is usually something like "cerebrum-<foo>"
+#
+ENVIRONMENT = None
+
 # Files containing the authentication data needed for database access
 # are kept in this directory.
 DB_AUTH_DIR = pj(prefix, 'etc', 'passwords')
@@ -99,13 +106,6 @@ PASSWORD_CHECKS = {
         ('avg_word_length', {'avg_length': 4}),
     )}
 
-# The length of the password generated in Account.make_password
-MAKE_PASSWORD_LENGTH = 8
-
-# Arguments to test for password_good_enough. Inserted with
-# Cerebrum.modules.pwcheck.confargs/CereconfMixin
-PASSWORD_TEST_ARGUMENTS = {}
-
 # Specification for selection of phone numbers for sending SMS.
 # I.e. SMS_NUMBER_SELECTOR = [
 #   (co.system_fs, co.contact_voip_extension),
@@ -120,44 +120,38 @@ SMS_NUMBER_SELECTOR = []
 SMS_NUMBER_SELECTOR_PRIVATE = []
 
 # System type and phone type to be used in welcome sms
-SMS_WELCOME_TYPE_NUMBER_SELECTOR = [('system_dfo_sap', 'PRIVATEMOBILE'),
-                                    ('system_dfo_sap', 'MOBILE'),
-                                    ('system_sap', 'PRIVATEMOBILE'),
-                                    ('system_sap', 'MOBILE'),
-                                    ('system_fs', 'MOBILE')]
+SMS_WELCOME_TYPE_NUMBER_SELECTOR = []
+
 # Look for things like person name by evaluating source systems in in
 # this order
 SYSTEM_LOOKUP_ORDER = ("system_manual",)
+
 #  Generate a full-name to display in this order
-NAME_LOOKUP_ORDER = (("name_full",),
-                     ("name_first", "name_last"))
+NAME_LOOKUP_ORDER = (
+    ("name_full",),
+    ("name_first", "name_last"),
+)
+
 DEFAULT_GECOS_NAME = "name_full"
 
-ENTITY_TYPE_NAMESPACE = {'account': 'account_names',
-                         'group': 'group_names',
-                         'host': 'host_names'}
+ENTITY_TYPE_NAMESPACE = {
+    'account': 'account_names',
+    'group': 'group_names',
+    'host': 'host_names',
+}
 
 # Tuple of value_domain_code code_strs that denies update_entity_name
 NAME_DOMAINS_THAT_DENY_CHANGE = ()
 
 DEFAULT_OU = None   # Used by bofh "account affadd" if OU is not set
-POSIX_HOME_TEMPLATE_DIR = "/local/etc/newusertemplates"
-POSIX_USERMOD_SCRIPTDIR = "/etc/cerebrum"
-
-DEBUG_HOSTLIST = None
-"""If set, a list of hostnames which are safe to run commands on
-during debugging."""
 
 # Used by run_privileged_command.py:
 CREATE_USER_SCRIPT = '/local/etc/reguser/mkhomedir'
 MVUSER_SCRIPT = '/cerebrum/sbin/mvuser'
 RMUSER_SCRIPT = '/cerebrum/sbin/aruser'
-ARCHIVE_MAIL_SCRIPT = '/cerebrum/sbin/archivemail'
 LEGAL_BATCH_MOVE_TIMES = '22:00-06:00'
 SYMPA_SCRIPT = None
-CONVERT_MAILCONFIG_SCRIPT = None
 MVMAIL_SCRIPT = None
-SUBSCRIBE_SCRIPT = None
 RSH_CMD = '/usr/bin/ssh'
 
 # Temporary switch until someone can figure out why mktime won't work
@@ -310,60 +304,20 @@ SIMILARSIZE_LIMIT_MULTIPLIER = 1.0
 ENCODING = 'ISO-8859-1'
 
 # Active directory specific settings.
+#
+# Exchange forward group settings.  This setting should probably be moved to
+# 'adconf'.
+AD_FORWARD_GROUP_PREFIX = ""
 
-AD_SERVER_HOST = 'bastard'
-AD_SERVER_PORT = 1681
-AD_DOMAIN = 'WinNT://WINTEST'
-AD_LDAP = 'DC=wintest,DC=uio,DC=no'
-AD_SOURCE_SEARCH_ORDER = (
-    'system_sap',
-    'system_fs',
-    'system_lt')
-AD_PASSWORD = 'hallo\n'
-AD_LOST_AND_FOUND = 'lost-n-found'
-# A value og '0' represents cn=Users,value -1 uses OU in AD_LDAP_PATH.
-AD_DEFAULT_OU = '0'
-AD_DEFAULT_GROUP_OU = 'OU=grupper'
-AD_DEFAULT_USER_OU = 'OU=brukere'
-AD_CERE_ROOT_OU_ID = '682'
-AD_DONT_TOUCH = ('Group Policy Creator Owners',
-                 'DnsUpdateProxy',
-                 'Tivoli_Admin_Privileges',
-                 'Domain Guests',
-                 'Domain Admins',
-                 'Domain Users',
-                 'Cert Publishers',
-                 'Domain Controllers',
-                 'Domain Computers',
-                 'Administrator',
-                 'Guest',
-                 'tmersrvd',
-                 'krbtgt',
-                 'TsInternetUser')
-# Necessary if groups and users have different namespaces in Cerebrum.
-AD_GROUP_POSTFIX = '-gruppe'
-# Default values is sAMAccountName, distinguishedName
-AD_ATTRIBUTES = ("displayName", "homeDrive", "homeDirectory")
-# Must always have ACCOUNTDISABLE.
-AD_ACCOUNT_CONTROL = {'ACCOUNTDISABLE': True, 'DONT_EXPIRE_PASSWORD': True}
-AD_HOME_DRIVE = 'M:'
-AD_PASSWORD_EXPIRE = '0'
-AD_CANT_CHANGE_PW = '0'
-AD_PW_EXCEPTION = 'process_students'
-AD_PW_EXCEPTION_OU = 'cerebrum_pw_exception'
-AD_DO_NOT_TOUCH = 'Cerebrum_dont_touch'
-AD_STUNNEL = False
-AD_STUNNEL_CONF = '/local/sbin/stunnel.conf'
-AD_DEFAULT_SYNC = ''
-AD_ACCOUNT_SPREADS = None
-AD_TRAIT_TYPES = None
-AD_DOMAIN_ADMIN_USER = 'cerebrum'
+# Exchange distribution group defaults.  These settings should probably be
+# moved to 'adconf'
+AD_DIST_GROUP_PREFIX = ""
+AD_DIST_GRP_ATTRIBUTES = ()
+AD_DIST_GRP_DEFAULTS = {}
+AD_DIST_GRP_UPDATE_EX = ()
+
 # Exchange-related variables
 #
-# exchange-related-jazz
-# account exchange spread, accounts with this spread are exported to
-# exchange. override localy.
-EXCHANGE_ACCOUNT_SPREAD = ""
 # exchange-related-jazz
 # at creation of primary address for dist-groups this short prefix
 # will be attached to the chosen name, override localy
@@ -374,7 +328,7 @@ DISTGROUP_PRIMARY_ADDR_PREFIX = ""
 #
 DISTGROUP_DEFAULT_DOMAIN = ""
 #
-# distribution group spread, override localy
+# distribution group spread, override locally
 EXCHANGE_GROUP_SPREAD = None
 #
 # distribution group default admin list in exchange, override localy
@@ -389,7 +343,6 @@ EXCHANGE_HOMEMDB_VALID = {}
 # list homeMDBs per affiliation as follows:
 # EXCHANGE_HOMEMDB = {'ANSATT': (homeMDB01, homeMDB02...),
 #                     'MANUELL': (homeMDB03, homeMDB04...)}
-EXCHANGE_HOMEMDB_PER_AFFILIATION = {}
 
 # General location for lockfiles
 LOCKFILE_DIR = pj(prefix, 'var', 'lock')
@@ -674,7 +627,7 @@ LDAP = {
     #   'server': "ldap.example.com",
 
     # Default directory in which to write LDIF files
-    'dump_dir': pj(prefix, 'var', 'cache', 'LDAP'),
+    'dump_dir': pj(prefix, "var/cache/LDAP"),
 
     # If set, default attributes for all LDAP_*['dn'] objects except ORG. Each
     # attribute is added if the object does not already have that attribute:
@@ -685,13 +638,6 @@ LDAP = {
     # organization, plus postal and street addresses for people.
     #
     #   'contact_source_system': 'system_foobar',
-
-    # Addresses can be collected from a different source_system than that given
-    # in 'contact_source_system' using 'address_source_system'. If this
-    # variable is not set, address will be collected from
-    # 'contact_source_system'.
-    #
-    #   'address_source_system': 'system_foobar'
 
     # Mapping used to rewrite domains in e-mail addresses:
     # {"domain returned from Cerebrum": "real domain", ...}.
@@ -722,7 +668,6 @@ LDAP = {
 #                last run.  With a larger change, an error is reported and the
 #                file if not updated.  Default LDAP['max_change'].
 #                If max_change is None or >= 100, just open the file normally.
-# 'append_file': If set, the name of an LDIF file to append to this tree.
 # 'spread':      If set, a spread or sequence of spreads for this LDAP tree,
 #                as either Constants.py names or Cerebrum code strings/numbers.
 #                Applies to USER, NETGROUP, FILEGROUP, MAIL (max one spread)
@@ -781,15 +726,6 @@ LDAP_PERSON = {
     # placed in a flat structure below LDAP_PERSON['dn'].  Attributes
     # from object class eduPerson will refer to their org.units.
     #   'dn': "cn=people," + LDAP_ORG['dn'],
-
-
-    # Which address types to give persons: POST and/or STREET
-    'address_types': ['POST', 'STREET'],
-
-    # This setting indicates that init_person_addresses should fetch these
-    # address types from the OU that a person is affiliated rather than the
-    # person itself.
-    'address_from_affiliated_ou': [],
 
     # Whether to give the organization tree alias entries for persons.
     # Disabled by default:  Aliases defeat indexing in OpenLDAP since the
@@ -954,9 +890,6 @@ LDAP_USER = {
     # 'dn' (str): The DistinguishedName for where the entities should be
     #   located in the output file. E.g. 'cn=users,dc=INSTANCE,dc=no'.
     #
-    # 'file' (str): The location of the output LDIF file that will be
-    #   generated by the UserLDIF module.
-    #
     #
     # The rest of the settings listed here are mainly available for
     # certain *subclasses* of UserLDIF:
@@ -993,7 +926,38 @@ LDAP_USER = {
     #
     }
 LDAP_FILEGROUP = {}
-LDAP_NETGROUP = {}
+LDAP_NETGROUP = {
+    # Some example settings:
+    #
+    # 'dn' (str):  DN of the netgroup objects.  Example::
+    #
+    #       'cn=netgroups,' + LDAP_POSIX['dn'],
+    #
+    # 'attrs' (dict):  Custom attributes for the netgroup parent object.
+    #   Example::
+    #
+    #       'attrs': {'description': ('Netgroups',)},
+    #
+    # # spread (str):  Name of a spread to select groups for export.  Example::
+    #
+    #       'spread': ('netgroup',),
+    #
+    # 'group_attrs' (dict):  Custom attributes for all netgroup objects.  Any
+    #   attribute here will override the defaults in
+    #   `PosixLDIF.create_netgroup_object`.  Example::
+    #
+    #       'group_attrs': {
+    #         'description': ('a netgroup',)},
+    #         'objectClass': ('top', 'nisNetGroup', 'customGroup'),
+    #       },
+    #
+    # 'member_attr' (str):  If set, each netgroup will get an extra,
+    #   multivalued member dn list attribute.  This typically requires a custom
+    #   `objectClass` in `group_attrs`.  Example::
+    #
+    #       'member_attr': 'member',
+    #
+}
 
 # Generated by generate_subnet_ldif.py: Subnet ranges.
 # Note: Reads Python comments in cereconf_dns.py for LDAP description fields.
@@ -1017,9 +981,8 @@ LDAP_MAIL_DOMAINS = {
 
 # Default settings of the previous names of these variables;
 # retained for the time being for backwards compatibility.
-LDAP_DUMP_DIR = pj(prefix, 'var', 'cache', 'LDAP')
+LDAP_DUMP_DIR = pj(prefix, 'var/cache/LDAP')
 LDAP_ORG_FILE = 'organization.ldif'
-LDAP_POSIX_FILE = 'posix.ldif'
 LDAP_ALIASES = False
 LDAP_ORG_ROOT = None
 LDAP_DUMMY_OU_ATTRS = {'description': ('Other organizational units',)}
@@ -1029,40 +992,6 @@ LDAP_VISIBLE_PERSON_SELECTOR = True
 LDAP_EDUPERSONAFFILIATION_SELECTOR = []
 LDAP_VISIBLE_PERSON_ATTRS = {}
 LDAP_REWRITE_EMAIL_DOMAIN = {}
-LDAP_ORG_ADD_LDIF_FILE = LDAP_POSIX_ADD_LDIF_FILE = None
-
-# DNS
-DNS_EMAIL_REGEXP = r'^[-+=a-z0-9_.]+@[a-z0-9_-]+[-a-z0-9_.]*\.[a-z]{2,3}$'
-# Default number of adresses to reserve at start of a
-# subnet. Additionally, if any addresses are reserved, broadcast
-# (last) address is reserved too. If no entry, max value from
-# dictionary is used.
-DEFAULT_RESERVED_BY_NET_SIZE = {
-    25: 10,
-    26: 3,
-    27: 3,
-    28: 3,
-    29: 3,
-    30: 0,
-    31: 0,
-    32: 0,
-}
-
-# The default DNS zone to use for bofhd commands and others. Must reference to
-# a Cerebrum constant of type DnsZoneCode:
-DNS_DEFAULT_ZONE = 'uio'
-
-DEFAULT_RESERVED_BY_IPv6_NET_SIZE = {64: 4}
-DEFAULT_IPv6_SUBNET_ALLOCATION_START = 0x256
-
-# Suppress the force-option for unknown IPv6 subnets.
-# This needs to be done if an instance does not have any subnets defined.
-# TODO: Remove this at an appropriate time!
-DNS_HOST_A_ADD_ACCEPT_MISSING_IPV6_SUBNET = False
-
-# Location of documentation concerning import of subnets for DNS.
-# Added to mails sent when errors occur.
-DNS_SUBNETIMPORT_ERRORDOC_URL = None
 
 # STATISTICS
 # Various settings used by statistics-programs Lists most significant
@@ -1101,11 +1030,10 @@ AUTOMATIC_GROUP_POPULATE_META_PREFIX = []
 AUTOMATIC_GROUP_LEGAL_PREFIXES = {}
 
 # Groups who has memberships populated by contrib/populate-collection-groups.py
-# E.g. [('uio-tilk', ['system_sap:affiliation_tilknyttet',
-#                     'system_fs:affiliation_student',
-#                     'affiliation_tilknyttet_bilag'])]
+#
+# E.g. [('uio-tilk', ['SAP:TILKNYTTET', 'FS:STUDENT', 'TILKNYTTET/bilag'])]
 # Will result in the group 'uio-tilk' beeing filled with primary accounts who
-# have TILKNYTTET affiliations from SAP, STUDENT-affiliations from FS and
+# have TILKNYTTET affiliations from SAP, STUDENT-affiliations from FS or
 # TILKNYTTET/bilag from all source systems.
 #
 # The groups you specify in this configuration, must be created BEFORE
@@ -1146,62 +1074,6 @@ SMS_DISABLE = False
 # A mapping of building codes to their addresses. Used by the SAP import of
 # people, for adding OFFICE adresses and room numbers.
 BUILDING_CODES = {}
-
-#
-# Guest accounts
-#
-
-# Note that these configuration variables should be put in their own file,
-# guestconfig.py, in the same location as cereconf.py.
-
-# The maximum number of days a guest account can live. The set expire date for
-# guest accounts can not be longer than this. It is, however, possible to set
-# it lower than this.
-GUEST_MAX_DAYS = 30
-
-# The different types of guests. This is a dict where each element is a type
-# with the different settings for the given type of guest accounts. The dict's
-# keys are the guest group that the account should be added to. Possible
-# variables:
-#
-#  - prefix -   Prefix for the usernames. Used when creating guest accounts.
-#               Must be set.
-#  - spreads -  A list of spreads to add to the guest account at creation.
-#               Optional.
-#
-# Example:
-#  {'gueststudent':  {'prefix': 'guests-',
-#                     'spread': ('stud_account@AD',),},
-#   'guestemployee': {'prefix': 'guesta-',
-#                     'spread': ('account@AD',),},
-GUEST_TYPES = {}
-
-# The default GUEST_TYPES choice. This will be presented as the default choice
-# when using 'guest create' and then giving arguments interactively.
-GUEST_TYPES_DEFAULT = ''
-
-# The group that stands as the 'owner' of the guest accounts. Note that this is
-# the owner group, and not the 'responsible' for the guest, which is a
-# different thing which is stored in a trait.
-GUEST_OWNER_GROUP = 'guestaccounts'
-
-# The maximum number of simultaneously active guest accounts a given person
-# could create. Superusers are still able to create more than this.
-GUEST_MAX_PER_PERSON = 100
-
-# The message that should be sent to guest accounts that are registered with a
-# mobile phone number. Some input variables are needed, like 'username',
-# 'password' and 'expire' with the expire date, formated like YYYY-MM-DD.
-GUEST_WELCOME_SMS = ('Welcome.\n'
-                     'Your username is: %(username)s\n'
-                     'Your password is: %(password)s\n'
-                     'The account will expire at %(expire)s')
-
-# The maximum length of the username of guest accounts. Used to restrict the
-# length of usernames when generating them, to conform with limits of some
-# systems
-GUEST_MAX_LENGTH_USERNAME = 20
-
 
 # This switch decides if users are allowed to supply a phone number to send SMS
 # to, in bofhd commands that sends SMS-es.

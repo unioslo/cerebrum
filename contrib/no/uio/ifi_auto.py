@@ -24,9 +24,13 @@ Create e-mail addresses and filegroups for the courses at Dept. of
 Informatics.
 """
 
-from __future__ import unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
-import sys
 import argparse
 import re
 import datetime
@@ -165,6 +169,7 @@ def shorten_course_name(course):
     fgname = fgname.replace("in", "in", 1)
     fgname = fgname.replace("dig", "id", 1)
     fgname = fgname.replace("tool", "it", 1)
+    fgname = fgname.replace("sifi", "is", 1)
     return fgname[:6]
 
 
@@ -185,7 +190,7 @@ def convert_activitynumber(act):
     if act < 26:
         return delim + "%c" % (ord('a') + act)
     else:
-        return "%c%c" % (ord('a') + act/26, ord('a') + act % 26)
+        return "%c%c" % (ord('a') + act//26, ord('a') + act % 26)
 
 
 def make_filegroup_name(course, act, names):

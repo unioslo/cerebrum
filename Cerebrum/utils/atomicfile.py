@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2016-2018 University of Oslo, Norway
+# Copyright 2016-2025 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,7 +18,8 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 # Copyright 2002-2015 University of Oslo, Norway
-""" This module contains file writers and other file related tools.
+"""
+This module contains file writers and other file related tools.
 
 cereconf
 --------
@@ -40,19 +41,26 @@ SIMILARSIZE_LIMIT_MULTIPLIER
     warnings via the logger.
 
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import filecmp
 import inspect
 import io
 import os
 import random
-from six import reraise
 import shutil
 from string import ascii_lowercase, digits
 from warnings import warn as _warn
 
+import six
+
 import cereconf
 
-from Cerebrum.utils.funcwrap import deprecate
+from . import reprutils
 
 
 def _copydoc(obj, replace=False):
@@ -69,7 +77,7 @@ def _copydoc(obj, replace=False):
 
 
 def _random_string(length, characters=ascii_lowercase + digits):
-    """Generate a random string of given length using the given characters."""
+    """ Generate a random string of given length using the given characters."""
     random.seed()
     # pick "length" number of letters, then combine them to a string
     return ''.join([random.choice(characters) for _ in range(length)])
@@ -122,7 +130,7 @@ def _fwarn(msg):
     _warn(msg, FileWriterWarning, stacklevel=local_stackframes+1)
 
 
-class AtomicFileWriter(object):
+class AtomicFileWriter(reprutils.ReprFieldMixin):
     """ Atomic file writer class.
 
     This class acts as a write-only `file` object, that doesn't actually write
@@ -136,6 +144,9 @@ class AtomicFileWriter(object):
     3. If successful, move the temporary file to `filename` (replacing
        `filename` if needed).
     """
+    repr_id = False
+    repr_module = False
+    repr_fields = ("name", "closed")
 
     tmpfile_ext_chars = ascii_lowercase + digits
     """ Characters to use in the temporary file name extension. """
@@ -228,14 +239,14 @@ class AtomicFileWriter(object):
         # An exception of type exc_type was raised
         try:
             self.__file.close()
-        except:
+        except Exception:
             pass
-        reraise(exc_type, exc_value, traceback)
+        six.reraise(exc_type, exc_value, traceback)
 
     @classmethod
     def __generate_tmpname(cls, realname):
         random.seed()
-        for attempt in xrange(cls.tmpfile_ext_tries):
+        for attempt in six.moves.range(cls.tmpfile_ext_tries):
             name = os.path.extsep.join(
                 (realname,
                  ''.join([random.choice(cls.tmpfile_ext_chars) for n
@@ -267,23 +278,32 @@ class AtomicFileWriter(object):
         self.__replace = bool(value)
 
     @property
-    @_copydoc(file.mode)
+    @_copydoc(io.FileIO.mode)
     def mode(self):
         return self.__file.mode
 
     @property
-    @_copydoc(file.errors)
     def errors(self):
+        """
+        The error setting of the file encoder.
+
+        See `io.open()` and `codecs.Codec` for details.
+        """
         return self.__file.errors
 
     @property
-    @_copydoc(file.encoding)
     def encoding(self):
+        """
+        The encoding of the file stream.
+
+        See `io.open()` for details.
+        """
         return self.__file.encoding
 
     @property
     def discarded(self):
-        """ True if any changes was discarded without replacing the target file.
+        """
+        True if any changes was discarded without replacing the target file.
 
         This can happen if AtomicFileWriter is configured NOT to replace the
         target file when no changes are present.
@@ -332,7 +352,7 @@ class AtomicFileWriter(object):
         """
         pass
 
-    @_copydoc(file.close)
+    @_copydoc(io.FileIO.close)
     def close(self):
         """ In addition to the normal close behaviour:
 
@@ -360,7 +380,7 @@ class AtomicFileWriter(object):
 
             if ((not self.__replace_equal) and
                     os.path.exists(self.name) and
-                    filecmp.cmp(self.tmpname, self.name, shallow=0)):
+                    filecmp.cmp(self.tmpname, self.name, shallow=False)):
                 os.unlink(self.tmpname)
                 self.__discarded = True
             elif self.replace:
@@ -368,17 +388,18 @@ class AtomicFileWriter(object):
                 self.__replaced = True
         return ret
 
-    @_copydoc(file.flush)
+    @_copydoc(io.FileIO.flush)
     def flush(self):
         return self.__file.flush()
 
-    @_copydoc(file.write)
+    @_copydoc(io.FileIO.write)
     def write(self, data):
         return self.__file.write(data)
 
 
 class SimilarSizeWriter(AtomicFileWriter):
-    """This file writer will fail if the file size changes too much.
+    """
+    This file writer will fail if the file size changes too much.
 
     Clients will normally govern the exact limits for 'similar size'
     themselves, but there are times when it is convenient to have
@@ -402,19 +423,16 @@ class SimilarSizeWriter(AtomicFileWriter):
     SIMILARSIZE_CHECK_DISABLED.
 
     """
-    # TODO: Deprecate SIMILARSIZE_SIZE_LIMIT_MULTIPLIER
-    # TODO: Deprecate SIMILARSIZE_CHECK_DISABLED?
 
     DEFAULT_FACTOR = 1.0
 
     def __init__(self, *args, **kwargs):
         super(SimilarSizeWriter, self).__init__(*args, **kwargs)
-        self.__factor = getattr(cereconf, 'SIMILARSIZE_SIZE_LIMIT_MULTIPLIER',
-                                self.DEFAULT_FACTOR)
+        self.__factor = self.DEFAULT_FACTOR
 
     @property
     def max_pct_change(self):
-        u""" change max_pct_change for the new file, in percent. """
+        """ change max_pct_change for the new file, in percent. """
         try:
             return self.__percentage * self.__factor
         except AttributeError:
@@ -423,30 +441,15 @@ class SimilarSizeWriter(AtomicFileWriter):
     @max_pct_change.setter
     def max_pct_change(self, percent):
         self.__percentage = float(percent)
-        if self.__factor != self.DEFAULT_FACTOR:
-            _fwarn("SIMILARSIZE_SIZE_LIMIT_MULTIPLIER is set to a value other"
-                   " than {:.1f}; change limit will be {:.1f}% rather than the"
-                   " explicitly set {:.1f}".format(
-                       self.DEFAULT_FACTOR,
-                       self.__percentage * self.__factor,
-                       self.__percentage))
 
     @max_pct_change.deleter
     def max_pct_change(self):
         del self.__percentage
 
-    @deprecate("use `validate = <True|False>`")
-    def set_checks_enabled(self, new_enabled_status):
-        self.validate = new_enabled_status
-
-    @deprecate("use `max_pct_change = <percent>`")
-    def set_size_change_limit(self, percentage):
-        self.max_pct_change = percentage
-
     def validate_output(self):
         super(SimilarSizeWriter, self).validate_output()
 
-        if getattr(cereconf, 'SIMILARSIZE_CHECK_DISABLED', False):
+        if cereconf.SIMILARSIZE_CHECK_DISABLED:
             _fwarn("Similar size check disabled by global setting"
                    " 'cereconf.SIMILARSIZE_CHECK_DISABLED'")
             return
@@ -479,7 +482,7 @@ class SimilarLineCountWriter(AtomicFileWriter):
 
     @property
     def max_line_change(self):
-        u""" change limit for the new file, in lines. """
+        """ change limit for the new file, in lines. """
         try:
             return self.__limit
         except AttributeError:
@@ -528,7 +531,7 @@ class MinimumSizeWriter(AtomicFileWriter):
 
     @property
     def min_size(self):
-        u""" minimum file size for the changed file, in bytes. """
+        """ minimum file size for the changed file, in bytes. """
         try:
             return self.__limit
         except AttributeError:

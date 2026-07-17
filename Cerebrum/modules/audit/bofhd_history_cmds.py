@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2019 University of Oslo, Norway
+# Copyright 2019-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -20,6 +20,12 @@
 """
 Bofhd *history* command group for interacting with the audit log.
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 from Cerebrum.modules.audit.auditdb import AuditLogAccessor
 from Cerebrum.modules.audit.formatter import AuditRecordProcessor
@@ -54,7 +60,6 @@ class BofhdHistoryAuth(BofhdAuth):
             return self._has_operation_perm_somewhere(
                 operator,
                 self.const.auth_view_history)
-
         # Check if user has been granted an op-set that allows viewing the
         # entity's history in some specific fashion.
         for row in self._list_target_permissions(
@@ -64,7 +69,7 @@ class BofhdHistoryAuth(BofhdAuth):
                 self.const.auth_target_type_global_group,
                 None,
                 get_all_op_attrs=True):
-            attr = row.get('operation_attr')
+            attr = row['operation_attr']
 
             # Op-set allows viewing history for this entity type
             # We need try/except here as self.const.EntityType will throw

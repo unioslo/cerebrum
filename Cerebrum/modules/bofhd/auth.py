@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003-2023 University of Oslo, Norway
+# Copyright 2003-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -157,7 +157,7 @@ The auth module consists of the parts:
   superuser role.
 
 - Services that uses BofhdAuth would only see different auth methods, e.g.
-  can_set_disk_quota(). The operations and OpSets are then checked internally,
+  can_show_history(). The operations and OpSets are then checked internally,
   the service does not need to know about these details.
 
   An example is the bofhd command 'user_history', which calls
@@ -202,15 +202,14 @@ BOFHD_SUPERUSER_GROUP
 HOME_SPREADS
     Spreads that are used on home directories, users with one of these spreads
     are *not* affected by BOFHD_STUDADM_GROUP.
-QUARANTINE_AUTOMATIC
-    A list of quarantines that should not be altered manually (see
-    `can_*_quarantine`)
-QUARANTINE_STRICTLY_AUTOMATIC
-    A list of quarantines that *cannot* be altered manually (see
-    `can_*_quarantine`)
-
 """
-
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+import logging
 import re
 
 import six
@@ -218,7 +217,6 @@ import six
 import cereconf
 
 from Cerebrum import Cache
-from Cerebrum import Constants
 from Cerebrum import Errors
 from Cerebrum import Person
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
@@ -229,23 +227,7 @@ from Cerebrum.group.GroupRoles import GroupRoles
 from Cerebrum.meta import MarkUpdateMixin
 from Cerebrum.modules.bofhd.errors import PermissionDenied
 
-
-class AuthConstants(Constants._CerebrumCode):
-    """Defines an operation constant.
-
-    # TODO: this looks like a duplicate of utils._AuthRoleOpCode.  Cleanup!
-
-    Operations are saying what an operator is allowed to do. The operations are
-    handled inside the `BofhdAuth` class' methods.
-
-    Note that operations are not connected to operators directly. The
-    operations are put inside *operation sets* (OpSets), which again are linked
-    to operation targets, and is then either connected to the operator
-    directly, or is most likely connected through a regular group the operator
-    is member of.
-    """
-
-    _lookup_table = '[:table schema=cerebrum name=auth_op_code]'
+logger = logging.getLogger(__name__)
 
 
 class BofhdAuthOpSet(MarkUpdateMixin, DatabaseAccessor):
@@ -730,6 +712,56 @@ class BofhdAuthRole(DatabaseAccessor):
             """)
 
 
+def delete_entity_auth_roles(db, entity_id):
+    """
+    Remove all roles granted to an entity.
+
+    This is typically done before deleting (or deactivating) an entity.
+    Will also clean up any targets that are no longer targeted by any roles.
+
+    :param int entity_id: an entity that should have all their roles revoked
+    """
+    ar = BofhdAuthRole(db)
+    aot = BofhdAuthOpTarget(db)
+    for r in ar.list(entity_id):
+        ar.revoke_auth(entity_id, r['op_set_id'], r['op_target_id'])
+        # Also remove targets if this was the last reference from
+        # auth_role.
+        remaining = ar.list(op_target_id=r['op_target_id'])
+        if len(remaining) == 0:
+            aot.clear()
+            aot.find(r['op_target_id'])
+            aot.delete()
+
+
+def delete_entity_auth_target(db, target_type, target_id):
+    """
+    Remove all auth targets that points to a given entity.
+
+    Deletes all targets for an entity, along with any roles that grants access
+    to that target.
+
+    TODO: Why are we limiting this to target-type?  Also, why do we even have
+    *target-type* for non-global targets?
+
+    :param str target_type: target type
+    :param int target_id: entity-id to delete targets for
+    """
+    ar = BofhdAuthRole(db)
+    aot = BofhdAuthOpTarget(db)
+    for r in aot.list(entity_id=target_id, target_type=target_type):
+        aot.clear()
+        aot.find(r['op_target_id'])
+        # We remove all auth_role entries first so that there
+        # are no references to this op_target_id, just in case
+        # someone adds a foreign key constraint later.
+        for role in ar.list(op_target_id=r["op_target_id"]):
+            ar.revoke_auth(role['entity_id'],
+                           role['op_set_id'],
+                           r['op_target_id'])
+        aot.delete()
+
+
 def _get_bofhd_auth_systems(const):
     """
     Get authoritative system codes.
@@ -932,49 +964,6 @@ class BofhdAuth(DatabaseAccessor):
         """See if operator can view basic information about an account."""
         return True
 
-    def can_set_disk_quota(self, operator, account=None, unlimited=False,
-                           forever=False, query_run_any=False):
-        if self.is_superuser(operator):
-            return True
-        if query_run_any:
-            return self._has_operation_perm_somewhere(
-                operator, self.const.auth_disk_quota_set)
-        if forever:
-            self.has_privileged_access_to_account_or_person(
-                operator, self.const.auth_disk_quota_forever, account)
-        if unlimited:
-            self.has_privileged_access_to_account_or_person(
-                operator, self.const.auth_disk_quota_unlimited, account)
-        return self.has_privileged_access_to_account_or_person(
-            operator, self.const.auth_disk_quota_set, account)
-
-    def can_set_disk_default_quota(self, operator, host=None, disk=None,
-                                   query_run_any=False):
-        if self.is_superuser(operator):
-            return True
-        if query_run_any:
-            return self._has_operation_perm_somewhere(
-                operator, self.const.auth_disk_def_quota_set)
-        if ((host is not None and self._has_target_permissions(
-                                operator, self.const.auth_disk_def_quota_set,
-                                self.const.auth_target_type_host,
-                                host.entity_id, None)) or
-            (disk is not None and self._has_target_permissions(
-                                operator, self.const.auth_disk_def_quota_set,
-                                self.const.auth_target_type_disk,
-                                disk.entity_id, None))):
-            return True
-        raise PermissionDenied("No access to disk")
-
-    def can_show_disk_quota(self, operator, account=None, query_run_any=False):
-        if self.is_superuser(operator):
-            return True
-        if query_run_any:
-            return self._has_operation_perm_somewhere(
-                operator, self.const.auth_disk_quota_show)
-        return self.has_privileged_access_to_account_or_person(
-            operator, self.const.auth_disk_quota_show, account)
-
     def can_set_person_user_priority(self, operator, account=None,
                                      query_run_any=False):
         if query_run_any:
@@ -1058,15 +1047,6 @@ class BofhdAuth(DatabaseAccessor):
                                            "from authoritative source systems")
         return True
 
-    def can_send_freetext_sms_message(self, operator, query_run_any=False):
-        if (self.is_superuser(operator) or
-            self._has_operation_perm_somewhere(
-                operator, self.const.auth_misc_sms_message)):
-            return True
-        if query_run_any:
-            return False
-        raise PermissionDenied("User does not have access")
-
     def can_alter_printerquota(self, operator, account=None,
                                query_run_any=False):
         if self.is_superuser(operator):
@@ -1083,168 +1063,15 @@ class BofhdAuth(DatabaseAccessor):
             return True
         return True
 
-    def can_disable_quarantine(self, operator, entity=None,
-                               qtype=None, query_run_any=False):
-        if query_run_any:
-            if self.is_superuser(operator):
-                return True
-            return self._has_operation_perm_somewhere(
-                operator, self.const.auth_quarantine_disable)
-        if six.text_type(qtype) in cereconf.QUARANTINE_STRICTLY_AUTOMATIC:
-            raise PermissionDenied('Not allowed, automatic quarantine')
+    def can_set_disk_status(self, operator, query_run_any=False):
         if self.is_superuser(operator):
             return True
-
-        # Special rule for guestusers. Only superuser are allowed to
-        # alter quarantines for these users.
-        if self._entity_is_guestuser(entity):
-            raise PermissionDenied("No access")
-        if not(isinstance(entity, Factory.get('Account'))):
-            raise PermissionDenied("No access")
-
-        for row in self._list_target_permissions(
-                operator, self.const.auth_quarantine_disable,
-                self.const.auth_target_type_global_host,
-                None, get_all_op_attrs=True):
-            attr = row.get('operation_attr')
-            # No operation attributes means that all quarantines are allowed
-            # TODO: This can be removed when all opsets for all instances
-            # has a populated qua_disable dict.
-            if not attr:
-                return True
-            if six.text_type(qtype) == attr:
-                return True
-
-        return self.has_privileged_access_to_account_or_person(
-            operator, self.const.auth_quarantine_disable, entity,
-            operation_attr=six.text_type(qtype))
-
-    def can_remove_quarantine(self, operator, entity=None, qtype=None,
-                              query_run_any=False):
-        if query_run_any:
-            if self.is_superuser(operator):
-                return True
-            return self._has_operation_perm_somewhere(
-                operator, self.const.auth_quarantine_remove)
-        if six.text_type(qtype) in cereconf.QUARANTINE_STRICTLY_AUTOMATIC:
-            raise PermissionDenied('Not allowed, automatic quarantine')
-        # TBD: should superusers be allowed to remove automatic quarantines?
-        if self.is_superuser(operator):
-            return True
-        if six.text_type(qtype) in cereconf.QUARANTINE_AUTOMATIC:
-            raise PermissionDenied('Not allowed, automatic quarantine')
-
-        # Special rule for guestusers. Only superuser are allowed to
-        # alter quarantines for these users.
-        if self._entity_is_guestuser(entity):
-            raise PermissionDenied("No access")
-        if not(isinstance(entity, Factory.get('Account'))):
-            raise PermissionDenied("No access")
-        # this is a hack
-        else:
-            if self._no_account_home(operator, entity):
-                return True
-
-        for row in self._list_target_permissions(
-                operator, self.const.auth_quarantine_remove,
-                self.const.auth_target_type_global_host,
-                None, get_all_op_attrs=True):
-            attr = row.get('operation_attr')
-            # No operation attributes means that all quarantines are allowed
-            # TODO: This can be removed when all opsets for all instances
-            # has a populated qua_remove dict.
-            if not attr:
-                return True
-            if six.text_type(qtype) == attr:
-                return True
-
-        return self.has_privileged_access_to_account_or_person(
-            operator, self.const.auth_quarantine_remove, entity,
-            operation_attr=six.text_type(qtype))
-
-    def can_set_quarantine(self, operator, entity=None, qtype=None,
-                           query_run_any=False):
-        if query_run_any:
-            if self.is_superuser(operator):
-                return True
-            return self._has_operation_perm_somewhere(
-                operator, self.const.auth_quarantine_set)
-        if six.text_type(qtype) in cereconf.QUARANTINE_STRICTLY_AUTOMATIC:
-            raise PermissionDenied('Not allowed, automatic quarantine')
-        if self.is_superuser(operator):
-            return True
-        if six.text_type(qtype) in cereconf.QUARANTINE_AUTOMATIC:
-            raise PermissionDenied('Not allowed, automatic quarantine')
-        for row in self._list_target_permissions(
-                operator, self.const.auth_quarantine_set,
-                self.const.auth_target_type_global_host,
-                None, get_all_op_attrs=True):
-            attr = row.get('operation_attr')
-            # No operation attributes means that all quarantines are allowed
-            # TODO: This can be removed when all opsets for all instances
-            # has a populated qua_add dict.
-            if not attr:
-                return True
-            if six.text_type(qtype) == attr:
-                return True
-
-        # TODO 2003-07-04: Bård is going to comment this
-        if not(isinstance(entity, Factory.get('Account'))):
-            raise PermissionDenied("No access")
-        else:
-            if self._no_account_home(operator, entity):
-                return True
-        return self.has_privileged_access_to_account_or_person(
-            operator, self.const.auth_quarantine_set, entity,
-            operation_attr=six.text_type(qtype))
-
-    def can_show_quarantines(self, operator, entity=None,
-                             query_run_any=False):
-        if self.is_superuser(operator):
-            return True
-        if query_run_any:
-            return True
-        if not(isinstance(entity, Factory.get('Account'))):
-            raise PermissionDenied("No access")
-        # this is a hack
-        if self._no_account_home(operator, entity):
-            return True
-        if self.is_owner_of_account(operator, entity):
-            return True
-        return self.has_privileged_access_to_account_or_person(
-                    operator, self.const.auth_quarantine_show, entity)
-
-    def can_create_disk(self, operator, host=None, query_run_any=False):
-        if self.is_superuser(operator):
-            return True
-        if query_run_any:
-            return self._has_operation_perm_somewhere(operator,
-                                                      self.const.auth_add_disk)
-        if host is not None:
-            host = int(host.entity_id)
-        if self._has_target_permissions(operator, self.const.auth_add_disk,
-                                        self.const.auth_target_type_host,
-                                        host, None):
-            return True
-        raise PermissionDenied("No access to host")
-
-    def can_remove_disk(self, operator, host=None, query_run_any=False):
-        return self.can_create_disk(operator, host=host,
-                                    query_run_any=query_run_any)
-
-    def can_create_host(self, operator, query_run_any=False):
-        if self.is_superuser(operator):
-            return True
-        # auth_create_host is not tied to a target
         if self._has_operation_perm_somewhere(operator,
-                                              self.const.auth_create_host):
+                                              self.const.auth_add_disk):
             return True
         if query_run_any:
             return False
-        raise PermissionDenied("Permission denied")
-
-    def can_remove_host(self, operator, query_run_any=False):
-        return self.can_create_host(operator, query_run_any=query_run_any)
+        raise PermissionDenied("No access to set disk status")
 
     def can_alter_group(self, operator, group=None, query_run_any=False):
         """Checks if the operator has permission to add/remove group members
@@ -1320,7 +1147,7 @@ class BofhdAuth(DatabaseAccessor):
                 operator, self.const.auth_create_group,
                 self.const.auth_target_type_global_group,
                 None, get_all_op_attrs=True):
-            attr = row.get('operation_attr')
+            attr = row['operation_attr']
             # No operation attribute means that all groupnames are allowed:
             if not attr:
                 return True
@@ -1418,7 +1245,7 @@ class BofhdAuth(DatabaseAccessor):
                 operator, self.const.auth_search_group,
                 self.const.auth_target_type_global_group,
                 None, get_all_op_attrs=True):
-            attr = row.get('operation_attr')
+            attr = row['operation_attr']
             # No operation attribute means that all groupnames are allowed:
             if not attr:
                 return True
@@ -1641,15 +1468,36 @@ class BofhdAuth(DatabaseAccessor):
 
     def can_set_default_group(self, operator, account=None,
                               group=None, query_run_any=False):
-        if query_run_any or self.is_superuser(operator):
+        if query_run_any:
             return True
+        if self.is_superuser(operator):
+            return True
+
+        # This is wrong - *everyone* can (re-)set the default file group for
+        # *any* user back to (maybe) it's personal group...
+        #
+        # This should probably check:
+        #
+        #  - if the group is of type *personal group*
+        #  - if the group is linked to the user (dfg-trait, ownership?)
+        #  - if the operator has some access to the account (owner, lkit)
+        #
         if account.account_name == group.group_name:
             # personal group:
             # TODO need better detection
             return True
+
+        # Otherwise, must have moderator access to group
         self.can_alter_group(operator, group)
-        self.can_give_user(operator, account)
-        return True
+
+        # ... and privileged access to the account
+        # (why is this linked to *move_from_disk*, though?  Should probably use
+        # a different op-code, or define a new op-code for setting dfg)
+        return self.has_privileged_access_to_account_or_person(
+            operator,
+            self.const.auth_move_from_disk,
+            account,
+        )
 
     def can_set_gecos(self, operator, account=None,
                       query_run_any=False):
@@ -1664,37 +1512,6 @@ class BofhdAuth(DatabaseAccessor):
             return True
         return self.has_privileged_access_to_account_or_person(
             operator, self.const.auth_set_gecos, account)
-
-    def can_move_user(self, operator, account=None, dest_disk=None,
-                      query_run_any=False):
-        if self.is_superuser(operator):
-            return True
-        return (self.can_give_user(operator, account,
-                                   query_run_any=query_run_any) and
-                self.can_receive_user(operator, account, dest_disk,
-                                      query_run_any=query_run_any))
-
-    def can_give_user(self, operator, account=None,
-                      query_run_any=False):
-        if self.is_superuser(operator):
-            return True
-        if query_run_any:
-            return self._has_operation_perm_somewhere(
-                operator, self.const.auth_move_from_disk)
-        return self.has_privileged_access_to_account_or_person(
-            operator, self.const.auth_move_from_disk, account)
-
-    def can_receive_user(self, operator, account=None, dest_disk=None,
-                         query_run_any=False):
-        if self.is_superuser(operator):
-            return True
-        if query_run_any:
-            return self._has_operation_perm_somewhere(
-                operator, self.const.auth_move_to_disk)
-        return self._query_disk_permissions(operator,
-                                            self.const.auth_move_to_disk,
-                                            self._get_disk(dest_disk),
-                                            account.entity_id)
 
     # hack (fix for users with no registered home at UiO)
     def _no_account_home(self, operator, account=None):
@@ -1789,7 +1606,6 @@ class BofhdAuth(DatabaseAccessor):
         if query_run_any:
             return self._has_operation_perm_somewhere(
                 operator, self.const.auth_view_history)
-
         # Check if user has been granted an op-set that allows viewing the
         # entity's history in some specific fashion.
         for row in self._list_target_permissions(
@@ -1797,7 +1613,7 @@ class BofhdAuth(DatabaseAccessor):
                 # TODO Should the auth target type be generalized?
                 self.const.auth_target_type_global_group,
                 None, get_all_op_attrs=True):
-            attr = row.get('operation_attr')
+            attr = row['operation_attr']
 
             # Op-set allows viewing history for this entity type
             # We need try/except here as self.const.EntityType will throw
@@ -1820,7 +1636,6 @@ class BofhdAuth(DatabaseAccessor):
                         return True
                 except Exception:
                     pass
-
         if entity.entity_type == self.const.entity_account:
             if self._no_account_home(operator, entity):
                 return True
@@ -2013,7 +1828,6 @@ class BofhdAuth(DatabaseAccessor):
 
     def _query_target_permissions(self, operator, operation, target_type,
                                   target_id, victim_id, operation_attr=None):
-        logger = Factory.get_logger()
         logger.warn("Deprecated function _query_target_permissions. " +
                     "Use _has_target_permissions or _list_target_permissions.")
         return self._has_target_permissions(
@@ -2037,7 +1851,7 @@ class BofhdAuth(DatabaseAccessor):
             `Cerebrum/modules/bofhd/utils.py` for target type definitions.
         :param int target_id:
             The target entity's unique ID. If the target entity is an entity,
-            use `entity_id`. If the target is a Cerebrum constants, use its
+            use `entity_id`. If the target is a Cerebrum constant, use its
             `intval`. Do not confuse this with the target's id, which is the
             internal, unique id of the target in the target table.
         :param int victim_id:
@@ -2076,12 +1890,6 @@ class BofhdAuth(DatabaseAccessor):
                 if self._has_global_access(
                         operator, operation,
                         self.const.auth_target_type_global_ou, victim_id,
-                        operation_attr=operation_attr):
-                    return True
-            elif target_type == self.const.auth_target_type_dns:
-                if self._has_global_access(
-                        operator, operation,
-                        self.const.auth_target_type_global_dns, victim_id,
                         operation_attr=operation_attr):
                     return True
             elif target_type == self.const.auth_target_type_person:
@@ -2426,15 +2234,6 @@ class BofhdAuth(DatabaseAccessor):
         disk = Factory.get('Disk')(self._db)
         disk.find(disk_id)
         return disk
-
-    def _entity_is_guestuser(self, entity):
-        for trait in ('trait_guest_owner', 'trait_uio_guest_owner'):
-            try:
-                if entity.get_trait(getattr(self.const, trait)):
-                    return True
-            except AttributeError:
-                pass
-        return None
 
     def can_get_external_id(self, operator, entity, extid_type, source_sys,
                             query_run_any=False):

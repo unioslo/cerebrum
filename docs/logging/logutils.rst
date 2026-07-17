@@ -2,19 +2,23 @@
 Cerebrum.logutils
 =================
 
-``Cerebrum.logutils`` is a module for *bootstapping* the standard logging module
-for Python.  This document describes the ``Cerebrum.logutils`` module
-configuration, module internals, and how it is used in Cerebrum.
-
 .. contents::
-
 .. section-numbering::
+
+``Cerebrum.logutils`` is a set of modules for *bootstapping* the standard
+logging module for Python.  This document is a description of the
+``Cerebrum.logutils`` module configuration, module internals, and how it is used
+in Cerebrum.
 
 
 Configuration
 =============
 There are two different types of configuration for the ``Cerebrum.logutils``
-module; the `logging environment`_ config, and the `logger preset`_ config.
+module:
+
+- `logging environment`_ config (logenv), with settings for ``Cerebrum.logutils``
+- `logger preset`_, with settings for the loggers and handlers used by a
+  given script
 
 
 Logging environment
@@ -24,22 +28,21 @@ that resides in the Cerebrum configuration directory
 (``<prefix>/etc/cerebrum/config`` by default).
 
 To see the current settings, run:
-
 ::
 
     python -m Cerebrum.logutils.config
 
-To see the doocumentation for this configuration, run:
-
+To see the documentation for this configuration, run:
 ::
 
     python -c 'import Cerebrum.logutils.config as c; print(c.LoggingEnvironment.documentation())'
 
 
-Settings:
+Settings
+~~~~~~~~~
 
 ``logging.confdir`` (string, directory)
-    Location of `logger preset`_ configuration, i.e. a folder with standard
+    Location of `logger preset`_ configurations, i.e. a folder with standard
     logging configuration files.
 
 ``logging.logdir`` (string, directory)
@@ -94,6 +97,19 @@ Settings:
 ``warnings.filters`` (list, filter strings)
     A list of extra warning filters to apply.
 
+``sentry.enable`` (boolean)
+    Enable `sentry`_ integration.
+
+``sentry.dns`` (string, url)
+    A `sentry`_ DSN/URL to use for errors.
+
+    E.g.: ``https://<token>@example.org/<project>"``
+
+``sentry.environment`` (string)
+    A environment value for Sentry errors/issues.
+
+    Defaults to ``cereconf.ENVIRONMENT`` if not given.
+
 
 Logger preset
 -------------
@@ -117,10 +133,10 @@ extra command line arguments that overrides the logging defaults:
 - ``--logger-level=<level>``: use a different logger level for the root logger
 - ``--logger-exc|--logger-no-exc``: turn on/off the `exceptions`_ logging
 - ``--logger-warn|--logger-no-warn``: turn on/off the `warnings`_ logging
+- ``--logger-sentry|--logger-no-sentry``: turn on/off the `sentry`_ integration
 
 Scripts that use ``argparse`` should use a preset argument group, and pass on
 the arguments to the logging `bootstrap`_:
-
 ::
 
     import argparse
@@ -144,6 +160,15 @@ If ``autoconf`` is called *without* an argparse namespace object (e.g.
 ``autoconf('cronjob')``), the `bootstrap`_ runs in *legacy* mode. The command
 line arguments are then fetched directly from ``sys.argv``, applied to the
 bootstrap configuration, and then removed from ``sys.argv``.
+
+
+.. note::
+    The --logger-sentry argument will only be able to turn *on* the sentry
+    integration if the logging environment `configuration`_ contains a valid
+    ``sentry.dsn`` setting.
+
+    This pair of arguments are mainly used to turn *off* a default-on
+    integration.
 
 
 Exceptions
@@ -184,6 +209,15 @@ filters from:
     **NOTE**: Python ignores incorrecly formatted filters by default. The
     ``logutils`` module does not accept invalid filter-syntac, and throws an
     exception if any invalid filter strings are used.
+
+
+Sentry
+======
+Cerebrum supports integration with Sentry, which will send error log messages
+to a given project in the Sentry service provided using the ``dsn`` setting.
+
+If enabled, the log configuration will will set up a Sentry integration using
+``sentry_sdk``.
 
 
 Bootstrap

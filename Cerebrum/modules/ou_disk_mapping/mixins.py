@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright 2019 University of Oslo, Norway
+#
+# Copyright 2019-2025  University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,6 +20,13 @@
 """
 Mixins related to mod_ou_disk_mapping.
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+
 from Cerebrum.Disk import Disk
 from Cerebrum.OU import OU
 from .dbal import OUDiskMapping
@@ -32,7 +40,7 @@ class OUMixin(OU):
     def delete(self):
         """Delete any mappings to an OU."""
         ous = OUDiskMapping(self._db)
-        for row in ous.search(ou_id=self.entity_id):
+        for row in ous.search(ou_id=int(self.entity_id)):
             # No aff, can't have status
             if row['aff_code'] is None:
                 aff_code = None
@@ -59,7 +67,7 @@ class DiskMixin(Disk):
     def delete(self):
         """Delete any mappings to a disk"""
         ous = OUDiskMapping(self._db)
-        for row in ous.get_with_disk(disk_id=self.entity_id):
+        for row in ous.search(disk_id=int(self.entity_id)):
             # No aff, can't have status
             if row['aff_code'] is None:
                 aff_code = None

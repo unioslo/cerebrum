@@ -239,5 +239,5 @@ class BofhdExtension(BofhdCommandBase):
             'type': repr(type(bytestring)),
             'bytestring': bytestring,
             'repr': repr(bytestring),
-            'bytes': bytearray(b'abcæøå'),
+            'bytes': bytearray(u'abcæøå'.encode("utf-8")),
         }

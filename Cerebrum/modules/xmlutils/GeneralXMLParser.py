@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright 2005-2018 University of Oslo, Norway
+#
+# Copyright 2005-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -16,30 +17,69 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""
+A generic callback-based XML parser.
 
-from __future__ import unicode_literals
+This is a legacy module, and the parser is fairly buggy.  Only use for simple
+documents.  For new use-cases, please use the built-in XPath support in
+xml.etree.ElementTree:
+::
 
+    # rather than:
+
+    def foo_handler(data, stack):
+        ...
+
+    GeneralXMLParser(((["data, "foo"], foo_handler),), "myfile.xml")
+
+    # use:
+
+    from xml.etree import ElementTree
+    tree = ElementTree.parse("myfile.xml")
+    root = tree.getroot()
+
+    for elem in root.findall("./data/foo"):
+        ...
+
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import xml.sax
 
 
-class GeneralXMLParser(xml.sax.ContentHandler):
-    """This is a general SAX-based XML parser capable of generating
-    callbacks once requested information has been parsed.  The cfg
-    constructor parameter has the format::
+class GeneralXMLParser(xml.sax.ContentHandler, object):
+    """
+    This is a general SAX-based XML parser for running callbacks.
 
-      cfg = ((['tag1, 'tag1_1'], got_tag1_1_callback))
+    The parser runs callbacks for a given XPath-like list of element names. 
+    The callback gets two arguments:
 
-    Once parsing of tag1_1 has been completed, the callback function
-    is called with the arguments dta, elem_stack.  elem_stack contains
-    a list of (entity_name, attrs_dict) tuples up to the root XML
-    node.  dta contains a list of (entity_name, attrs_dict, children)
-    tuples inside the requested tag.  children has the same format as
-    dta, thus if one use something like cfg = ((['root_tag'], cb)),
-    the dta in the callback would contain a parsed tree of the entire
-    XML file.
+    ``<data>``
+        A tuple with information on the matched element.
 
-    The parser is only suitable for XML files that does not contain
-    text parts outside the tags.
+        The tuple contains the element name, attributes, and a list
+        of child elements, e.g.: ``("foo", {"x": 10, "y": 20}, [])``).
+
+        Each child element is a similar tuple, but additionally contains any
+        text content in the child element.  Inclusion of text/element value is
+        very buggy.  Unsure why the child elements get this extra field...
+
+    ``<stack>``
+        A list of parent elements.  Each element is a tuple with the element
+        name and attributes: e.g.: ``[("foo", {'x': 10}), ("data", {})]``
+
+    Given the configuration:
+    ::
+
+        ((['data, 'foo'], foo_handler) (['data, 'bar'], bar_handler))
+
+    ... the parser will call the given handler callback for each element where
+    the stack matches the given list.  I.e. ``foo_handler`` will be called for
+    all elements matching XPath ``/data/foo``.
     """
 
     def __init__(self, cfg, xml_file):
@@ -51,7 +91,7 @@ class GeneralXMLParser(xml.sax.ContentHandler):
         parser.setContentHandler(self)
         # Don't resolve external entities
         try:
-            parser.setFeature(xml.sax.handler.feature_external_ges, 0)
+            parser.setFeature(xml.sax.handler.feature_external_ges, False)
         except xml.sax._exceptions.SAXNotRecognizedException:
             # Older API versions don't try to handle external entities
             pass
@@ -60,7 +100,7 @@ class GeneralXMLParser(xml.sax.ContentHandler):
     def characters(self, ch):
         self.var = ch.strip() or None
 
-    def startElement(self, ename, attrs):
+    def startElement(self, ename, attrs):  # noqa: N802
         attrs_dict = dict(attrs)
         self.ename = ename
         self._elementstack.append(ename)
@@ -81,7 +121,7 @@ class GeneralXMLParser(xml.sax.ContentHandler):
             self.var = None
             self._tmp_pos = children
 
-    def endElement(self, ename):
+    def endElement(self, ename):  # noqa: N802
         if ename != self.ename and self.var is not None:
             raise ValueError("Cannot have both text and children.")
         elif ename == self.ename and self.var is not None:
@@ -101,6 +141,10 @@ class GeneralXMLParser(xml.sax.ContentHandler):
 
     @staticmethod
     def dump_tree(dta, level=0):
-        for ename, attrs, children in dta:
+        for item in dta:
+            if len(item) == 3:
+                ename, attrs, children = item
+            else:
+                ename, _, attrs, children = item
             print("{}{} {}".format(" " * level * 2, ename, attrs))
             GeneralXMLParser.dump_tree(children, level + 1)

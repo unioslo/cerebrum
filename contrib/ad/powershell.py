@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2013 University of Oslo, Norway
+# Copyright 2013-2025 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,23 +18,19 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""Running powershell commands against a Windows machine.
+"""
+Run powershell commands on a Windows host.
 
-This script is for running generic powershell commands against Windows and AD.
-As the usage for this script is to debug our AD sync, some code is sent before
-the given code::
+The script auto-runs some helpers (unless --clean is given) to interact with
+Active Directory as well:
+::
 
-    $cred = New-Object System.Management.Automation.PSCredential(DOMAIN_USER, PASSWORD)
+    $cred = New-Object System.Management.Automation.PSCredential(...)
     Import-Module ActiveDirectory
 
-Which means, that to be able to run any cmdlet related to ActiveDirectory, you
-need to add the parameter::
-
-    -Credential $cred
-
-Which is then making use of the domain account and not the local auth_user. 
-
-Examples::
+The ``$cred`` value contains the credentials for the domain admin account, and
+can be used in AD cmdlets:
+::
 
     # See all attributes for an account as registered in AD:
     Get-ADuser -Credential '$cred' -Properties '*' USERNAME
@@ -46,197 +42,94 @@ Examples::
     Get-ADDomain -Credential '$cred' -Current LocalComputer
 
     # Get information about the Directory Server:
-    Get-ADRootDSE -Credential '$cred' 
+    Get-ADRootDSE -Credential '$cred'
 
     # Get the password policy of the domain:
-    Get-ADDefaultDomainPasswordPolicy -Credential '$cred' -Current LocalComputer
+    Get-ADDefaultDomainPasswordPolicy -Credential '$cred' \\
+        -Current LocalComputer
 
     # To unlock an account that has tried to authenticate too many times:
     Unlock-ADAccount -Credential '$cred' USERNAME
 
-    # Not sure about the format and parameters of a command?
-    Get-Help COMMAND
+Due to some limitations in the winrm client, the code have to finish execution
+before you can see the result.  You'll not be able to e.g. start a new session
+through Enter-PSSession and add more commands to that session - everything has
+to be executed in one go.
 
-Note that, due to limitations in the communication with WinRM, the code have to
-finish execution before you could see the result. You will therefore not be able
-to e.g. start a new session through Enter-PSSession and add more commands to
-that session, you must execute everything in one go.
-
-Don't forget to escape the dollar and other Windows related characters in your
-shell!
-
+Don't forget to escape special characters (e.g. '$').
 """
-
-from __future__ import print_function
-
-import getopt
-import sys
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+import argparse
+import contextlib
+import logging
 
 import adconf
-from Cerebrum.Utils import Factory
+import Cerebrum.logutils
+import Cerebrum.logutils.options
 from Cerebrum.modules.ad2.ADUtils import ADclient
-
-logger = Factory.get_logger('console')
-db = Factory.get('Database')()
-co = Factory.get('Constants')(db)
+from Cerebrum.modules.ad2 import cli
+from Cerebrum.utils import argutils
 
 
-def usage(exitcode=0):
-    print("""Usage: powershell.py [OPTIONS] CODE...
-
-    %(doc)s
-
-    Parameters:
-
-    CODE            The powershell code that should be executed. The output from
-                    the code is returned back to stdout.
-
-    Options:
-
-    --type TYPE     If given, the server name, credentials and other settings
-                    are fetched from the given sync type. Otherwise you have to
-                    specify server name and authentication details.
-
-                    Note that the type must exist in adconf.SYNCS.
-
-    --clean         If set, no powershell commands would be executed before the
-                    given code. The code sets for instance the variable $cred,
-                    which contains the credentials for our domain user.
-
-    Options for when --type is not specified:
-
-    --host HOSTNAME The hostname of the Windows server that should execute the
-                    code. Needed if --type is not specified.
-
-    --port PORT     The port number on the Windows server. Default: 5986 for
-                    encrypted communication, otherwise 5985.
-
-    --auth_user USERNAME The username of the account that should connect to the
-                    Windows machine. Password must be stored in the standard
-                    password location.
-
-    --domain_user USERNAME The username of the account that should be able to
-                    administrate the AD domain. Password must be stored in the
-                    standard password location.
-
-    Other options:
-
-    --unencrypted   If the communication should go unencrypted. This should only
-                    be used for testing!
-
-    --ca_cert FILE  Use a given CA certificate chain for testing. If --type is
-                    given, the default value will fall back to the setting from
-                    adconf.
-
-    -h, --help      Show this and quit.
-
-    """ % {'doc': __doc__})
-    sys.exit(exitcode)
+logger = logging.getLogger(__name__)
 
 
-def main():
-    try:
-        opts, args = getopt.getopt(sys.argv[1:],
-                                   "h",
-                                   ["help",
-                                    "unencrypted",
-                                    "type=",
-                                    "host=",
-                                    "clean",
-                                    "port=",
-                                    "auth_user=",
-                                    "ca_cert=",
-                                    "domain_user="])
-    except getopt.GetoptError as e:
-        print(e)
-        usage(1)
+def run_cmdlet(client, argv):
+    code = " ".join(argv)
+    logger.info("Running code: %s", code)
+    return client.run(code)
 
-    encrypted = True
-    sync = None
-    host = port = None
-    auth_user = domain_user = domain = None
-    ca = None
 
-    for opt, val in opts:
-        # General options
-        if opt in ('-h', '--help'):
-            usage()
-        elif opt == '--unencrypted':
-            encrypted = False
-        elif opt == '--type':
-            if val not in adconf.SYNCS:
-                print("Sync type '%s' not found in config" % val)
-                print("Defined sync types:")
-                for typ in adconf.SYNCS:
-                    print('  %s' % typ)
-                sys.exit(2)
-            sync = adconf.SYNCS[val]
-        elif opt == '--host':
-            host = val
-        elif opt == '--port':
-            port = int(val)
-        elif opt == '--auth_user':
-            auth_user = val
-        elif opt == '--domain_user':
-            domain_user = val
-        elif opt == '--ca_cert':
-            ca = val
-        elif opt == '--clean':
-            # Drain the client for pre-code:
-            ADclient._pre_execution_code = u''
-        else:
-            print("Unknown option: %s" % opt)
-            usage(1)
-
-    if not host and not sync:
-        print("Need either --type or --host to connect to")
-        usage(1)
-
-    if not args:
-        print("Powershell code required")
-        usage(1)
-
-    if not host:
-        host = sync['server']
-    if not port and sync:
-        port = sync.get('port')
-    if sync:
-        if not auth_user:
-            auth_user = sync['auth_user']
-        if not domain_user:
-            domain_user = sync['domain_admin']
-        if not domain:
-            domain = sync['domain']
-        if encrypted and not ca:
-            ca = sync.get('ca')
-    else:
-        if not auth_user:
-            print("If no specific sync, --auth_user is required")
-            usage(1)
-
-    client = ADclient(logger=logger,
-                      host=host,
-                      port=port,
-                      auth_user=auth_user,
-                      domain_admin=domain_user,
-                      domain=domain,
-                      encrypted=encrypted,
-                      ca=ca,
-                      dryrun=False)
-
-    code = ' '.join(args)
-    logger.debug("Running code: %s" % code)
-    try:
-        out = client.run(code)
-    finally:
-        client.close()
+def print_output(out_dict):
     for outtype in ('stderr', 'stdout'):
-        data = out.get(outtype)
+        data = out_dict.get(outtype)
         if data:
             print('%s:' % outtype.upper())
             print(data)
             print()
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description=__doc__.lstrip(),
+    )
+    parser.add_argument(
+        "--clean",
+        action="store_true",
+        help="Skip setup code (clean shell)",
+    )
+    parser.add_argument(
+        "command",
+        type=argutils.UnicodeType(),
+        nargs="+",
+        help="Powershell cmdlet and args",
+    )
+    get_client = cli.add_ad_subparser(parser)
+    Cerebrum.logutils.options.install_subparser(
+        parser,
+        default_enable_sentry=False,
+    )
+
+    args = parser.parse_args(argv)
+    Cerebrum.logutils.autoconf("console", args)
+
+    if args.clean:
+        # Drain the client for pre-code:
+        # A bit ugly, as we globally change the ADclient class...
+        ADclient._pre_execution_code = ""
+
+    client = get_client(adconf.SYNCS, args, dryrun=False)
+    with contextlib.closing(client):
+        print_output(run_cmdlet(client, args.command))
+
     logger.debug("Done")
+
 
 if __name__ == '__main__':
     main()

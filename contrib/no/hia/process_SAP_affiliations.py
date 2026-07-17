@@ -44,10 +44,17 @@ various mixin classes would do on delete 2) we'd flood the change_log with
 bogus updates (remove A, add A) 3) the db would probably not appreciate such a
 usage pattern.
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import argparse
 import datetime
 import os
+import six
 
 import cereconf
 
@@ -79,18 +86,19 @@ def sap_employment2affiliation(sap_lonnstittelkode):
     try:
         lonnskode = SAPLonnsTittelKode(sap_lonnstittelkode)
         kategori = lonnskode.get_kategori()
-        if not isinstance(kategori, unicode):
+        if not isinstance(kategori, six.text_type):
             kategori = kategori.decode(Database.encoding)
     except Errors.NotFoundError:
-        logger.warn(u"No SAP.STELL/lønnstittelkode <%s> found in Cerebrum",
+        logger.warn("No SAP.STELL/lønnstittelkode <%s> found in Cerebrum",
                     sap_lonnstittelkode)
         return None, None
 
     if lonnskode != constants.sap_9999_dummy_stillingskode:
         affiliation = constants.affiliation_ansatt
         status = {
-            u'ØVR': constants.affiliation_status_ansatt_tekadm,
-            u'VIT': constants.affiliation_status_ansatt_vitenskapelig}[kategori]
+            'ØVR': constants.affiliation_status_ansatt_tekadm,
+            'VIT': constants.affiliation_status_ansatt_vitenskapelig
+        }[kategori]
     else:
         affiliation = constants.affiliation_tilknyttet
         status = constants.affiliation_status_tilknyttet_ekstern
@@ -180,7 +188,7 @@ def remove_affiliations(cache):
         if 'handled' in cache[person_id]:
             handle = not cache[person_id]['handled']
             del cache[person_id]['handled']
-        for (ou_id, affiliation) in cache[person_id].iterkeys():
+        for (ou_id, affiliation) in cache[person_id].keys():
             if handle:
                 person.delete_affiliation(ou_id,
                                           affiliation,
@@ -261,7 +269,7 @@ def process_affiliations(employment_file, person_file, use_fok,
        with the file, the cache contains those entries that were in Cerebrum
     """
 
-    expired = load_expired_employees(file(person_file), use_fok, logger)
+    expired = load_expired_employees(open(person_file), use_fok, logger)
 
     # First we cache all existing affiliations. It's a mapping person-id =>
     # mapping (ou-id, affiliation) => status.
@@ -275,7 +283,7 @@ def process_affiliations(employment_file, person_file, use_fok,
         return ret
 
     for tpl in make_employment_iterator(
-            file(employment_file), use_fok, logger):
+            open(employment_file), use_fok, logger):
         if not tpl.valid():
             logger.debug("Ignored invalid entry for person while "
                          "processing affiliation: «%s»",
@@ -425,7 +433,7 @@ def synchronise_employment(employment_cache, tpl, person, ou_id):
         return
 
     if tpl.start_date and tpl.end_date:
-    # This will either insert or update
+        # This will either insert or update
         person.add_employment(ou_id, title, constants.system_sap,
                               tpl.percentage, tpl.start_date, tpl.end_date,
                               code, tpl.stillingstype == 'H')
@@ -437,7 +445,7 @@ def process_employments(employment_file, use_fok, people_to_ignore=None):
     logger.debug("processing employments")
     employment_cache = cache_db_employments()
     for tpl in make_employment_iterator(
-            file(employment_file), use_fok, logger):
+            open(employment_file), use_fok, logger):
         if not tpl.valid():
             logger.debug("Ignored invalid entry for person while "
                          "processing employment: «%s»",
@@ -554,7 +562,7 @@ def main():
     if getattr(cereconf, 'SAP_MG_MU_CODES', None) and args.use_fok:
         raise Exception("Use of both MG/MU codes and fok isn't implemented")
 
-    ignored_people = load_invalid_employees(file(args.person_file),
+    ignored_people = load_invalid_employees(open(args.person_file),
                                             args.use_fok)
 
     if args.sync_employment:
@@ -574,6 +582,7 @@ def main():
     else:
         database.rollback()
         logger.info("All changes rolled back")
+
 
 if __name__ == "__main__":
     main()

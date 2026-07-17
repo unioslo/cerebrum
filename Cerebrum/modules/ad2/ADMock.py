@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2015-2023 University of Oslo, Norway
+# Copyright 2015-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -35,6 +35,7 @@ import six
 from Cerebrum.modules.ad2 import ADUtils
 from Cerebrum.modules.ad2.winrm import CommandTooLongException
 from Cerebrum.Utils import Factory
+from Cerebrum.utils.descriptors import lazy_property
 
 
 class ADclientMock(ADUtils.ADclient):
@@ -302,7 +303,7 @@ class ADclientMock(ADUtils.ADclient):
         # Add the attributes, but mapped to correctly name used in AD:
         if attributes:
             attributes = dict((self.attribute_write_map.get(name, name), value)
-                              for name, value in attributes.iteritems()
+                              for name, value in six.iteritems(attributes)
                               if value
                               or isinstance(value, (bool, float))
                               or isinstance(value, six.integer_types))
@@ -388,7 +389,7 @@ class ADclientMock(ADUtils.ADclient):
         var = self._cache.get(adid)
         try:
             # TODO: Are there more types that should be handeled?
-            if isinstance(var, basestring):
+            if isinstance(var, six.string_types):
                 raise TypeError
             return lambda: (e for e in var)
         except TypeError:
@@ -540,29 +541,10 @@ class ADclientMock(ADUtils.ADclient):
         self.logger.info('Setting password for: %s', ad_id)
         return True
 
-    def get_chosen_domaincontroller(self, reset=False):
-        """Fetch and cache a preferred Domain Controller (DC).
-
-        The list of DCs is fetched from AD the first time. The answer is then
-        cached, so the next time asked, we reuse the same DC.
-
-        We cache a preferred DC to sync with to avoid that we have to wait
-        inbetween the updates for the DCs to have synced. We could still go
-        without this, but then we could get race conditions. Domain Controllers
-        are normally reached semi-randomly, to avoid that one DC gets overused.
-
-        @type reset: bool
-        @param reset:
-            If True, we should ignore the already chosen DC and pick one again.
-            If False, the already chosen DC is returned.
-
-        @rtype: str
-        @return:
-            The Name attribute for the chosen DC is returned, as this could be
-            used directly in the powershell commands.
-
-        """
-        return "my.lovely.dc.example.com"
+    @lazy_property
+    def domain_controller(self):
+        """ Default mock domain controller name. """
+        return "my.lovely.dc.example.org"
 
     def execute_script(self, script, **kwargs):
         """Execute a script remotely on the Windows side.
@@ -595,7 +577,7 @@ class ADclientMock(ADUtils.ADclient):
 
         """
         self.logger.info("Executing script %s, args: %s", script, kwargs)
-        params = ' '.join('-%s %s' % (x[0], x[1]) for x in kwargs.iteritems())
+        params = ' '.join('-%s %s' % (x[0], x[1]) for x in six.iteritems(kwargs))
         cmd = '& %(cmd)s %(params)s' % {'cmd': self.escape_to_string(script),
                                         'params': params}
         self.logger.debug("Mock would have ran '%s'" % cmd)

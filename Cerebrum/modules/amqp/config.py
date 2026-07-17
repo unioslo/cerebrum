@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2020 University of Oslo, Norway
+# Copyright 2020-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -20,6 +20,12 @@
 """
 Basic settings for message broker communication.
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 import ssl
 
 import pika
@@ -86,6 +92,14 @@ class Queue(Configuration):
         Boolean,
         default=False,
         doc='Set queue to be deleted',
+    )
+    queue_type = ConfigDescriptor(
+        # Note that it's not possible to *change* the queue type of an existing
+        # queue.  If the given queue exists with another type, the queue
+        # declare setup will fail.
+        String,
+        default=None,
+        doc='Set an alternative x-queue-type, e.g. quorum',
     )
 
 

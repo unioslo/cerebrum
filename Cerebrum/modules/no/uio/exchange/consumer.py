@@ -223,6 +223,16 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
                     'Callback %r failed for event %r (%r): %s',
                     callback, key, event, e)
 
+    def _is_cloud_mailbox(self, account_id):
+        try:
+            cloud_group = Factory.get("Group")(self.db)
+            cloud_group.find_by_name("postmaster-eo-migrerte")
+            return cloud_group.has_member(int(account_id))
+        except Exception:
+            self.logger.debug("Unable to check group membership",
+                              exc_info=True)
+            return False
+
     #
     # Mailbox related commands
     #
@@ -785,6 +795,14 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
         if self.mb_spread not in self.ut.get_account_spreads(tid):
             # If we wind up here, the user is not supposed to be in Exchange :S
             raise UnrelatedEvent
+
+        if self._is_cloud_mailbox(tid):
+            # EXO: Can't Set-Mailbox on cloud users
+            self.logger.info(
+                "ignoring email_quota:* change for %s (%d) - cloud user",
+                name, tid,
+            )
+            raise UnrelatedEvent
         try:
             # Unordered events facilitates the need to use the values from
             # storage.
@@ -923,6 +941,14 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
                 # Exchange :S
                 raise UnrelatedEvent
             uname = self.ut.get_account_name(eid)
+            if self._is_cloud_mailbox(eid):
+                # EXO: Can't Set-Mailbox on cloud users
+                self.logger.info(
+                    "ignoring email_address:add change for %s (%d)"
+                    " - cloud user",
+                    uname, eid,
+                )
+                raise UnrelatedEvent
             try:
                 self.ec.add_mailbox_addresses(uname, [address])
                 self.logger.info('eid:%d: Added %s to %s' %

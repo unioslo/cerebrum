@@ -1,6 +1,6 @@
 # encoding: utf-8
 #
-# Copyright 2015-2023 University of Oslo, Norway
+# Copyright 2015-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,7 +17,9 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" This is a bofhd module for setting consent. """
+"""
+This module implements basic commands for interacting with consents.
+"""
 from __future__ import (
     absolute_import,
     division,
@@ -29,22 +31,27 @@ import six
 
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.bofhd_core_help import get_help_strings
-from Cerebrum.modules.bofhd.cmd_param import (Parameter,
-                                              Command,
-                                              Id,
-                                              FormatSuggestion)
+from Cerebrum.modules.bofhd.cmd_param import (
+    Command,
+    FormatSuggestion,
+    Id,
+    Parameter,
+    get_format_suggestion_table,
+)
 from Cerebrum.modules.bofhd.errors import CerebrumError
-from .bofhd_consent_auth import BofhdAuth as ConsentAuth
+from Cerebrum.modules.bofhd.help import merge_help_strings
+
 from .Consent import EntityConsentMixin
+from .bofhd_consent_auth import BofhdConsentAuth
 
 
 class ConsentType(Parameter):
     """ Consent type parameter. """
     _type = 'consent_type'
-    _help_ref = 'consent_type'
+    _help_ref = 'consent-type'
 
 
-def format_datetime(field):
+def _format_dt(field):
     """ Date format for FormatSuggestion. """
     fmt = "yyyy-MM-dd HH:mm"  # 16 characters wide
     return ":".join((field, "date", fmt))
@@ -56,11 +63,9 @@ class BofhdExtension(BofhdCommonMethods):
     hidden_commands = {}  # Not accessible through bofh
     all_commands = {}
     parent_commands = False
-    authz = ConsentAuth
+    authz = BofhdConsentAuth
 
     def __init__(self, *args, **kwargs):
-        """
-        """
         super(BofhdExtension, self).__init__(*args, **kwargs)
         # POST:
         for attr in ('ConsentType', 'EntityConsent'):
@@ -70,37 +75,40 @@ class BofhdExtension(BofhdCommonMethods):
     @classmethod
     def get_help_strings(cls):
         """ Help strings for consent commands. """
-        group, cmd, args = get_help_strings()
+        group, cmd, args = {}, {}, {}
 
-        group.setdefault('consent', 'Commands for handling consents')
-
-        cmd.setdefault('consent', dict()).update({
+        group['consent'] = 'Commands for handling consents'
+        cmd['consent'] = {
             'consent_set': cls.consent_set.__doc__,
             'consent_unset': cls.consent_unset.__doc__,
             'consent_info': cls.consent_info.__doc__,
             'consent_list': cls.consent_list.__doc__,
-        })
-
+        }
         args.update({
-            'consent_type': ['type', 'Enter consent type',
-                             "'consent list' lists defined consents"],
+            'consent-type': [
+                'consent-type',
+                'Enter consent type',
+                "'consent list' lists defined consents",
+            ],
         })
 
-        return (group, cmd, args)
+        return merge_help_strings(
+            get_help_strings(),
+            (group, cmd, args),
+        )
 
     def check_consent_support(self, entity):
         """ Assert that entity has EntityConsentMixin.
 
         :param Cerebrum.Entity entity: The entity to check.
 
-        :raise NotImplementedError: If entity lacks consent support.
-
+        :raise CerebrumError: If entity lacks consent support.
         """
         entity_type = self.const.EntityType(entity.entity_type)
         if not isinstance(entity, EntityConsentMixin):
-            raise NotImplementedError(
-                "Entity type '%s' does not support consent." %
-                six.text_type(entity_type))
+            raise CerebrumError(
+                "Entity type '%s' does not support consent."
+                % six.text_type(entity_type))
 
     def _get_consent(self, consent_ident):
         """ Get consent constant from constant strval or intval.
@@ -115,6 +123,7 @@ class BofhdExtension(BofhdCommonMethods):
         :raise Cerebrum.Error.NotFoundError: If the constant cannot be found.
 
         """
+        # TODO: Replace with self.const.get_constant()
         consent = self.const.human2constant(
             consent_ident, const_type=self.const.EntityConsent)
         if not consent:
@@ -194,15 +203,13 @@ class BofhdExtension(BofhdCommonMethods):
     all_commands['consent_info'] = Command(
         ('consent', 'info'),
         Id(help_ref="id:target:account"),
-        fs=FormatSuggestion(
-            '%-15s %-8s %-17s %-17s %s',
-            ('consent_name',
-             'consent_type',
-             format_datetime('consent_time_set'),
-             format_datetime('consent_time_expire'),
-             'consent_description'),
-            hdr='%-15s %-8s %-17s %-17s %s' % (
-                'Name', 'Type', 'Set at', 'Expires at', 'Description')),
+        fs=get_format_suggestion_table(
+            ('consent_name', 'Name', 15, 's', True),
+            ('consent_type', 'Type', 8, 's', True),
+            (_format_dt('consent_time_set'), 'Set at', 17, 's', True),
+            (_format_dt('consent_time_expire'), 'Expires at', 17, 's', True),
+            ('consent_description', 'Description', 30, 's', True),
+        ),
         perm_filter='can_show_consent_info',
     )
 
@@ -221,14 +228,17 @@ class BofhdExtension(BofhdCommonMethods):
                 'consent_time_set': row['set_at'],
                 # note: expire is no longer supported in consents
                 'consent_time_expire': None,
-                'consent_description': row['description'], })
+                'consent_description': row['description'],
+            })
         if not consents:
             name = self._get_entity_name(entity.entity_id, entity.entity_type)
             raise CerebrumError(
-                "'%s' (entity_type=%s, entity_id=%s) has no consents set" % (
+                "'%s' (entity_type=%s, entity_id=%s) has no consents set"
+                % (
                     name,
                     six.text_type(self.const.EntityType(entity.entity_type)),
-                    entity.entity_id))
+                    entity.entity_id,
+                ))
         return consents
 
     #
@@ -236,10 +246,11 @@ class BofhdExtension(BofhdCommonMethods):
     #
     all_commands['consent_list'] = Command(
         ('consent', 'list'),
-        fs=FormatSuggestion(
-            '%-15s  %-8s  %s',
-            ('consent_name', 'consent_type', 'consent_description'),
-            hdr='%-16s %-9s %s' % ('Name', 'Type', 'Description')),
+        fs=get_format_suggestion_table(
+            ('consent_name', 'Name', 15, 's', True),
+            ('consent_type', 'Type', 8, 's', True),
+            ('consent_description', 'Description', 30, 's', True),
+        ),
         perm_filter='can_list_consents',
     )
 
@@ -252,7 +263,8 @@ class BofhdExtension(BofhdCommonMethods):
             consents.append({
                 'consent_name': six.text_type(consent),
                 'consent_type': six.text_type(consent_type),
-                'consent_description': consent.description, })
+                'consent_description': consent.description,
+            })
         if not consents:
             raise CerebrumError("No consent types defined yet")
         return consents

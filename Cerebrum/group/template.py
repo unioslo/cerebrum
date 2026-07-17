@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2021 University of Oslo, Norway
+# Copyright 2021-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -28,7 +28,7 @@ demand.
 Notable issues
 --------------
 If changelog is in use, and no cl_init has been issued, groups cannot
-be created.  Use py:meth:`GroupTemplate.require` for these scripts.
+be created.  Use :meth:`GroupTemplate.require` for these scripts.
 
 Example
 -------
@@ -85,14 +85,11 @@ def _get_group_visibility(const, group_visibility):
     return const.get_constant(Constants._GroupVisibilityCode, group_visibility)
 
 
-class GroupTemplate(reprutils.ReprFieldMixin):
-    """
-    Template for a group that should exist in Cerebrum.
-
-    """
+class GroupTypeTemplate(reprutils.ReprFieldMixin):
+    """ Template for creating a preset group type in Cerebrum. """
     repr_module = False
     repr_id = False
-    repr_fields = ('group_name',)
+    repr_fields = ("group_type", "conflict_resolution")
 
     # Conflict resolution for groups with differing attributes:
     #
@@ -105,39 +102,45 @@ class GroupTemplate(reprutils.ReprFieldMixin):
     # Ignore and use group if exists with different attributes
     CONFLICT_IGNORE = 'ignore'
 
-    def __init__(self, group_name, group_description,
-                 group_type='internal-group',
-                 group_visibility='A',
+    def __init__(self,
+                 group_type="internal-group",
+                 group_visibility="A",
+                 group_expire=None,
                  conflict=CONFLICT_UPDATE):
-        self.group_name = group_name
-        self.group_description = group_description
         self.group_type = group_type
         self.group_visibility = group_visibility
+        if group_expire:
+            self.get_group_expire = group_expire
+        else:
+            self.get_group_expire = lambda g: None
         if conflict not in (self.CONFLICT_ERROR, self.CONFLICT_UPDATE,
                             self.CONFLICT_IGNORE):
             raise ValueError('invalid conflict resolution: ' + repr(conflict))
         self.conflict_resolution = conflict
 
-    def _create(self, db):
+    def _create(self, db, group_name, group_description, creator_id=None):
+        if creator_id is None:
+            creator_id = _get_default_creator_id(db)
         group = Factory.get('Group')(db)
         group.populate(
-            name=self.group_name,
-            description=self.group_description,
+            name=group_name,
+            description=group_description,
             group_type=_get_group_type(group.const, self.group_type),
             visibility=_get_group_visibility(group.const,
                                              self.group_visibility),
-            creator_id=_get_default_creator_id(db),
+            creator_id=creator_id,
         )
+        group.expire_date = self.get_group_expire(group)
         group.write_db()
         logger.info("created group: %s (%d)",
                     group.group_name, group.entity_id)
         return group
 
-    def _update(self, group):
+    def _update(self, group, group_description):
         wants = {
-            'description': self.group_description,
+            'description': group_description,
             'group_type': _get_group_type(group.const, self.group_type),
-            'expire_date': None,
+            'expire_date': self.get_group_expire(group),
             'visibility': _get_group_visibility(group.const,
                                                 self.group_visibility),
         }
@@ -168,18 +171,40 @@ class GroupTemplate(reprutils.ReprFieldMixin):
             raise RuntimeError('invalid conflict resolution: '
                                + repr(self.conflict_resolution))
 
+    def __call__(self, db, group_name, group_description, creator_id=None):
+        """ Get or create the group defined by this template. """
+        try:
+            group = _get_group_by_name(db, group_name)
+            logger.info('found group: %s (%d)',
+                        group.group_name, group.entity_id)
+        except Errors.NotFoundError:
+            group = self._create(db, group_name, group_description,
+                                 creator_id=creator_id)
+        else:
+            self._update(group, group_description)
+        return group
+
+
+class GroupTemplate(GroupTypeTemplate):
+    """ Template for a named group that should exist in Cerebrum. """
+    repr_module = False
+    repr_id = False
+    repr_fields = ('group_name',)
+
+    def __init__(self, group_name, group_description, *args, **kwargs):
+        super(GroupTemplate, self).__init__(*args, **kwargs)
+        self.group_name = group_name
+        self.group_description = group_description
+
     def require(self, db):
         """ Require group to exist. """
         return _get_group_by_name(db, self.group_name)
 
-    def __call__(self, db):
+    def __call__(self, db, creator_id=None):
         """ Get or create the group defined by this template. """
-        try:
-            group = _get_group_by_name(db, self.group_name)
-            logger.info('found group: %s (%d)',
-                        group.group_name, group.entity_id)
-        except Errors.NotFoundError:
-            group = self._create(db)
-        else:
-            self._update(group)
-        return group
+        return super(GroupTemplate, self).__call__(
+            db,
+            group_name=self.group_name,
+            group_description=self.group_description,
+            creator_id=creator_id,
+        )

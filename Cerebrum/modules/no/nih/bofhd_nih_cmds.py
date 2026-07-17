@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2006-2023 University of Oslo, Norway
+# Copyright 2006-2024 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -37,7 +37,9 @@ from Cerebrum.modules.audit import bofhd_history_cmds
 from Cerebrum.modules.bofhd import bofhd_contact_info
 from Cerebrum.modules.bofhd import bofhd_email
 from Cerebrum.modules.bofhd import bofhd_group_roles
+from Cerebrum.modules.bofhd import bofhd_misc_sms
 from Cerebrum.modules.bofhd import bofhd_ou_cmds
+from Cerebrum.modules.bofhd import bofhd_quarantines
 from Cerebrum.modules.bofhd import cmd_param
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
@@ -99,8 +101,6 @@ uio_helpers = [
     '_group_remove_entity',
     '_person_affiliation_add_helper',
     '_person_create_externalid_helper',
-    '_remove_auth_role',
-    '_remove_auth_target',
     '_viewable_external_ids',
     'user_set_owner_prompt_func',
 ]
@@ -121,6 +121,7 @@ uio_commands = [
     'group_remove_entity',
     'group_search',
     'group_set_description',
+    'group_set_expire',
     'misc_affiliations',
     'misc_check_password',
     'misc_clear_passwords',
@@ -139,11 +140,6 @@ uio_commands = [
     'person_set_id',
     'person_set_name',
     'person_set_user_priority',
-    'quarantine_disable',
-    'quarantine_list',
-    'quarantine_remove',
-    'quarantine_set',
-    'quarantine_show',
     'spread_add',
     'spread_list',
     'spread_remove',
@@ -427,6 +423,26 @@ class _OuAuth(NihAuth, bofhd_ou_cmds.OuAuth):
 
 class OuCommands(bofhd_ou_cmds.OuCommands):
     authz = _OuAuth
+
+
+class _QuarantineAuth(NihAuth, bofhd_quarantines.BofhdQuarantineAuth):
+    RESTRICTED_QUARANTINES = (
+        "auto_no_aff",
+        "svakt_passord",
+        "system",
+    )
+
+
+class QuarantineCommands(bofhd_quarantines.BofhdQuarantineCommands):
+    authz = _QuarantineAuth
+
+
+class _SmsAuth(NihAuth, bofhd_misc_sms.BofhdSmsAuth):
+    pass
+
+
+class SmsCommands(bofhd_misc_sms.BofhdSmsCommands):
+    authz = _SmsAuth
 
 
 class _TraitAuth(NihAuth, bofhd_trait_cmds.TraitAuth):
