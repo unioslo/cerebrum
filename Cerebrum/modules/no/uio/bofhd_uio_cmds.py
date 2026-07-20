@@ -109,6 +109,7 @@ from Cerebrum.modules.no.uio import bofhd_auth
 from Cerebrum.modules.no.uio import sysadm_utils
 from Cerebrum.modules.otp import bofhd_otp_cmds
 from Cerebrum.modules.ou_disk_mapping import bofhd_cmds
+from Cerebrum.modules.entity_note import bofhd_note_cmds
 from Cerebrum.modules.pwcheck.checker import (
     check_password,
     PasswordNotGoodEnough,
@@ -5369,3 +5370,7 @@ class SmsCommands(bofhd_misc_sms.BofhdSmsCommands):
 
 class TraitCommands(bofhd_trait_cmds.TraitCommands):
     authz = bofhd_auth.TraitAuth
+
+
+class BofhdNoteCommands(bofhd_note_cmds.BofhdNoteCommands):
+    authz = bofhd_auth.EntityNoteBofhdAuth

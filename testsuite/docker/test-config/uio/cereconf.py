@@ -59,6 +59,7 @@ CLASS_CL_CONSTANTS = (
     'Cerebrum.modules.exchange.CLConstants/CLConstants',
     'Cerebrum.modules.ad2.CLConstants/CLConstants',
     'Cerebrum.Constants/CLConstants',
+    'Cerebrum.modules.entity_note.note_constants/NoteChangeCodes',
 )
 
 CLASS_CHANGELOG = (
@@ -71,6 +72,7 @@ CLASS_CHANGELOG = (
 CLASS_ENTITY = (
     'Cerebrum.modules.EntityTrait/EntityTrait',
     'Cerebrum.modules.bofhd.bofhd_mixins/BofhdAuthEntityMixin',
+    'Cerebrum.modules.entity_note.note_mixins/EntityNoteMixin'
 )
 
 CLASS_ACCOUNT = (

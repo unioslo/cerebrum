@@ -35,7 +35,9 @@ from Cerebrum import database
 from Cerebrum.group.GroupRoles import GroupRoles
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
-from Cerebrum.modules import Note
+from Cerebrum.modules.entity_note.note_mixins import (
+    EntityNoteMixin
+)
 from Cerebrum.modules.apikeys import bofhd_apikey_cmds
 from Cerebrum.modules.audit import bofhd_history_cmds
 from Cerebrum.modules.bofhd import bofhd_email
@@ -67,6 +69,7 @@ from Cerebrum.modules.bofhd import bofhd_user_create_unpersonal
 from Cerebrum.modules.no.hia import bofhd_uia_auth
 from Cerebrum.modules.no.uio import bofhd_uio_cmds
 from Cerebrum.modules.trait import bofhd_trait_cmds
+from Cerebrum.modules.entity_note import bofhd_note_cmds
 from Cerebrum.utils import date_compat
 
 
@@ -260,7 +263,7 @@ class BofhdExtension(BofhdCommonMethods):
         try:
             self.ba.can_show_notes(operator.get_entity_id())
 
-            enote = Note.EntityNote(self.db)
+            enote = EntityNoteMixin(self.db)
             enote.find(entity_id)
 
             for n in enote.get_notes():
@@ -1475,6 +1478,10 @@ class SmsCommands(bofhd_misc_sms.BofhdSmsCommands):
 
 class TraitCommands(bofhd_trait_cmds.TraitCommands):
     authz = bofhd_uia_auth.TraitAuth
+
+
+class BofhdNoteCommands(bofhd_note_cmds.BofhdNoteCommands):
+    authz = bofhd_uia_auth.EntityNoteBofhdAuth
 
 
 HELP_GROUPS = {

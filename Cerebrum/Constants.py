@@ -1696,7 +1696,6 @@ class CommonConstants(ConstantsBase):
         'derived-group',
         'Automatic group - periodically maintained to mirror another group'
         ' or group hierarchy')
-    
     group_type_policy = _GroupTypeCode(
         'policy-group',
         'Manual group - Group inhabited by other groups for group policies'
@@ -1990,12 +1989,6 @@ class CLConstants(ConstantsBase):
         'entity_addr', 'add', 'add entity_addr for %(subject)s')
     entity_addr_del = _ChangeTypeCode(
         'entity_addr', 'remove', 'del entity_addr for %(subject)s')
-    entity_note_add = _ChangeTypeCode(
-        'entity_note', 'add', 'add entity_note for %(subject)s',
-        ('note_id=%(int:note_id)s',))
-    entity_note_del = _ChangeTypeCode(
-        'entity_note', 'remove', 'del entity_note for %(subject)s',
-        ('note_id=%(int:note_id)s',))
     entity_ext_id_del = _ChangeTypeCode(
         'entity_external_id', 'remove', 'del ext_id for %(subject)s',
         ('src=%(source_system:src)s, type=%(extid:id_type)s',))

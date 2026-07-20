@@ -35,7 +35,7 @@ from Cerebrum.modules.bofhd.bofhd_email import BofhdEmailAuth
 from Cerebrum.modules.bofhd.errors import PermissionDenied
 from Cerebrum.modules.bofhd_requests.bofhd_requests_auth import RequestsAuth
 from Cerebrum.modules.guest import bofhd_guest_auth
-from Cerebrum.modules.no.bofhd_note_cmds import EntityNoteBofhdAuth
+from Cerebrum.modules.entity_note.bofhd_note_cmds import EntityNoteBofhdAuth
 from Cerebrum.modules.trait import bofhd_trait_cmds
 
 
@@ -87,6 +87,13 @@ class UiaAuth(EntityNoteBofhdAuth, BofhdAuth):
                 return True
         return super(UiaAuth, self).can_alter_group(operator, group,
                                                     query_run_any)
+
+    def can_add_notes(self, operator, query_run_any=False):
+        if self._has_operation_perm_somewhere(operator,
+                                              self.const.auth_set_password):
+            return True
+        return super(EntityNoteBofhdAuth, self).can_add_notes(operator,
+                                                              query_run_any)
 
 
 class ContactAuth(UiaAuth, BofhdContactAuth):

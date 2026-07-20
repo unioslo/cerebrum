@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2023 University of Oslo, Norway
+# Copyright 2013-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,15 +18,8 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
 Module for attaching notes to entities.
-
-TODO
------
-
-- Move everything related to this module into ``Cerebrum.modules.note``
-  sub-modules.  This includes changelog-constants, bofhd-commands, and this
-  module.
-
 """
+
 from __future__ import (
     absolute_import,
     division,
@@ -35,8 +28,7 @@ from __future__ import (
 )
 import logging
 
-from Cerebrum.Constants import CLConstants as NoteChange
-from Cerebrum.Entity import Entity
+from .note_constants import NoteChangeCodes as NoteChange
 from Cerebrum.Utils import NotSet, argument_to_sql
 from Cerebrum.database import query_utils
 from Cerebrum.utils import date_compat
@@ -168,7 +160,10 @@ def sql_add_note(db, entity_id, creator_id, subject, description=None):
     :returns:
         Returns the newly added note row
     """
-    # TODO: Validate subject? Is CHAR(70), and should not be empty
+    if subject is None or len(subject) > 70:
+        raise ValueError(
+            "Subject must not be null " "and must be no longer than 70 characters."
+        )
     note_id = db.nextval("entity_note_seq")
 
     row = db.query_1(
@@ -261,6 +256,8 @@ def sql_delete_notes(db, **selects):
 
     :returns: deleted rows.
     """
+    if "_prefix" in selects:
+        raise TypeError("invalid argument: '_prefix'")
     clauses, binds = _select(**selects)
     if clauses:
         where = 'WHERE ' + ' AND '.join(clauses)
@@ -290,68 +287,3 @@ def sql_delete_notes(db, **selects):
             },
         )
     return deleted_rows
-
-
-class EntityNote(Entity):
-    """
-    Mixin class for adding note support to entity.
-    """
-
-    def add_note(self, operator, subject, description=None):
-        """
-        Adds a note to this entity.
-
-        :param int operator: account id of operator adding the note.
-        :param str subject: note subject (header), < 70 chars
-        :param str description: note description (body)
-
-        :returns int: the note id of the new note
-        """
-        note = sql_add_note(
-            db=self._db,
-            entity_id=self.entity_id,
-            creator_id=operator,
-            subject=subject,
-            description=description,
-        )
-        return note['note_id']
-
-    def get_notes(self):
-        """
-        Returns all notes associated with this entity.
-
-        :returns: A sequence of note rows
-        """
-        return sql_search_notes(
-            db=self._db,
-            fetchall=True,
-            entity_id=int(self.entity_id))
-
-    def delete_note(self, note_id):
-        """
-        Deletes a note.
-
-        .. note::
-           The note-id must be associated with this entity.  If it's associated
-           with another entity, nothing happens.
-
-        :param int note_id: id of note to remove
-        """
-        sql_delete_notes(
-            db=self._db,
-            entity_id=int(self.entity_id),
-            note_id=int(note_id))
-
-    def delete(self):
-        """
-        Delete this entity and all notes associated with this entity.
-
-        .. note::
-           This entity may be a *note creator* for notes associated with
-           *other* entities.  These notes will not be deleted - and constraints
-           prevent us from deleting this entity.
-        """
-        sql_delete_notes(
-            db=self._db,
-            entity_id=int(self.entity_id))
-        super(EntityNote, self).delete()

@@ -36,6 +36,7 @@ from Cerebrum.modules.bofhd import bofhd_ou_cmds
 from Cerebrum.modules.bofhd import bofhd_perm_cmds
 from Cerebrum.modules.bofhd import bofhd_quarantines
 from Cerebrum.modules.bofhd import bofhd_user_create_unpersonal
+from Cerebrum.modules.entity_note.bofhd_note_cmds import EntityNoteBofhdAuth
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.bofhd_contact_info import BofhdContactAuth
 from Cerebrum.modules.bofhd.bofhd_email import BofhdEmailAuth
@@ -523,3 +524,7 @@ class TraitAuth(UioAuth, bofhd_trait_cmds.TraitAuth):
             return True
 
         raise PermissionDenied("Not allowed to set trait")
+
+
+class EntityNoteBofhdAuth(UioAuth, EntityNoteBofhdAuth):
+    pass

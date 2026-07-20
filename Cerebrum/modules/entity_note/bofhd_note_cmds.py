@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2013-2023, University of Oslo, Norway
+# Copyright 2013-2026, University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,6 +18,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """Commands for BOFHD EntityNote functionality."""
+
 from __future__ import (
     absolute_import,
     division,
@@ -25,14 +26,13 @@ from __future__ import (
     unicode_literals,
 )
 
-from Cerebrum.modules import Note
+from .note_mixins import EntityNoteMixin
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.bofhd_utils import format_time
 from Cerebrum.modules.bofhd.cmd_param import (Command,
                                               FormatSuggestion,
-                                              Id,
-                                              SimpleString)
+                                              Id, SimpleString)
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 
 
@@ -41,12 +41,20 @@ class EntityNoteBofhdAuth(BofhdAuth):
     def can_add_notes(self, operator, query_run_any=False):
         if self.is_superuser(operator):
             return True
+        if self._has_operation_perm_somewhere(
+                operator,
+                self.const.auth_entity_note_add):
+            return True
         if query_run_any:
             return False
         raise PermissionDenied("Permission denied")
 
     def can_remove_notes(self, operator, query_run_any=False):
         if self.is_superuser(operator):
+            return True
+        if self._has_operation_perm_somewhere(
+                operator,
+                self.const.auth_entity_note_remove):
             return True
         if query_run_any:
             return False
@@ -55,15 +63,16 @@ class EntityNoteBofhdAuth(BofhdAuth):
     def can_show_notes(self, operator, query_run_any=False):
         if self.is_superuser(operator):
             return True
-        if self._has_operation_perm_somewhere(operator,
-                                              self.const.auth_set_password):
+        if self._has_operation_perm_somewhere(
+                operator,
+                self.const.auth_entity_note_show):
             return True
         if query_run_any:
             return False
         raise PermissionDenied("Permission denied")
 
 
-class BofhdExtension(BofhdCommonMethods):
+class BofhdNoteCommands(BofhdCommonMethods):
     """ Extends bofhd with a 'note' command group. """
 
     all_commands = {}
@@ -123,7 +132,7 @@ class BofhdExtension(BofhdCommonMethods):
         entity = self.util.get_target(
             entity_target, default_lookup="account", restrict_to=[]
         )
-        enote = Note.EntityNote(self.db)
+        enote = EntityNoteMixin(self.db)
         enote.find(entity.entity_id)
 
         notes = enote.get_notes()
@@ -166,14 +175,13 @@ class BofhdExtension(BofhdCommonMethods):
         self.ba.can_add_notes(operator.get_entity_id())
 
         if len(subject) > 70:
-            raise CerebrumError(
-                "Subject field cannot be longer than 70 characters")
+            raise CerebrumError("Subject field cannot be longer than 70 characters")
         if len(description) > 1024:
             raise CerebrumError(
                 "Description field cannot be longer than 1024 characters")
 
         entity = self.util.get_target(entity_target, restrict_to=[])
-        enote = Note.EntityNote(self.db)
+        enote = EntityNoteMixin(self.db)
         enote.find(entity.entity_id)
         note_id = enote.add_note(operator.get_entity_id(),
                                  subject,
@@ -194,7 +202,7 @@ class BofhdExtension(BofhdCommonMethods):
         self.ba.can_remove_notes(operator.get_entity_id())
 
         entity = self.util.get_target(entity_target, restrict_to=[])
-        enote = Note.EntityNote(self.db)
+        enote = EntityNoteMixin(self.db)
         enote.find(entity.entity_id)
 
         if not note_id.isdigit():

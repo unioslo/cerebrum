@@ -496,6 +496,41 @@ def move_memberships(source, target):
             group.add_member(target.entity_id)
 
 
+def move_notes(source, target):
+    """
+    Move notes from *source* to *target*.
+
+    All notes associated with the source entity will be copied to the target
+    entity. The notes on the source will be automatically deleted when the
+    source entity is deleted (via EntityNoteCleanupMixin).
+    """
+    logger.debug("note: copying note from id=%d to id=%d",
+                 source.entity_id, target.entity_id)
+    assert source._db is target._db
+
+    if not hasattr(source, "get_notes") or not hasattr(target, "add_note"):
+        logger.debug("note: entity does not have note mixin, skipping")
+        return
+
+    moved_count = 0
+    for note in source.get_notes():
+        target.add_note(
+            operator=note['creator_id'],
+            subject=note['subject'],
+            description=note['description']
+        )
+        moved_count += 1
+        logger.info("note: moved note %d (subject: %s) from id=%d to id=%d",
+                    note['note_id'], note['subject'],
+                    source.entity_id, target.entity_id)
+
+    if moved_count == 0:
+        logger.debug("note: no notes to move from id=%d", source.entity_id)
+    else:
+        logger.info("note: moved %d note(s) from id=%d to id=%d",
+                    moved_count, source.entity_id, target.entity_id)
+
+
 def person_join(source, target, with_uio_ephorte, with_uio_voip):
     """
     Move missing information from old person to new person.
@@ -530,6 +565,7 @@ def person_join(source, target, with_uio_ephorte, with_uio_voip):
         join_uio_voip_objects(source, target)
 
     move_consents(source, target)
+    move_notes(source, target)
     # TODO: We should probably consider traits?
     # TODO: We should probably consider special consent/reservation logic not
     # represented through the consent module?
@@ -678,7 +714,6 @@ def join_uio_voip_objects(source, target):
         raise RuntimeError(
             "Both persons own voip addresses: "
             "Manual intervention required to join voip objects.")
-
 
 def main(argv=None):
     parser = argparse.ArgumentParser(

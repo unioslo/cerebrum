@@ -497,7 +497,7 @@ MODULES = {
     'events': 'Cerebrum.modules.event_publisher',
     'job_runner': 'Cerebrum.modules.job_runner',
     'otp': 'Cerebrum.modules.otp',
-    'note': 'Cerebrum.modules.Note',
+    'note': 'Cerebrum.modules.entity_note',
     'password_history': 'Cerebrum.modules.pwcheck.history',
     'posixuser': 'Cerebrum.modules.PosixUser',
     'stedkode': 'Cerebrum.modules.no.Stedkode',

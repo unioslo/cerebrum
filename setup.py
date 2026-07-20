@@ -371,6 +371,7 @@ setup(
         'Cerebrum/modules/consent',
         'Cerebrum/modules/cim',
         'Cerebrum/modules/email_report',
+        'Cerebrum/modules/entity_note',
         'Cerebrum/modules/event',
         'Cerebrum/modules/event_publisher',
         'Cerebrum/modules/exchange',
