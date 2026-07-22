@@ -132,3 +132,51 @@ def test_strip_control_characters(char):
     text = "%sfoo%sbar%s" % (char, char, char)
     expect = "foobar"
     assert text_utils.strip_control_characters(text) == expect
+
+
+@pytest.mark.parametrize(
+    "text_in, replacement, text_out",
+    [
+        pytest.param("123456789", "", "12345678", id="no replacement"),
+        pytest.param("123456789", "…", "1234567…", id="replacement char"),
+        pytest.param("123456789", "...", "12345...", id="replacement string")
+    ],
+)
+def test_truncate__longer(text_in, replacement, text_out):
+    """ output length should not be affected by the replacement value. """
+    result = text_utils.truncate(text_in, 8, replacement)
+    assert result == text_out
+    assert len(result) == 8
+
+
+@pytest.mark.parametrize(
+    "text_in, replacement",
+    [
+        pytest.param("", "", id="empty"),
+        pytest.param("12345", "", id="shorter"),
+        pytest.param("12345678", "", id="same + none"),
+        pytest.param("12345678", "…", id="same + char"),
+        pytest.param("12345678", "...", id="same + string"),
+    ],
+)
+def test_truncate__shorter(text_in, replacement):
+    result = text_utils.truncate(text_in, 8, replacement)
+    assert result == text_in
+
+
+@pytest.mark.parametrize(
+    "replacement",
+    [
+        pytest.param("...", id="same length"),
+        pytest.param("....", id="too long"),
+    ],
+)
+def test_truncate__invalid_replacement(replacement):
+    """ replacement length can't surpass the truncate length. """
+    with pytest.raises(ValueError) as exc_info:
+        text_utils.truncate("12345678", 3, replacement)
+
+    error_msg = six.text_type(exc_info.value)
+    assert error_msg.startswith("Cannot trunctate")
+    assert "3" in error_msg
+    assert replacement in error_msg

@@ -106,3 +106,31 @@ def strip_control_characters(s, **kwargs):
     :param set exclude: see :func:`.replace_category`
     """
     return strip_category(s, CATEGORY_CONTROL, **kwargs)
+
+
+def truncate(text, length, replacement=""):
+    """
+    Truncate a text string to max *length* characters.
+
+    Texts longer than *length* will be truncated:
+    >>> truncate("123456789", 8)
+    "12345678"
+
+    An optional *replacement* sentinel value can be added when the
+    text is truncated:
+    >>> truncate("123456789", 8, "...")
+    "12345..."
+
+    Texts shorter than (or equal to) *length* will be returned as-is:
+    >>> truncate("12345678", 8, "...")
+    "12345678"
+
+    """
+    if len(replacement) >= length:
+        raise ValueError("Cannot trunctate to length %d with suffix %s"
+                         % (length, repr(replacement)))
+    if len(text) > length:
+        trunc = length - len(replacement)
+        return text[:trunc] + replacement
+    else:
+        return text
