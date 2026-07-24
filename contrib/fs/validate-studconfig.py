@@ -74,14 +74,19 @@ def find_file(rel, bases):
 
 
 def read_dtd(filename):
-    with io.open(filename, mode="rb") as bstream:
-        return lxml.etree.DTD(bstream)
+    logger.debug("Reading DTD from %s", filename)
+    with io.open(filename, mode="rb") as byte_stream:
+        return lxml.etree.DTD(byte_stream)
 
 
 def read_xml(filename):
-    with io.open(filename, mode="rb") as bstream:
-        xml_bytes = bstream.read()
-    return lxml.etree.XML(xml_bytes)
+    logger.debug("Reading XML from %s", filename)
+    with io.open(filename, mode="rb") as byte_stream:
+        return lxml.etree.parse(byte_stream)
+
+
+def _help_suffix(required):
+    return " (required)" if required else " (default: %(default)s)"
 
 
 def main(argv=None):
@@ -95,24 +100,26 @@ def main(argv=None):
     )
 
     dtd_default = find_file(DTD_FILE, DTD_PATHS)
-    dtd_required = dtd_default is None
-    dtd_help = " (required)" if dtd_required else " (default: %(default)s)"
     parser.add_argument(
         "-d", "--dtd",
         default=dtd_default,
-        required=dtd_required,
-        help="Read definiton from %(metavar)s" + dtd_help,
+        required=(dtd_default is None),
+        help=(
+            "Read definiton from %(metavar)s"
+            + _help_suffix(dtd_default is None)
+        ),
         metavar="DTD",
     )
 
     xml_default = find_file(XML_FILE, XML_PATHS)
-    xml_required = xml_default is None
-    xml_help = " (required)" if xml_required else " (default: %(default)s)"
     parser.add_argument(
         "-x", "--xml",
         default=xml_default,
-        required=xml_required,
-        help="Read document to validate from %(metavar)s" + xml_help,
+        required=(xml_default is None),
+        help=(
+            "Read document to validate from %(metavar)s"
+            + _help_suffix(xml_default is None)
+        ),
         metavar="XML",
     )
     log_subparser = Cerebrum.logutils.options.install_subparser(parser)

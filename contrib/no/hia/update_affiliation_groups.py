@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2012-2017 University of Oslo, Norway
+# Copyright 2012-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,184 +18,226 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-from __future__ import print_function
+"""
+Populate simple groups from affiliations.
 
-import sys
-import getopt
+Note that this script does *not* create groups - any group targeted by this
+script must already exsist in Cerebrum.
+
+The groups to update either comes from `ocnfiguration`_, or from command-line
+arguments.
+
+
+Configuration
+-------------
+If --use-config is provided on the command line,  the script will attempt to
+use the mapping in ``cereconf.AFFILIATION_GROUPS``.
+
+This value maps affiliations to group names in the same way that the
+`-a` option.  Example:
+::
+
+    AFFILIATION_GROUPS = {
+      'ANSATT': 'affiliation-ansatt',
+      'TILKNYTTET': 'affiliation-tilknyttet',
+      'STUDENT': 'affiliation-student',
+      'MANUELL': 'affiliation-manuell',
+    }
+"""
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+import argparse
+import logging
+import textwrap
+
+import six
 
 import cereconf
-
-from Cerebrum.Utils import Factory
+import Cerebrum.logutils
+import Cerebrum.logutils.options
 from Cerebrum import Errors
-from Cerebrum.modules.bofhd.auth import BofhdAuthOpSet, \
-     BofhdAuthOpTarget, BofhdAuthRole
+from Cerebrum.group import group_sync
+from Cerebrum.database.ctx import db_context
+from Cerebrum.Utils import Factory
+from Cerebrum.utils import argutils
 
-# Initialize logger
-logger = Factory.get_logger('cronjob')
-
-# Initialize database connections
-db = Factory.get('Database')()
-ac = Factory.get('Account')(db)
-pe = Factory.get('Person')(db)
-gr = Factory.get('Group')(db)
-baos = BofhdAuthOpSet(db)
-bar = BofhdAuthRole(db)
-baot = BofhdAuthOpTarget(db)
-
-db.cl_init(change_program="update_affiliation_groups.py")
+logger = logging.getLogger(__name__)
 
 
-def usage(exitcode=0):
-    print("""Usage:
-    %s [Options]
-
-    Update group memberships for primary accounts based on affiliations.
-
-    Options:
-    -l, --list                      List affiliations.
-    -d, --dryrun                    Don't commit changes to Cerebrum db.
-    -a, --affmap    <aff:group>     Specify mappings between affs and groups.
-                                    "ANSATT:ansattgroup STUDENT:studentgroup"
-    """ % sys.argv[0])
-    sys.exit(exitcode)
-
-
-def list_affs():
+def get_mapping(db, raw_mapping):
     """
-    List person affiliations.
+    Look up and validate the mappings from *pairs*.
+
+    :param db:
+
+    :type mappings: Iterable[tuple[str,str]]
+    :param mappings:
+        An iterable of (affiliation-name, group-name) pairs.
+
+    :rtype: list[tuple[obj,obj]]
+    :returns:
+        A list of (affiliation, group) pairs
+
+        - The *affiliation* is the affiliation code to use
+        - The *group* is the actual group entity to update
+
+    :raises ValueError: if any input mapping pairs are invalid
     """
-    affiliations = pe.list_person_affiliation_codes()
-    for a in affiliations:
-        print("%s: %s (%s)" % (str(int(a['code'])),
-                               a['code_str'],
-                               a['description']))
-
-
-def update_aff_groups(aff_groups, dryrun):
-    # get all affiliations and aff ids
-    affs = {}
-    for a in pe.list_person_affiliation_codes():
-        affs[a['code_str']] = int(a['code'])
-
-    # for each aff:group...
-    for affiliation, group in aff_groups.items():
-
-        # valid affiliation?
-        if affiliation not in affs:
-            logger.error("Affiliation not found (%s)." % affiliation)
-            return
-
-        gr.clear()
+    const = Factory.get("Constants")(db)
+    seen_groups = set()
+    mapping = []
+    for raw_aff, raw_group in raw_mapping:
+        raw_pair = ":".join((raw_aff, raw_group))
         try:
-            # valid group?
-            gr.find_by_name(group)
+            aff, status = const.get_affiliation(raw_aff)
+        except LookupError as e:
+            raise ValueError("Unknown affilation %s (%s)"
+                             % (e, raw_pair))
+        if status is not None:
+            raise ValueError("AFF/status is not supported (%s)" % (raw_pair,))
+
+        group = Factory.get("Group")(db)
+        try:
+            group.find_by_name(raw_group)
         except Errors.NotFoundError:
-            logger.error("Group not found (%s)." % group)
-            return
+            raise ValueError("Unknown group %s (%s)"
+                             % (raw_group, raw_pair))
+        if group.entity_id in seen_groups:
+            raise ValueError("Duplicate group %s (%s)",
+                             group.group_name, raw_pair)
+        seen_groups.add(group.entity_id)
 
-        # get all persons with this affiliation
-        pe.clear()
-        persons = pe.list_affiliations(affiliation=affs[affiliation])
+        mapping.append((aff, group))
 
-        # get each person's primary account
-        #####
-        # The current solution is classic brute force. An API change would
-        # be more elegant, e.g. expanding Person or Account (search or
-        # list_affiliations). Account.list_accounts_by_type may serve as an
-        # example.
-        #####
-        primary_accounts = set()
-        for person in persons:
-            ac.clear()
-            account = ac.list_accounts_by_type(person_id=person['person_id'],
-                                               primary_only=True)
-            if account:
-                primary_accounts.add(int(account[0]['account_id']))
-
-        # get all entity_ids in target group
-        group_members = set()
-        for member in list(gr.search_members(group_id=gr.entity_id)):
-            group_members.add(int(member['member_id']))
-
-        # accounts that should be added to the group
-        to_be_added = primary_accounts - group_members
-
-        # accounts that should be removed from the group
-        to_be_removed = group_members - primary_accounts
-
-        # remove accounts from group
-        for account in to_be_removed:
-            try:
-                gr.remove_member(account)
-                gr.write_db()
-                logger.debug("Removed %s from %s." % (str(account), group))
-            except Errors.DatabaseError as e:
-                logger.error("Failed removing %s from %s: %s" %
-                             (str(account), group, e))
-        if not dryrun:
-            try:
-                gr.commit()
-            except Errors.DatabaseError as e:
-                logger.error("Commit of removed group members failed: %s" % e)
-        else:
-            db.rollback()
-
-        # add accounts to group
-        for account in to_be_added:
-            try:
-                gr.add_member(account)
-                gr.write_db()
-                logger.debug("Added %s to %s." % (str(account), group))
-            except Errors.DatabaseError as e:
-                logger.error("Failed adding %s to %s: %s" %
-                             (str(account), group, e))
-        if not dryrun:
-            try:
-                gr.commit()
-            except Errors.DatabaseError as e:
-                logger.error("Commit of added group members failed: %s" % e)
-        else:
-            db.rollback()
+    return sorted(mapping, key=lambda p: six.text_type(p[0]))
 
 
-def main():
+class PrimaryAccountLookup(object):
+    """ Get primary accounts from affiliations. """
 
-    dryrun = False
-    aff_groups = None
+    def __init__(self, db):
+        self.db = db
+        self.cache = group_sync.AccountOwnerCache(db)
+        self.const = Factory.get("Constants")(db)
 
-    try:
-        opts, args = getopt.getopt(sys.argv[1:],
-                                   'lda:',
-                                   ['list', 'dryrun', 'affs='])
-    except getopt.GetoptError as e:
-        logger.error(e)
-        usage(1)
+    def _get_people(self, affiliation):
+        pe = Factory.get("Person")(self.db)
+        return set(row['person_id'] for row in
+                   pe.list_affiliations(affiliation=int(affiliation)))
 
-    for opt, val in opts:
-        if opt in ('-l', '--list'):
-            list_affs()
-            sys.exit(0)
-        if opt in ('-d', '--dryrun'):
-            dryrun = True
-        if opt in ('-a', '--affs'):
-            aff_groups = {}
-            tempaffs = val.split(" ")
-            for t in tempaffs:
-                a = t.split(":")
-                aff_groups[a[0]] = a[1]
-            logger.info('Start update of affiliation groups.')
-            update_aff_groups(aff_groups, dryrun)
-            logger.info('End update of affiliation groups.')
+    def _person_to_primary(self, person_ids):
+        return group_sync.get_member_ids(
+            self.cache.only_primary_accounts(
+                (person_id, self.const.entity_person)
+                for person_id in person_ids
+            ))
 
-    if aff_groups is None:
-        if len(cereconf.AFFILIATION_GROUPS) < 1:
-            logger.error("No affiliations/grops defined.")
-            usage(1)
-        else:
-            logger.info('Start update of affiliation groups.')
-            update_aff_groups(cereconf.AFFILIATION_GROUPS, dryrun)
-            logger.info('End update of affiliation groups.')
+    def __call__(self, affiliation):
+        person_ids = self._get_people(affiliation)
+        logger.info("Found %d persons with affiliation %s",
+                    len(person_ids), six.text_type(affiliation))
+        accounts = self._person_to_primary(person_ids)
+        logger.info("Found %d primary accounts with affiliation %s",
+                    len(accounts), six.text_type(affiliation))
+        return accounts
 
 
-if __name__ == '__main__':
-    sys.exit(main())
+def update_groups(db, mappings):
+    """ Update groups according to the input mappings. """
+    get_primary_accounts = PrimaryAccountLookup(db)
+
+    for affiliation, group in mappings:
+        logger.info("Building group %s (%d) from affiliation %s",
+                    group.group_name, group.entity_id,
+                    six.text_type(affiliation))
+        members = get_primary_accounts(affiliation)
+        group_sync.set_group_members(group, members)
+
+
+def _mapping_arg(value):
+    aff, group = value.split(":")
+    return aff, group
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(
+        description="Update affiliation groups",
+        epilog=textwrap.dedent(
+            """
+            Update group memberships for primary accounts based on
+            affiliations.
+            """
+        ).lstrip(),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "-l", "--list",
+        action="store_true",
+        help="List affilations and exit",
+    )
+
+    map_args = parser.add_mutually_exclusive_group(required=True)
+    map_args.add_argument(
+        "--use-config",
+        action="store_true",
+        dest="use_config",
+        help="Read mappings from cereconf.AFFILIATION_GROUPS",
+    )
+    map_args.add_argument(
+        "-a", "--affmap",
+        action="append",
+        dest="mapping_pairs",
+        type=_mapping_arg,
+        help="Add a mapping from <aff> to <group>",
+        metavar="<aff:group>",
+    )
+
+    argutils.add_commit_args(parser)
+    log_subparser = Cerebrum.logutils.options.install_subparser(parser)
+    log_subparser.set_defaults(**{
+        Cerebrum.logutils.options.OPTION_LOGGER_LEVEL: "INFO",
+    })
+
+    args = parser.parse_args(argv)
+    default_preset = "cronjob" if args.commit else "console"
+    Cerebrum.logutils.autoconf(default_preset, args)
+
+    logger.info("Start %s", parser.prog)
+    logger.debug("args: %s", repr(args))
+
+    db = Factory.get("Database")()
+    dryrun = not args.commit
+
+    # --list - show affs and exit
+    if args.list:
+        const = Factory.get("Constants")(db)
+        affs = const.fetch_constants(const.PersonAffiliation)
+        for aff in sorted(affs, key=six.text_type):
+            print("%s: %s (%s)"
+                  % (int(aff), six.text_type(aff), aff.description))
+        return
+
+    # Get affiliation -> group mappings
+    if args.use_config:
+        logger.info("Using default mapping from cereconf.AFFILIATION_GROUPS")
+        raw_pairs = list(getattr(cereconf, "AFFILIATION_GROUPS", {}).items())
+    elif args.mapping_pairs:
+        raw_pairs = args.mapping_pairs
+    mapping = get_mapping(db, raw_pairs)
+    if not mapping:
+        raise ValueError("No mapping found")
+
+    # Process mappings
+    with db_context(db, dryrun):
+        db.cl_init(change_program=parser.prog)
+        update_groups(db, mapping)
+
+    logger.info("Done %s", parser.prog)
+
+
+if __name__ == "__main__":
+    main()
