@@ -103,7 +103,9 @@ Example:
 Note that this import reads the regular ``ou.xml`` file fetched from FS.  At no
 point are org units from DFØ actually processed.
 
-It's not clear why this isn't handled by the common ou-import.  At some point it was decided to write a separate script to process the same file, and update org units with the SAP IDs.
+It's not clear why this isn't handled by the common ou-import.  At some point it
+was decided to write a separate script to process the same file, and update org
+units with the SAP IDs.
 
 
 Employee import
