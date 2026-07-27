@@ -1,13 +1,24 @@
-Setting up GPG for use with Cerebrum
-====================================
+=================
+GPG in Cerebrum
+=================
+Cerberum has multiple GPG related modules for encrypting and decrypting
+messages.  All of them will use the system GnuPG library with a common, custom
+GnuPG homedir.
 
+The modules that use this functionality is:
+
+- ``Cerebrum.modules.gpg``
+- ``Cerebrum.utils.gpg``
+
+
+Setting up GPG for Cerebrum
+============================
 This is a short howto for setting up GPG for use with the
 ``Cerebrum.modules.gpg`` and ``Cerebrum.utils.gpg`` modules.
 
 
-Setting up a GnuPG homedir
-==========================
-
+Create a GnuPG homedir
+----------------------
 First, create a home directory for GnuPG keyrings, trust-db, etc...:
 ::
 
@@ -18,7 +29,6 @@ Then import public keys for use with the module:
 ::
 
     gpg2 --homedir /path/to/gnupg_home --import /path/to/pubkey
-
 
 Now, to be able to use this key for encryption, it needs to be validated.
 This can either be achieved by signing it with our own, private key, or by
@@ -50,7 +60,7 @@ are able to decrypt the GPG data as well:
 
 
 Configuring Cerebrum
-====================
+---------------------
 Set ``cereconf.GNUPGHOME``:
 ::
 
