@@ -86,10 +86,13 @@ def main(inargs=None):
     )
 
     add_commit_args(parser)
-    Cerebrum.logutils.options.install_subparser(parser)
+    Cerebrum.logutils.options.install_subparser(
+        parser,
+        default_level="INFO",
+    )
 
     args = parser.parse_args(inargs)
-    Cerebrum.logutils.autoconf('tee', args)
+    Cerebrum.logutils.autoconf_interactive(args)
 
     if args.debug:
         syncs.enable_debug_log()

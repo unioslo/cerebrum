@@ -58,13 +58,13 @@ def main(inargs=None):
 
     add_commit_args(parser)
 
-    log_subparser = Cerebrum.logutils.options.install_subparser(parser)
-    log_subparser.set_defaults(**{
-        Cerebrum.logutils.options.OPTION_LOGGER_LEVEL: 'INFO',
-    })
+    Cerebrum.logutils.options.install_subparser(
+        parser,
+        default_level="INFO",
+    )
     args = parser.parse_args(inargs)
 
-    Cerebrum.logutils.autoconf('tee', args)
+    Cerebrum.logutils.autoconf_interactive(args)
 
     logger.info("Starting %s", parser.prog)
     logger.debug("args: %r", args)
