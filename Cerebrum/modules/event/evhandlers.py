@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2015 University of Oslo, Norway
+# Copyright 2015-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -154,8 +154,9 @@ class DBConsumer(ProcessDBMixin, ProcessLoggingMixin, QueueListener):
         if not isinstance(item, EventItem):
             self.logger.error('Invalid event: %s', repr(item))
 
-        self.logger.debug('Got a new event on channel %s: id=%s event=%s',
-                          repr(item.channel), repr(item.identifier), repr(item.payload))
+        self.logger.debug("Got a new event on channel %s: id=%s event=%s",
+                          repr(item.channel), repr(item.identifier),
+                          repr(item.payload))
 
         if not self.__lock_event(item.identifier):
             return
@@ -269,7 +270,8 @@ class DBListener(DBProducer):
         except (psycopg2.OperationalError, RuntimeError) as e:
             self.logger.warning('Unable to subscribe: %s', str(e))
         except Exception as e:
-            self.logger.error('Unknown subscribe error: %s %s', repr(type(e)), str(e))
+            self.logger.error('Unknown subscribe error: %s %s',
+                              repr(type(e)), str(e))
             raise e
         return self.subscribed
 
@@ -322,10 +324,14 @@ class DBListener(DBProducer):
             return
 
         for notification in self.fetch():
-            # Extract channel and the event
-            # Dictifying the event in order to pickle it when
-            # enqueueuing.
-            self.push(self._build_event(notification))
+            # For each notification, try to build an EventItem with
+            # event channel and event metadata.
+            event = self._build_event(notification)
+            if event:
+                self.push(event)
+            else:
+                self.logger.warning("No event from notification %s",
+                                    repr(notification))
 
         # Rolling back to avoid IDLE in transact
         self.db.rollback()
@@ -402,7 +408,10 @@ class EventLogMixin(DBProducer):
 
 class EventLogListener(EventLogMixin, DBListener):
     def _build_event(self, notification):
-        db_row = self.db.get_event(int(notification.payload))
+        try:
+            db_row = self.db.get_event(int(notification.payload))
+        except Errors.NotFoundError:
+            return None
         return self._row_to_event(db_row)
 
 

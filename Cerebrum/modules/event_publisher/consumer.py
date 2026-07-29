@@ -148,7 +148,10 @@ class EventListener(evhandlers.DBListener):
         return self.__event_db
 
     def _build_event(self, notification):
-        db_row = self.event_db.get_event(int(notification.payload))
+        try:
+            db_row = self.event_db.get_event(int(notification.payload))
+        except Errors.NotFoundError:
+            return None
         return evhandlers.EventItem(
             notification.channel, int(db_row['event_id']),
             eventdb.from_row(db_row))
@@ -166,8 +169,8 @@ class EventCollector(evhandlers.DBProducer):
     they are written to the database, but this class deals with events/rows
     that gets left behind (e.g. failed events).
     """
-    def __init__(self, config={}, **kwargs):
-        self.config = config
+    def __init__(self, config=None, **kwargs):
+        self.config = config or {}
         super(EventCollector, self).__init__(**kwargs)
 
     def process(self):
