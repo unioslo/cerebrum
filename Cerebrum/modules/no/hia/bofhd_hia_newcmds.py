@@ -97,7 +97,6 @@ uio_helpers = [
     '_lookup_old_uid',
     '_person_affiliation_add_helper',
     '_person_create_externalid_helper',
-    '_viewable_external_ids',
     'user_set_owner_prompt_func',
 ]
 
