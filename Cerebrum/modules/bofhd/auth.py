@@ -2235,67 +2235,6 @@ class BofhdAuth(DatabaseAccessor):
         disk.find(disk_id)
         return disk
 
-    def can_get_external_id(self, operator, entity, extid_type, source_sys,
-                            query_run_any=False):
-        if query_run_any:
-            return True
-        if self.is_superuser(operator.get_entity_id()):
-            return True
-
-        if entity.entity_type == self.const.entity_ou:
-            return True
-
-        if entity.entity_type == self.const.entity_person:
-            return self._can_get_person_external_id(
-                operator,
-                entity,
-                extid_type,
-                source_sys,
-                query_run_any=query_run_any)
-
-        raise PermissionDenied("You don't have permission to view external "
-                               "ids for entity {}".format(entity.entity_id))
-
-    def _can_get_person_external_id(self, operator, person, extid_type,
-                                    source_sys, query_run_any=False):
-        """Check if operator can see external ids. Lets everyone see
-         NO_STUDNO and NO_SAPNO. But restricts access to NO_BIRTHNO.
-
-        :param operator: operator object
-        :param person: person object
-        :param str extid_type: e.g NO_STUDNO/NO_BIRTHNO
-        :param str source_sys: str source source system. e.g FS/SAP
-        :param query_run_any
-        :return bool True or False
-        """
-        account = Factory.get('Account')(self._db)
-        account_ids = [int(
-            r['account_id']) for r in
-            account.list_accounts_by_owner_id(person.entity_id)]
-        if operator.get_entity_id() in account_ids:
-            return True
-
-        ext_id_const = int(self.const.EntityExternalId(extid_type))
-        for id_ in cereconf.BOFHD_VISIBLE_EXTERNAL_IDS:
-            if (ext_id_const == self.const.human2constant(
-                    id_, self.const.EntityExternalId)):
-                return True
-
-        operation_attr = str("{}:{}".format(
-            str(self.const.AuthoritativeSystem(source_sys)),
-            extid_type))
-
-        if self._has_target_permissions(
-                operator.get_entity_id(),
-                self.const.auth_view_external_id,
-                self.const.auth_target_type_global_person,
-                None, None,
-                operation_attr=operation_attr):
-            return True
-        raise PermissionDenied("You don't have permission to view "
-                               "external ids for person entity {}".format(
-                                   person.entity_id))
-
     def _is_admin(self, entity_id, group_id=None):
         """
         Check if a given user is a group administrator.
