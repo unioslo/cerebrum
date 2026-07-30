@@ -313,6 +313,10 @@ following special characters:
 - '\*' matches a literal '*'
 - '\?' matches a literal '?'
 - '\\' matches a literal '\'
+
+Note that some clients may add additional processing of escape characters.
+In pybofh, the following patterns will look for text containing a single,
+literal backslash: `"param:*\\*"`, `param:*\\\\*`
 """.strip()
 
 

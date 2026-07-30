@@ -166,6 +166,11 @@ def test_pattern_sql_escape():
     assert p.sql_pattern == r'\% % \_ _'
 
 
+def test_pattern_sql_backslash():
+    p = Pattern(r'* \\ *')
+    assert p.sql_pattern == r'% \\ %'
+
+
 def test_sql_select_case_sensitive():
     r = Pattern('Foo-*-Bar')
     cond, binds = r.get_sql_select('testcol', 'testval')

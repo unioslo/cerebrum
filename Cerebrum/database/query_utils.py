@@ -179,6 +179,9 @@ class Pattern(reprutils.ReprFieldMixin):
 
     @classmethod
     def _sql_escape(cls, value):
+        # escape literal sql escapes
+        value = value.replace('\\', '\\\\')
+        # escape wildcards
         for char in cls.WILDCARDS.values():
             value = value.replace(char, '\\' + char)
         return value
