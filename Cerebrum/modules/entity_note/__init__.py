@@ -42,9 +42,25 @@ Configuration
 ``cereconf.CLASS_CLCONSTANTS``
     Must contain the :class:`.note_constants.NoteChangeCodes` class.
 
+    Example:
+    ::
+
+        CLASS_CLCONSTANTS = [
+          "Cerebrum.modules.entity_note.note_constants.NoteChangeCodes",
+          "Cerebrum.Constants/CLConstants",
+        ]
+
 ``cereconf.CLASS_CONSTANTS``
     Should contain the :class:`.note_constants.BofhdNoteConstants` class.  This
     is required for bofhd command support.
+
+    Example:
+    ::
+
+        CLASS_CONSTANTS = [
+          "Cerebrum.modules.entity_note.note_constants.BofhdNoteConstants",
+          "Cerebrum.Constants/Constants",
+        ]
 
 ``cereconf.CLASS_*``
     Entity classes with note support should use
@@ -52,9 +68,23 @@ Configuration
     least the :class:`.note_mixins.EntityNoteCleanupMixin`.  The latter class
     supports ``Entity.delete()`` for entities with notes attached.
 
+    Example:
+    ::
+
+        CLASS_ACCOUNT = [
+          "Cerebrum.modules.entity_note.note_mixins.EntityNoteMixin",
+          "Cerebrum.Account/Account",
+        ]
+
+
 ``restconfig.NAMESPACES_EXTRA``
-    Should contain the :class:`.note_api.api` class to add note endpoints to
-    the API.
+    Should contain the :obj:`.note_api.api` namespace object to add note
+    endpoints to the API.
+
+    Example:
+    ::
+
+        NAMESPACES_EXTRA = ["Cerebrum.modules.entity_note.note_api:api"]
 
 Bofhd
     Bofhd commands and common authorization rules are implemented in
