@@ -400,7 +400,7 @@ def _row_to_note(row):
         'creator_id': row['creator_id'],
         'date': date_compat.get_datetime_tz(row['create_date']),
         'subject': row['subject'],
-        'subject_short': text_utils.truncate(row['subject'], 30),
+        'subject_short': text_utils.truncate(row['subject'], 30, "..."),
         'body': row['description'],
     }
 
