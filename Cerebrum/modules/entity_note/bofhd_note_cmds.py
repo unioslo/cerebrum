@@ -110,7 +110,7 @@ class BofhdNoteCommands(BofhdCommonMethods):
         Id(help_ref='id:target:entity'),
         fs=FormatSuggestion([
             # stats
-            ("%d note(s) found for entity id=%s:\n",
+            ("%d note(s) found for entity id=%d:\n",
              ("notes_total", "entity_id")),
             # notes
             ("Note #%d added by %s on %s:\n"
