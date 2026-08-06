@@ -1,7 +1,10 @@
-==============================
+======================
 Unit tests in Cerebrum
-==============================
+======================
 
+
+Test placement
+===============
 Tests are grouped in the following categories:
 
 testsuite/tests/core

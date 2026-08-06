@@ -3,7 +3,6 @@ Automatic student management in Cerebrum
 ========================================
 
 .. contents::
-.. section-numbering::
 
 Technical details
 ==================

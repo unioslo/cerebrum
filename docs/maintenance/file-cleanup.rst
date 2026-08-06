@@ -10,9 +10,6 @@ these files.
 
 .. contents::
 
-.. section-numbering::
-
-
 job-runner
 ==========
 The Cerebrum scheduler, ``job-runner``, creates a new workdir for each

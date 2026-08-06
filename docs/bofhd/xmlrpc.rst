@@ -1,6 +1,6 @@
-======================
-Bofhd XMLRPC protocol
-======================
+==============
+bofhd protocol
+==============
 Bofhd is an `XMLRPC <https://www.xmlrpc.com/>`_ server, which exists to provide
 *operators* and *end users* with a selection of management commands.
 

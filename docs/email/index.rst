@@ -1,6 +1,6 @@
-========================
-Cerebrum.modules.Email
-========================
+=========================
+Email and email accounts
+=========================
 
 The ``Cerebrum.modules.Email`` module (along with ``design/mod_email``)
 implements data models for storing information typically associated with an

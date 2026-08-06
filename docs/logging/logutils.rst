@@ -3,7 +3,6 @@ Cerebrum.logutils
 =================
 
 .. contents::
-.. section-numbering::
 
 ``Cerebrum.logutils`` is a set of modules for *bootstapping* the standard
 logging module for Python.  This document is a description of the

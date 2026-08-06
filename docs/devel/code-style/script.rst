@@ -4,9 +4,6 @@ Writing scripts for Cerebrum
 
 .. contents::
 
-.. section-numbering::
-
-
 Standards for scripts in Cerebrum, i.e. the typical *cronjob*.  Scripts in
 Cerberum should generally be *small and simple*:
 

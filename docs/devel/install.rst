@@ -3,7 +3,6 @@ Cerebrum installation procedure
 ================================
 
 .. contents:: Contents
-.. section-numbering::
 
 
 Short version

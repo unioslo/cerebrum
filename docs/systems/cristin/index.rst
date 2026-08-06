@@ -21,8 +21,6 @@ More info:
   <https://www.cristin.no/ressurser/dokumentasjon/institusjonsdata/>`_
 
 
-
-
 Cerebrum
 =========
 Most institutions now rely on an external integration with Cris/NVA, using
@@ -31,7 +29,13 @@ Most institutions now rely on an external integration with Cris/NVA, using
 For now, a legacy XML export still exists in Cerebrum.  The export consists of
 two parts:
 
-1. Cerebrum support for storing detailed `employment data
-   <mod_employment.html>`_
+1. Cerebrum support for storing detailed employment data (:doc:`mod_employment`)
 
-2. A Cristin `XML export <cristin-export.rst>`_ script
+2. A Cristin XML export script (:doc:`cristin-export`)
+
+
+.. toctree::
+   :maxdepth: 1
+   :glob:
+
+   *
