@@ -30,6 +30,7 @@ from __future__ import (
     unicode_literals,
 )
 import datetime
+import logging
 
 from flask_restx import Namespace
 from flask_restx import Resource
@@ -51,6 +52,8 @@ api = Namespace(
     "notes",
     description="Entity notes",
 )
+
+logger = logging.getLogger(__name__)
 
 
 #
@@ -95,10 +98,33 @@ def _row_to_ref(row):
     }
 
 
+NoteFilters = api.model("NoteFilters", {
+    'creator_id': fields.base.Integer(example=108),
+    'entity_id': fields.base.Integer(example=108),
+    'before': fields.DateTimeTz(
+        dt_format='iso8601',
+        description="Note create datetime",
+        example="2026-07-02T12:26:03+02:00",
+    ),
+    'after': fields.DateTimeTz(
+        dt_format='iso8601',
+        description="Note create datetime",
+        example="2026-07-02T12:26:03+02:00",
+    ),
+    "subject": fields.base.String(example="subj*"),
+    'body': fields.base.String(example="*body*"),
+})
+
+
 # A list of search results
 NoteRefList = api.model("EntityNoteRefList", {
+    'filters': fields.base.Nested(
+        NoteFilters,
+        description="Filters used for this list",
+    ),
     'items': fields.base.List(
         fields.base.Nested(NoteRef),
+        description="Matching item references",
     )
 })
 
@@ -317,6 +343,7 @@ class EntityNotes(Resource):
     def get(self):
         """ Get list of entity notes. """
         args = self.note_search_parser.parse_args()
+
         search_params = {
             param: args[inarg] for inarg, param in (
                 ('entity_id', 'entity_id'),
@@ -328,12 +355,17 @@ class EntityNotes(Resource):
             )
             if args[inarg] is not None
         }
+
+        filters = dict(args)
         results = [
             _row_to_ref(row)
             for row in note_db.sql_search_notes(db.connection, **search_params)
         ]
         results.sort(key=lambda r: r['id'])
-        return {'items': results}
+        return {
+            'filters': filters,
+            'items': results,
+        }
 
     new_note_parser = api.parser()
     new_note_parser.add_argument(
