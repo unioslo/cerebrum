@@ -2,22 +2,15 @@
 Configuration files
 ====================
 
-Config file format
-===================
-Config files consist of a *basename* and may be YAML or JSON files.  See
-``Cerebrum.config.parsers`` for details on valid file formats.
+This document lists configuration files for the :doc:`structured-config`.
 
-Autoloading
-------------
-Config files can be auto-loaded from the ``CEREBRUM_CONFIG_ROOT`` directory.
+Note that some configs can be auto-loaded from the ``CEREBRUM_CONFIG_ROOT``
+directory, and that parts of those config files can be split into separate
+config files.
 
-When auto-loading configs, sub-namespaces may be split into separate config
-files.  See `event_daemon`_ for an example.
-
-Note that if a config file exists in two separate formats (e.g. a ``foo.json``
-and a ``foo.yaml``), then both files will be read.  The order in which the files
-are read is not well defined.
-
+ALso, if a config file exists in two separate formats (e.g. a ``foo.json`` and a
+``foo.yaml``), then both files will be read.  The order in which the files are
+read is not well defined.
 
 
 Common config files
@@ -36,7 +29,7 @@ gpg_data
 Configure recipient keys supported by ``Cerebrum.modules.gpg``.
 
 This file is typically required if any of the ``Cerebrum.modules.gpg`` mixins
-are in use.
+are in use.  See :doc:`/gpg/index` for more info.
 
 Note that any key provided here must *also* be imported and present in the
 public keyring of the GPG homedir configured in ``cereconf.GNUPG_HOME``.

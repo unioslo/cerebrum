@@ -76,7 +76,7 @@ Configures archiving and cleanup maintenance tasks.
 .. note::
    This module doesn't need to be importable - it can be overridden using cli-options.
 
-See :doc:`/maintenance/index` for more details.
+See :doc:`/maintenance/file-cleanup` for more details.
 
 
 guestconfig

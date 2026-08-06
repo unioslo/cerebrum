@@ -25,7 +25,8 @@ description.
 Config files
 =============
 ``Cerebrum.config`` implements a framework for implementing Cerebrum
-sub-component configuration.
+sub-component configuration. See :doc:`structured-configs` for more info on how
+to use this framework to load configuration in scripts.
 
 Most individual features uses this config framework, and some of these configs
 supports *auto-loading* a config file from the Cerebrum root config directory,
@@ -42,7 +43,9 @@ More info
    :maxdepth: 1
    :glob:
 
+
    config-modules
+   structured-configs
    config-files
    *
 
