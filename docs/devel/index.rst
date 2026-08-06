@@ -24,7 +24,7 @@ All changes must be made through *pull requests*!
 Adding new functionality
 =========================
 If you're adding a new script or module, please check
-:doc:`conventions`.
+:doc:`writing-code`.
 
 
 Testing

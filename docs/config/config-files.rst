@@ -2,12 +2,26 @@
 Configuration files
 ====================
 
+This document lists configuration files for the :doc:`structured-config`.
+
+Note that some configs can be auto-loaded from the ``CEREBRUM_CONFIG_ROOT``
+directory, and that parts of those config files can be split into separate
+config files.
+
+ALso, if a config file exists in two separate formats (e.g. a ``foo.json`` and a
+``foo.yaml``), then both files will be read.  The order in which the files are
+read is not well defined.
+
 
 Common config files
-===================
-Config files that affects *common* cerebrum features.
+====================
+Config files that affects *common* cerebrum features.  These config files are
+always auto-loaded.
 
-These config files are always auto-loaded from ``CEREBRUM_CONFIG_ROOT``.
+.. todo::
+   We should probably consider moving all these settings back into ``cereconf``,
+   as these settings are required.  We could still use the config framework to
+   parse and validate the settings.
 
 
 gpg_data
@@ -15,7 +29,7 @@ gpg_data
 Configure recipient keys supported by ``Cerebrum.modules.gpg``.
 
 This file is typically required if any of the ``Cerebrum.modules.gpg`` mixins
-are in use.
+are in use.  See :doc:`/gpg/index` for more info.
 
 Note that any key provided here must *also* be imported and present in the
 public keyring of the GPG homedir configured in ``cereconf.GNUPG_HOME``.
@@ -33,10 +47,6 @@ password_generator
 -------------------
 Configures the password generator rules.  This file is optional, and only used
 to change the password generator rules.
-
-.. todo::
-   This module should be refactored, and settings should be moved to
-   ``cereconf``.
 
 
 statsd
@@ -57,7 +67,7 @@ Required when any bofhd password letter print commands are included in the bofhd
 config.
 
 .. todo::
-   ``Cerebrum.modules.templates`` should be refactored.
+   ``Cerebrum.modules.templates`` should be refactored and simplified a bit.
 
 
 Sub-components
@@ -85,9 +95,6 @@ event_daemon
 -------------
 Config for the event publisher, ``Cerebrum.modules.event_publisher``.  Only
 required when running the event publisher daemon.
-
-.. todo::
-   How does this work again?  Why are some of these split into separate files?
 
 event_formatter
 ~~~~~~~~~~~~~~~

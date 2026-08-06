@@ -1,9 +1,35 @@
-==============================
-Code conventions for Cerebrum
-==============================
+==========================
+Writing code for Cerebrum
+==========================
 
-Modules
-========
+Code style
+===========
+Please read through the :doc:`code-style` documents before writing any Cerebrum
+code.
+
+
+Code placement
+===============
+
+Core features
+    This includes all common code, always available to all environments.
+
+    Modules in ``Cerebrum/``, or scripts/cronjons in ``contrib/``
+
+Optonal features
+    Code that only applies to some environments, typically optional features.
+    May need optional database-schemas.
+
+    Modules in ``Cerebrum/modules/``, or scripts/cronjons in ``contrib/<feature>``
+
+Environment-specific features
+    Code that only applies to a single environment.
+
+    Modules in ``Cerebrum/modules/no/<env>``, or scripts/cronjons in ``contrib/no/<env>``
+
+
+Writing Modules
+================
 Modules should always start with the following preamble and code:
 
 encoding declaration comment
@@ -51,8 +77,8 @@ Future-imports
         )
 
 
-scripts
-========
+Writing scripts
+================
 Scripts in ``contrib/`` are mostly scheduled cron-style jobs to run
 periodically.
 
@@ -75,23 +101,3 @@ Very few constraints apply to the rest of the script:
 
 
 .. See :doc:`example-cronjob` for an example.
-
-
-Code placement
-===============
-
-Core features
-    This includes all common code, always available to all environments.
-
-    Modules in ``Cerebrum/``, or scripts/cronjons in ``contrib/``
-
-Optonal features
-    Code that only applies to some environments, typically optional features.
-    May need optional database-schemas.
-
-    Modules in ``Cerebrum/modules/``, or scripts/cronjons in ``contrib/<feature>``
-
-Environment-specific features
-    Code that only applies to a single environment.
-
-    Modules in ``Cerebrum/modules/no/<env>``, or scripts/cronjons in ``contrib/no/<env>``
