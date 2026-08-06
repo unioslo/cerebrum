@@ -41,6 +41,34 @@ This config is not well documented - please refer to real-world examples, or
 code in ``Cerebrum.modules.ad2``.
 
 
+dbcl_conf
+==========
+This module is optional, but must be present when using the db cleaner
+(``contrib/db_clean.py``).
+
+.. todo::
+   Document db-cleaner in maintenance/
+
+This config have default settings in ``Cerebrum.modules.default_dbcl_conf``, and
+the comments in this module describes the various settings.
+
+
+eventconf
+==========
+This config module was intended to configure the ``Cerebrum.modules.EventLog``
+and ``Cerebrum.modules.event`` subsystem.  However, this system is only in use
+by the *Exchange* integration (exchange_deamon).
+
+The config is similar to ``adconf``, where the config contents is a mapping of
+*profiles*.  Each profile should match a *target system* for the EventLog.
+
+The only *required* setting, is the ``fail_limit`` — i.e. how many times event
+processing should run for an event before considering it to be *failed*.  All
+other settings are tacked on for use by the individual target system
+integration.  For Exchange, the settings are used by the LDAP verification
+scripts.
+
+
 file_clean_conf
 ================
 Configures archiving and cleanup maintenance tasks.
@@ -77,10 +105,39 @@ available in :doc:`/bofhd/index`.
    This module doesn't need to be importable - it can be overridden using
    cli-options.
 
-The config is only used to manually *update* the actual opsets in the database.
+The config is only used to manually *update* the actual opsets in the database,
+using ``contrib/permission_updates.py``
 
-.. todo::
-   Add some more info on permission updates.
+Settings
+---------
+
+``operation_sets``
+    A mapping of opset name to opset.  The actual opset is a mapping of
+    operation name to operation settings.  The only current operation setting is
+    ``attrs``, an optional attribute limit (op-attrs) for the operation.
+
+    Example:
+    ::
+
+        operation_sets = {
+            'Group-Owner-Foo': {
+                'search_group': {},
+                'create_group': {
+                    'attrs': ["pre:foo-"],
+                },
+            },
+        }
+
+    This config would contain a single opset, which would grant access to search
+    for all groups, and to create groups with a ``foo-`` name prefix.
+
+    The setting is only used with the ``--import`` or ``--clean`` flags.
+
+``convert_mapping``
+    A mapping of old-name to new-name for operation sets.  This mapping can be
+    used to rename opsets.
+
+    The setting is only used with the ``--convert`` flag.
 
 
 restconfig
@@ -104,17 +161,50 @@ Defines all jobs to be scheduled using ``Cerebrum.modules.job_runner``.
    This module doesn't need to be importable - it can be overridden using
    cli-options.
 
-.. todo::
-   Document job-runner
-
-
-Other config files
-==================
+The module must implement a ``get_jobs()`` function, which should return a
+mapping of job names to ``Cerebrum.modules.job_runner.job_actions.Action``
+objects.
 
 .. todo::
-   Document these configs as well!
+   Document the job-runner Jobs groups and Actions in a separate
+   ``scheduled_jobs`` document.
 
-- ``*_ldap_conf``
-- ``dbcl_conf`` + entry in maintenance/
-- ``eventconf``
-- ``file_clean_conf``
+
+\*_ldap_conf
+=============
+In addition to the ordinary Feide export, Cerebrum can generate additional Feide
+LDAP catalogues for certain *selections* of user accounts.  These will usually
+load their config from a ``foo_ldap_conf`` config module.
+
+These exports work very similar to the usual Feide export, but they read their
+Feide/LDAP configuration from the provided module rather than ``cereconf``.
+
+This includes the typical Feide ldap settings:
+
+- ``CLASS_ORGLDIF``
+- ``DEFAULT_INSTITUSJONSNR``
+- ``INSTITUTION_DOMAIN_NAME``
+- ``LDAP``
+- ``LDAP_ORG``
+- ``LDAP_OU``
+- ``LDAP_PERSON``
+
+
+``sysadm_ldap_conf``
+    Used by ``contrib/no/uio/generate_sysadm_ldif.py``, and exports sysadm
+    accounts to a Feide-like LDAP tree.
+
+    The script is hard-coded to import the ``sysadm_ldap_conf`` config module.
+
+``<randsone>_ldap_conf``
+    Used by ``contrib/no/uio/generate_randsone_ldif.py``, and exports uses from a
+    given ou sub-tree to a Feide-like LDAP tree.
+
+    The selection is done by:
+
+    - Setting a root ou id in ``LDAP_ORG['ou_id']``
+    - Selecting affiliation types in
+      ``LDAP_PERSON['eduPersonAffiliation_selector']``.
+
+    The script is hard-coded to import the ``<randsone>_ldap_conf`` config
+    module, where ``<randsone>`` is provided using the mandatory ``-i`` option.

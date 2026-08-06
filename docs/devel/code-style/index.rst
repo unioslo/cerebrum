@@ -2,13 +2,6 @@
 Code style and standards
 =========================
 
-.. toctree::
-   :caption: Code style
-   :maxdepth: 1
-   :glob:
-
-   *
-
 In short: Code style is not *strictly* enforced, but:
 
 - Write pretty code
@@ -102,6 +95,17 @@ Logging
 See :doc:`/logging/how-to` for more info on logging in Cerebrum.
 
 
+More reading
+============
+.. toctree::
+   :maxdepth: 1
+   :glob:
+
+   *
+
+
+.. References
+.. ----------
 .. _flake-8: http://flake8.pycqa.org/
 .. _pep-257: https://www.python.org/dev/peps/pep-0257/
 .. _pep-8: https://www.python.org/dev/peps/pep-0008/
