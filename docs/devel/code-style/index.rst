@@ -1,6 +1,14 @@
 =========================
 Code style and standards
 =========================
+
+.. toctree::
+   :caption: Code style
+   :maxdepth: 1
+   :glob:
+
+   *
+
 In short: Code style is not *strictly* enforced, but:
 
 - Write pretty code
@@ -13,11 +21,15 @@ Apply all the linters.  The author recommends running ``flake8`` with plugins:
 ``naming``, ``pycodestyle``, ``pyflakes``.
 
 
-.. note:: Cerebrum is messy
+Legacy code
+===========
+There are *a lot* of code style issues in the current code base.  We're fixing
+this as we go.  Always prefer PEP-8 over consistency with the current code style
+of a given module.
 
-   There are *a lot* of code style issues in the current code base.  We're fixing
-   this as we go.  Don't try to be consistent with current code style if it
-   isn't PEP-8 compliant.
+Legacy code should be fixed/re-formatted on major changes.  When re-writing
+large parts of a module, it can be useful to fix all pre-existing code style
+issues first, in a separate commit.
 
 
 Things to consider
@@ -63,7 +75,7 @@ Good examples:
 Write documentation
 -------------------
 Modules, classes, functions, constants, and scripts should be typically be
-documented by docstrings.  See `<docstrings.rst>`_ for more details.
+documented by docstrings.  See :doc:`docstrings` for more details.
 
 
 Write tests
@@ -82,12 +94,12 @@ Write *unit tests* for your code.
 
 Focus on writing tests for *common functionality*.
 
-See `<../unit-tests.rst>`_ for more details on writing tests.
+See :doc:`../unit-tests` for more details on writing tests.
 
 
 Logging
 ========
-See `<../logging/conventions.rst>`_ for more info on logging in Cerebrum.
+See :doc:`/logging/how-to` for more info on logging in Cerebrum.
 
 
 .. _flake-8: http://flake8.pycqa.org/

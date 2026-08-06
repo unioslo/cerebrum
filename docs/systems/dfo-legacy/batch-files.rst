@@ -6,9 +6,7 @@ SAP data files from DFØ to Cerebrum
 
    This is a rewritten, old document. Some information may be slightly out of date.
 
-
 .. contents::
-.. section-numbering::
 
 
 File format

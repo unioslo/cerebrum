@@ -1,6 +1,6 @@
-====================
-Bofhd - development
-====================
+===================
+bofhd authorization
+===================
 
 .. admonition:: Needs review
 
@@ -11,40 +11,6 @@ Bofhd - development
 
 
 .. contents:: Contents
-.. section-numbering::
-
-
-Introduction
-============
-Bofhd is the server used for remote administration in Cerebrum.  It
-provides both user authentication and authorization.
-
-
-Configuring and extending bofhd
-=================================
-``config.dat`` contains a list of the modules that should be loaded
-into bofhd on startup.  The file contains one bofhd command class per line, and
-each command module is an import specification for loading the class.
-
-See ``Cerebrum.utils.module`` for details on the class import format.
-
-
-Parameters and commands
------------------------
-The ``Cerebrum.modules.bofhd.bofhd_core`` implements the base command class for
-bofhd.
-
-ommands are implemented as simple methods in a command subclass, and are
-exposed as remote procedures by mapping it using a ``Command`` object in the
-command class ``all_commands`` attribute.
-
-
-``bofhd_uio_cmds.py``
----------------------
-The bofhd module that currently has the most features is
-``Cerebrum/modules/no/uio/bofhd_uio_cmds.py``.  Its original purpose
-was to support the jbofh client, but other clients has started using
-it as well.
 
 
 Authorization

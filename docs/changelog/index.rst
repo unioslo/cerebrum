@@ -1,13 +1,11 @@
-==============
-ChangeLog API
-==============
+==========
+ChangeLog
+==========
 
 ``Cerebrum.ChangeLog`` is an abstract API for handling *changes* in the Cerebrum
 database.
 
 .. contents::
-
-.. section-numbering::
 
 
 Overview
@@ -42,7 +40,7 @@ On database rollback, the flow is a lot simpler:
 
 Configuration
 --------------
-The *changelog* is configured using ``cereconf``:
+The *changelog* is configured using :doc:`/config/cereconf`:
 
 ::
 

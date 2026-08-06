@@ -6,8 +6,7 @@ SAP details for HiA, HiØf and NMH
 
    This is an old document, some of the instructions may be out of date.
 
-.. contents:: Table of contentt ss
-.. section-numbering::
+.. contents::
 
 
 Introduction

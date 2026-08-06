@@ -7,7 +7,6 @@ The cerebrum database schema
    This is an old document, some of the instructions may be out of date.
 
 .. contents:: Contents
-.. section-numbering::
 
 
 Introduction

@@ -2,17 +2,8 @@
 Code conventions for Cerebrum
 ==============================
 
-Codestyle
-==========
-All *new* code should pass all PEP-8 and PEP-257 checks.
-
-Legacy code should be fixed/re-formatted on major changes.  When re-writing
-large parts of a module, it can be useful to fix all pre-existing code style
-issues first, in a separate commit.
-
-
 Modules
---------
+========
 Modules should always start with the following preamble and code:
 
 encoding declaration comment
@@ -61,7 +52,7 @@ Future-imports
 
 
 scripts
---------
+========
 Scripts in ``contrib/`` are mostly scheduled cron-style jobs to run
 periodically.
 
@@ -83,7 +74,7 @@ Very few constraints apply to the rest of the script:
   importable without side effects.
 
 
-See `example-cronjob.py <example-cronjob.rst>`_ for an example.
+.. See :doc:`example-cronjob` for an example.
 
 
 Code placement

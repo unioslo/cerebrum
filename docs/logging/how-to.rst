@@ -1,9 +1,8 @@
-=======================
-How to log in Cerebrum
-=======================
+===================
+How to use logging
+===================
 
 .. contents::
-.. section-numbering::
 
 
 Overview
@@ -23,7 +22,8 @@ The second config is the *logger preset* (specified as ``--logger-name`` in most
 scripts).  This preset configures the logger hierarchy, with loggers, handlers,
 formatters, etc...
 
-See `Cererbum.logutils <./logutils.html>`_ for details on how to configure.
+See :doc:`logutils` for more details on the logging framework ands its
+configuration files.
 
 
 Loggers and logging hierarchy
@@ -46,13 +46,15 @@ Exceptions to this rule:
           getter = EduDataGetter(filename, logger.getChild("read_edu_units"))
           ...
 
-- Separate debug loggers (e.g. for sensitive information).  These are separate
-  logger objects that aren't included in the logger by default:
+- Debug loggers (e.g. for sensitive information).  These loggers should
+  typically be omitted from the logger hierarchy by default:
   ::
 
       debug_log = logger.getChild("debug")
       debug_log.addHandler(logging.NullHandler)
       debug_log.propagate = False
+
+  See `Logging sensitive debug data`_ for more details.
 
 In summary - if something other than a module logger is needed, create a
 child of a module logger that *doesn't* collide with another module name.
@@ -292,7 +294,8 @@ daily
     log filename.
 
     This is a good alternative to cronjob, but typically requires *cleanup* (and
-    optional archiving) using ``file_cleaner``.  When combined with file cleanup
+    optional archiving) using ``file_cleaner`` (see
+    :doc:`../maintenance/file-cleanup`).  When combined with file cleanup
     and archiving, this provides proper log retention.  This is very useful for
     scripts that either:
 
