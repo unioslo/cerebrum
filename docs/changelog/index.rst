@@ -118,7 +118,7 @@ database.
 --------------
 Clears all events/changes from the current write queue.
 
-Implementations should clear all changes that has been added by `log_change_`.
+Implementations should clear all changes that has been added by `log_change`_.
 This is a ChangeLog abort/rollback.
 
 
@@ -145,10 +145,9 @@ Note that the internal *changelog queue* must be emptied by this method.
 
 ``unpublish_log``
 ------------------
-Cancel the current publising queue.
+Cancel the current publishing queue.
 
-Implementasjoner bør benytte funksjonen til å avbryte levering/lagring av
-endringer.
+Implementations should use this method to abort delivery/storage of changes.
 
 * Implementations using the same database transaction as Cerebrum should not
   implement this method, but rely on the outcome of the failing database ``commit``.
@@ -190,7 +189,7 @@ processing module.
 
 In short, certain `change types`_ will result in an *event* being stored in an
 *event table* that this module implements.  The event table stores events for
-indivitual target systems*, so each ``log_change`` call can result in multiple
+individual target systems*, so each ``log_change`` call can result in multiple
 events.
 
 A separate target system mapping tables decides if `log_change`_ calls should
@@ -207,7 +206,7 @@ used in ``Cerebrum.modules.cim``.
 
 Cerebrum.modules.audit.auditlog
 -------------------------------
-The ``Cerebrum.modules.audit`` modules implementas an audit log system that can
+The ``Cerebrum.modules.audit`` modules implements an audit log system that can
 replace `Cerebrum.modules.ChangeLog`_.
 
 This module simply stores all changes presented through the ``log_change``

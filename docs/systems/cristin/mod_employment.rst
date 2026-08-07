@@ -21,8 +21,8 @@ Legacy DFØ/SAP import
     and updates employment data.
 
 
-Backgroud
-=========
+Background
+===========
 This module was implemented to support the Cristin XML export.
 
 Cristin needs some basic info on employees, the most important being
@@ -33,7 +33,7 @@ A one-way conversion from employment codes to affiliation is already implemented
 using ``mod_sap.sql`` and constants, but this doesn't allow us to retain data
 about each employment for later use.
 
-``mod_employment.sql`` was a simple solution to store emplyment data for use
+``mod_employment.sql`` was a simple solution to store employment data for use
 with Cristin (and potentially for other use-cases).
 
 
@@ -65,7 +65,7 @@ Add mixins to ``cereconf``:
     ``Cerebrum.modules.no.PersonEmployment/PersonEmploymentMixin`` for
     employment support.
 
-``cereocnf.CLASS_OU``
+``cereconf.CLASS_OU``
     Typically needs location code support. Ensure ``CLASS_OU`` is/contains
     ``Cerebrum.modules.no.Stedkode/Stedkode``.
 

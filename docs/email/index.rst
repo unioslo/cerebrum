@@ -33,7 +33,7 @@ EmailTarget is backed by the ``email_target`` table.  This table references the
 ``entity_id``
     ``target_id`` in other tables
 
-``enitity_type``
+``entity_type``
     ``Constants.entity_email_target``
 
 The other columns are:
@@ -100,8 +100,8 @@ In the ``entity_info`` table:
 ``entity_id``
     ``address_id`` in other tables
 
-``enitity_type``
-    ``Constants.enitity_email_address``
+``entity_type``
+    ``Constants.entity_email_address``
 
 In the address table:
 
@@ -213,7 +213,7 @@ In the ``entity_info`` table:
 ``entity_id``
     ``server_id`` in email tables
 
-``enitity_type``
+``entity_type``
     TODO
 
 TODO: How does this work post-exchange?

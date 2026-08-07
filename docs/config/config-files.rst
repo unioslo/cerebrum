@@ -8,7 +8,7 @@ Note that some configs can be auto-loaded from the ``CEREBRUM_CONFIG_ROOT``
 directory, and that parts of those config files can be split into separate
 config files.
 
-ALso, if a config file exists in two separate formats (e.g. a ``foo.json`` and a
+Also, if a config file exists in two separate formats (e.g. a ``foo.json`` and a
 ``foo.yaml``), then both files will be read.  The order in which the files are
 read is not well defined.
 
@@ -132,7 +132,7 @@ password_notifier
 ------------------
 Configures the ``Cerebrum.modules.password_notifier`` rules.
 
-This file is optional, and (only) loaded by the passord notifier script, and
+This file is optional, and (only) loaded by the password notifier script, and
 only when no other config is given using cli-options.
 
 

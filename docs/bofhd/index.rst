@@ -13,7 +13,7 @@ bofh
 administration tool.
 
 Bofhd is a XML/RPC server which provides remote administration commands for the
-bofh system.  It is indended to be used with interactive *bofh* CLI clients,
+bofh system.  It is intended to be used with interactive *bofh* CLI clients,
 like e.g. *pybofh*.
 
 
@@ -32,7 +32,7 @@ example with two command modules:
     Cerebrum.modules.tasks.bofhd_task_cmds/TraitCommands
 
     # not sure why some classes use a Bofhd* prefix and others don't.
-    # It's useful for demo-ing comments, tough
+    # It's useful for demo-ing comments, though
     Cerebrum.modules.trait.bofhd_trait_cmds/BofhdTaskCommands
 
 

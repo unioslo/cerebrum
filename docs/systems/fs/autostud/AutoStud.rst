@@ -42,7 +42,7 @@ something like:
     details on the config file format.
 
 ``studieprogs_file``
-    The AUtoStud ``studieprogs_file`` is an XML file describing the various
+    The AutoStud ``studieprogs_file`` is an XML file describing the various
     study programs (studieprogrammer).
 
 
@@ -60,7 +60,7 @@ something like:
  * ``Util.LookupHelper`` contains various helper functions for
    DB-lookup
  * ``ProfileConfig.Config`` parses the ``studconfig.xml`` file and
-   stores it internaly
+   stores it internally
  * ``ProfileConfig.ProfileDefinition`` internal class that stores data
    about a spesific profile
  * ``ProfileConfig.StudconfigParser`` is the actual XML parser for the
@@ -72,7 +72,7 @@ something like:
  * ``Studentinfo.StudieprogDefParser`` is a XML parser for the file
    with "studieprogrammer".
 
-The figure belo shows a schematic view of the classes (should be UML,
+The figure below shows a schematic view of the classes (should be UML,
 but the author is no UML expert).  It should give you a rough idea
 about where things are implemeted.
 
@@ -87,7 +87,7 @@ Studconfig.xml file
 ====================
 The file ``studconfig.xml`` controls how the automated student
 maintenance is performed.  It defines a list of profiles containing
-attributes for accounts as well as select criterias reuired to match
+attributes for accounts as well as select criteria required to match
 the profile.
 
 `Example <autoconfig-student-eksempel.xml>`_

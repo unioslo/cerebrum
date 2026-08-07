@@ -89,7 +89,7 @@ the ``Cerebrum.modules.guest`` functionality.
 
 Most settings have a default value in ``Cerebrum.modules.guest.default_config``,
 and every setting is documented here using *comments*.  When using the guest
-module, your deployment should have a ``guestconfig``, ant that module should
+module, your deployment should have a ``guestconfig``, and that module should
 start off by doing:
 ::
 

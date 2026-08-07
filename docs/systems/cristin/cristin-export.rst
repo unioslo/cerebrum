@@ -264,7 +264,7 @@ The following optional fields are never included:
 - ``fnrErstatter`` - previous ``fnr`` values
 - ``adresseinfo`` - addresses
 
-Eksempel:
+Example:
 ::
 
   <person reservert="N" fnr="12345678902">

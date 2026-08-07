@@ -95,7 +95,7 @@ The job should run something like:
 by atomicfile will use the same name as the *target file*, but with a randomized
 five-letter suffix/extension.
 
-``--min-age`` is used to specify how many days the mathcing files should be kept
+``--min-age`` is used to specify how many days the matching files should be kept
 around before being deleted.  The file *mtime* is used to decide its age.
 Note that a minimum age should always be provided.  If omitted or set to ``0``,
 you risk removing a temporary file that is currently being written.
@@ -212,7 +212,7 @@ instructions:
     This value has no default and is always required.
 
     Take care to not use a pattern that matches your *archived* files when no
-    separate *archive_dir* is given.  It is generally good practive to include a
+    separate *archive_dir* is given.  It is generally good practice to include a
     trailing ``$`` to prevent matching unintended files or directories.
 
 ``delete_age``
@@ -224,11 +224,10 @@ instructions:
 
     - when deleting, this specifies how old matching entries should be before
       they are deleted.  A ``0`` value will cause all matching name patterns to
-      be deleted regadless of age.
+      be deleted regardless of age.
 
     - when archiving, this specifies how old the archived copy should be before
       it's deleted.  A ``0`` value will prevent archive cleanup!
-
 
 The following settings only apply to ``ARCHIVE_FILES`` instructions:
 

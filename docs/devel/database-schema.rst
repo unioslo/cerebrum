@@ -95,7 +95,7 @@ things like
 
 ... and so on
 
-Some constraints are too complex to express with these mecanisms (see
+Some constraints are too complex to express with these mechanisms (see
 above why we don't use triggers).  For instance a unix username may
 only contain certain characters.  Such constraints are enforced by the
 API.  If users are allowed to use SQL to directly modify the cerebrum

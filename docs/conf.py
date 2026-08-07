@@ -16,7 +16,7 @@ _now = datetime.datetime.now()
 
 # -- Path setup --------------------------------------------------------------
 
-# This is hacky, but makes the `Cerebrum` modyle generally avaialble
+# This is hacky, but makes the `Cerebrum` module generally available
 sys.path.insert(0, os.path.abspath('../'))
 
 # Adds design/ to the path, as there is an example cereconf.py there

@@ -155,8 +155,8 @@ If custom labels are disabled, Feide will replace ``<label>`` with a partially
 cencored phone number, e.g. ``********123``.
 
 
-MFA with a TOTP autenticator
-============================
+MFA with a TOTP authenticator
+==============================
 Cerebrum supports storing OTP secrets using asymmetric encryption.  These OTP
 secrets can be formatted and exported to Feide as a valid authentication method
 using the py:class:`Cerebrum.modules.otp.otp_ldif_utils.NorEduOtpMixin` mixin.
