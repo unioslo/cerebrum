@@ -2,7 +2,7 @@
 Configuration files
 ====================
 
-This document lists configuration files for the :doc:`structured-config`.
+This document lists configuration files for the :doc:`structured-configs`.
 
 Note that some configs can be auto-loaded from the ``CEREBRUM_CONFIG_ROOT``
 directory, and that parts of those config files can be split into separate

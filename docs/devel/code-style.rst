@@ -1,6 +1,6 @@
-=========================
-Code style and standards
-=========================
+===========
+Code style
+===========
 
 In short: Code style is not *strictly* enforced, but:
 
@@ -68,7 +68,12 @@ Good examples:
 Write documentation
 -------------------
 Modules, classes, functions, constants, and scripts should be typically be
-documented by docstrings.  See :doc:`docstrings` for more details.
+documented by docstrings.
+
+Larger modules, systems, or Integrations should be documented in ``docs/``,
+using the *sphinx* documentation system.
+
+See :doc:`doc-style` for more details.
 
 
 Write tests
@@ -87,21 +92,12 @@ Write *unit tests* for your code.
 
 Focus on writing tests for *common functionality*.
 
-See :doc:`../unit-tests` for more details on writing tests.
+See :doc:`unit-tests` for more details on writing tests.
 
 
 Logging
 ========
 See :doc:`/logging/how-to` for more info on logging in Cerebrum.
-
-
-More reading
-============
-.. toctree::
-   :maxdepth: 1
-   :glob:
-
-   *
 
 
 .. References

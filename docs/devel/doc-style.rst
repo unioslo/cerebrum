@@ -2,6 +2,9 @@
 Documenting Cerebrum
 =====================
 
+Docstrings
+===========
+
 All "public" modules, classes, functions, constants, and scripts should be
 typically be documented by docstrings.  Docstrings should:
 
@@ -10,7 +13,7 @@ typically be documented by docstrings.  Docstrings should:
 
 
 What to include
-================
+----------------
 Some hints on what a docstring should include:
 
 Modules
@@ -40,7 +43,7 @@ Functions
 
 
 What not to include
-====================
+--------------------
 Documentation should be omitted if it is redundant or makes the code less
 readable.
 
@@ -63,6 +66,13 @@ Private objects
     You don't have to document functions or classes that are "private" (only for
     *internal* use in its own module), unless it *needs* a docstring to easily
     understand its behaviour.
+
+
+Documentation
+==============
+Most Cerebrum features and sub-systems should be outlined in
+``docs/``, in documents using the *sphinx* documentation system.
+
 
 .. _pep-257: https://www.python.org/dev/peps/pep-0257/
 .. _sphinx: http://www.sphinx-doc.org/

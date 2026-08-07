@@ -7,7 +7,10 @@ Contributing
    :maxdepth: 1
    :glob:
 
-   code-style/index
+   code-style
+   doc-style
+   writing-code
+   unit-tests
    *
 
 
