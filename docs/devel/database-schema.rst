@@ -56,7 +56,6 @@ to have an ``entity_address``, the core API don't allow it.
 
 code tables
 -----------
-
 Cerebrum has extensive use of code tables which are used to limit the
 legal values for various types of data.  All code tables end with the
 string ``_code``.  
@@ -65,17 +64,23 @@ For instance, the gender for a person is stored in
 ``person_info.gender`` which is a foreign key to ``gender_code``.  The
 legal gender codes are maintained with the various Constants classes.
 Code tables avoids problems with the same code value being written in
-different ways, for instance 'boy' or 'male' for gender (TODO: bedre
-eksempel, boy er ikke et gender), while making it easy to introduce a
-new gender code 'unknown'.
+different ways, for instance 'mann', 'M', or 'male' for gender, while making it
+easy to introduce a new gender code 'unknown'.
 
 Most code tables contains three columns:
 
-- a numerical ``code`` that must always be constant, and which is used as
-  a foreign key
-- a string ``code_str`` which makes the code more easy to read for humans
-  than a plain number
-- a ``description``
+``code``
+    An internal, numerical ``code`` value that must always be constant.
+
+    This is auto-generated when adding the constant, and
+    used as a foreign key in tables that use the constant.
+
+``code_str``
+    A public code string to make the code more easy to read for humans, and to
+    serve as a reference from source code, or as user input.
+
+``description``
+    A longer description to explain what the constant *means*.
 
 
 Constraints
