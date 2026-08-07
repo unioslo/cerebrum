@@ -1,8 +1,11 @@
-========================================
-Automatic student management in Cerebrum
-========================================
+===============================
+Student management in Cerebrum
+===============================
 
-.. contents::
+.. admonition:: Needs review
+
+   This is an old document, some of the instructions may be out of date.
+
 
 Technical details
 ==================
