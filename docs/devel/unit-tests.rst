@@ -1,6 +1,9 @@
-======================
-Unit tests in Cerebrum
-======================
+==============
+Writing tests
+==============
+
+When writing unit tests for Cerebrum, please follow the general guidelines from
+:doc:`writing-code` and :doc:`code-style`.
 
 
 Test placement
@@ -20,7 +23,7 @@ testsuite/tests/\*
     which needs a gnupg installation to work correctly.
 
 Within each category, tests are mostly structured in a similar file hierarchy to
-the code it tests.  In certain scenarios, one mode may be split into multiple
+the code it tests.  In certain scenarios, one module may be split into multiple
 test modules (e.g. if a *lot* of fixtures are needed). See the existing file
 layout in ``testsuite/tests/`` for examples.
 
@@ -35,13 +38,6 @@ Exceptions — certain settings that *must* exist in any working environment:
 ``cereconf.INITIAL_ACCOUNTNAME`` and ``cereconf.INITIAL_GROUPNAME``
     You can assume that these entities exists.  Use the common fixtures
     ``initial_account`` and ``initial_group`` to get these entities.
-
-
-``Cerebrum.Constants.Constants`` and ``Cerebrum.Constants.CLConstants``
-    These constants should exist, and can be fetched using the common ``const``
-    and ``clconst`` fixtures.
-
-    Other constants must be manually inserted/created/mixed in if used by tests.
 
 
 Database settings
@@ -59,12 +55,16 @@ Factory classes
     should never *depend* on specific mix-ins in any unit test.
 
 
-``cereconf``
--------------
-The cereconf config module is available for import, but no test should
-depend on any pre-existing config here.
+cereconf
+---------
+While a :doc:`/config/cereconf` config module must be available for import when
+running tests, no test should depend on any pre-existing config here.
 
-If you need a specific cereconf-value to be set in a unit test, use the
+The ``cereconf`` module should just provide database settings, and general
+settings *not* directly used by the code being tested.  Tests should generally
+pass regardless of any settings in the current cereconf module.
+
+If you need a specific cereconf-value to be set for a unit test, use the
 ``cereconf`` fixture to patch the current cereconf module:
 
 E.g.:
@@ -102,7 +102,14 @@ Constants
 A lot of code depends on optional constants in the database, but our tests can't
 depend on specific ``cereconf.CLASS_CONSTANTS`` to provide the correct mixins.
 
+The ``const`` and ``clconst`` fixtures should provide you with constants defined
+in ``Cerebrum.Constants.Constants`` and ``Cerebrum.Constants.CLConstants``.
+These constants should always exist in a Cerebrum database.
+
+Other constants must be manually inserted/created/mixed in if required by
+a given unit test.
+
 The ``constant_creator`` fixture can be used to create *new* constants, and
 insert them into the base ``Cerebrum.Constants.Constants`` class.  This
-makes them available to code that use ``Factory.get("Constants")`` to look
-up constant values.
+makes them available both to code that use ``Factory.get("Constants")`` and the
+``const`` fixture to look up constant values.
