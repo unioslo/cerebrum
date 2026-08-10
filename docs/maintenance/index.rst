@@ -18,7 +18,7 @@ Data cleanup
 =============
 Parts of the database typically needs periodic cleanup.
 
-TODO: Document clean up jobs.
+.. todo:: Document cleanup jobs.
 
 
 Documents
