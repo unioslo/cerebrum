@@ -71,12 +71,12 @@ scripts.
 
 file_clean_conf
 ================
-Configures archiving and cleanup maintenance tasks.
+Configures archiving and cleanup maintenance tasks for files and directories.
 
 .. note::
    This module doesn't need to be importable - it can be overridden using cli-options.
 
-See :doc:`/maintenance/file-cleanup` for more details.
+See :doc:`/maintenance/file-cleaner` for more details.
 
 
 guestconfig
