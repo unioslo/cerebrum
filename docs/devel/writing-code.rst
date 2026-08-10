@@ -207,5 +207,3 @@ interface from the command line + environment to Cerebrum.
 
 Most of the functionality triggered from a script should be implemented in
 *modules*, where it can be tested and reused.
-
-.. See :doc:`example-cronjob` for an example.
