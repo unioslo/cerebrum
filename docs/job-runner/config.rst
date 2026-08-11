@@ -1,58 +1,67 @@
-===============
-scheduled_jobs
-===============
+==================
+Job configuration
+==================
 
+This document describes the job definition config for job-runner.
+
+.. contents::
+   :depth: 2
+   :local:
+
+
+The config module
+==================
 Job runner loads jobs from a Python config file.  This file can be given as a
 command-line argument to the daemon, but by default, the ``scheduled_jobs``
 python module is imported and used.
 
 The module needs to expose a single ``get_jobs()`` function, which should return
-a mapping of *job name* to a ``Cerebrum.modules.job_runner.job_actions.Action``
-object.
+a mapping of *job name* to an *Action* object.  The `defining a job`_ section
+describes how to create a job with the *Action* object.
 
-The following config module serves as a basic example.  It defines a single job
-that is *not* scheduled:
+While you could implement the ``get_jobs()`` function yourself, but it is
+recommended to use a *Jobs* object to provide this function.  See `grouping
+jobs`_ for more details on this.
+
+The following config module serves as a minimal example:
 ::
 
-    from Cerebrum.modules.job_runner.job_actions import (
-        Action,
-        System,
-    )
+    from Cerebrum.modules.job_runner import job_actions
 
-    def get_jobs():
-        return {
-            'my_job': Action(
-                call=System(
-                    "/usr/bin/bash",
-                    params=[
-                        "-c", "date >> /tmp/logged-timestamps",
-                    ],
-                ),
+    class AllJobs(job_actions.Jobs):
+
+        my_job = job_actions.Action(
+            call=job_actions.System(
+                "/usr/bin/bash",
+                params=[
+                    "-c", "date >> /tmp/logged-timestamps",
+                ],
             ),
-        }
+        )
+
+    get_jobs = AllJobs().get_jobs
 
 
 
 Defining a job
 ===============
 Job definitions are *Action* objects
-(``Cerebrum.modules.job_runner.job_actions.Action``).  All the *Action*
-attributes are optional, and defaults to ``None`` or ``False``.
-
+(``Cerebrum.modules.job_runner.job_actions.Action``).  The Action describes
+job limits, job scheduling, and the job implementation through a series of
+attributes.  All attributes are *optional*.
 
 ``call``
-    The actual job implementation.
+    The job implementation.
 
-    Must be a *CallableAction*
-    (``Cerebrum.modules.job_runner.job_action.CallableAction``) . See `Defining
-    what to run`_ for more details.
+    Must be a *CallableAction* object (usually *System*). See `Defining what to
+    run`_ for more details.
 
-    This value can be empty.  When empty, the job turns into a *meta-job*, and
-    is often used in combination with ``when`` for scheduling, and ``post`` for
-    triggering other jobs.
+    By default, this attribute is empty.  Jobs with an empty ``call``
+    can be used in combination with e.g. ``when`` and ``post`` for scheduling
+    and triggering other jobs.  These jobs are often referred to as *meta-jobs*.
 
 ``max_duration``
-    Limit the runtime of this action to ``max_duration`` seconds.
+    Limit the runtime of this job to ``max_duration`` seconds.
 
     If the job runs for more than ``max_duration`` seconds, it will be
     terminated.  It is strongly recommended to set this to prevent jobs from
@@ -67,26 +76,24 @@ attributes are optional, and defaults to ``None`` or ``False``.
     This can either be a set interval, or a scheduling pattern (see scheduling_
     for details).
 
-    When unset, the job will not be scheduled.
+    By default, this attribute is empty, which means that the job will not be
+    scheduled.
 
 ``notwhen``
     Prevent scheduling in this time window.
 
-    Note that this is only a scheduling *limitation* that applies to Actions
-    with a ``when`` attribute.  It does *not* prevent the job from running, or
-    from being manually queued.
+    Note that this is only a scheduling limitation that applies to jobs with a
+    ``when`` attribute.  It does *not* prevent the job from running, or from
+    being manually queued.
 
-    This uses the same value as ``when``, but *must* have a ``when.time``
-    attribute.
+    If used, this attribute *must* be set to a ``When(time=Time(…))`` object.
 
 ``max_freq``
     The max frequency for a given job, in seconds.
 
-    After an Action runs, it will automatically prevent itself from being queued
-    for *max_freq* seconds.
-
-    This *limit* applies to all interactions with the queue (not just
-    scheduling).
+    After a job runs, it will automatically prevent itself from being queued
+    for *max_freq* seconds.  This limit applies to all interactions with the
+    queue (not just scheduling).
 
     This attribute should normally be set to prevent jobs from being re-queued
     immediately if something goes wrong.
@@ -104,8 +111,8 @@ attributes are optional, and defaults to ``None`` or ``False``.
     An optional list of job names that *blocks* this job from running.
 
     Note that the attribute is *not* bi-directional.  For two jobs to be
-    exclusive, they *both* need to exclude the other in their ``nonconcurrent``
-    attribute.
+    exclusive, they *both* need to add the name of the other job to their
+    ``nonconcurrent`` attribute.
 
     Example: Given the jobs ``{'A': Action(nonconcurrent=["B"]), 'B':
     Action()}``, A cannot start if B is running, but B can start even though A
@@ -116,20 +123,20 @@ attributes are optional, and defaults to ``None`` or ``False``.
 
     Before adding *this* job to the queue, jobs from the pre-job list will be
     added to the queue.  Note that some of the pre-jobs may be omitted, as they
-    are still subject to the `rules for adding a job to the queue`_.
+    are still subject to the `rules for adding jobs to the queue`_.
 
 ``post``
     An optional list of job names that should run *after* this job.
 
     After adding *this* job to the queue, jobs from the post-job list will be
-    added to the queue.  Note that only jobs that pass the `rules for adding a
-    job to the queue`_ will get added.
+    added to the queue.  Note that only jobs that pass the `rules for adding
+    jobs to the queue`_ will get added.
 
 ``health``
-    Can be set to a ``HealthCheck`` object with health check rules.
+    Can be set to a *HealthCheck* object with health check rules.
 
-    If the HealthCheck adds a health check rule, this job will be included in
-    the health check report (see :doc:`health-check`).
+    Any rules from the HealthCheck object will be included in the health check
+    report (see :doc:`health-check`).
 
 
 Scheduling
@@ -149,21 +156,45 @@ This is typically used to *block* the job from running at set time schedules,
 with a ``notwhen=When(time=…)``, when the job runs periodically at set
 intervals with a ``when=When(freq=..)``.
 
-Note that scheduled jobs are still subject to the `rules for adding a job to
+Note that scheduled jobs are still subject to the `rules for adding jobs to
 the queue`_.
 
-The ``Time(min=None, hour=None, wday=None, max_freq=None)`` defines a matrix of
-weekdays and times-of-day patterns, where each of the attributes ``min``,
-``hour`` and ``wday`` are lists of integers.
+The *Time* object (``Cerebrum.modules.job_runner.times.Time`` defines a matrix
+of weekday and time-of-day patterns, with attributes:
 
-A job will be scheduled when the current time passes one of the times that
-match *any* value in *all* of these arguments.
+``mins`` (``list[int]``)
+    A list of minute masks.  Each value must be 0-59, and will any time-of-day
+    that is N minutes past the hour.  ``mins=[5, 10]`` matches both 5 minutes
+    past the hour and 10 minutes past the hour.
 
-The default value, ``None`` matches all possible values.  This means that a
-default ``Time()`` object without any arguments, defines a scheduling pattern
-that triggers *every minute*.
+    The default (``None``) will match every minute of the hour.
 
-The scheduling patterns are best described by examples:
+``hours`` (``list[int]``)
+    A list of hour masks.  Each value must be 0-23, and will match a full hour
+    of the day.  ``hours=[13, 14]`` will match from ``13:00`` to ``14:59``.
+
+    The default (``None``) will match every hour of the day.
+
+``wday`` (``list[int]``)
+    A list of weekdays.  Each value must be 0-6, where 0 is Monday, and 6 is
+    Sunday.  A value of ``wday=[0, 4]`` will match Mondays and Fridays.
+
+    The default (``None``) will match every day of the week.
+
+``max_freq`` (``int``)
+    An optional time-of-day offset (in seconds) to limit run frequency.
+
+    This is a legacy feature, and should be avoided.  Not to be confused with
+    the ``Action.max_freq`` attribute.  See `implementation details`_ for more
+    info.
+
+A job will be scheduled when the current time passes any time that is included
+in the *Time* patterns.
+
+Examples:
+
+``Time()``
+    Matches every minute, all day, every day.
 
 ``Time(min=[5, 25])``
     Every hour, at 5 minutes and 25 minutes past the hour, every day of the
@@ -176,22 +207,13 @@ The scheduling patterns are best described by examples:
     Every minute from 01:00 to 01:59, all days of the week.
 
 ``Time(min=[30], hour=[6, 18], wday=[1])``
-    Evey *tuesday* (wday=1), at 06:30 *and* at 18:30.
-
-.. note::
-   The optional ``Time.max_freq`` should not be confused with the
-   ``Action.max_freq`` argument.  ``Time.max_freq`` is a legacy feature that
-   prevents the job from being re-scheduled for max_freq seconds after
-   finishing a run.
-
-   See `implementation details`_ for more info.
+    Evey *Tuesday*, at 06:30 *and* at 18:30.
 
 
 Implementation details
 ~~~~~~~~~~~~~~~~~~~~~~~
 The queue figures out if a job should be scheduled by calling:
 ``Action.next_delta(prev_time: int, curr_time: int) -> int``.
-
 
 ``prev_time``
     is the timestamp for when the previous iteration of this job was finished.
@@ -203,16 +225,16 @@ The queue figures out if a job should be scheduled by calling:
     when checking if a job should be scheduled.
 
 return value
-    Number of seconds until next run.  If this is negative, the job should be
-    queued.
+    Number of seconds until this job should be queued.  The job is queued when
+    this value is *negative*.
 
 This is where the ``Time.max_freq`` comes into play.  It simply *pretends* that
 the job previously finished later than it actually did, which prevents
 re-scheduling for ``max_freq`` seconds.
 
 
-Rules for adding a job to the queue
-------------------------------------
+Rules for adding jobs to the queue
+-----------------------------------
 A job can only be added to the job queue if:
 
 - It's not currently queued (can be overridden with ``Action.multi_ok``)
@@ -222,8 +244,13 @@ A job can only be added to the job queue if:
 
 Queue processing
 -----------------
-The job queue is an ordered list of jobs to run, and any job in the queue will
-be started unless:
+The job queue is an ordered list of jobs to run.  The job-runner will process
+this queue in timed intervals, and in each iteration it will attempt to start
+all jobs in the queue.
+
+Jobs in the may have *blockers* that prevents them from starting.  A job with
+blockers will simply be skipped in the current iteration, and re-tried in the
+next.  These blockers are:
 
 - The queue is paused.
 
@@ -237,7 +264,7 @@ be started unless:
 .. todo:: More checks
 
    There are some more checks here, especially in the pre/post job list, but
-   they're a bit dense.  This list should be reviewed
+   they're a bit dense.  This list should be reviewed.
 
 Note that jobs can also be *forced*, which omits these checks.  Forced jobs
 will not appear as *running* when checking if other jobs can be added to the
@@ -246,24 +273,31 @@ queue.
 
 Defining what to run
 ---------------------
-The main use case for *Actions*, is to run a *System* call.
+The main use case for *Actions*, is to run and monitor a subprocess.
 
-The *System* call takes three arguments:
-
+This is done using a *System* object
+(``Cerebrum.modules.job_runner.job_actions.System``).  The *System* call takes
+three arguments:
 ::
 
     System(cmd, params=None, stdout_ok=False)
 
-``cmd`` is the command to run, or ``argv[0]``.
+Where:
 
-``params`` is an optional list of arguments for the *cmd*.  All values must be
-strings.  Note that *params* also supports callables that takes no arguments
-and returns a string, for arguments that needs to be generated.
+``cmd``
+    is the command to run, or ``argv[0]``.
 
-``stdout_ok`` defines if output to *stdout* is normal behaviour for this
-command.  By default it is ``False``, which means that any stdout is registered
-as abnormal behaviour, and any output to stdout means that the workdir will be
-kept around for later inspection (see :doc:`/maintenance/job-runner`).
+``params``
+    is an optional list of arguments for the *cmd*.  All values must be strings.
+
+    Note that *params* also supports callables that takes no arguments and
+    returns a string, for arguments that needs to be generated.
+
+``stdout_ok``
+    defines if output to *stdout* is normal behaviour for this command.  By
+    default it is ``False``, which means that any stdout is registered as
+    abnormal behaviour, and any output to stdout means that the workdir will be
+    kept around for later inspection (see :doc:`/maintenance/job-runner`).
 
 
 Writing the config
@@ -272,27 +306,27 @@ Some useful tips to write and organize a ``scheduled_jobs``-like config file.
 
 Grouping jobs
 --------------
-Normally, the ``get_jobs()`` would be implemented using a
-``Cerebrum.modules.job_runner.job_actions.Jobs`` subclass.
+Normally, the ``get_jobs()`` would be implemented using a subclass of *Jobs*
+(``Cerebrum.modules.job_runner.job_actions.Jobs``).
 
-The ``Jobs`` class is typically used to *group* jobs together.  Any *Action*
+The *Jobs* class is typically used to group jobs together.  Any *Action*
 defined as a class attribute in a *Jobs* class, will be returned by the
 ``Jobs.get_jobs()`` method:
 ::
 
-    class MyJobs(Jobs):
+    class FooJobs(Jobs):
+        foo_all = Action(post=["foo_pre", "foo_main", "foo_post"])
 
-        my_job = Action(
-            call=System(
-                "/usr/bin/bash",
-                params=[
-                    "-c", "date >> /tmp/logged-timestamps",
-                ],
-            ),
-        )
+        foo_pre = Action()
+        foo_main = Action()
+        foo_post = Action()
 
 
-    get_jobs = MyJobs().get_jobs
+    class AllJobs(FooJobs):
+        unrelated_job = Action()
+
+
+    get_jobs = AllJobs().get_jobs
 
 
 Inspecting the config
@@ -302,11 +336,10 @@ using the ``Cerebrum.modules.job_runner.job_utils.pretty_jobs_presenter``:
 ::
 
     if __name__ == '__main__':
-        pretty_jobs_presenter(MyJobs(), None)
+        pretty_jobs_presenter(AllJobs(), None)
 
 
-This adds some argument parsing and useful utility functions to the config
-module:
+This turns the config into a script with some convenient utility functions:
 ::
 
     $ python scheduled_jobs.py --help
@@ -343,8 +376,8 @@ without a ``max_freq``.
 
 ``to_seconds``
 ---------------
-``Cerebrum.utils.date.to_seconds`` is useful for keeping the various arguments
-values in *seconds* readable:
+``Cerebrum.utils.date.to_seconds`` is useful for making attributes with values
+in *seconds* more readable:
 ::
 
     my_job = Action(
