@@ -12,7 +12,7 @@ providing database connection data.
 Default config
 ==================
 Settings are generally documented through comments in the default config,
-``Cereconf.default_config``.
+``Cerebrum.default_config``.
 
 All settings in ``Cerebrum.default_config`` must be present in the ``cereconf``
 module.  It is customary to *import* all settings from the default config, and

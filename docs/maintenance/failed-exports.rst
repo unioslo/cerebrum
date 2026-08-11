@@ -34,15 +34,15 @@ added as a job-runner job.
 The job should run something like:
 ::
 
-    python contrib/utils/delete-temp-files.py
-        --logger-name cronjob
-        --logger-level INFO
-        --glob-pattern "*.json.?????"
-        --glob-pattern "*.ldif.?????"
-        --glob-pattern "*.pickle.?????"
-        --glob-pattern "*.xml.?????"
-        --min-age 7
-        --commit
+    python contrib/utils/delete-temp-files.py \
+        --logger-name cronjob \
+        --logger-level INFO \
+        --glob-pattern "*.json.?????" \
+        --glob-pattern "*.ldif.?????" \
+        --glob-pattern "*.pickle.?????" \
+        --glob-pattern "*.xml.?????" \
+        --min-age 7 \
+        --commit \
         /cerebrum/var/cache/
 
 ``--glob-pattern`` adds a filename pattern to delete.  Temporary files created

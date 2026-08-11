@@ -25,8 +25,8 @@ something like:
     python contrib/utils/file-cleaner.py \
         --logger-name cronjob \
         --logger-level INFO \
-        --archive
-        --delete
+        --archive \
+        --delete \
         --commit
 
 ``--archive`` instructs the script to run the archive instructions from the
@@ -49,7 +49,7 @@ Delete file or directory
 Compress file
     Replace each matching file with a gzip-compressed copy.
 
-    The gzipped file keeps the attribtues (permissions, mtime, etc...) from the
+    The gzipped file keeps the attributes (permissions, mtime, etc...) from the
     original.  Archived files are named ``<source-file>.gz`` (or
     ``<source-file>--<counter>.gz`` for duplicate names).
 
@@ -152,13 +152,13 @@ The following settings only apply to ``ARCHIVE_FILES`` instructions:
     each matching entry.
 
 ``archive_replace``
-    Replace archive files if if they already exists.
+    Replace archive files if they already exist.
 
     The naming scheme for archives may cause a naming conflict.  This can happen
     if the cleanup script runs multiple times a day, and/or the
     ``keep_originals`` setting is enabled.
 
-    If set to ``True``, the new archive will replace the exising archive in
+    If set to ``True``, the new archive will replace the existing archive in
     these cases.
 
     If set to ``False`` (the default), archive filenames gets an additional

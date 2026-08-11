@@ -42,7 +42,7 @@ type of entity, ``entity_type``.  In addition the entity has entries in
 various tables depending on its type.  These tables will have the same
 value for ``entity_type`` and ``entity_id``.  For example:
 
-  An organicational unit would have an entry in ``entity_info ei``, and
+  An organizational unit would have an entry in ``entity_info ei``, and
   ``ou_info oi`` where ``ei.entity_type=oi.entity_type`` and
   ``ei.entity_id=ou.ou_id``.  In addition one could store address
   information for the ou in ``entity_address ea`` with

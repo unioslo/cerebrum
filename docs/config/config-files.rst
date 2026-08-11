@@ -51,7 +51,7 @@ to change the password generator rules.
 
 statsd
 -------
-Configures the default ``Cerebrum.modules.statsd`` client.  Witout a config,
+Configures the default ``Cerebrum.modules.statsd`` client.  Without a config,
 metrics will be disabled.
 
 This file is used for parts of Cerebrum with metrics support.  This includes
