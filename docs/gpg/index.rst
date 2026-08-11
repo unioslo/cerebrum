@@ -1,7 +1,7 @@
 =================
 GPG in Cerebrum
 =================
-Cerberum has multiple GPG related modules for encrypting and decrypting
+Cerebrum has multiple GPG related modules for encrypting and decrypting
 messages.  All of them will use the system GnuPG library with a common, custom
 GnuPG homedir.
 

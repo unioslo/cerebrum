@@ -16,7 +16,7 @@ Core features
 
     Modules in ``Cerebrum/``, or scripts/cronjons in ``contrib/``
 
-Optonal features
+Optional features
     Code that only applies to some environments, typically optional features.
     May need optional database-schemas.
 
@@ -116,7 +116,7 @@ Some common patterns for scripts and modules.
 
 Command line parameters
 ------------------------
-Prefer the ``argparse`` module for parsing, noramlizing and validating command
+Prefer the ``argparse`` module for parsing, normalizing and validating command
 line parameters.  Cerebrum includes some argparse helpers in
 ``Cerebrum.utils.argparse`` and ``Cerebrum.logutils.options``.
 
@@ -202,10 +202,8 @@ About scripts
 Scripts in ``contrib/`` are mostly scheduled cron-style jobs to run
 periodically.
 
-Scripts in Cerberum should generally be *small and simple*, and provide an
+Scripts in Cerebrum should generally be *small and simple*, and provide an
 interface from the command line + environment to Cerebrum.
 
-Most of the functinality triggered from a script should be implemented in
+Most of the functionality triggered from a script should be implemented in
 *modules*, where it can be tested and reused.
-
-.. See :doc:`example-cronjob` for an example.

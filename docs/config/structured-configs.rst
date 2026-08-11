@@ -137,7 +137,7 @@ YAML snippet below would load the exact same values as the snippet above:
 Extending configuration
 ------------------------
 Existing configuration classes can be extended with more settings by subclassing
-an exsiting Configuration.
+an existing Configuration.
 
 Example:
 ::
@@ -186,7 +186,7 @@ Example:
 Documentation
 --------------
 Settings include descriptions, which can be formatted into a set of
-docuemntation.
+documentation.
 
 To show the documentation from the example in the `nested configuration`_
 section:

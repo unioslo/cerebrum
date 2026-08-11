@@ -7,7 +7,7 @@ procedure calls) will generally returns structured data to clients.
 To provide some assistance for interactive cli clients, a special data structure
 called ``FormatSuggestion`` can accompany these commands.  The `format
 suggestions`_ typically contains one or more template strings that can be used
-to format and display the structured response data from a gvien command.
+to format and display the structured response data from a given command.
 
 Not all commands will have format suggestions.  A given command will:
 

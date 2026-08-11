@@ -10,7 +10,7 @@ The core cerebrum functionality and business logic is configured using *config
 modules*, with :doc:`cereconf` being the most notable.
 
 Some config modules are typically required to exist and be importable for
-certain *features* of Cerberum to work properly.
+certain *features* of Cerebrum to work properly.
 
 Other configuration modules only serves as the *default* config file for scripts
 that use python config files.  These scripts will typically accept a config file

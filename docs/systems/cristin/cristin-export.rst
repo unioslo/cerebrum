@@ -183,14 +183,14 @@ Each org unit (``enhet``) contains the following fields:
 - ``navnEngelsk`` (name, en) - full name of the org unit
 - ``akronym`` (acronym/short name)
 - ``postadresse`` (postal address) - street address
-- ``postnrOgPoststed``` (zip-code and city) - space-separated norwegian zip-code and city
+- ``postnrOgPoststed`` (zip-code and city) - space-separated norwegian zip-code and city
 - ``land`` (country)
 - ``telefonnr`` (phone number)
 - ``telefaxnr`` (fax number)
 - ``epost`` (email address)
 - ``URLBokmal`` (url)
 
-The following opotional fields are not included:
+The following optional fields are not included:
 
 - ``NSDKode`` - Cerebrum originally didn't support having different NSD
   identifiers for individual org units.
@@ -264,7 +264,7 @@ The following optional fields are never included:
 - ``fnrErstatter`` - previous ``fnr`` values
 - ``adresseinfo`` - addresses
 
-Eksempel:
+Example:
 ::
 
   <person reservert="N" fnr="12345678902">

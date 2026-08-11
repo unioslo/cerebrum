@@ -101,7 +101,7 @@ command parameters
     This is a list of all the required and optional parameters for the command.
 
     Note that all parameters are always positional, and any optional arguments
-    will always apprear at the end.  Each argument may consist of:
+    will always appear at the end.  Each argument may consist of:
 
     ``prompt``
         A prompt-string to display to an end user to query for an argument
@@ -159,7 +159,7 @@ Get help texts from the server.  This remote procedure has a variable number of
 arguments:
 
 ``bofhd_help(session_id)``
-    Shows an intro the the help procedure call and help system.
+    Shows an intro to the help procedure call and help system.
 
 ``bofhd_help(session_id, <command-group>)``
     Get help on a given command group.
@@ -195,7 +195,7 @@ If the command fails for any reason, an XMLRPC Fault response is returned to the
 client.  No changes will be performed.
 
 A third option - if an incorrect number of arguments were provided, is to return
-a special prompt object.  The prompt object can either be a refence to the
+a special prompt object.  The prompt object can either be a reference to the
 missing parameter, or a special *prompt command* (see `bofhd_call_prompt_func`_
 for details).
 

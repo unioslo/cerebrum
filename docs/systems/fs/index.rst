@@ -27,7 +27,7 @@ Database lookups
     - This is done by individual ``contrib/no/*/import_from_fs.py`` scripts
 
     - The script connects directly to the FS database, using the appropriate FS client
-      implementation in Cerebrum (``Cerberum.modules.no.access_FS.make_db``)
+      implementation in Cerebrum (``Cerebrum.modules.no.access_FS.make_db``)
 
     - The script looks up batches of information (students, courses, etc..)
 

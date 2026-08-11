@@ -71,12 +71,12 @@ scripts.
 
 file_clean_conf
 ================
-Configures archiving and cleanup maintenance tasks.
+Configures archiving and cleanup maintenance tasks for files and directories.
 
 .. note::
    This module doesn't need to be importable - it can be overridden using cli-options.
 
-See :doc:`/maintenance/file-cleanup` for more details.
+See :doc:`/maintenance/file-cleaner` for more details.
 
 
 guestconfig
@@ -89,7 +89,7 @@ the ``Cerebrum.modules.guest`` functionality.
 
 Most settings have a default value in ``Cerebrum.modules.guest.default_config``,
 and every setting is documented here using *comments*.  When using the guest
-module, your deployment should have a ``guestconfig``, ant that module should
+module, your deployment should have a ``guestconfig``, and that module should
 start off by doing:
 ::
 
@@ -155,19 +155,13 @@ in ``restconfig``.
 
 scheduled_jobs
 ===============
-Defines all jobs to be scheduled using ``Cerebrum.modules.job_runner``.
+Defines jobs for *job-runner*, the Cerebrum scheduler.
 
 .. note::
    This module doesn't need to be importable - it can be overridden using
    cli-options.
 
-The module must implement a ``get_jobs()`` function, which should return a
-mapping of job names to ``Cerebrum.modules.job_runner.job_actions.Action``
-objects.
-
-.. todo::
-   Document the job-runner Jobs groups and Actions in a separate
-   ``scheduled_jobs`` document.
+See :doc:`/job-runner/config` for details on how to configure job-runner.
 
 
 \*_ldap_conf

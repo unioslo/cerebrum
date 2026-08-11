@@ -293,11 +293,9 @@ daily
     Similar to ``cronjob``, but rotates logs daily, and includes the date in the
     log filename.
 
-    This is a good alternative to cronjob, but typically requires *cleanup* (and
-    optional archiving) using ``file_cleaner`` (see
-    :doc:`../maintenance/file-cleanup`).  When combined with file cleanup
-    and archiving, this provides proper log retention.  This is very useful for
-    scripts that either:
+    This is a good alternative to cronjob, but typically requires cleanup
+    using :doc:`/maintenance/file-cleaner`.  This is very useful for scripts
+    that either:
 
     - Logs a lot - we can add compression to save space, and prevents us from
       rotating away logs too quickly.

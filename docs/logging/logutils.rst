@@ -4,7 +4,7 @@ Cerebrum.logutils
 
 .. contents::
 
-``Cerebrum.logutils`` is a set of modules for *bootstapping* the standard
+``Cerebrum.logutils`` is a set of modules for *bootstrapping* the standard
 logging module for Python.  This document is a description of the
 ``Cerebrum.logutils`` module configuration, module internals, and how it is used
 in Cerebrum.
@@ -116,7 +116,7 @@ Logger presets are regular configuration files for the python `logging`_ module,
 and configures the logger hierarchy (loggers, handlers, filters, formatters).
 
 The presets should reside in the directory given by the `logging environment`_
-config (``logging.confdir``, ``<preset>/var/log/cerebrum`` by default).
+config (``logging.confdir``, ``<prefix>/var/log/cerebrum`` by default).
 
 Scripts usually select a *default* named  preset (usually ``"crontab"``) when
 setting up the logging hierarchy.  This default preset can be overloaded with
@@ -205,8 +205,8 @@ filters from:
 3. Filters defined in the warnings section of the logging environment
    `configuration`_
 
-    **NOTE**: Python ignores incorrecly formatted filters by default. The
-    ``logutils`` module does not accept invalid filter-syntac, and throws an
+    **NOTE**: Python ignores incorrectly formatted filters by default. The
+    ``logutils`` module does not accept invalid filter-syntax, and throws an
     exception if any invalid filter strings are used.
 
 

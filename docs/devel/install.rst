@@ -59,7 +59,7 @@ Execute the command:
   python setup.py install [options]
 
 All files will by default be installed under ``sys.prefix``.  You can
-change this installation prefix by using a virtualenv (reccommended).
+change this installation prefix by using a virtualenv (recommended).
 
 There are a few other options you can set by using ``setup.py``. To
 get the full list of options enter:

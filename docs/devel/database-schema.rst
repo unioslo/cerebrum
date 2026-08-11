@@ -42,7 +42,7 @@ type of entity, ``entity_type``.  In addition the entity has entries in
 various tables depending on its type.  These tables will have the same
 value for ``entity_type`` and ``entity_id``.  For example:
 
-  An organicational unit would have an entry in ``entity_info ei``, and
+  An organizational unit would have an entry in ``entity_info ei``, and
   ``ou_info oi`` where ``ei.entity_type=oi.entity_type`` and
   ``ei.entity_id=ou.ou_id``.  In addition one could store address
   information for the ou in ``entity_address ea`` with
@@ -56,7 +56,6 @@ to have an ``entity_address``, the core API don't allow it.
 
 code tables
 -----------
-
 Cerebrum has extensive use of code tables which are used to limit the
 legal values for various types of data.  All code tables end with the
 string ``_code``.  
@@ -65,17 +64,23 @@ For instance, the gender for a person is stored in
 ``person_info.gender`` which is a foreign key to ``gender_code``.  The
 legal gender codes are maintained with the various Constants classes.
 Code tables avoids problems with the same code value being written in
-different ways, for instance 'boy' or 'male' for gender (TODO: bedre
-eksempel, boy er ikke et gender), while making it easy to introduce a
-new gender code 'unknown'.
+different ways, for instance 'mann', 'M', or 'male' for gender, while making it
+easy to introduce a new gender code 'unknown'.
 
 Most code tables contains three columns:
 
-- a numerical ``code`` that must always be constant, and which is used as
-  a foreign key
-- a string ``code_str`` which makes the code more easy to read for humans
-  than a plain number
-- a ``description``
+``code``
+    An internal, numerical ``code`` value that must always be constant.
+
+    This is auto-generated when adding the constant, and
+    used as a foreign key in tables that use the constant.
+
+``code_str``
+    A public code string to make the code more easy to read for humans, and to
+    serve as a reference from source code, or as user input.
+
+``description``
+    A longer description to explain what the constant *means*.
 
 
 Constraints
@@ -95,7 +100,7 @@ things like
 
 ... and so on
 
-Some constraints are too complex to express with these mecanisms (see
+Some constraints are too complex to express with these mechanisms (see
 above why we don't use triggers).  For instance a unix username may
 only contain certain characters.  Such constraints are enforced by the
 API.  If users are allowed to use SQL to directly modify the cerebrum
