@@ -21,6 +21,7 @@ can be built.
    :glob:
 
    bofhd/index
+   job-runner/index
    changelog/index
    email/index
    gpg/index

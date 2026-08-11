@@ -14,7 +14,7 @@ Cerebrum code uses :doc:`logutils` to configure these loggers.  See
 Monitoring
 ===========
 Cerebrum has some support for monitoring, with support for generating a Zabbix
-discovery report.  See :doc:`job-runner-monitoring` for details on this.
+discovery report.  See :doc:`/job-runner/health-check` for details on this.
 
 Other monitoring of individual processes/daemons should be set up outside of
 Cerebrum.
