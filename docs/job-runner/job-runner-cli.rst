@@ -1,16 +1,18 @@
-===============
-job-runner-cli
-===============
+=======
+Client
+=======
 
-The job-runner-cli client (``contrib/clients/job-runner-cli.py``) is the default
-client for communicating with the *job-runner* daemon.
+This document describes how to use the job-runner client,
+``contrib/clients/job-runner-cli.py``.
 
-Communication uses an IPC socket exposed by the daemon.  By default, both the
-client and server uses the ``cereconf.JOB_RUNNER_SOCKET``.
+The job-runner client is the default way to communicate with the job-runner
+daemon.  Communication uses an IPC socket exposed by the daemon.  By default,
+both the client and server uses the ``cereconf.JOB_RUNNER_SOCKET``.
 
 
 Usage
 ======
+The script is typically installed to ``bin/``:
 ::
 
     python job-runner-cli.py [options] <command> [command-options]
@@ -28,6 +30,7 @@ Options:
 
 Commands
 =========
+.. contents:: :local:
 
 reload
 -------
@@ -53,16 +56,17 @@ seconds.
 
 status
 -------
-Show the current job-runner state.
+Show the current job-runner state, in four sections:
 
-Dumps the current state in four sections:
+#. *Run-queue* — any currently running jobs
+#. *Ready-jobs* - pending jobs that are ready to run (the job-runner queue)
+#. *Threads* - a list of all job-runner threads, for debugging
+#. *Known jobs* - A list of all the jobs known to job-runner
 
-- *Run-queue* — any currently running jobs
-- *Ready-jobs* - pending jobs that are ready to run (the job-runner queue)
-- *Threads* - a list of all job-runner threads, for debugging
-- *Known jobs* - A list of all the jobs known to job-runner
+The output also shows:
 
-The output also indicates if queue processing is paused.
+- The queue timing interval (i.e. when the pending jobs will be processed)
+- If the queue is currently paused
 
 
 pause
@@ -78,6 +82,11 @@ Resume the job-runner queue. This cancels a previous pause_ command.
 report
 -------
 Get an up-to-date health check report.
+
+This is the same report that is generated periodically by the daemon when
+started with the ``--health-check`` option (see :doc:`health-check`).  The
+daemon does *not* have to be configured with a health check report for this to
+work.
 
 
 run

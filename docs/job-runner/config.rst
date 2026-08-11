@@ -45,10 +45,10 @@ The following config module serves as a minimal example:
 
 Defining a job
 ===============
-Job definitions are *Action* objects
-(``Cerebrum.modules.job_runner.job_actions.Action``).  The Action describes
-job limits, job scheduling, and the job implementation through a series of
-attributes.  All attributes are *optional*.
+Job definitions are *Action objects*
+(``Cerebrum.modules.job_runner.job_actions.Action``), which describes job
+limits, job scheduling, and the job implementation through a series of
+attributes.  All attributes are *optional*:
 
 ``call``
     The job implementation.
@@ -142,25 +142,24 @@ attributes.  All attributes are *optional*.
 Scheduling
 -----------
 Job Actions with a ``when`` attribute are subject to scheduling, and will
-automatically be added to the queue at set intervals.
+automatically be added to the queue.  Scheduling is specified with a *When
+object* (``Cerebrum.modules.job_runner.times.When``), which can define schedules
+by intervals or times:
 
-Scheduling is specified with a *When* object
-(``Cerebrum.modules.job_runner.times.When``), which can define schedules by
-intervals or times:
-
-- ``When(freq=120)``: Run at an inteval - here every 2 minutes.
+- ``When(freq=120)``: Run at an interval - here every 2 minutes.
 - ``When(time=Time(…))``: Run at a set time schedule.
 
-``notwhen`` can be used to cancel out some of the times provided by ``when``..
-This is typically used to *block* the job from running at set time schedules,
-with a ``notwhen=When(time=…)``, when the job runs periodically at set
-intervals with a ``when=When(freq=..)``.
+``notwhen`` can be used to cancel out some of the times provided by ``when``.
+This is typically used to *block* the job from running at set times with a
+``notwhen=When(time=…)``, when the job runs periodically with a
+``when=When(freq=…)``.
 
 Note that scheduled jobs are still subject to the `rules for adding jobs to
 the queue`_.
 
-The *Time* object (``Cerebrum.modules.job_runner.times.Time`` defines a matrix
-of weekday and time-of-day patterns, with attributes:
+The *Time object* (``Cerebrum.modules.job_runner.times.Time`` defines a matrix
+of weekday and time-of-day patterns.  These patterns are all lists of integers,
+and are defined in the following attributes:
 
 ``mins`` (``list[int]``)
     A list of minute masks.  Each value must be 0-59, and will any time-of-day
@@ -181,12 +180,11 @@ of weekday and time-of-day patterns, with attributes:
 
     The default (``None``) will match every day of the week.
 
-``max_freq`` (``int``)
-    An optional time-of-day offset (in seconds) to limit run frequency.
-
-    This is a legacy feature, and should be avoided.  Not to be confused with
-    the ``Action.max_freq`` attribute.  See `implementation details`_ for more
-    info.
+Additionally, the Time object may have a ``max_freq`` attribute.  This is an
+optional time-of-day offset (in seconds) to limit how often this job may be
+added to the queue by the scheduler.  This is a legacy feature, and should be
+avoided.  Not to be confused with the ``Action.max_freq`` attribute.  See
+`implementation details`_ for more info.
 
 A job will be scheduled when the current time passes any time that is included
 in the *Time* patterns.
@@ -244,9 +242,9 @@ A job can only be added to the job queue if:
 
 Queue processing
 -----------------
-The job queue is an ordered list of jobs to run.  The job-runner will process
-this queue in timed intervals, and in each iteration it will attempt to start
-all jobs in the queue.
+The job queue is an ordered list of jobs to run.  The job-runner daemon will
+process this queue in timed intervals, and in each iteration it will attempt to
+start all jobs in the queue.
 
 Jobs in the may have *blockers* that prevents them from starting.  A job with
 blockers will simply be skipped in the current iteration, and re-tried in the
@@ -275,9 +273,9 @@ Defining what to run
 ---------------------
 The main use case for *Actions*, is to run and monitor a subprocess.
 
-This is done using a *System* object
-(``Cerebrum.modules.job_runner.job_actions.System``).  The *System* call takes
-three arguments:
+This is done using a *System object*
+(``Cerebrum.modules.job_runner.job_actions.System``), which takes three
+arguments:
 ::
 
     System(cmd, params=None, stdout_ok=False)

@@ -2,20 +2,24 @@
 job-runner
 ===========
 
-*job-runner* is the job scheduler for Cerebrum, and is used to trigger the
-various Cerebrum *scripts*, as well as other tasks.
+*job-runner* is the default scheduler for Cerebrum, and is used to start and
+supervise various Cerebrum *jobs*.  The typical jobs include:
+
+- Batch imports and exports
+- Maintenance tasks
+- Reports
+
+A job-runner daemon_ should generally run in all Cerebrum deployments, although
+other schedulers could be used in its place.
 
 
 Daemon
 =======
-Job-runner should generally run in all Cerebrum deployments, although other
-schedulers *could* be used in its place.
-
-The daemon is started using ``servers/job_runner/job_runner.py``.  A typical
-invocation:
+The daemon is started using the script in ``servers/job_runner/job_runner.py``,
+which is typically installed in ``sbin/``:
 ::
 
-    /cerebrum/bin/python /cerebrum/sbin/job_runner.py
+    <sys.prefix>/sbin/job_runner.py
 
 
 Options:
