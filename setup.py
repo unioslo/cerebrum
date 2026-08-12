@@ -227,7 +227,6 @@ data_files = [
       'mode': 0o755},
      [('design/cerebrum-core.dia', 0o644),
       ('design/cerebrum-core.html', 0o644),
-      ('design/adminprotocol.html', 0o644),
       ('README.md', 0o644),
       ('COPYING', 0o644), ]),
     ({'path': bindir,
