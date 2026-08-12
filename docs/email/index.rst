@@ -96,7 +96,7 @@ Actual email addresses managed by Cerebrum.
 - Each address must point to an EmailTarget_ (i.e. how should emails to this
   address be handled)
 
-- Note that an adresses should generally not be deleted after being created.
+- Note that addresses should generally not be deleted after being created.
   An email address should remain locked to its EmailTarget indefinitely, to
   prevent other EmailTargets from *re-using* that email address.
 

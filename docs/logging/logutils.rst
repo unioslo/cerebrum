@@ -22,7 +22,7 @@ module:
 
 Logging environment
 -------------------
-The logging enviromnent config is a configuration file with name ``logenv``,
+The logging environment config is a file with name ``logenv``
 that resides in the Cerebrum configuration directory
 (``<prefix>/etc/cerebrum/config`` by default).
 

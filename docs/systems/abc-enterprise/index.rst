@@ -138,7 +138,7 @@ would typically follow a standardized set of types.
           <groupid groupidtype="group-name">foo</groupid>
         </subject>
         <object>
-          <personid personidtype="username">oladnord</personid>
+          <personid personidtype="username">olanord</personid>
         </object>
       </relation>
     </document>

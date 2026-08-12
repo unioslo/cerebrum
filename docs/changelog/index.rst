@@ -10,18 +10,22 @@ database.
 
 Overview
 ==========
-The *changelog* can consist of zero or more implementations (mixins), which
-implements their own system for dealing with changes that are explicitly
-"logged" using ``ChangeLog.`` `log_change`_.
+The *changelog* system adds support for *acting* on core database changes.
+Whenever a row is added, updated, or removed in the database, the
+``ChangeLog`` `log_change`_ method is called.
+
+This call can be delegated to zero or more *implementations* of the abstract
+ChangeLog using mixins.
 
 
 CLDatabase
 ----------
-The *changelog* is synchronized with the database through the ``CLDatabase``.
+Support for ChangeLog is patched into the database class using the
+``CLDatabase``.  This class merges the the DB-API and the changelog API_ into
+*one* class.
 
-Basically, the Cerebrum database object is a ``CLDatabase`` object, which
-consists of the DB-api *and* the changelog API_.  Changes are typically logged
-using ``ChangeLog.`` `log_change`_, and flushed by the database commit.
+Changes are typically logged using ``ChangeLog.`` `log_change`_, and flushed by
+the database commit.
 
 On commit, the CLDatabase runs the following steps:
 
@@ -40,7 +44,7 @@ On database rollback, the flow is a lot simpler:
 
 Configuration
 --------------
-The *changelog* is configured using :doc:`/config/cereconf`:
+ChangeLog support is configured using :doc:`/config/cereconf`:
 
 ::
 
@@ -60,7 +64,7 @@ The *changelog* is configured using :doc:`/config/cereconf`:
     #
     # Note: Cerebrum has moved away from being database agnostic.  Some
     # functionality may require this to be PsycoPG2.
-    cereconf.CLASS_DBDRIVER= ("Cerebrum.database.postgres/PsycoPG2", )
+    cereconf.CLASS_DBDRIVER = ("Cerebrum.database.postgres/PsycoPG2", )
 
 
 Change types
@@ -250,12 +254,12 @@ Slow commits
     to perform as much processing (and ideally database writes) in the
     ``log_change`` call, if possible.
 
-    Doing writes here will break the ``clear_log`` functinality however.  We
+    Doing writes here will break the ``clear_log`` functionality however.  We
     should look into changing the API to better support writes with
     ``log_change``.
 
 ``ChangeLog.__init__``
-    Changelog implementatinos should not use ``__init__``, as this could easily
+    Changelog implementations should not use ``__init__``, as this could easily
     lead to conflicts with the ``Database`` init method.
 
     Any required setup should be done through ``cl_init``.

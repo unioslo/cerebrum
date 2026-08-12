@@ -66,7 +66,7 @@ for generic clients.
 The result is filtered, and will only contain commands that are generally
 available to the current session.
 
-The result is dict formated as follows:
+The result is a dict formatted as follows:
 ::
 
     {

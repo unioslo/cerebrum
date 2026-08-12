@@ -109,7 +109,7 @@ The py:class:`Cerebrum.modules.no.OrgLDIF.NorEduAuthnLevelMixin` mixin adds this
 authentication method to *all* Feide users.
 
 Note that this method largely bypasses our quarantine rules, as we can no longer
-remove/manipulate the ``userPassowrd`` attribute to prevent login.  One way to
+remove/manipulate the ``userPassword`` attribute to prevent login.  One way to
 remedy this, is to tag quarantined users with a given ``objectClass``, and
 preventing Feide from seeing these users in LDAP (requires development + LDAP
 configuration).

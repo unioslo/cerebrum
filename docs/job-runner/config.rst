@@ -205,7 +205,7 @@ Examples:
     Every minute from 01:00 to 01:59, all days of the week.
 
 ``Time(min=[30], hour=[6, 18], wday=[1])``
-    Evey *Tuesday*, at 06:30 *and* at 18:30.
+    Every *Tuesday*, at 06:30 *and* at 18:30.
 
 
 Implementation details

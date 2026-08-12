@@ -14,18 +14,18 @@ Code placement
 Core features
     This includes all common code, always available to all environments.
 
-    Modules in ``Cerebrum/``, or scripts/cronjons in ``contrib/``
+    Modules in ``Cerebrum/``, or scripts/cronjobs in ``contrib/``
 
 Optional features
     Code that only applies to some environments, typically optional features.
     May need optional database-schemas.
 
-    Modules in ``Cerebrum/modules/``, or scripts/cronjons in ``contrib/<feature>``
+    Modules in ``Cerebrum/modules/``, or scripts/cronjobs in ``contrib/<feature>``
 
 Environment-specific features
     Code that only applies to a single environment.
 
-    Modules in ``Cerebrum/modules/no/<env>``, or scripts/cronjons in ``contrib/no/<env>``
+    Modules in ``Cerebrum/modules/no/<env>``, or scripts/cronjobs in ``contrib/no/<env>``
 
 Unit tests
     Unit tests should be placed in ``testsuite/tests/``.  See
