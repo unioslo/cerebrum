@@ -74,7 +74,7 @@ something like:
 
 The figure below shows a schematic view of the classes (should be UML,
 but the author is no UML expert).  It should give you a rough idea
-about where things are implemeted.
+about where things are implemented.
 
 .. _class_overview :
 

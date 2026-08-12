@@ -10,7 +10,7 @@ Constant
 =========
 Constants are pre-defined values that are stored in the database.
 
-Constants are basically *enums* that lives in the database, and typically
+Constants are basically *enums* that live in the database, and typically
 defines either a *data-type* (contact type, external id
 type), or a unique value (e.g. authoritative systems, entity types, quarantines)
 

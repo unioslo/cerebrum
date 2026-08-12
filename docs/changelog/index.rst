@@ -254,12 +254,12 @@ Slow commits
     to perform as much processing (and ideally database writes) in the
     ``log_change`` call, if possible.
 
-    Doing writes here will break the ``clear_log`` functinality however.  We
+    Doing writes here will break the ``clear_log`` functionality however.  We
     should look into changing the API to better support writes with
     ``log_change``.
 
 ``ChangeLog.__init__``
-    Changelog implementatinos should not use ``__init__``, as this could easily
+    Changelog implementations should not use ``__init__``, as this could easily
     lead to conflicts with the ``Database`` init method.
 
     Any required setup should be done through ``cl_init``.
