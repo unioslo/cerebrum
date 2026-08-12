@@ -6,25 +6,32 @@ can be built.
 
 .. toctree::
    :titlesonly:
-   :maxdepth: 1
-   :glob:
 
    config/index
    devel/index
    logging/index
-   systems/index
    maintenance/index
+
+.. toctree::
+   :caption: Services
+   :maxdepth: 1
+
+   bofhd/index
+   job-runner/index
+
+.. toctree::
+   :caption: Model
+
+   model/index
+   changelog/index
+   email/index
 
 .. toctree::
    :caption: Features
    :maxdepth: 1
-   :glob:
 
-   bofhd/index
-   job-runner/index
-   changelog/index
-   email/index
    gpg/index
+   systems/index
 
 .. toctree::
    :caption: Modules
