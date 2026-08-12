@@ -43,7 +43,6 @@ This is a brief summary of the currently existing documentation for Cerebrum:
 * `docs/` - up-to-date documentation on Cerebrum
 * Individual modules are (mostly) documented in their module docstrings
 * `docs/admin/install.rst` - describes the installation procedure
-* `design/adminprotocol.html` - describes communication between the administration server and its clients
 * `design/cerebrum-core.dia` - diagram showing the core databasetables in cerebrum. Can be displayed with [Dia](https://wiki.gnome.org/Apps/Dia/)
 * `design/entity_usage.txt` - describes how to modify data in the database
 
