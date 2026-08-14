@@ -1,6 +1,7 @@
-=========================
-bofhd response formatting
-=========================
+=============================
+Response formatting in bofhd
+=============================
+
 Bofhd commands (i.e. ``bofhd_run_command(session_id, cmd, *args)`` XMLRPC remote
 procedure calls) will generally return structured data to clients.
 
