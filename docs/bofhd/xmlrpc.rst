@@ -1,6 +1,6 @@
-==============
-bofhd protocol
-==============
+==================
+Protocol in bofhd
+==================
 Bofhd is an `XMLRPC <https://www.xmlrpc.com/>`_ server, which exists to provide
 *operators* and *end users* with a selection of management commands.
 
@@ -13,6 +13,10 @@ provides the basis of the bofhd client/server interaction.  The *bofhd
 management commands* themselves are implemented by server side command
 extensions, and requests to run commands are performed with a
 `bofhd_run_command`_ remote procedure call.
+
+.. contents::
+   :depth: 2
+   :local:
 
 
 Sessions
@@ -201,7 +205,7 @@ for details).
 
 A legacy feature here, is the command tuple.  If any of the arguments provided
 are lists, the command will run for all permutations of the listed arguments.
-With this feature, changes are only commited if *all* the parametrized commands
+With this feature, changes are only committed if *all* the parametrized commands
 complete successfully.
 
 
