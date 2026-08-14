@@ -591,7 +591,7 @@ class ExchangeClient(PowershellClient):
         # TODO: Do we want to set EmailAddressPolicyEnabled at the same time?
         # TODO: Verify how this acts with address policy on
         cmd = self._generate_exchange_command(
-            'Set-Mailbox',
+            'Set-RemoteMailbox',
             {'Identity': uname,
              'PrimarySmtpAddress': address})
 
@@ -614,7 +614,7 @@ class ExchangeClient(PowershellClient):
             for some reason."""
         addrs = {'add': addresses}
         cmd = self._generate_exchange_command(
-            'Set-Mailbox',
+            'Set-RemoteMailbox',
             {'Identity': uname,
              'EmailAddresses': addrs})
         out = self.run(cmd)
@@ -637,7 +637,7 @@ class ExchangeClient(PowershellClient):
             for some reason."""
         addrs = {'remove': addresses}
         cmd = self._generate_exchange_command(
-            'Set-Mailbox',
+            'Set-RemoteMailbox',
             {'Identity': uname,
              'EmailAddresses': addrs})
         out = self.run(cmd)
@@ -658,7 +658,7 @@ class ExchangeClient(PowershellClient):
 
         :raises ExchangeException: If the command fails to run."""
         cmd = self._generate_exchange_command(
-            'Set-Mailbox',
+            'Set-RemoteMailbox',
             {'Identity': uname,
              'HiddenFromAddressListsEnabled': not visible})
         out = self.run(cmd)
