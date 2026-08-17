@@ -771,6 +771,10 @@ class Hr2FsSyncer(object):
                 logger.info("Failed updating person_id=%r: %r", person_id,
                             self.exc_to_message(sys.exc_info()))
                 return
+            except self.db.DatabaseError:
+                logger.warning("Failed updating person_id=%r: %r", person_id,
+                               self.exc_to_message(sys.exc_info()))
+                return
         else:
             tmp = fs_info[0]
             if any(values[k] != tmp[k] for k in values.keys()):
