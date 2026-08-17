@@ -12,12 +12,6 @@ source system for students in Cerebrum.
 
 FS Import
 ==========
-.. toctree::
-   :maxdepth: 1
-   :glob:
-
-   *
-
 Most of the FS integration consists of the FS *import*.  This process is split
 into the following steps:
 
