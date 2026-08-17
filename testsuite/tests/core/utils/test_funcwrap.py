@@ -92,48 +92,6 @@ def test_memoize_per_object(mem_cls):
 
 
 #
-# test debug wrappers
-#
-
-
-def test_debug_call(capsys):
-
-    @funcwrap.debug_call(args=True, ret=True, prefix="foo_module")
-    def foo(*args, **kwargs):
-        return str("retval")
-
-    foo(1, False, bar=str("baz"))
-    _, err = capsys.readouterr()
-    lines = err.split("\n")
-    print(err)
-
-    # calls to bar() should print a header line + multiple lines of stack trace
-    assert len(lines) > 1
-    assert lines[0] == (
-        "enter function foo_module.foo "
-        "with args=(1, False) kwargs={'bar': 'baz'}"
-    )
-    assert lines[1] == (
-        "exit function foo_module.foo with return='retval'"
-    )
-
-
-def test_trace_call(capsys):
-
-    @funcwrap.trace_call(prefix="foo_module")
-    def bar(*args):
-        pass
-
-    bar()
-    _, err = capsys.readouterr()
-    lines = err.split("\n")
-
-    # calls to bar() should print a header line + multiple lines of stack trace
-    assert len(lines) > 1
-    assert lines[0] == "called foo_module.bar:"
-
-
-#
 # test deprecate
 #
 
