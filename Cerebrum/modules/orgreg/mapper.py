@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2022 University of Oslo, Norway
+# Copyright 2022-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,17 +18,31 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
-Utils for extracting Cerebrum-data from Orgreg objects.
+Extract Cerebrum-data from Orgreg objects.
 
-Import/update utils should use a py:class:`.OrgregMapper` to extract relevant
-Cerebrum data from a (sanitized) Orgreg org unit.
+This module provides an implementation of the generic
+:class:`Cerebrum.modules.ou_import.ou_model.OrgUnitMapper` for Orgreg.
+
+The :class:`.OrgregMapper` translates Orgreg data to Cerebrum data.  Import
+utils can use this class to extract Cerebrum fields from an Orgreg object.
+
+Input data should be normalized using :func:`.datasource.parse_org_unit` before
+being passed to the mapper.
 """
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
+
 import datetime
 import logging
 
 import six
 
 from Cerebrum.modules.ou_import.ou_model import OrgUnitMapper, normalize_sko
+
 
 logger = logging.getLogger(__name__)
 

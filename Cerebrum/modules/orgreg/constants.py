@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2021 University of Oslo, Norway
+# Copyright 2021-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,14 +18,20 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
-Constants related to the Greg source system.
+Constants for the Orgreg source system.
 """
-from __future__ import unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 from Cerebrum import Constants
 
 
 class OrgregConstants(Constants.Constants):
+    """ Generic, orgreg specific constants. """
 
     system_orgreg = Constants._AuthoritativeSystemCode(
         'ORGREG',
@@ -40,5 +46,5 @@ class OrgregConstants(Constants.Constants):
     externalid_orgreg_id = Constants._EntityExternalIdCode(
         'ORGREG_OU_ID',
         Constants.Constants.entity_ou,
-        'Unique ou identificator from Orgreg',
+        'Unique ou identifier from Orgreg',
     )

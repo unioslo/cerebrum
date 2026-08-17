@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2022 University of Oslo, Norway
+# Copyright 2022-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -20,17 +20,40 @@
 """
 Client for communicating with the Orgreg API.
 
-Use py:func:`.get_client` to get a client object from config:
+
+Creating a client
+==================
+Use :func:`.get_client` to get a client object from config:
 
 ::
 
     client = get_client({
-        'url': 'http://localhost/api',
-        'auth': 'plaintext:my-api-key',
+        'url': "http://localhost/api",
+        'auth': "plaintext:my-api-key",
     })
-    # or
-    client = get_client('my-config-file.yml')
 
+    # or
+
+    client = get_client("my-config-file.yml")
+
+
+Using the client
+=================
+::
+
+    all_org_units = client.list_org_units()
+    one_org_unit = client.get_org_unit(orgreg_id)
+
+
+Module usage
+-------------
+This module is runnable:
+
+``python -m Cerebrum.modules.orgreg.client <config>``
+    Fetch and print a list of all org units.
+
+``python -m Cerebrum.modules.orgreg.client <config> <orgreg-id>``
+    Fetch and print a specific org unit by id.
 """
 from __future__ import (
     absolute_import,
@@ -48,6 +71,15 @@ from Cerebrum.config.configuration import Configuration, ConfigDescriptor
 from Cerebrum.config.secrets import Secret, get_secret_from_string
 from Cerebrum.config.settings import String
 from Cerebrum.utils import http as http_utils
+
+
+__all__ = (
+    "OrgregEndpoints",
+    "OrgregClient",
+    "OrgregClientConfig",
+    "get_client",
+)
+
 
 logger = logging.getLogger(__name__)
 
@@ -91,6 +123,7 @@ class OrgregClient(object):
     default_headers = {
         'Accept': 'application/json',
     }
+    """ Common headers for all API calls. """
 
     def __init__(self, url, headers=None, use_sessions=True):
         """
@@ -212,10 +245,10 @@ def main():
     """
     A very basic cli client.
 
-    python -m Cerebrum.modules.orgreg.client <config>
+    ``python -m Cerebrum.modules.orgreg.client <config>``
         list all org units
 
-    python -m Cerebrum.modules.orgreg.client <config> <orgreg-id>
+    ``python -m Cerebrum.modules.orgreg.client <config> <orgreg-id>``
         fetch one org unit
     """
     import json
