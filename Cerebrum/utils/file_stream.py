@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2023-2024 University of Oslo, Norway
+# Copyright 2023-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,12 +18,15 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
-Utility to get input or output file streams for scripts.
+Get input or output file streams for scripts.
 
-These streams are typically used for reading input or generating output in
-scripts.  This module gives a bit better control on whether you get a byte
+This module provides helpers and file contexts for reading from, or writing to
+file streams.  This module gives a bit better control on whether you get a byte
 stream or text stream across Python 2 and Python 3, and adds basic support for
 using stdin/stdout rather than opening a new file stream.
+
+These helpers are typically used in scripts, where input or output files are
+given as command line options.
 
 Example use:
 ::
@@ -38,8 +41,7 @@ Example use:
         f.write(output_bytes)
 
     # If both `input_file` and `output_file` is "-", then the script will
-    # read from stdin and and write to stdout.
-
+    # read from stdin and write to stdout.
 """
 from __future__ import (
     absolute_import,
@@ -55,10 +57,41 @@ import sys
 
 _PY3 = (sys.version_info >= (3,))
 
+# TODO: This should probably be removed
 DEFAULT_ENCODING = "utf-8"
+"""
+Default file encoding - not used.
+"""
+
 DEFAULT_STDIN_NAME = "-"
+"""
+Default filename for opening stdin.
+
+If this name is provided as a filename to open in :func:`.get_input_context` or
+:func:`.open_input_stream`, then :data:`sys.stdin` will be used.  Support for
+stdin, or the name for stdin can be overridden in these functions.
+"""
+
 DEFAULT_STDOUT_NAME = "-"
+"""
+Default filename for opening stdout.
+
+If this name is provided as a filename to open in :func:`.get_output_context`
+or :func:`.open_output_stream`, then :data:`sys.stdout` will be used.  Support
+for stdout, or the name for stdout can be overridden in these functions.
+"""
+
 DEFAULT_STDERR_NAME = None
+"""
+Default filename for opening stderr.
+
+Support for opening stderr is disabled by default, but can be overridden with
+a name for stderr in :func:`.get_output_context` and
+:func:`.open_output_stream`.
+
+If a custom stderr name is provided for those functions, then a filename with
+that name will open :data:`sys.stderr`.
+"""
 
 logger = logging.getLogger(__name__)
 
@@ -126,7 +159,7 @@ def _open_output_stream(filename, encoding, stdout_symbol, stderr_symbol):
 
 def open_input_stream(filename, encoding=None, stdin=DEFAULT_STDIN_NAME):
     """
-    Open a byte or text stream for reading.
+    Open a readable byte or text stream.
 
     :param filename: file to read, or *stdin* to get stdin
     :param encoding: encoding to use, or ``None`` to get a byte stream
@@ -139,7 +172,7 @@ def open_input_stream(filename, encoding=None, stdin=DEFAULT_STDIN_NAME):
 @contextlib.contextmanager
 def get_input_context(filename, encoding=None, stdin=DEFAULT_STDIN_NAME):
     """
-    Get a byte or text stream context for reading.
+    Get a context with a byte or text stream for reading.
 
     This closing file context keeps the stream open if the stream is stdin.
 
@@ -165,7 +198,7 @@ def open_output_stream(filename,
                        stdout=DEFAULT_STDOUT_NAME,
                        stderr=DEFAULT_STDERR_NAME):
     """
-    Open a byte text stream for writing.
+    Open a writable byte or text stream.
 
     :param filename: file to write, or a value matching *stdout*/*stderr*
     :param encoding: encoding to use, or ``None`` to get a byte stream.
@@ -182,7 +215,7 @@ def get_output_context(filename,
                        stdout=DEFAULT_STDOUT_NAME,
                        stderr=DEFAULT_STDERR_NAME):
     """
-    Get a byte or text stream stream context.
+    Get a context with a byte or text stream for writing.
 
     This closing file context keeps the stream open if the stream is
     stdout/stderr.
