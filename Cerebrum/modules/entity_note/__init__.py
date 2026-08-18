@@ -46,7 +46,7 @@ Configuration
     ::
 
         CLASS_CLCONSTANTS = [
-          "Cerebrum.modules.entity_note.note_constants.NoteChangeCodes",
+          "Cerebrum.modules.entity_note.note_constants/NoteChangeCodes",
           "Cerebrum.Constants/CLConstants",
         ]
 
@@ -58,7 +58,7 @@ Configuration
     ::
 
         CLASS_CONSTANTS = [
-          "Cerebrum.modules.entity_note.note_constants.BofhdNoteConstants",
+          "Cerebrum.modules.entity_note.note_constants/BofhdNoteConstants",
           "Cerebrum.Constants/Constants",
         ]
 
@@ -72,7 +72,7 @@ Configuration
     ::
 
         CLASS_ACCOUNT = [
-          "Cerebrum.modules.entity_note.note_mixins.EntityNoteMixin",
+          "Cerebrum.modules.entity_note.note_mixins/EntityNoteMixin",
           "Cerebrum.Account/Account",
         ]
 
