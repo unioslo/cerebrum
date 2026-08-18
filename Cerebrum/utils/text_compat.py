@@ -1,6 +1,6 @@
 # coding: utf-8
 #
-# Copyright 2023 University of Oslo, Norway
+# Copyright 2023-2025 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,7 +19,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 # Copyright 2002-2015 University of Oslo, Norway
 """
-This module contains generic PY2/PY3 text compatibility functions.
+Generic PY2/PY3 text compatibility functions.
 
 This module is temporary, and is only in place to aid the transition from
 Python 2.7 to Python 3.
@@ -35,6 +35,9 @@ import six
 
 
 DEFAULT_ENCODING = "utf-8"
+"""
+Default encoding for helpers in this module.
+"""
 
 
 def to_str(value, encoding=DEFAULT_ENCODING):
