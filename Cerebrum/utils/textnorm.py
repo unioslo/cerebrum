@@ -1,6 +1,6 @@
 # coding: utf-8
 #
-# Copyright 2018-2024 University of Oslo, Norway
+# Copyright 2018-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,7 +18,15 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 # Copyright 2002-2015 University of Oslo, Norway
-""" This module contains unicode normalization utils. """
+"""
+Unicode normalization utils.
+
+This module provides utilities for normalizing unicode texts, according to the
+`Unicode Standard Annex #15 <https://unicode.org/reports/tr15/>`_.
+
+All data in Cerebrum should be normalized to *NFC* before being stored in the
+database, or before being compared with database values.
+"""
 from __future__ import (
     absolute_import,
     division,
@@ -34,27 +42,42 @@ import six
 from . import reprutils
 from . import text_compat
 
+
 NORMALIZATION_FORMS = ('NFC', 'NFKC', 'NFD', 'NFKD')
+"""
+Supported normalization forms.
+
+This module supports all normalization forms specified by the Unicode
+standard.
+"""
+
 DEFAULT_FORM = 'NFC'
+"""
+Default normalization form.
+
+Cerebrum uses *NFC* as the default normalization form.  NFC is more compatible
+with legacy encodings, and recommended for general text use in the Unicode
+standard.
+"""
 
 
 @six.python_2_unicode_compatible
 class UnicodeNormalizer(reprutils.ReprEvalMixin):
-    r""" Unicode normalizer function factory.
+    r"""
+    Unicode normalizer function factory.
 
     Create a callable object that normalizes unicode text according to one of
     the normalization forms.
 
-    Usage:
-
     >>> normalize = UnicodeNormalizer('NFC')
     >>> normalize('\N{ANGSTROM SIGN}')
-    '\cx5'
+    '\xc5'
     >>> normalize.codec = True
     >>> normalize('\N{ANGSTROM SIGN}')
     ('\xc5', 1)
 
     """
+
     repr_module = True
     repr_args = ("form",)
     repr_kwargs = ("codec",)
@@ -62,11 +85,16 @@ class UnicodeNormalizer(reprutils.ReprEvalMixin):
     def __init__(self, form=DEFAULT_FORM, codec=False):
         """
         :param str form:
-            Choice of normalization form, check `NORMALIZATION_FORMS` for valid
-            input.
+            Choice of normalization form.
+
+            Must be one of the supported :data:`.NORMALIZATION_FORMS`.
+
         :param bool codec:
-            Whether to be compatible with `Codec.encode` and `Codec.decode`,
-            i.e. return number of processed characters in the result.
+            :class:`codecs.Codec` compatibility.
+
+            If this is true, the normalization call will include the number of
+            processed characters in the result.  This allows the normalizer to
+            be used as a mock codec.
         """
         if form:
             self.form = form
@@ -94,26 +122,33 @@ class UnicodeNormalizer(reprutils.ReprEvalMixin):
         return six.text_type(self.form)
 
     def __call__(self, input, errors='strict'):
-        """ normalize unicode input.
+        """
+        Normalize unicode input.
 
-        If `self.codec` is set to true, this method is `codecs.Codec` api
-        method compatible (`encode`, `decode`).
-
-        :param unicode input:
-            The unicode input string to normalize.
-            Note that the built-in `input` is shadowed here. This is because
-            codecs.Codec calls this argument input.
+        :param str input:
+            The input string to normalize.
 
         :param str errors:
-            encode/decode error handling. Note that we don't actually use this,
-            it's only for compatibility with `codecs.Codec`
+            encode/decode error handling.
+
+            This argument is ignored - and only used for compatibility with
+            codec encode/decode calls.
+
+        :rtype: str or tuple[str, int]
+        :returns:
+            Returns the normalized text.
+
+            If ``codec=True`` when creating this callable, the return value
+            will be a tuple containing the normalized text, and the number of
+            processed characters.  This allows the normalizer call to be used
+            as a :class:`codecs.Codec` ``encode`` or ``decode`` method.
+
         """
-        # TODO: How should we handle non-unicode input?
+        # Note that the built-in `input` is shadowed here. This is because
+        # `codecs.Codec` calls this argument input.
+
         if isinstance(input, bytes):
             input = text_compat.to_text(input)
-        #     raise TypeError(
-        #         "normalize argument must be {0}, not {1}".format(
-        #             six.text_type.__name__, type(input).__name__))
 
         num = len(input)
         norm = unicodedata.normalize(self.form, input) if self.form else input
@@ -128,12 +163,14 @@ normalize = UnicodeNormalizer()
 
 
 class NormalizingCodec(codecs.Codec, object):
-    """ A mixin that can decorate actual codecs and ensure normalization.
+    """
+    A mixin that can decorate actual codecs and ensure normalization.
 
     This class is a bit odd, as it tries to be an old-style class mixin that
     overloads the parent class methods.
 
     Example:
+    ::
 
         import codecs
 
@@ -162,25 +199,27 @@ class NormalizingCodec(codecs.Codec, object):
 
     @classmethod
     def patch(cls, real_codec, encode=None, decode=None):
-        """ Factory for adding unicode normalization to a codec class.
+        """
+        Factory for adding unicode normalization to a codec class.
 
         Example:
+        ::
 
             import encodings.latin1
-
             NormLatin1Codec = NormalizingCodec.patch(
-                encodings.latin1.Codec,
-                encode='NFC',
-                decode='NFD')
+                encodings.latin1.Codec, encode='NFC', decode='NFD')
 
         :param type real_codec:
             The codecs.Codec subclass that we're adding normalization to.
+
         :param str encode:
             A normalization form to use before encode (disabled if `None`)
+
         :param str decode:
             A normalization form to use after decode (disabled if `None`)
 
-        :return type:
+        :rtype: type
+        :returns:
             Returns a subclass of this class and the codec.
         """
         name = six.text_type(real_codec).split('.')[-1]
@@ -204,6 +243,7 @@ class NormalizingCodec(codecs.Codec, object):
         """ Returns a decorator that runs `patch` on codec classes.
 
         Example:
+        ::
 
             import codecs
 
@@ -211,9 +251,12 @@ class NormalizingCodec(codecs.Codec, object):
             class MyCodec(codecs.Codec):
                 ...
 
-        :return callable:
-            Returns a function that takes a codec class as argument, and
-            returns a patched version with unicode normalization (see `patch`).
+        :rtype: callable
+        :returns:
+            Returns a decorator function.
+
+            The decorator that can be used to *patch* an existing codec with
+            normalization.  See :meth:`.patch` for more on this behaviour.
         """
         def wrapper(real_codec):
             return cls.patch(real_codec, encode=encode, decode=decode)
@@ -224,13 +267,15 @@ def normalize_stream(stream,
                      encoding='ascii',
                      errors='strict',
                      normalize=None):
-    """ Get a StreamReaderWriter with a given encoding and normalization form.
+    """
+    Get a StreamReaderWriter with a given encoding and normalization form.
 
     :param encoding: The stream encoding
     :param errors: The encode/decode error handling
     :param normalize: The text normalization form
 
-    :return codecs.StreamReaderWriter:
+    :rtype: codecs.StreamReaderWriter
+    :returns:
         Returns a stream that encodes/decodes and normalizes all text data.
     """
     encoder, decoder, reader, writer = codecs.lookup(encoding)
@@ -240,7 +285,7 @@ def normalize_stream(stream,
 
 
 def normalize_text(value):
-    """ Turns a value into an normalized unicode object. """
+    """ Turns a value into a normalized unicode object. """
     return normalize(six.text_type(value))
 
 
@@ -256,14 +301,14 @@ def _main(inargs=None):
         '-f',
         dest='decode',
         default=default_codec,
-        help="input file encoding (default: %(default)s",
+        help="input file encoding (default: %(default)s)",
         metavar="codec"
     )
     parser.add_argument(
         '-t',
         dest='encode',
         default=default_codec,
-        help="output file encoding (default: %(default)s",
+        help="output file encoding (default: %(default)s)",
         metavar="codec"
     )
     parser.add_argument(
