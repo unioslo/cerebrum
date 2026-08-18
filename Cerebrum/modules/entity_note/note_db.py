@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+#
 # Copyright 2013-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -18,8 +19,81 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
 Module for attaching notes to entities.
-"""
 
+
+Common note selectors
+======================
+:func:`.sql_search_notes` and :func:`.sql_delete_notes` use a common set of
+arguments/selectors.  These selectors (arguments) are documented in this
+*fictional* function:
+
+.. py:function:: select(note_id=None, entity_id=None, creator_id=None, \
+                        create_date=None, created_before=None, \
+                        created_after=None, subject=NotSet, \
+                        subject_like=None, subject_ilike=None, \
+                        description=NotSet, description_like=None, \
+                        description_ilike=None)
+
+   Imaginary selector function to illustrate the common note lookup arguments.
+
+   :param note_id: only match these note ids
+   :param entity_id: only match notes for these entities
+   :param creator_id: only match notes created by these account ids
+
+   :param create_date: only match notes created *at* these date/datetimes
+   :param created_after: only match notes created after this datetime
+   :param created_before: only match notes created before this datetime
+
+   :param subject: only match results for these subject values
+   :param subject_like: match notes with this subject pattern
+   :param subject_ilike: as subject_like, but case insensitive
+
+   :param description: only match these description values
+   :param description_like: match notes with this description pattern
+   :param description_ilike: as description_like, but case insensitive
+
+*create_date* is a datetime/timestamp and not a date, despite its name.
+
+
+Selecting fields
+-----------------
+Fields that take a literal (note_id, entity_id, creator_id, create_date,
+subject, description) can *either* be a:
+
+- A single value
+- A sequence (set, tuple, list) - all values are *or*-ed
+- But note that sequences *cannot* use ``None`` to mean a literal ``NULL``.
+
+
+Selecting unset fields
+-----------------------
+The subject and description fields are *optional*.  In lookups, these arguments
+are ``NotSet`` by default, and ``select(subject=None)`` will result in a
+``subject IS NULL`` lookup.
+
+Note that only these fields can be checked for ``<column> IS NULL``.  ``None``
+is not supported in sequences  - there is currently no way to check if e.g.
+``subject IS NULL OR subject = <value>``
+
+
+Combining selectors
+--------------------
+When combining the date range selectors (created_before, created_after), *both*
+conditions must be fulfilled:
+
+``select(created_before=B, created_after=A)`` → ``(create_date < B AND
+create_date > A)``
+
+When combining literal values, patterns, or ranges for a given column (e.g.
+subject and subject_ilike, or create_date and created_after), the value, range,
+and patterns are *OR*-ed*.
+
+Example:
+
+``select(subject="foo", subject_like="Bar *")`` → ``(subject = "foo" OR subject
+LIKE "Bar %")``
+
+"""
 from __future__ import (
     absolute_import,
     division,
@@ -33,13 +107,23 @@ from Cerebrum.Utils import NotSet, argument_to_sql
 from Cerebrum.database import query_utils
 from Cerebrum.utils import date_compat
 
-__version__ = "1.2"
+__all__ = (
+    'DEFAULT_ORDER',
+    'DEFAULT_FIELDS',
+    'sql_search_notes',
+    'sql_add_note',
+    'sql_delete_notes',
+)
 
-# Task ordering in query results
+
 DEFAULT_ORDER = ('entity_id', 'create_date', 'note_id')
+""" Default ordering in searches (:func:`.sql_search_notes`). """
+
 
 DEFAULT_FIELDS = ('note_id', 'entity_id', 'create_date', 'creator_id',
                   'subject', 'description')
+""" Default columns and column ordering for note rows. """
+
 
 logger = logging.getLogger(__name__)
 
@@ -52,32 +136,8 @@ def _select(note_id=None, entity_id=None, creator_id=None,
     """
     Generate clauses and binds for entity_note queries.
 
-    *create_date* is a datetime/timestamp and not a date, despite its name.
-
-    When combining *create_date* with *created_before*/*created_after*,
-    the value and and range checks are *OR*-ed (i.e. create_date must be one of
-    the given values or be in the given range).  *created_before* and
-    *created_after* must both be fulfilled.
-
-    *subject* and *description* are nullable columns, which means that a
-    ``None``-value will look for notes where these columns are set to
-    ``NULL``.
-
-    :param note_id: only match these note ids
-    :param entity_id: only match these entities
-    :param creator_id: only match notes created by these account ids
-
-    :param create_date: only match notes created *at* these date/datetimes
-    :param created_after: only match notes created after this datetime
-    :param created_before: only match notes created before this datetime
-
-    :param subject: only match results for these subject values
-    :param subject_like: match notes with this subject pattern
-    :param subject_ilike: as subject_like, but case insensitive
-
-    :param description: only match these description values
-    :param description_like: match notes with this description pattern
-    :param description_ilike: as description_like, but case insensitive
+    See `common note selectors`_ in the module documentation for more info on
+    individual filters/fields.
 
     :param _prefix:
         A prefix for entity_note column names.
@@ -149,21 +209,20 @@ def _select(note_id=None, entity_id=None, creator_id=None,
 
 def sql_add_note(db, entity_id, creator_id, subject, description=None):
     """
-    Add a note to a given entity.
+    Add a note to an entity.
 
     :type db: Cerebrum.database.Database
+
     :param int entity_id: entity to add a note to
     :param int creator_id: account that adds the note
     :param str subject: note subject
     :param str description: note body (optional)
 
-    :returns:
-        Returns the newly added note row
+    :returns: Returns the newly added note row
     """
     if subject is None or len(subject) > 70:
-        raise ValueError(
-            "Subject must not be null " "and must be no longer than 70 characters."
-        )
+        raise ValueError("Subject cannot be null, and must be no longer"
+                         " than 70 characters.")
     note_id = db.nextval("entity_note_seq")
 
     row = db.query_1(
@@ -200,14 +259,14 @@ def sql_add_note(db, entity_id, creator_id, subject, description=None):
 def sql_search_notes(db, fetchall=True, limit=None, entity_type=None,
                      **search):
     """
-    Search for entity note entries.
+    Search for note entries.
 
-    :param fetchall: see ``Cerebrum.database.Database.query``
-    :param limit: limit number of results
-    :param entity_type: only include results for these entity types
-    :param search: see :func:`._select` for more search params
+    :param fetchall: See ``Cerebrum.database.Database.query``
+    :param limit: Limit number of results
+    :param entity_type: Only include results for these entity types
+    :param search: See `common note selectors`_ in the module documentation.
 
-    :returns: matching rows.
+    :returns: Matching rows.
     """
     select_params = {'_prefix': 'en'}
     if '_prefix' in search:
@@ -250,11 +309,12 @@ def sql_search_notes(db, fetchall=True, limit=None, entity_type=None,
 
 def sql_delete_notes(db, **selects):
     """
-    Delete entity note entries.
+    Delete note entries.
 
-    See :func:`._select` for filter params.
+    See `common note selectors`_ in the module documentation for more info on
+    the *selects*.
 
-    :returns: deleted rows.
+    :returns: Deleted rows.
     """
     if "_prefix" in selects:
         raise TypeError("invalid argument: '_prefix'")

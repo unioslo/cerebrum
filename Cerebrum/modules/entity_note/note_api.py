@@ -20,8 +20,8 @@
 """
 API for managing notes on entities.
 
-Endpoints, models and utils for dealing with
-:mod:`Cerebrum.modules.entity_note` in the API.
+This module provides a ``flask_restx.Namespace`` with endpoints and data models
+for dealing with notes.
 """
 from __future__ import (
     absolute_import,
@@ -52,6 +52,7 @@ api = Namespace(
     "notes",
     description="Entity notes",
 )
+""" API namespace for notes. """
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +61,6 @@ logger = logging.getLogger(__name__)
 # Note models and model helpers.
 #
 
-# A single search result - basic note data + href
 NoteRef = api.model("EntityNoteRef", {
     'id': fields.base.Integer(
         description="Unique note id",
@@ -82,6 +82,11 @@ NoteRef = api.model("EntityNoteRef", {
         example="2026-07-02T12:26:03+02:00",
     ),
 })
+"""
+API model for referencing a note.
+
+Metadata and reference to a given note.
+"""
 
 
 def _row_to_ref(row):
@@ -114,6 +119,7 @@ NoteFilters = api.model("NoteFilters", {
     "subject": fields.base.String(example="subj*"),
     'body': fields.base.String(example="*body*"),
 })
+""" API model for note search filters. """
 
 
 # A list of search results
@@ -127,9 +133,14 @@ NoteRefList = api.model("EntityNoteRefList", {
         description="Matching item references",
     )
 })
+"""
+API model for note search results.
+
+Includes a list of matching :data:`.NoteRef`, and the :data:`.NoteFilters` used
+to generate the list.
+"""
 
 
-# A reference to the note entity
 NoteEntityRef = api.model("EntityNoteEntityRef", {
     'id': fields.base.Integer(
         description="Entity Id",
@@ -148,6 +159,11 @@ NoteEntityRef = api.model("EntityNoteEntityRef", {
         example="/v1/accounts/foo-system",
     ),
 })
+"""
+API model for referencing an entity.
+
+Used to represent the :data:`Note` entity and creator attributes.
+"""
 
 
 def _entity_to_ref(entity):
@@ -184,6 +200,12 @@ Note = api.inherit("EntityNote", NoteRef, {
     "creator": fields.base.Nested(NoteEntityRef),
     "entity": fields.base.Nested(NoteEntityRef),
 })
+"""
+API model for a note.
+
+Includes metadata (:data:`.NoteRef`), entity references
+(:data:`.NoteEntityRef`) and the note body.
+"""
 
 
 def _row_to_note(row):
@@ -284,7 +306,9 @@ def _parse_new_body(raw_value):
 
 @api.route("/", endpoint="entity-note-list")
 class EntityNotes(Resource):
-    """ List of all entity notes. """
+    """
+    Endpoint for all entity notes.
+    """
 
     note_search_parser = api.parser()
     note_search_parser.add_argument(
@@ -341,7 +365,15 @@ class EntityNotes(Resource):
     @api.marshal_with(NoteRefList, code=200)
     @api.response(400, "Invalid search parameter(s)")
     def get(self):
-        """ Get list of entity notes. """
+        """
+        Get list of entity notes.
+
+        The list may be filtered using optional query parameters.
+
+        :rtype: tuple[dict, int]
+        :returns:
+            Returns a results dict, and a HTTP status code.
+        """
         args = self.note_search_parser.parse_args()
 
         search_params = {
@@ -396,7 +428,13 @@ class EntityNotes(Resource):
     @api.response(400, "Invalid note parameter(s)")
     @db.autocommit
     def post(self):
-        """ Create a new note. """
+        """
+        Create a new note.
+
+        :rtype: tuple[dict, int]
+        :returns:
+            Returns the newly created note, and a HTTP status code.
+        """
         args = self.new_note_parser.parse_args()
 
         row = note_db.sql_add_note(
@@ -418,7 +456,7 @@ class EntityNotes(Resource):
 
 def _get_one(rows):
     # Check and return a single row from queries that should only return
-    # xactly one note row.
+    # exactly one note row.
     rows = list(rows)
     if len(rows) > 1:
         raise RuntimeError("Found more than one note by id")
@@ -429,12 +467,23 @@ def _get_one(rows):
 
 @api.route("/<int:id>", endpoint="entity-note")
 class EntityNote(Resource):
+    """
+    Endpoint for a given entity note.
+    """
 
     @auth.require()
     @api.marshal_with(Note, code=200, description="Note found")
     @api.response(404, "Note not found")
     def get(self, id):
-        """ Get a note by note id. """
+        """
+        Get a note by note id.
+
+        :param int id: The note id to look up
+
+        :rtype: dict
+        :returns:
+            Returns the note with the given note id.
+        """
         note_row = _get_one(note_db.sql_search_notes(db.connection,
                                                      note_id=int(id)))
         return _row_to_note(note_row)
@@ -444,6 +493,14 @@ class EntityNote(Resource):
     @api.response(404, "Note not found")
     @db.autocommit
     def delete(self, id):
-        """ Delete a note by note id. """
+        """
+        Delete a note by note id.
+
+        :param int id: The note id to delete
+
+        :rtype: tuple[NoneType, int]
+        :returns:
+            An empty result and a HTTP status code.
+        """
         _get_one(note_db.sql_delete_notes(db.connection, note_id=int(id)))
         return None, 204

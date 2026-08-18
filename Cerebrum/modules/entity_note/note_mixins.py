@@ -17,7 +17,9 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
+"""
+Entity mixins for the note module.
+"""
 from __future__ import (
     absolute_import,
     division,
@@ -31,7 +33,13 @@ from .note_db import sql_add_note, sql_delete_notes, sql_search_notes
 
 class EntityNoteCleanupMixin(Entity):
     """
-    mixin class that provides cleanup.
+    Mixin to provide note cleanup.
+
+    This is the base mixin for notes, and should be added to
+    ``cereconf.CLASS_ENTITY`` if the entity note database schema is installed.
+
+    Without this, ``Entity.delete()`` calls may run into constraints whenever
+    an Entity with a note is deleted.
     """
 
     def delete(self):
@@ -49,7 +57,9 @@ class EntityNoteCleanupMixin(Entity):
 
 class EntityNoteMixin(EntityNoteCleanupMixin):
     """
-    Mixin class for adding, showing and deleSting note support to entity.
+    Mixin class with convenience methods for adding and removing notes.
+
+    Entities with this mixin have the note feature enabled.
     """
 
     def add_note(self, operator, subject, description=None):
