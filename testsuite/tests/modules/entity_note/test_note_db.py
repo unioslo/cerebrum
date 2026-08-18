@@ -47,12 +47,16 @@ def test_sql_add_note(database, note_data_person):
 
 
 def test_sql_add_note_to_group(database, group, account, note):
-    note_db.sql_add_note(
-        database, entity_id=group.entity_id,
-        creator_id=account.entity_id, **note
+    new_note = note_db.sql_add_note(
+        database,
+        entity_id=group.entity_id,
+        creator_id=account.entity_id,
+        **note
     )
-    remaining = list(note_db.sql_search_notes(database))
-    assert len(remaining) == 1
+    note_id = new_note['note_id']
+    found_note = list(note_db.sql_search_notes(database, note_id=note_id))
+    assert len(found_note) == 1
+    assert found_note[0] == new_note
 
 
 #
@@ -60,10 +64,11 @@ def test_sql_add_note_to_group(database, group, account, note):
 #
 
 
-def test_sql_search_note(database, note_data_person):
-    note_db.sql_add_note(database, **note_data_person)
-    remaining = list(note_db.sql_search_notes(database))
-    assert len(remaining) == 1
+def test_sql_search_note_by_id(database, note_data_person):
+    new_note = note_db.sql_add_note(database, **note_data_person)
+    results = list(
+        note_db.sql_search_notes(database, note_id=new_note['note_id']))
+    assert len(results) == 1
 
 
 def test_search_empty(database, note_data_person):
@@ -115,27 +120,48 @@ def test_search_notes_invalid_date_range(database, person):
 
 
 def test_delete_note(database, note_data_person):
+    entity_id = note_data_person['entity_id']
     note_db.sql_add_note(database, **note_data_person)
     note2 = note_db.sql_add_note(database, **note_data_person)
-    remaining_before = list(note_db.sql_search_notes(database))
+    delete_id = note2['note_id']
+
+    remaining_before = list(
+        note_db.sql_search_notes(database, entity_id=entity_id))
     assert len(remaining_before) == 2
-    note_db.sql_delete_notes(database, note_id=note2["note_id"])
-    remaining_after = list(note_db.sql_search_notes(database))
+
+    deleted_notes = list(
+        note_db.sql_delete_notes(database, note_id=note2["note_id"]))
+    assert len(deleted_notes) == 1
+    assert deleted_notes[0]['note_id'] == delete_id
+
+    remaining_after = list(
+        note_db.sql_search_notes(database, entity_id=entity_id))
     assert len(remaining_after) == 1
 
 
 def test_delete_note_when_nothing_matches(database, note_data_person):
+    entity_id = note_data_person['entity_id']
     note_db.sql_add_note(database, **note_data_person)
-    note_db.sql_delete_notes(database, entity_id=11111)
-    remaining = list(note_db.sql_search_notes(database))
+
+    # A negative entity-id can't exist, so this shouldn't delete any notes
+    deleted = list(note_db.sql_delete_notes(database, entity_id=-1))
+    assert len(deleted) == 0
+
+    # Check that we didn't just delete all notes, and that the sql_delete_notes
+    # return value is bad or something
+    remaining = list(note_db.sql_delete_notes(database, entity_id=entity_id))
     assert len(remaining) == 1
 
 
 def test_delete_notes(database, note_data_person):
+    entity_id = note_data_person['entity_id']
     note_db.sql_add_note(database, **note_data_person)
     note_db.sql_add_note(database, **note_data_person)
-    note_db.sql_delete_notes(database, entity_id=note_data_person["entity_id"])
-    remaining = list(note_db.sql_search_notes(database))
+
+    deleted = list(note_db.sql_delete_notes(database, entity_id=entity_id))
+    assert len(deleted) == 2
+
+    remaining = list(note_db.sql_search_notes(database, entity_id=entity_id))
     assert len(remaining) == 0
 
 
