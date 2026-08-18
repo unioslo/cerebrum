@@ -1,6 +1,6 @@
 # coding: utf-8
 #
-# Copyright 2018-2024 University of Oslo, Norway
+# Copyright 2018-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,7 +18,11 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
-Base constant types and constants related to traits
+Base constant types and constants related to traits.
+
+Note that the trait module does not provide any trait types.  Individual trait
+types are typically defined in constant mixins from modules that provide
+traits.
 """
 from __future__ import (
     absolute_import,
@@ -39,7 +43,7 @@ class _EntityTraitCode(Cerebrum.Constants._CerebrumCodeWithEntityType):
 
 class CLConstants(Cerebrum.Constants.CLConstants):
     """
-    Mixin to provide entity change types.
+    Trait-related change type codes for ChangeLog implementations.
     """
 
     trait_add = Cerebrum.Constants._ChangeTypeCode(
@@ -81,6 +85,6 @@ class CLConstants(Cerebrum.Constants.CLConstants):
 
 class Constants(Cerebrum.Constants.Constants):
     """
-    Mixin to provide entity trait type as ``Constants.EntityTrait``.
+    Mixin to provide the trait code type as ``Constants.EntityTrait``.
     """
     EntityTrait = _EntityTraitCode

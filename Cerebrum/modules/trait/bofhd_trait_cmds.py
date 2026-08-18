@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2022-2023 University of Oslo, Norway
+# Copyright 2022-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,7 +17,9 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" Trait-related bofhd commands. """
+"""
+Bofhd commands for managing traits on entities.
+"""
 from __future__ import (
     absolute_import,
     division,
@@ -53,19 +55,7 @@ logger = logging.getLogger(__name__)
 
 
 class TraitAuth(BofhdAuth):
-    """
-    Common auth implementation for trait commands.
-
-    .. note::
-       This class should always be subclassed, so that any environment specific
-       overrides takes effect (e.g. `is_superuser()`):
-
-       - Subclass this class, mixin any custom authz classes (e.g.
-         Cerebrum.modules.no.uio.bofhd_auth), and implement overrides if
-         required.
-       - Subclass the common command class, and set authz=<custom auth class>
-       - Update bofhd config to use custom command class
-    """
+    """ Authorization checks for managing traits. """
 
     def _has_trait_perm(self, operator, op_type, trait, entity_id, target_id):
         op_attr = six.text_type(trait) if trait else None
@@ -82,7 +72,11 @@ class TraitAuth(BofhdAuth):
         """
         Check for access to see trait(s).
 
-        Default is that operators can see their own person's and user's traits.
+        By default operators can only see traits set on themselves (person and
+        all owned accounts), while superusers can see all traits.
+
+        The ``auth_view_trait`` operation can be used to delegate access
+        to a given trait type using op-sets.
 
         :param trait: trait code
         :param ety: entity object (from the trait[entity_id])
@@ -120,6 +114,9 @@ class TraitAuth(BofhdAuth):
     def can_list_trait(self, operator, trait=None, query_run_any=False):
         """
         Check for access to list entities with a given trait.
+
+        Only superusers are allowed to list traits, but the ``auth_list_trait``
+        operation can be used to delegate access through op-sets.
         """
         # TODO: `trait` is never given - should it be removed?
         if self.is_superuser(operator):
@@ -135,6 +132,9 @@ class TraitAuth(BofhdAuth):
                       target=None, query_run_any=False):
         """
         Check for access to set trait.
+
+        Only superusers are allowed to set traits, but the ``auth_set_trait``
+        operation can be used to delegate access through op-sets.
         """
         # TODO: `target` is never used - should it be removed? or should it be
         #       used as victim_id?
@@ -158,6 +158,10 @@ class TraitAuth(BofhdAuth):
                          target=None, query_run_any=False):
         """
         Check for access to remove trait.
+
+        Only superusers are allowed to remove traits, but the
+        ``auth_remove_trait`` operation can be used to delegate access through
+        op-sets.
         """
         # TODO: `target` is never used - should it be removed? or should it be
         #       used as victim_id?
@@ -179,6 +183,11 @@ class TraitAuth(BofhdAuth):
         raise PermissionDenied("Not allowed to remove trait")
 
     def can_search_traits(self, operator, filters=None, query_run_any=False):
+        """
+        Check for access to set trait.
+
+        Only superuser are allowed to search for traits, for now.
+        """
         if self.is_superuser(operator):
             return True
         if query_run_any:
@@ -188,13 +197,9 @@ class TraitAuth(BofhdAuth):
 
 class TraitCommands(BofhdCommonMethods):
     """
-    Trait related commands.
+    Extends bofhd with a 'trait' command group.
 
-    This module provides commands to inspect and modify traits on any entity
-    that supports it.
-
-    This class should always be subclassed, and use a custom authz with
-    environment specific overrides for e.g. `is_superuser()`.
+    Adds commands to inspect and modify traits on any entity that supports it.
     """
 
     all_commands = {}
@@ -203,14 +208,18 @@ class TraitCommands(BofhdCommonMethods):
 
     def _search_traits(self, filter_d, limit=50):
         """
-        Search for tasks.
+        Search for traits.
 
-        :param dict filter_d: task search params (see trait_search)
-        :param int limit: max number of tasks to get
+        :param dict filter_d:
+            trait search params (see :func:`.trait_db.search_traits`)
+
+        :param int limit:
+            limit number of traits in search result
+
         :returns generator:
-            Generates matching task dicts.
+            Generates matching trait dicts.
 
-            If there are more than <limit> matching tasks, the list of
+            If there are more than <limit> matching traits, the list of
             results will be truncated, and a final sentinel item
             `{'limit': <limit>}` will be included.
         """
@@ -272,7 +281,7 @@ class TraitCommands(BofhdCommonMethods):
     )
 
     def trait_search(self, operator, *search_filters):
-        """ Get traits given to an entity. """
+        """ Command for listing traits, with optional search filters. """
         raw_filters = _trait_filter_parser.parse_items(search_filters)
         filters = _trait_filter_parser.map_params(self.db,
                                                   self.const, raw_filters)
@@ -293,7 +302,7 @@ class TraitCommands(BofhdCommonMethods):
     )
 
     def trait_info(self, operator, ety_id):
-        """ Get traits given to an entity. """
+        """ Command to show traits for a given entity. """
         ety = self.util.get_target(ety_id, restrict_to=[])
         self.ba.can_view_trait(operator.get_entity_id(), ety=ety)
 
@@ -374,7 +383,7 @@ class TraitCommands(BofhdCommonMethods):
     )
 
     def trait_list(self, operator, trait_name):
-        """ List entities with a given trait. """
+        """ Legacy command to list all traits of a given type. """
         trait = self._get_constant(self.const.EntityTrait, trait_name, "trait")
         self.ba.can_list_trait(operator.get_entity_id(), trait=trait)
 
@@ -406,7 +415,7 @@ class TraitCommands(BofhdCommonMethods):
     )
 
     def trait_remove(self, operator, ety_id, trait_name):
-        """ Remove a trait from an entity. """
+        """ Command that removes a trait from an entity. """
         entity = self.util.get_target(ety_id, restrict_to=[])
         trait = self._get_constant(self.const.EntityTrait, trait_name, "trait")
         self.ba.can_remove_trait(operator.get_entity_id(),
@@ -433,6 +442,7 @@ class TraitCommands(BofhdCommonMethods):
     )
 
     def trait_set(self, operator, ident, trait_name, *values):
+        """ Command that adds a trait to an entity. """
         entity = self.util.get_target(ident, restrict_to=[])
         trait = self._get_constant(self.const.EntityTrait, trait_name, "trait")
         self.ba.can_set_trait(operator.get_entity_id(),
@@ -486,6 +496,7 @@ class TraitCommands(BofhdCommonMethods):
     )
 
     def trait_types(self, operator):
+        """ Command to list all trait types. """
         self.ba.can_set_trait(operator.get_entity_id())
         types = [
             {
@@ -498,10 +509,10 @@ class TraitCommands(BofhdCommonMethods):
 
     @classmethod
     def get_help_strings(cls):
-        """ Help texts for trait commands. """
-        # TODO: Consider listing traits and appending to HELP_ARG["trait"][2]?
+        """ Get help texts for the trait commands. """
+        # TODO: Consider listing traits and appending to _HELP_ARG["trait"][2]?
         return merge_help_strings(get_help_strings(),
-                                  (HELP_GRP, HELP_CMD, HELP_ARG))
+                                  (_HELP_GRP, _HELP_CMD, _HELP_ARG))
 
 
 #
@@ -548,8 +559,8 @@ class TraitSearchParams(parsers.ParamsParser):
         'after': "Limit to traits with `date > <datetime>`",
         'text': "Limit to traits with a strval matching <ipattern>",
         'trait': "Limit to specific trait types",
-        # 'entity': "Limit to traits for a a given <entity>",
-        # 'target': "Limit to traits targetting a given <entity>",
+        # 'entity': "Limit to traits for a given <entity>",
+        # 'target': "Limit to traits targeting a given <entity>",
     }
     params = {
         # Regular params - can be used directly with trait search
@@ -579,6 +590,7 @@ class TraitSearchParams(parsers.ParamsParser):
 
     @classmethod
     def translate_trait(cls, const, lookup):
+        """ Find a trait from its trait name. """
         try:
             return const.get_constant(_EntityTraitCode, lookup)
         except LookupError:
@@ -586,11 +598,13 @@ class TraitSearchParams(parsers.ParamsParser):
 
     @classmethod
     def translate_entity(cls, db, lookup):
+        """ Find an entity from a lookup value (not yet implemented). """
         # key, _, value = lookup.partition(":")
         raise NotImplementedError("entity lookup not supported yet")
 
     @classmethod
     def map_params(cls, db, const, params):
+        """ Translate search params that needs to be looked up. """
         params = dict(params)
 
         # Translate traits
@@ -685,10 +699,10 @@ Matching with <ipattern>
 )
 
 
-HELP_GRP = {
+_HELP_GRP = {
     "trait": "Trait related commands",
 }
-HELP_CMD = {
+_HELP_CMD = {
     "trait": {
         "trait_info": "Display all traits associated with an entity",
         "trait_list": "List all entities which have specified trait",
@@ -698,7 +712,7 @@ HELP_CMD = {
         "trait_types": "List all defined trait types (not all are editable)",
     },
 }
-HELP_ARG = {
+_HELP_ARG = {
     "trait": [
         "trait",
         "Name of trait",

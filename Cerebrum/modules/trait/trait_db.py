@@ -19,6 +19,77 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
 Functions to access/modify the entity_trait table.
+
+Common trait selectors
+=======================
+:func:`.search_traits` and :func:`.delete_traits` use a common set of
+arguments/selectors.  These selectors (arguments) are documented in this
+*fictional* function:
+
+.. py:function:: select(code=None, entity_id=None, entity_type=None, \
+                        target_id=NotSet, \
+                        strval=NotSet, strval_like=None, strval_ilike=None, \
+                        date=NotSet, date_before=None, date_after=None, \
+                        numval=NotSet, numval_min=None, numval_max=None)
+
+   Imaginary selector function to illustrate the common trait lookup arguments.
+
+   :param code: only include these trait types
+   :param entity_id: only include these entities
+   :param entity_type: only include these entity types
+
+   :param target_id: only include these target entity values
+
+   :param strval: only include these strval values
+   :param strval_like: include traits matching this strval pattern
+   :param strval_ilike: as strval_like, but case insensitive matching
+
+   :param numval: only include traits with these specific numval values
+   :param numval_min: include traits with numval >= numval_min
+   :param numval_max: include traits with numval < numval_max
+
+   :param date: only include traits with these date/datetime values
+   :param date_after: only include traits with a date value after this
+   :param date_before: only include traits with a date value before this
+
+The literal selectors (numval, strval, ...) also apply to :func:`.get_trait`,
+for the fields that can be selected in that function.
+
+
+Selecting fields
+-----------------
+Fields that take a literal (code, entity_id, entity_type, target_id, strval,
+numval, date) can *either* be a:
+
+- A single value
+- A sequence (set, tuple, list) - all values are *or*-ed
+- But note that sequences *cannot* use ``None`` to mean a literal ``NULL``.
+- Fields that take constants support any int-able object
+
+
+Selecting unset fields
+-----------------------
+The trait fields (strval, intval, date, target_id) are *optional*.  In lookups,
+these arguments are ``NotSet`` by default, and ``select(numval=None)`` will
+result in a literal ``numval IS NULL`` lookup.
+
+Note that only these fields can be checked for ``<column> IS NULL``.  ``None``
+is not supported in sequences  - there is currently no way to check if e.g.
+``(numval IS NULL OR numval = <value>)``
+
+
+Combining selectors
+--------------------
+When combining *range*-selectors (i.e. date_before/date_after,
+numval_min/numval_max), *both* conditions must be fulfilled.
+
+When combining value selectors and range selectors (e.g. numval and
+numval_min/numval_max), the value and range checks are *OR*-ed*.
+
+Example:
+
+``select(numval=(1, 4), numval_min=10, numval_max=40)`` → ``(numval IN (1, 4))
+OR (numval >= 10 AND numval < 40)``
 """
 from __future__ import (
     absolute_import,
@@ -34,13 +105,23 @@ from Cerebrum.Utils import NotSet, argument_to_sql
 from Cerebrum.database import query_utils
 from .constants import CLConstants as TraitChange
 
+__all__ = (
+    'DEFAULT_ORDER',
+    'DEFAULT_FIELDS',
+    'clear_trait',
+    'delete_traits',
+    'get_trait',
+    'search_traits',
+    'set_trait',
+)
 
-# Task ordering in query results
+
 DEFAULT_ORDER = ('entity_id', 'code')
+""" Default ordering in searches (:func:`.search_traits`). """
 
-# Fields and field order in entity_trait query results
 DEFAULT_FIELDS = ('entity_id', 'entity_type', 'code',
                   'target_id', 'date', 'numval', 'strval')
+""" Default columns and column ordering for trait rows. """
 
 
 logger = logging.getLogger(__name__)
@@ -74,58 +155,8 @@ def _select(code=None, entity_id=None, entity_type=None,
     """
     Generate clauses and binds for entity_trait queries.
 
-    >>> _select(numval_min=1, strval=("foo", "bar"), date=None)
-    (
-        ['(date IS NULL)',
-         '(numval >= :numval_start)',
-         '(strval IN (:strval1, :strval2))']
-        {'numval_start': 1, 'strval1': 'foo', 'strval2': 'bar'},
-    )
-
-    A note on selecting unset fields:
-
-     - use `<field>=None` to check if field is unset.
-     - only NULL-able fields can be checked for `<column> IS NULL`
-     - not supported in sequences  - there is currently no way to check if
-       e.g. `(numval IS NONE OR numval = <value>)`
-
-    >>> _select(numval=None)[0]
-    ['(numval IS NULL)']
-
-    When combining *range*-selectors (i.e. date_before/date_after,
-    numval_min/numval_max), *both* conditions must be fulfilled - i.e. the
-    numval in the given row must be *both* smaller than numval_max and larger
-    than numval_min:
-
-    >>> _select(numval_min=1, numval_max=4)[0]
-    ['(numval >= :numval_start AND numval < :numval_stop)']
-
-    When combining value selectors and range selectors (e.g. numval and
-    numval_min/numval_max), the value and range checks are *OR*-ed:
-
-    >>> _select(numval=(1, 4), numval_min=10, numval_max=40)[0]
-    [
-        '((numval IN (:numval0, :numval1)) OR '
-        '(numval >= :numval_start AND numval < :numval_stop))'
-    ]
-
-
-    :param code: only include results for these trait types
-    :param entity_id: only include results for these entities
-    :param entity_type: only include results for these entity types
-    :param target_id: only include results for these target entity values
-
-    :param strval: only include results for these strval values
-    :param strval_like: include results matching this strval pattern
-    :param strval_ilike: as strval_like, but case insensitive matching
-
-    :param numval: only include results for these specific numval values
-    :param numval_min: include results with numval >= numval_min
-    :param numval_max: include results with numval < numval_max
-
-    :param date: only include results for these date/datetime values
-    :param date_after: only include results with a date value after this
-    :param date_before: only include results with a date value before this
+    See `common trait selectors`_ in the module documentation for more info on
+    individual filters/fields.
 
     :param _prefix:
         A prefix for entity_trait column names.
@@ -216,11 +247,9 @@ def _select(code=None, entity_id=None, entity_type=None,
     return clauses, binds
 
 
-def search_traits(db, limit=None, fetchall=False, **kwargs):
+def search_traits(db, limit=None, fetchall=False, **select):
     """
-    Search for traits in the entity_trait table.
-
-    See py:func:`._select` for info on selectors/search parameters.
+    Search for traits.
 
     :param int limit:
         limit number of results
@@ -228,12 +257,19 @@ def search_traits(db, limit=None, fetchall=False, **kwargs):
     :param bool fetchall:
         - if True, return rows as list
         - if False return rows as iterator
+
+    :param select:
+        See `common trait selectors`_ in the module documentation for more info
+        on additional search parameters.
+
+    :returns:
+        Matching rows
     """
     prefix = 't'
     select_params = {'_prefix': prefix}
-    if '_prefix' in kwargs:
+    if '_prefix' in select:
         raise TypeError("invalid argument: '_prefix'")
-    select_params.update(kwargs)
+    select_params.update(select)
 
     conds, binds = _select(**select_params)
 
@@ -265,7 +301,12 @@ def get_trait(db, entity_id, code, target_id=NotSet, date=NotSet,
     """
     Get a specific trait for a given account.
 
-    Optional filtering to check if a given trait exists with the given values.
+    Also allows additional filters that can be used to check if a given trait
+    exists with the given values.  See `common trait selectors`_ in the module
+    documentation for these optional filters.
+
+    :returns: A single trait row
+    :raises Cerebrum.Errors.NotFoundError: If the row doesn't exist
     """
     select_params = {
         'entity_id': int(entity_id),
@@ -291,17 +332,24 @@ def get_trait(db, entity_id, code, target_id=NotSet, date=NotSet,
         return None
 
 
-def delete_traits(db, **selects):
+def delete_traits(db, **select):
     """
     Delete traits.
 
-    See py:func:`._select` for filter params.
+    :param select:
+        Optional filter parameters to only delete matching traits. See `common
+        trait selectors`_ in the module documentation for more info on how to
+        select traits to delete.
 
-    :returns: deleted rows.
+        .. important::
+           If no filter parameters are given, this function will delete *all*
+           traits.
+
+    :returns: Deleted rows
     """
-    if '_prefix' in selects:
+    if '_prefix' in select:
         raise TypeError("invalid argument: '_prefix'")
-    conds, binds = _select(**selects)
+    conds, binds = _select(**select)
 
     stmt = """
       DELETE FROM [:table schema=cerebrum name=entity_trait]
@@ -397,7 +445,9 @@ def set_trait(db, entity_id, entity_type, code,
     """
     Add or update a trait.
 
-    Note: No partial updates - if a field is not given, it will be cleared.
+    No partial updates - if a field is not given, it will be cleared.
+
+    :returns: The trait row, with its updated values.
     """
     if not get_trait(db, entity_id, code):
         # no trait <code> for <entity_id> - must insert
@@ -407,7 +457,7 @@ def set_trait(db, entity_id, entity_type, code,
     exists = get_trait(db, entity_id, code, target_id=target_id, date=date,
                        numval=numval, strval=strval)
     if exists:
-        # identical trait alreay exists
+        # identical trait already exists
         return exists
     else:
         # <code> for <entity_id> exists, but with different values
@@ -417,7 +467,9 @@ def set_trait(db, entity_id, entity_type, code,
 
 def clear_trait(db, entity_id, code):
     """
-    Clear a trait.
+    Clear a trait
+
+    :returns: The deleted row, or ``None`` if the trait didn't exist.
     """
     rows = list(delete_traits(db, entity_id=int(entity_id), code=int(code)))
     if len(rows) < 1:
