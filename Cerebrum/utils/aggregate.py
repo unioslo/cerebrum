@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2020-2024 University of Oslo, Norway
+# Copyright 2020-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -40,7 +40,6 @@ def unique(seq, key=None):
         Function to extract a hashable comparison key for each item in the
         sequence.  The default (``None``) compares items directly.
 
-
     :rtype: generator
     :return:
         A sequence of unique items
@@ -67,7 +66,7 @@ def duplicates(seq, key=None):
     Get repeated items from a sequence.
 
     This is the opposite of :func:`.unique`, and is typically used to extract
-    erroneous entries from an iterable where unique entries are expeceted.
+    erroneous entries from an iterable where unique entries are expected.
 
     :type seq: iterable
     :param seq: A sequence of items
@@ -139,14 +138,14 @@ def dict_collect_lists(seq):
 
 
 def dict_collect_first(seq):
-    """ Collect key, value pairs into a dict, keeping the first occurance.
+    """ Collect key, value pairs into a dict, keeping the first occurrence.
 
     When initializing a dict with a list of tuples, any duplicate key will
-    replace the previous occurance:
+    replace the previous occurrence:
     >>> dict([('foo', 1), ('foo', 3), ('foo', 2)])
     {'foo': 2}
 
-    This function keeps the first occurance of a key, and ignores any latter
+    This function keeps the first occurrence of a key, and ignores any latter
     duplicates:
     >>> dict_collect_first([('foo', 1), ('foo', 3), ('foo', 3)])
     {'foo': 1}
