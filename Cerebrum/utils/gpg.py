@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2016-2024 University of Oslo, Norway
+# Copyright 2016-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,14 +18,14 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
-Utilities for encrypting and decrypting messages with GnuPG.
+GnuPG encryption and decryption utilities.
 
 Configuration
--------------
-The cereconf setting *GNUPGHOME* sets the default home directory for GnuPG.
+==============
+``cereconf.GNUPGHOME`` sets the default GnuPG home directory.
 
 Tests
------
+======
 As this module depends on GPG, unit tests are in a non-standard location,
 ``tests/gpg/``.
 """
@@ -51,15 +51,16 @@ logger = logging.getLogger(__name__)
 
 def get_gpgme_context(ascii_armor=True, gnupghome=None):
     """
-    Create a GPGME context.
+    Create a GpgME context.
 
     :param bool ascii_armor:
-        Use ascii armor (default: True).
+        Use ASCII armor (default: True)
 
     :param str gnupghome:
-        GnuPG home directory with keys, etc...
+        GnuPG home directory (default: ``cereconf.GNUPGHOME``)
 
     :rtype: gpgme.Context
+    :returns: A GpgME context with the provided settings.
     """
     home = gnupghome or cereconf.GNUPGHOME
     ctx = gpgme.Context()
@@ -71,31 +72,24 @@ def get_gpgme_context(ascii_armor=True, gnupghome=None):
 
 def gpgme_encrypt(message, recipient_key_id=None, context=None):
     """
-    Encrypts a message using GnuPG (pygpgme).
+    Encrypt a message using GpgME (pygpgme).
 
-    :type message: bytes, str
-    :param message:
-        Message to encrypt.  Encoded with UTF-8 if not given bytes.
+    :type message: str or bytes
+    :param message: Data to encrypt (str is encoded as UTF-8)
 
-    :param str recipient_key_id:
-        key-id or fingerprint of a recipient.
+    :type recipient_key_id: str
+    :param recipient_key_id:
+        Key id or fingerprint of recipient (multiple recipients not supported)
 
-        This function does not support multiple recipients.
+    :type context: gpgme.Context or None
+    :param context: Optional GpgME context with custom settings.
 
-    :type context: gpgme.Context
-    :param context: A context to use (or None for the default context)
-
-    :rtype: bytes, str
+    :rtype: str or bytes
     :returns:
-        The encrypted message.
+        Encrypted ciphertext.  Returns a unicode string when using ASCII armor
+        (default), otherwise raw bytes.
 
-        When using ascii-armor (default), this will be a ascii-compatible
-        unicode string.
-        If no ascii-armor is used (i.e. a custom context), this function
-        returns raw bytes.
-
-    :raises gpgme.GpgmeError:
-        If e.g. missing the recipient key, or other GPG-related errors.
+    :raises gpgme.GpgmeError: on missing key or other GPG errors
     """
     context = context or get_gpgme_context()
     try:
@@ -120,22 +114,18 @@ def gpgme_encrypt(message, recipient_key_id=None, context=None):
 
 def gpgme_decrypt(ciphertext, context=None):
     """
-    Decrypts a ciphertext using GnuPG (pygpgme).
+    Decrypt a ciphertext using GpgME (pygpgme).
 
-    :type ciphertext: bytes, str
-    :param ciphertext: GPG message to decrypt
+    :type ciphertext: str or bytes
+    :param ciphertext: GPG ciphertext to decrypt
 
-    :param context: set to use alternative gpgme context
     :type context: gpgme.Context or None
+    :param context: Optional GpgME context with custom settings.
 
     :rtype: bytes
-    :returns: the decrypted ciphertext (message)
+    :returns: The decrypted data.
 
-    :rtype: bytes
-    :returns: The decrypted data
-
-    :raises gpgme.GpgmeError:
-        If e.g. missing the decryption key, or other GPG-related errors.
+    :raises gpgme.GpgmeError: on missing key or other GPG errors
     """
     context = context or get_gpgme_context()
 
@@ -147,15 +137,15 @@ def gpgme_decrypt(ciphertext, context=None):
     return output_buffer.getvalue()
 
 
-# `_filtercmd`, `legacy_gpg_encrypt` and `legacy_gpg_decrypt` was moved from
+# `_filtercmd`, `legacy_gpg_encrypt` and `legacy_gpg_decrypt` were moved from
 # `Cerebrum.Utils` and modernized a bit.  We keep them around because:
 #
 #   1. `gpgme_decrypt` currently won't work with passphrase protected keys
 #   2. These legacy functions don't rely on gpgme or pygpgme
 #
 # Note that unlocking passphrase protected keys is very finicky, as newer
-# versions of gpg/gpgme (2.1/1.4) insists on involving pinentry and gpg-agent,
-# while older versions won't accept the config/arguments that allows unlocking
+# versions of gpg/gpgme (2.1/1.4) insist on involving pinentry and gpg-agent,
+# while older versions won't accept the config/arguments that allow unlocking
 # these keys using the loopback pinentry-mode.
 
 
@@ -209,25 +199,21 @@ def _get_gpg_cmd(keyid, gnupghome, *args):
 @deprecate('use gpgme_encrypt()')
 def legacy_gpg_encrypt(message, keyid, gnupghome=None):
     """
-    Encrypts a message using gpg in a subprocess.
+    Encrypt a message using gpg in a subprocess.
 
-    :type message: bytes, str
-    :param message:
-        Message to encrypt.  Encoded with UTF-8 if not given bytes.
+    :type message: bytes or str
+    :param message: Message to encrypt (str is encoded as UTF-8)
 
     :param str keyid:
-        key-id or fingerprint of a recipient.
-
-        This function does not support multiple recipients.
+        Key id or fingerprint of recipient (multiple recipients not supported)
 
     :param str gnupghome:
-        gpg homedir (defaults to cereconf.GNUPGHOME)
+        GnuPG homedir (default: ``cereconf.GNUPGHOME``)
 
-    :returns str:
-        Returns an ascii-armored, encrypted gpg message
+    :returns: ASCII-armored encrypted ciphertext
+    :rtype: str
 
-    :raises IOError:
-        If e.g. missing the recipient key, or other GPG-related errors.
+    :raises IOError: on missing key or other GPG errors
     """
     message_bytes = text_compat.to_bytes(message, "utf-8")
     cmd = _get_gpg_cmd(keyid, gnupghome, '--encrypt', '--armor',
@@ -239,36 +225,26 @@ def legacy_gpg_encrypt(message, keyid, gnupghome=None):
 @deprecate('use gpgme_decrypt()')
 def legacy_gpg_decrypt(message, keyid, passphrase=None, gnupghome=None):
     """
-    Decrypts a message using gpg in a subprocess.
+    Decrypt a message using gpg in a subprocess.
 
-    ..warning::
-
-
-    :type message: bytes, str
-    :param message: GPG message to decrypt
+    :type message: bytes or str
+    :param message: GPG ciphertext to decrypt
 
     :param str keyid:
-        Default key for the gpg command.
-
-        Note:  This is a historical argument  It's given as ``--default-key``
-        to the gpg command, and doesn't really have any function, as the
-        message itself should include the key-id to use for decryption.
+        Default key for gpg (historical, not actually used for decryption)
 
     :param str passphrase:
-        Passphrase for unlocking the private key
-
-        Note:  Passphrase will not work with gpg 2.1/gpgme 1.4: gpg requires a
-        '--pinentry-mode loopback' option and 'allow-loopback-pinentry' in
-        gpg-agent.conf, which is not supported in 2.0
+        Passphrase for unlocking the private key.  Note: won't work with
+        gpg 2.1+ without ``--pinentry-mode loopback`` and
+        ``allow-loopback-pinentry`` in gpg-agent.conf.
 
     :param str gnupghome:
-        gpg homedir (defaults to cereconf.GNUPGHOME)
+        GnuPG homedir (default: ``cereconf.GNUPGHOME``)
 
-    :returns bytes:
-        Returns the raw, decrypted message
+    :rtype: bytes
+    :returns: The decrypted data.
 
-    :raises IOError:
-        If e.g. missing the decryption key, or other GPG-related errors.
+    :raises IOError: on missing key or other GPG errors
     """
     # If unicode, we assume it's an ascii-armored gpg message:
     message_bytes = text_compat.to_bytes(message, "ascii")
