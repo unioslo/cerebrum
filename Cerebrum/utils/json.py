@@ -1,6 +1,6 @@
 # encoding: utf-8
 #
-# Copyright 2018-2024 University of Oslo, Norway
+# Copyright 2018-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,10 +18,37 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
-Utilities for JSON handling.
+JSON encoding and decoding with Cerebrum-specific type support.
 
-Normally, standard JSON functionality should be used, but these functions
-will amend standard behaviour with Cerebrum specific logic.
+Provides a :class:`JSONEncoder` for serializing Cerebrum types, dates, and sets,
+and :class:`CerebrumObject` for deserializing Cerebrum types.
+
+Cerebrum objects
+    Cerebrum objects (Entity, constants) are serialized with a special JSON
+    object structure.  This structure includes the internal object IDs (entity
+    id or code value), as well as metadata (name, strval) for use outside of
+    Cerebrum.
+
+    When loading a JSON object with this structure, the load-functions in this
+    module will try to look up the objects in the database.
+
+    .. note::
+       The object lookup (and resulting objects) use a separate database
+       transaction.
+
+Datetime
+    The :class:`JSONEncoder` is able to serialize date and datetime objects
+    using ISO-8601 notation.  These objects will *not* be restored on load,
+    however.
+
+Set
+    The :class:`JSONEncoder` serializes ``set`` objects as a sorted list.
+
+
+On Python 2, the :class:`JSONEncoder` generates text/unicode objects, rather
+than bytestrings.  This means that :func:`dumps` returns unicode, and
+:func:`dump` requires a *text stream* rather than a *byte stream*.
+
 
 TODO
 ----
@@ -38,7 +65,7 @@ this has two other problems:
 - The database connection we provide is then set as the new, global database
   connection for future loads
 
-- The functinality for providing a db connection or constants as keyword
+- The functionality for providing a db connection or constants as keyword
   arguments *db* or *const* is broken - it won't work as the keyword arguments
   are passed on to the built-in json decoder.  The only way to actually provide
   these objects, is to give load(s) an initialized `CerebrumObject` as
@@ -71,6 +98,11 @@ from Cerebrum.utils import date_compat
 from Cerebrum.utils.date import apply_timezone
 
 
+#
+# JSONEncoder conversions, for dump/dumps.
+#
+
+
 _conversions = []
 
 
@@ -83,14 +115,16 @@ def _conv(cls):
 
 @_conv(datetime.date)
 def date_to_json(dt):
-    """ Convert datetime.date/datetime.datetime object to json. """
+    """ Serialize date/datetime as ISO-8601 string. """
     if isinstance(dt, datetime.datetime) and not dt.tzinfo:
         dt = apply_timezone(dt)
     return dt.isoformat()
 
 
+# Needs special handling, as we can't check the type without importing
+# `mx.DateTime`
 def mx_datetime_to_json(dt):
-    """ Convert mx-like datetime object to json. """
+    """ Serialize mx-like datetime as ISO-8601 string. """
     if date_compat.is_mx_date(dt):
         return date_to_json(dt.pydate())
     else:
@@ -99,47 +133,56 @@ def mx_datetime_to_json(dt):
 
 @_conv(Constants.Constants.CerebrumCode)
 def code_to_json(code):
-    """ Convert CerebrumCode to json """
-    return dict(
-        __cerebrum_object__='code',
-        table=code._lookup_table,
-        code=int(code),
-        str=six.text_type(code))
+    """ Serialize CerebrumCode as a dict with code value and metadata. """
+    return {
+        '__cerebrum_object__': 'code',
+        'table': code._lookup_table,
+        'code': int(code),
+        'str': six.text_type(code),
+    }
 
 
 @_conv(Entity)
 def entity_to_json(entity):
-    """ Convert entity to json """
-    return dict(
-        __cerebrum_object__='entity',
-        entity_id=entity.entity_id,
-        str=six.text_type(entity),
-        entity_type=code_to_json(Constants.Constants.EntityType(
-            entity.entity_type)))
+    """ Serialize Entity as a dict with entity_id and metadata. """
+    return {
+        '__cerebrum_object__': 'entity',
+        'entity_id': entity.entity_id,
+        'str': six.text_type(entity),
+        'entity_type': code_to_json(
+            Constants.Constants.EntityType(entity.entity_type),
+        ),
+    }
 
 
 @_conv(set)
 def set_to_json(value):
-    """ Convert sets to sorted list of set items. """
+    """ Serialize set as a sorted list. """
     return list(sorted(value))
 
 
 class JSONEncoder(json.encoder.JSONEncoder):
     """
-    Extend JSONEncoder with:
+    Extended JSONEncoder.
 
-        * date, datetime and mx-datetime like values
-        * constants
-        * Entity
+    This JSONEncoder produces unicode objects, for use with text streams on
+    both Python 2 and Python 3.
+
+    Additionally, this encoder supports a couple of new objects:
+
+    - date, datetime and mx-datetime like values
+    - set
+    - Cerebrum objects (Constants, Entity)
+
     """
     def __init__(self, ensure_ascii=False, sort_keys=True, **kw):
-        """Construct JSONEncoder, set some other defaults"""
+        """ Initialize with ensure_ascii=False and sort_keys=True. """
         super(JSONEncoder, self).__init__(ensure_ascii=False,
                                           sort_keys=True,
                                           **kw)
 
     def default(self, o):
-        """ Handle Cerebrum cases """
+        """ Encode Cerebrum types, dates, and sets. """
         for base, fun in _conversions:
             if date_compat.is_mx_datetime(o):
                 # TODO: remove when egenix-mx-base is gone
@@ -175,18 +218,30 @@ class JSONEncoder(json.encoder.JSONEncoder):
 
 def dumps(obj, ensure_ascii=False, sort_keys=True, cls=JSONEncoder,
           *args, **kw):
+    """
+    Serialize *obj* to a JSON string.
+
+    Like :func:`json.dumps`, but uses :class:`.JSONEncoder` by default.
+    Returns unicode on Python 2.
+    """
     return json.dumps(obj, ensure_ascii=ensure_ascii,
                       sort_keys=sort_keys, cls=cls, *args, **kw)
 
 
 def dump(obj, fp, ensure_ascii=False, sort_keys=True, cls=JSONEncoder,
          *args, **kw):
+    """
+    Serialize *obj* as JSON to file *fp*.
+
+    Like :func:`json.dump`, but uses :class:`.JSONEncoder` by default.
+    Requires a text stream on Python 2.
+    """
     return json.dump(obj, fp, ensure_ascii=ensure_ascii,
                      sort_keys=sort_keys, cls=cls, *args, **kw)
 
 
 class CerebrumObject(object):
-    """ Object hook to get back from objects to cerebrum """
+    """ Object hook for deserializing Cerebrum objects from JSON. """
 
     def __init__(self, db, constants):
         self.db = db
@@ -203,7 +258,7 @@ class CerebrumObject(object):
         return fun(obj)
 
     def code(self, obj):
-        """ Convert constants code. """
+        """ Deserialize a CerebrumCode from JSON dict. """
         try:
             c = self.const.resolve_constant(self.db, obj['code'])
         except KeyError:
@@ -213,6 +268,7 @@ class CerebrumObject(object):
         return c
 
     def entity(self, obj):
+        """ Deserialize an Entity from JSON dict. """
         try:
             comp = Factory.type_component_map[str(obj['entity_type'])]
         except KeyError:
@@ -243,13 +299,11 @@ def _db_const(db=None, const=None, **kw):
 
 
 def load(*rest, **kw):
-    """ As standard json.load, but with magic for cerebrum objects.
+    """
+    Deserialize JSON from a file, with Cerebrum object support.
 
-    :type db: Database
-    :param db: Cerebrum database
-
-    :type const: Constants
-    :param const: Cerebrum constants
+    Like :func:`json.load`, but includes an ``object_hook`` for recreating
+    Cerebrum objects (Entity, constants).
     """
 
     if len(rest) >= 4 or 'object_hook' in kw:
@@ -258,12 +312,11 @@ def load(*rest, **kw):
 
 
 def loads(*rest, **kw):
-    """ As standard json.loads, but with magic for cerebrum objects.
-    :type db: Database
-    :param db: Cerebrum database
+    """
+    Deserialize JSON from a string, with Cerebrum object support.
 
-    :type const: Constants
-    :param const: Cerebrum constants
+    Like :func:`json.loads`, but includes an ``object_hook`` for recreating
+    Cerebrum objects (Entity, constants).
     """
 
     if len(rest) >= 4 or 'object_hook' in kw:
