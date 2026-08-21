@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2020-2024 University of Oslo, Norway
+# Copyright 2020-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,7 +18,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
-Various unicode text utils.
+Unicode text utilities for stripping and truncating strings.
 """
 from __future__ import (
     absolute_import,
@@ -32,13 +32,25 @@ import unicodedata
 import six
 
 
-# We currently  support only control sequence codes, but this has been written
-# so it would be easy to expand to reserved (Cn), private-use (Co), and
-# surrogate (Cs) code points.
 CATEGORY_CONTROL = "Cc"
+"""
+Unicode Category - control (Cc).
 
-# Internal module use, could also just be a set of supported category keys
+This is currently the only supported category, but we may want to strip other
+categories as well in the future:
+
+- surrogate (Cs)
+- reserved (Cn)
+- private-use (Co)
+"""
+
 _categories = {CATEGORY_CONTROL: "Control"}
+"""
+Supported unicode categories.
+
+Maps from the category *key* to the category *name*, which is used by the
+underlying *unicodedata* module.
+"""
 
 
 def _replace_category(s, category, new, maxreplace=-1, exclude=None):
@@ -68,26 +80,24 @@ def _replace_category(s, category, new, maxreplace=-1, exclude=None):
 
 def strip_category(s, category, maxstrip=-1, exclude=None):
     """
-    Return a copy of string *s* with characters from the unicode category
-    *category* omitted.
+    Return a copy of string *s* without characters the unicode *category*.
 
     :type s: str
 
     :param str category:
-        A unicode category key to replace or strip.
+        A unicode category key to strip.
 
-        Only "Cc" (Control characters) is currently supported.
+        Only :data:`.CATEGORY_CONTROL` is currently supported.
 
     :param int maxstrip:
-        Limit number of characters that are replaced.
+        Limit number of characters that are stripped.
 
-        If ``maxreplace < 0`` (the default), all occurrences are removed.
-        If `maxreplace>= 0`, then only the first *maxstrip* occurrences are
+        If ``maxstrip < 0`` (the default), all occurrences are removed.
+        If ``maxstrip >= 0``, then only the first *maxstrip* occurrences are
         removed.
 
     :param set exclude:
-        Individual characters listed in *exclude* will not be replaced or
-        stripped.
+        Characters in *exclude* will not be stripped.
     """
     return _replace_category(
         s,
@@ -102,8 +112,9 @@ def strip_control_characters(s, **kwargs):
     """
     Strips non-printable control sequence characters.
 
-    :param int maxstrip: see :func:`.strip_category`
-    :param set exclude: see :func:`.replace_category`
+    Shortcut for ``strip_category(s, CATEGORY_CONTROL, **kwargs)``.
+
+    :param kwargs: see :func:`.strip_category`
     """
     return strip_category(s, CATEGORY_CONTROL, **kwargs)
 
@@ -113,21 +124,24 @@ def truncate(text, length, replacement=""):
     Truncate a text string to max *length* characters.
 
     Texts longer than *length* will be truncated:
+
     >>> truncate("123456789", 8)
     "12345678"
 
     An optional *replacement* sentinel value can be added when the
     text is truncated:
+
     >>> truncate("123456789", 8, "...")
     "12345..."
 
     Texts shorter than (or equal to) *length* will be returned as-is:
+
     >>> truncate("12345678", 8, "...")
     "12345678"
 
     """
     if len(replacement) >= length:
-        raise ValueError("Cannot trunctate to length %d with suffix %s"
+        raise ValueError("Cannot truncate to length %d with suffix %s"
                          % (length, repr(replacement)))
     if len(text) > length:
         trunc = length - len(replacement)
