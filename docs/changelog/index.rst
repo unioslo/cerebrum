@@ -5,45 +5,45 @@ ChangeLog
 ``Cerebrum.ChangeLog`` is an abstract API for handling *changes* in the Cerebrum
 database.
 
-.. contents::
+.. contents:: :local:
 
 
 Overview
 ==========
 The *changelog* system adds support for *acting* on core database changes.
 Whenever a row is added, updated, or removed in the database, the
-``ChangeLog`` `log_change`_ method is called.
+``ChangeLog.log_change`` method is called.
 
 This call can be delegated to zero or more *implementations* of the abstract
 ChangeLog using mixins.
 
 
 CLDatabase
-----------
+===========
 Support for ChangeLog is patched into the database class using the
-``CLDatabase``.  This class merges the the DB-API and the changelog API_ into
+``CLDatabase``.  This class merges the DB-API and the Changelog API into
 *one* class.
 
-Changes are typically logged using ``ChangeLog.`` `log_change`_, and flushed by
-the database commit.
+Changes are typically queued using ``ChangeLog.log_change``, and flushed by
+a database commit.
 
 On commit, the CLDatabase runs the following steps:
 
-1. pre-commit: ``ChangeLog.`` `write_log`_
+1. pre-commit: ``ChangeLog.write_log``
 2. ``Database.commit``
 3. post-commit:
 
-  a. on success: ``ChangeLog.`` `publish_log`_
-  b. on failure: ``ChangeLog.`` `unpublish_log`_
+  a. on success: ``ChangeLog.publish_log``
+  b. on failure: ``ChangeLog.unpublish_log``
 
 On database rollback, the flow is a lot simpler:
 
-1. pre-rollback: ``ChangeLog.`` `clear_log`_
+1. pre-rollback: ``ChangeLog.clear_log``
 2. ``Database.rollback``
 
 
 Configuration
---------------
+==============
 ChangeLog support is configured using :doc:`/config/cereconf`:
 
 ::
@@ -68,105 +68,17 @@ ChangeLog support is configured using :doc:`/config/cereconf`:
 
 
 Change types
--------------
+=============
 Change types are a separate class of constants, and are included in calls to
-`log_change`_.
+``ChangeLog.log_change``.
 
 Available change types are implemented as a
 ``Cerebrum.Constants._ChangeTypeCode``, and should be present in
 ``cereconf.CLASS_CLCONSTANTS``.
 
 
-API
-====
-ChangeLog is an abstract API for registering and handling events and changes in
-Cerebrum.  The API consists of the following methods:
-
-
-``cl_init``
------------
-Changelog setup method.  `log_change`_ calls will typically fail if setup hasn't
-been done to the changelog object.
-
-
-``log_change``
----------------
-Queue a change or event.
-
-Note that no changes or events should be effectuated until `write_log`_ is
-called.
-
-
-``write_log``
---------------
-Write, send, commit, or otherwise finalize queued changes.  Changelog
-implementations should use this method to prepare and/or deliver changes to the
-target system.
-
-Note that ``write_log`` is called *before* changes are commited to the Cerebrum
-database.
-
-* Implementations using the same database transaction as Cerebrum (and the
-  actual changes that it represents), should ensure that the changes are written
-  to the database  (see `Cerebrum.modules.ChangeLog`_).
-
-* Implementations using a different transaction, should ensure that all events
-  are written to its current transaction.
-
-* Implementations that *doesn't* use transactions, or otherwise have no support
-  for aborts/rollbacks, should *not* use this function, or write changes as
-  *tasks* or similar units to the Cerebrum database, for later processing.
-
-
-``clear_log``
---------------
-Clears all events/changes from the current write queue.
-
-Implementations should clear all changes that has been added by `log_change`_.
-This is a ChangeLog abort/rollback.
-
-
-``publish_log``
-----------------
-Execute events/changes.
-
-This method should process the ChangeLog queue and ensure all events/changes are
-processed or delivered.
-
-* Implementations using the same database transaction as Cerebrum should not
-  implement this method, but rely on the final database commit (see
-  `Cerebrum.modules.ChangeLog`_).
-
-* Implementations using a different transaction, should ensure that its current
-  transaction is commited.
-
-* Implementations that *doesn't* use transactions, or otherwise have no support
-  for aborts/rollbacks, should use this to deliver/process all events/changes in
-  the queue.
-
-Note that the internal *changelog queue* must be emptied by this method.
-
-
-``unpublish_log``
-------------------
-Cancel the current publishing queue.
-
-Implementations should use this method to abort delivery/storage of changes.
-
-* Implementations using the same database transaction as Cerebrum should not
-  implement this method, but rely on the outcome of the failing database ``commit``.
-
-* Implementations using a different transaction, should ensure that its current
-  transaction is rolled back, if possible.
-
-* Implementations that *doesn't* use transactions, needs to figure out how to
-  best deal with this situation.
-
-Note that the internal *changelog queue* must be emptied by this method.
-
-
 Implementations
-=================
+================
 
 Cerebrum.modules.ChangeLog
 ---------------------------
@@ -193,10 +105,10 @@ processing module.
 
 In short, certain `change types`_ will result in an *event* being stored in an
 *event table* that this module implements.  The event table stores events for
-individual target systems*, so each ``log_change`` call can result in multiple
+individual *target systems*, so each ``log_change`` call can result in multiple
 events.
 
-A separate target system mapping tables decides if `log_change`_ calls should
+A separate target system mapping tables decides if changes should
 result in queued events.
 
 When a new event row has been queued, our database will immediately notify any
@@ -235,17 +147,17 @@ publishing notifications to external systems when changes occur in Cerebrum:
 
 3. The database queue is processed and sent to an external message broker using
    the event publisher daemon, which gets notified about new events as soon as
-   they are commited.
+   they are committed.
 
 
 Implementing a changelog
 =========================
-Implementing changelogs aren't always straight forward.
+Implementing a changelog isn't always straightforward.
 
 Atomicity and consistency
     When communicating with an external system, it is *really* hard to guarantee
     that changes are delivered on commit.  The best approach is usually to have
-    an internal database queue that is commited along with the actual changes,
+    an internal database queue that is committed along with the actual changes,
     and then flush this queue periodically.
 
 Slow commits
@@ -292,7 +204,7 @@ Log changes without CLDatabase
     If you need to log changes using *your* implementation, and no other
     implementations, then this should be done using a custom CLDatabase
     implementation, and not with *hacks* that extends or alters the changelog
-    API_:
+    API:
     ::
 
         db_cls = Factory.get('DBDriver')
@@ -300,7 +212,7 @@ Log changes without CLDatabase
         class MySpecialEventLog(EventLog, db_cls):
             def commit(self):
                 self.write_log()
-                super(MySpecialLogger, self).commit()
+                super(MySpecialEventLog, self).commit()
 
         event_log = MySpecialEventLog()
         event_log.log_change(*args)
