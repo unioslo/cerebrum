@@ -18,7 +18,26 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
-Database context for a flask app.
+Database context for a Flask app.
+
+The database connection is stored in the Flask *application context*.  The
+context is automatically opened when needed, and automatically closed by
+request handlers when the :class:`DatabaseContext` middleware is added to an
+application.
+
+All other database interaction (i.e. commit) must be handled manually, or using
+the :meth:`DatabaseContext.autocommit` wrapper.
+
+Configuration
+--------------
+This module uses some settings from the Flask configuration object.  This is
+the ``restconfig`` module by default.
+
+``DRYRUN``
+    Run all database operations in dryrun (i.e. rollback after each request).
+
+The database connection and other genric Cerebrum settings are loaded from
+their usual locations (e.g. ``cereconf``).
 """
 from __future__ import (
     absolute_import,
@@ -39,22 +58,35 @@ _CLS_CONST = Factory.get('Constants')
 
 
 class DatabaseContext(object):
-    """ Interface to the Cerebrum database.
+    """
+    Interface to the Cerebrum database.
 
-    Example:
+    A new database connection and transaction is opened when needed when
+    handling a request.  Before the response is sent, the database connection
+    is closed:
+    ::
+
+        # Basic use
         app = Flask('name')
         db = DatabaseContext(app)
         with app.app_context():
             db.connection.query("SELECT 'foo' as bar")
             db.rollback()
 
+    Any changes must either be manually commited, or automatically handled by
+    wrapping the appropriate view function with the autocommit-decorator:
+    ::
+
+        # Wrap a function
         @db.autocommit
-        def foo():
-            db.connection.query("SELECT 'foo' as bar")
-            raise Exception('rollback')
+        def get_foo():
+            result = db.connection.query_1("SELECT 'foo' as bar")
+            if result != "foo"
+                raise Exception('rollback')
+            return {'value': result}
 
         with app.app_context():
-            foo()
+            get_foo()
     """
 
     _change_by = context.ContextValue('database_change_by')
@@ -74,7 +106,7 @@ class DatabaseContext(object):
 
     @property
     def connection(self):
-        """ database connection. """
+        """ Cerebrum database connection. """
         if self._db_conn is None:
             self._db_conn = _CLS_DB()
             if isinstance(self._db_conn, ChangeLog):
@@ -84,7 +116,7 @@ class DatabaseContext(object):
 
     @property
     def const(self):
-        """ constants. """
+        """ Cerebrum constants. """
         if self._const is None:
             self._const = _CLS_CONST(self.connection)
         return self._const
@@ -109,7 +141,14 @@ class DatabaseContext(object):
         self._db_conn.rollback()
 
     def autocommit(self, func):
-        """ Auto commit if function succeeds. """
+        """
+        Auto commit if function succeeds.
+
+        Wrap a view function with transaction handling:
+
+        - Commit on function return
+        - Rollback on unhandled exception
+        """
         @wraps(func)
         def handle(*args, **kwargs):
             try:
