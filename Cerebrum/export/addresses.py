@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2025 University of Oslo, Norway
+# Copyright 2025-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,14 +18,37 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
-Fetch and process addresses.
+Fetch, cache, and process addresses.
 
-This module provides abstractions for fetching, selecting and filtering
+This module provides helpers for fetching, caching, selecting and filtering
 addresses by source and type.
 
 The caching functionality is useful in any scenario where we look up addresses
 in a single read-only transaction.  The selection functionality is useful for
 selecting a single address value in any scenario.
+
+
+Address format
+---------------
+The :class:`AddressCache` cache returns normalized address :class:`dict`
+objects, with an address and some address metadata:
+::
+
+    {
+        'entity_id': int,
+        'source_system': _AuthoritativeSystemCode,
+        'address_type': _AddressCode,
+        'address': {
+            'address_text': str,
+            'p_o_box': str,
+            'postal_number': str,
+            'city': str,
+            'country': _CountryCode,
+        },
+    }
+
+The other helper classes work on these objects.  Note that any of the address
+fields may be ``None``.
 """
 from __future__ import (
     absolute_import,
@@ -56,7 +79,7 @@ def get_source_system_types(co, values):
 
 
 def get_address_types(co, values):
-    """ Look up a sequence of _ContactInfoCode values. """
+    """ Look up a sequence of _AddressCode values. """
     for value in values:
         yield co.get_constant(Constants._AddressCode, value)
 
@@ -83,13 +106,8 @@ def _check_constants(codes, code_type, code_hint,
 
 
 class _AddressFetcher(base.EntityFetcher):
-    """
-    Fetch address data.
+    """ Fetch address data. """
 
-    :type address_types: collection of _AddressCode, or None
-    :type source_systems: collection of _AuthoritativeSystemCode, or None
-    :type entity_types: collection of _EntityTypeCode, or None
-    """
     def __init__(self, db, address_types, source_systems, entity_types):
         self._db = db
         self._const = Factory.get("Constants")(db)
@@ -148,7 +166,7 @@ class _AddressFetcher(base.EntityFetcher):
             yield (data['entity_id'], data)
 
     def get_one(self, entity_id):
-        """ Fetch authentication data for one account. """
+        """ Fetch addresses for one entity. """
         entity_data = [
             addr_data
             for _, addr_data in self._get_results(entity_id=int(entity_id))
@@ -156,7 +174,7 @@ class _AddressFetcher(base.EntityFetcher):
         return entity_data or base.MISSING
 
     def get_all(self):
-        """ Fetch authentication data for all accounts. """
+        """ Fetch address data for all entities. """
         return dict_collect_lists(self._get_results())
 
 
@@ -165,14 +183,16 @@ class AddressCache(base.EntityCache):
     Address data cache.
 
     The cache can optionally limit results to specific address types,
-    source systems, and/or entity_types.
-
-    :type address_types: collection of _AddressCode, or None
-    :type source_systems: collection of _AuthoritativeSystemCode, or None
-    :type entity_types: collection of _EntityTypeCode, or None
+    source systems, and/or entity types.
     """
     def __init__(self, db, address_types=None, source_systems=None,
                  entity_types=None):
+        """
+        :type db: Cerebrum.database.Database
+        :type address_types: collection of _AddressCode, or None
+        :type source_systems: collection of _AuthoritativeSystemCode, or None
+        :type entity_types: collection of _EntityTypeCode, or None
+        """
         fetcher = _AddressFetcher(db, address_types, source_systems,
                                   entity_types)
         super(AddressCache, self).__init__(fetcher)
@@ -183,18 +203,26 @@ class AddressSelector(object):
     Helper to select a single address from an address cache result.
 
     Use this to get the best matching address of a given type for a given
-    entity.
+    entity.  Example use:
+    ::
+
+        # Select POST address, using the default system lookup order
+        select = AddressSelector(const.address_post,
+                                 const.get_system_lookup_order())
+        cache = AddressCache(db)
+
+        match = select(cache.get(entity_id, []))
+        if match:
+            print(match['address_text'], match['postal_number'], match['city'])
+
     """
 
     def __init__(self, address_type, system_priority):
         """
-        Filter and select the best matching address of a given type
+        Filter and select the best matching address of a given type.
 
-        :param address_type:
-            A single _AddressCode to select
-
-        :param system_priority:
-            An ordered list of source_systems to select from
+        :param address_type: A single address type to select
+        :param system_priority: An ordered list of sources to select from
         """
         self.address_type = _check_constants(
             (address_type,), Constants._AddressCode, "address")[0]
@@ -209,6 +237,14 @@ class AddressSelector(object):
         return self._system_key(int(addr_data['source_system']))
 
     def __call__(self, address_list):
+        """
+        Find preferred address from a list of results.
+
+        :param address_list: An iterable of address objects
+
+        :rtype: dict
+        :returns: A matching address, or ``None``
+        """
         matching_types = [
             addr_data
             for addr_data in address_list
@@ -231,12 +267,21 @@ def _normalize(value):
 
 class _AddressFormatter(object):
     """
-    Format an row-like dict of address parts into an address string.
+    Format a dict of address parts into an address string.
+
+    Default/base implementation, formats a multiline string:
+    ::
+
+        p_o_box
+        address_text...
+        postal_number city
+        country
+
     """
     separator = "\n"
 
     def _get_country(self, fields):
-        """ get country value. """
+        """ Get country value. """
         code = fields['country']
         if code:
             return code.country
@@ -244,7 +289,7 @@ class _AddressFormatter(object):
 
     def _get_city_line(self, fields):
         """
-        Format a city line
+        Format a city line.
 
         :returns:
             A post code/city line.
@@ -259,7 +304,7 @@ class _AddressFormatter(object):
         return None
 
     def _get_values(self, fields):
-        """ get iterator over individual address parts. """
+        """ Get iterator over individual address parts. """
         yield _normalize(fields['p_o_box'])
         for addr_line in (fields['address_text'] or "").split("\n"):
             yield _normalize(addr_line) or None
@@ -267,7 +312,7 @@ class _AddressFormatter(object):
         yield self._get_country(fields)
 
     def _escape(self, value):
-        """ escape individual address parts before final formatting. """
+        """ Escape individual address parts before final formatting. """
         return value
 
     def __call__(self, fields):
@@ -279,12 +324,7 @@ class _AddressFormatter(object):
 
 
 class _LdapPostalAddress(_AddressFormatter):
-    """
-    Format a postalAddress field for LDAP.
-
-    Example:
-        Pb. 123$123 Example Street$1234 City$Country
-    """
+    """ Format a postalAddress field for LDAP.  """
     separator = "$"
     postal_escape_re = re.compile(r'[$\\]')
 
@@ -306,15 +346,18 @@ class _LdapPostalAddress(_AddressFormatter):
 
 
 format_ldap_postal_address = _LdapPostalAddress()
+"""
+Formatter for LDAP postalAddress fields.
+
+This formatter takes an address from our :class:`AddressSelector`
+and formats it according to RFC-4519 (oid 2.5.4.16).
+
+Example: ``Pb. 123$123 Example Street$1234 City$Country``
+"""
 
 
 class _LdapStreetAddress(_AddressFormatter):
-    """
-    Format a street field for LDAP.
-
-    Example:
-        123 Example Street, 1234 City, Country
-    """
+    """ Format a street field for LDAP. """
     separator = ", "
 
     def _get_values(self, fields):
@@ -326,6 +369,18 @@ class _LdapStreetAddress(_AddressFormatter):
 
 
 format_ldap_street_address = _LdapStreetAddress()
+"""
+Formatter for LDAP street fields.
+
+This formatter takes an address from our :class:`AddressSelector`
+and formats it according to RFC-4519 (oid 2.5.4.9).
+
+.. note::
+   For legacy reasons, this includes the full address, and not just
+   street name and house number.
+
+Example: ``123 Example Street, 1234 City, Country``
+"""
 
 
 class AddressGetter(object):

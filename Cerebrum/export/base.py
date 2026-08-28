@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2019-2024 University of Oslo, Norway
+# Copyright 2019-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,16 +18,10 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
-Common template classes for export utils.
+Base classes for export utils.
 
-This module provides abstractions for fetching, selecting and formatting entity
-data.
-
-The general flow for exports should look something like:
-
-1. Fetch and validate configuration
-2. Build cache of all relevant authentication types and data
-3. Fetch and format authentication data as needed.
+This module provides base classes for fetching and caching entity data. Actual
+lookups are implemented in separate modules.
 """
 from __future__ import (
     absolute_import,
@@ -36,33 +30,55 @@ from __future__ import (
     unicode_literals,
 )
 
+
 MISSING = object()
+"""
+A lookup *miss* singleton object.
+
+This object is returned as a sentinel value in :meth:`EntityFetcher.get_one`,
+to indicate that no match exists for this key.
+"""
 
 
 class EntityFetcher(object):
     """
-    Abstract database accessor for exportable data.
+    Abstract database accessor for a specific type of entity data.
 
-    Fetches data on either a single entity or all entities, according to a
+    Fetches data for either a single entity or all entities, according to a
     pre-determined set of parameters.
     """
 
     def get_one(self, entity_id):
         """
-        :rtype: object
+        Get the relevant data for a single given entity.
+
+        If no data exists, a special :data:`.MISSING` sentinel value is
+        returned.
+
+        The return data format for *hits* is unspecified, and up to each
+        individual fetcher subclass to define.
+
+        :param int entity_id: The entity to look up data for
         :returns:
-            Returns a single object (or the MISSING object if the entity
-            doesn't exist)
+            The matching data on hits, or the special
+            :data:`.MISSING` sentinel value on misses.
         """
         raise NotImplementedError("%r does not implement get_one()" %
                                   repr(type(self)))
 
     def get_all(self):
         """
-        :rtype: dict
+        Get the relevant data for all matching entities.
+
+        :rtype: dict[int, object]
         :returns:
-            Returns a dictionary that maps entity_ids to objects. Each object
-            should be identical to the object retured by get_one(entity_id).
+            All matching data in a mapping.
+
+            The key is the entity id, and the value is the same object that
+            :meth:`.get_one` returns for that entity.
+
+            The dict only includes *hits* - it does not include entries for
+            entities that returns a *miss* in :meth:`.get_one`.
         """
         raise NotImplementedError("%r does not implement get_all()" %
                                   repr(type(self)))
@@ -72,12 +88,48 @@ class EntityCache(object):
     """
     Fetch and cache data on entities.
 
-    You'd typically implement a subclass along with a fetcher class.
+    This is a generic cache for a :class:`.EntityFetcher`.  To initialize and
+    use the generic cache:
+    ::
+
+        fetcher = EntityFetcher()  # example only - a fetcher *subclass*
+        cache = EntityCache(fetcher)
+
+    Caching behaviour:  Data can be explicitly cached up-front for everyone,
+    or for a given entity, or not at all:
+    ::
+
+        # optionally cache a given entity
+        cache.update_one(entity_id)
+
+        # optionally cache all entities
+        cache.update_all()
+
+    When looking up values, only keys that has not been previsouly looked up
+    will result in a database query - the cache remembers all previous hits and
+    misses.  To look up values:
+    ::
+
+        # item lookup - will raise KeyError on miss:
+        data = cache[entity_id]
+
+        # item lookup with a default/fallback value on miss:
+        data = cache.get(entity_id, default=None)
+
+
+    .. important::
+       Caching should not be used across multiple transactions without a
+       *reset*.
+
     """
     def __init__(self, fetcher):
         self.fetcher = fetcher
-        self.found = {}
+        self.reset()
+
+    def reset(self):
+        """ Reset the cache. """
         self.missing = set()
+        self.found = {}
         self.cached_all = False
 
     def update_all(self):

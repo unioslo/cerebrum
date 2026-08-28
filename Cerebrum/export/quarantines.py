@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2025 University of Oslo, Norway
+# Copyright 2025-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,14 +18,33 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
-Fetch and process quarantines.
+Fetch, cache, and process quarantines.
 
-This module provides abstractions for fetching, selecting and filtering by
-quarantine state.  The cache is useful in any scenario where we look up
-quarantines in a single read-only transaction.
+This module provides helpers for fetching, caching, selecting and filtering
+quarantines by quarantine state.  The cache is useful in any scenario where we
+look up quarantines in a single read-only transaction.  The fetching and
+selection functionality is useful for selecting and checking quarantines in any
+scenario.
 
 The typical use case for this module is to pre-fetch all (relevant) active
 quarantines to use when filtering objects for export or reports.
+
+Quarantine objects
+-------------------
+The quarantine cache finds and returns simplified and normalized quarantine
+rows:
+::
+
+    {
+        'entity_id': int,
+        'quarantine_type': _QuarantineCode,
+        'start_date': datetime.date,
+        'end_date': datetime.date or None,
+        'disable_until': datetime.date or None,
+        'description': str or None,
+    }
+
+Note that ``create_date`` and ``creator_id`` are omitted, at least for now.
 """
 from __future__ import (
     absolute_import,
@@ -74,16 +93,8 @@ def _check_constants(codes, code_type, code_hint,
 
 
 class _QuarantineFetcher(base.EntityFetcher):
-    """
-    Fetch quarantine data.
+    """ Fetch quarantine data. """
 
-    Can optionally limit results to specific quarantine types, quarantines for
-    specific entity types, and/or only active quarantines.
-
-    :type quarantines: collection of _QuarantineCode, or None
-    :type entity_types: collection of _EntityTypeCode, or None
-    :type only_active: bool
-    """
     def __init__(self, db, quarantines, entity_types, only_active):
         self._db = db
         self._const = Factory.get("Constants")(db)
@@ -123,7 +134,7 @@ class _QuarantineFetcher(base.EntityFetcher):
             yield (data['entity_id'], data['quarantine_type'], data)
 
     def get_one(self, entity_id):
-        """ Fetch authentication data for one account. """
+        """ Fetch quarantine data for one entity. """
         entity_data = {}
         for _, q_type, q_data in self._get_results(
                 entity_ids=int(entity_id)):
@@ -131,7 +142,7 @@ class _QuarantineFetcher(base.EntityFetcher):
         return entity_data or base.MISSING
 
     def get_all(self):
-        """ Fetch authentication data for all accounts. """
+        """ Fetch quarantine data for all entities. """
         results = {}
         for entity_id, q_type, q_data in self._get_results():
             entity_data = results.setdefault(int(entity_id), {})
@@ -146,13 +157,17 @@ class QuarantineCache(base.EntityCache):
     The cache can optionally limit results to specific quarantine types,
     quarantines for specific entity types, and/or only active quarantines.
 
-    :type quarantines: collection of _QuarantineCode, or None
-    :type entity_types: collection of _EntityTypeCode, or None
-    :type only_active: bool
+    The cache returns matching `quarantine objects`_ as specified in the module
+    docstring.
     """
 
     def __init__(self, db, quarantines=None, entity_types=None,
                  only_active=True):
+        """
+        :type quarantines: collection of _QuarantineCode, or None
+        :type entity_types: collection of _EntityTypeCode, or None
+        :type only_active: bool
+        """
         fetcher = _QuarantineFetcher(db, quarantines, entity_types,
                                      only_active)
         super(QuarantineCache, self).__init__(fetcher)
