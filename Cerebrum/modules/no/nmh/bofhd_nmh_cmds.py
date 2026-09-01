@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2006-2024 University of Oslo, Norway
+# Copyright 2006-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -32,9 +32,11 @@ from Cerebrum import Utils
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.apikeys import bofhd_apikey_cmds
 from Cerebrum.modules.audit import bofhd_history_cmds
+from Cerebrum.modules.bofhd import bofhd_access
 from Cerebrum.modules.bofhd import bofhd_contact_info
 from Cerebrum.modules.bofhd import bofhd_core_help
 from Cerebrum.modules.bofhd import bofhd_email
+from Cerebrum.modules.bofhd import bofhd_external_id
 from Cerebrum.modules.bofhd import bofhd_group_roles
 from Cerebrum.modules.bofhd import bofhd_misc_sms
 from Cerebrum.modules.bofhd import bofhd_ou_cmds
@@ -52,7 +54,6 @@ from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.access_FS import make_fs
 from Cerebrum.modules.no.uio import bofhd_uio_cmds
-from Cerebrum.modules.bofhd import bofhd_access
 from Cerebrum.modules.trait import bofhd_trait_cmds
 from Cerebrum.utils import date_compat
 
@@ -60,11 +61,16 @@ from Cerebrum.utils import date_compat
 format_day = default_format_day  # 10 characters wide
 
 
-class NmhAuth(bofhd_contact_info.BofhdContactAuth, BofhdAuth):
+class NmhAuth(bofhd_contact_info.BofhdContactAuth,
+              bofhd_external_id.BofhdExtidAuth,
+              BofhdAuth):
     """ NMH specific auth.
 
-    Inherits from BofhdContactAuth as a hack, to make can_get_contact_info
-    available to 'person_info'.
+    Inherits from BofhdContactAuth to make can_get_contact_info available to
+    'person_info'.
+
+    Inherits from BofhdExtidAuth to make can_get_extid available to
+    `person_info`/`_viewable_external_ids` and `person_get_id`.
     """
 
     def can_add_affiliation(self, operator, person=None, ou=None, aff=None,
@@ -327,6 +333,11 @@ class _ApiKeyAuth(NmhAuth, bofhd_apikey_cmds.BofhdApiKeyAuth):
 
 class ApiKeyCommands(bofhd_apikey_cmds.BofhdApiKeyCommands):
     authz = _ApiKeyAuth
+
+
+class ExtidCommands(bofhd_external_id.BofhdExtidCommands):
+    # The BofhdExtidAuth class is already present in NmhAuth
+    authz = NmhAuth
 
 
 class _GroupRoleAuth(NmhAuth, bofhd_group_roles.BofhdGroupRoleAuth):

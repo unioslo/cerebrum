@@ -31,15 +31,41 @@ This module can replace a lot of older commands in other BofhdCommand modules.
 We should probably consider doing this in order to clean up legacy code, and
 get rid of duplicated functionality.
 
-Remove related functionality
+Replace get/set/clear commands
     We should replace any `get_id`/`set_id`/`clear_id` commands from other
     command groups with this bofhd module.
 
-    `person_info` lists external id types, we might want to replace this e.g.
-    with a hint to use `entity extid_list id:<entity-id>`?
+    Note that `person set_id` is currently allowed for anyone with
+    *create user* access to the person - this is typically the legacy
+    local-it/disk/aff permission check.
 
-    `person_find` allows searching for various mapped external id types.  This
-    command has virtually no access restrictions...
+Re-consider extids in `person_info`
+    `person_info` includes info on external id *types* that the person has.
+    Note that we only include the *type*, not the actual values.
+
+    This also omits any external id types that the *operator* does not have
+    permission to see - probably a leftover from the days when `person_info`
+    *did* include the id values.  Having a partial list here can only lead to
+    confusion...
+
+    We might want to replace this e.g. with a hint to use `entity extid_list
+    id:<entity-id>`.
+
+    Otherwise, `person info` should either list *all* external id types, or
+    *no* external id types.
+
+Remove extid support from `person_find`
+    `person_find` allows searching for various external id types, with
+    virtually no access restrictions...
+
+    It is limited to a couple of hard-coded types, but this also includes
+    `PASSNR` which is typically a restricted value.
+
+    This should probably be replaced by `entity extid_search`.
+
+    Additionally, `person_find` should be re-implemented to actually be useful
+    (e.g. search for name *and* birth-date) + include a limit to give partial
+    results, rather than an *error* if there are too may hits.
 
 Bofhd op-codes
      We should implement bofhd op-codes for setting/clearing external ids, so
@@ -47,36 +73,8 @@ Bofhd op-codes
      :meth:`.BofhdExtidAuth.can_set_extid` for details on how to implement
      this.
 
-     Maybe consider an op-code for searching for external-ids as well?  Or
-     should this always be linked to getting/viewing external ids?
-
-Refactor view_external_id op-code
-    The `auth_view_external_id` op-attrs were previously expected to be
-    formatted as <source-system>:<id-type>.  It makes little sense to restrict
-    external-ids by source system, so we've chosen *not* to do that in the
-    :meth:`.BofhdExtidAuth.can_get_extid` check.  This expects only <id-type>
-    op-attrs.  op-attrs of both formats *should* be able to co-exist, as:
-
-    - any <source-sys>:<id-type> op-attr for
-      `BofhdAuth._can_get_person_external_id` won't match op-attrs for this
-      method
-
-    - any <id-type> op-attr for this method won't match op-attrs for
-      `_can_get_person_external_id`
-
-    - any op-set without op-attrs will match all <source-system>/<id-type>
-      pairs anyway
-
-    We should clean this up later by:
-
-    - removing `person get_id`, `_can_get_person_external_id`,
-      `can_get_external_id`
-
-    - refactor `person_info` to either list all external id types, or not
-      list external id types at all?
-
-    - remove <source-system>:<id-type> op-attrs from this op-code in
-      op-sets
+     Maybe consider an op-code for searching for external-ids?  This is
+     currently handled by access to getting/viewing external ids.
 
 Normalize external ids
     We should probably validate and normalize all external ids set by the

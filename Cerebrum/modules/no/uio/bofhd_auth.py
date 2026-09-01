@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003-2024 University of Oslo, Norway
+# Copyright 2003-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -29,19 +29,19 @@ from Cerebrum.modules.apikeys import bofhd_apikey_cmds
 from Cerebrum.modules.audit import bofhd_history_cmds
 from Cerebrum.modules.bofhd import bofhd_access
 from Cerebrum.modules.bofhd import bofhd_addresses
-from Cerebrum.modules.bofhd import bofhd_external_id
 from Cerebrum.modules.bofhd import bofhd_group_roles
 from Cerebrum.modules.bofhd import bofhd_misc_sms
 from Cerebrum.modules.bofhd import bofhd_ou_cmds
 from Cerebrum.modules.bofhd import bofhd_perm_cmds
 from Cerebrum.modules.bofhd import bofhd_quarantines
 from Cerebrum.modules.bofhd import bofhd_user_create_unpersonal
-from Cerebrum.modules.entity_note.bofhd_note_cmds import EntityNoteBofhdAuth
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.bofhd_contact_info import BofhdContactAuth
 from Cerebrum.modules.bofhd.bofhd_email import BofhdEmailAuth
+from Cerebrum.modules.bofhd.bofhd_external_id import BofhdExtidAuth
 from Cerebrum.modules.bofhd.errors import PermissionDenied
 from Cerebrum.modules.bofhd_requests.bofhd_requests_auth import RequestsAuth
+from Cerebrum.modules.entity_note.bofhd_note_cmds import EntityNoteBofhdAuth
 from Cerebrum.modules.consent import bofhd_consent_auth
 from Cerebrum.modules.guest import bofhd_guest_auth
 from Cerebrum.modules.otp import bofhd_otp_cmds
@@ -71,13 +71,12 @@ class ContactAuthMixin(BofhdContactAuth):
             query_run_any=query_run_any)
 
 
-class UioAuth(ContactAuthMixin, BofhdAuth):
+class UioAuth(ContactAuthMixin, BofhdExtidAuth, BofhdAuth):
     """Defines methods that are used by bofhd to determine wheter
     an operator is allowed to perform a given action.
 
     This class only contains special cases for UiO.
     """
-
     # Temporary owner group is specified in trait_uio_guest_owner trait,
     # and members of owner groups should be allowed to change password
     # for their guest users
@@ -295,6 +294,7 @@ class UioAuth(ContactAuthMixin, BofhdAuth):
 
 
 class ContactAuth(UioAuth):
+    # The BofhdContactAuth class is already present in UioAuth
     pass
 
 
@@ -422,7 +422,8 @@ class CreateUnpersonalAuth(UioAuth,
     pass
 
 
-class ExtidAuth(UioAuth, bofhd_external_id.BofhdExtidAuth):
+class ExtidAuth(UioAuth):
+    # The BofhdExtidAuth class is already present in UioAuth
     pass
 
 

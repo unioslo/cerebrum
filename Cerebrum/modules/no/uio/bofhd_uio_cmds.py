@@ -374,11 +374,9 @@ class BofhdExtension(BofhdCommonMethods):
         try:
             for row in entity.get_external_id():
                 try:
-                    extid_type = str(self.const.EntityExternalId(row[0]))
-                    self.ba.can_get_external_id(
-                        operator, entity,
-                        extid_type=extid_type,
-                        source_sys=row['source_system'])
+                    extid_type = self.const.EntityExternalId(row[0])
+                    self.ba.can_get_extid(operator.get_entity_id(), entity,
+                                          extid_type)
                 except PermissionDenied:
                     pass
                 else:
@@ -3010,8 +3008,7 @@ class BofhdExtension(BofhdCommonMethods):
             person = self.util.get_target(person_id, restrict_to=['Person'])
         except Errors.TooManyRowsError:
             raise CerebrumError("Unexpectedly found more than one person")
-        self.ba.can_get_external_id(
-            operator, person, ext_id_type, source_system)
+        self.ba.can_get_extid(operator.get_entity_id(), person, ext_id_type)
         external_id_list = person.get_external_id(
             id_type=ext_id_const,
             source_system=ss_const)
