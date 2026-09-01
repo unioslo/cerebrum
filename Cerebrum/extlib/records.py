@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# flake8: noqa
 #
 # ISC License
 #
@@ -16,35 +17,34 @@
 # ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 """
-This module contains a modified copy of *records v0.5.3* by Kenneth Reitz
+This module contains a modified copy of *records v0.6.0* by Kenneth Reitz
 
 Source: `<https://github.com/kennethreitz/records>`_.
 
 The *records* module is originally a database wrapper module, similar to
-Cerebrum.Database, but utilizing *sqlalchemy* for the DBAL.  We're only
+`Cerebrum.Database`, but utilizing *sqlalchemy* for the DBAL.  We're only
 interested in the database row models, for use with our own row factory.  To
 avoid secondary dependencies, we include a copy of the relevant parts of
 *records*.
 
-- Removed:
+We've only kept the :class:`.Record`, :class:`.RecordCollection`, and the
+internal helper function :func:`.isexception`.  The classes are kept more or
+less as-is, but with a couple of minor changes:
 
-    - ``Database``
-    - ``Connection``
-    - ``Record.dataset``
-    - ``Record.export``
-    - ``RecordCollection.dataset``
-    - ``RecordCollection.export``
-    - ``_reduce_datetimes``
-    - ``cli``
-    - ``print_bytes``
+:class:`.RecordCollection` ``dataset``
+    Removed the ``dataset`` property, as we don't need the Dataset class.  This
+    avoids a dependency on ``tablib``.
 
-- Modified:
+:class:`.Record`  ``dataset``
+    As with ``RecordCollection``, we've removed the ``dataset`` property.
 
-    - ``Record.__repr__``
+:meth:`.Record.__repr__`
+    The :meth:`.Record.__repr__` implementation is changed from using the
+    ``Record.dataset`` to ``repr(Record.as_dict()``.
 
-- Added:
-
-    - ``Record.__len__``
+:meth:`.Record.__len__`
+    We've added a :meth:`.Record.__len__`, for backwards compatibility
+    with ``Cerebrum.extlib.db_row``.
 """
 from collections import OrderedDict
 from inspect import isclass
@@ -63,7 +63,8 @@ def isexception(obj):
 
 class Record(object):
     """A row, from a query, from a database."""
-    __slots__ = ('_keys', '_values')
+
+    __slots__ = ("_keys", "_values")
 
     def __init__(self, keys, values):
         self._keys = keys
@@ -81,7 +82,7 @@ class Record(object):
         return self._values
 
     def __repr__(self):
-        return '<Record {}>'.format(self.as_dict())
+        return "<Record {}>".format(self.as_dict())
 
     def __getitem__(self, key):
         # Support for index-based lookup.
@@ -89,11 +90,15 @@ class Record(object):
             return self.values()[key]
 
         # Support for string-based lookup.
-        if key in self.keys():
-            i = self.keys().index(key)
-            if self.keys().count(key) > 1:
-                raise KeyError(
-                    "Record contains multiple '{}' fields.".format(key))
+        usekeys = self.keys()
+        if hasattr(
+            usekeys, "_keys"
+        ):  # sqlalchemy 2.x uses (result.RMKeyView which has wrapped _keys as list)
+            usekeys = usekeys._keys
+        if key in usekeys:
+            i = usekeys.index(key)
+            if usekeys.count(key) > 1:
+                raise KeyError("Record contains multiple '{}' fields.".format(key))
             return self.values()[i]
 
         raise KeyError("Record contains no '{}' field.".format(key))
@@ -128,14 +133,14 @@ class Record(object):
 
 class RecordCollection(object):
     """A set of excellent Records from a query."""
+
     def __init__(self, rows):
         self._rows = rows
         self._all_rows = []
         self.pending = True
 
     def __repr__(self):
-        return '<RecordCollection size={} pending={}>'.format(len(self),
-                                                              self.pending)
+        return "<RecordCollection size={} pending={}>".format(len(self), self.pending)
 
     def __iter__(self):
         """Iterate over all rows, consuming the underlying generator
@@ -148,8 +153,7 @@ class RecordCollection(object):
                 yield self[i]
             else:
                 # Throws StopIteration when done.
-                # Prevent StopIteration bubbling from generator, following
-                # https://www.python.org/dev/peps/pep-0479/
+                # Prevent StopIteration bubbling from generator, following https://www.python.org/dev/peps/pep-0479/
                 try:
                     yield next(self)
                 except StopIteration:
@@ -166,7 +170,7 @@ class RecordCollection(object):
             return nextrow
         except StopIteration:
             self.pending = False
-            raise StopIteration('RecordCollection contains no more rows.')
+            raise StopIteration("RecordCollection contains no more rows.")
 
     def __getitem__(self, key):
         is_int = isinstance(key, int)
@@ -175,7 +179,7 @@ class RecordCollection(object):
         if is_int:
             key = slice(key, key + 1)
 
-        while len(self) < key.stop or key.stop is None:
+        while key.stop is None or len(self) < key.stop:
             try:
                 next(self)
             except StopIteration:
@@ -205,7 +209,7 @@ class RecordCollection(object):
         return rows
 
     def as_dict(self, ordered=False):
-        return self.all(as_dict=not(ordered), as_ordereddict=ordered)
+        return self.all(as_dict=not (ordered), as_ordereddict=ordered)
 
     def first(self, default=None, as_dict=False, as_ordereddict=False):
         """Returns a single record for the RecordCollection, or `default`. If
@@ -237,12 +241,15 @@ class RecordCollection(object):
         try:
             self[1]
         except IndexError:
-            return self.first(default=default, as_dict=as_dict,
-                              as_ordereddict=as_ordereddict)
+            return self.first(
+                default=default, as_dict=as_dict, as_ordereddict=as_ordereddict
+            )
         else:
-            raise ValueError('RecordCollection contained more than one row. '
-                             'Expects only one row when using '
-                             'RecordCollection.one')
+            raise ValueError(
+                "RecordCollection contained more than one row. "
+                "Expects only one row when using "
+                "RecordCollection.one"
+            )
 
     def scalar(self, default=None):
         """Returns the first column of the first row, or `default`."""
