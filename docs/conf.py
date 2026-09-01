@@ -179,4 +179,5 @@ extensions.append("sphinx.ext.intersphinx")
 intersphinx_mapping = {
     # references to the Python standard library
     'python': ("https://docs.python.org/3", None),
+    'jwcrypto': ('https://jwcrypto.readthedocs.io/en/latest', None),
 }
