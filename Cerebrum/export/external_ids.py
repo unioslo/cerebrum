@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2025 University of Oslo, Norway
+# Copyright 2025-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,34 +18,51 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
-Fetch and process external ids.
+Fetch, cache, and process external ids.
 
-This module provides abstractions for fetching, caching, and selecting external
-ids.
+This module provides abstractions for fetching, selecting, and filtering
+external ids with the :mod:`Cerebrum.entity.external_id` module.  Ids can be
+filtered and prioritized according to their *type* and *source system*.
 
-:class:`.ExternalIdCache`
-    Cache all external ids, or a subset of all external ids.  Useful in any
-    scenario where we look up external ids in a single read-only transaction.
+ID objects
+----------
+Each name returned by :class:`.ExternalIdFetcher` or :class:`.ExternalIdCache`
+is a normalized external-id row.  This is a :class:`dict` with:
+::
 
-:class:`.ExternalIdFetcher`
-    Source for the ExternalIdCache - can be used to implement specific id-type
-    and/or source-system lookups when caching is explicitly not wanted.
+    {
+        'entity_id': int,
+        'entity_type': _EntityTypeCode,
+        'source_system': _AuthoritativeSystemCode,
+        'id_type': _EntityExternalIdCode,
+        'id_value': str,
+    }
 
-:class:`.ExternalIdSelector`
-    Used to priotitize results from an :class:`.EntityCache` (or
-    :class:`.EntityFetcher`).  This will filter out unwanted results (e.g. when
-    the cache contains multiple id-types), and select the most appropriate
-    value (e.g. when the cache contains ids from all available sources).
 
-Things to consider when looking up external ids:
+Choosing values
+----------------
+Any given id-type can be imported from multiple source systems, and their
+values are not guaranteed to be the same, or correct.  Because of this, there
+are some choices that should always be considered when using external ids:
 
-- Which id types and sources should be considered?
-- How should the values be prioritized when there are multiple matches?
-- Should the results be sanitized?  Should invalid values be ignored?  And if
-  so, should secondary values be considered?
+Lookup order
+    Which sources should be used, and how should the values be prioritized when
+    there are multiple matches?
+
+    Normally, the ``Constants.get_system_lookup_order()`` is the correct
+    choice.
+
+Validation
+    Should the results be validated and/or sanitized?  The target system may
+    not accept *invalid* values.  This especially applies to ``NO_BIRTHNO``
+    and ``PASSNR``.
+
+    Should invalid values be ignored?  And if so, should secondary values from
+    the lookup order be considered?
+
 
 Example use
-============
+------------
 A typical use case for this module is to look up given id-types for persons
 using the default system lookup order:
 ::
@@ -62,23 +79,24 @@ using the default system lookup order:
     id_cache.cache_all()
 
     def get_ldap_object(account):
-        ids = id_cache.get(account.owner_id)
+        owner_idents = id_cache.get(account.owner_id)
         return {
-            'norEduPersonNIN': select_nin.get_best_value(ids),
-            'uioPassportNumber': select_passport.get_best_value(ids),
+            'norEduPersonNIN': select_nin.get_best_value(owner_idents),
+            'uioPassportNumber': select_passport.get_best_value(owner_idents),
             ...
         }
 
-Alternate exmaple use case - create cache with all personal identifiers, and
+Alternative example - create a cache with all personal identifiers, and
 use it to select system specific identifiers:
+::
 
     id_cache = ExternalIdCache(db, entity_types=(co.entity_person,))
     id_cache.cache_all()
 
     select_system_ids = ExternalIdSelector([
-        (const.externalid_dfo_pid, const.system_dfo_sap),
-        (const.externalid_greg_pid, const.system_greg),
-        (const.externalid_studentnr, const.system_fs),
+        (const.system_dfo_sap, const.externalid_dfo_pid),
+        (const.system_greg, const.externalid_greg_pid),
+        (const.system_fs, const.externalid_studentnr),
     ])
 
     def get_system_ids(person):
@@ -115,19 +133,19 @@ logger = logging.getLogger(__name__)
 
 
 def get_source_system_types(co, values):
-    """ Look up a sequence of _AuthoritativeSystemCode values. """
+    """ Helper to look up a sequence of _AuthoritativeSystemCode values. """
     for value in values:
         yield co.get_constant(Constants._AuthoritativeSystemCode, value)
 
 
 def get_id_types(co, values):
-    """ Look up a sequence of _EntityExternalIdCode values. """
+    """ Helper to look up a sequence of _EntityExternalIdCode values. """
     for value in values:
         yield co.get_constant(Constants._EntityExternalIdCode, value)
 
 
 def get_entity_types(co, values):
-    """ Look up a sequence of _EntityTypeCode values. """
+    """ Helper to look up a sequence of _EntityTypeCode values. """
     for value in values:
         yield co.get_constant(Constants._EntityTypeCode, value)
 
@@ -156,11 +174,19 @@ class ExternalIdFetcher(base.EntityFetcher):
     """
     Fetch external id data.
 
-    :type id_types: collection of _EntityExternalIdCode, or None
-    :type source_systems: collection of _AuthoritativeSystemCode, or None
-    :type entity_types: collection of _EntityTypeCode, or None
+    Fetches `ID objects`_, optionally limited to specific id types, source
+    systems, or entity types.  Mainly a source for :class:`.ExternalIdCache`,
+    but can be used to implement specific external id lookups when caching is
+    not wanted.
     """
+
     def __init__(self, db, id_types, source_systems, entity_types):
+        """
+        :type db: Cerebrum.database.Database
+        :type id_types: collection of _EntityExternalIdCode, or None
+        :type source_systems: collection of _AuthoritativeSystemCode, or None
+        :type entity_types: collection of _EntityTypeCode, or None
+        """
         self._db = db
         self._const = Factory.get("Constants")(db)
         self.id_types = (
@@ -220,14 +246,14 @@ class ExternalIdFetcher(base.EntityFetcher):
             yield (data['entity_id'], data)
 
     def get_one(self, entity_id):
-        """ Fetch authentication data for one account. """
+        """ Fetch external id data for one entity. """
         entity_data = []
         for _, id_data in self._get_results(entity_id=int(entity_id)):
             entity_data.append(id_data)
         return entity_data or base.MISSING
 
     def get_all(self):
-        """ Fetch authentication data for all accounts. """
+        """ Fetch external id data for all matching entities. """
         results = {}
         for entity_id, id_data in self._get_results():
             values = results.setdefault(int(entity_id), [])
@@ -241,9 +267,29 @@ class ExternalIdFetcher(base.EntityFetcher):
 
 
 class ExternalIdSelector(object):
-    """ Filter and sort external id data by priority.  """
+    """
+    Filter and sort external id data by priority.
+
+    This callable object can be used to prioritize `ID objects`_ from an
+    :class:`.ExternalIdCache` or :class:`.ExternalIdFetcher`.
+
+    This will filter out unwanted results (e.g. when the cache contains more
+    objects than we want for a given purpose), and select the most appropriate
+    value (e.g. when the cache contains ids from all available sources).
+    """
 
     def __init__(self, selector_pairs):
+        """
+        :type selector_pairs: iterable[tuple]
+        :param selector_pairs:
+            An ordered sequence of (source system, id type) pairs.
+
+            The selector will only include results that matches these
+            values, and in the same order as given by these values.
+
+            The source system and id type must be CerebrumCode objects of the
+            right type.
+        """
         selector_pairs = tuple(selector_pairs)
         _check_constants(
             set(sys for sys, _ in selector_pairs),
@@ -256,7 +302,7 @@ class ExternalIdSelector(object):
             code_hint="external id",
         )
 
-        # Only include these combinatinos
+        # Only include these combinations
         self._include_pairs = include_pairs = set(selector_pairs)
 
         # Sanity check for duplicates
@@ -274,7 +320,15 @@ class ExternalIdSelector(object):
         ))
 
     def __call__(self, results):
-        """ Sort and filter a sequence of results """
+        """
+        Filter and sort results.
+
+        :type results: iterable[dict]
+        :param results: An iterable of ID objects to filter and sort
+
+        :rtype: list[dict]
+        :returns: A sorted list of matching ID objects.
+        """
         matches = [
             m for m in results
             if (m['source_system'], m['id_type']) in self._include_pairs
@@ -287,7 +341,13 @@ class ExternalIdSelector(object):
         Select a single match from a set of values.
 
         The result does not include the source system or id type.  This only
-        makes sense for selectors with a single id_type.
+        makes sense for selectors that include a single id-type.
+
+        :type values: iterable[dict]
+        :param values: An iterable of ID objects to select from
+
+        :rtype: str or None
+        :returns: The best (first) match according to this selector
         """
         for match in self(values):
             return match['id_value']
@@ -303,12 +363,8 @@ class ExternalIdCache(base.EntityCache):
     """
     External id data cache.
 
-    The cache can optionally limit results to specific id types,
-    source systems, and/or entity_types.
-
-    :type id_types: collection of _EntityExternalIdCode, or None
-    :type source_systems: collection of _AuthoritativeSystemCode, or None
-    :type entity_types: collection of _EntityTypeCode, or None
+    Cache all external ids, or a subset of all external ids.  Arguments are
+    passed through to the underlying :class:`.EntityFetcher`.
     """
     def __init__(self, db, id_types=None, source_systems=None,
                  entity_types=None):
@@ -318,7 +374,16 @@ class ExternalIdCache(base.EntityCache):
 
     @classmethod
     def from_selector(cls, db, selector, *selectors):
-        """ Create a cache with values from the given selector(s). """
+        """
+        Create a cache with values for the given selector(s).
+
+        :type db: Cerebrum.database.Database
+        :type selector: ExternalIdSelector
+
+        :rtype: ExternalIdCache
+        :returns:
+            A cache with id types and source systems from the selector(s).
+        """
         id_types = set()
         source_systems = set()
         for sel in (selector,) + selectors:
