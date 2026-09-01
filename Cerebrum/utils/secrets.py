@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2020-2024 University of Oslo, Norway
+# Copyright 2020-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,18 +17,29 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-# Copyright 2002-2015 University of Oslo, Norway
 """
 Utilities for fetching passwords and other secrets.
 
-This module contains *handlers* for various sources of secret/protected
-information, like passwords or keys.  Each *handler* takes a single argument,
-but some sources may require many arguments to be serialized into a single
-argument string (e.g. legacy-file).
+This module contains *handlers* for various `sources`_ of secret/protected
+information, like passwords or keys.
+
+To look up a given secret in code:
+
+>>> get_secret('plaintext', 'hunter2')
+'hunter2'
+
+To look up a secret from e.g. config value (or other `secret strings`_):
+
+>>> get_secret_from_string('plaintext:hunter2')
+'hunter2'
 
 
 Sources
 -------
+Each source is implemented by a *handler* function that takes a single
+argument.  Some handlers will require multiple argument values, which must be
+serialized into a single argument string (e.g. legacy-file).
+
 file
     Specify the full path to a file with secret data. Trailing newlines are
     removed.  Example argument: ``"/path/to/example-file"``
@@ -42,7 +53,7 @@ legacy-file
     parameters as the legacy ``read_password`` function.
 
     Note that legacy files contain both a username (for sanity check) and a
-    password, separated by a tab character.  This means that passord files
+    password, separated by a tab character.  This means that password files
     formatted for legacy-file cannot be fetched using e.g. ``auth-file``
     without further processing.
 
@@ -54,22 +65,16 @@ legacy-file
 plaintext
     Provide a plaintext secret, as is.  Useful in configuration files where
     providing the plaintext secret is OK (e.g. mock values for tests).  Example
-    argument: ``"hunter2``.
-
-
-To look up a given secret using a given source:
-
->>> get_secret('plaintext', 'hunter2')
-'hunter2'
+    argument: ``"hunter2"``.
 
 
 Secret strings
 --------------
-Secret strings makes it possible to encode *source* and a *source-argument* as
+Secret strings make it possible to encode *source* and a *source-argument* as
 a single string value, with format ``<source>:<source-argument>``.
 
-This is typically used in config files to allow multiple types of lookup of
-secrets:
+This is typically used in config files, which allows operators to choose how
+passwords should be stored and fetched:
 
 >>> config = {"user": "AzureDiamond", "pass": "plaintext:hunter2"}
 >>> get_secret_from_string(config["pass"])
@@ -87,11 +92,12 @@ Other examples:
 
 History
 -------
-py:func:`.legacy_read_password` was moved here from
+:func:`.legacy_read_password` was moved here from
 ``Cerebrum.Utils.read_password``.  The original function can be seen in:
 
     Commit: d677e7c86851181f29cf9374db57c45c18fbc375
     Date:   Wed Aug 31 14:13:51 2022 +0200
+
 """
 from __future__ import (
     absolute_import,
@@ -116,8 +122,8 @@ def legacy_read_password(user, system, host=None, encoding='utf-8'):
 
     In practice, this function just reads one of:
 
-        <cereconf.DB_AUTH_DIR>/passwd-<user>@<system>
-        <cereconf.DB_AUTH_DIR>/passwd-<user>@<system>@<host>
+    - ``<cereconf.DB_AUTH_DIR>/passwd-<user>@<system>``
+    - ``<cereconf.DB_AUTH_DIR>/passwd-<user>@<system>@<host>``
 
     ... the latter being used if a *host* value was given.
     """
@@ -153,6 +159,7 @@ def legacy_read_password(user, system, host=None, encoding='utf-8'):
 
 
 sources = DecoratorMap()
+""" Register of implemented `sources`_ and source handlers. """
 
 
 @sources.register('file')
@@ -160,14 +167,14 @@ def _read_secret_file(value):
     """
     Read secret from file.
 
-    This assumes that the file is an utf-8 encoded file on disk.
+    This assumes the file is UTF-8 encoded.
 
     :param str value:
         Filename for fetching a secret.
     """
     filename = value
     logger.debug("reading secret from filename=%s", repr(filename))
-    with io.open(filename, mode='r', encoding='utf8') as f:
+    with io.open(filename, mode='r', encoding='utf-8') as f:
         secret = f.read().rstrip('\n')
         if not secret:
             logger.warning("empty secret in filename=%s", repr(filename))
@@ -179,7 +186,7 @@ def _read_secret_auth_file(value):
     """
     Read secret from file in ``cereconf.DB_AUTH_DIR``.
 
-    Otherwise exactly like :func:`._read_secret_file`
+    Otherwise exactly like :func:`._read_secret_file`.
 
     :param str value:
         Filename for fetching a secret.
@@ -191,7 +198,7 @@ def _read_secret_auth_file(value):
 @sources.register('legacy-file')
 def _read_legacy_password_file(value):
     """
-    Read a legacy password file.
+    Read a secret from a legacy password file.
 
     The value should follow the format ``<user>@<system>[@<host>]``.  The
     secret itself is fetched using :func:`.legacy_read_password`, which looks
@@ -218,7 +225,7 @@ def get_handler(source):
     Fetch a given source handler.
 
     :param source:
-        One of the methods for fetching a secret (as provided by ``sources``).
+        One of the methods for fetching a secret (see sources_).
 
     :rtype: callable
     """
@@ -233,13 +240,13 @@ def get_secret(source, value):
     Fetch a secret from a given source.
 
     :param source:
-        One of the methods for fetching a secret (as provided by ``sources``).
+        One of the methods for fetching a secret (see sources_).
 
     :param value:
-        A string argument to pass to the given ``source``.
+        A string argument to pass to the given *source* handler.
 
     :rtype: str
-    :returns: Returns a matching secret
+    :returns: The secret value.
     """
     logger.debug("fetching secret of type=%s", repr(source))
     handler = get_handler(source)
@@ -248,12 +255,12 @@ def get_secret(source, value):
 
 def split_secret_string(raw_value):
     """
-    Split raw secrets string value into (source, args) tuple.
+    Split a secret string into source and argument.
 
     :param raw_value: A text string with format "<source>:<value>".
 
-    :rtype: tuple
-    :returns: Returns a pair with "<source>" and "<value>"
+    :rtype: tuple[str, str]
+    :returns: A (source, value) pair.
     """
     source, sep, source_arg = raw_value.partition(':')
     if not sep:
@@ -264,10 +271,10 @@ def split_secret_string(raw_value):
 
 def get_secret_from_string(raw_value):
     """
-    Lookup secret from "<source>:<args>" string.
+    Lookup secret from a "<source>:<args>" string.
 
     :rtype: str
-    :returns: The secret from the given source
+    :returns: The secret from the given source.
     """
     source, arg = split_secret_string(raw_value)
     return get_secret(source, arg)

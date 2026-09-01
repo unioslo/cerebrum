@@ -30,7 +30,7 @@ accounts.
 
 
 Add support for notes
----------------------
+=====================
 1. Add schema (``design/mod_note.sql``)
 2. Add constants
 3. Add mixin to appropriate entity types
@@ -46,7 +46,7 @@ Configuration
     ::
 
         CLASS_CLCONSTANTS = [
-          "Cerebrum.modules.entity_note.note_constants.NoteChangeCodes",
+          "Cerebrum.modules.entity_note.note_constants/NoteChangeCodes",
           "Cerebrum.Constants/CLConstants",
         ]
 
@@ -58,7 +58,7 @@ Configuration
     ::
 
         CLASS_CONSTANTS = [
-          "Cerebrum.modules.entity_note.note_constants.BofhdNoteConstants",
+          "Cerebrum.modules.entity_note.note_constants/BofhdNoteConstants",
           "Cerebrum.Constants/Constants",
         ]
 
@@ -72,7 +72,7 @@ Configuration
     ::
 
         CLASS_ACCOUNT = [
-          "Cerebrum.modules.entity_note.note_mixins.EntityNoteMixin",
+          "Cerebrum.modules.entity_note.note_mixins/EntityNoteMixin",
           "Cerebrum.Account/Account",
         ]
 
@@ -94,7 +94,7 @@ Bofhd
 
 
 Caveats
--------
+=======
 Deleting note entities
     Entities with notes attached to them cannot be deleted unless one of the
     note mixins are in use for that entity.

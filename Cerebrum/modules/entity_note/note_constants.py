@@ -18,9 +18,8 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
-Base constant types and constants related to entity_note
+Constants related to entity_note.
 """
-
 from __future__ import (
     absolute_import,
     division,
@@ -32,43 +31,43 @@ from Cerebrum.Constants import (
     _ChangeTypeCode,
     CLConstants,
     ConstantsBase,
-    _CerebrumCodeWithEntityType,
 )
 from Cerebrum.modules.bofhd.bofhd_constants import _AuthRoleOpCode
-
-
-class _EntityNoteCode(_CerebrumCodeWithEntityType):
-    """
-    Code values for entity traits, used in table entity_trait
-    """
-    _lookup_table = '[:table schema=cerebrum name=entity_note]'
 
 
 class NoteChangeCodes(CLConstants):
     """
     Note-related change type codes for ChangeLog implementations.
     """
+
     entity_note_add = _ChangeTypeCode(
-        'entity_note', 'add', 'add entity_note for %(subject)s',
-        ('note_id=%(int:note_id)s',))
+        'entity_note', 'add',
+        'add entity_note for %(subject)s',
+        ('note_id=%(int:note_id)s',),
+    )
+
     entity_note_del = _ChangeTypeCode(
-        'entity_note', 'remove', 'del entity_note for %(subject)s',
-        ('note_id=%(int:note_id)s',))
+        'entity_note', 'remove',
+        'del entity_note for %(subject)s',
+        ('note_id=%(int:note_id)s',),
+    )
 
 
 class BofhdNoteConstants(ConstantsBase):
     """
-    note related constants.
+    Note-related constants for bofhd.
     """
 
     auth_entity_note_add = _AuthRoleOpCode(
         "entity_note_add",
         "Add notes to entities",
     )
+
     auth_entity_note_remove = _AuthRoleOpCode(
         "entity_note_remove",
         "Remove notes from entities",
     )
+
     auth_entity_note_show = _AuthRoleOpCode(
         "entity_note_show",
         "View notes on entities",

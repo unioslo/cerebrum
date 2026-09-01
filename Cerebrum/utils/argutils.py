@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2018-2024 University of Oslo, Norway
+# Copyright 2018-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,7 +17,9 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" Utilities for use with argparse. """
+"""
+Extensions and helpers for :mod:`argparse`.
+"""
 import argparse
 import codecs
 import locale
@@ -36,7 +38,22 @@ from Cerebrum.Utils import Factory
 
 
 class UnicodeType(object):
-    """ Argparse transform for non-unicode input. """
+    """
+    Argparse transform for non-unicode input.
+
+    Use this with argparse "store"-actions to decode bytestring values to
+    unicode.
+
+    >>> text_type = UnicodeType("utf-8")
+    >>> text_type(b"my argument")
+    "my argument"
+
+    Example use:
+    ::
+
+        ArgumentParser().add_argument("--my-str", type=UnicodeType("utf-8"))
+
+    """
 
     def __init__(self, encoding=None):
         if encoding is None:
@@ -67,7 +84,21 @@ class UnicodeType(object):
 
 
 class IntegerType(object):
-    """ Argparse transform for integers, with optional limits. """
+    """
+    Argparse transform for integers, with optional limits.
+
+    Use this with argparse "store"-actions to enforce value limits:
+
+    >>> some_type = IntegerType(minval=0, maxval=3)
+    >>> some_type("2")
+    2
+
+    Commonly used in place of ``type=int`` to disallow negative numbers:
+    ::
+
+        ArgumentParser().add_argument("--my-int", type=IntegerType(minval=0))
+
+    """
 
     def __init__(self, minval=None, maxval=None):
         self.minval = int(minval) if minval is not None else None
@@ -87,20 +118,21 @@ class IntegerType(object):
 
 
 def attr_type(obj, type_func=None, attr_func=None):
-    """ Get value as an attribute from `obj`.
+    """
+    Get value as an attribute from `obj`.
 
     :param object obj: An object to fetch the attribute value from
-    :param callable type_func: An additional transform for the attribute value
-    :param callable attr_func: A tranform for the attribute before fetching
+    :param callable type_func: transform the attribute value
+    :param callable attr_func: transform the attribute name
 
     Example:
 
     >>> o = type('example', (object, ), {'FOO': '1'})()
-    >>> argparse.ArgumentParser().add_argument(
-    ...     type=attr_type(o, type_func=int, attr_func=lambda x: x.upper()))
+    >>> get_attr = attr_type(o, type_func=int, attr_func=lambda x: x.upper())
+    >>> get_attr("foo")
+    1
 
-    This function is mainly useful for fetching values from `cereconf`,
-    `eventconf`, etc...
+    This function can be useful for fetching values from e.g. ``cereconf``:
 
     """
     def get(value):
@@ -119,10 +151,11 @@ def attr_type(obj, type_func=None, attr_func=None):
 
 
 def codec_type(encoding):
-    """ Argparse transform for encoding.
+    """
+    Argparse transform for encoding.
 
     >>> argparse.ArgumentParser().add_argument(
-    ...    '--encoding', type=codec_type, default='utf-8'))
+    ...    '--encoding', type=codec_type, default='utf-8')
 
     """
     try:
@@ -140,12 +173,14 @@ def codec_type(encoding):
 
 
 class ParserContext(object):
-    """ Perform argument validation on the context of an argument parser.
+    """
+    Perform argument validation on the context of an argument parser.
 
     If an exception is raised in the ParserContext, the script will exit with
     a parser error.
 
     Typical usage:
+    ::
 
         parser = argparse.ArgumentParser()
         foo_arg = parser.add_argument('--foo')
@@ -180,10 +215,12 @@ class ParserContext(object):
 
 
 def get_constant(db, parser, const_types, value, argument=None):
-    """ Get an exising constant.
+    """
+    Get a Cerebrum constant.
 
-    NOTE: This function triggers the argparse error handler (exists by default)
-          if the constant does not exist.
+    .. note::
+       This function triggers the argparse error handler (exits by default) if
+       the constant does not exist.
 
     :type db: Cerebrum.database.Database
     :type parser: argparse.ArgumentParser
@@ -211,16 +248,26 @@ def get_constant(db, parser, const_types, value, argument=None):
 
 
 class ExtendAction(argparse.Action):
-    """ Like the 'append'-action, but uses `list.extend`.
+    """
+    Extend namespace with a sequence of argument values.
 
-    This means that the `type` argument should be set to something that returns
-    a sequence of items to add to the namespace value.
+    .. note::
+       This now exists as a builtin "extend" action in Python >= 3.8.
 
-    This action should generally *not* be used in new scripts, as it's
-    preferrable to use multiple append-actions to achieve the same result.
-    This is mainly to preserve backwards compatibility in legacy scripts.
+    This action is similar to the builtin "append" action, but uses
+    :meth:`list.extend` to add multiple arguments to a multivalued ``dest``.
+
+    This means that the argument should produce a sequence of items, either by
+    using a custom ``type``, or by allowing for multiple values with e.g.
+    ``nargs="+"``.
+
+    This action should *not* be used in new scripts, as it's preferable to use
+    multiple append-actions to achieve the same result.  This exists mainly to
+    preserve backwards compatibility in legacy scripts.
 
     Example:
+    ::
+
         parser = argparse.ArgumentParser()
         parser.add_argument(
             '--items',
@@ -251,24 +298,22 @@ class ExtendAction(argparse.Action):
 
 
 class ExtendConstAction(argparse.Action):
-    """ Like ExtendAction, but adds constants to the list.
+    """
+    Extend namespace with a sequence from a constant.
 
-    Typical usage is to collect a sequence of things to do using switches.
+    This is essentially an "extend_const" action, and can be used to add e.g.
+    a *preset* to a multivalued ``dest``.
+    ::
 
-    Example:
         parser = argparse.ArgumentParser()
+        parser.add_argument("--item", action="append", dest="items")
         parser.add_argument(
-            '--preset-a',
-            dest='items',
+            "--default-items",
             action=ExtendConstAction,
-            const=['foo', 'bar', 'baz'],
+            dest="items",
+            const=["foo", "bar", "baz"],
         )
-        parser.add_argument(
-            '--preset-b',
-            dest='items',
-            action=ExtendConstAction,
-            const=['bar', 'baz'],
-        )
+
     """
 
     def __init__(self, option_strings, dest, const, default=None,
@@ -293,13 +338,18 @@ class ExtendConstAction(argparse.Action):
         setattr(namespace, self.dest, items)
 
 
-def add_commit_args(parser, default=False, commit_desc=None):
-    """ Add --commit and --dryrun arguments to parser.
+#
+# other helpers
+#
 
-    :param parser: argument parser or argument group
-    :param default: commit by default if True
-    :param commit_desc: use a custom description for commit argument
-    :type commit_desc: unicode
+
+def add_commit_args(parser, default=False, commit_desc=None):
+    """
+    Add --commit and --dryrun arguments to a parser.
+
+    :type parser: argparse.ArgumentParser
+    :param bool default: commit by default if True
+    :param str commit_desc: use a custom description for commit argument
     """
 
     commit_mutex = parser.add_mutually_exclusive_group()

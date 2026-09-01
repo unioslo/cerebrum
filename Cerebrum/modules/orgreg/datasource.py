@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2022 University of Oslo, Norway
+# Copyright 2022-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,34 +18,44 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
-Parsing and normalization utils for org unit data from Orgreg.
+Parse and normalize Orgreg data.
 
-Really only provides *one* useful function: py:func:`.parse_org_unit`.  This
-function should be used to turn org unit info (/ou/{id} json response from the
-Orgreg API) into a dict with only the relevant bits.  It will:
+This module can be used to ensure that we have a *sane* response from Orgreg,
+and data that is easy to work with.
 
-1. Validate certain data fields, e.g. require `ouId` to be non-empty, require
-    any date fields to be valid ISO-8601 dates (if given)
+This is typically done using the :func:`.parse_org_unit` function, which will:
 
-2. Normalize wanted data, e.g. turn ISO8601 date strings into `datetime.date`
-    objects, normalize text data to Unicode NFC
+Validate data
+    E.g. require ``ouId`` to be non-empty, require date fields to be valid
+    ISO-8601 formatted strings (if given).
 
-3. Filter out unwanted data and re-organize data structure, e.g. remove
-    `order`, `startDate`, and other unused fields
+Normalize data
+    E.g. turn ISO-8601 date strings into :class:`datetime.date` objects,
+    normalize text data to Unicode NFC.
+
+Filter data
+    Filter out unwanted data fields, e.g. org unit ``order`` and ``startDate``
+
+Re-organize data
+    Ensure that objects (addresses, external ids, localized names) follow a
+    given structure.
+
+The input data is typically a :class:`dict` with the JSON-response from
+:meth:`.client.OrgregClient.get_org_unit`.
 """
-from __future__ import absolute_import, unicode_literals
-
-import logging
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 from Cerebrum.utils import date as date_utils
 from Cerebrum.utils import textnorm
 
 
-logger = logging.getLogger(__name__)
-
-
 def parse_orgreg_date(value, allow_empty=False):
-    """ Get a date object from an Orgreg date string. """
+    """ Parse and normalize a date string from Orgreg. """
     if not value or not value.strip():
         if allow_empty:
             return None
@@ -71,7 +81,7 @@ def normalize_text(value, allow_empty=False):
 
 def parse_orgreg_address(d):
     """
-    Parse an Orgreg (org unit) address object.
+    Parse and normalize an address object from Orgreg.
 
     Examples:
 
@@ -97,25 +107,25 @@ def parse_orgreg_address(d):
     return addr
 
 
-# Orgreg three-letter language code to Cerebrum two-letter language code.  We
-# only need to include languages we want available to the mapper.  The language
-# codes seems to match ISO-639-2 and ISO-639-1, but who knows if that holds
-# true if more languages are ever added...
-#
-# This language code mapping and filtering should *probably* be done in a
-# mapper, but this is easier.
 LANGUAGE_MAP = {
     'eng': 'en',
     'nno': 'nn',
     'nob': 'nb',
 }
+"""
+Language mapping for localized data.
+
+Maps Orgreg three-letter language code to Cerebrum two-letter language code
+(ISO-369-2 to ISO-369-1).
+
+We only need to include languages we want available to the mapper function,
+:func:`.parse_localized_data`.  Any language missing from this will be ignored.
+"""
 
 
 def parse_localized_data(d):
     """
-    Parse and and extract localized texts from an orgreg object.
-
-    Examples:
+    Parse and normalize a localized text object from Orgreg.
 
     >>> parse_localized_data(None)
     {'nb': None, 'nn': None, 'en': None}
@@ -132,7 +142,7 @@ def parse_localized_data(d):
 
 
 def parse_external_id(d):
-    """ Normalize external ids from an orgreg object. """
+    """ Parse and normalize an external id object from Orgreg. """
     return {
         'type': normalize_text(d['type']),
         'sourceSystem': normalize_text(d['sourceSystem']),
@@ -141,15 +151,13 @@ def parse_external_id(d):
 
 
 def parse_org_unit(d):
-    """
-    Validate and normalize an org unit from Orgreg.
-    """
+    """ Parse and normalize an org unit object from Orgreg. """
     return {
         'ouId': int(d['ouId']),
         'hierarchy': normalize_text(d['hierarchy']),
-        # NOTE: parent may be set to 0 for root org units, or just missing.
-        # Let's make that a bit more explicit by setting `None` to represent
-        # "no parent".
+        # Parent may be set to 0 for root org units, or just missing.  Let's
+        # make that a bit more explicit by setting `None` to represent "no
+        # parent":
         'parent': (int(d['parent']) if 'parent' in d else None) or None,
         'children': tuple(int(c) for c in d['children']),
 

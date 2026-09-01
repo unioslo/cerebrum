@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2024 University of Oslo, Norway
+# Copyright 2024-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,17 +18,19 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
-Simple RFC-2046 MIME Content-Type parser.
+Simple RFC-2046 mime-type parsing and formatting.
 
-The main purpose behind having a content-type parser, is the ability to extract
-a `charset` parameter for decoding "text/plain" data:
+The mime-type format is typically used in ``Content-Type`` headers and fields
+when transporting data, e.g. in the HTTP Content-Type header and the AMQP
+content-type message property.
 
+The main use case for this module is to help extracting a *charset* parameter
+for decoding *text/plain* data:
 ::
-    charset = get_charset(obj.headers['content-type'])
+
+    charset = get_charset(obj.headers['content-type'], default="latin-1")
     text = obj.body.decode(charset)
 
-The MIME specification is also used for e.g. the HTTP Content-Type header and
-the AMQP content-type message property.
 """
 from __future__ import (
     absolute_import,
@@ -36,7 +38,6 @@ from __future__ import (
     print_function,
     unicode_literals,
 )
-
 import sys
 
 import six
@@ -75,19 +76,19 @@ else:
         r"""
         Remove comment part from property values.
 
-        This is a hacky fix for missing comment support in Python 2.
+        This is a hacky fix to remove comments from parameters, as the only
+        proper parser in the Python 2 standard library fails to handle comments
+        correctly.
 
-        This isn't a generic fix, because property values *could* potentially
-        have values that looks like comments, but aren't (if quoted properly).
+        Without this hack, the content-type value ``text/plain; charset="utf-8"
+        (Plain Text)``, would have charset ``'"utf-8" (Plain Text)'``, when in
+        reality it *should* have charset ``'utf-8'``.
 
-        E.g. the content-type: ``text/plain; charset="utf-8" (Plain Text)``,
-        would have charset ``'"utf-8" (Plain Text)'``, but *should* have:
-        charset ``'utf-8'``.
-
-        However, ``text/plain; charset="\"utf-8\" (Plain Text)"`` is valid
-        content-type syntax where the charset value is actually
-        '"utf-8" (Plain Text)'``.  This function will incorrectly remove the
-        part that looks like a comment from the property.
+        Parameter values can contain values that look like comments, but aren't
+        (if quoted properly).  This fix will incorrectly remove those
+        comment-like substrings from the actual parameter value.  E.g.
+        ``text/plain; charset="\"utf-8\" (Plain Text)"`` is valid content-type
+        syntax where the charset value is actually ``'"utf-8" (Plain Text)'``.
         """
         if " (" in value:
             value = value.split(" (")[0].rstrip()
@@ -110,14 +111,17 @@ else:
 
 def parse_mime_type(value):
     """
-    Parse mime-type into its component parts.
+    Parse a mime-type string into its component parts.
 
     >>> parse_mime_type("text/plain; charset=utf-8")
     ('text', 'plain', {'charset': 'utf-8'})
 
     :param str value: a mime-type string
-    :returns tuple: a tuple with (type, subtype, parameters)
-    :raises ValueError: If the input value is not a valid mime-type
+
+    :rtype: tuple[str, str, dict]
+    :returns: a tuple with (media type, media subtype, parameters)
+
+    :raises ValueError: if the input value is not properly formatted
     """
     m_type, m_subtype = _extract_media_type(value)
     params = _extract_params(value)
@@ -126,7 +130,7 @@ def parse_mime_type(value):
 
 def get_charset(value, default=None):
     """
-    Extract 'charset' from a mime-type like string.
+    Extract 'charset' from a mime-type string.
 
     >>> get_charset("text/plain; charset=utf-8")
     "utf-8"
@@ -134,8 +138,9 @@ def get_charset(value, default=None):
     "latin-1"
 
     :param str value: a mime-type string
-    :param default: a default value if no valid charset is given
-    :returns: the charset, or the default value if not charset is found
+    :param default: a default value if no charset is given (see RFC-6657)
+
+    :returns: the charset, or the default value if no charset is found
     """
     try:
         _, _, params = parse_mime_type(value)
@@ -144,15 +149,20 @@ def get_charset(value, default=None):
     return params.get('charset') or default
 
 
-# Special RFC-2045 chars that needs quoting
 TSPECIALCS = "()<>@,;:\\\"/[]?="
+""" RFC-2045 special characters (requires quoting). """
 
 
 def quote_string(value):
     """
     Quote a parameter string value if needed.
 
-    This formats a RFC-822 quoted-string with TSPECIALS from RFC-2045
+    This formats an RFC-822 quoted-string with TSPECIALS from RFC-2045.
+
+    >>> quote_string("utf-8")
+    'utf-8'
+    >>> quote_string("foo; bar;")
+    '"foo; bar;"'
     """
     if not value or " " in value or any(ch in value for ch in TSPECIALCS):
         # We must quote
@@ -164,9 +174,10 @@ def quote_string(value):
 
 @six.python_2_unicode_compatible
 class MimeType(object):
-    """ Mime type object. """
+    """ Object representation of a mime-type. """
 
     def __init__(self, media_type, media_subtype, parameters=None):
+        # We enforce lowercase for the media type, for consistency.  RFC-2046:
         # "The type, subtype, and parameter names are not case sensitive."
         self.media_type = media_type.lower()
         self.media_subtype = media_subtype.lower()
@@ -176,6 +187,8 @@ class MimeType(object):
 
     @property
     def content_type(self):
+        """ The media type and subtype as 'type/subtype'. """
+        # TODO: This property should probably be renamed to `media`
         return "{media_type}/{media_subtype}".format(
             media_type=self.media_type,
             media_subtype=self.media_subtype,
@@ -183,11 +196,14 @@ class MimeType(object):
 
     @classmethod
     def from_string(cls, value):
+        """ Parse a mime-type string into a MimeType object. """
         media_type, media_subtype, parameters = parse_mime_type(value)
         return cls(media_type, media_subtype, parameters)
 
     def __str__(self):
-        # "The ordering of parameters is not significant."
+        """ str(MimeType) -> mime-type string. """
+        # We sort the values for consistent results.  RFC-2046: "The ordering
+        # of parameters is not significant."
         params = [
             "{}={}".format(attr, quote_string(value))
             for attr, value in sorted(self.parameters.items())
@@ -195,9 +211,10 @@ class MimeType(object):
         return "; ".join([self.content_type] + params)
 
     def __repr__(self):
+        """ repr(MimeType) -> object representation. """
         return "<MimeType {}>".format(six.text_type(self))
 
 
 def format_mime_type(media_type, media_subtype, parameters=None):
-    """ Format a mime type header. """
+    """ Format a mime-type string. """
     return six.text_type(MimeType(media_type, media_subtype, parameters))

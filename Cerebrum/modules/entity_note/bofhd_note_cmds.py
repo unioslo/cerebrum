@@ -17,7 +17,9 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""Commands for BOFHD EntityNote functionality."""
+"""
+Bofhd commands for managing notes on entities.
+"""
 from __future__ import (
     absolute_import,
     division,
@@ -50,6 +52,7 @@ from . import note_db
 
 
 class EntityNoteBofhdAuth(BofhdAuth):
+    """ Authorization checks for managing notes. """
 
     def can_add_notes(self, operator, query_run_any=False):
         if self.is_superuser(operator):
@@ -97,6 +100,7 @@ class BofhdNoteCommands(BofhdCommonMethods):
 
     @classmethod
     def get_help_strings(cls):
+        """ Get help texts for the note commands. """
         return merge_help_strings(
             get_help_strings(),
             (_help_grp, _help_cmd, _help_arg),
@@ -122,6 +126,7 @@ class BofhdNoteCommands(BofhdCommonMethods):
     )
 
     def note_show(self, operator, _entity):
+        """ Command for showing all notes for a given entity. """
         entity = self.util.get_target(_entity, default_lookup="account",
                                       restrict_to=[])
 
@@ -170,6 +175,7 @@ class BofhdNoteCommands(BofhdCommonMethods):
     )
 
     def note_add(self, operator, _entity, subject, body):
+        """ Command for adding a new note to an entity. """
         entity = self.util.get_target(_entity, restrict_to=[])
         if len(subject) > 70:
             raise CerebrumError(
@@ -205,6 +211,7 @@ class BofhdNoteCommands(BofhdCommonMethods):
     )
 
     def note_remove(self, operator, _entity, _note_id):
+        """ Command for removing a given note from an entity. """
         entity = self.util.get_target(_entity, restrict_to=[])
         note_id = parse_note_id(_note_id)
 
@@ -260,7 +267,7 @@ class BofhdNoteCommands(BofhdCommonMethods):
     )
 
     def note_search(self, operator, *search_filters):
-        """ Search for notes. """
+        """ Command for listing notes, with optional search filters. """
         # parse args
         raw_filters = _note_filter_parser.parse_items(search_filters)
         filters = _note_filter_parser.map_params(self.db, self.const,
@@ -288,7 +295,7 @@ class BofhdNoteCommands(BofhdCommonMethods):
     )
 
     def note_list(self, operator, _entity, *search_filters):
-        """ List notes for a given entity, with optional filters. """
+        """ Command for listing notes attached to a given entity. """
         # parse args
         entity = self.util.get_target(_entity, restrict_to=[])
         raw_filters = _note_filter_parser.parse_items(search_filters)
@@ -309,7 +316,7 @@ class BofhdNoteCommands(BofhdCommonMethods):
     #
     # note details <note-id>
     #
-    # Get note details - shows a single note in an email-like manne
+    # Get note details - shows a single note in an email-like manner
     #
     all_commands['note_details'] = Command(
         ("note", "details"),
@@ -341,7 +348,7 @@ class BofhdNoteCommands(BofhdCommonMethods):
     )
 
     def note_details(self, operator, _note_id):
-        """ Show a given note + note metadata. """
+        """ Command for showing a given note, with all metadata. """
         # parse args
         note_id = parse_note_id(_note_id)
 
@@ -370,6 +377,7 @@ class BofhdNoteCommands(BofhdCommonMethods):
 
 
 def parse_note_id(value):
+    """ Parse and validate a note id. """
     error = CerebrumError("Invalid note id: " + repr(value))
     try:
         note_id = int(value)
@@ -393,7 +401,7 @@ def _get_entity_by_id(db, entity_id):
 
 
 def _row_to_note(row):
-    """ format a note object for command reposnses. """
+    """ format a note object for command responses. """
     return {
         'note_id': row['note_id'],
         'entity_id': row['entity_id'],
@@ -450,7 +458,7 @@ class NoteSearchParams(parsers.ParamsParser):
         'after': "Limit to notes created after <datetime>",
         'subject': "Limit to notes with a subject matching <ipattern>",
         'body': "Limit to notes with a body matching <ipattern>",
-        # 'entity': "Limit to notes for a a given <entity>",
+        # 'entity': "Limit to notes for a given <entity>",
         # 'creator': "Limit to notes created by <entity>",
     }
     params = {
@@ -471,12 +479,14 @@ class NoteSearchParams(parsers.ParamsParser):
 
     @classmethod
     def translate_entity(cls, db, lookup):
+        """ Find an entity from a lookup value (not yet implemented). """
         # TODO: Implement some common utils for this
         # key, _, value = lookup.partition(":")
         raise NotImplementedError("entity lookup not supported yet")
 
     @classmethod
     def map_params(cls, db, const, params):
+        """ Translate search params that needs to be looked up. """
         params = dict(params)
 
         # Translate entity - not yet implemented

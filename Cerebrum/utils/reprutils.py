@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2021-2024 University of Oslo, Norway
+# Copyright 2021-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,16 +19,17 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 # Copyright 2002-2015 University of Oslo, Norway
 """
-Helper utils for implementing :py:meth:`object.__repr__`
+Helper utils for implementing object representation.
 
 This module contains mixin classes with basic, configurable, and reusable
-object representations.
+:meth:`object.__repr__` implementations.
 
 .. warning::
-    These ``__repr__()`` implementations have no recursion protection - make
-    sure to only use them for classes that cannot contain circular references.
+   These mixins do not provide recursion protection - make sure to only use
+   them for classes that cannot contain circular references.
 
-    This can be solved using `reprlib.recursive_repr` on Python 3
+   This can be solved using :func:`reprlib.recursive_repr` on Python 3
+
 """
 from __future__ import (
     absolute_import,
@@ -39,57 +40,58 @@ from __future__ import (
 
 class _Example(object):
     """ Example class for documentation, doctests. """
-
     def __init__(self, a=None, b=None):
         self.a = a
         self.b = b
 
 
 class ReprFieldMixin(object):
-    """ Object representation with selected attributes.
+    """
+    Object representation with selected values.
 
     Examples:
 
-    - ``<Baz a='text' b=3 c=None>``
-    - ``<foo.bar.Baz a='text' b=3 c=None>``
-    - ``<foo.bar.Baz a='text' b=3 c=None at 0x7f3ff7256ea0>``
+      - ``<Baz a='text' b=3 c=None>``
+      - ``<foo.bar.Baz a='text' b=3 c=None>``
+      - ``<foo.bar.Baz a='text' b=3 c=None at 0x7f3ff7256ea0>``
 
-    .. py:attribute:: repr_id
+    .. attribute:: repr_id
 
-        Controls inclusion of the object id (e.g. ``at 0x7f3ff7256ea0``).
-        ``True`` by default, but subclasses can set this to ``False``:
+       Include object id in repr.  ``True`` by default, which will include e.g.
+       ``at 0x7f3ff7256ea0`` to the repr, but subclasses can set this to
+       ``False`` for a more compact representation:
 
-            >>> class FieldsNoId(ReprFieldMixin):
-            ...     repr_id = False
+       >>> class FieldsNoId(ReprFieldMixin):
+       ...     repr_id = False
+       >>> repr(FieldsNoId())
+       '<Cerebrum.utils.reprutils.FieldsNoId>'
 
-            >>> repr(FieldsNoId())
-            '<Cerebrum.utils.reprutils.FieldsNoId>'
+    .. attribute:: repr_module
 
-    .. py:attribute:: repr_module
+       Include module name.  ``True`` by default, which will prepend the module
+       name to the class name, e.g. ``Cerebrum.utils.reprutils`` for classes in
+       this module.  Subclasses can set this to ``False`` for a more compact
+       representation:
 
-        Controls if the class name is prefixed by the module name (e.g.
-        ``Cerebrum.utils.reprutils`` for classes in this module).  ``True`` by
-        default, but subclasses can set this to ``False``.
+       >>> class FieldsNoModule(ReprFieldMixin):
+       ...     repr_module = False
+       >>> repr(FieldsNoModule())
+       '<FieldsNoModule at 0x...>'
 
-            >>> class FieldsNoModule(ReprFieldMixin):
-            ...     repr_module = False
+    .. attribute:: repr_fields
 
-            >>> repr(FieldsNoModule())
-            '<FieldsNoModule at 0x...>'
+       Attributes to include.  An ordered tuple of attribute names to include
+       in the object representation:
 
-    .. py:attribute:: repr_fields
+       >>> class FieldsFoo(_Example, ReprFieldMixin):
+       ...     repr_id = False
+       ...     repr_module = False
+       ...     repr_fields = ('a', 'b')
+       >>> repr(FieldsFoo(b=2))
+       '<FieldsFoo a=None b=2>'
 
-        Ordered tuple of attribute names to include in the object
-        representation:
-
-            >>> class FieldsFoo(_Example, ReprFieldMixin):
-            ...     repr_id = False
-            ...     repr_module = False
-            ...     repr_fields = ('a', 'b')
-
-            >>> repr(FieldsFoo(b=2))
-            '<FieldsFoo a=None b=2>'
     """
+
     repr_id = True
     repr_module = True
     repr_fields = ()
@@ -129,66 +131,70 @@ class ReprFieldMixin(object):
 
 
 class ReprEvalMixin(object):
-    """ Object representation with eval-like output.
+    """
+    Object representation with eval-like output.
 
     Examples:
 
-    - ``Baz('text', 3, None)``
-    - ``foo.bar.Baz('text', b=3, c=None)``
+      - ``Baz('text', 3, None)``
+      - ``foo.bar.Baz('text', b=3, c=None)``
 
-    .. py:attribute:: repr_module
 
-        See :py:attr:`ReprFieldMixin.repr_module`.
+    .. attribute:: repr_module
 
-    .. py:attribute:: repr_args
+       Include module name.  See :attr:`.ReprFieldMixin.repr_module`.
 
-        An ordered tuple of attribute names to use in the object
-        representation.
+    .. attribute:: repr_args
 
-            >>> class EvalArgs(_Example, ReprEvalMixin):
-            ...     repr_module = False
-            ...     repr_args = ('a', 'b')
-            >>> repr(EvalArgs(b=2))
-            'EvalArgs(None, 2)'
+       Positional args from individual attributes.  An ordered tuple of
+       attribute names to use in the object representation.
 
-    .. py:attribute:: repr_kwargs
+       >>> class EvalArgs(_Example, ReprEvalMixin):
+       ...     repr_module = False
+       ...     repr_args = ('a', 'b')
+       >>> repr(EvalArgs(b=2))
+       'EvalArgs(None, 2)'
 
-        A tuple of attribute names to use as keyword args in the
-        representation.
+    .. attribute:: repr_args_attr
 
-            >>> class EvalKeywords(_Example, ReprEvalMixin):
-            ...     repr_module = False
-            ...     repr_kwargs = ('a', 'b')
-            >>> repr(EvalKeywords(b=2))
-            'EvalKeywords(a=None, b=2)'
+       Positional args from a list attribute.  Name of an attribute that
+       contains a sequence of variable length argument values.
 
-        All keyword args are sorted alphabetically, and appears after any
-        :py:attr:`repr_args` and :py:attr:`repr_args_attr`
+       >>> class EvalVarArgs(ReprEvalMixin):
+       ...    repr_module = False
+       ...    repr_args = ('foo',)
+       ...    repr_args_attr = 'args'
+       ...    def __init__(self, foo, *args):
+       ...         self.foo = foo
+       ...         self.args = args
+       >>> repr(EvalVarArgs(1, 2, 3))
+       'EvalVarArgs(1, 2, 3)'
 
-    .. py:attribute:: repr_args_attr
+       Any values in this attribute are included *after* :attr:`.repr_args`,
+       but before any :attr:`.repr_kwargs`
 
-        Name of an attribute that contains a sequence of variable length
-        argument values.
+    .. attribute:: repr_kwargs
 
-            >>> class EvalVarArgs(ReprEvalMixin):
-            ...    repr_module = False
-            ...    repr_args = ('foo',)
-            ...    repr_args_attr = 'args'
-            ...    def __init__(self, foo, *args):
-            ...         self.foo = foo
-            ...         self.args = args
-            >>> repr(EvalVarArgs(1, 2, 3))
-            'EvalVarArgs(1, 2, 3)'
+       Keyword args from individual attributes.  A tuple of attribute names to
+       use as keyword args in the representation.
 
-        Any values in this attribute are included *after* :py:attr:`repr_args`,
-        but before any :py:attr:`repr_kwargs`
+       >>> class EvalKeywords(_Example, ReprEvalMixin):
+       ...     repr_module = False
+       ...     repr_kwargs = ('a', 'b')
+       >>> repr(EvalKeywords(b=2))
+       'EvalKeywords(a=None, b=2)'
 
-    .. py:attribute:: repr_kwargs_attr
+       All keyword args are sorted alphabetically, and appear after any
+       :attr:`.repr_args` and :attr:`.repr_args_attr`
 
-        Name of an attribute that contains a dict of variable length keyword
-        arguments — similar to :py:attr:`.repr_args_attr`, but for
-        ``**kwargs``.
+    .. attribute:: repr_kwargs_attr
+
+       Keyword args from a dict attribute.  Name of an attribute that contains
+       a dict of variable length keyword arguments — similar to
+       :attr:`.repr_args_attr`, but for ``**kwargs``.
+
     """
+
     repr_module = True
     repr_args = ()
     repr_args_attr = None

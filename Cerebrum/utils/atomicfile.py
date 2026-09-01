@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2016-2025 University of Oslo, Norway
+# Copyright 2016-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,27 +19,41 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 # Copyright 2002-2015 University of Oslo, Norway
 """
-This module contains file writers and other file related tools.
+File-like objects with validation and atomic file replacement.
+
+These file writers are all *atomic file writers*.  They write to a temporary
+file, and only move the written file to its intended location when the file is
+*closed*.  This final move will *replace* an existing file, if it exists.
+
+By writing to a temporary file, and moving it into place, the target file
+*won't* be truncated, and won't be incomplete if the write operation fails for
+any reason.
+
+This behavior is implemented by the base class, :class:`AtomicFileWriter`.
+Subclasses like the :class:`SimilarSizeWriter` adds additional *file checks*,
+which may prevent the target file from being *replaced* when certain conditions
+aren't met.
+
 
 cereconf
---------
+=========
 FILE_CHECKS_DISABLED
-    If this is set to True, no checks will be done by any subclass of the
-    AtomicFileWriter when validating the changed file.
+    Disable *file checks* in AtomicFileWriter subclasses.
+
+    When set to ``True``, all file checks in AtomicFileWriter subclasses are
+    disabled.
 
 SIMILARSIZE_CHECK_DISABLED
-    If this is set to True, no checks will be done by the SimilarSizeWriter
-    when validating the file size (i.e. validation will always succeed).
+    Disable file checks in :class:`SimilarSizeWriter`.
+
+    When set to ``True``, file checks in :class:`SimilarSizeWriter` are
+    disabled.
 
 SIMILARSIZE_LIMIT_MULTIPLIER
-    Modifies the change limit for SimilarSizeWriter by multiplying it by the
-    given number (default is 1.0, i.e. to not modify the value given by the
-    client.
+    Modifies the change limit for :class:`SimilarSizeWriter`.
 
-    Since central changes to the defaults for these values (especially central
-    disabling) is risky, non-default values for these variables will generate
-    warnings via the logger.
-
+    The default value is ``1.0``, i.e. no multiplier.  This setting can be
+    raised or lowered to globally change the file size change limit.
 """
 from __future__ import (
     absolute_import,
@@ -131,18 +145,22 @@ def _fwarn(msg):
 
 
 class AtomicFileWriter(reprutils.ReprFieldMixin):
-    """ Atomic file writer class.
+    """
+    Atomic file writer.
 
-    This class acts as a write-only `file` object, that doesn't actually write
-    to the file if an exception is encountered.
+    This class acts as a write-only file object that doesn't truncate the
+    target file before all writing is finished, and the file is closed.  In
+    practice, we write changes to a *temporary* file, and only replace the
+    *target* file when closing the file object:
 
-    The implementation works like this:
+    1. When opening a target file (filename) for writing, this class
+    will create a new, temporary file (filename.xyz).  This file is created in
+    the same directory as the target file.
 
-    1. Create a new, temporary file (filename.xyz) in the same folder that
-       `filename` is or would be in.
-    2. Write changes to the temporary file.
-    3. If successful, move the temporary file to `filename` (replacing
-       `filename` if needed).
+    2. Write all changes to the temporary file.
+
+    3. When closing, move the *temporary* file to ``filename`` (replacing
+       the target file if it exists).
     """
     repr_id = False
     repr_module = False
@@ -171,18 +189,20 @@ class AtomicFileWriter(reprutils.ReprFieldMixin):
             The target filename (file to write).
 
         :param str mode:
-            The file mode (see file.mode). Note that files *must* be opened in
-            a write mode ('a', 'w'). Appending ('a') can be slow, as it needs
-            to make a full copy of the original file.
+            The file mode (see :attr:`file.mode`).  Note that files *must* be
+            opened in a write mode ('a', 'w'). Appending ('a') can be slow, as
+            it needs to make a full copy of the original file.
 
         :param bool replace_equal:
             Replace the file `name` even if no changes were written.
 
-            If True, we will replace `name` when it is identical to the
-            temporary file that we actually wrote to. If False, we'll keep the
-            original. This is the default.
+            If ``False``, this class will *not* replace an existing target
+            file, if the temporary file is identical.  This is the default.
 
-        :see io.open: for more information about the other arguments.
+            If ``True``, we will replace the target ``name`` when it is
+            identical to the temporary file that we actually wrote to.
+
+        The other parameters are passed through to :func:`io.open`.
         """
         if not any(n in mode for n in 'aw'):
             raise ValueError(
@@ -206,7 +226,8 @@ class AtomicFileWriter(reprutils.ReprFieldMixin):
         self.__replace_equal = replace_equal
 
     def __enter__(self):
-        """ Enters AtomicFileWriter context.
+        """
+        Enter AtomicFileWriter context.
 
         This allows us to use the AtomicFileWriter class and subclasses as a
         file-like context:
@@ -220,15 +241,17 @@ class AtomicFileWriter(reprutils.ReprFieldMixin):
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        """ Exits AtomixFileWriter context and handles any exceptions.
+        """
+        Exit AtomicFileWriter context and handle exceptions.
 
         This method handles context exit. We will always attempt to close the
         actual file object, but:
 
-        * If no exception was raised, we close the file (`self.tmpname`) and
-          then move it to `self.name` (replacing any previous version).
-        * If we detect an exception, we close the file (`self.tmpname`) without
-          renaming it (i.e. without replacing the file named `self.name`).
+        - If no exception was raised, we close the temporary file and
+          then move it to the target file (replacing any previous version).
+
+        - If an exception was raised, we close the temporary file without
+          renaming it (i.e. *not* replacing any previous version).
 
         """
         if exc_type is None:
@@ -287,7 +310,7 @@ class AtomicFileWriter(reprutils.ReprFieldMixin):
         """
         The error setting of the file encoder.
 
-        See `io.open()` and `codecs.Codec` for details.
+        See :func:`io.open` and :class:`codecs.Codec` for details.
         """
         return self.__file.errors
 
@@ -296,14 +319,14 @@ class AtomicFileWriter(reprutils.ReprFieldMixin):
         """
         The encoding of the file stream.
 
-        See `io.open()` for details.
+        See :func:`io.open` for details.
         """
         return self.__file.encoding
 
     @property
     def discarded(self):
         """
-        True if any changes was discarded without replacing the target file.
+        True if any changes were discarded without replacing the target file.
 
         This can happen if AtomicFileWriter is configured NOT to replace the
         target file when no changes are present.
@@ -348,19 +371,23 @@ class AtomicFileWriter(reprutils.ReprFieldMixin):
         raise an exception.
 
         :raise FileChangeError:
-            When the written file has changed beyond the acceptable criterias.
+            When the written file has changed beyond the acceptable criteria.
         """
         pass
 
     @_copydoc(io.FileIO.close)
     def close(self):
-        """ In addition to the normal close behaviour:
+        """
+        In addition to the normal close behaviour:
 
         Closes the temporary file, and if applicable, replaces the target file.
-        Updates the properties .discarded and .replaced:
+        Updates the ``discarded`` and ``replaced`` properties:
 
-        `replaced`: True if `tmpname` replaced `name`.
-        `discarded`: True if `tmpname` is deleted withouth replacing `name`.
+        ``replaced``
+            ``True`` if ``tmpname`` replaced ``name``.
+
+        ``discarded``
+            ``True`` if ``tmpname`` is deleted without replacing ``name``.
 
         """
         if self.closed:
@@ -404,15 +431,15 @@ class SimilarSizeWriter(AtomicFileWriter):
     Clients will normally govern the exact limits for 'similar size'
     themselves, but there are times when it is convenient to have
     central overrides/modifications of these values. SimilarSizeWriter
-    therefore makes use of the following 'cereconf'-variables:
+    therefore makes use of the following ``cereconf`` variables:
 
-    SIMILARSIZE_CHECK_DISABLED - If this is set to True, no checks
-    will be done when validating the file size, i.e. validation will
-    always succeed.
+    SIMILARSIZE_CHECK_DISABLED
+        If this is set to True, no checks will be done when validating the file
+        size, i.e. validation will always succeed.
 
-    SIMILARSIZE_LIMIT_MULTIPLIER - Modifies the change limit by
-    multiplying it by the given number (default is 1.0, i.e. to not
-    modify the value given by the client)
+    SIMILARSIZE_LIMIT_MULTIPLIER
+        Modifies the change limit by multiplying it by the given number
+        (default is 1.0, i.e. to not modify the value given by the client)
 
     Since central changes to the defaults for these values (especially
     central disabling) is risky, non-default values for these
@@ -420,8 +447,7 @@ class SimilarSizeWriter(AtomicFileWriter):
 
     Clients can also disable/enable the checks directly by setting the
     `validate` attribute of the writer-object, though this will not override
-    SIMILARSIZE_CHECK_DISABLED.
-
+    ``SIMILARSIZE_CHECK_DISABLED``.
     """
 
     DEFAULT_FACTOR = 1.0
@@ -432,7 +458,7 @@ class SimilarSizeWriter(AtomicFileWriter):
 
     @property
     def max_pct_change(self):
-        """ change max_pct_change for the new file, in percent. """
+        """ Maximum change allowed for the new file, in percent. """
         try:
             return self.__percentage * self.__factor
         except AttributeError:
@@ -473,11 +499,12 @@ class SimilarSizeWriter(AtomicFileWriter):
 
 
 class SimilarLineCountWriter(AtomicFileWriter):
-    """ This file writer will fail if the line count changes too much.
+    """
+    This file writer will fail if the line count changes too much.
 
-    This file will raise a `FileChangeTooBig` error if the file changes more
-    than a certain number of lines. All other file changes are permitted,
-    regardless of the original file's size.
+    This file will raise a :class:`.FileChangeTooBig` error if the file changes
+    more than a certain number of lines. All other file changes are permitted,
+    regardless of the original file size.
     """
 
     @property
@@ -520,11 +547,12 @@ class SimilarLineCountWriter(AtomicFileWriter):
 
 
 class MinimumSizeWriter(AtomicFileWriter):
-    """ This file writer will fail if the file size is too small.
+    """
+    This file writer will fail if the file size is too small.
 
-    This file will raise a `FileTooSmallError` if the final file is less than a
-    certain number of bytes. All other file size changes are permitted,
-    regardless of the original file's size.
+    This file will raise a :class:`.FileTooSmallError` if the final file is
+    less than a certain number of bytes.  All other file size changes are
+    permitted, regardless of the original file's size.
     """
 
     ABSOLUTE_MIN_SIZE = 0
@@ -561,11 +589,12 @@ class MinimumSizeWriter(AtomicFileWriter):
 
 
 class AtomicStreamRecoder(AtomicFileWriter):
-    """ file writer encoding hack.
+    """
+    AtomicFileWriter with bytestring support.
 
-    xmlprinter.xmlprinter encodes data in the desired encoding before writing
-    to the stream, and AtomicFileWriter *requires* unicode-objects to be
-    written.
+    ``xmlprinter.xmlprinter`` encodes data in the desired encoding before
+    writing to the stream, and AtomicFileWriter *requires* unicode-objects to
+    be written.
 
     This hack turns AtomicFileWriter into a bytestring writer. Just make sure
     the AtomicStreamRecoder is configured to use the same encoding as the
@@ -582,18 +611,10 @@ class AtomicStreamRecoder(AtomicFileWriter):
 
 
 class SimilarSizeStreamRecoder(SimilarSizeWriter):
-    """ file writer encoding hack.
+    """
+    SimilarSizeWriter with bytestring support.
 
-    xmlprinter.xmlprinter encodes data in the desired encoding before writing
-    to the stream, and AtomicFileWriter *requires* unicode-objects to be
-    written.
-
-    This hack turns SimilarSizeWriter into a bytestring writer. Just make sure
-    the SimilarSizeStreamRecoder is configured to use the same encoding as the
-    xmlprinter.
-
-    The *proper* fix would be to retire the xmlprinter module, and replace it
-    with something better.
+    See :class:`.AtomicStreamRecoder` for details.
     """
 
     def write(self, data):

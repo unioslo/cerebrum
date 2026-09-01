@@ -1,6 +1,6 @@
 # coding: utf-8
 #
-# Copyright 2017-2024 University of Oslo, Norway
+# Copyright 2017-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,51 +19,26 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 # Copyright 2002-2015 University of Oslo, Norway
 """
-This module contains utilities for dates, times and timezones in Cerebrum.
+Date, time and timezone utilities.
 
-Utilities include converting between datetime and mx.DateTime, parsing iso8601
-dates, as well as applying timezone, and converting between timezones.
+Provides ISO-8601 parsing, timezone conversions, and timestamp handling.
 
-
-Datetime in Cerebrum
---------------------
-We use py:mod:`mx.DateTime` in Cerebrum mainly for database communication, and
-for legacy resons.
-The py:class:`mx.DateTime.DateTypeType` objects doesn't integrate well with
-ISO-8601 parsers (including its own py:mod:`mx.DateTime.Parser`).
-
-The `Cerebrum.database.Database` object is set up to accept
-mx.DateTime objects, and convert back to mx.DateTime objects when using
-execute/query. In addition, our database schema or queries does *not* use tz
-aware timestamp fields.
-
-The bottom line is; For the time being, all db-communication happens with
-naive mx.DateTime objects, and we cannot use/trust the tz info in mx.DateTime
-objects when communicating with the database.
-
-
-Rationale
----------
-Naive datetimes are used within Cerebrum, but all I/O with users and systems
-*should* use UTC or timezone-aware formats.
-
-To achieve this, we need to be able to serialize and deserialize datetimes
-*with* timezone info, and convert between the local timezone and UTC.
+While naive datetimes are sometimes used within Cerebrum, all I/O with users
+and systems *should* use UTC or timezone-aware formats.
 
 
 cereconf
---------
+=========
+``TIMEZONE``
+    The default local timezone.  Used as the default ``tz`` argument for most
+    functions, and for interpreting naive datetime objects.
 
-TIMEZONE
-    Default timezone.
 
-    Most methods acting on datetime objects take an optional ``tz`` argument,
-    to specify which timezone to use. This cereconf-value sets the default
-    timezone for these functions.
-
-    Naive datetime objects are assumed to be in this TIMEZONE, so this value
-    should reflect the locale of the host.
-
+Legacy datetime
+================
+Cerebrum historically used ``mx.DateTime`` from *egenix-mx-base*.  See
+:mod:`Cerebrum.utils.date_compat` for tools to convert between mx-like objects
+and :mod:`datetime`.
 """
 from __future__ import (
     absolute_import,
@@ -81,10 +56,12 @@ import cereconf
 
 # Read-only tzinfo copy of ``cereconf.TIMEZONE``
 TIMEZONE = pytz.timezone(cereconf.TIMEZONE)
+""" ``cereconf.TIMEZONE`` as a :class:`datetime.tzinfo` object. """
 
 # This is just for convenience - other modules should generally not need to
 # deal with pytz directly.
 UTC = pytz.UTC
+""" UTC as a :class:`datetime.tzinfo` object. """
 
 
 SECONDS_PER_MIN = 60
@@ -94,7 +71,7 @@ SECONDS_PER_WEEK = SECONDS_PER_DAY * 7
 
 
 def to_seconds(weeks=0, days=0, hours=0, minutes=0, seconds=0):
-    """ Sum number of weeks, days, hours, etc.. to seconds. """
+    """ Convert weeks, days, hours, etc. to total seconds. """
     return sum((
         weeks * SECONDS_PER_WEEK,
         days * SECONDS_PER_DAY,
@@ -105,22 +82,26 @@ def to_seconds(weeks=0, days=0, hours=0, minutes=0, seconds=0):
 
 
 def utcnow():
-    """ `datetime.utcnow()` with tzinfo=UTC.
+    """
+    Get the current UTC time as a tz-aware datetime.
 
-    :return datetime:
-        Returns a timezone-aware datetime object, with the current time in UTC.
+    This is the same as :func:`datetime.datetime.utcnow`, but with
+    :class:`datetime.tzinfo`.
+
+    :rtype: datetime.datetime
     """
     return apply_timezone(datetime.datetime.utcnow(), tz=UTC)
 
 
 def now(tz=TIMEZONE):
-    """ timezone-aware `now()`.
+    """
+    Get the current time as a tz-aware datetime.
 
-    :param tzinfo tz:
-        An optional timezone to get time for.
+    This is similar to :func:`datetime.datetime.now`, but always includes
+    :class:`datetime.tzinfo`.
 
-    :return datetime:
-        Returns a timezone-aware datetime object with the current time.
+    :param tz: Target timezone (default: :data:`.TIMEZONE`)
+    :rtype: datetime.datetime
     """
     if not isinstance(tz, datetime.tzinfo):
         tz = pytz.timezone(tz)
@@ -129,16 +110,12 @@ def now(tz=TIMEZONE):
 
 def to_timezone(aware, tz=TIMEZONE):
     """
-    Convert datetime to another timezone.
+    Convert a timezone-aware datetime to another timezone.
 
-    :param datetime aware:
-        A timezone-aware datetime object.
+    :param datetime.datetime aware: A timezone-aware datetime object.
+    :param tz: Target timezone (default: :data:`.TIMEZONE`).
 
-    :param tzinfo tz:
-        The target timezone
-
-    :return datetime:
-        A timezone-aware datetime
+    :return datetime.datetime: A timezone-aware datetime.
     """
     # Accept strings (e.g. 'UTC' or 'Europe/Oslo'):
     if not isinstance(tz, datetime.tzinfo):
@@ -151,7 +128,13 @@ def to_timezone(aware, tz=TIMEZONE):
 
 
 def apply_timezone(naive, tz=TIMEZONE):
-    """ Attach tzinfo to a naive datetime object. """
+    """
+    Add tzinfo to a naive datetime (no time conversion).
+
+    :param datetime.datetime naive: A naive datetime object
+    :param tz: Timezone to apply (default: :data:`.TIMEZONE`).
+    :returns datetime.datetime: A timezone-aware copy of *naive*
+    """
     if naive.tzinfo:
         raise ValueError("datetime already has tzinfo")
     if not isinstance(tz, datetime.tzinfo):
@@ -162,7 +145,12 @@ def apply_timezone(naive, tz=TIMEZONE):
 
 
 def strip_timezone(aware):
-    """ Remove tzinfo, turning a datetime naive. """
+    """
+    Remove tzinfo from a tz-aware datetime (no time conversion).
+
+    :param datetime.datetime aware: A timezone-aware datetime object
+    :returns datetime.datetime: A naive copy of *aware*
+    """
     if not aware.tzinfo:
         raise ValueError("datetime does not have tzinfo")
     return aware.replace(tzinfo=None)
@@ -192,14 +180,10 @@ def _parse_datetime(rawstr):
 
 def parse_datetime_tz(rawstr):
     """
-    Parse an ISO8601 datetime string, and require timezone.
+    Parse an ISO-8601 datetime string (timezone required).
 
-    The datetime may be delimited by ' ' or 'T'.
-
-    :param rawstr: An ISO8601 formatted datetime string with timezone.
-
-    :rtype: datetime.datetime
-    :return: A timezone-aware datetime objet.
+    :param str rawstr: ISO-8601 datetime with timezone (delimiter: 'T' or ' ')
+    :returns datetime.datetime: A timezone-aware datetime object.
     """
     date = _parse_datetime(rawstr)
     if not date.tzinfo:
@@ -209,16 +193,13 @@ def parse_datetime_tz(rawstr):
 
 def parse_datetime(rawstr, default_timezone=TIMEZONE):
     """
-    Parse an ISO8601 datetime string.
+    Parse an ISO-8601 datetime string (timezone optional).
 
-    The datetime may be delimited by ' ' or 'T'.
-    If no timezone is included, the ``default_timezone`` will be applied
-
-    :param rawstr: An ISO8601 formatted datetime string
-    :param default_timezone: A default timezone to apply if missing.
-
-    :rtype: datetime.datetime
-    :return: A timezone-aware datetime objet.
+    :param str rawstr: ISO-8601 datetime (delimiter: 'T' or ' ')
+    :param datetime.tzinfo default_timezone:
+        Timezone to assume for naive datetime strings (default:
+        :data:`.TIMEZONE`).
+    :returns datetime.datetime: A timezone-aware datetime object.
     """
     date = _parse_datetime(rawstr)
     if not date.tzinfo:
@@ -229,12 +210,10 @@ def parse_datetime(rawstr, default_timezone=TIMEZONE):
 
 def parse_date(dtstr):
     """
-    Parse an ISO8601 date string.
+    Parse an ISO-8601 date string.
 
-    :param dtstr: An ISO8601 formatted date string
-
+    :param str dtstr: ISO-8601 formatted date string
     :rtype: datetime.date
-    :return: A date object.
     """
     try:
         return aniso8601.parse_date(str(dtstr))
@@ -247,11 +226,10 @@ def parse_date(dtstr):
 
 def parse_time(dtstr):
     """
-    Parse an ISO8601 time string.
+    Parse an ISO-8601 time string.
 
-    :param dtstr: An ISO8601 formatted time string
-
-    :return: A time object.
+    :param str dtstr: ISO-8601 formatted time string
+    :rtype: datetime.time
     """
     try:
         return aniso8601.parse_time(str(dtstr))
@@ -266,15 +244,11 @@ def parse_time(dtstr):
 
 def from_timestamp(timestamp, tz=TIMEZONE):
     """
-    Create a tz-aware datetime from timestamp.
+    Convert a Unix timestamp to a tz-aware datetime.
 
-    This creates a UTC datetime object, and then converts that time to the
-    wanted *tz*.
-
-    :param float timestamp: a timestamp
-    :param tz: localize utc datetime result to this timezone
-
-    :returns datetime.datetime: tz-aware datetime
+    :param float timestamp: Unix timestamp
+    :param datetime.tzinfo tz: Target timezone (default: :data:`.TIMEZONE`).
+    :returns datetime.datetime: A timezone-aware datetime object.
     """
     utc_dt = datetime.datetime.fromtimestamp(float(timestamp), UTC)
     return to_timezone(utc_dt, tz=tz)
@@ -282,15 +256,12 @@ def from_timestamp(timestamp, tz=TIMEZONE):
 
 def to_timestamp(dt, default_timezone=TIMEZONE):
     """
-    Create a timestamp from a datetime object.
+    Convert a datetime to a Unix timestamp.
 
-    This converts the given datetime to UTC, and then converts that time
-    to a timestamp.
-
-    :param datetime.datetime dt: a datetime object
-    :param default_timezone: default tz for naive datetime objects
-
-    :returns float: timestamp
+    :param datetime.datetime dt: datetime object (naive or tz-aware)
+    :param datetime.tzinfo default_timezone:
+        Timezone to assume for naive datetimes (default: :data:`.TIMEZONE`).
+    :rtype: float
     """
     if not dt.tzinfo:
         # Naive datetime, assume in default_timezone

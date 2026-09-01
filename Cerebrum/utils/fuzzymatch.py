@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2020-2023 University of Oslo, Norway
+# Copyright 2020-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,7 +18,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
-This module contains various tools for fuzzy string matching.
+Fuzzy string matching utilities.
 """
 from __future__ import (
     absolute_import,
@@ -30,12 +30,14 @@ from __future__ import (
 
 def restricted_damerau_levenshtein(first, second):
     """
-    Calculate the Damerau-Levenshtein distance between strings.
+    Calculate the Damerau-Levenshtein edit distance between two strings.
 
-    This function calculates the edit distance between `first` and `second`
-    using the Damerau-Levenshtein optimal string alignment algorithm.
+    This implementation calculates the *optimal string alignment distance*, or
+    *restricted edit distance*, and doses not consider *adjacent
+    transpositions*.
 
-    :returns int: The edit distance
+    :rtype: int
+    :returns: The edit distance between the two strings.
     """
     # input strings are 1-indexed:
     first = " " + first
@@ -78,7 +80,11 @@ def rdl_score(first, second):
     """
     Score two strings based on relative edit distance.
 
-    :returns float: A float ranging from 1.0 (equal) to 0.0 (totally different)
+    Finds a normalized score using the :func:`.restricted_damerau_levenshtein`
+    edit distance.
+
+    :rtype: float
+    :returns: 1.0 (equal) to 0.0 (totally different)
     """
     if first == second:
         # shortcut - avoids divide-by-zero if both strings are empty
@@ -90,12 +96,13 @@ def rdl_score(first, second):
 
 def longest_common_subsequence(first, second):
     """
-    Determine the longest common subsequence (LCS) of two strings.
+    Find the longest common subsequence (LCS) of two strings.
 
-    Note: This is different from longest common *substring*, which is also
-    often abbreviated as LCS.
+    .. note::
+       Not to be confused with longest common *substring*.
 
-    :returns str: the longest common subsequence
+    :rtype: str
+    :returns: The longest common subsequence in the two strings.
     """
     if not first or not second:
         return ""
@@ -131,7 +138,11 @@ def lcs_score(first, second):
     """
     Score two strings based on longest common subsequence.
 
-    :returns float: A float ranging from 1.0 (equal) to 0.0 (totally different)
+    Finds a normalized score using the :func:`.longest_common_subsequence`
+    length.
+
+    :rtype: float
+    :returns: A number between 1.0 (equal) and 0.0 (totally different)
     """
     if first == second:
         # shortcut - avoids divide-by-zero if both strings are empty
@@ -143,29 +154,36 @@ def lcs_score(first, second):
 
 def words_diff(first, second, threshold=0):
     """
-    Calculate if fuzzy words from one string occur in another.
+    Get a similarity score between one set of words and another.
 
-    This function is good for matching *full names*, and other similar strings,
-    as it checks if all words from one string occurs in another, but allowing
-    for typos or accented characters.
+    Figure out if words from one phrase occurs in another, using
+    :func:`.restricted_damerau_levenshtein` for fuzzy word matching.  Good at
+    matching full names, as it allows for omitted words, as well as a few typos
+    or accented characters.
+
+    Both "foo" and "baz" exists in the *second* phrase, without any edit
+    distance:
 
     >>> words_diff("foo baz", "foo bar baz")
     0
 
+    Both "foo" and "bar" exists in the *second* phrase, if we allow for an edit
+    distance (threshold) of 1:
+
     >>> words_diff("foo bar", "foo bár baz")
     1
 
-    :param str first: A string to compare.
-    :param str second: Another string to compare.
+    :param str first: A phrase to compare.
+    :param str second: Another phrase to compare.
     :param int threshold:
-        Stop matching if an edit distance threshold is reached.
+        An optional edit distance threshold.  The comparison will abort early
+        if the total edit distance exceeds this value.
 
-        This allows us to abort early if there are too many differences.  The
-        default is 0, which won't apply a threshold.  A threshold of 2 is good
-        for e.g. fullname matching.
+        0 (the default) disables the threshold.
+        2 seems to work well for names.
 
-    :returns int:
-        The edit distance of all words in shortest string (by wordcount).
+    :rtype: int
+    :returns: Total edit distance for all words in the shorter phrase.
     """
     total_difference = 0
     fewer_words = first.split()

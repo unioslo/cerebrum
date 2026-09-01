@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2021-2024 University of Oslo, Norway
+# Copyright 2021-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -21,6 +21,13 @@
 """
 Utilities for calculating n-th backoff value.
 
+All classes are callable objects for transforming the n-th value into an
+appropriate backoff, or in other words, takes a single input value, and
+generates an output value.
+
+The callables are typically chained together with :class:`Backoff` to create
+a backoff pattern for the n-th backoff.
+
 
 Examples
 ========
@@ -32,7 +39,7 @@ A basic linear backoff:
 [20, 40, 60, 80, 100, 100]
 
 
-We can use py:class:`datetime.timedelta` as our factor to create a linear
+We can use :class:`datetime.timedelta` as our factor to create a linear
 backoff with 10 minute intervals:
 
 >>> from datetime import timedelta
@@ -76,7 +83,15 @@ from Cerebrum.utils import reprutils
 
 
 class Linear(reprutils.ReprFieldMixin):
-    """ linear (no-op) transform.  """
+    """
+    Linear (no-op) transform.
+
+    >>> linear = Linear()
+    >>> [linear(n) for n in range(1, 5)]
+    [1, 2, 3, 4]
+
+    """
+
     repr_id = False
     repr_module = False
 
@@ -86,7 +101,14 @@ class Linear(reprutils.ReprFieldMixin):
 
 
 class Exponential(reprutils.ReprEvalMixin):
-    """ exponential growth transform. """
+    """
+    Exponential growth transform.
+
+    >>> exp = Exponential(2)
+    >>> [exp(n) for n in range(1, 5)]
+    [1, 2, 4, 8]
+
+    """
 
     repr_module = False
     repr_args = ('base',)
@@ -108,7 +130,15 @@ class Exponential(reprutils.ReprEvalMixin):
 
 
 class Factor(reprutils.ReprEvalMixin):
-    """ factor transform. """
+    """
+    Factor transform.
+
+    >>> factor = Factor(2)
+    >>> [factor(n) for n in range(1, 5)]
+    [2, 4, 6, 8]
+
+    """
+
     repr_module = False
     repr_args = ('factor',)
 
@@ -126,7 +156,15 @@ class Factor(reprutils.ReprEvalMixin):
 
 
 class Truncate(reprutils.ReprEvalMixin):
-    """ truncate transform. """
+    """
+    Truncate transform.
+
+    >>> trunc = Truncate(3)
+    >>> [trunc(n) for n in range(1, 5)]
+    [1, 2, 3, 3]
+
+    """
+
     repr_module = False
     repr_args = ('maxval',)
 
@@ -145,11 +183,22 @@ class Truncate(reprutils.ReprEvalMixin):
 
 class Backoff(reprutils.ReprEvalMixin):
     """
-    Callable backoff.
+    Combine transforms into one callable backoff.
 
     This callable takes a single value — a step number — and calculates an
-    appropriate backoff value for this step.
+    appropriate backoff value for that step.  The backoff value is calculated
+    by applying all transforms to the step number, in the given order.
+
+    >>> get_backoff = Backoff()
+    >>> [get_backoff(n) for n in range(1, 5)]
+    [1, 2, 3, 4]
+
+    >>> get_backoff = Backoff(Exponential(2), Factor(2), Truncate(8))
+    >>> [get_backoff(n) for n in range(1, 5)]
+    [2, 4, 8, 8]
+
     """
+
     repr_module = False
     repr_args_attr = 'transforms'
 

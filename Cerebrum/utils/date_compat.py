@@ -1,6 +1,6 @@
 # coding: utf-8
 #
-# Copyright 2017-2024 University of Oslo, Norway
+# Copyright 2017-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,12 +19,34 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 # Copyright 2002-2015 University of Oslo, Norway
 """
-This module contains egenix-mx-base compatibility functions for Cerebrum.
+Date and time compatibility functions.
 
-This module is temporary, and is only in place to aid the transition from
-egenix-mx-base datetime and timedelta objects to the datetime module from the
-standard library.
+Functions for converting between :class:`datetime.datetime`,
+:class:`datetime.date`, and the deprecated ``mx.DateTime.DateTimeType`` from
+*egenix-mx-base*.
+
+
+Common parameters
+==================
+``allow_none`` / ``allow_empty``
+    Most functions accept this parameter (default: ``True``).  If ``True``,
+    empty input returns ``None``.  If ``False``, empty input raises
+    :class:`ValueError`.
+
+``tz``
+    Timezone for conversions (default: :data:`Cerebrum.utils.date.TIMEZONE`).
+    Used when converting between naive and tz-aware datetimes.
+
+    Note that mx-like objects are always treated as naive.
+
+
+Date to datetime
+=================
+When converting a date to datetime, the time is set to midnight at the start of
+the provided date.  For tz-aware results, this means midnight *in the given
+timezone*.  Converting to another timezone (e.g. UTC) may change the date.
 """
+
 from __future__ import (
     absolute_import,
     division,
@@ -41,13 +63,13 @@ _MX_ATTRS = ('pydate', 'pydatetime', 'pytime', 'hour', 'minute', 'second')
 
 
 def is_mx_datetime(obj):
-    """ Check if object is a mx-like (egenix-mx-base) datetime object. """
+    """ Check if object is an mx-like (egenix-mx-base) datetime object. """
     return (obj and isinstance(obj, object)
             and all(hasattr(obj, attr) for attr in _MX_ATTRS))
 
 
 def is_mx_date(obj):
-    """ Check if object is a mx-like datetime with date-like precision. """
+    """ Check if object is an mx-like datetime with date-like precision. """
     if is_mx_datetime(obj):
         return obj.hour == obj.minute == 0 and obj.second == 0.0
     else:
@@ -55,30 +77,21 @@ def is_mx_date(obj):
 
 
 def is_mx_delta(obj):
-    """ Check if object is a mx-like timedelta object. """
+    """ Check if object is an mx-like timedelta object. """
     return (obj and isinstance(obj, object)
             and hasattr(obj, 'pytimedelta'))
 
 
 def get_date(dtobj, allow_none=True):
     """
-    Get a datetime.date object from a datetime-like object.
+    Get a date from a datetime-like object.
 
-    Typical usecase for this method is to convert database mx.DateTime objects
-    to native date objects:
-
-        if get_date(pe.birth_date) != new_date:
-            pe.birth_date = new_date
-
-    :type dtobj: datetime.datetime, datetime.date, mx.DateTime, NoneType
-    :param dtobj: A datetime-like object.
-
-    :type allow_none: bool
-    :param allow_none:
-        Returns None if the input value is empty (this is the default).
+    :type dtobj: datetime.datetime | datetime.date | mx.DateTime.DateTimeType
+    :param dtobj: The datetime-like object to convert
+    :param bool allow_none: Allow empty *dtobj* value.
 
     :rtype: datetime.date
-    :return: A date object.
+    :returns: A naive datetime object.
     """
     if not dtobj and allow_none:
         return None
@@ -93,31 +106,16 @@ def get_date(dtobj, allow_none=True):
 
 def get_datetime_naive(dtobj, allow_none=True, tz=date.TIMEZONE):
     """
-    Get a naive datetime.datetime object from a datetime-like object.
+    Get a naive datetime from a datetime-like object.
 
-    Typical usecase for this method is to convert mx-like objecsts from the
-    database to naive datetime objects:
-
-        if get_datetime_naive(row['tstamp']) > cutoff_dt:
-            do_something()
-
-    :type dtobj: datetime.datetime, datetime.date, mx.DateTime, NoneType
-    :param dtobj:
-        A datetime-like object.
-        Note that ``datetime.date`` gets ``datetime.time(0)``
-
-    :type allow_none: bool
-    :param allow_none:
-        Returns None if the input value is empty (this is the default).
-
-    :type tz: tzinfo or NoneType
-    :param tz:
-        Converts tz-aware datetime objects to the given tz before stripping
-        tzinfo.  If set to ``None``, the tzinfo is stripped without conversion.
-        Defaults to the ``TIMEZONE`` setting.
+    :type dtobj: datetime.datetime | datetime.date | mx.DateTime.DateTimeType
+    :param dtobj: The datetime-like object to convert
+    :param bool allow_none: Allow empty *dtobj* value.
+    :type tz: datetime.tzinfo
+    :param tz: Tz-aware inputs are converted to *tz* before stripping tzinfo.
 
     :rtype: datetime.datetime
-    :return: A naive datetime object.
+    :returns: A naive datetime object.
     """
     if not dtobj and allow_none:
         return None
@@ -135,30 +133,19 @@ def get_datetime_naive(dtobj, allow_none=True, tz=date.TIMEZONE):
 
 def get_datetime_tz(dtobj, allow_none=True, tz=date.TIMEZONE):
     """
-    Get a tz-aware datetime.datetime object from a datetime-like object.
+    Get a tz-aware datetime from a datetime-like object.
 
-    Typical usecase for this method is to convert mx-like objects from the
-    database to tz-aware datetime objects:
+    :type dtobj: datetime.datetime | datetime.date | mx.DateTime.DateTimeType
+    :param dtobj: The datetime-like object to convert
+    :param bool allow_none: Allow empty *dtobj* value.
 
-        if get_datetime_tz(row['tstamp']) > cutoff_dt:
-            do_something()
-
-    :type dtobj: datetime.datetime, datetime.date, mx.DateTime, NoneType
-    :param dtobj:
-        A datetime-like object.
-        Note that ``datetime.date`` gets ``datetime.time(0)``
-
-    :type allow_none: bool
-    :param allow_none:
-        Returns None if the input value is empty (this is the default).
-
-    :type tz: tzinfo or NoneType
+    :type tz: datetime.tzinfo
     :param tz:
-        Converts tz-aware datetime objects to the given tz, assumes other
-        values are *in* the given timezone.
+        Tz-aware inputs are converted to *tz*.  Naive inputs are assumed to
+        already be in *tz*.
 
     :rtype: datetime.datetime
-    :return: A tz-aware datetime object.
+    :returns: A tz-aware datetime object.
     """
     if not dtobj and allow_none:
         return None
@@ -179,19 +166,12 @@ def get_datetime_tz(dtobj, allow_none=True, tz=date.TIMEZONE):
 
 def to_mx_format(dtobj, tz=date.TIMEZONE):
     """
-    Get the equivalent of str(mx.DateTime).
+    Get an mx-like string from a datetime-like object.
 
-    :type dtobj: datetime.datetime, datetime.date, mx.DateTime, NoneType
-    :param dtobj: A datetime-like object.
+    Formats a datetime-like object as ``YYYY-MM-DD HH:mm:ss.SS``, just like
+    ``str(<mx.DateTime.DateTimeType>)`` would.
 
-    :type tz: tzinfo
-    :param tz:
-        Converts tz-aware datetime objects to the given tz before formatting.
-
-    :rtype: str
-    :return:
-        A datetime string with format "%Y-%m-%d %H:%M:%S.%f", but with only two
-        digit precision for the %f component.
+    :returns: datetime string
     """
     dt = get_datetime_naive(dtobj, allow_none=False, tz=tz)
     # datetime.datetime.strftime doesn't like dates < 1900.  The following is
@@ -205,20 +185,13 @@ def to_mx_format(dtobj, tz=date.TIMEZONE):
 
 def parse_fs_xml_date(dtstr, allow_empty=True):
     """
-    Get a date object from an FS date field.
+    Parse a date from an FS XML date field.
 
-    Currently, FS datetime objects are formatted by str(mx.DateTime) in
-    various `import_from_FS` scripts.  The code for this is in
-    `Cerebrum.modules.xmlutils.xml_helper`.
+    Accepts a basic ISO-8601 date (which we should expect in the future), as
+    well as the legacy mx-like datetime string.
 
-    In the future, we expect these date fields to be formatted as proper
-    ISO8601 date values (and parsed by ``Cerebrum.utils.date.parse_date``)
-
-    :param str dtstr:
-        an ISO-formatted date or datetime
-
-    :param bool allow_empty:
-        Allow the dtstr value to be empty (return `None`)
+    :param str dtstr: An ISO-8601 formatted date or datetime
+    :param bool allow_empty: Allow empty *dtstr* value.
 
     :rtype: datetime.date
     """

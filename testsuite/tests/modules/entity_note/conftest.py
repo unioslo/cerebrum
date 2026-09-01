@@ -17,7 +17,6 @@ import Cerebrum.Group
 import Cerebrum.Person
 import Cerebrum.OU
 from Cerebrum.testutils import datasource
-from Cerebrum.modules.entity_note import note_constants
 
 
 @pytest.fixture
@@ -149,9 +148,3 @@ def account(account_creator):
 def group(group_creator):
     group, _ = next(group_creator(1))
     return group
-
-
-@pytest.fixture(autouse=True)
-def _clear_note_code_cache():
-    """Clear the note code cache."""
-    note_constants._EntityNoteCode._cache = {}

@@ -1,6 +1,6 @@
 # encoding: utf-8
 #
-# Copyright 2016-2024 University of Oslo, Norway
+# Copyright 2016-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,13 +17,16 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" This module contains simple reuseable data descriptors. """
+"""
+Simple, reusable data descriptors.
+"""
 from __future__ import (
     absolute_import,
     division,
     print_function,
     unicode_literals,
 )
+
 from . import reprutils
 
 
@@ -43,16 +46,32 @@ class Descriptor(reprutils.ReprFieldMixin):
     repr_fields = ("name",)
 
     descriptor_delete_strict = True
+    """
+    Delete rule for this descriptor.
+
+    If this is True (default), then it is an error to ``del`` the descriptor
+    value if it hasn't been assigned a value first.  Subclasses can override
+    this setting.
+    """
 
     def __init__(self, name):
         self.name = name
 
     def get_default(self, obj):
-        # For subclasses - provide a default value
+        """
+        Abstract method - get a default value for this descriptor.
+
+        This can be overridden by subclasses to provide a default value.
+        """
         raise AttributeError(self.name)
 
     def transform_value(self, value):
-        # For subclasses - normalize/validate attribute value
+        """
+        Abstract method - normalize and validate a new value.
+
+        This can be overridden by subclasses to provide validation and/or
+        normalization.
+        """
         return value
 
     @property
@@ -97,7 +116,31 @@ class Descriptor(reprutils.ReprFieldMixin):
 
 
 class DefaultDescriptor(Descriptor):
-    """ A basic data descriptor with a default value. """
+    """
+    A simple data descriptor with a default value.
+
+    This descriptor has a default value, which is returned if no explicit
+    value has been set:
+
+    >>> class Foo(object):
+    ...     bar = DefaultDescriptor("bar", "default value")
+    >>> f = Foo()
+    >>> f.bar
+    "default value"
+
+    The descriptor can still be assigned other values
+
+    >>> f.bar = "custom value"
+    >>> f.bar
+    "custom value"
+
+    Deleting the descriptor value will reset it back to the default:
+
+    >>> del f.bar
+    >>> f.bar
+    "default value"
+
+    """
 
     # It is not an attribute error to `del` this attribute when it isn't set
     descriptor_delete_strict = False
@@ -111,14 +154,14 @@ class DefaultDescriptor(Descriptor):
 
 
 class lazy_property(Descriptor):  # noqa: N801
-    """ A lazy initialization data descriptor.
+    """
+    A lazy initialization data descriptor.
 
     Wrap a function with this class to make it a property-like data descriptor,
     with the wrapped function as factory.
 
     Like :func:`builtins.property`, the wrapped function is called when we look
     up the descriptor value:
-    ::
 
     >>> class Foo(object):
     ...     @lazy_property
@@ -130,7 +173,6 @@ class lazy_property(Descriptor):  # noqa: N801
 
     However, this only happens when no value has been set or cached.  We can
     override the value by setting it explicitly:
-    ::
 
     >>> f.example = 2**8
     >>> f.example
@@ -138,7 +180,6 @@ class lazy_property(Descriptor):  # noqa: N801
 
     Deleting the descriptor value will reset it and cause the wrapped factory
     function to be called again on the next lookup:
-    ::
 
     >>> del f.example
     >>> f.example
