@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2022-2024 University of Oslo, Norway
+# Copyright 2022-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,7 +18,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
-This module contains various otp utils.
+Generate, validate, and format OTP secrets.
 """
 from __future__ import (
     absolute_import,
@@ -34,31 +34,45 @@ from passlib.totp import TOTP
 from Cerebrum.utils import text_compat
 
 
-# Default secret size requirement, in bytes
-#
-# OTP secrets can be of any length, but Feide requires secrets to be 10 bytes
-# (16 base32 chars).
-#
 # TODO: How should we handle padding for secret sizes that aren't a multiple of
 # 5?  It seems most totp uri parsers strip padding, but totp uris aren't
 # specified very well...
 DEFAULT_SECRET_SIZE = 10
+"""
+Default secret size, in bytes.
+
+This is both the default size for new secrets, and the default size requirement
+when validating a given secret.
+
+OTP secrets can be of any length, but Feide requires secrets to be 10 bytes
+(16 base32 chars).
+"""
 
 # Default label for otp uri
 DEFAULT_LABEL = 'University of Oslo'
+""" Default label for OTP URIs. """
 
-# Default issuer for otp uri
 DEFAULT_ISSUER = 'uio.no'
+""" Default issuer in OTP URIs. """
 
 
 def generate_secret(nbytes=DEFAULT_SECRET_SIZE):
-    """ Generate a new base32-encoded shared otp secret. """
+    """
+    Generate a new base32-encoded OTP shared secret.
+
+    :param int nbytes: Secret size, in bytes.
+
+    :rtype: str
+    :returns: A base32-encoded secret.
+    """
     # TODO: should we strip padding when nbytes is not a multiple of 5?
     return text_compat.to_text(base64.b32encode(os.urandom(nbytes)))
 
 
 def validate_secret(secret, nbytes=DEFAULT_SECRET_SIZE):
     """ Check shared secret value.
+
+    :param int nbytes: Required secret size, in bytes.
 
     :raise ValueError: if secret is invalid
     """
@@ -77,6 +91,13 @@ def validate_secret(secret, nbytes=DEFAULT_SECRET_SIZE):
 
 def format_otp_uri(secret, label=DEFAULT_LABEL, issuer=DEFAULT_ISSUER):
     """ Format an otpauth uri for a shared secret.
+
+    :param str secret: The base32-encoded OTP shared secret.
+    :param str label: Label for the URI
+    :param str issuer: Issuer of the secret in the URI
+
+    :rtype: str
+    :returns: An ``otpauth:`` URI
 
     :raise ValueError: if secret, label or issuer is invalid
     """

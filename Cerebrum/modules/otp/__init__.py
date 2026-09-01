@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2021-2022 University of Oslo, Norway
+# Copyright 2021-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -20,101 +20,94 @@
 """
 OTP multifactor authentication module.
 
-This module provides a way to store multifactor authentication (e.g.  TOTP)
+This module provides a way to store multifactor authentication (e.g. TOTP)
 secrets in Cerebrum.
-
 
 Data model
 ----------
-The general idea is that any one given person has *one* TOTP secret, which
-can be encrypted and stored for multiple target systems (otp_type).
-
-The secret can be updated - and when it is updated, *all* existing otp
-entries for that person is removed, and the new secrets are inserted.
+The data model stores *otp payloads* for a given person.
 
 person_id
-    a person this secret applies to
+    The owner of this secret.
 
 otp_type
-    target type for the secret - i.e. which system it is formatted and
-    encrypted for.
+    Target type for the secret - i.e. which system it is formatted and
+    encrypted for.  Two systems may *share* a given ``otp_type``, in theory,
+    but most systems will want a secret to be encrypted using a specific key.
 
 otp_payload
-    the target payload
+    The target payload.  This is the shared secret, but this will *usually* be
+    formatted and wrapped in some sort of container, and encrypted.
 
 updated_at
-    insert/update time for this entry.
+    Insert/update time for this entry.
+
+The idea is that the shared secret belongs to a person, and that the generated
+one-time password should apply to all accounts owned by this person.
+
+The shared secret may be formatted and/or encrypted into multiple *otp payload*
+values.  Each payload is typically prepared for a given target system, which
+is represented with the *otp type*.
 
 
 Configuration
 -------------
-If the related ``mod_otp.sql`` database schema is present, the following
-configuration must be added to ``cereconf``:
+If the ``mod_otp.sql`` database schema is present, the following
+configuration should be added to ``cereconf``:
 
-cereconf.CLASS_CONSTANTS
-    Must include OTP-related constants:
-    ``Cerebrum.modules.otp.constants/OtpConstants``.
+``CLASS_CONSTANTS``
+    Should include OTP-related constants: :class:`~.constants.OtpConstants`.
 
-cereconf.CLASS_CLCONSTANTS
-    Must include ``Cerebrum.modules.otp.constants/OtpChangeLogConstants`` for
+    These are the bofhd auth codes, and required for the OTP-related bofhd
+    commands in :mod:`.bofhd_otp_cmds`.
+
+``CLASS_CLCONSTANTS``
+    Must include :class:`~.constants.OtpChangeTypeConstants` for
     the auditlog, changelog, eventlog, and event publishing mechanism to
     function properly.
 
-cereconf.CLASS_PERSON
-    Must include ``Cerebrum.modules.otp.mixins/OtpPersonMixin`` in order to
-    maintain constraints.
+``CLASS_PERSON``
+    Should include :class:`~.mixins.OtpPersonMixin` in order to maintain
+    constraints.
 
 In addition, the following ``cereconf`` settings controls if/how the OTP module
 is used:
 
-cereconf.OTP_POLICY
-    Must include a tuple of ``Cerebrum.modules.otp.otp_types/OtpType`` classes.
-    Each class defines a otp_type/otp_payload tuple to prepare when setting a
-    new otp secret.
+``OTP_POLICY``
+    Must include a tuple of :class:`~.otp_types.OtpType` classes.
 
-cereconf.CLASS_POSIXLDIF
-    Must include ``Cerebrum.modules.otp.otp_ldif_utils/RadiusOtpMixin`` to
-    include an attribute with the radius-otp payload in LDAP.
+    Each class defines a otp type and payload tuple to prepare when setting a
+    new otp secret.  Example:
+    ::
 
-cereconf.CLASS_ORGLDIF
-    Must include ``Cerebrum.modules.otp.otp_ldif_utils/NorEduOtpMixin`` for
-    the 'feide-ga' payload to be included in the Feide-attribute
-    ``norEduPersonAuthnMethod``.
+        OTP_POLICY = (
+            "Cerebrum.modules.otp.otp_types/OtpTypeFeideJwe",
+            "Cerebrum.modules.otp.otp_types/OtpTypeRadiusJwe",
+        )
+
+``CLASS_POSIXLDIF``
+    Must include :class:`~.otp_ldif_utils.RadiusOtpMixin` to
+    include an attribute with the *radius-otp* payload in LDAP.
+
+``CLASS_ORGLDIF``
+    Must include :class:`~.otp_ldif_utils.NorEduOtpMixin` for
+    the *feide-ga* payload to be included in the ``norEduPersonAuthnMethod``
+    Feide-attribute.
 
 
 bofhd
------
-Add ``Cerebrum.modules.otp.bofhd_otp_cmds/OtpCommands`` (or a subclass with
-custom auth methods) to the bofhd config.
+------
+Add a subclass of :class:`~.bofhd_otp_cmds.OtpCommands` with all the proper
+auth mixins to the bofhd config.
 
-To delegate access to `person otp_set`/`person otp_clear`, add `person_otp_set`
-or `person_otp_clear` to an appropriate opset.  E.g. in ``opset_config.py``:
+To delegate access to ``person otp_set``/``person otp_clear``, add
+``person_otp_set`` or ``person_otp_clear`` to an appropriate opset.
 
-::
-
-    operation_sets = {
-
-        # allowed to set (both generate and specify) otp secrets
-        'generate-otp': {
-            'person_otp_set': {},
-        },
-
-        # only allowed to clear already set otp secrets
-        'clear-otp': {
-            'person_otp_clear': {},
-        },
-
-        # allowed to *generate* otp secrets
-        # allowed to clear already set otp secrets
-        'generate-and-clear-otp': {
-            'person_otp_set': {'attrs': ['generate']},
-            'person_otp_clear': {},
-        },
-    }
+See :mod:`.bofhd_otp_cmds` for more details.
 
 
 Future changes
---------------
+---------------
 We may want to make more of the OtpPolicy configurable - e.g. change the
 location/name of the pubkey used for encryption.
 
@@ -122,7 +115,7 @@ In addition we may at some point end up the need for multiple secrets to exist
 in parallel.  In which case, we should add support for:
 
 - Multiple, named OtpPolicy objects.   We'll also need to omit or re-implement
-  the `clear_obsolete` call in py:module:`.otp_types`.
+  the ``clear_obsolete`` call in :mod:`.otp_types`.
 
 - Labels to identify each distinct secret/policy.  This could be user defined,
   or defined by OtpPolicy, but should probably be stored in a separate

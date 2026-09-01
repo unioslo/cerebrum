@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2021-2024 University of Oslo, Norway
+# Copyright 2021-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -58,6 +58,7 @@ class OtpSessionCache(object):
     """
 
     state_type = "person_otp_secret"
+    """ session key for storing otp secret state. """
 
     def __init__(self, session):
         """
@@ -101,19 +102,19 @@ class OtpSessionCache(object):
 
 class OtpAuth(BofhdAuth):
     """
-    Auth for person otp_* commands.
+    Authorization for ``person otp_*`` commands.
 
     Overview
     --------
-    If a person is *protected* from otp changes through bofhd
-    (see py:meth:`._is_otp_protected`), then no-one (not even superuser) is
-    allowed to alter the otp secrets of this person.
+    If a person is *protected* from otp changes through bofhd, then no-one (not
+    even superuser) is allowed to alter the otp secrets of this person.  This
+    is implemented in a ``_is_otp_protected`` method, which can be overridden
+    by subclasses or mixins.
 
     Otherwise, operators must be superuser, or be granted access through
     op-sets to modify otp secrets.  As with many other bofhd commands, the
-    operations are bound to *global host* - i.e any grant to
-    *op-set with otp-operation @ global host* will grant access to
-    *all persons*.
+    operations are bound to *global host* - i.e any grant to *op-set with
+    otp-operation @ global host* will grant access to *all persons*.
 
     Operations
     ----------
@@ -131,7 +132,34 @@ class OtpAuth(BofhdAuth):
     ``person_otp_clear[]``
         Allowed to to clear an exising secret
 
-    .. note:: Both person_otp_set and person_otp_clear is needed to reset
+    .. note::
+       Both ``person_otp_set`` and ``person_otp_clear`` is needed to reset an
+       OTP secret.
+
+    Example opset config
+    ---------------------
+    ``opset_config.py``:
+    ::
+
+        operation_sets = {
+
+            # allowed to set (both generate and specify) otp secrets
+            'set-otp': {
+                'person_otp_set': {},
+            },
+
+            # only allowed to clear already set otp secrets
+            'clear-otp': {
+                'person_otp_clear': {},
+            },
+
+            # allowed to *generate* otp secrets
+            # allowed to clear already set otp secrets
+            'generate-and-clear-otp': {
+                'person_otp_set': {'attrs': ['generate']},
+                'person_otp_clear': {},
+            },
+        }
     """
 
     def is_otp_operator(self, operator, query_run_any=True):
@@ -269,7 +297,7 @@ class OtpAuth(BofhdAuth):
 
 
 def _get_person_name(person):
-    """ get full name from a person object. """
+    """ Get full name from a person object. """
     try:
         return person.get_name(person.const.system_cached,
                                person.const.name_full)
@@ -278,7 +306,7 @@ def _get_person_name(person):
 
 
 def _get_primary_account(person):
-    """ get primary account object from a person object. """
+    """ Get primary account object from a person object. """
     account_id = person.get_primary_account()
     if account_id is None:
         return None
@@ -291,14 +319,14 @@ def _get_primary_account(person):
 
 
 class OtpCommands(BofhdCommandBase):
-    """BofhdExtension for OTP related commands and functionality."""
+    """ Extends bofhd with OTP commands in the 'person' command group. """
 
     all_commands = {}
     authz = OtpAuth
 
     @property
     def otp_policy(self):
-        """ default otp policy. """
+        """ Default otp policy. """
         try:
             self.__otp_pol
         except AttributeError:
@@ -307,10 +335,10 @@ class OtpCommands(BofhdCommandBase):
 
     @classmethod
     def get_help_strings(cls):
-        """Get help strings."""
+        """ Get help strings. """
         return merge_help_strings(
             get_help_strings(),
-            ({}, COMMAND_HELP, ARGUMENT_HELP),
+            ({}, _COMMAND_HELP, _ARGUMENT_HELP),
         )
 
     #
@@ -498,7 +526,7 @@ def _from_docstring(func):
     return func.__doc__.strip().split('\n')[0]
 
 
-COMMAND_HELP = {
+_COMMAND_HELP = {
     'person': {
         'person_otp_info': _from_docstring(OtpCommands.person_otp_info),
         'person_otp_set': _from_docstring(OtpCommands.person_otp_set),
@@ -510,7 +538,7 @@ COMMAND_HELP = {
     }
 }
 
-ARGUMENT_HELP = {
+_ARGUMENT_HELP = {
     'otp-secret': [
         'otp-secret',
         'OTP shared secret',

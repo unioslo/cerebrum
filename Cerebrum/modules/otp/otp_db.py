@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2021-2024 University of Oslo, Norway
+# Copyright 2021-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -20,8 +20,34 @@
 """
 Database access to personal otp secrets.
 
-This module contains all the neccessary queries for fetching and modifying otp
+This module contains all the necessary queries for fetching and modifying otp
 secrets in the database.
+
+Common selectors
+-----------------
+:func:`.sql_search`, :func:`.sql_delete`, and :func:`.sql_get_otp_type_count`
+use a common set of arguments/selectors.  These selectors (arguments) are
+documented in this *fictional* function:
+
+.. py:function:: select(person_id=None, otp_type=None, updated_before=None, \
+                        updated_after=None)
+
+   Selector function to illustrate the common otp lookup arguments.
+
+   :type person_id: int or list[int]
+   :param person_id: only include otp entries owned by these person ids
+
+   :type otp_type: str or list[str]
+   :param otp_type: only include otp entries of these types
+
+   :type updated_before: datetime.date or datetime.datetime
+   :param updated_before: only include otp entries updated before this datetime
+
+   :type updated_after: datetime.date or datetime.datetime
+   :param updated_after: only include otp entries updated after this datetime
+
+If both ``updated_before`` and ``updated_after`` is given, the two values must
+be comparable (i.e. the same datetime type).
 """
 from __future__ import (
     absolute_import,
@@ -39,11 +65,11 @@ from Cerebrum.Utils import argument_to_sql
 from .constants import OtpChangeTypeConstants
 
 
-# default row order in query results
 DEFAULT_ORDER = ('person_id', 'otp_type', 'updated_at')
+""" Default row ordering in otp queries. """
 
-# default fields and field order in query results
 DEFAULT_FIELDS = ('person_id', 'otp_type', 'otp_payload', 'updated_at')
+""" Default columns and column order in otp queries. """
 
 
 logger = logging.getLogger(__name__)
@@ -54,12 +80,7 @@ def _select(person_id=None, otp_type=None,
     """
     Generate clauses and binds for person_otp_secret queries.
 
-    :param person_id: only include results for these persons
-    :param otp_type: only include results for these otp types
-    :param updated_before:
-        only include results with a updated_at before this value
-    :param updated_after:
-        only include results with a updated_at after this value
+    See `common selectors`_ in the module documentation for details.
 
     :rtype: tuple(list, dict)
     :returns:
@@ -98,11 +119,14 @@ def _select(person_id=None, otp_type=None,
 
 def sql_search(db, fetchall=True, limit=None, **selects):
     """
-    Search personal otp secrets by person or secret type
+    Search personal otp secrets by owner or type.
 
-    See py:func:`._select` for search params.
-
-    :param fetchall: see ``Cerebrum.database.Database.query``
+    :type db: Cerebrum.database.Database
+    :param bool fetchall: See :meth:`Cerebrum.database.Database.query`
+    :param int limit: Limit number of results
+    :param selects:
+        Search parameters - see `common selectors`_ in the module documentation
+        for details.
 
     :returns: matching rows.
     """
@@ -142,7 +166,13 @@ def sql_delete(db, **selects):
     """
     Delete personal otp secrets.
 
-    See py:func:`._select` for filter params.
+    .. warning::
+        If no parameters are given, all otp secrets are removed!
+
+    :type db: Cerebrum.database.Database
+    :param selects:
+        Delete parameters - `common selectors`_ in the module documentation for
+        details.
 
     :returns: deleted rows.
     """
@@ -183,9 +213,13 @@ def sql_clear(db, person_id, otp_type):
     """
     Remove a personal otp secret row by primary key.
 
+    :type db: Cerebrum.database.Database
+    :param int person_id: owner of the otp secret to clear
+    :param str otp_type: otp type to clear
+
     :returns: the deleted row
 
-    :raises NotFoundError: if no matching item exist
+    :raises NotFoundError: if no matching row exist
     """
     rows = list(sql_delete(db, person_id=int(person_id),
                            otp_type=six.text_type(otp_type)))
@@ -206,6 +240,10 @@ def sql_clear(db, person_id, otp_type):
 def sql_get(db, person_id, otp_type):
     """
     Get a personal otp secret row by primary key
+
+    :type db: Cerebrum.database.Database
+    :param int person_id: owner of the otp secret to get
+    :param str otp_type: otp type to get
 
     :returns: the found row
 
@@ -300,10 +338,10 @@ def sql_set(db, person_id, otp_type, otp_payload):
     """
     Add or update a personal otp secret.
 
-    :param db:
-    :param person_id: entity_id of an existing person
-    :param otp_type: otp_type to set
-    :param otp_payload: secret to set
+    :type db: Cerebrum.database.Database
+    :param int person_id: entity_id of an existing person
+    :param str otp_type: otp_type to set
+    :param str otp_payload: secret to set
     """
 
     try:
@@ -335,7 +373,11 @@ def sql_get_otp_type_count(db, **kwargs):
     """
     Get otp row counts by otp_type.
 
-    See py:func:`._select` for filtering params.
+    Useful for statistics or metrics.
+
+    :param kwargs:
+        Search parameters - `common selectors`_ in the module documentation for
+        details.
 
     :returns: rows of (queue, count) tuples
     """

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2022-2024 University of Oslo, Norway
+# Copyright 2022-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -20,7 +20,12 @@
 """
 This module contains utils for preparing and updating different otp types.
 
-Currently, we have three otp_type values (and implementations):
+OTP types
+----------
+Each OTP type is backed by a :class:`.OtpType`.  Formatting and/or
+encryption for a given target system is handled by this class.
+
+Currently, we have three otp type values (and implementations):
 
 plaintext
     Stores the secret as-is.  This is only a test-case/demo implementation, and
@@ -35,19 +40,37 @@ feide-ga
     using a public key from Feide.
 
 
-Configuration
--------------
-The default py:class:`.OtpPolicy` is controlled by ``cereconf.OTP_POLICY``.
-The value should be a tuple of OtpType classes, e.g.:
+OTP policy
+-----------
+The :class:`.OtpPolicy` is a collection of OtpType implementations,
+and is used to generate a payload for each of its otp types when given a shared
+secret.
 
+Cerebrum currently only deals with one, common policy, which is configured by
+``cereconf.OTP_POLICY``.  The value should be a tuple of OtpType classes, e.g.:
 ::
 
     OTP_POLICY = (
-        'Cerebrum.modules.otp.otp_types/OtpTypeRadiusJwe',
         'Cerebrum.modules.otp.otp_types/OtpTypeFeideJwe',
+        'Cerebrum.modules.otp.otp_types/OtpTypeRadiusJwe',
     )
 
-This value is used when fetching the default policy with py:func:`.get_policy`.
+This value is used when fetching the default policy with :func:`.get_policy`.
+
+
+Storing a new secret
+---------------------
+The :class:`~.otp_types.PersonOtpUpdater` handles updating all otp types in
+the default otp policy
+
+The following code will set a new shared *secret* for *person_id* for all
+current otp types in the default policy, and remove any obsolete otp types:
+::
+
+    otp_policy = get_policy()
+    otp_updater = PersonOtpUpdater(db, otp_policy)
+    otp_updater.update(person_id, secret)
+
 """
 from __future__ import (
     absolute_import,
@@ -75,7 +98,12 @@ def validate_secret(*args, **kwargs):
 
 
 class OtpType(object):
-    """ abstract implementation of a given otp_type. """
+    """
+    Abstract implementation of a given otp_type.
+
+    This object is a callable that takes a OTP shared secret, and generates a
+    payload to store for a given target system.
+    """
 
     # Must be overridden in sublcasses
     otp_type = None
@@ -89,7 +117,7 @@ class OtpType(object):
 
 
 class OtpTypePlaintext(OtpType):
-    """ callback to generate an otp_payload for a given otp_type. """
+    """ Prepare a plaintext OTP secret. """
 
     otp_type = 'plaintext'
 
@@ -97,15 +125,44 @@ class OtpTypePlaintext(OtpType):
         return otp_secret
 
 
-class OtpTypeRadiusJwe(OtpType):
-    """ Prepare an otp_payload for otp_type='radius-otp'. """
+class OtpTypeFeideJwe(OtpType):
+    """
+    Prepare a payload for otp type 'feide-ga'.
 
-    otp_type = 'radius-otp'
+    .. note::
+       Feide requires a 10 byte (16 base32 chars) secret, and uses the Google
+       Authenticator defaults for TOTP (SHA-1, 6 digit code, 30 second period).
+    """
+
+    otp_type = 'feide-ga'
+    """ OTP type to store this payload as. """
+
     key_alg = 'RSA-OAEP'
+    """
+    JWE key agreement algorithm to use.
+
+    See :mod:`.jwe_utils` for details.
+    """
+
     claims_enc = 'A128CBC-HS256'
-    default_pubkey = 'auth-file:radius-authenticator.pem'
+    """
+    JWE content encryption algorithm to use.
+
+    See :mod:`.jwe_utils` for details.
+    """
+
+    default_pubkey = 'auth-file:feide-authenticator-key.pem'
+    """
+    Default key to use for encryption.
+
+    See :meth:`.new` for details.
+    """
 
     def __init__(self, jwk):
+        """
+        :type jwk: jwcrypto.jwk.JWK
+        :param jwk: Key to use for JWE encryption
+        """
         self.jwk = jwk
 
     def __call__(self, otp_secret):
@@ -115,24 +172,52 @@ class OtpTypeRadiusJwe(OtpType):
 
     @classmethod
     def new(cls, pubkey=None):
+        """
+        Initialize this object from a *pubkey* secret.
+
+        :param str pubkey:
+            The pubkey secret to read and use.
+
+            Defaults to :data:`~.default_pubkey`.  See
+            :func:`~.jwe_utils.get_jwk` and :mod:`Cerebrum.utils.secrets` for
+            details.
+        """
         jwk = get_jwk(pubkey or cls.default_pubkey)
         return cls(jwk)
 
 
-class OtpTypeFeideJwe(OtpType):
+class OtpTypeRadiusJwe(OtpType):
     """
-    Prepare an otp_payload for otp_type='feide-ga'.
+    Prepare a payload for otp type 'radius-otp'.
 
-    Note:
-        Feide requires a 10 byte (16 char) base32 secret, and uses the Google
-        Authenticator defaults for TOTP (SHA-1, 6 digit code, 30 second
-        period).
+    .. note::
+       This is modelled after :class:`OtpTypeFeideJwe`, but uses a different
+       pubkey.
     """
 
-    otp_type = 'feide-ga'
+    otp_type = 'radius-otp'
+    """ OTP type to store this payload as. """
+
     key_alg = 'RSA-OAEP'
+    """
+    JWE key agreement algorithm to use.
+
+    See :mod:`.jwe_utils` for details.
+    """
+
     claims_enc = 'A128CBC-HS256'
-    default_pubkey = 'auth-file:feide-authenticator-key.pem'
+    """
+    JWE content encryption algorithm to use.
+
+    See :mod:`.jwe_utils` for details.
+    """
+
+    default_pubkey = 'auth-file:radius-authenticator.pem'
+    """
+    Default key to use for encryption.
+
+    See :meth:`.new` for details.
+    """
 
     def __init__(self, jwk):
         self.jwk = jwk
@@ -144,23 +229,50 @@ class OtpTypeFeideJwe(OtpType):
 
     @classmethod
     def new(cls, pubkey=None):
+        """
+        Initialize this object from a *pubkey* secret.
+
+        :param str pubkey:
+            The pubkey secret to read and use.
+
+            Defaults to :data:`~.default_pubkey`.  See
+            :func:`~.jwe_utils.get_jwk` and :mod:`Cerebrum.utils.secrets` for
+            details.
+        """
         jwk = get_jwk(pubkey or cls.default_pubkey)
         return cls(jwk)
 
 
 class OtpPolicy(object):
-    """ Configuration for preparing (otp_type, otp_payload) tuples. """
+    """
+    Configuration for preparing (otp_type, otp_payload) tuples.
+    """
 
     def __init__(self, otp_type_map):
+        """
+        :type otp_type_map: dict[str, OtpType]
+        :param otp_type_map:
+            OTP types and implementation for generating payloads.
+        """
         self._otp_config = {}
         for otp_type in otp_type_map:
             self._otp_config[otp_type] = otp_type_map[otp_type]
 
     @property
     def otp_types(self):
+        """ The otp types in this policy. """
         return tuple(self._otp_config.keys())
 
     def __call__(self, secret):
+        """
+        Generate payloads according to this policy.
+
+        :param str secret: base-32 encoded shared secret
+
+        :rtype: generator
+        :returns:
+            Tuples with (otp type, otp payload)
+        """
         for otp_type, cb in self._otp_config.items():
             yield otp_type, cb(secret)
 
@@ -169,8 +281,11 @@ class PersonOtpUpdater(object):
     """
     Controller for updating otp data for a given person according to policy.
     """
-
     def __init__(self, db, policy):
+        """
+        :type db: Cerebrum.database.Database
+        :type policy: OtpPolicy
+        """
         self._db = db
         self._policy = policy
 
@@ -206,7 +321,12 @@ class PersonOtpUpdater(object):
 
 
 def get_policy():
-    """ Get the default OtpPolicy. """
+    """
+    Get the default otp policy.
+
+    :rtype: OtpPolicy
+    :returns: Returns the ``cereconf.OTP_POLICY`` as an OtpPolicy object.
+    """
     try:
         otp_config = cereconf.OTP_POLICY
     except AttributeError:
