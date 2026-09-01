@@ -108,7 +108,7 @@ In short, certain `change types`_ will result in an *event* being stored in an
 individual *target systems*, so each ``log_change`` call can result in multiple
 events.
 
-A separate target system mapping tables decides if changes should
+A separate target system mapping table decides if changes should
 result in queued events.
 
 When a new event row has been queued, our database will immediately notify any
@@ -203,7 +203,7 @@ Slow commits
 Log changes without CLDatabase
     If you need to log changes using *your* implementation, and no other
     implementations, then this should be done using a custom CLDatabase
-    implementation, and not with *hacks* that extends or alters the changelog
+    implementation, and not with *hacks* that extend or alter the changelog
     API:
     ::
 
