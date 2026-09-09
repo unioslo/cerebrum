@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2017-2023 University of Oslo, Norway
+# Copyright 2017-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,6 +17,8 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+#
+# -----------------------------------------------------------------------------
 #
 # The JsonFormatter parts of this module is the JsonLogger from
 # <https://github.com/madzak/python-json-logger/>.  JsonLogger is:
@@ -45,11 +47,10 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 """
-Formatters for Cerebrum logging.
+Custom log formatters for Cerebrum.
 
 Formatters
 ----------
-
 :class:`.JsonFormatter`
     Format log records as JSON objects.
 
@@ -126,7 +127,9 @@ def merge_record_extra(record, target, reserved=RESERVED_ATTR_HASH):
 
 class JsonFormatter(logging.Formatter):
     """
-    A custom formatter to format logging records as JSON strings.
+    Format log records as JSON.
+
+    This formatter is adapted from the *python-json-logger* package.
 
     Extra values will be formatted as str() if not supported by
     the default JSON encoder.
@@ -227,15 +230,33 @@ class JsonFormatter(logging.Formatter):
 
 
 class IndentFormatter(logging.Formatter, object):
-    """ Formatter that adds indent to the formatted log record.  """
+    """
+    Formatter that adds indent to the formatted log record.
+
+    Log records are indented according to a LogRecord field. If the field is
+    missing from log records, it will not be indented.
+    """
 
     DEFAULT_FIELD_NAME = 'indent'
+    """ Default field name for indents. """
+
     DEFAULT_INDENT = ' '
+    """ Default indent string. """
 
     def __init__(self,
                  field_name=DEFAULT_FIELD_NAME,
                  indent=DEFAULT_INDENT,
                  **kwargs):
+        """
+        :param str field_name:
+            Name of a LogRecord field with number of indents.
+
+            This field specifies the indent level to apply to the given log
+            record.
+
+        :param str indent:
+            An indent character or string to use.
+        """
         self.field_name = field_name
         self.indent = indent
         super(IndentFormatter, self).__init__(**kwargs)

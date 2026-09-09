@@ -1,12 +1,21 @@
 # encoding: utf-8
 """
-Cerebrum custom loggers.
+Custom Cerebrum loggers.
 
-This module contains the CerebrumLogger, which adds additional log levels and
-associated API-methods to the python logger.
 
-In order to use the additional API methods in a module level logger, you have
-to install the logger class. This can be achieved by doing:
+This module contains the :mod:`.CerebrumLogger`, which adds additional log
+levels and associated API-methods to the :mod:`logging` module.
+
+.. warning::
+   This module is deprecated, and the custom log levels should not be used in
+   new code.
+
+   If you need to filter additional log messages, use a dedicated logger
+   that can be enabled/disabled or be configured with additional filtering.
+
+In order to use the additional API methods in a logger, you have to install the
+this logger class before fetching the log object. This can be achieved by
+doing:
 ::
 
     CerebrumLogger.install()
@@ -23,10 +32,19 @@ import logging
 
 # Additional debug levels. They will be added to the logging framework
 DEBUG1 = logging.DEBUG - 1
+""" Log level DEBUG - 1 """
+
 DEBUG2 = DEBUG1 - 1
+""" Log level DEBUG - 2 """
+
 DEBUG3 = DEBUG2 - 1
+""" Log level DEBUG - 3 """
+
 DEBUG4 = DEBUG3 - 1
+""" Log level DEBUG - 4 """
+
 DEBUG5 = DEBUG4 - 1
+""" Log level DEBUG - 5 """
 
 
 class CerebrumLogger(logging.Logger, object):

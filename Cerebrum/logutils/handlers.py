@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2017-2023 University of Oslo, Norway
+# Copyright 2017-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,14 +18,10 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
-Log handlers for Cerebrum.
+Custom log handlers for Cerebrum.
 
-This module consists of custom handlers for Cerebrum.  The handlers are pretty
-similar to handlers in the standard library, but adds a few features.
-
-Features
---------
-All common `handlers`_ in this module use the following feature mixins:
+These handlers are pretty similar to handlers in :mod:`logging.handlers`, but
+adds a few feature mixins:
 
 :class:`.MakeDirectoriesMixin`
     Creates missing parent directories for the log file.
@@ -86,12 +82,19 @@ from .stream import CerelogStreamWriter
 
 
 DEFAULT_DIRECTORY = LoggerConfig.logdir.default
+""" Default log directory. """
+
 DEFAULT_DIR_PERMS = 0o770
+""" Default permissions for new direectories. """
+
 DEFAULT_ENCODING = 'utf-8'
+""" Default encodign for log files. """
+
 _MIDNIGHT = to_seconds(days=1)
 
 
 def get_script_name():
+    """ Get the name of the current script. """
     # TODO: Ugh, find a better way...
     #       Maybe walk up the stack and identify the filename?
     #       We still need to avoid runpy.py and friends...
@@ -99,13 +102,19 @@ def get_script_name():
 
 
 class BaseFileHandler(logging.FileHandler, object):
-    """ new-style FileHandler class. """
+    """ New-style :class:`logging.FileHandler` class. """
     # This allows us to implement descriptors in mixins.
     pass
 
 
 class MakeDirectoriesMixin(BaseFileHandler):
-    """ Make parent directories for logfiles. """
+    """
+    Make parent directories for log files.
+
+    This mixin adds logic that will create missing directories when opening a
+    log file for writing.  New directories are created with permissions from
+    :data:`DEFAULT_DIR_PERMS`.
+    """
 
     directory_permissions = DEFAULT_DIR_PERMS
 
@@ -117,16 +126,20 @@ class MakeDirectoriesMixin(BaseFileHandler):
 
 
 class PermissionMixin(BaseFileHandler):
-    """ This mixin enforces log file permissions.
+    """
+    Enforce log file permissions.
 
-    Note that the permissions are changed *after* the file has been opened
-    (since we're unable to change them if the file does not exist yet).
+    This mixin adds logic to change the permissions on log files that are
+    opened.  Note that the permissions are changed *after* the file has been
+    opened (since we're unable to change them if the file does not exist yet).
     """
 
     def __init__(self, filename, permissions=None, **kwargs):
         """
         :param int permissions:
             Numerical permission mode passed to os.chmod()
+
+        See :class:`logging.FileHandler` for other arguments.
         """
         # TODO: Translate human-readable permissions (u=rw,g=r,o-rwx)?
         self.permissions = permissions
@@ -141,27 +154,30 @@ class PermissionMixin(BaseFileHandler):
 
 
 class FilenameTemplateMixin(BaseFileHandler):
-    """ Configure and inject variables into the filename.
+    """
+    Add filename templating.
 
-    FileHandlers with this mixins will have the 'filename' argument modified in
-    the following manner:
+    This class adds template support to the :class:`logging.FileHandler`
+    ``filename`` argument, to allow for names like:
 
-    - Strings like $$, $identifier, ${identifier} will be interpreted and
-      substituted with `string.Template`.
+    - ``${root}/${script}/log``
+    - ``${root}/${script}/log-%Y-%m-%d``
+    - ``${root}/${script}/${date}``
 
-    - Strings like %c, will be interpreted and substituted using
-      `time.strftime`.
+    Templating uses :class:`string.Template`, and supports the following
+    replacements:
 
-    The following `$`-prefixed variables will work:
+    root
+        The configured root directory for log files.
 
-    $root
-        the configured root directory for log files.
+    script
+        The name of the currently executed script
 
-    $script
-        the name of the currently executed script
+    date
+        The current date and time
 
-    $date
-        the current date and time
+    Additionally, the result is passed through :func:`time.strftime` to allow
+    for date and time replacements like e.g. "%c" or "%Y-%m-%d".
     """
 
     default_context = {
@@ -172,11 +188,14 @@ class FilenameTemplateMixin(BaseFileHandler):
 
     @classmethod
     def configure(cls, config):
+        """ Hook for patching in variables from config.  """
         cls.default_context['root'] = config.logdir
 
     def __init__(self, filename, **kwargs):
         """
         :param str filename: A filename or filename template for log files.
+
+        See :class:`logging.FileHandler` for other arguments.
         """
         filename = self._build_filename(filename)
         super(FilenameTemplateMixin, self).__init__(filename, **kwargs)
@@ -250,12 +269,12 @@ class DelayedFileHandler(FilenameTemplateMixin,
     """ A handler class which delays opening files until necessary.
 
     This is the base file handler for all Cerebrum logging. It's basically
-    L{logging.FileHandler}, but will:
+    :class:`logging.FileHandler`, but will:
 
-    - Create parent directories, if they are missing
-    - Set file permissions, if given as 'persmissions' (see PermissionMixin)
-    - Expand log filename using template variables
-    - Use the CerebrumStreamWriter to handle encoding.
+    - Create missing parent directories (see :class:`.MakeDirectoriesMixin`)
+    - Set log file permissions (see :class:`.PermissionMixin`)
+    - Use filename templates (see :class:`.FilenameTemplateMixin`)
+    - Use :class:`~.stream.CerebrumStreamWriter` to handle encoding
 
     """
     def __init__(self, *args, **kwargs):
@@ -264,29 +283,34 @@ class DelayedFileHandler(FilenameTemplateMixin,
 
 
 class OneRunHandler(DelayedFileHandler):
-    """A file handler that logs one job run into exactly one log file.
-
-    Basically, this is just like a FileHandler, except that it uses a file
-    naming scheme; The 'filename' is turned into a directory, and each new
-    OneRunHandler will create a separate file with a timestamped name in this
-    directory.
     """
+    A file handler that logs one job run into exactly one log file.
 
+    This class is deprecated - it can be replaced in configs with a
+    :class:`.DelayedFileHandler` with the :attr:`.default_filename` as its
+    *filename*.
+
+    This is a :class:`.DelayedFileHandler` with a default *filename* template
+    that enforces the following naming scheme: each run will create a
+    timestamped log in ``<cerebrum-log-root>/<script>/log-<timestamp>``
+    """
     # TODO: Replace this with a generic CerebrumHandler that requires
     # 'filename' just like the others?
 
     default_filename = "${root}/${script}/log-${date}"
+    """ Default filename template for this handler. """
 
     def __init__(self, filename=default_filename, **kwargs):
         super(OneRunHandler, self).__init__(filename, **kwargs)
 
 
 class CerebrumRotatingHandler(DelayedFileHandler):
-    """ Cerebrum's own rotating handler.
+    """
+    Cerebrum's own rotating handler.
 
-    This handler rotates the logs much like handlers.RotatingFileHandler,
-    except that the file opening is delayed, and rotation requires threading
-    locks.
+    This handler rotates the logs much like
+    :class:`.logging.handlers.RotatingFileHandler`, except that the file
+    opening is delayed, and rotation requires threading locks.
 
     By default, the file grows indefinitely. You can specify particular values
     of L{maxBytes} and L{backupCount} to allow the file to rollover at a

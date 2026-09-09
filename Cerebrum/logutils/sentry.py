@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2024 University of Oslo, Norway
+# Copyright 2024-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,15 +18,17 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
-Sentry setup.
+sentry-sdk setup.
 
-Configuration
--------------
+This is an internal module that isolates the sentry-sdk setup -
+:func:`.sentry_init` should not be called directly.
+
 See :cls:`.config.SentryConfig` and :func:`.config.setup_sentry_sdk` for
-details on how :func:`.sentry_init` is usually called.
+setting up a Sentry integration.
 
-The *dsn* setting will normally be set in a `logenv` config.  The *environment*
-setting will usually default to ``cereconf.ENVIRONMENT``
+The *dsn* setting will normally be set in a ``logenv`` config.  The
+*environment* setting can be set in ``logenv``, but will default to
+``cereconf.ENVIRONMENT``
 """
 from __future__ import (
     absolute_import,
@@ -52,6 +54,12 @@ def sentry_init(dsn, environment=None):
 
     :param str dsn:
         Connection string for a Sentry project.
+
+    :param str environment:
+        Sets the sentry environment option.
+
+        This is optional, but recommended to set.  Sentry defaults this to
+        "production".
     """
     # *Our* set of default integrations for Sentry.  The list mainly includes
     # the sentry-sdk default integrations, except we explicitly exclude the

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2017-2023 University of Oslo, Norway
+# Copyright 2017-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -20,10 +20,10 @@
 """
 Capture Python warnings using a logger.
 
-This module contains utilities to change the `warnings` module behaviour, so
-that warnings are logged rather than written to stderr.
+This module contains utilities to change the :mod:`warnings` module behaviour,
+so that warnings are logged rather than written to stderr.
 
-It also contains some utilities to change the `warnings` filters at runtime
+It also contains some utilities to change the warning filters at runtime
 (e.g. from configuration).
 """
 from __future__ import (
@@ -38,32 +38,44 @@ import threading
 import warnings
 
 
-# Backup of the default showwarnings function
+#: Backupi of the default showwarnings function
 DEFAULT_SHOWWARNING = warnings.showwarning
+
 logger = logging.getLogger(__name__)
 
+# Lock for protected access to the set_showwarning and the _stack
 _stack_lock = threading.Lock()
+
+# A stack of previous warnings.showwarning functions.  Allows resetting
+# warnings.showwarning with set_showwarning(None)
 _stack = []
+
+# Lock for protected access to _FilterManager.set_filters
 _filter_lock = threading.Lock()
 
 
 class WarningsLogger(object):
-    """ Replacement function for warnings.showwarning.
+    """ Replacement function for :func:`warnings.showwarning`.
 
-    This implementation of showwarning can replace the default one, to enable
-    capture warnings with a logger.
+    This callable object is a showwarning compatible function that can be used
+    to capture warnings with a logger.
     """
 
+    #: Default log level for captured warnings
     DEFAULT_LEVEL = logging.WARNING
 
     def __init__(self, level=DEFAULT_LEVEL):
+        """
+        :param int level: Log level to use for captured warnings
+        """
         self.level = level
 
     def __call__(self, message, category, filename, lineno,
                  file=None, line=None):
-        """ Replacement function for warnings.showwarning that logs warnings.
+        """
+        showwarning callback.
 
-        See L{warnings.showwarning} for documentation of the arguments.
+        See :func:`warnings.showwarning` for argument details.
         """
         logger.log(
             self.level,
@@ -77,7 +89,7 @@ class WarningsLogger(object):
 
     @property
     def level(self):
-        """ the log level to use for logged warnings. """
+        """ log level to use for warnings. """
         try:
             return self._loglevel
         except AttributeError:
@@ -91,10 +103,12 @@ class WarningsLogger(object):
             self._loglevel = logging.getLevelName(level)
 
     def formatwarning(self, message, category, filename, lineno, line=None):
-        """ Format warning log message.
+        """
+        Format warning log message.
 
-        This is our implementation of warnings.formatwarning -- and makes it
-        possible to override the default formatting behaviour by inheritance.
+        This is our implementation of :func:`warnings.formatwarning` - and
+        makes it possible to override the default formatting behaviour by
+        inheritance.
 
         This formatter discards the source line to prevent multiline log
         messages.
@@ -104,14 +118,14 @@ class WarningsLogger(object):
 
 
 def set_showwarning(func=None):
-    """ Replace the L{warnings.showwarning} implementation.
+    """ Replace :func:`warnings.showwarning`
 
     :type func: callable or None
     :param func:
         A new function to use as warnings.showwarning, or None to reset to
         previous implementation.
 
-    :raise TypeError: If L{func} is not None or callable
+    :raise TypeError: If *func* is not None or callable
     """
 
     with _stack_lock:
@@ -132,10 +146,18 @@ def set_showwarning(func=None):
 
 
 class _FilterManager(object):
-    """ Singleton object that manages custom filter rules.
+    """
+    Singleton object for managing filter rules.
 
-    This object resets the global filter rules, then adds back the custom rules
-    of this manager and the rules given in sys.warnoptions.
+    This object manages and keeps track of two sets of filtering rules - the
+    :data:`sys.warnoptions`, and its own :attr:`.warnoptions`.
+
+    The former is typically set by environment variables or as python startup
+    options, while the latter is set through code (e.g. from warning settings
+    in the logenv config (:mod:`.config`).
+
+    The manager merges the two sets of filtering rules, while only allowing the
+    custom rules to be changed.
     """
 
     def __init__(self):
@@ -170,7 +192,18 @@ class _FilterManager(object):
             raise
 
 
+#: Filter rules manager
 filters = _FilterManager()
+"""
+Filter manager.
+
+An internal set of warnoptions that gets merged with :data:`sys.warnoptions`.
+
+Example use:
+::
+
+    filters.set_filters(['always:'])
+"""
 
 
 if __name__ == '__main__':
