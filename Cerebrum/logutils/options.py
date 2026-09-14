@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2017-2023 University of Oslo, Norway
+# Copyright 2017-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -20,18 +20,21 @@
 """
 Options/cli arguments for logutils.
 
-This module contains utilities to parse command line arguments, and use them to
-change logging behaviour in Cerebrum. These options typically sets log levels
-(--logger-level) or selects a non-default logging preset (--logger-name).
+This module contains utilities for parsing and processing common cli-options
+for :func:`Cerebrum.logutils.autoconf`.
+
+These options typically sets log levels (``--logger-level``) or selects a
+non-default logging preset (``--logger-name``).
 
 There are two ways to fetch logger settings from the command line:
 
-- Use an ArgumentParser, and add logger arguments with `install_subparser`.
-- Extract arguments directly from `sys.argv`
+1. Use a :class:`argparse.ArgumentParser`, and add logger arguments with
+   :func:`.install_subparser`.  This is the recommended approach.
 
-Both should result in an object that contains attributes with the command line
-settings.
+2. Extract arguments directly from :data:`sys.argv` with
+   :func:`.process_arguments`.
 
+Both should result in a namespace object with options from the command line.
 """
 from __future__ import (
     absolute_import,
@@ -43,12 +46,21 @@ import argparse
 import sys
 import threading
 
-# Namespace-attributes
+
 OPTION_CAPTURE_EXC = 'logger_capture_exc'
+""" Attribute for the exception capture setting. """
+
 OPTION_CAPTURE_WARN = 'logger_capture_warn'
+""" Attribute for the warning capture setting. """
+
 OPTION_LOGGER_LEVEL = 'logger_level'
+""" Attribute for the log level setting. """
+
 OPTION_LOGGER_NAME = 'logger_name'
+""" Attribute for the log preset setting. """
+
 OPTION_SENTRY = 'sentry_enable'
+""" Attribute for the sentry setting. """
 
 
 def install_subparser(parser,
@@ -58,18 +70,17 @@ def install_subparser(parser,
                       default_preset=None,
                       default_enable_sentry=None):
     """
-    Add a logging subparser to an existing ArgumentParser.
+    Add a group of logger arguments to an existing ArgumentParser.
 
     Default values for the logger arguments are read from a *logenv* config
-    file.  By setting argument defaults, you will override the default value
-    set in the config file.  See :mod:`.config` for details on the different
+    file.  Any defaults given to this function will override default values
+    from the config file.  See :mod:`.config` for details on the different
     settings.
 
-    Overriding defaults are typically useful in interactive scripts, where you
-    may want to change the behaviour which is usually tailored for crontab
-    style scripts.
+    Overriding defaults is typically useful in interactive scripts, as
+    the config is usually tailored for crontab style scripts.
 
-    :param parser: an argument parser to add a logging subparser to
+    :type parser: argparse.ArgumentParser
 
     :param bool default_capture_exceptions:
         Set a default value for capturing exceptions.
@@ -89,12 +100,12 @@ def install_subparser(parser,
         by default, since a working sentry dsn is required in the config to
         enable.
 
-    :returns: the added subparser
+    :returns: The new argument group
     """
-    subparser = parser.add_argument_group('Logging',
-                                          'Override default log configuration')
-
-    # TODO: Should we have both an enable and a disable here?
+    subparser = parser.add_argument_group(
+        "Logging",
+        "Override default log configuration",
+    )
 
     # Enable or disable logger exception hook
     exc_mutex = subparser.add_mutually_exclusive_group()
@@ -133,14 +144,14 @@ def install_subparser(parser,
     warn_mutex.set_defaults(**{OPTION_CAPTURE_WARN: default_capture_warnings})
 
     # Select a logger preset
-    # TODO: This should be renamed to `--logger-preset`,
-    #       as the term *logger name* refers to something else
     subparser.add_argument(
+        # TODO: This should be renamed to `--logger-preset`, to avoid
+        #       confusion with `logger.name`.
         '--logger-name',
         metavar='NAME',
         dest=OPTION_LOGGER_NAME,
         default=default_preset,
-        help="Override logger configuration",
+        help="Override logger preset",
     )
 
     # Select a logger level
@@ -152,6 +163,7 @@ def install_subparser(parser,
         help="Override logger level",
     )
 
+    # Enable or disable the sentry-sdk
     sentry_mutex = subparser.add_mutually_exclusive_group()
     sentry_mutex.add_argument(
         '--logger-sentry',
@@ -168,23 +180,28 @@ def install_subparser(parser,
         help="Disable sentry",
     )
     sentry_mutex.set_defaults(**{OPTION_SENTRY: default_enable_sentry})
+
     return subparser
 
 
-# Threading lock to prevent simultaneous changes to `sys.argv` by
-# `process_arguments`
 process_arguments_lock = threading.Lock()
+""" Threading lock for :func:`.process_arguments`. """
 
 
 def process_arguments(**kwargs):
     """
     Legacy argument parsing.
 
-    This function is used to extract logger options directly from sys.argv.
+    This function is used to extract logger options directly from
+    :data:`sys.argv`.
 
     .. note::
-       This function has side effects: It directly modifies `sys.argv` by
+       This function has side effects: It directly modifies ``sys.argv`` by
        removing valid logutils options.
+
+       This may cause problems if your script has other options starting with
+       '--logger', due to the default prefix matching.  See the
+       :mod:`argparse` documentation for more details.
 
     :returns argparse.Namespace:
         A namespace with all the logutils options.
@@ -194,10 +211,6 @@ def process_arguments(**kwargs):
 
     # Note: This lock does not really help all that much if something outside
     # this module is accessing sys.argv
-
-    # Note that this may also cause problems if your script also has other
-    # options that starts with '--logger-<something>'. Look up 'argparse prefix
-    # matching' for more details.
     with process_arguments_lock:
         namespace, rest = parser.parse_known_args(sys.argv)
         sys.argv[:] = rest[:]
@@ -207,10 +220,16 @@ def process_arguments(**kwargs):
 # python -m Cerebrum.logutils.options
 
 
-def main(inargs=None):
+def main(argv=None):
+    """
+    Parse and print logger options.
+    ::
+
+        python -m Cerebrum.logutils.options --help
+    """
     parser = argparse.ArgumentParser()
     install_subparser(parser)
-    args = parser.parse_args(inargs)
+    args = parser.parse_args(argv)
     print(repr(args))
 
 

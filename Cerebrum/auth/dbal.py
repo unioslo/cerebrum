@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2002-2024 University of Oslo, Norway
+# Copyright 2002-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -21,13 +21,12 @@
 Database queries for the account_authentication tables.
 
 .. important::
-   These queries does *not* log any audit records when setting or deleting
+   These queries do *not* log any audit records when setting or deleting
    auth methods.
 
-   As each account authentication method represents the *same*
-   plaintext password, we only log *one* event whenever we update account
-   authentication method.  The caller needs to perform the neccessary
-   changelog calls.
+   As each account authentication method represents the same plaintext
+   password, we only log *one* event whenever we update account authentication
+   methods.  The caller needs to perform the necessary changelog calls.
 
    Note also that there's only *one* change-type related to passwords - and
    that's the *account_password:set* change-type.  This should be set whenever
@@ -124,10 +123,10 @@ def _select(account_id=None, method=None, auth_data=None, _prefix=""):
     :param auth_data: not currently supported (TODO)
 
     :param _prefix:
-        A prefix for entity_trait column names.
+        A prefix for account_authentication column names.
 
         A prefix is needed when querying multiple tables, and a column in
-        entity_trait may conflict with column names from another table.
+        account_authentication may conflict with column names from another table.
 
     :rtype: tuple(list, dict)
     :returns:
@@ -138,7 +137,7 @@ def _select(account_id=None, method=None, auth_data=None, _prefix=""):
     binds = {}
 
     #
-    # mandatory value selects (columns that doesn't allow None)
+    # mandatory value selects (columns that don't allow None)
     #
     if account_id is not None:
         clauses.append(
@@ -207,7 +206,7 @@ def get_authentication(db, account_id, method):
     Get account authentication data.
 
     :param account_id: account id to get data for
-    :param method: authentication medhod to get data for
+    :param method: authentication method to get data for
     """
     return db.query_1(
         """
@@ -243,6 +242,17 @@ def authentication_method_exists(db, account_id, method):
 
 
 def set_authentication(db, account_id, method, auth_data):
+    """
+    Set account authentication data.
+
+    Inserts or updates auth_data for the given account and method.
+
+    :param account_id: account id to set data for
+    :param method: authentication method to set data for
+    :param auth_data: the cryptstring or hash to store
+
+    :returns: the inserted or updated db-row
+    """
     binds = {
         'account_id': int(account_id),
         'method': int(method),
@@ -251,7 +261,7 @@ def set_authentication(db, account_id, method, auth_data):
     exists = authentication_method_exists(db, account_id, method)
     if exists:
         # auth_data *may* have the same value, but we don't want to reveal that
-        # through e.g. logs, so we update without checking if it's neccessary.
+        # through e.g. logs, so we update without checking if it's necessary.
         row = db.query_1(
             """
               UPDATE
@@ -309,6 +319,6 @@ def delete_authentication(db, account_id, method=None):
     )
     rows = db.query(stmt, binds, fetchall=True)
     for row in rows:
-        logger.info("deleted auth method=%r for entity_id=%r",
+        logger.info("deleted auth method=%r for account_id=%r",
                     row['method'], row['account_id'])
     return rows

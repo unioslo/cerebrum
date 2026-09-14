@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2021-2024 University of Oslo, Norway
+# Copyright 2021-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,7 +17,9 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" Entity mixins for mod_otp maintenance. """
+"""
+Entity mixins for OTP maintenance.
+"""
 from __future__ import (
     absolute_import,
     division,
@@ -34,7 +36,7 @@ logger = logging.getLogger(__name__)
 
 
 class OtpPersonMixin(Person):
-    """ Mixin for mod_otp maintenance """
+    """ Mixin to clear OTP data when deleting a person object. """
 
     def delete(self):
         otp_db.sql_delete(self._db, person_id=int(self.entity_id))

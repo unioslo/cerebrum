@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2019-2024 University of Oslo, Norway
+# Copyright 2019-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -38,50 +38,110 @@ except ImportError:
     def setthreadtitle(*args, **kwargs):
         pass
 
+__all__ = (
+    "StoppableThread",
+    "LogRecordThread",
+    "QueueMonitorThread",
+    "SizedQueue",
+)
+
 logger = logging.getLogger(__name__)
 
 
-class _StoppableThread(threading.Thread):
+class StoppableThread(threading.Thread):
+    """
+    Thread mixin to provide stop signalling.
+
+    The threads in this module contain a run-loop that will *block* until a
+    *timeout* occurs.  To shutdown cleanly, they use this mixin to provide a
+    *stop signal* that tells the thread to shutdown as soon as it stops
+    blocking.
+    """
 
     default_name = None
+    """
+    A default name for this thread.
+
+    This class does not provide a default name, but the attribute allows for a
+    default name in subclasses.
+    """
 
     def __init__(self, **kwargs):
+        """
+        :param str name: Thread name, defaults to :data:`.default_name`
+        :param kwargs: Arguments for :class:`threading.Thread`
+        """
         name = kwargs.pop('name', self.default_name)
         if name:
             kwargs['name'] = name
-        super(_StoppableThread, self).__init__(**kwargs)
+        super(StoppableThread, self).__init__(**kwargs)
         self.__stop = threading.Event()
 
     def stop(self):
+        """
+        Set a stop signal for this thread.
+        """
         self.__stop.set()
 
     def is_stopped(self, timeout=None):
+        """
+        Check if stop signal has been set.
+
+        :type timeout: int or float
+        :param timeout:
+            Optionally block and wait for the stop signal to be set (up to
+            *timeout* seconds).
+
+        :rtype: bool
+        :returns: if the stop signal has been set
+        """
         if timeout is None:
             return self.__stop.is_set()
         else:
             return self.__stop.wait(float(timeout))
 
 
-class LogRecordThread(_StoppableThread):
-    """ A thread for listening on a Queue with serialized LogRecords. """
+class LogRecordThread(StoppableThread):
+    """
+    Handle log records from a channel.
 
-    # Timeout for listening on the log queue
+    This is a logger thread for multiprocessing applications.  The thread
+    listens for log records on a given *channel* (see: :mod:`.channel`).
+
+    Log records are handled by the logger indicated by the ``LogRecord.name``.
+    This means that the log configuration for the thread's owner process
+    decides what to do with this record.
+    """
+
     timeout = 1
+    """ Default channel poll rate, in seconds. """
 
     default_name = "log-queue-proc"
+    """ Default thread name. """
 
     def __init__(self, channel, timeout=timeout, **kwargs):
         """
-        :type channel: LogRecordProtocol
+        :type channel: channel.BaseChannel
+        :param channel: Channel for incoming log records
 
-        passes all other kwargs to `threading.Thread.__init__`
+        :type timeout: int or float
+        :param timeout:
+            Channel poll rate, in seconds.
+
+            While polling the channel, this thread will *block*, which means it
+            cannot be *stopped* immediately with ``LogRecordThread.stop()``.
+
+            Set this *low* to reduce the ``thread.join()`` wait time, or *high*
+            to reduce the overhead of the thread shutdown mechanism.
+
+        :param kwargs: Passed on to :class:`threading.Thread`
         """
-        # The logger keyword is deprecated
         self.channel = channel
         self.timeout = timeout
         super(LogRecordThread, self).__init__(**kwargs)
 
     def run(self):
+        """ Start processing the channel. """
         logger.info('Logger thread started')
         if self.name:
             setthreadtitle(self.name)
@@ -108,13 +168,16 @@ class LogRecordThread(_StoppableThread):
         logger.info('Logger thread stopped')
 
 
-class QueueMonitorThread(_StoppableThread):
+class QueueMonitorThread(StoppableThread):
     """
-    A thread that logs the number of items on a queue.
+    Monitor the size of a queue.
 
-    If the queue is a `SizedQueue` object, some additional behaviour applies:
+    This thread periodically logs the number of items on a given queue.
 
-    - The log message will include a fill ratio (in percent)
+    If the queue is a :class:`.SizedQueue` object, the log message will also
+    include some extra information:
+
+    - Fill ratio (in percent)
     - If the ratio exceeds `threshold_error`, the message will be logged as an
       error
     - If the ratio exceeds `threshold_warning`, the message will be logged as a
@@ -126,23 +189,38 @@ class QueueMonitorThread(_StoppableThread):
     threshold_info = 5
 
     default_level = logging.DEBUG
-    default_name = "log-queue-mon"
+    """ Log level for queue sizes below the thresholds. """
 
-    def __init__(self,
-                 queue,
-                 interval,
+    default_name = "log-queue-mon"
+    """ Default thread name. """
+
+    def __init__(self, queue, interval,
                  threshold_error=threshold_error,
                  threshold_warning=threshold_warning,
                  threshold_info=threshold_info,
                  **kwargs):
         """
-        :type queue: Queue.Queue
-        :type interval: float
-        :type threshold_error: int
-        :type threshold_warning: int
-        :type threshold_info: int
+        :type queue: queue.Queue
+        :param queue: The queue to monitor
 
-        passes all other kwargs to `threading.Thread.__init__`
+        :type interval: float
+        :param interval:
+            How often the queue size should be monitored and reported (in
+            seconds).
+
+        :type threshold_error: int
+        :param threshold_error: Fill ratio threshold for log level ERROR.
+
+        :type threshold_warning: int
+        :param threshold_warning: Fill ratio threshold for log level WARNING.
+
+        :type threshold_info: int
+        :param threshold_info: Fill ratio threshold for log level INFO.
+
+        :param kwargs: Passed on to :class:`threading.Thread`
+
+        .. note::
+           Thresholds only apply when monitoring a :class:`.SizedQueue`.
         """
         self.queue = queue
         self.interval = float(interval)
@@ -152,6 +230,7 @@ class QueueMonitorThread(_StoppableThread):
         super(QueueMonitorThread, self).__init__(**kwargs)
 
     def run(self):
+        """ Start monitoring queue size. """
         logger.info('Queue monitor thread started')
         if self.name:
             setthreadtitle(self.name)
@@ -185,9 +264,9 @@ class QueueMonitorThread(_StoppableThread):
 
 
 class SizedQueue(Queue):
-    """ A Queue.Queue object with access to the maxsize attribute.
+    """ A queue.Queue object with access to the maxsize attribute.
 
-    Proxied objects (from a multiprocessing.manager.BaseManager) does not
+    Proxied objects (from a multiprocessing.manager.BaseManager) do not
     expose attributes, only methods. This class exposes the maxsize attribute
     through a method.
     """

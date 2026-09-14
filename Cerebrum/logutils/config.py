@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2017-2024 University of Oslo, Norway
+# Copyright 2017-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -20,12 +20,13 @@
 """
 Log configuration.
 
-We have two different types of log config: *logenv* and *preset*.  This module
-implements config file formats and deals with finding and reading these files.
+Logging i Cerebrum uses two distinct types of config files: the *logenv* config
+and the *preset* config.  This module defines these config file formats and
+deals with finding and reading config files.
 
 Logenv
 -------
-The *logenv* logging environment config is defined in the cerebrum config
+The *logenv* logging environment config should be placed in the cerebrum config
 directory (typically <prefix>/etc/cerebrum/config), in a 'logenv.yaml' or
 'logenv.json' file.
 
@@ -38,16 +39,16 @@ logging/logutils, and defines the behaviour of the logutils sub-modules:
 - Where should log files generally be placed?
 
 Preset
-------
+-------
 The *preset* configs configures the actual python logger hierarchy, along with
 formatters, handlers, and anything else that the standard python logging
 configuration allows for.  These log files follows the format of
-`logging.config`.
+:mod:`logging.config`.
 
-A preset is applied according to the *default preset* set within the script, or
-any override given through cli options (--logger-name).  The first matching
+All scripts define a default preset when configuring loggers, but this can
+usually be overridden by cli options (``--logger-name``).  The first matching
 preset from the logger preset search path (given in the *logenv* config) is
-applied when configuring the logging system.
+applied when configuring loggers.
 """
 from __future__ import (
     absolute_import,
@@ -72,25 +73,54 @@ from Cerebrum.config.settings import String, Boolean, Iterable, Choice
 
 
 # Make it possible to override sys.prefix for configuration path purposes
-sys_prefix = os.getenv('CEREBRUM_SYSTEM_PREFIX', sys.prefix)
+_sys_prefix = os.getenv('CEREBRUM_SYSTEM_PREFIX', sys.prefix)
 
 DEFAULT_LOGDIR = os.path.join(
-    sys_prefix,
+    _sys_prefix,
     'var/log/cerebrum',
 )
+"""
+Default directory for log files.
+
+This is ``<sys.prefix>/var/log/cerebrum/`` by default, but ``sys.prefix`` can
+be replaced with the ``$CEREBRUM_SYSTEM_PREFIX`` environment variable.
+"""
+
 DEFAULT_PRESET_DIR = os.path.join(
-    sys_prefix,
+    _sys_prefix,
     'etc/cerebrum/logger-presets',
 )
+"""
+Default location of logger presets.
+
+This is ``<sys.prefix>/etc/cerebrum/logger-presets/`` by default, but
+``sys.prefix`` can be replaced with the ``$CEREBRUM_SYSTEM_PREFIX`` environment
+variable.
+"""
 
 # Make it possible to override DEFAULT_LOGGING_CONFIG
 DEFAULT_LOGGING_CONFIG = os.getenv('CEREBRUM_DEFAULT_LOGGING_CONFIG', 'logenv')
+"""
+Name of the *logenv* config file.
+
+May be overridden by a ``$CEREBRUM_DEFAULT_LOGGING_CONFIG`` environment
+variable.
+"""
 
 DEFAULT_CAPTURE_EXC = True
+""" Default setting for exceptions capture. """
+
 DEFAULT_CAPTURE_WARN = True
+""" Default setting for warnings capture. """
+
 DEFAULT_LEVEL_EXC = 'ERROR'
+""" Default log level for captured exceptions. """
+
 DEFAULT_LEVEL_WARN = 'WARNING'
+""" Default log level for captured warnings. """
+
 DEFAULT_SENTRY_ENABLE = False
+""" Default setting for Sentry. """
 
 
 # Note: This will not include custom levels
@@ -149,6 +179,7 @@ class WarningFilterItem(String):
 
 class WarningsConfig(Configuration):
     """ Configuration for the logwarn module. """
+
     enable = ConfigDescriptor(
         Boolean,
         default=DEFAULT_CAPTURE_WARN,
@@ -178,6 +209,7 @@ class WarningsConfig(Configuration):
 
 class ExceptionsConfig(Configuration):
     """ Configuration for the logexc module. """
+
     enable = ConfigDescriptor(
         Boolean,
         default=DEFAULT_CAPTURE_EXC,
@@ -218,7 +250,7 @@ class SentryConfig(Configuration):
 
 
 class LoggerConfig(Configuration):
-    """ Configures how to process named logging setup. """
+    """ Configures logger preset processing. """
 
     logdir = ConfigDescriptor(
         String,
@@ -305,18 +337,28 @@ def get_config(config_file=None, namespace=DEFAULT_LOGGING_CONFIG):
 
 
 def iter_presets(directory, rootnames, extensions):
-    """ Iterate over matching rootnames in directory.
+    """
+    Iterate over matching preset files in directory.
 
-    Iterates over files in `directory` that matches one of the given
-    `rootnames`, and one of the given `extensions`.
+    Iterates over preset files in *directory* that matches one of the given
+    *rootnames*, and one of the given *extensions*.
 
-    Matching files will also be ordered by `rootnames` and `extensions`:
+    Files will be returned in the same order as given in *rootnames* and
+    *extensions*.  The results are *primarily* sorted by extension, then the
+    rootname, then the full filename as a tie-breaker:
+    ::
 
-        iter_presets('/tmp', ['*', 'foo'], ['*', 'bar'])
+        iter_presets('/tmp', ['console', 'tee', '*'], ['json', 'yaml'])
 
-    would yield all files in '/tmp', but a file named 'foo.z' would be sorted
-    after any other file '*.z', and a file named 'z.bar' would be
-    ordered after any other file 'z.*'.
+    would find all files in ``/tmp`` named ``*.json`` or ``*.yaml``.  It
+    would prefer files named ``console.*`` over files named ``tee.*`` for each
+    of the given extensions.
+
+    .. todo::
+       This precedence ordering is probably wrong, as it prefers another
+       *preset* (e.g. ``tee.json`` over ``console.yaml``) if a more preferable
+       config format is used...  This doesn't really matter, as we usually
+       select *one* specific *rootname*.
 
     :param list rootnames:
         An ordered list of file rootnames, (basename without file extension).
@@ -433,8 +475,8 @@ def merge_dict_config(*dict_configs):
 def configure_logging(filename, disable_existing_loggers=None):
     """ Configure loggers.
 
-    This is a wrapper around logging.config.fileConfig and
-    logging.config.dictConfig.
+    This is a wrapper around :func:`logging.config.fileConfig` and
+    :func:`logging.config.dictConfig`.
 
     :param str filename:
         A logger configuration file to apply.
@@ -466,13 +508,14 @@ def configure_logging(filename, disable_existing_loggers=None):
 
 
 def setup_logging(config, preset_name, loglevel, disable_existing=False):
-    """ (re)configures logging.
+    """
+    Configure logging.
 
-    :param LoggerConfig config:
-        A configuration that controls the loading of logger configuration.
+    This function finds and applies a *logger preset* (standard Python log
+    config).
 
-    :param str preset_name:
-        Which logger configuration to set up.
+    :param LoggerConfig config: Logging configuration.
+    :param str preset_name: Logger preset to load and use
 
     :param int loglevel:
         A default loglevel to use with the default (stderr) handler, if no root
@@ -533,9 +576,12 @@ def setup_logging(config, preset_name, loglevel, disable_existing=False):
 
 
 def setup_excepthook(exception_config):
-    """ Configures exception capture.
+    """ Configures handling of uncaught exceptions.
 
-    :param ExceptionsConfig exception_config: configuration.
+    See :mod:`.logexc` for details.
+
+    :type exception_config: ExceptionsConfig
+    :param exception_config: Configuration for exception handling
     """
     from . import logexc
     exchook = logexc.ExceptionLoggerHook(exception_config.level)
@@ -545,9 +591,12 @@ def setup_excepthook(exception_config):
 
 
 def setup_warnings(warn_config):
-    """ Configures warnings capture and filter.
+    """ Configures warnings capture and filtering.
 
-    :param WarningsConfig warn_config: configuration.
+    See :mod:`.logwarn` for details.
+
+    :type warn_config: WarningsConfig
+    :param warn_config: Configuration for warning capture
     """
     from . import logwarn
     # TODO: The filters aren't really log-related. Should this be elsewhere? If
@@ -560,6 +609,13 @@ def setup_warnings(warn_config):
 
 
 def setup_sentry_sdk(sentry_config):
+    """ Configures sentry integration.
+
+    See :mod:`.sentry` for details.
+
+    :type sentry_config: SentryConfig
+    :param sentry_config: Sentry configuration
+    """
     if sentry_config.enable:
         if not sentry_config.dsn:
             raise ValueError("Missing sentry sdk dsn")
@@ -573,6 +629,19 @@ def setup_sentry_sdk(sentry_config):
 
 
 def configure(config, logger_name, logger_level=None):
+    """
+    Configure logging and log-related behaviour.
+
+    This function configures the full logging environment.  This includes
+    logging and log handlers, logging of unhandled exceptions, logging of
+    warnings, and sentry integration.
+
+    :type config: LoggingEnvironment
+    :param config: Log environment config to apply
+
+    :param str logger_name: Logger preset to load and apply
+    :param int logger_level: Set a minimum log level
+    """
     logger_level = logger_level or logging.NOTSET
     setup_logging(config.logging, logger_name, logger_level)
     setup_excepthook(config.exceptions)

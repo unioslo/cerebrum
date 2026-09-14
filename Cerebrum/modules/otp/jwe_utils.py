@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2021-2024 University of Oslo, Norway
+# Copyright 2021-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -20,8 +20,18 @@
 """
 JWK/JWE utils for encrypting otp secrets.
 
+This module adds wrappers around the third party :mod:`jwcrypto` module, and
+provides functions for loading JWKs (`RFC-7517`_), and encrypting and
+decrypting JWEs (`RFC-7516`_).
+
+JWKs are loaded using :mod:`Cerebrum.utils.secrets`.
+
+.. _RFC-7516: https://datatracker.ietf.org/doc/html/rfc7516
+.. _RFC-7517: https://datatracker.ietf.org/doc/html/rfc7517
+
+
 Example use
------------
+------------
 To encrypt a JWE using a PEM-formatted key with the default *alg* and *enc*:
 
 .. code-block::
@@ -53,17 +63,24 @@ import jwcrypto.jwe
 import jwcrypto.jwk
 import six
 
-from Cerebrum.utils.secrets import get_secret
+from Cerebrum.utils.secrets import get_secret_from_string
 
 
 DEFAULT_KEY_ALG = 'RSA-OAEP'
+"""
+Default JWE key agreement algorithm.
+
+This determines the default 'alg' header for JWE tokens created by
+:func:`jwe_encrypt`.
+"""
+
 DEFAULT_CLAIMS_ENC = 'A128CBC-HS256'
+"""
+Default JWE content encryption algorithm.
 
-
-def _get_pem_content(value):
-    """ fetch pem content from config value. """
-    source, _, value = value.partition(':')
-    return get_secret(source, value)
+This determines the default 'enc' header for JWE tokens created by
+:func:`jwe_encrypt`.
+"""
 
 
 def _pem_to_jwk(pem):
@@ -75,17 +92,23 @@ def _pem_to_jwk(pem):
 
 def get_jwk(value):
     """
-    Get JWK from config value.
+    Load a JWK from a PEM-formatted secrets value.
 
     :param value:
-        How/where to fetch the jwk public key (<source>:<args>).
+        Where to look up the key (<source>:<args>).
 
-        Examples: 'auth-file:my-pubkey.pem', 'file:/path/to/secret.txt'.  See
-        py:mod:`Cerebrum.utils.secrets` for details.
+        The key should be a PEM-formatted private or public key, depending on
+        what it will be used for.  Examples:
+
+        - ``auth-file:my-pubkey.pem``
+        - ``file:/path/to/secret.pem``
+
+        See :mod:`Cerebrum.utils.secrets` for details.
 
     :rtype: jwcrypto.jwk.JWK
     """
-    return _pem_to_jwk(_get_pem_content(value))
+    pem_value = get_secret_from_string(value)
+    return _pem_to_jwk(pem_value)
 
 
 def jwe_encrypt(secret_data,
@@ -93,14 +116,15 @@ def jwe_encrypt(secret_data,
                 alg=DEFAULT_KEY_ALG,
                 enc=DEFAULT_CLAIMS_ENC):
     """
-    Encrypt a data structure using JWE.
+    Encrypt a data structure to a compact, serialized JWE token.
 
     :param secret_data: A serializable data structure to encrypt.
     :type key: jwcrypto.jwk.JWK
     :param alg: JWE key agreement to use.
     :param enc: JWE content encryption method to use.
 
-    See py:mod:`jwcrypto.jwe` for allowed alg and enc values.
+    See :class:`jwcrypto.jwe.JWE` and `RFC-7516`_ for more info on the *alg*
+    and *enc* values.
 
     :returns: A serialized JWE token.
     """
@@ -121,7 +145,7 @@ def jwe_encrypt(secret_data,
 
 def jwe_decrypt(token, jwk):
     """
-    Decrypt a serialized JWE text.
+    Decrypt a serialized JWE token.
 
     :param data: A serialized JWE token.
     :type key: jwcrypto.jwk.JWK

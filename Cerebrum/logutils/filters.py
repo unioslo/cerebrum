@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2017-2023 University of Oslo, Norway
+# Copyright 2017-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,6 +19,9 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
 Cerebrum log filters.
+
+This module provides some filters for manipulating log records.  They are
+typically applied to specific loggers in configuration.
 """
 from __future__ import (
     absolute_import,
@@ -31,23 +34,27 @@ import sys
 
 
 class SubstituteFilter(logging.Filter):
-    """ This filter cleans log records for a given pattern.
+    """
+    Log message substitution filter.
+
+    This filter cleans log messages for a given pattern.  This can be useful
+    for censoring sensitive log messages that are otherwise hard to deal with
+    in a clean manner.
 
     It looks through the rendered LogRecord message and replaces occurances of
-    the pattern with the replacement string.
+    the *pattern* with the *replacement* string.  Substution is applied to the
+    *rendered* message from :meth:`logging.LogRecord.getMessage`, and done
+    using :func:`re.sub`.
 
-    Substution is regexp-based (as defined by the module re). If either one is
-    missing (i.e. is an empty string), no substitution will be performed (and
-    the logger would behave exactly like its immediate parent).
+    .. note::
+       If a replacement occurs, the log record is manipulated:
 
-    NOTE: This filter will modify the log records `args` and `msg` attributes!
-          If the pattern matches, it will replace `msg` with the rendered
-          message and clear the `args` attribute.
+       - ``msg`` is replaced by a pre-rendered, substituted message
+       - ``args`` is emptied
     """
 
     def __init__(self, pattern='^$', replacement=r''):
-        """ Initialize a filter.
-
+        """
         :param str pattern:
             A pattern to look for. May contain capture groups that can be used
             in the replacement string.
@@ -77,15 +84,24 @@ class SubstituteFilter(logging.Filter):
 
 
 class AddCommandField(logging.Filter):
-    """ Add field with invoked command to log record.
+    """
+    Add a command log field.
 
-    NOTE: This is really only something you'd want if the handler outputs
-    structured log records, e.g. by using a json formatter.
+    This filter adds an extra :class:`logging.LogRecord` field that includes
+    a re-constructed command that would be used to invoke this process.
+
+    .. note::
+       This is really only something you'd want if the formatter outputs
+       structured log records, e.g. by using a json formatter.
     """
 
     DEFAULT_FIELD_NAME = 'command'
+    """ Default LogRecord attribute/field name. """
 
     def __init__(self, field_name=DEFAULT_FIELD_NAME):
+        """
+        :param str field_name: LogRecord attribute/field name to use
+        """
         # TODO: Should we include options to sys.executable?
         #       Most of them can be found in `sys`... Can we get the raw,
         #       unaltered command?

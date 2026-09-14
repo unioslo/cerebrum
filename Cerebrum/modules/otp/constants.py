@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2021-2024 University of Oslo, Norway
+# Copyright 2021-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,7 +18,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
-OTP module constants.
+Constants for the OTP module.
 """
 from __future__ import (
     absolute_import,

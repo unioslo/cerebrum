@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003-2023 University of Oslo, Norway
+# Copyright 2003-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -96,16 +96,16 @@ class ChangeLog(Cerebrum.ChangeLog.ChangeLog):
                    change_program=None,
                    skip_change=False,
                    **kw):
-        """ Log a change.
+        """ Add change to a pending change queue.
 
         :param int subject_entity:
-            Subject entity?
+            The entity that was changed.
 
         :param int,ChangeType change_type_id:
-            The type of change
+            The type of change.
 
         :param int destination_entity:
-            Destination entity?
+            A related entity, if applicable.
 
         :param None,dict change_params:
             None, or json-able object to store with the change entry.
@@ -115,7 +115,7 @@ class ChangeLog(Cerebrum.ChangeLog.ChangeLog):
             initialized by cl_init.
 
         :param str change_program:
-            The script, system  or daemon that performed the change. Default:
+            The script, system or daemon that performed the change. Default:
             Value initialized by cl_init, if any.
 
         :param bool skip_change:
@@ -147,17 +147,12 @@ class ChangeLog(Cerebrum.ChangeLog.ChangeLog):
         })
 
     def clear_log(self):
-        """See write_log"""
+        """ Clear the queue of pending changes. """
         super(ChangeLog, self).clear_log()
         self.messages = []
 
     def write_log(self):
-        """ Write change entries to the database.
-
-        This method should be called right before a database commit to
-        synchronize the changes and change entries.
-
-        """
+        """ Flush the queue of pending changes. """
         super(ChangeLog, self).write_log()
 
         for m in self.messages:

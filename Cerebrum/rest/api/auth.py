@@ -1,6 +1,6 @@
 # coding: utf-8
 #
-# Copyright 2016-2024 University of Oslo, Norway
+# Copyright 2016-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,7 +17,39 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" Authentication context for a flask app."""
+"""
+Authentication context for a Flask app.
+
+The auth context itself is stored in the Flask *application context*.  The
+context is automatically updated by request handlers when the
+:class:`Authentication` middleware is added to an application.
+
+Configuration
+--------------
+This module uses settings from the Flask configuration object.  This is the
+``restconfig`` module by default.
+
+``AUTH``
+    A list of authentication methods to use.
+
+    Each entry in this list adds a :class:`.AuthModule` to use for
+    authenticating users.
+
+    Each module is processed in the order given by this setting.  The first
+    module with auth data present in the request (e.g. a ``Authorization: Basic
+    ...`` header for BasicAuth) will be used.
+
+
+``PROXY_AUTH``
+    Require basic auth from a reverse-proxy.
+
+    This is an additional, optional layer of authentication, and is typically
+    used to ensure that requests come from a trusted reverse-proxy.  This is
+    disabled by default.
+
+    See :class:`.ProxyAuth` for more details.
+
+"""
 from __future__ import (
     absolute_import,
     division,
@@ -45,31 +77,15 @@ logger = logging.getLogger(__name__)
 
 
 class AuthContext(object):
-    """ Auth context.
+    """ Authentication state for the current request.
 
     This is a descriptor and proxy object for the currently used AuthModule.
-
-    >>> from flask import Flask
-    >>> app = Flask('doctest')
-    >>> class Auth(object):
-    ...     ctx = AuthContext()
-    >>> auth = Auth()
-
-    >>> with app.app_context():
-    ...     isinstance(auth.ctx, AuthContext)
-    True
-
-    >>> with app.app_context():
-    ...     auth.ctx.module == None
-    True
-
-    >>> with app.app_context():
-    ...     auth.ctx.module = AuthModule()
-    ...     isinstance(auth.ctx.module, AuthModule)
-    True
+    It should only be used from :class:`Authentication` (or similar objects)
+    to keep track of the current auth state.
     """
 
     OP_CLS = Factory.get('Account')
+    """ Operator (account) class to use in :meth:`.get_account`. """
 
     def __init__(self, name):
         self.name = name
@@ -106,20 +122,20 @@ class AuthContext(object):
 
     @property
     def authenticated(self):
-        """ true if current request is authenticated. """
+        """ True if current request is authenticated. """
         if self._module is None:
             return False
         return self._module.is_authenticated()
 
     @property
     def username(self):
-        """ the authenticated username, if avaliable. """
+        """ The authenticated username, if available. """
         if self.authenticated:
             return self.module.get_username()
         return None
 
     def get_account(self, db_ctx):
-        """ the authenticated user, if available. """
+        """ The authenticated account, if available. """
         if self.authenticated:
             ac = self.OP_CLS(db_ctx.connection)
             try:
@@ -155,7 +171,7 @@ class Unauthorized(_Unauthorized):
 
 
 class Authentication(object):
-    """ Authentication middleware. """
+    """ Authentication middleware for Flask apps. """
 
     ctx = AuthContext('Authentication')
 
@@ -177,30 +193,32 @@ class Authentication(object):
         """Add an authentication module.
 
         :param string name:
-            The module name (TODO: Implement proper loading)
+            The module name
 
         :param bool challenge:
             If True, use this module to produce a challenge response, if no
             authentication information is given with the request.  (default:
             False)
 
-        :param *list mod_args:
+        :param mod_args:
             Positional arguments for the module.
 
-        :param **dict mod_kw:
+        :param mod_kw:
             Keyword arguments for the module.
         """
         module = self.load_module(name)
-        # TODO: Implement auth module priority:
-        #       - which module to try first, which to try last?
-        #       - which module to use for challenge, when multiple?
+        # TODO: Implement better auth module priority:
+        #   - which module to try first, which to try last?
+        #   - which module to use for 401 challenge, or 403 error when multiple
+        #     modules support this?
         self._modules.append(tuple((module, mod_args, mod_kw)))
 
     @staticmethod
     def load_module(name):
-        """TODO: Implement proper module loading / dynamic import."""
+        """ Find the named authentication class. """
         if hasattr(sys.modules[__name__], name):
             return getattr(sys.modules[__name__], name)
+        # TODO: Use Cerebrum.utils.module.resolve?
         raise Exception("Unknown authentication module " + name)
 
     def check_account(self, account):
@@ -261,21 +279,26 @@ class Authentication(object):
                 return
 
     def require(auth_obj, *auth_args, **auth_kw):  # noqa: N805
-        """Wrap flask routes to require authentication.
+        """Wrap Flask view functions to require authentication.
 
-        When called, authenticate will be called with the given arguments, and:
-          1. If a challenge/access denied response is returned by authenticate,
-             the function will return that response.
+        Whenever the view function is called, :meth:`.authenticate` will be
+        called.  The result of that call will conditionally call the
+        view-function:
+
+          1. If we get a challenge/access denied response from authenticate,
+             we simply return that error response.
+
           2. If no challenge is returned, and we are NOT authenticated after
-             calling authenticate, an exception is raised.
-          3. If we ARE authenticated after calling `authenticate', the function
-             is called, and its return value returned.
+             calling authenticate, the we return an access-denied response.
 
-        :param *list auth_args:
-            Positional arguments for the `authenticate` call.
+          3. If we ARE authenticated after calling authenticate, the
+             view-function is called, and its return value returned.
 
-        :param **dict auth_kw:
-            Keyword arguments for the `authenticate` call.
+        :param list auth_args:
+            Positional arguments for the authenticate call.
+
+        :param dict auth_kw:
+            Keyword arguments for the authenticate call.
 
         :return function:
             Returns a wrapped function.
@@ -311,14 +334,14 @@ class Authentication(object):
         return self.ctx.get_account(self.db)
 
     def clear(self, exception):
-        """ clear auth data. """
+        """ Clear auth data. """
         del self.ctx
         del self.username
         del self.account
 
 
 def build_error(exc_type, message, **custom):
-    """ Build an HTTP exception with data.  """
+    """ Build an HTTP exception with custom data. """
     custom['message'] = message
     exc = exc_type(message)
     exc.data = custom
@@ -353,7 +376,7 @@ class AuthModule(object):
 
     @property
     def challenge(self):
-        """ A challenge error response, if avaliable. """
+        """ A challenge error response, if available. """
         return None
 
     @property
@@ -366,30 +389,32 @@ class AuthModule(object):
 
 
 class BasicAuth(AuthModule):
-    """ HTTP Basic Auth
+    """ HTTP Basic Auth.
 
-    Parses basic-auth parameters and validates username and password with users
-    in Cerebrum.
+    Parses basic auth headers and verifies username and password against
+    Cerebrum user accounts.
 
-    Configuration:
+    Example ``AUTH`` configuration entry:
+    ::
 
         {
             'name': 'BasicAuth',
             'realm': 'foo',
             'whitelist': ['foo', 'bar', ]
-        },
+        }
 
     """
 
     def __init__(self, realm=None, whitelist=None, **kwargs):
-        """ Set up basic auth
+        """ Set up basic auth.
 
         :param str realm:
             The realm to respond with in HTTP 401 challenges (default: None, no
             realm)
+
         :param list whitelist:
-            A list of usernames allowed to log in using basic auth (default:
-            None, everyone allowed)
+            An optional list of usernames that are allowed to log in using
+            basic auth (default: ``None``, everyone allowed)
         """
 
         super(BasicAuth, self).__init__(**kwargs)
@@ -445,16 +470,17 @@ class SslProxyAuth(AuthModule):
     NOTE: This requires that the request comes from a SSL-terminated proxy, and
     that the proxy adds headers:
 
-      - X-Ssl-Cert-Verfied: (SUCCESS|)
+      - X-Ssl-Cert-Verified: (SUCCESS|)
       - X-Ssl-Cert-Fingerprint: <fingerprint>
 
     The proxy also needs to prevent a client from sending the same headers.
 
-    Configuration:
+    Example ``AUTH`` configuration entry:
+    ::
 
         {
             'name': 'SslProxyAuth',
-            'verified_header': 'X-Ssl-Cert-Verfied',
+            'verified_header': 'X-Ssl-Cert-Verified',
             'verified_value': 'SUCCESS',
             'fingerprint_header': 'X-Ssl-Cert-Fingerprint',
             'certs': {
@@ -472,10 +498,10 @@ class SslProxyAuth(AuthModule):
                  **kwargs):
         """ Set up SSL fingerprint authentication.
 
-        To pass validation, a request must have the `verified_header` header,
-        and the header value must be `verified_value`. In addition, the
-        request must have the `fingerprint_header` and the value must be
-        mapped to a username in `certs`.
+        To pass validation, a request must have the ``verified_header`` header,
+        and the header value must be ``verified_value``.  In addition, the
+        request must have the ``fingerprint_header`` and the value must be
+        mapped to a username in ``certs``.
 
         :param str fingerprint_header:
             Name of a header to look for the SSL fingerprint in. Default is
@@ -483,12 +509,9 @@ class SslProxyAuth(AuthModule):
         :param str verified_header:
             Name of a header to look for the SSL validation result in. Default
             is 'X-Ssl-Cert-Verified'.
-        :param str fingerprint_header:
-            Required value of the `verified_header` header. Default is
+        :param str verified_value:
+            Required value of the ``verified_header`` header. Default is
             'SUCCESS'.
-        :param str fingerprint_header:
-            Which header to look for SSL fingerprint in. Default is
-            'X-Ssl-Cert-Fingerprint'.
         :param dict certs:
             A dictionary-like object that maps fingerprints to usernames.
         """
@@ -538,7 +561,14 @@ class SslProxyAuth(AuthModule):
 class HeaderAuth(AuthModule):
     """ Pass authentication if header contains a given value.
 
-    Configuration:
+    To pass validation, a request must have the ``header`` header,
+    and the header value must be present in the ``keys`` mapping, and map to an
+    existing username.
+
+    This is typically used in dev or test environments.
+
+    Example ``AUTH`` configuration entry:
+    ::
 
         {
             'name': 'HeaderAuth',
@@ -556,8 +586,9 @@ class HeaderAuth(AuthModule):
 
         :param str header:
             Which header to look for API keys in. Default is 'X-Auth-Key'.
+
         :param dict keys:
-            A dictionary-like object that maps keys to usernames.
+            A mapping of header values to usernames.
         """
         super(HeaderAuth, self).__init__(**kwargs)
         self.header = header
@@ -597,9 +628,12 @@ class ApiSubscriptionAuth(AuthModule):
     """
     Pass authentication if header contains a whitelisted api identifier.
 
-    Api key whitelist is implemented by Cerebrum.modules.apikeys.
+    To pass validation, the configured ``header`` must be present, and its
+    value must be registered to an account using the
+    :mod:`Cerebrum.modules.apikeys` module.
 
-    Configuration:
+    Example ``AUTH`` configuration entry:
+    ::
 
         {
             'name': 'ApiSubscriptionAuth',
@@ -612,7 +646,8 @@ class ApiSubscriptionAuth(AuthModule):
         Set up API key authentication.
 
         :param str header:
-            Which header to look for API keys in. Default is 'X-Auth-Key'.
+            Which header to look for API keys in. Default is
+            'X-Api-Subscription'.
         """
         super(ApiSubscriptionAuth, self).__init__(**kwargs)
         self.header = header
@@ -691,10 +726,11 @@ class ProxyAuth(object):
     Authentication middleware for proxies.
 
     This authentication method should be used *in addition* to the regular
-    :py:class:`Authentication` middleware. It should be used to authenticate a
+    :class:`Authentication` middleware.  It should be used to authenticate a
     proxy before trusting headers provided by it.
 
     Configuration:
+    ::
 
         PROXY_AUTH = {
             'enable': True,
@@ -755,6 +791,6 @@ class ProxyAuth(object):
         return self.ctx.username
 
     def clear(self, exception):
-        """ clear auth data. """
+        """ Clear auth data. """
         del self.ctx
         del self.username

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2017-2023 University of Oslo, Norway
+# Copyright 2017-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -35,7 +35,11 @@ import threading
 
 logger = logging.getLogger(__name__)
 
+# Lock for protected access to the set_exception_hook and the _stack
 _stack_lock = threading.Lock()
+
+# A stack of previous excepthook functions.  Allows resetting
+# with set_exception_hook(None)
 _stack = []
 
 
@@ -46,13 +50,21 @@ class ExceptionLoggerHook(object):
     unhandled exceptions with a logger.
     """
 
+    #: Default log level for captured exceptions
     DEFAULT_LEVEL = logging.CRITICAL
 
     def __init__(self, level=DEFAULT_LEVEL):
+        """
+        :param int level: Log level to use for unhandled exceptions
+        """
         self.level = level
 
     def __call__(self, *args):
-        """ Replacement excepthook function. """
+        """
+        excepthook callback.
+
+        See :func:`sys.excepthook` for argument details.
+        """
         try:
             logger.log(self.level, "Uncaught exception", exc_info=args)
         except Exception:
@@ -66,7 +78,7 @@ class ExceptionLoggerHook(object):
 
     @property
     def level(self):
-        """ the log level to use for logged exceptions. """
+        """ log level to use for unhandled exceptions. """
         try:
             return self._loglevel
         except AttributeError:
@@ -81,13 +93,14 @@ class ExceptionLoggerHook(object):
 
 
 def set_exception_hook(hook=None):
-    """ Set up error handler.
+    """ Replace :func:`warnings.showwarning`
 
     :type hook: callable or None
-    :param hook: A new function to use as sys.excepthook, or None to reset.
+    :param hook:
+        A new function to use as warnings.showwarning, or None to reset to
+        previous implementation.
 
-    :raise TypeError: If L{hook} is not None or callable
-
+    :raise TypeError: If *hook* is not None or callable
     """
     with _stack_lock:
         if hook is None:

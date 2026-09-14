@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003-2015 University of Oslo, Norway
+# Copyright 2003-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,88 +18,124 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" The ChangeLog is an Event-API for Cerebrum.
+"""
+API for handling *changes* in Cerebrum.
 
-The ChangeLog is designed to link database changes to events. Changes are added
-to the log, and can be committed or rolled back. This API is
-generally in use with a database backend (see the CLDatabase module), but can
-be used separately. When used with a database action, the commit/rollback would
-normally be used in concurrence with the database transaction commit/rollback.
+This module implements an abstract event API for logging database changes in
+Cerebrum.  Changes are added (logged) whenever a database row related to an
+Entity is added, updated, or removed from the database.
 
-The behaviour of ChangeLog implementations should be:
+Subclasses may implement specific actions for the changes logged using this
+API.  To use one or more implementations, they need to be added to the
+``cereconf.CLASS_CHANGELOG`` setting.
 
-- Call `log_change' whenever a change is performed.
+The resulting *ChangeLog* component gets mixed into the Database API (see the
+``CLDatabase`` module) to process changes automatically on commit/rollback, but
+can also be used separately.
 
-  This should cause a change entry to be created and cached within the
-  ChangeLog implementation.
+The typical pattern for logging a change is:
 
-- Call `write_log' whenever changes are persisted.
+- Call :meth:`.ChangeLog.log_change` whenever a change is performed.  Changes
+  are typically added to an in-memory queue.
 
-  This should cause all changes to be flushed to their target system.
-  A target system can be a database, a message broker, a service bus or any
-  other system.
+- Use the :mod:`.CLDatabase` to deal with commit/rollback:
 
-  This function is typically called BEFORE a database commit.
+  - Call :meth:`.ChangeLog.write_log` or :meth:`.ChangeLog.clear_log` before a
+    commit/rollback
 
-- Call `clear_log' whenever changes are aborted.
-
-  This should cause all cached changes to be dropped.
-
-  This function is typically called after a database write/commit fails, or
-  when performing a database rollback.
-
-- Call `publish_log' to finalize changes
-
-  Used when synchronizing the `write_log' between multiple systems.
-  `write_log' and `publish_log' acts as a first and second commit in a
-  two-phase commit. Alternately, when working with a transactional system,
-  `write_log' will act as a write, and the `publish_log' as a commit
-  transaction.
-
-  This function is typically called AFTER a successful `write_log' and
-  database commit.
-
-- Call `unpublish_log' to abort any changes
-
-  Used when synchronizing the `write_log' between multiple systems. With a
-  transactional system, `unpublish_log' is a rollback after writing with
-  `write_log'.
-
-  This function is typically called AFTER an unsuccessful `write_log' or
-  database commit.
-
-Note that not all ChangeLog implementations will want to use both
-write_log/clear_log AND publish_log/unpublish_log.
+  - Call :meth:`.ChangeLog.publish_log` or :meth:`.ChangeLog.unpublish_log`
+    after a commit
 """
 
 
 class ChangeLog(object):
-    """ API for Events. """
+    """ Abstract API for changes/events. """
 
     def cl_init(self, **kw):
-        """ Initialize the ChangeLog implementation. """
+        """
+        Initialize the ChangeLog implementation.
+
+        This sets up the ChangeLog with any state it needs for this (and
+        future) transactions.  This typically includes:
+
+        - setting a ``change_program`` to identify what part of Cerebrum the
+          change comes from.
+
+        - setting a ``change_by`` for changes made by authenticated users.
+        """
         pass
 
     def log_change(self, *arg, **kw):
-        """ Queue a change for logging.
+        """
+        Queue a change or event.
 
-        Note that the change may not be final when this function is called. Any
-        changes that are logged must also be commited to be persistent.
+        Note that no changes or events should be persisted or effectuated until
+        :meth:`.write_log` is called.
         """
         pass
 
     def write_log(self):
-        """ Flush queued changes. """
+        """
+        Flush queue (pre-commit action).
+
+        Write, prepare, or process the queued changes in a way that can be
+        aborted or withdrawn.
+
+        - Implementations using a shared Cerebrum database transaction should
+          ensure that the changes are written to the database.
+
+        - Implementations using a different database, should connect, start a
+          transaction, and write changes.
+
+        - Implementations that *don't* use transactions, or otherwise have no
+          support for aborts/rollbacks, should prepare as much as possible
+          without finalizing the changes.
+
+        """
         pass
 
     def clear_log(self):
-        """ Drop all queued changes. """
+        """
+        Clear the queue (pre-rollback action).
+
+        This is the inverse of :meth:`.write_log`.  It should clear any
+        queued changes, and reset the ChangeLog back to a clean state.
+        """
         pass
 
     def publish_log(self):
-        """ Finalize publication of changes. """
+        """
+        Publish prepared changes (post-commit action).
+
+        This method should process the ChangeLog queue and ensure all
+        events/changes are processed or delivered.
+
+        - In implementations using a shared Cerebrum database transaction,
+          this is usually a no-op.
+
+        - Implementations using other transactions typically commit here.
+
+        - Implementations without transaction support would typically send
+          a prepared payload to the target system.
+        """
         pass
 
     def unpublish_log(self):
-        """ Abort publication of changes. """
+        """
+        Abort prepared changes (post-commit action).
+
+        This is the inverse of :meth:`.publish_log`.  This is typically called
+        whenever a Cerebrum database commit fails, and should abort all planned
+        changes for this ChangeLog implementation.
+
+        As with :meth:`.clear_log`, this should reset the ChangeLog state.
+
+        - In implementations using a shared Cerebrum database transaction,
+          this is usually a no-op.
+
+        - Implementations using a different transaction would issue a rollback.
+
+        - Implementations without transaction support would typically just
+          clean up any prepared payloads.
+        """
         pass

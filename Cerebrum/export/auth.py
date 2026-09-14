@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2019-2024 University of Oslo, Norway
+# Copyright 2019-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,19 +17,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""
-Fetch and process account passwords.
-
-This module provides abstractions for fetching, selecting and formatting
-account authentication data.
-
-The general flow for exports should look something like:
-
-1. Fetch and validate configuration (e.g. which authentication types to use)
-2. Build cache of all relevant authentication types and data
-3. Fetch and format authentication data as needed.
-
-"""
+""" Fetch, cache and process account passwords/cryptstrings.  """
 from __future__ import (
     absolute_import,
     division,
@@ -73,7 +61,7 @@ def get_auth_types(co, values):
 
 
 def _check_auth_types(auth_types, unique=True, allow_empty=False):
-    """ Check a sequence of _AuthenticationCode values """
+    """ Check a sequence of _AuthenticationCode values. """
     auth_types = tuple(auth_types)
     for auth_type in auth_types:
         if not isinstance(auth_type, _AuthenticationCode):
@@ -89,6 +77,16 @@ class _AuthFetcher(base.EntityFetcher):
     """ Fetch authentication data for accounts. """
 
     def __init__(self, db, auth_types, filter_expired=True):
+        """
+        :type db: Cerebrum.database.Database
+
+        :type auth_types: list or tuple of _AuthenticationCode constants
+        :param auth_types:
+            A collection of authentication methods to fetch.
+
+        :param bool filter_expired:
+            Exclude authentication data for expired accounts (default: True).
+        """
         self.auth_types = _check_auth_types(auth_types)
         self.filter_expired = filter_expired
         self._db = db
@@ -124,9 +122,19 @@ class _AuthFetcher(base.EntityFetcher):
 
 
 class _AuthSelector(object):
-    """ Select and sort authentication type by priority. """
+    """
+    Select and sort authentication tuples by priority.
+
+    An authentication tuple consists of a auth type (``_AuthenticationCode``)
+    and a string value.  Our :class:`_AuthFetcher` returns these tuples.
+    """
 
     def __init__(self, auth_types):
+        """
+        :type auth_types: list or tuple of _AuthenticationCode constants
+        :param auth_types:
+            A sequence of authentication methods, in preferred order.
+        """
         auth_types = _check_auth_types(auth_types)
         self.priority = dict(
             (auth_type, order)
@@ -138,6 +146,14 @@ class _AuthSelector(object):
         return self.priority.get(auth_type, self.default)
 
     def __call__(self, tuples):
+        """
+        Sort authentication tuples.
+
+        :param tuples: An iterable of (type, value) tuples to sort.
+
+        :rtype: generator
+        :returns: The input tuples, but in the preferred order.
+        """
         for auth_type, auth_data in sorted(tuples, key=self._get_sort_key):
             yield auth_type, auth_data
 
@@ -146,13 +162,14 @@ class AuthCache(base.EntityCache):
     """
     A cache of account authentication methods.
 
-    Usage:
+    Example use:
+    ::
 
-        # List preferred authentication methods
+        # Define (preferred) authentication methods to use
         auth_types = get_auth_types(const, ('SHA-256-crypt', 'MD5-crypt'))
-        account_auth = AuthCache(db, auth_types)
 
-        # Optionally, cache the relevant auth_types of all accounts up front.
+        # Build a cache with the selected auth methods
+        account_auth = AuthCache(db, auth_types)
         account_auth.update_all()
 
         # Get preferred auth method and data for a given account
@@ -170,10 +187,10 @@ class AuthCache(base.EntityCache):
 
     def get_authentication(self, account_id):
         """
-        Get preferred authentication method and data a given account
+        Get preferred authentication method and data for a given account.
 
         .. note::
-            The cache must be populated first (see build_cache())
+            The cache must be populated first (see update_all())
 
         :param account_id:
             The account to look up
@@ -203,19 +220,16 @@ def get_format_mapping(co, pairs):
     """
     Validate and transform a sequence of (auth_type, value_template) tuples.
 
-    :param co:
-        A constants container object (Factory.get('Constants')())
-    :param pairs:
-        A sequence of (auth_type, template) tuples.
-
+    :param co: A constants container object (Factory.get('Constants')())
+    :param pairs: A sequence of (auth_type, template) tuples.
 
     :rtype: generator
     :returns:
         A generator that yields a tuple pair for each input tuple pair.
 
         In the return data, the constant string is replaced with a constant
-        object, and the template string is replaced with a string.Template()
-        object.
+        object, and the template string is replaced with a
+        :class:`string.Template` object.
     """
     for method, tpl in pairs:
         yield _get_auth_type(co, method), _to_template(tpl)
@@ -225,21 +239,23 @@ class AuthFormatter(object):
     """
     Format authentication codes.
 
-    Usage:
+    Example use:
+    ::
 
-        # List authentication methods and formatting template
+        # Define auth methods and formatting, e.g. for userPassword in LDAP:
         methods = get_format_mapping(
             const,
             (('SHA-256-crypt', '{CRYPT}$value'),
              ('SSHA', '{SSHA}$value'),
-             ('MD5-crypt', '{CRYPT}$value')))
+             ('MD5-crypt', '{CRYPT}$value')),
+        )
 
         # Make formatter
         formatter = AuthFormatter(methods)
 
         # Format authentication value
         formatter.format(
-            _get_auth_type('SHA-256-crypt'),
+            const.auth_type_sha256_crypt,
             '$5$rounds=535000$B6UQYgg/nbAumqPk$2.qHiKsfXeTr97dWxaUY0ylI2UUhG5aOzFsiIt2aor/')
     """
 
@@ -262,8 +278,6 @@ class AuthExporter(object):
     """
 
     def __init__(self, cache, formatter, default=None):
-        """
-        """
         self.cache = cache
         self.formatter = formatter
         self.default = default

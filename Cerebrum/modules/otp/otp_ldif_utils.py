@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2021-2024 University of Oslo, Norway
+# Copyright 2021-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -25,11 +25,19 @@ for LDAP.
 
 It implements two LDAP export mixins:
 
-- py:class:`NorEduOtpMixin` for otp_type='feide-ga'
-- py:class:`RadiusOtpMixin` for otp_type='radius-otp'
+:class:`.NorEduOtpMixin`
+    Mixin for the Feide export.
 
-These mixins must be present in CLASS_ORGLDIF/CLASS_POSIXLDIF to include OTP
-data in their respective LDAP exports.
+    If enabled (present in ``cereconf.CLASS_ORGLDIF``), this mixin will fetch
+    and export otp payloads of type *feide-ga* as a ``norEduPersonAuthnMethod``
+    attribute.
+
+:class:`.RadiusOtpMixin`
+    Mixin for the generic Posix export.
+
+    If enabled (present in ``cereconf.CLASS_POSIXLDIF``), this mixin will fetch
+    and export otp payloads of type 'radius-otp'.
+
 """
 from __future__ import (
     absolute_import,
@@ -57,25 +65,18 @@ logger = logging.getLogger(__name__)
 
 class _OtpFetcher(EntityFetcher):
     """
-    Fetch otp_payload for persons.
-
-    Example usage:
-
-        # fetch cache
-        otp_fetcher = _OtpFetcher(db, ('type-foo', 'type-bar'))
-
-        # fetch relevant otp data for person_id=3
-        otp_data = otp_fetcher.get_one(3)
-        # get payload for otp_type='type-foo'
-        payload = otp_data['type-foo']
-
-        # fetch all relevant otp data
-        all_otp_data = otp_fetcher.get_all()
-        # get payload for otp_type='type-foo' for person_id=3
-        payload = all_otp_data[3]['type-foo']
+    Fetch otp payload for persons.
     """
 
     def __init__(self, db, otp_types=None):
+        """
+        :type db: Cerebrum.database.Database
+        :type otp_types: str or list[str]
+        :param otp_types:
+            One or more otp types to cache.
+
+            If omitted, all otp types will be cached.
+        """
         self.otp_types = None if otp_types is None else tuple(otp_types)
         self._db = db
 
@@ -102,23 +103,25 @@ class _OtpFetcher(EntityFetcher):
 
 class OtpCache(EntityCache):
     """
-    A cache of personal otp values.
+    A cache of personal otp types/values.
 
     Example usage:
+    ::
 
-        # Configure and initialize cache for otp_type='type-foo'
-        otp_cache = OtpCache(db, 'type-foo')
+        # Configure and initialize cache for otp type *feide-ga*.
+        otp_cache = OtpCache(db, 'feide-ga')
 
         # Optionally, cache all relevant data up front
         otp_cache.update_all()
 
-        # Get otp_payload value for person_id=3
+        # Get payload for person_id=3
         secret = otp_cache.get_payload(3)
     """
 
     def __init__(self, db, otp_type):
         """
-        :param otp_type: A named otp secret to get
+        :type db: Cerebrum.database.Database
+        :param str otp_type: A named otp secret to get
         """
         self.otp_type = otp_type
         super(OtpCache, self).__init__(_OtpFetcher(db, (otp_type,)))
@@ -127,11 +130,12 @@ class OtpCache(EntityCache):
         """
         Get otp payload for a given person.
 
-        :param account_id:
-            The account to look up
+        :param person_id: The person to get an OTP payload for.
 
-        :rtype: tuple
-        :return: A tuple with the authentication code and data
+        :rtype: str
+        :return: The OTP payload for this person.
+
+        :raises LookupError: If no OTP payload exists for this person.
         """
         otp_payloads = self.get(person_id, {})
         if self.otp_type in otp_payloads:
@@ -158,17 +162,22 @@ class NorEduOtpMixin(NorEduOrgLdifMixin):
     """
 
     feide_otp_type = 'feide-ga'
+    """ OTP type and payload to fetch and use. """
 
-    # Format for the ldap attribute value.
-    # secret and label should be percent-encoded according to rfc3986.
     feide_authn_method_ga_fmt = (
         'urn:mace:feide.no:auth:method:ga {value} label={label}')
+    """
+    Format for the norEduPersonAuthnMethod ldap attribute.
 
-    # TODO: We should probably re-consider the label
+    The secret (value) and label is percent-encoded according to RFC-3986.
+    """
+
     feide_authn_method_ga_label = 'OTP'
+    """ Label for the norEduPersonAuthnMethod format. """
 
     @property
     def feide_otp_cache(self):
+        """ A cache of otp payloads for all persons. """
         if hasattr(self, '_feide_otp_cache'):
             cache = self._feide_otp_cache
         else:
@@ -189,6 +198,7 @@ class NorEduOtpMixin(NorEduOrgLdifMixin):
         return attr_unique([value], normalize=normalize_string)
 
     def update_person_entry(self, entry, row, person_id):
+        """ Add norEduPersonAuthnMethod to a valid Feide object. """
         super(NorEduOtpMixin, self).update_person_entry(entry, row, person_id)
 
         # norEdu 1.6 introduces two-factor auth:
@@ -215,11 +225,12 @@ class RadiusOtpMixin(PosixLDIFRadius):
     """
     Mixin to provide encrypted OTP secrets in PosixLDIF.
 
-    This mixin adds data OTP-data from otp_type=*radius_otp_type* to the LDAP
-    attribute *radius_otp_attr* for users, if available.
+    This mixin adds a given OTP payload a given account attribute for owners
+    with the given otp type.
     """
 
     radius_otp_type = 'radius-otp'
+    """ OTP type and payload to fetch and use. """
 
     # TODO: If anyone else ever needs this - change
     # radius_otp_attr/radius_otp_class and implement a subclass in
@@ -229,10 +240,18 @@ class RadiusOtpMixin(PosixLDIFRadius):
     #  - omit the attribute if the class is not present
     #  - add the objectClass if not present
     radius_otp_attr = 'uioRadiusOtpSecret'
+    """
+    Attribute for the otp payload.
+    """
+
     radius_otp_class = 'uioAccountObject'
+    """
+    objectClass to add for accounts with this attribute.
+    """
 
     @property
     def radius_otp_cache(self):
+        """ A cache of otp payloads for all persons. """
         if hasattr(self, '_radius_otp_cache'):
             cache = self._radius_otp_cache
         else:
@@ -241,6 +260,7 @@ class RadiusOtpMixin(PosixLDIFRadius):
         return cache
 
     def update_user_entry(self, account_id, entry, owner_id):
+        """ Add otp attribute and object class to a valid account object. """
         super(RadiusOtpMixin, self).update_user_entry(account_id, entry,
                                                       owner_id)
 

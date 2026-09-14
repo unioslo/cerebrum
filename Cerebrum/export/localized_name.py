@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2025 University of Oslo, Norway
+# Copyright 2025-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,14 +18,60 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
-Fetch and process localized names.
+Fetch, cache and process localized names.
 
 This module provides abstractions for fetching, selecting and filtering
-entity name by *name type* and *language*.
+localized names from the :class:`Cerebrum.Entity.EntityNameWithLanguage` mixin.
+Names can be filtered by *name type*, *language*, and *entity type*.
 
 The caching functionality is useful in any scenario where we look up names
 in a single read-only transaction.  The selection functionality is useful for
 selecting a single name value in any scenario.
+
+Name objects
+-------------
+Each name returned by :class:`.NameFetcher` or :class:`.NameCache` is a
+:class:`dict` object with:
+::
+
+    {
+        'entity_id': int,
+        'entity_type': _EntityTypeCode,
+        'name_variant': _EntityNameCode,
+        'name_language': _LanguageCode,
+        'name': str,
+    }
+
+
+Name tuples
+------------
+The :class:`.NameGetter` and grouping functions work on lists of name
+:class:`tuple` values.
+
+Each tuple consists of ``(<name_variant>, <name_language>, <name>)`` from
+the `name objects`_.
+
+
+Example use
+------------
+::
+
+    # A cache of all names
+    ou_name_cache = NameCache(db, entity_types=(co.entity_ou,))
+
+    # Select ou acronym in the specified languages
+    get_ou_acronyms = NameGetter(
+        ou_name_cache,
+        NameSelector([
+            (co.ou_name_acronym, co.language_nb),
+            (co.ou_name_acronym, co.language_en),
+        ]),
+    ).get_names
+
+    # Get the selected acronyms for a given ou:
+    for name_type, name_lang, name in get_ou_acronyms(ou_id):
+        print(name_type, name_lang, name)
+
 """
 from __future__ import (
     absolute_import,
@@ -87,11 +133,16 @@ class NameFetcher(base.EntityFetcher):
     """
     Fetch name data.
 
-    :type name_types: collection of _EntityNameCode, or None
-    :type languages: collection of _LanguageCode, or None
-    :type entity_types: collection of _EntityTypeCode, or None
+    This fetcher can optionally limit results to specific name types,
+    languages, or entity types.
     """
     def __init__(self, db, name_types, languages, entity_types):
+        """
+        :type db: Cerebrum.database.Database
+        :type name_types: collection of _EntityNameCode, or None
+        :type languages: collection of _LanguageCode, or None
+        :type entity_types: collection of _EntityTypeCode, or None
+        """
         self._db = db
         self._const = Factory.get("Constants")(db)
         self.name_types = (
@@ -151,7 +202,14 @@ class NameFetcher(base.EntityFetcher):
             yield (data['entity_id'], data)
 
     def get_one(self, entity_id):
-        """ Fetch name data for one matching entity. """
+        """
+        Fetch name data for one matching entity.
+
+        :rtype: list[dict]
+        :returns:
+            A list of matching names (limited by fetcher arguments), or the
+            :data:`.base.MISSING` sentinel value if no matching names exist.
+        """
         entity_data = [
             name_data
             for _, name_data in self._get_results(entity_id=int(entity_id))
@@ -159,7 +217,15 @@ class NameFetcher(base.EntityFetcher):
         return entity_data or base.MISSING
 
     def get_all(self):
-        """ Fetch name data for all matching entities. """
+        """
+        Fetch name data for all matching entities.
+
+        :rtype: dict[list[dict]]
+        :returns:
+            A mapping of entity-id to name list for all entities with names
+            (limited by fetcher arguments).  The name lists are the same as the
+            ones returned by :meth:`.get_one`.
+        """
         return dict_collect_lists(self._get_results())
 
 
@@ -167,12 +233,15 @@ class NameCache(base.EntityCache):
     """
     Localized name data cache.
 
-    The cache can optionally limit results to specific name types,
-    languages, and/or entity_types.
+    A cache that looks up names with the :class:`.NameFetcher`.  See this class
+    for details.
 
-    :type name_types: collection of _EntityNameCode, or None
-    :type languages: collection of _LanguageCode, or None
-    :type entity_types: collection of _EntityTypeCode, or None
+    Example:
+    ::
+
+        cache = NameCache(db, entity_types=(const.entity_ou,))
+        for name_dict in cache.get(ou_id, []):
+            print(name_dict)
     """
     def __init__(self, db, name_types=None, languages=None, entity_types=None):
         fetcher = NameFetcher(db, name_types, languages, entity_types)
@@ -192,7 +261,7 @@ class NameSelector(reprutils.ReprFieldMixin):
 
     def __init__(self, priority):
         """
-        Filter and select the best matching name of a given type
+        Filter and select the best matching name of a given type.
 
         :param priority:
             A prioritized list of (name_type, name_language) tuples.
@@ -229,7 +298,12 @@ class NameSelector(reprutils.ReprFieldMixin):
 
 
 class NameGetter(reprutils.ReprFieldMixin):
-    """ Select matching names from cache, according to a given selector. """
+    """
+    Select matching names from cache, according to a given selector.
+
+    This helper gets prioritized `name tuples`_ from an unordered list of `name
+    objects`_.
+    """
     repr_id = False
     repr_module = False
     repr_fields = ("cache", "selector")
@@ -274,9 +348,9 @@ def _group_tuple(iterable, key=0):
 
 def group_names_by_type(iterable):
     """
-    Group names by name type.
+    Group names by type.
 
-    Group the output from NameGetter by name type.
+    Groups `name tuples`_ from e.g. :class:`NameGetter` by name type:
 
     >>> list(group_names_by_type([
     ...     ("acronym", "en", "foo"),
@@ -285,14 +359,21 @@ def group_names_by_type(iterable):
     ... ]))
     [("acronym", [("en", "foo"), ("nb", "bar")]), ("short", [("en", "baz")])]
 
+    :rtype: generator
+    :returns:
+        Tuples with (name type, [(lang, name value), ...])
     """
     return _group_tuple(iterable, 0)
 
 
 def group_names_by_language(iterable):
     """
-    Group names by name language.
+    Group names by language.
 
-    Group the output from NameGetter by language.
+    Like :func:`.group_names_by_type`, but groups `name tuples`_ by *language*.
+
+    :rtype: generator
+    :returns:
+        Tuples with (lang, [(name type, name value), ...])
     """
     return _group_tuple(iterable, 1)

@@ -18,21 +18,65 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
-Fetch and process contact info.
+Fetch, cache, and process contact info.
 
-This module provides abstractions for fetching, selecting and filtering
-contact info by source and type.
+This module provides abstractions for fetching, selecting, and filtering
+contact info by *entity type*, *source system*, and *contact type*.
 
-The caching functionality is useful in any scenario where we look up contact
-info in a single read-only transaction.  The selection functionality is useful
-for selecting a single contact info value in any scenario.
 
-Things to consider when looking up contact info:
+Contact objects
+----------------
+Each contact value returned by :class:`.ContactInfoCache`
+is a normalized contact info row.  This is a :class:`dict` with:
+::
 
-- Which contact info type, and which sources should be considered?
-- How should the values be prioritized when there are multiple matches?
-- Should the results be sanitized?  Should invalid values be ignored?  And if
-  so, should secondary values be considered?
+    {
+        'entity_id': int,
+        'source_system': _AuthoritativeSystemCode,
+        'contact_type': _ContactInfoCode,
+        'contact_pref': int,
+        'contact_value': str,
+        'contact_alias': str or None,
+        'description': str or None,
+        'last_modified': datetime.date,
+    }
+
+``contact_pref``
+    This is a legacy feature used to prioritize contact info.
+
+    It is currently only used to prioritize values with the same *source
+    system* and *contact type* (i.e. a tie-breaker).  These duplicate values
+    should generally not exist in the database.
+
+    See :mod:`Cerebrum.entity.contact_info` for more details.
+
+``contact_value``
+    Our cache fixes some legacy issues in contact info values.  These fixes are
+    likely in place to deal with bad source data, mainly from fields with
+    *multiple* values separated by a delimiter.
+
+    - If the value contains multiple ``$``-separated values, we use the
+      first value.
+
+    - This is repeated for phone/mobile like contact types, but with a
+      ``/``-delimiter.
+
+``contact_alias``
+    This value is a legacy field, and is *only* used for the UiO
+    VoIP ``EXTENSION`` contact type.
+
+    See :mod:`Cerebrum.entity.contact_info` for more details.
+
+``description``
+    This value is a legacy field, and has never been used in Cerebrum.  All
+    objects should return ``None`` here.
+
+    See :mod:`Cerebrum.entity.contact_info` for more details.
+
+``last_modified``
+    This value is normalized to a *date*, although it is a TIMESTAMP in the
+    database.  This is likely a bug, and might be changed.
+
 """
 from __future__ import (
     absolute_import,
@@ -57,19 +101,19 @@ logger = logging.getLogger(__name__)
 
 
 def get_source_system_types(co, values):
-    """ Look up a sequence of _AuthoritativeSystemCode values. """
+    """ Helper to look up a sequence of _AuthoritativeSystemCode values. """
     for value in values:
         yield co.get_constant(Constants._AuthoritativeSystemCode, value)
 
 
 def get_contact_types(co, values):
-    """ Look up a sequence of _ContactInfoCode values. """
+    """ Helper to look up a sequence of _ContactInfoCode values. """
     for value in values:
         yield co.get_constant(Constants._ContactInfoCode, value)
 
 
 def get_entity_types(co, values):
-    """ Look up a sequence of _EntityTypeCode values. """
+    """ Helper to look up a sequence of _EntityTypeCode values. """
     for value in values:
         yield co.get_constant(Constants._EntityTypeCode, value)
 
@@ -90,13 +134,7 @@ def _check_constants(codes, code_type, code_hint,
 
 
 class _ContactInfoFetcher(base.EntityFetcher):
-    """
-    Fetch contact info.
-
-    :type contact_types: collection of _ContactInfoCode, or None
-    :type source_systems: collection of _AuthoritativeSystemCode, or None
-    :type entity_types: collection of _EntityTypeCode, or None
-    """
+    """ Fetch contact info. """
     def __init__(self, db, contact_types, source_systems, entity_types):
         self._db = db
         self._const = Factory.get("Constants")(db)
@@ -152,7 +190,7 @@ class _ContactInfoFetcher(base.EntityFetcher):
             yield (data['entity_id'], data)
 
     def get_one(self, entity_id):
-        """ Fetch authentication data for one account. """
+        """ Fetch contact info for one entity. """
         results = [
             row_like
             for _, row_like in self._get_results(entity_id=int(entity_id))
@@ -160,7 +198,7 @@ class _ContactInfoFetcher(base.EntityFetcher):
         return results or base.MISSING
 
     def get_all(self):
-        """ Fetch authentication data for all accounts. """
+        """ Fetch contact info for all entities. """
         return aggregate.dict_collect_lists(self._get_results())
 
 
@@ -168,10 +206,11 @@ class _LegacyDataMixin(_ContactInfoFetcher):
     """
     A mixin to _ContactInfoFetcher that normalizes contact info values.
 
-    This legacy cleanup is from Cerberum.modules.OrgLDIF.  The data should
+    This legacy cleanup is from Cerebrum.modules.OrgLDIF.  The data should
     probably be sanitized going into the database, rather than here.
 
-    TBD: Is this even still a problem?
+    .. todo::
+       Is this still a problem?
     """
     def _normalize_row(self, row):
         row = super(_LegacyDataMixin, self)._normalize_row(row)
@@ -207,25 +246,36 @@ class ContactInfoCache(base.EntityCache):
     """
     ContactInfo data cache.
 
-    The cache can optionally limit results to specific contact types,
-    source systems, and/or entity_types.
-
-    :type contact_types: collection of _ContactInfoCode, or None
-    :type source_systems: collection of _AuthoritativeSystemCode, or None
-    :type entity_types: collection of _EntityTypeCode, or None
+    Fetches and caches `Contact objects`_, optionally limited to specific
+    contact types, source systems, or entity types.
     """
 
     fetcher_cls = _LegacyDataMixin
 
     def __init__(self, db, contact_types=None, source_systems=None,
                  entity_types=None):
+        """
+        :type db: Cerebrum.database.Database
+        :type contact_types: collection of _ContactInfoCode, or None
+        :type source_systems: collection of _AuthoritativeSystemCode, or None
+        :type entity_types: collection of _EntityTypeCode, or None
+        """
         fetcher = self.fetcher_cls(db, contact_types, source_systems,
                                    entity_types)
         super(ContactInfoCache, self).__init__(fetcher)
 
     @classmethod
     def from_selector(cls, db, selector, *selectors):
-        """ Create a cache with values from the given selector(s). """
+        """
+        Create a cache with values for the given selector(s).
+
+        :type db: Cerebrum.database.Database
+        :type selector: ContactInfoSelector
+
+        :rtype: ContactInfoCache
+        :returns:
+            A cache with contact types and source systems from the selector(s).
+        """
         contact_types = set()
         source_systems = set()
         for sel in (selector,) + selectors:
@@ -263,7 +313,14 @@ def _get_contact_types(specification):
 
 class ContactInfoSelector(object):
     """
-    Helper to select a single contact info value from a cached result.
+    Filter and sort contact info by priority.
+
+    This callable object can be used to prioritize `Contact objects`_ from a
+    :class:`.ContactInfoCache`.
+
+    This will filter out unwanted results (e.g. when the cache contains
+    multiple contact types), and select the most appropriate value (e.g. when
+    the cache contains data from all available sources).
 
     Use this to get the best matching contact info value for a given
     entity.
@@ -271,15 +328,12 @@ class ContactInfoSelector(object):
 
     def __init__(self, specification):
         """
-        Filter, sort and select the best matching address of a given type.
-
+        :type specification: list or tuple
         :param specification:
-            A sequence of (source system, contact type) pairs.
+            An ordered sequence of (source system, contact type) pairs.
 
-            Each value must be it's corresponding constant type, or ``None`` to
-            indicate a wildcard value.
-
-            E.g.:
+            Each value must be its corresponding constant type, or ``None`` to
+            indicate a wildcard value.  E.g.:
             ::
 
                 [
@@ -329,6 +383,15 @@ class ContactInfoSelector(object):
         return any(key in self.specification for key in keys)
 
     def __call__(self, contact_list):
+        """
+        Filter and sort a contact info.
+
+        :type contact_list: iterable[dict]
+        :param contact_list: An iterable of contact info dicts to filter and sort
+
+        :rtype: list[dict]
+        :returns: A sorted list of matching Contact info objects.
+        """
         return sorted(
             (row_like for row_like in contact_list
              if self._is_match(row_like)),
@@ -336,11 +399,46 @@ class ContactInfoSelector(object):
         )
 
     def get_best_value(self, contact_list):
+        """
+        Select a single match from a list of contact info.
+
+        The result does not include the source system or id type.  This only
+        makes sense for selectors that include contact types in the same
+        category (e.g. phone numbers).
+
+        :type contact_list: iterable[dict]
+        :param contact_list: An iterable of Contact objects to select from
+
+        :rtype: str or None
+        :returns: The best (first) match according to this selector
+        """
         for row in self(contact_list):
             return row['contact_value']
 
 
 def parse_selector(const, specification):
+    """
+    Parse and normalize selector pairs.
+
+    This can be used to translate selector pairs with scalar values
+    (e.g.  from a config) into a selector pairs that can be used with
+    :class:`.ContactInfoSelector`:
+    ::
+
+        config = [("FS", "MOBILE"), (None, "MOBILE")]
+        selector_pairs = list(parse_selector(config))
+        select_mobile = ContactInfoSelector(selector_pairs)
+
+    :type const: Cerebrum.Constants.Constants
+    :type specification: iterable
+    :param specification:
+        An ordered sequence of (source system, contact type) values.
+
+    :rtype: generator
+    :returns:
+        Tuples of (source system, contact type) pairs, where all values are
+        its corresponding constant (or None for wildcards).
+    """
     for ss_value, ct_value in specification:
         if ss_value is None:
             source_system = None

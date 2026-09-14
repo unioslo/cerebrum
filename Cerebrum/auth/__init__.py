@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2002-2024 University of Oslo, Norway
+# Copyright 2002-2026 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,23 +18,24 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
-Auth module containers.
+Authentication method implementations.
 
-This module handles all auth implmentations by wrapping them in a dict-like
-object, which you can derive different implementations from.
+This module provides password hashing and verification for various auth methods
+(SSHA, SHA-256, SHA-512, MD5, etc.).  All the auth methods known to Cerebrum
+are available in :data:`.all_auth_methods`.
 
-Every implementation consists of a single py:class:`.AuthBaseClass`.  Usage:
+Every implementation consists of a single :class:`.AuthBaseClass`.  Usage:
 
-py:meth:`.AuthBaseClass.encrypt(plaintext)`
+:meth:`.AuthBaseClass.encrypt(plaintext)`
     Create a cryptstring from plaintext.  Both plaintext and cryptstring are
     unicode/text objects.
 
-py:meth:`.AuthBaseClass.encrypt(plaintext, salt=cryptstring)`
+:meth:`.AuthBaseClass.encrypt(plaintext, salt=cryptstring)`
     Re-create a cryptstring from plaintext, using the salt from the given
     cryptstring.  Both plaintext and salt/cryptstring are expected to be
     unicode/text objects.
 
-py:meth:`.AuthBaseClass.verify(plaintext, cryptstring)`
+:meth:`.AuthBaseClass.verify(plaintext, cryptstring)`
     Check that password matches the given cryptstring.  Both plaintext and
     cryptstring must be unicode/text objects.
 
@@ -68,7 +69,7 @@ import six
 #
 
 def to_bytes(value):
-    """ ensure value is a bytestring """
+    """ Ensure value is a bytestring. """
     if isinstance(value, six.text_type):
         return value.encode('ascii')
     if isinstance(value, bytes):
@@ -78,7 +79,7 @@ def to_bytes(value):
 
 
 def to_text(value):
-    """ ensure value is a unicode text object. """
+    """ Ensure value is a unicode text object. """
     if isinstance(value, bytes):
         return value.decode('ascii')
     elif isinstance(value, six.text_type):
@@ -89,20 +90,20 @@ def to_text(value):
 
 def crypt_bytes(plaintext, salt, encoding='utf-8'):
     """
-    Python 3 compatibility function for crypt.crypt().
+    Python 3 compatibility function for ``crypt.crypt()``.
 
-    `crypt.crypt()` expects str (unicode) objects in Python 3.  This is a bit
-    silly, as we've already taken care to ensure plaintext input is a unicode
-    object, and the plaintext given to hashing functions is a bytestring in our
-    selected encoding.
+    :func:`crypt.crypt` expects a :class:`str` in Python 3.  The unicode
+    passwords are (seemingly) encoded as utf-8 prior to hashing.
 
-    `crypt.crypt() in Python 3 seemingly encodes passwords as utf-8 prior to
-    hashing.  crypt(3) doesn't specify any particular encodings, as it expects
+    ``crypt(3)`` doesn't specify any particular encodings, as it expects
     bytestrings.
+
+    This is a bit silly, as we've already taken care to ensure plaintext input
+    is a unicode object, and the plaintext given to hashing functions is a
+    bytestring in our selected encoding.
     """
     # TODO: crypt.crypt() is deprecated as of Python 3.11.  We should probably
     # replace all uses of `crypt.crypt` with `passlib.hash`.
-
     if sys.version_info < (3,):
         # pass our bytestrings along to crypt.crypt
         cryptstring = crypt.crypt(plaintext, salt)
@@ -117,7 +118,7 @@ _crypt_salt_chars = string.ascii_letters + string.digits + "./"
 
 def generate_salt(length, prefix=''):
     """
-    Generate a crypt(3) compatible salt value.
+    Generate a ``crypt(3)`` compatible salt value.
 
     :param int length:
         Number of salt bytes/chars
@@ -148,7 +149,7 @@ class AuthBaseClass(object):
     """
 
     def encrypt(self, plaintext, salt=None, binary=False):
-        """ Returns the hashed plaintext of a specific method
+        """ Hash or encrypt a plaintext secret.
 
         :type plaintext: string
         :param plaintext: a secret to hash or encrypt for the database
@@ -179,10 +180,10 @@ class AuthBaseClass(object):
         raise NotImplementedError
 
     def decrypt(self, cryptstring):
-        """ Returns the decrypted plaintext of a specific method
+        """ Decrypt a cryptstring to plaintext.
 
-        :type cryptstring: String (unicode)
-        :param cryptstring: The plaintext to hash
+        :type cryptstring: str
+        :param cryptstring: The cryptstring to decrypt.
 
         :raise NotImplementedError:
             If this auth type cannot be returned to plaintext
@@ -190,7 +191,7 @@ class AuthBaseClass(object):
         raise NotImplementedError("This auth method does not support decrypt")
 
     def verify(self, plaintext, cryptstring):
-        """ Compare a plaintext and a cryptstring.
+        """ Check if plaintext matches a cryptstring.
 
         :rtype: bool
         :return:
@@ -205,7 +206,7 @@ class AuthBaseClass(object):
 
 class AuthMap(Mapping):
     """
-    Container obejct for auth methods
+    Container object for auth methods.
     """
 
     def __init__(self, *args, **kwargs):
@@ -229,16 +230,19 @@ class AuthMap(Mapping):
         return iter(self._data)
 
     def add_method(self, method_key, method):
+        """ Add a new auth implementation to this map. """
         if method_key not in self._data:
             self._data[method_key] = method
 
     def __call__(self, method_key):
+        """ Get a class decorator for adding new auth implementations. """
         def wrapper(cls):
             self._data[method_key] = cls
             return cls
         return wrapper
 
     def get_crypt_subset(self, methods):
+        """ Get a copy of this mapping with a subset of the auth methods. """
         auth_crypt_methods = AuthMap()
         for m in methods:
             if str(m) in self._data:
@@ -248,26 +252,35 @@ class AuthMap(Mapping):
 
 
 all_auth_methods = AuthMap()
+"""
+All Cerebrum authentication methods.
+
+Every authentication method known to Cerebrum is registered in this mapping:
+::
+
+    sha256 = all_auth_methods.get("SHA-256-crypt")
+    my_hash = sha256.encrypt(my_password)
+"""
 
 
 @all_auth_methods('SSHA')
 class AuthTypeSSHA(AuthBaseClass):
     """
-    Salted SHA1 for LDAP
+    Salted SHA1 for LDAP.
 
     See `<https://www.openldap.org/faq/data/cache/347.html>`_ for details.
 
     .. note::
         This implementation doesn't include a {SSHA} prefix in the result
-        from :py:method:`.encrypt`, and does not accept a {SSHA} prefixed
-        cryptstring in :py:method:`.verify`.
+        from :meth:`.encrypt`, and does not accept a {SSHA} prefixed
+        cryptstring in :meth:`.verify`.
 
         This also means that any LDAP auth config for SSHA *must* set the
         correct prefix.
 
     .. todo::
-        Should we replace this with passlib.hash.ldap_salted_sha1 and include
-        the actual {SSHA} prefix in auth_data?
+        Should we replace this with ``passlib.hash.ldap_salted_sha1`` and
+        include the actual {SSHA} prefix in auth_data?
     """
 
     def encrypt(self, plaintext, salt=None, binary=False):
@@ -345,7 +358,7 @@ class AuthTypeSHA512(AuthTypeSHA256):
     """
     Salted SHA-512 cryptstring for use with e.g. ``crypt(3)``.
 
-    Behaves just like :py:class:`AuthTypeSHA256`.
+    Behaves just like :class:`.AuthTypeSHA256`.
     """
     _implementation = passlib.hash.sha512_crypt
     _defaults = {
@@ -401,8 +414,8 @@ class AuthTypeMD4NT(AuthBaseClass):
 
         # Previously the smbpasswd module was used to create nthash, and it
         # produced uppercase hex-string hashes.  This should be case
-        # insensitive, but let's be backwards compatible if some comsumers
-        # expects this to be upper case.
+        # insensitive, but let's be backwards compatible if some consumers
+        # expect this to be upper case.
         return to_text(passlib.hash.nthash.hash(plaintext)).upper()
 
     def verify(self, plaintext, cryptstring):
